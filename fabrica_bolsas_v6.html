@@ -1362,6 +1362,8 @@ function renderOrdenes(){
     let btnAcc='';
     if(esCanc) btnAcc+='<span style="color:var(--red);font-size:11px">Cancelada</span>';
     if(esSusp) btnAcc+='<button class="btn btn-sm" onclick="reactivarOrden('+o.id+',\'extrusion\')">Reactivar</button>';
+    if(esComp) btnAcc+='<button class="btn btn-sm" onclick="verDetalleOrden('+o.id+')">📊 Detalle</button>';
+    btnAcc+='<button class="btn btn-sm" onclick="imprimirOrden('+o.id+',\'extrusion\')" title="Imprimir orden">🖨️</button>';
     if(!esCanc&&!esComp) btnAcc+='<button class="btn btn-sm btn-warn" onclick="abrirCancelarOrden('+o.id+',\'extrusion\')">Cancelar</button>';
     if(!esCanc&&!esSusp&&!esComp) btnAcc+='<button class="btn btn-sm" style="background:var(--amberbg);color:var(--amber);border:1px solid var(--amberbd)" onclick="abrirSuspenderOrden('+o.id+',\'extrusion\')">Suspender</button>';
     // Motivo atraso
@@ -3004,7 +3006,8 @@ function renderOrdenesCorte(){
           ${['Pendiente','En proceso','Completada','Suspendida'].map(s=>`<option ${o.estado===s?'selected':''}>${s}</option>`).join('')}
         </select>
       </td>
-      <td><button class="btn btn-sm" onclick="imprimirQROrdenCorte(${o.id})" title="QR de la orden">📋</button></td>
+      <td><button class="btn btn-sm" onclick="imprimirQROrdenCorte(${o.id})" title="QR de la orden">📋</button>
+          <button class="btn btn-sm" onclick="imprimirOrden(${o.id},'corte')" title="Imprimir orden">🖨️</button></td>
       <td>
         ${o.estado==='En proceso'?`<button class="btn btn-sm btn-teal" onclick="abrirCierreOrdenCorte(${o.id})">Cerrar</button>`:''}
         ${o.estado==='Completada'?`<button class="btn btn-sm" onclick="verDetalleOrdenCorte(${o.id})">📊 Detalle</button>`:''}
@@ -3632,7 +3635,241 @@ function renderVistaSemana(wrap,bobs,ords){
   wrap.innerHTML=html;
 }
 
-// ===== CANCELAR / SUSPENDER ÓRDENES =====
+// ===== DETALLE ORDEN EXTRUSIÓN =====
+function verDetalleOrden(id){
+  const o=C.ordenes.find(x=>x.id===id);if(!o)return;
+  const bobs=C.bobinas_prod.filter(b=>b.orden_id===id);
+  const mtsTotal=r1(bobs.reduce((s,b)=>s+(b.metros_reales||0),0));
+  const kgTotal=r1(bobs.reduce((s,b)=>s+(b.kg_reales||0),0));
+  const errProm=bobs.length?r2(bobs.reduce((s,b)=>s+(b.error_pct||0),0)/bobs.length):0;
+  const errKgAcum=r2(bobs.reduce((s,b)=>s+(b.error_kg||0),0));
+  const fueraRango=bobs.filter(b=>b.fuera_de_rango).length;
+  const pct=o.metros?Math.min(100,Math.round(mtsTotal/o.metros*100)):0;
+  const colPct=pct>=100?'var(--green)':pct>60?'var(--accent)':'var(--amber)';
+
+  let bobsHtml='<div class="empty">Sin bobinas registradas.</div>';
+  if(bobs.length){
+    bobsHtml='<div style="overflow-x:auto;max-height:260px;overflow-y:auto"><table><thead><tr>'
+      +'<th>N° Bobina</th><th>Mts</th><th>Kg reales</th><th>Kg teóricos</th><th>Error kg</th><th>Error %</th><th>Calidad</th><th>Extrusora</th><th>Operario</th><th>Fecha/Hora</th>'
+      +'</tr></thead><tbody>'
+      +bobs.map(b=>{
+        const qcls=b.estado_calidad==='OK'?'q-ok':b.estado_calidad==='ADVERTENCIA'?'q-warn':'q-bad';
+        const esBad=b.fuera_de_rango;
+        return '<tr style="'+(esBad?'background:var(--redbg)':'')+'">'
+          +'<td class="mono" style="font-weight:500">'+(esBad?'⚠ ':'')+b.numero_bobina+'</td>'
+          +'<td class="mono">'+b.metros_reales+' m</td>'
+          +'<td class="mono">'+b.kg_reales+' kg</td>'
+          +'<td class="mono">'+b.kg_teoricos+' kg</td>'
+          +'<td class="mono" style="color:'+(b.error_kg>0?'var(--amber)':'var(--accent)')+'">'+( b.error_kg>0?'+':'')+b.error_kg+' kg</td>'
+          +'<td class="mono" style="color:'+(Math.abs(b.error_pct)>5?'var(--red)':'var(--green)')+'">'+( b.error_pct>0?'+':'')+b.error_pct+'%</td>'
+          +'<td><span class="'+qcls+'">'+b.estado_calidad+'</span></td>'
+          +'<td style="font-size:11px">'+(b.extrusoras?.nombre||'—')+'</td>'
+          +'<td style="font-size:11px">'+(b.operario||'—')+'</td>'
+          +'<td class="mono" style="font-size:10px">'+(b.fecha_produccion||'')+(b.hora_produccion?' '+b.hora_produccion.slice(0,5):'')+'</td>'
+          +'</tr>';
+      }).join('')
+      +'</tbody></table></div>';
+  }
+
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="det-ext-modal">'
+    +'<div class="modal-card" style="max-width:780px;max-height:88vh;overflow-y:auto;">'
+    +'<div class="modal-title">📊 Detalle orden extrusión '+o.numero_orden+'</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:1rem;">'
+      +'<div class="kpi-card kpi-ext"><div class="kpi-lbl">Metros producidos</div><div class="kpi-val">'+mtsTotal.toLocaleString('es-AR')+'</div><div class="kpi-sub">de '+o.metros+' m pedidos</div></div>'
+      +'<div class="kpi-card kpi-ext"><div class="kpi-lbl">Kg producidos</div><div class="kpi-val">'+kgTotal.toLocaleString('es-AR')+'</div><div class="kpi-sub">de '+o.kg_totales+' kg</div></div>'
+      +'<div class="kpi-card kpi-ext"><div class="kpi-lbl">Bobinas</div><div class="kpi-val">'+bobs.length+'</div><div class="kpi-sub">'+fueraRango+' fuera de rango</div></div>'
+      +'<div class="kpi-card kpi-error"><div class="kpi-lbl">Error promedio</div><div class="kpi-val" style="font-size:20px;color:'+(Math.abs(errProm)>5?'var(--red)':'var(--green)')+'">'+( errProm>0?'+':'')+errProm+'%</div></div>'
+      +'<div class="kpi-card kpi-error"><div class="kpi-lbl">Error acum. kg</div><div class="kpi-val" style="font-size:18px;color:'+(errKgAcum>0?'var(--amber)':'var(--accent)')+'">'+( errKgAcum>0?'+':'')+errKgAcum+' kg</div></div>'
+    +'</div>'
+    +'<div style="margin-bottom:1rem;">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">'
+        +'<span style="font-size:12px;font-weight:500">Progreso general</span>'
+        +'<span class="mono" style="font-size:12px;color:'+colPct+'">'+pct+'%</span>'
+      +'</div>'
+      +'<div class="pbar" style="height:10px;border-radius:5px"><div class="pfill" style="width:'+pct+'%;background:'+colPct+';height:10px;border-radius:5px"></div></div>'
+    +'</div>'
+    +'<div class="fp-t" style="margin-bottom:8px;">Bobinas producidas ('+bobs.length+')</div>'
+    +bobsHtml
+    +'<div class="btn-grp" style="margin-top:1rem;">'
+      +'<button class="btn btn-sm btn-primary" onclick="imprimirOrden('+id+',\'extrusion\')">🖨️ Imprimir orden</button>'
+      +'<button class="btn btn-sm" onclick="document.getElementById(\'det-ext-modal\').remove()">Cerrar</button>'
+    +'</div>'
+    +'</div></div>'
+  );
+}
+
+// ===== IMPRESIÓN DE ÓRDENES =====
+function imprimirOrden(id, tipo){
+  const win=window.open('','_blank','width=900,height:700');
+  let html='';
+  if(tipo==='extrusion'){
+    const o=C.ordenes.find(x=>x.id===id);if(!o)return;
+    const bobs=C.bobinas_prod.filter(b=>b.orden_id===id);
+    const mtsTotal=r1(bobs.reduce((s,b)=>s+(b.metros_reales||0),0));
+    const kgTotal=r1(bobs.reduce((s,b)=>s+(b.kg_reales||0),0));
+    const extrusoras=o.orden_extrusoras?.map(oe=>oe.extrusoras?.nombre||'').join(', ')||'—';
+    html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Orden ${o.numero_orden}</title>
+    <style>
+      @page{size:A4;margin:15mm 15mm 15mm 15mm;}
+      *{box-sizing:border-box;margin:0;padding:0;}
+      body{font-family:'Segoe UI',Arial,sans-serif;font-size:11pt;color:#1e293b;}
+      .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1e293b;padding-bottom:8px;margin-bottom:14px;}
+      .titulo{font-size:18pt;font-weight:800;color:#1e293b;}
+      .subtitulo{font-size:10pt;color:#64748b;margin-top:3px;}
+      .nro{font-size:22pt;font-weight:800;font-family:'Courier New',monospace;color:#6c8ef5;}
+      .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+      .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;}
+      .box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;}
+      .lbl{font-size:8pt;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:3px;}
+      .val{font-size:12pt;font-weight:600;}
+      .val.mono{font-family:'Courier New',monospace;}
+      .seccion{font-size:9pt;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #e2e8f0;padding-bottom:4px;margin:14px 0 10px;}
+      table{width:100%;border-collapse:collapse;font-size:9pt;}
+      th{background:#f1f5f9;padding:5px 8px;text-align:left;font-size:8pt;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #e2e8f0;}
+      td{padding:5px 8px;border-bottom:1px solid #f1f5f9;}
+      tr:last-child td{border-bottom:none;}
+      .footer{margin-top:20px;font-size:8pt;color:#94a3b8;text-align:right;border-top:1px solid #e2e8f0;padding-top:8px;}
+      .badge-ok{background:#dcfce7;color:#16a34a;padding:2px 6px;border-radius:4px;font-size:8pt;font-weight:600;}
+      .badge-warn{background:#fef9c3;color:#ca8a04;padding:2px 6px;border-radius:4px;font-size:8pt;font-weight:600;}
+      .badge-bad{background:#fee2e2;color:#dc2626;padding:2px 6px;border-radius:4px;font-size:8pt;font-weight:600;}
+      @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+    </style></head><body>
+    <div class="header">
+      <div><div class="titulo">Orden de Extrusión</div><div class="subtitulo">Fábrica de Bolsas · Producción</div></div>
+      <div class="nro">${o.numero_orden}</div>
+    </div>
+    <div class="grid2">
+      <div class="box"><div class="lbl">Cliente</div><div class="val">${o.cliente||'—'}</div></div>
+      <div class="box"><div class="lbl">Ref. Flexxus</div><div class="val mono">${o.ref_flexxus||'—'}</div></div>
+    </div>
+    <div class="grid3">
+      <div class="box"><div class="lbl">Tipo de bobina</div><div class="val">${o.bobinas?.nombre||'—'}</div></div>
+      <div class="box"><div class="lbl">Metros pedidos</div><div class="val mono">${o.metros?.toLocaleString('es-AR')||'—'} m</div></div>
+      <div class="box"><div class="lbl">Kg totales</div><div class="val mono">${o.kg_totales?.toLocaleString('es-AR')||'—'} kg</div></div>
+    </div>
+    <div class="grid3">
+      <div class="box"><div class="lbl">Extrusoras</div><div class="val" style="font-size:10pt">${extrusoras}</div></div>
+      <div class="box"><div class="lbl">Metros producidos</div><div class="val mono" style="color:#6c8ef5">${mtsTotal.toLocaleString('es-AR')} m</div></div>
+      <div class="box"><div class="lbl">Estado</div><div class="val">${o.estado}</div></div>
+    </div>
+    <div class="seccion">Bobinas producidas (${bobs.length})</div>
+    <table>
+      <thead><tr><th>N° Bobina</th><th>Metros</th><th>Kg reales</th><th>Kg teóricos</th><th>Error %</th><th>Calidad</th><th>Operario</th><th>Fecha</th></tr></thead>
+      <tbody>
+      ${bobs.map(b=>{
+        const cls=b.estado_calidad==='OK'?'badge-ok':b.estado_calidad==='ADVERTENCIA'?'badge-warn':'badge-bad';
+        return`<tr>
+          <td style="font-family:'Courier New',monospace;font-weight:600">${b.numero_bobina}</td>
+          <td style="font-family:'Courier New',monospace">${b.metros_reales} m</td>
+          <td style="font-family:'Courier New',monospace">${b.kg_reales} kg</td>
+          <td style="font-family:'Courier New',monospace">${b.kg_teoricos} kg</td>
+          <td style="font-family:'Courier New',monospace;color:${Math.abs(b.error_pct)>5?'#dc2626':'#16a34a'}">${b.error_pct>0?'+':''}${b.error_pct}%</td>
+          <td><span class="${cls}">${b.estado_calidad}</span></td>
+          <td>${b.operario||'—'}</td>
+          <td style="font-family:'Courier New',monospace;font-size:9pt">${b.fecha_produccion||'—'}</td>
+        </tr>`;}).join('')}
+      </tbody>
+    </table>
+    <div class="footer">Impreso: ${new Date().toLocaleString('es-AR')} · ${o.numero_orden}</div>
+    <script>window.onload=()=>setTimeout(()=>window.print(),400);<\/script>
+    </body></html>`;
+  } else {
+    // ORDEN DE CORTE
+    const o=C.ord_corte.find(x=>x.id===id);if(!o)return;
+    const maqs=o.orden_corte_maquinas?.map(om=>om.maquinas_corte?.nombre||'').join(', ')||'—';
+    const empNom=o.tipos_empaque?.nombre||'—';
+    const empUni=o.tipos_empaque?.unidades||'—';
+    const mtsUsados=r1(o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0);
+    const bobinas=o.orden_corte_bobinas||[];
+    // Calcular bultos esperados para llenar en papel
+    const bultosTeo=o.unidades_a_producir&&o.tipos_empaque?.unidades?Math.ceil(o.unidades_a_producir/o.tipos_empaque.unidades):'—';
+    html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Orden Corte ${o.numero_orden}</title>
+    <style>
+      @page{size:A4;margin:12mm 15mm 12mm 15mm;}
+      *{box-sizing:border-box;margin:0;padding:0;}
+      body{font-family:'Segoe UI',Arial,sans-serif;font-size:11pt;color:#1e293b;}
+      .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1e293b;padding-bottom:8px;margin-bottom:12px;}
+      .titulo{font-size:16pt;font-weight:800;}
+      .subtitulo{font-size:9pt;color:#64748b;margin-top:3px;}
+      .nro{font-size:20pt;font-weight:800;font-family:'Courier New',monospace;color:#4ade80;}
+      .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+      .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;}
+      .grid4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:12px;}
+      .box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:7px 11px;}
+      .lbl{font-size:8pt;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:3px;}
+      .val{font-size:11pt;font-weight:600;}
+      .val.big{font-size:16pt;color:#1e293b;}
+      .val.mono{font-family:'Courier New',monospace;}
+      .seccion{font-size:9pt;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #e2e8f0;padding-bottom:4px;margin:12px 0 8px;}
+      table{width:100%;border-collapse:collapse;font-size:9pt;}
+      th{background:#f1f5f9;padding:5px 8px;text-align:left;font-size:8pt;font-weight:700;color:#64748b;text-transform:uppercase;border-bottom:2px solid #e2e8f0;}
+      td{padding:5px 8px;border-bottom:1px solid #f1f5f9;}
+      .registro{background:#fff;border:2px solid #1e293b;border-radius:8px;padding:14px;margin-top:14px;}
+      .reg-titulo{font-size:12pt;font-weight:700;margin-bottom:12px;color:#1e293b;}
+      .campo-fila{display:grid;grid-template-columns:180px 1fr;align-items:center;margin-bottom:10px;gap:8px;}
+      .campo-lbl{font-size:9pt;color:#475569;}
+      .campo-linea{border-bottom:1.5px solid #94a3b8;height:22px;}
+      .bultos-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:8px;}
+      .bulto-box{border:1px solid #cbd5e1;border-radius:4px;height:32px;display:flex;align-items:center;justify-content:center;font-size:8pt;color:#94a3b8;}
+      .footer{margin-top:14px;font-size:8pt;color:#94a3b8;text-align:right;border-top:1px solid #e2e8f0;padding-top:6px;}
+      @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+    </style></head><body>
+    <div class="header">
+      <div><div class="titulo">Orden de Corte</div><div class="subtitulo">Fábrica de Bolsas · Producción</div></div>
+      <div class="nro">${o.numero_orden}</div>
+    </div>
+    <div class="grid2">
+      <div class="box"><div class="lbl">Cliente</div><div class="val">${o.cliente||'—'}</div></div>
+      <div class="box"><div class="lbl">Producto</div><div class="val">${o.productos?.descripcion||'—'}</div></div>
+    </div>
+    <div class="grid4">
+      <div class="box"><div class="lbl">Unidades a producir</div><div class="val big mono">${o.unidades_a_producir?.toLocaleString('es-AR')||'—'}</div></div>
+      <div class="box"><div class="lbl">Empaque</div><div class="val">${empNom}</div><div style="font-size:9pt;color:#64748b">${empUni} u/paquete</div></div>
+      <div class="box"><div class="lbl">Paquetes pedidos</div><div class="val big mono">${o.cantidad_paquetes?.toLocaleString('es-AR')||'—'}</div></div>
+      <div class="box"><div class="lbl">Metros de bobina</div><div class="val mono">${o.metros_necesarios||'—'} m</div></div>
+    </div>
+    <div class="grid3">
+      <div class="box"><div class="lbl">Máquinas</div><div class="val" style="font-size:10pt">${maqs}</div></div>
+      <div class="box"><div class="lbl">% Merma estimada</div><div class="val mono">${o.merma_pct||5}%</div></div>
+      <div class="box"><div class="lbl">Estado</div><div class="val">${o.estado}</div></div>
+    </div>
+    ${bobinas.length?`
+    <div class="seccion">Bobinas utilizadas (${bobinas.length})</div>
+    <table><thead><tr><th>N° Bobina</th><th>Metros</th><th>Fecha asignación</th></tr></thead>
+    <tbody>${bobinas.map(b=>`<tr>
+      <td style="font-family:'Courier New',monospace;font-weight:600">${b.bobinas_producidas?.numero_bobina||'—'}</td>
+      <td style="font-family:'Courier New',monospace">${b.bobinas_producidas?.metros_reales||'—'} m</td>
+      <td style="font-family:'Courier New',monospace;font-size:9pt">${b.fecha_asignacion?new Date(b.fecha_asignacion).toLocaleDateString('es-AR'):'—'}</td>
+    </tr>`).join('')}</tbody></table>`:''}
+
+    <!-- HOJA DE REGISTRO PARA EL OPERARIO -->
+    <div class="registro">
+      <div class="reg-titulo">✏️ Registro del operario — completar al finalizar</div>
+      <div class="campo-fila"><span class="campo-lbl">Fecha de corte:</span><div class="campo-linea"></div></div>
+      <div class="campo-fila"><span class="campo-lbl">Operario:</span><div class="campo-linea"></div></div>
+      <div class="campo-fila"><span class="campo-lbl">Hora inicio:</span><div class="campo-linea"></div></div>
+      <div class="campo-fila"><span class="campo-lbl">Hora fin:</span><div class="campo-linea"></div></div>
+      <div class="campo-fila"><span class="campo-lbl">Bultos armados (paquetes completos):</span><div class="campo-linea"></div></div>
+      <div class="campo-fila"><span class="campo-lbl">Unidades totales:</span><div class="campo-linea"></div></div>
+      <div class="campo-fila"><span class="campo-lbl">Peso scrap (kg):</span><div class="campo-linea"></div></div>
+      <div class="campo-fila"><span class="campo-lbl">Observaciones:</span><div class="campo-linea"></div></div>
+      <div style="margin-top:14px;">
+        <div style="font-size:8pt;color:#64748b;margin-bottom:6px;font-weight:600">CONTEO DE BULTOS (marcar cada bulto armado):</div>
+        <div class="bultos-grid">
+          ${Array.from({length:Math.min(60,typeof bultosTeo==='number'?bultosTeo+10:60)},(_,i)=>`<div class="bulto-box">${i+1}</div>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="footer">Impreso: ${new Date().toLocaleString('es-AR')} · ${o.numero_orden} · Ref. Flexxus: ${o.ref_flexxus||'—'}</div>
+    <script>window.onload=()=>setTimeout(()=>window.print(),400);<\/script>
+    </body></html>`;
+  }
+  win.document.write(html);
+  win.document.close();
+}
+
+
 function abrirCancelarOrden(id, tipo){
   pedirAdminYEjecutar(()=>{
     document.body.insertAdjacentHTML('beforeend',`<div class="modal-overlay" id="cancel-modal">
