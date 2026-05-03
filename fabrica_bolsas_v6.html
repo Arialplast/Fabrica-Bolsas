@@ -362,15 +362,23 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
 
     <!-- DASHBOARD -->
     <div class="page active" id="page-dashboard">
-      <div class="page-hdr"><div><div class="page-title">Dashboard</div><div class="page-sub" id="dash-fecha"></div></div></div>
+      <div class="page-hdr"><div><div class="page-title">Dashboard extrusión</div><div class="page-sub" id="dash-fecha"></div></div></div>
+      <!-- KPIs -->
       <div class="stats">
         <div class="stat"><div class="stat-lbl">Órdenes activas</div><div class="stat-val" id="s-act">—</div><div class="stat-sub">en proceso</div></div>
         <div class="stat"><div class="stat-lbl">Bobinas en stock</div><div class="stat-val" id="s-stk">—</div><div class="stat-sub">listas para confección</div></div>
         <div class="stat"><div class="stat-lbl">Hs programadas</div><div class="stat-val" id="s-hs">—</div></div>
         <div class="stat"><div class="stat-lbl">Extrusoras</div><div class="stat-val" id="s-ext">—</div></div>
+        <div class="stat"><div class="stat-lbl">Kg prog. esta semana</div><div class="stat-val" id="s-kg-sem">—</div><div class="stat-sub" id="s-kg-sem-sub">—</div></div>
       </div>
+      <!-- CAPACIDAD SEMANAL POR EXTRUSORA -->
+      <div class="tw" style="margin-bottom:1rem;">
+        <div class="tw-bar"><span class="tw-title">Capacidad vs programado esta semana</span></div>
+        <div id="dash-cap-ext"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+      <!-- ÓRDENES RECIENTES -->
       <div class="tw">
-        <div class="tw-bar"><span class="tw-title">Órdenes recientes</span><button class="btn btn-sm" onclick="go('ordenes')">Ver todas →</button></div>
+        <div class="tw-bar"><span class="tw-title">Órdenes activas</span><button class="btn btn-sm" onclick="go('ordenes')">Ver todas →</button></div>
         <div id="dash-tbl"><div class="loading"><div class="spinner"></div>Cargando...</div></div>
       </div>
     </div>
@@ -990,7 +998,7 @@ const MOTIVOS=['Rotura de máquina','Falta de materia prima','Material defectuos
 // ===== STATE =====
 let sb=null;
 let C={bobinas:[],extrusoras:[],ordenes:[],capacidad:[],clientes:[],bobinas_prod:[],bobinas_hist:[],stock_mov:[],operarios:[],
-  productos:[],maq_corte:[],emp:[],ord_corte:[],cap_corte:[]};
+  productos:[],maq_corte:[],emp:[],ord_corte:[],cap_corte:[],bobinas_fuera:[]};
 let gWeek=lunesDeHoy(),cWeek=lunesDeHoy(),gcWeek=lunesDeHoy(),capCorteWeek=lunesDeHoy();
 let xlsBobData=null,xlsBobCols=[];
 let xlsCliData=null,xlsCliCols=[];
@@ -1038,7 +1046,8 @@ async function reload(){
     sb.from('maquinas_corte').select('*').order('nombre'),
     sb.from('tipos_empaque').select('*').order('nombre'),
     sb.from('ordenes_corte').select('*, productos(*), tipos_empaque(*), orden_corte_maquinas(*, maquinas_corte(*)), orden_corte_bobinas(*, bobinas_producidas(numero_bobina,metros_reales))').order('prioridad').order('created_at'),
-    sb.from('capacidad_corte_semanal').select('*, maquinas_corte(*)')
+    sb.from('capacidad_corte_semanal').select('*, maquinas_corte(*)'),
+    sb.from('bobinas_producidas').select('*, ordenes(numero_orden), bobinas(*), extrusoras(nombre), operarios(nombre)').eq('fuera_de_rango',true).order('created_at',{ascending:false})
   ]);
   const d=r=>results[r].status==='fulfilled'?results[r].value.data||[]:[];
   C.bobinas=d(0);C.extrusoras=d(1);C.ordenes=d(2);
@@ -1047,6 +1056,7 @@ async function reload(){
   anDataCache.loaded=false;
   C.productos=d(10);C.maq_corte=d(11);C.emp=d(12);
   C.ord_corte=d(13);C.cap_corte=d(14);
+  C.bobinas_fuera=d(15); // bobinas fuera de rango — separadas, nunca disponibles en selectores
   const rcfg=results[8].status==='fulfilled'?results[8].value:null;
   if(rcfg?.data){rcfg.data.forEach(r=>{if(r.clave==='clave_admin')cfg.clave_admin=r.valor;if(r.clave==='tolerancia_pesada_pct')cfg.tolerancia_pesada_pct=parseFloat(r.valor);if(r.clave==='tolerancia_liviana_pct')cfg.tolerancia_liviana_pct=parseFloat(r.valor);if(r.clave==='tolerancia_exceso_mts')cfg.tolerancia_exceso_mts=parseFloat(r.valor);});}
   updateStats();renderDash();renderOrdenes();renderBobinas();renderExtrusoras();renderClientes();renderOperarios();renderGantt();renderCap();renderStock();renderConfHistorial();renderCargaHist();poblarSelects();poblarCargaSelects();poblarConfSelects();poblarFiltroOrden();
@@ -1081,7 +1091,8 @@ function addHs(start,hs){
 }
 function computeSchedule(){
   const cursor={};C.extrusoras.forEach(e=>{cursor[e.id]=null;});
-  const activas=C.ordenes.filter(o=>o.estado!=='Completada'&&o.estado!=='Suspendida').sort((a,b)=>(a.prioridad||99)-(b.prioridad||99)||new Date(a.created_at)-new Date(b.created_at));
+  const activas=C.ordenes.filter(o=>o.estado!=='Completada'&&o.estado!=='Suspendida')
+    .sort((a,b)=>(a.prioridad||99)-(b.prioridad||99)||new Date(a.created_at)-new Date(b.created_at));
   const sched={};
   activas.forEach(o=>{
     if(!o.orden_extrusoras||!o.bobinas)return;
@@ -1092,12 +1103,30 @@ function computeSchedule(){
     let iniMax=null;
     o.orden_extrusoras.forEach(oe=>{
       let cur=cursor[oe.extrusora_id];
-      if(!cur){const ref=o.fecha_inicio_ref?new Date(o.fecha_inicio_ref+'T00:00:00'):new Date();cur=jIni(ref);const now=new Date();if(cur<now)cur=jIni(now);}
+      if(!cur){
+        const ref=o.fecha_inicio_ref?new Date(o.fecha_inicio_ref+'T00:00:00'):new Date();
+        cur=jIni(ref);
+        const now=new Date();
+        if(cur<now)cur=jIni(now);
+      }
+      // Si el cursor cae en sábado o domingo, moverlo al lunes siguiente
+      const dow=cur.getDay();
+      if(dow===6)cur=addDays(cur,2),cur.setHours(J_INI,0,0,0);
+      else if(dow===0)cur=addDays(cur,1),cur.setHours(J_INI,0,0,0);
       if(!iniMax||cur>iniMax)iniMax=new Date(cur);
     });
-    const ini=iniMax||jIni(new Date()),fin=addHs(ini,hsT);
+    const ini=iniMax||jIni(new Date());
+    const fin=addHs(ini,hsT);
+    // Si la orden no termina antes del viernes 22hs, el cursor salta al lunes siguiente
+    const finDow=fin.getDay();
+    let cursorFin=new Date(fin);
+    if(finDow===6)cursorFin=addDays(fin,2),cursorFin.setHours(J_INI,0,0,0);
+    else if(finDow===0)cursorFin=addDays(fin,1),cursorFin.setHours(J_INI,0,0,0);
     sched[o.id]={};
-    o.orden_extrusoras.forEach(oe=>{sched[o.id][oe.extrusora_id]={inicio:ini,fin,hs:r2(hsT)};cursor[oe.extrusora_id]=new Date(fin);});
+    o.orden_extrusoras.forEach(oe=>{
+      sched[o.id][oe.extrusora_id]={inicio:ini,fin,hs:r2(hsT)};
+      cursor[oe.extrusora_id]=new Date(cursorFin);
+    });
   });
   return sched;
 }
@@ -1119,20 +1148,115 @@ function updateStats(){
 
 // ===== DASHBOARD =====
 function renderDash(){
-  const w=document.getElementById('dash-tbl');
-  const lista=C.ordenes.slice(0,8);
-  if(!lista.length){w.innerHTML='<div class="empty">Sin órdenes.</div>';return;}
+  const lun=lunesDeHoy();
+  const dom=new Date(addDays(lun,6));dom.setHours(23,59,59,999);
   const sched=computeSchedule();
-  w.innerHTML=`<div style="overflow-x:auto"><table><thead><tr><th>N° Orden</th><th>Cliente</th><th>Bobina</th><th>Metros</th><th>Kg</th><th>Pri.</th><th>Inicio</th><th>Fin</th><th>Estado</th></tr></thead>
-    <tbody>${lista.map(o=>{const s=sched[o.id],ext0=o.orden_extrusoras?.[0];return`<tr>
-      <td class="mono">${o.numero_orden}</td><td>${o.cliente||'—'}</td><td>${o.bobinas?.nombre||'—'}</td>
-      <td class="mono">${o.metros?.toLocaleString('es-AR')||'—'} m</td>
-      <td class="mono">${o.kg_totales?.toLocaleString('es-AR')||'—'} kg</td>
-      <td><span class="pri-pill">${o.prioridad||1}</span></td>
-      <td class="mono" style="font-size:11px">${s&&ext0?fmtDt(s[ext0.extrusora_id]?.inicio):'—'}</td>
-      <td class="mono" style="font-size:11px">${s&&ext0?fmtDt(s[ext0.extrusora_id]?.fin):'—'}</td>
-      <td>${badge(o.estado)}</td>
-    </tr>`;}).join('')}</tbody></table></div>`;
+
+  // Kg programados esta semana = órdenes activas + completadas esta semana
+  const ordsActivas=C.ordenes.filter(o=>o.estado==='Pendiente'||o.estado==='En proceso');
+  const ordsCompSem=C.ordenes.filter(o=>{
+    if(o.estado!=='Completada')return false;
+    // Si tiene bobinas producidas esta semana
+    const tieneEsta=C.bobinas_prod.some(b=>b.orden_id===o.id);
+    return tieneEsta;
+  });
+  const ordsContadas=[...ordsActivas,...ordsCompSem];
+  const kgSem=Math.round(ordsContadas.reduce((s,o)=>s+(o.kg_totales||0),0));
+  const kgHecho=Math.round(C.bobinas_prod.reduce((s,b)=>{
+    const d=new Date((b.fecha_produccion||'')+'T00:00:00');
+    return d>=lun&&d<=dom?s+(b.kg_reales||0):s;
+  },0));
+  const kgResta=Math.max(0,kgSem-kgHecho);
+  document.getElementById('s-kg-sem').textContent=kgSem.toLocaleString('es-AR')+' kg';
+  document.getElementById('s-kg-sem-sub').textContent=kgHecho.toLocaleString('es-AR')+' kg hechos · '+kgResta.toLocaleString('es-AR')+' restantes';
+
+  // Gráfico capacidad vs programado por extrusora
+  const capWrap=document.getElementById('dash-cap-ext');
+  if(capWrap){
+    const wsStr=dStr(lun);
+    if(!C.extrusoras.length){capWrap.innerHTML='<div class="empty">Sin extrusoras.</div>';}
+    else{
+      // Calcular hs programadas esta semana por extrusora
+      const hsProg={};C.extrusoras.forEach(e=>{hsProg[e.id]=0;});
+      C.ordenes.filter(o=>o.estado!=='Suspendida').forEach(o=>{
+        const s=sched[o.id];if(!s)return;
+        o.orden_extrusoras?.forEach(oe=>{
+          const seg=s[oe.extrusora_id];if(!seg)return;
+          const ini=new Date(seg.inicio),fin=new Date(seg.fin);
+          const iniC=ini<lun?lun:ini,finC=fin>dom?dom:fin;
+          if(iniC<finC)hsProg[oe.extrusora_id]+=r1((finC-iniC)/3600000);
+        });
+      });
+      // Capacidad semanal configurada
+      const capDisp={};
+      C.capacidad.filter(c=>dStr(c.semana_inicio)===wsStr).forEach(c=>{capDisp[c.extrusora_id]=c.horas_disponibles;});
+
+      // Render tabla + minigráfico
+      let html='<div style="overflow-x:auto"><table><thead><tr>'
+        +'<th>Extrusora</th><th>Hs disponibles</th><th>Hs programadas</th><th>Hs libres</th><th>Ocupación</th><th>Kg prog. sem.</th>'
+        +'</tr></thead><tbody>';
+      let totalKgExt=0;
+      C.extrusoras.forEach(e=>{
+        const hd=capDisp[e.id]||0;
+        const hp=r1(hsProg[e.id]||0);
+        const hl=hd>0?r1(hd-hp):'—';
+        const pct=hd>0?Math.min(100,Math.round(hp/hd*100)):null;
+        const col=pct===null?'var(--text3)':pct>100?'var(--red)':pct>85?'var(--amber)':'var(--green)';
+        const kgExt=Math.round(hp*e.kg_por_hora);
+        totalKgExt+=kgExt;
+        html+='<tr>'
+          +'<td style="font-weight:500">'+e.nombre+'</td>'
+          +'<td class="mono">'+(hd||'—')+' hs</td>'
+          +'<td class="mono">'+hp+' hs</td>'
+          +'<td class="mono" style="color:'+(hl!=='—'&&hl<0?'var(--red)':'inherit')+'">'+hl+(hl!=='—'?' hs':'')+'</td>'
+          +'<td>'+(pct!==null
+            ?'<div style="display:flex;align-items:center;gap:8px">'
+              +'<div class="pbar" style="width:100px"><div class="pfill" style="width:'+pct+'%;background:'+col+'"></div></div>'
+              +'<span class="mono" style="font-size:12px;color:'+col+'">'+pct+'%</span>'
+              +'</div>'
+            :'<span style="color:var(--text3);font-size:11px">sin cap.</span>')+'</td>'
+          +'<td class="mono">'+kgExt.toLocaleString('es-AR')+' kg</td>'
+          +'</tr>';
+      });
+      // Fila total
+      html+='<tr style="background:var(--bg3);font-weight:600">'
+        +'<td>TOTAL</td><td>—</td><td>—</td><td>—</td><td>—</td>'
+        +'<td class="mono">'+totalKgExt.toLocaleString('es-AR')+' kg</td>'
+        +'</tr>';
+      html+='</tbody></table></div>';
+      capWrap.innerHTML=html;
+    }
+  }
+
+  // Tabla órdenes activas con progreso
+  const w=document.getElementById('dash-tbl');
+  const lista=C.ordenes.filter(o=>o.estado==='En proceso'||o.estado==='Pendiente').slice(0,10);
+  if(!lista.length){w.innerHTML='<div class="empty">Sin órdenes activas.</div>';return;}
+  const mtsXOrden={};
+  C.bobinas_prod.forEach(b=>{if(b.orden_id)mtsXOrden[b.orden_id]=(mtsXOrden[b.orden_id]||0)+(b.metros_reales||0);});
+  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr>'
+    +'<th>N° Orden</th><th>Cliente</th><th>Bobina</th><th>Kg</th><th>Progreso</th><th>Fin est.</th><th>Estado</th>'
+    +'</tr></thead><tbody>'
+    +lista.map(o=>{
+      const s=sched[o.id],ext0=o.orden_extrusoras?.[0];
+      const mtsP=mtsXOrden[o.id]||0;
+      const pct=o.metros?Math.min(100,Math.round(mtsP/o.metros*100)):0;
+      const col=pct>=100?'var(--green)':pct>60?'var(--accent)':'var(--amber)';
+      const fin=s&&ext0?fmtDt(s[ext0.extrusora_id]?.fin):'—';
+      return '<tr>'
+        +'<td class="mono">'+o.numero_orden+'</td>'
+        +'<td>'+(o.cliente||'—')+'</td>'
+        +'<td>'+(o.bobinas?.nombre||'—')+'</td>'
+        +'<td class="mono">'+(o.kg_totales?.toLocaleString('es-AR')||'—')+' kg</td>'
+        +'<td><div style="display:flex;align-items:center;gap:6px">'
+          +'<div class="pbar" style="width:80px"><div class="pfill" style="width:'+pct+'%;background:'+col+'"></div></div>'
+          +'<span class="mono" style="font-size:11px;color:'+col+'">'+pct+'%</span>'
+          +'</div><div style="font-size:10px;color:var(--text3)">'+r1(mtsP)+'/'+(o.metros||0)+' m</div></td>'
+        +'<td class="mono" style="font-size:11px">'+fin+'</td>'
+        +'<td>'+badge(o.estado)+'</td>'
+        +'</tr>';
+    }).join('')
+    +'</tbody></table></div>';
 }
 
 // ===== ÓRDENES =====
@@ -2519,7 +2643,7 @@ function calcRecomendaciones(bob){
 
 function renderFueraDeRango(){
   const w=document.getElementById('fuera-rango-wrap');if(!w)return;
-  const lista=C.bobinas_prod.filter(b=>b.fuera_de_rango);
+  const lista=C.bobinas_fuera||[];
   if(!lista.length){w.innerHTML='<div class="empty" style="color:var(--green)">✓ No hay bobinas fuera de rango.</div>';return;}
   const totMts=r1(lista.reduce((s,b)=>s+(b.metros_reales||0),0));
   const totKg=r1(lista.reduce((s,b)=>s+(b.kg_reales||0),0));
@@ -2749,6 +2873,8 @@ function renderOrdenesCorte(){
     const maqsStr=o.orden_corte_maquinas?.map(om=>om.maquinas_corte?.nombre||'?').join(', ')||'—';
     const cap=o.orden_corte_maquinas?.reduce((s,om)=>s+(om.maquinas_corte?.bolsas_por_hora||0),0)||0;
     const hs=cap>0?r2(o.unidades_a_producir/cap):'—';
+    const mtsUsados=o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0;
+    const pctMts=o.metros_necesarios?Math.min(100,Math.round(mtsUsados/o.metros_necesarios*100)):0;
     const s=sched[o.id];const m0=o.orden_corte_maquinas?.[0];
     const ini=s&&m0?fmtDt(s[m0.maquina_id]?.inicio):'—';
     const fin=s&&m0?fmtDt(s[m0.maquina_id]?.fin):'—';
@@ -2764,16 +2890,102 @@ function renderOrdenesCorte(){
       <td><input class="pri-in" type="number" min="1" value="${o.prioridad||1}" onchange="cambiarPriCorte(${o.id},this.value)"></td>
       <td class="mono" style="font-size:11px">${ini}</td>
       <td class="mono" style="font-size:11px">${fin}</td>
-      <td><select class="st-sel" onchange="cambiarEstadoCorte(${o.id},this.value)">
-        ${['Pendiente','En proceso','Completada','Suspendida'].map(s=>`<option ${o.estado===s?'selected':''}>${s}</option>`).join('')}
-      </select></td>
+      <td>
+        ${o.estado==='En proceso'||o.estado==='Pendiente'?`
+        <div style="margin-bottom:4px;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div class="pbar" style="width:70px"><div class="pfill" style="width:${Math.min(100,pctMts)}%;background:${pctMts>=100?'var(--green)':pctMts>70?'var(--accent)':'var(--amber)'}"></div></div>
+            <span class="mono" style="font-size:10px">${pctMts}% mts</span>
+          </div>
+          ${o.unidades_reales?`<div style="font-size:10px;color:var(--text3)">${o.unidades_reales.toLocaleString('es-AR')} u reales</div>`:''}
+        </div>`:''}
+        <select class="st-sel" onchange="cambiarEstadoCorte(${o.id},this.value)">
+          ${['Pendiente','En proceso','Completada','Suspendida'].map(s=>`<option ${o.estado===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </td>
       <td><button class="btn btn-sm" onclick="imprimirQROrdenCorte(${o.id})" title="QR de la orden">📋</button></td>
-      <td>${o.estado==='En proceso'?`<button class="btn btn-sm btn-teal" onclick="abrirCierreOrdenCorte(${o.id})">Cerrar</button>`:''}
+      <td>
+        ${o.estado==='En proceso'?`<button class="btn btn-sm btn-teal" onclick="abrirCierreOrdenCorte(${o.id})">Cerrar</button>`:''}
+        ${o.estado==='Completada'?`<button class="btn btn-sm" onclick="verDetalleOrdenCorte(${o.id})">📊 Detalle</button>`:''}
         ${o.estado==='Suspendida'?`<button class="btn btn-sm" onclick="cambiarEstadoCorte(${o.id},'Pendiente')">Reactivar</button>`:''}
       </td>
     </tr>`;
   }).join('')}</tbody></table></div>`;
 }
+function verDetalleOrdenCorte(id){
+  const o=C.ord_corte.find(x=>x.id===id);if(!o)return;
+  const mtsUsados=r1(o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0);
+  const bolsasTeo=o.productos?.metros_por_bolsa&&mtsUsados?
+    Math.floor(mtsUsados/o.productos.metros_por_bolsa*(1-o.merma_pct/100)):0;
+  const unidadesReales=o.unidades_reales||0;
+  const mermaReal=bolsasTeo>0?r2((1-unidadesReales/bolsasTeo)*100):0;
+  const diffUni=unidadesReales-(o.unidades_a_producir||0);
+  const colDiff=diffUni>=0?'var(--green)':'var(--red)';
+
+  let bobinasHtml='<div class="empty">Sin bobinas registradas.</div>';
+  if(o.orden_corte_bobinas?.length){
+    bobinasHtml='<div style="overflow-x:auto"><table><thead><tr><th>N° Bobina</th><th>Metros</th><th>Fecha</th></tr></thead><tbody>'
+      +o.orden_corte_bobinas.map(b=>'<tr>'
+        +'<td class="mono">'+(b.bobinas_producidas?.numero_bobina||'—')+'</td>'
+        +'<td class="mono">'+(b.bobinas_producidas?.metros_reales||'—')+' m</td>'
+        +'<td class="mono" style="font-size:11px">'+(b.fecha_asignacion?new Date(b.fecha_asignacion).toLocaleDateString('es-AR'):'—')+'</td>'
+        +'</tr>').join('')
+      +'</tbody></table></div>';
+  }
+
+  document.body.insertAdjacentHTML('beforeend',`<div class="modal-overlay" id="detalle-oc-modal">
+    <div class="modal-card" style="max-width:620px;max-height:85vh;overflow-y:auto;">
+      <div class="modal-title">📊 Detalle orden ${o.numero_orden}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1rem;">
+        <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;">
+          <div class="stat-lbl">Producto</div>
+          <div style="font-weight:500">${o.productos?.descripcion||'—'}</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;">
+          <div class="stat-lbl">Metros de bobina usados</div>
+          <div class="mono" style="font-size:16px;font-weight:700">${mtsUsados} m</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1rem;">
+        <div class="kpi-card kpi-corte">
+          <div class="kpi-lbl">Unidades pedidas</div>
+          <div class="kpi-val">${(o.unidades_a_producir||0).toLocaleString('es-AR')}</div>
+        </div>
+        <div class="kpi-card kpi-ext">
+          <div class="kpi-lbl">Bolsas teóricas</div>
+          <div class="kpi-val">${bolsasTeo.toLocaleString('es-AR')}</div>
+          <div class="kpi-sub">con ${o.merma_pct}% merma</div>
+        </div>
+        <div class="kpi-card ${diffUni>=0?'kpi-corte':'kpi-error'}">
+          <div class="kpi-lbl">Unidades reales</div>
+          <div class="kpi-val">${unidadesReales.toLocaleString('es-AR')}</div>
+          <div class="kpi-sub" style="color:${colDiff}">${diffUni>=0?'+':''}${diffUni.toLocaleString('es-AR')} vs pedido</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:1rem;">
+        <div class="kpi-card kpi-error">
+          <div class="kpi-lbl">Merma real</div>
+          <div class="kpi-val" style="color:${mermaReal>o.merma_pct?'var(--red)':'var(--green)'}">${mermaReal}%</div>
+          <div class="kpi-sub">teórica: ${o.merma_pct}%</div>
+        </div>
+        <div class="kpi-card kpi-error">
+          <div class="kpi-lbl">Scrap pesado</div>
+          <div class="kpi-val">${(o.peso_scrap_kg||0)} kg</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-lbl">Bultos reales</div>
+          <div class="kpi-val">${o.bultos_reales||'—'}</div>
+        </div>
+      </div>
+      <div class="fp-t" style="margin-bottom:8px;">Bobinas utilizadas (${o.orden_corte_bobinas?.length||0})</div>
+      ${bobinasHtml}
+      <div class="btn-grp" style="margin-top:1rem;">
+        <button class="btn btn-sm" onclick="document.getElementById('detalle-oc-modal').remove()">Cerrar</button>
+      </div>
+    </div>
+  </div>`);
+}
+
 async function cambiarPriCorte(id,val){await sb.from('ordenes_corte').update({prioridad:parseInt(val)||1}).eq('id',id);await reload();}
 async function cambiarEstadoCorte(id,estado){
   if(estado==='Completada'){pedirAdminYEjecutar(async()=>{await sb.from('ordenes_corte').update({estado}).eq('id',id);await reload();});return;}
