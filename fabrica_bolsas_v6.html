@@ -329,6 +329,8 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
     <div class="nav-sec">Operaciones</div>
     <div class="nav-item active" onclick="go('dashboard')"><div class="nav-dot"></div>Dashboard</div>
     <div class="nav-item" onclick="go('ordenes')"><div class="nav-dot"></div>Órdenes</div>
+    <div class="nav-item" onclick="go('historial-ordenes')"><div class="nav-dot"></div>Historial órdenes</div>
+    <div class="nav-item" onclick="go('suspension-maquinas')"><div class="nav-dot" style="background:var(--red)"></div>Suspensión máquinas</div>
     <div class="nav-item" onclick="go('nueva')"><div class="nav-dot"></div>Nueva orden</div>
     <div class="nav-item" onclick="go('gantt')"><div class="nav-dot"></div>Gantt semanal</div>
     <div class="nav-item" onclick="go('gantt-diario')"><div class="nav-dot"></div>Gantt diario</div>
@@ -978,6 +980,75 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
       </div>
     </div>
 
+    <!-- HISTORIAL ÓRDENES -->
+    <div class="page" id="page-historial-ordenes">
+      <div class="page-hdr">
+        <div><div class="page-title">Historial de órdenes</div><div class="page-sub">Completadas · Suspendidas · Canceladas</div></div>
+        <div class="btn-grp">
+          <select class="st-sel" id="hist-tipo" onchange="renderHistorial()">
+            <option value="">Extrusión + Corte</option><option value="extrusion">Solo Extrusión</option><option value="corte">Solo Corte</option>
+          </select>
+          <select class="st-sel" id="hist-estado" onchange="renderHistorial()">
+            <option value="">Todos</option><option value="Completada">Completadas</option><option value="Suspendida">Suspendidas</option><option value="Cancelada">Canceladas</option>
+          </select>
+          <input type="date" class="st-sel" id="hist-desde" onchange="renderHistorial()">
+          <input type="date" class="st-sel" id="hist-hasta" onchange="renderHistorial()">
+        </div>
+      </div>
+      <div id="hist-kpis" style="margin-bottom:1rem;"></div>
+      <div class="tw"><div id="hist-tbl"><div class="loading"><div class="spinner"></div></div></div></div>
+    </div>
+
+    <!-- SUSPENSIÓN DE MÁQUINAS -->
+    <div class="page" id="page-suspension-maquinas">
+      <div class="page-hdr"><div><div class="page-title">Suspensión de máquinas</div><div class="page-sub">Fuera de servicio · por orden · autorización admin</div></div></div>
+      <div class="fp">
+        <div class="fp-t">Estado actual — Extrusoras</div>
+        <div id="susp-ext-estado"></div>
+      </div>
+      <div class="fp">
+        <div class="fp-t">Estado actual — Máquinas de corte</div>
+        <div id="susp-corte-estado"></div>
+      </div>
+      <div class="fp">
+        <div class="fp-t" style="color:var(--red)">⚠ Registrar nueva suspensión (requiere admin)</div>
+        <div class="fgrid">
+          <div class="fg"><label>Tipo de máquina</label>
+            <select id="susp-tipo-maq" onchange="onSuspTipoChange()">
+              <option value="">— seleccionar —</option>
+              <option value="extrusora">Extrusora</option>
+              <option value="corte">Máquina de corte</option>
+            </select>
+          </div>
+          <div class="fg"><label>Máquina</label>
+            <select id="susp-maq-sel"><option value="">— primero elegí tipo —</option></select>
+          </div>
+        </div>
+        <div class="fgrid">
+          <div class="fg"><label>Alcance</label>
+            <select id="susp-alcance" onchange="onSuspAlcanceChange()">
+              <option value="maquina">Máquina completa (fuera de servicio)</option>
+              <option value="orden">Solo para una orden específica</option>
+            </select>
+          </div>
+          <div class="fg" id="susp-orden-wrap" style="display:none"><label>Orden afectada</label>
+            <select id="susp-orden-sel"><option value="">— seleccionar —</option></select>
+          </div>
+        </div>
+        <div class="fg"><label>Motivo</label>
+          <input id="susp-motivo" type="text" placeholder="ej: Rotura de cuchilla, mantenimiento...">
+        </div>
+        <div class="btn-grp" style="margin-top:10px;">
+          <button class="btn btn-primary btn-sm" onclick="registrarSuspension()">Registrar suspensión</button>
+          <span id="msg-susp" style="font-size:12px;margin-left:8px;"></span>
+        </div>
+      </div>
+      <div class="tw">
+        <div class="tw-bar"><span class="tw-title">Historial de suspensiones</span></div>
+        <div id="susp-hist-tbl"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -998,7 +1069,7 @@ const MOTIVOS=['Rotura de máquina','Falta de materia prima','Material defectuos
 // ===== STATE =====
 let sb=null;
 let C={bobinas:[],extrusoras:[],ordenes:[],capacidad:[],clientes:[],bobinas_prod:[],bobinas_hist:[],stock_mov:[],operarios:[],
-  productos:[],maq_corte:[],emp:[],ord_corte:[],cap_corte:[],bobinas_fuera:[]};
+  productos:[],maq_corte:[],emp:[],ord_corte:[],cap_corte:[],bobinas_fuera:[],suspensiones:[]};
 let gWeek=lunesDeHoy(),cWeek=lunesDeHoy(),gcWeek=lunesDeHoy(),capCorteWeek=lunesDeHoy();
 let xlsBobData=null,xlsBobCols=[];
 let xlsCliData=null,xlsCliCols=[];
@@ -1047,7 +1118,8 @@ async function reload(){
     sb.from('tipos_empaque').select('*').order('nombre'),
     sb.from('ordenes_corte').select('*, productos(*), tipos_empaque(*), orden_corte_maquinas(*, maquinas_corte(*)), orden_corte_bobinas(*, bobinas_producidas(numero_bobina,metros_reales))').order('prioridad').order('created_at'),
     sb.from('capacidad_corte_semanal').select('*, maquinas_corte(*)'),
-    sb.from('bobinas_producidas').select('*, ordenes(numero_orden), bobinas(*), extrusoras(nombre), operarios(nombre)').eq('fuera_de_rango',true).order('created_at',{ascending:false})
+    sb.from('bobinas_producidas').select('*, ordenes(numero_orden), bobinas(*), extrusoras(nombre), operarios(nombre)').eq('fuera_de_rango',true).order('created_at',{ascending:false}),
+    sb.from('suspensiones_maquinas').select('*, extrusoras(nombre), maquinas_corte(nombre)').order('created_at',{ascending:false}).limit(100)
   ]);
   const d=r=>results[r].status==='fulfilled'?results[r].value.data||[]:[];
   C.bobinas=d(0);C.extrusoras=d(1);C.ordenes=d(2);
@@ -1056,7 +1128,8 @@ async function reload(){
   anDataCache.loaded=false;
   C.productos=d(10);C.maq_corte=d(11);C.emp=d(12);
   C.ord_corte=d(13);C.cap_corte=d(14);
-  C.bobinas_fuera=d(15); // bobinas fuera de rango — separadas, nunca disponibles en selectores
+  C.bobinas_fuera=d(15);
+  C.suspensiones=d(16);
   const rcfg=results[8].status==='fulfilled'?results[8].value:null;
   if(rcfg?.data){rcfg.data.forEach(r=>{if(r.clave==='clave_admin')cfg.clave_admin=r.valor;if(r.clave==='tolerancia_pesada_pct')cfg.tolerancia_pesada_pct=parseFloat(r.valor);if(r.clave==='tolerancia_liviana_pct')cfg.tolerancia_liviana_pct=parseFloat(r.valor);if(r.clave==='tolerancia_exceso_mts')cfg.tolerancia_exceso_mts=parseFloat(r.valor);});}
   updateStats();renderDash();renderOrdenes();renderBobinas();renderExtrusoras();renderClientes();renderOperarios();renderGantt();renderCap();renderStock();renderConfHistorial();renderCargaHist();poblarSelects();poblarCargaSelects();poblarConfSelects();poblarFiltroOrden();
@@ -1266,43 +1339,69 @@ function renderOrdenes(){
   const w=document.getElementById('ord-tbl');
   if(!lista.length){w.innerHTML='<div class="empty">No hay órdenes.</div>';return;}
   const sched=computeSchedule();
-  // Calcular metros producidos por orden
   const mtsXOrden={};
   C.bobinas_prod.forEach(b=>{if(b.orden_id){mtsXOrden[b.orden_id]=(mtsXOrden[b.orden_id]||0)+(b.metros_reales||0);}});
-  w.innerHTML=`<div style="overflow-x:auto"><table><thead><tr>
-    <th>N° Orden</th><th>Flexxus</th><th>Cliente</th><th>Bobina</th><th>Metros</th><th>Kg</th><th>Extrusoras</th><th>Hs</th><th>Pri.</th><th>Progreso</th><th>Estado</th><th>Atraso</th><th>Acc.</th>
-  </tr></thead><tbody>${lista.map(o=>{
+  let html='<div style="overflow-x:auto"><table><thead><tr>'
+    +'<th>N° Orden</th><th>Flexxus</th><th>Cliente</th><th>Bobina</th><th>Metros</th><th>Kg</th>'
+    +'<th>Extrusoras</th><th>Hs</th><th>Pri.</th><th>Progreso</th><th>Estado</th><th>Atraso</th><th>Acc.</th>'
+    +'</tr></thead><tbody>';
+  lista.forEach(o=>{
     const exts=o.orden_extrusoras?.map(oe=>oe.extrusoras?.nombre||'?').join(', ')||'—';
     const cap=o.orden_extrusoras?.reduce((s,oe)=>s+(oe.extrusoras?.kg_por_hora||0),0)||0;
     const hs=cap>0&&o.kg_totales?r2(o.kg_totales/cap):'—';
     const mtsP=mtsXOrden[o.id]||0;
     const pct=o.metros?Math.round(mtsP/o.metros*100):0;
     const pctColor=pct>=100?'var(--green)':pct>80?'var(--accent)':'var(--amber)';
-    return`<tr style="${o.estado==='Suspendida'?'opacity:0.6':''}">
-      <td class="mono">${o.numero_orden}</td>
-      <td class="mono" style="color:var(--text2)">${o.ref_flexxus||'—'}</td>
-      <td>${o.cliente||'—'}</td>
-      <td>${o.bobinas?.nombre||'—'}</td>
-      <td class="mono">${o.metros?.toLocaleString('es-AR')||'—'} m</td>
-      <td class="mono">${o.kg_totales?.toLocaleString('es-AR')||'—'} kg</td>
-      <td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${exts}</td>
-      <td class="mono">${hs} hs</td>
-      <td><input class="pri-in" type="number" min="1" value="${o.prioridad||1}" onchange="cambiarPri(${o.id},this.value)"></td>
-      <td>
-        <div style="display:flex;align-items:center;gap:6px;">
-          <div class="pbar"><div class="pfill" style="width:${Math.min(100,pct)}%;background:${pctColor}"></div></div>
-          <span class="mono" style="font-size:11px;color:${pctColor}">${pct}%</span>
-        </div>
-        <div style="font-size:10px;color:var(--text3)">${r1(mtsP)}/${o.metros||0} m</div>
-      </td>
-      <td><select class="st-sel" onchange="cambiarEstado(${o.id},this.value)">${['Pendiente','En proceso','Completada','Suspendida'].map(s=>`<option ${o.estado===s?'selected':''}>${s}</option>`).join('')}</select></td>
-      <td>${o.motivo_atraso?`<span style="font-size:10px;color:var(--red);max-width:100px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${o.motivo_atraso}">⚠ ${o.motivo_atraso}</span>`:`<button class="btn btn-sm" style="font-size:11px" onclick="mostrarMotivo(${o.id})">+ Motivo</button>`}</td>
-      <td>${o.estado==='Suspendida'?`<button class="btn btn-sm" onclick="pedirAdminYEjecutar(()=>cambiarEstado(${o.id},'Pendiente'))">Reactivar</button>`:`<button class="btn btn-sm btn-warn" onclick="cambiarEstado(${o.id},'Suspendida')">Suspender</button>`}</td>
-    </tr>`;
-  }).join('')}</tbody></table></div>`;
+    const esCanc=o.estado==='Cancelada';
+    const esSusp=o.estado==='Suspendida';
+    const esComp=o.estado==='Completada';
+    // Estado select options
+    const estadoOpts=['Pendiente','En proceso','Completada','Suspendida']
+      .map(s=>'<option'+(o.estado===s?' selected':'')+'>'+s+'</option>').join('');
+    // Botones de acción
+    let btnAcc='';
+    if(esCanc) btnAcc+='<span style="color:var(--red);font-size:11px">Cancelada</span>';
+    if(esSusp) btnAcc+='<button class="btn btn-sm" onclick="reactivarOrden('+o.id+',\'extrusion\')">Reactivar</button>';
+    if(!esCanc&&!esComp) btnAcc+='<button class="btn btn-sm btn-warn" onclick="abrirCancelarOrden('+o.id+',\'extrusion\')">Cancelar</button>';
+    if(!esCanc&&!esSusp&&!esComp) btnAcc+='<button class="btn btn-sm" style="background:var(--amberbg);color:var(--amber);border:1px solid var(--amberbd)" onclick="abrirSuspenderOrden('+o.id+',\'extrusion\')">Suspender</button>';
+    // Motivo atraso
+    const motivoTd=o.motivo_atraso
+      ?'<span style="font-size:10px;color:var(--red);max-width:100px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+o.motivo_atraso+'">⚠ '+o.motivo_atraso+'</span>'
+      :'<button class="btn btn-sm" style="font-size:11px" onclick="mostrarMotivo('+o.id+')">+ Motivo</button>';
+    html+='<tr style="'+(esSusp?'opacity:0.6':esCanc?'opacity:0.4':'')+'">'
+      +'<td class="mono">'+o.numero_orden+'</td>'
+      +'<td class="mono" style="color:var(--text2)">'+(o.ref_flexxus||'—')+'</td>'
+      +'<td>'+(o.cliente||'—')+'</td>'
+      +'<td>'+(o.bobinas?.nombre||'—')+'</td>'
+      +'<td class="mono">'+(o.metros?.toLocaleString('es-AR')||'—')+' m</td>'
+      +'<td class="mono">'+(o.kg_totales?.toLocaleString('es-AR')||'—')+' kg</td>'
+      +'<td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+exts+'</td>'
+      +'<td class="mono">'+hs+' hs</td>'
+      +'<td><input class="pri-in" type="number" min="1" value="'+(o.prioridad||1)+'" onchange="cambiarPri('+o.id+',this.value)"></td>'
+      +'<td>'
+        +'<div style="display:flex;align-items:center;gap:6px;">'
+          +'<div class="pbar"><div class="pfill" style="width:'+Math.min(100,pct)+'%;background:'+pctColor+'"></div></div>'
+          +'<span class="mono" style="font-size:11px;color:'+pctColor+'">'+pct+'%</span>'
+        +'</div>'
+        +'<div style="font-size:10px;color:var(--text3)">'+r1(mtsP)+'/'+(o.metros||0)+' m</div>'
+      +'</td>'
+      +'<td><select class="st-sel" onchange="cambiarEstado('+o.id+',this.value)">'+estadoOpts+'</select></td>'
+      +'<td>'+motivoTd+'</td>'
+      +'<td>'+btnAcc+'</td>'
+      +'</tr>';
+  });
+  html+='</tbody></table></div>';
+  w.innerHTML=html;
 }
 
 async function cambiarPri(id,val){await sb.from('ordenes').update({prioridad:parseInt(val)||1}).eq('id',id);await reload();}
+async function reactivarOrden(id,tipo){
+  pedirAdminYEjecutar(async()=>{
+    if(tipo==='extrusion') await sb.from('ordenes').update({estado:'Pendiente'}).eq('id',id);
+    else await sb.from('ordenes_corte').update({estado:'Pendiente'}).eq('id',id);
+    await reload();
+  });
+}
 async function cambiarEstado(id,estado){
   // Si es completar manualmente, pedir clave admin
   if(estado==='Completada'){pedirAdminYEjecutar(async()=>{await sb.from('ordenes').update({estado}).eq('id',id);await reload();});return;}
@@ -2150,6 +2249,8 @@ function go(name){
   if(name==='productos')renderProductos();
   if(name==='empaque')renderEmpaque();
   if(name==='capacidad-corte')renderCapCorte();
+  if(name==='historial-ordenes')renderHistorial();
+  if(name==='suspension-maquinas'){renderSuspMaquinas();renderSuspHistorial();}
   if(name==='bobinas-fuera-rango')renderFueraDeRango();
   if(name==='admin'){
     // Reset lock when entering admin page
@@ -2908,6 +3009,9 @@ function renderOrdenesCorte(){
         ${o.estado==='En proceso'?`<button class="btn btn-sm btn-teal" onclick="abrirCierreOrdenCorte(${o.id})">Cerrar</button>`:''}
         ${o.estado==='Completada'?`<button class="btn btn-sm" onclick="verDetalleOrdenCorte(${o.id})">📊 Detalle</button>`:''}
         ${o.estado==='Suspendida'?`<button class="btn btn-sm" onclick="cambiarEstadoCorte(${o.id},'Pendiente')">Reactivar</button>`:''}
+        ${o.estado!=='Cancelada'&&o.estado!=='Completada'?`<button class="btn btn-sm btn-warn" onclick="abrirCancelarOrden(${o.id},'corte')">Cancelar</button>`:''}
+        ${o.estado!=='Cancelada'&&o.estado!=='Suspendida'&&o.estado!=='Completada'?`<button class="btn btn-sm" style="background:var(--amberbg);color:var(--amber);border:1px solid var(--amberbd)" onclick="abrirSuspenderOrden(${o.id},'corte')">Suspender</button>`:''}
+        ${o.estado==='Cancelada'?'<span style="color:var(--red);font-size:11px">Cancelada</span>':''}
       </td>
     </tr>`;
   }).join('')}</tbody></table></div>`;
@@ -3528,8 +3632,281 @@ function renderVistaSemana(wrap,bobs,ords){
   wrap.innerHTML=html;
 }
 
-function startGcdTimer(){
+// ===== CANCELAR / SUSPENDER ÓRDENES =====
+function abrirCancelarOrden(id, tipo){
+  pedirAdminYEjecutar(()=>{
+    document.body.insertAdjacentHTML('beforeend',`<div class="modal-overlay" id="cancel-modal">
+      <div class="modal-card" style="max-width:480px">
+        <div class="modal-title" style="color:var(--red)">⚠ Cancelar orden</div>
+        <div class="alert alert-warn" style="font-size:12px;margin-bottom:1rem;">
+          La cancelación es <strong>permanente e irreversible</strong>. La orden se elimina del cronograma y libera tiempo para otras órdenes.
+        </div>
+        <div class="fg"><label>Motivo de cancelación (obligatorio)</label>
+          <input id="cancel-motivo" type="text" placeholder="ej: Cliente canceló pedido, cambio de prioridad...">
+        </div>
+        <div class="btn-grp" style="margin-top:1rem;">
+          <button class="btn btn-sm" style="background:var(--red);color:#fff;border:none" onclick="confirmarCancelar(${id},'${tipo}')">Confirmar cancelación</button>
+          <button class="btn btn-sm" onclick="document.getElementById('cancel-modal').remove()">Volver</button>
+        </div>
+        <div id="cancel-err" style="color:var(--red);font-size:12px;margin-top:8px;"></div>
+      </div>
+    </div>`);
+  });
+}
+async function confirmarCancelar(id,tipo){
+  const motivo=document.getElementById('cancel-motivo')?.value.trim();
+  if(!motivo){document.getElementById('cancel-err').textContent='El motivo es obligatorio.';return;}
+  const now=new Date().toISOString();
+  if(tipo==='extrusion'){
+    // Calcular kg perdidos = kg totales - kg producidos
+    const mtsXOrden={};
+    C.bobinas_prod.forEach(b=>{if(b.orden_id===id)mtsXOrden[id]=(mtsXOrden[id]||0)+(b.metros_reales||0);});
+    const orden=C.ordenes.find(o=>o.id===id);
+    const kgPerd=orden?Math.max(0,(orden.kg_totales||0)-((mtsXOrden[id]||0)*(orden.bobinas?.kg_por_metro||0))):0;
+    await sb.from('ordenes').update({estado:'Cancelada',motivo_cancelacion:motivo,fecha_cancelacion:now,kg_perdidos:r2(kgPerd)}).eq('id',id);
+  } else {
+    await sb.from('ordenes_corte').update({estado:'Cancelada',motivo_cancelacion:motivo,fecha_cancelacion:now}).eq('id',id);
+  }
+  document.getElementById('cancel-modal')?.remove();
+  await reload();
+}
 
+function abrirSuspenderOrden(id, tipo){
+  document.body.insertAdjacentHTML('beforeend',`<div class="modal-overlay" id="susp-ord-modal">
+    <div class="modal-card" style="max-width:480px">
+      <div class="modal-title" style="color:var(--amber)">⏸ Suspender orden</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:1rem;">La orden puede ser reactivada por el administrador.</div>
+      <div class="fg"><label>Motivo de suspensión (obligatorio)</label>
+        <input id="susp-ord-motivo" type="text" placeholder="ej: Falta de materia prima, mantenimiento...">
+      </div>
+      <div class="btn-grp" style="margin-top:1rem;">
+        <button class="btn btn-sm btn-primary" onclick="confirmarSuspenderOrden(${id},'${tipo}')">Confirmar suspensión</button>
+        <button class="btn btn-sm" onclick="document.getElementById('susp-ord-modal').remove()">Volver</button>
+      </div>
+      <div id="susp-ord-err" style="color:var(--red);font-size:12px;margin-top:8px;"></div>
+    </div>
+  </div>`);
+}
+async function confirmarSuspenderOrden(id,tipo){
+  const motivo=document.getElementById('susp-ord-motivo')?.value.trim();
+  if(!motivo){document.getElementById('susp-ord-err').textContent='El motivo es obligatorio.';return;}
+  const now=new Date().toISOString();
+  if(tipo==='extrusion'){
+    await sb.from('ordenes').update({estado:'Suspendida',motivo_suspension:motivo,fecha_suspension:now}).eq('id',id);
+  } else {
+    await sb.from('ordenes_corte').update({estado:'Suspendida',motivo_suspension:motivo,fecha_suspension:now}).eq('id',id);
+  }
+  document.getElementById('susp-ord-modal')?.remove();
+  await reload();
+}
+
+// ===== HISTORIAL ÓRDENES =====
+function renderHistorial(){
+  const tipo=document.getElementById('hist-tipo')?.value||'';
+  const estado=document.getElementById('hist-estado')?.value||'';
+  const desde=document.getElementById('hist-desde')?.value;
+  const hasta=document.getElementById('hist-hasta')?.value;
+  // Unir extrusión y corte
+  let lista=[];
+  if(tipo===''||tipo==='extrusion'){
+    C.ordenes.filter(o=>o.estado==='Completada'||o.estado==='Suspendida'||o.estado==='Cancelada').forEach(o=>{
+      lista.push({id:o.id,numero:o.numero_orden,tipo:'Extrusión',cliente:o.cliente||'—',
+        estado:o.estado,fecha_suspension:o.fecha_suspension,motivo_suspension:o.motivo_suspension,
+        fecha_cancelacion:o.fecha_cancelacion,motivo_cancelacion:o.motivo_cancelacion,
+        kg_perdidos:o.kg_perdidos,bobinas:C.bobinas_prod.filter(b=>b.orden_id===o.id).length,
+        error_pct_prom:C.bobinas_prod.filter(b=>b.orden_id===o.id).length?
+          r2(C.bobinas_prod.filter(b=>b.orden_id===o.id).reduce((s,b)=>s+(b.error_pct||0),0)/C.bobinas_prod.filter(b=>b.orden_id===o.id).length):0,
+        created_at:o.created_at});
+    });
+  }
+  if(tipo===''||tipo==='corte'){
+    C.ord_corte.filter(o=>o.estado==='Completada'||o.estado==='Suspendida'||o.estado==='Cancelada').forEach(o=>{
+      lista.push({id:o.id,numero:o.numero_orden,tipo:'Corte',cliente:o.cliente||'—',
+        estado:o.estado,fecha_suspension:o.fecha_suspension,motivo_suspension:o.motivo_suspension,
+        fecha_cancelacion:o.fecha_cancelacion,motivo_cancelacion:o.motivo_cancelacion,
+        kg_perdidos:null,bobinas:o.orden_corte_bobinas?.length||0,
+        unidades_reales:o.unidades_reales,created_at:o.created_at});
+    });
+  }
+  // Filtros
+  if(estado)lista=lista.filter(x=>x.estado===estado);
+  if(desde)lista=lista.filter(x=>new Date(x.created_at)>=new Date(desde));
+  if(hasta)lista=lista.filter(x=>new Date(x.created_at)<=new Date(hasta+'T23:59:59'));
+  lista.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+  // KPIs
+  const totComp=lista.filter(x=>x.estado==='Completada').length;
+  const totSusp=lista.filter(x=>x.estado==='Suspendida').length;
+  const totCanc=lista.filter(x=>x.estado==='Cancelada').length;
+  const kgPerd=r1(lista.filter(x=>x.kg_perdidos).reduce((s,x)=>s+(x.kg_perdidos||0),0));
+  const pctComp=lista.length?Math.round(totComp/lista.length*100):0;
+  const kpis=document.getElementById('hist-kpis');
+  if(kpis)kpis.innerHTML='<div class="stats" style="margin-bottom:0">'
+    +'<div class="stat"><div class="stat-lbl">Completadas</div><div class="stat-val" style="color:var(--green)">'+totComp+'</div><div class="stat-sub">'+pctComp+'% del total</div></div>'
+    +'<div class="stat"><div class="stat-lbl">Suspendidas</div><div class="stat-val" style="color:var(--amber)">'+totSusp+'</div></div>'
+    +'<div class="stat"><div class="stat-lbl">Canceladas</div><div class="stat-val" style="color:var(--red)">'+totCanc+'</div></div>'
+    +'<div class="stat"><div class="stat-lbl">Kg perdidos (canc.)</div><div class="stat-val" style="color:var(--red)">'+kgPerd.toLocaleString('es-AR')+'</div><div class="stat-sub">solo extrusión</div></div>'
+    +'</div>';
+  const tbl=document.getElementById('hist-tbl');
+  if(!lista.length){tbl.innerHTML='<div class="empty">Sin órdenes para los filtros seleccionados.</div>';return;}
+  tbl.innerHTML='<div style="overflow-x:auto"><table><thead><tr>'
+    +'<th>N° Orden</th><th>Tipo</th><th>Cliente</th><th>Estado</th><th>Bobinas/Bultos</th><th>Error prom.</th><th>Kg perdidos</th><th>Motivo</th><th>Fecha</th>'
+    +'</tr></thead><tbody>'
+    +lista.map(x=>{
+      const motivo=x.estado==='Cancelada'?x.motivo_cancelacion:x.estado==='Suspendida'?x.motivo_suspension:'—';
+      const fecha=x.estado==='Cancelada'?x.fecha_cancelacion:x.estado==='Suspendida'?x.fecha_suspension:x.created_at;
+      const colEst=x.estado==='Completada'?'var(--green)':x.estado==='Cancelada'?'var(--red)':'var(--amber)';
+      return '<tr>'
+        +'<td class="mono">'+x.numero+'</td>'
+        +'<td><span style="font-size:11px;background:var(--bg3);padding:2px 6px;border-radius:4px">'+x.tipo+'</span></td>'
+        +'<td>'+x.cliente+'</td>'
+        +'<td><span style="color:'+colEst+';font-weight:600;font-size:12px">'+x.estado+'</span></td>'
+        +'<td class="mono">'+x.bobinas+'</td>'
+        +'<td class="mono" style="color:'+(Math.abs(x.error_pct_prom||0)>5?'var(--red)':'var(--text2)')+'">'+((x.error_pct_prom||0)>0?'+':'')+(x.error_pct_prom||'—')+'%</td>'
+        +'<td class="mono" style="color:var(--red)">'+(x.kg_perdidos?x.kg_perdidos+' kg':'—')+'</td>'
+        +'<td style="font-size:11px;color:var(--text2);max-width:200px">'+(motivo||'—')+'</td>'
+        +'<td class="mono" style="font-size:11px">'+(fecha?new Date(fecha).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'—')+'</td>'
+        +'</tr>';
+    }).join('')
+    +'</tbody></table></div>';
+}
+
+// ===== SUSPENSIÓN DE MÁQUINAS =====
+function onSuspTipoChange(){
+  const tipo=document.getElementById('susp-tipo-maq')?.value;
+  const sel=document.getElementById('susp-maq-sel');
+  if(!sel)return;
+  if(tipo==='extrusora'){
+    sel.innerHTML='<option value="">— seleccionar —</option>'+C.extrusoras.map(e=>`<option value="${e.id}">${e.nombre}${e.en_servicio===false?' ⚠ FUERA DE SERVICIO':''}</option>`).join('');
+  } else if(tipo==='corte'){
+    sel.innerHTML='<option value="">— seleccionar —</option>'+C.maq_corte.map(m=>`<option value="${m.id}">${m.nombre}${m.en_servicio===false?' ⚠ FUERA DE SERVICIO':''}</option>`).join('');
+  } else {
+    sel.innerHTML='<option value="">— primero elegí tipo —</option>';
+  }
+}
+function onSuspAlcanceChange(){
+  const alcance=document.getElementById('susp-alcance')?.value;
+  const wrap=document.getElementById('susp-orden-wrap');
+  if(!wrap)return;
+  wrap.style.display=alcance==='orden'?'block':'none';
+  if(alcance==='orden'){
+    const tipo=document.getElementById('susp-tipo-maq')?.value;
+    const sel=document.getElementById('susp-orden-sel');
+    if(tipo==='extrusora'){
+      sel.innerHTML='<option value="">— seleccionar —</option>'+C.ordenes.filter(o=>o.estado==='En proceso'||o.estado==='Pendiente').map(o=>`<option value="${o.id}">${o.numero_orden}</option>`).join('');
+    } else {
+      sel.innerHTML='<option value="">— seleccionar —</option>'+C.ord_corte.filter(o=>o.estado==='En proceso'||o.estado==='Pendiente').map(o=>`<option value="${o.id}">${o.numero_orden}</option>`).join('');
+    }
+  }
+}
+async function registrarSuspension(){
+  const tipo=document.getElementById('susp-tipo-maq')?.value;
+  const maqId=parseInt(document.getElementById('susp-maq-sel')?.value);
+  const alcance=document.getElementById('susp-alcance')?.value;
+  const ordenId=alcance==='orden'?parseInt(document.getElementById('susp-orden-sel')?.value)||null:null;
+  const motivo=document.getElementById('susp-motivo')?.value.trim();
+  const msg=document.getElementById('msg-susp');
+  if(!tipo||!maqId||!motivo){msg.style.color='var(--red)';msg.textContent='Completá todos los campos.';return;}
+  pedirAdminYEjecutar(async()=>{
+    // Registrar suspensión
+    await sb.from('suspensiones_maquinas').insert({
+      extrusora_id:tipo==='extrusora'?maqId:null,
+      maquina_corte_id:tipo==='corte'?maqId:null,
+      tipo,motivo,alcance,orden_id:ordenId,activa:true
+    });
+    // Si es máquina completa, marcarla fuera de servicio
+    if(alcance==='maquina'){
+      if(tipo==='extrusora'){
+        await sb.from('extrusoras').update({en_servicio:false,motivo_fuera_servicio:motivo}).eq('id',maqId);
+      } else {
+        await sb.from('maquinas_corte').update({en_servicio:false,motivo_fuera_servicio:motivo}).eq('id',maqId);
+      }
+    }
+    msg.style.color='var(--green)';msg.textContent='✓ Suspensión registrada.';
+    document.getElementById('susp-motivo').value='';
+    await reload();
+    renderSuspMaquinas();renderSuspHistorial();
+  });
+}
+async function reactivarMaquina(id,tipo){
+  pedirAdminYEjecutar(async()=>{
+    if(tipo==='extrusora'){
+      await sb.from('extrusoras').update({en_servicio:true,motivo_fuera_servicio:null}).eq('id',id);
+    } else {
+      await sb.from('maquinas_corte').update({en_servicio:true,motivo_fuera_servicio:null}).eq('id',id);
+    }
+    await sb.from('suspensiones_maquinas').update({activa:false,fecha_fin:new Date().toISOString()})
+      .eq(tipo==='extrusora'?'extrusora_id':'maquina_corte_id',id).eq('activa',true);
+    await reload();renderSuspMaquinas();renderSuspHistorial();
+  });
+}
+function renderSuspMaquinas(){
+  // Extrusoras
+  const extDiv=document.getElementById('susp-ext-estado');
+  if(extDiv){
+    if(!C.extrusoras.length){extDiv.innerHTML='<div class="empty">Sin extrusoras.</div>';}
+    else{
+      extDiv.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">'
+        +C.extrusoras.map(e=>{
+          const ok=e.en_servicio!==false;
+          return '<div style="background:var(--bg3);border:1px solid '+(ok?'var(--border)':'var(--redbd)')+';border-radius:var(--r);padding:10px 14px;">'
+            +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">'
+            +'<div style="font-weight:600">'+e.nombre+'</div>'
+            +'<div style="width:10px;height:10px;border-radius:50%;background:'+(ok?'var(--green)':'var(--red)')+'"></div>'
+            +'</div>'
+            +'<div style="font-size:11px;color:'+(ok?'var(--green)':'var(--red)')+'">'+( ok?'En servicio':'⚠ Fuera de servicio')+'</div>'
+            +(e.motivo_fuera_servicio?'<div style="font-size:10px;color:var(--text3);margin-top:3px">'+e.motivo_fuera_servicio+'</div>':'')
+            +(!ok?'<button class="btn btn-sm" style="margin-top:8px" onclick="reactivarMaquina('+e.id+',\'extrusora\')">Reactivar</button>':'')
+            +'</div>';
+        }).join('')
+        +'</div>';
+    }
+  }
+  // Máquinas corte
+  const corteDiv=document.getElementById('susp-corte-estado');
+  if(corteDiv){
+    if(!C.maq_corte.length){corteDiv.innerHTML='<div class="empty">Sin máquinas de corte.</div>';}
+    else{
+      corteDiv.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">'
+        +C.maq_corte.map(m=>{
+          const ok=m.en_servicio!==false;
+          return '<div style="background:var(--bg3);border:1px solid '+(ok?'var(--border)':'var(--redbd)')+';border-radius:var(--r);padding:10px 14px;">'
+            +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">'
+            +'<div style="font-weight:600">'+m.nombre+'</div>'
+            +'<div style="width:10px;height:10px;border-radius:50%;background:'+(ok?'var(--green)':'var(--red)')+'"></div>'
+            +'</div>'
+            +'<div style="font-size:11px;color:'+(ok?'var(--green)':'var(--red)')+'">'+( ok?'En servicio':'⚠ Fuera de servicio')+'</div>'
+            +(m.motivo_fuera_servicio?'<div style="font-size:10px;color:var(--text3);margin-top:3px">'+m.motivo_fuera_servicio+'</div>':'')
+            +(!ok?'<button class="btn btn-sm" style="margin-top:8px" onclick="reactivarMaquina('+m.id+',\'corte\')">Reactivar</button>':'')
+            +'</div>';
+        }).join('')
+        +'</div>';
+    }
+  }
+}
+function renderSuspHistorial(){
+  const tbl=document.getElementById('susp-hist-tbl');if(!tbl)return;
+  if(!C.suspensiones.length){tbl.innerHTML='<div class="empty">Sin suspensiones registradas.</div>';return;}
+  tbl.innerHTML='<div style="overflow-x:auto"><table><thead><tr>'
+    +'<th>Máquina</th><th>Tipo</th><th>Alcance</th><th>Motivo</th><th>Estado</th><th>Desde</th><th>Hasta</th>'
+    +'</tr></thead><tbody>'
+    +C.suspensiones.map(s=>{
+      const nom=s.tipo==='extrusora'?s.extrusoras?.nombre:s.maquinas_corte?.nombre;
+      return '<tr>'
+        +'<td style="font-weight:500">'+(nom||'—')+'</td>'
+        +'<td><span style="font-size:11px;background:var(--bg3);padding:2px 6px;border-radius:4px">'+s.tipo+'</span></td>'
+        +'<td style="font-size:12px">'+s.alcance+'</td>'
+        +'<td style="font-size:12px;color:var(--text2)">'+s.motivo+'</td>'
+        +'<td><span style="color:'+(s.activa?'var(--red)':'var(--green)')+'">'+( s.activa?'Activa':'Finalizada')+'</span></td>'
+        +'<td class="mono" style="font-size:11px">'+(s.fecha_inicio?new Date(s.fecha_inicio).toLocaleDateString('es-AR'):'—')+'</td>'
+        +'<td class="mono" style="font-size:11px">'+(s.fecha_fin?new Date(s.fecha_fin).toLocaleDateString('es-AR'):'—')+'</td>'
+        +'</tr>';
+    }).join('')
+    +'</tbody></table></div>';
+}
+
+
+
+function startGcdTimer(){
   if(gcdTimer)clearInterval(gcdTimer);
   gcdTimer=setInterval(()=>{const p=document.getElementById('page-gantt-corte-diario');if(p&&p.classList.contains('active'))renderGanttCorteDiario();},60000);
 }
