@@ -2205,11 +2205,11 @@ function renderConfHistorial(){
 function calcKgm(){
   const a=parseFloat(document.getElementById('b-ancho').value),l=parseFloat(document.getElementById('b-largo').value),e=parseFloat(document.getElementById('b-esp').value);
   const box=document.getElementById('comp-kgm');
-  if(!a||!l||!e||l===0){box.style.display='none';return;}
-  const kgm=r4(((a*l*e*0.184)/1000)/l);
+  if(!a||!e){box.style.display='none';return;}
+  const kgm=r4((a*e*0.184)/10000);
   document.getElementById('b-kgm').value=kgm;
   box.style.display='block';
-  box.innerHTML=`((${a}×${l}×${e}×0.184)/1000)/${l} = <span class="res">${kgm} kg/m</span>`;
+  box.innerHTML=`(${a}×${e}×0.184)/10000 = <span class="res">${kgm} kg/m</span>`;
 }
 function renderBobinas(){
   const w=document.getElementById('bob-tbl');if(!w)return;
@@ -2245,7 +2245,7 @@ async function importBob(){
   const msg=document.getElementById('msg-xls-bob');
   if(isNaN(iN)){msg.style.color='var(--red)';msg.textContent='Nombre es obligatorio.';return;}
   const rows=[];let skip=0;
-  for(const r of xlsBobData){const n=String(r[iN]||'').trim();if(!n){skip++;continue;}const a=!isNaN(iA)?parseFloat(r[iA])||null:null;const l=!isNaN(iL)?parseFloat(r[iL])||null:null;const e=!isNaN(iE)?parseFloat(r[iE])||null:null;let k=!isNaN(iK)?parseFloat(r[iK])||null:null;if(!k&&a&&l&&e&&l!==0)k=r4(((a*l*e*0.184)/1000)/l);if(!k||k<=0){skip++;continue;}rows.push({nombre:n,descripcion:!isNaN(iD)?String(r[iD]||'').trim()||null:null,ancho:a,largo:l,espesor:e,kg_por_metro:k});}
+  for(const r of xlsBobData){const n=String(r[iN]||'').trim();if(!n){skip++;continue;}const a=!isNaN(iA)?parseFloat(r[iA])||null:null;const l=!isNaN(iL)?parseFloat(r[iL])||null:null;const e=!isNaN(iE)?parseFloat(r[iE])||null:null;let k=!isNaN(iK)?parseFloat(r[iK])||null:null;if(!k&&a&&e)k=r4((a*e*0.184)/10000);if(!k||k<=0){skip++;continue;}rows.push({nombre:n,descripcion:!isNaN(iD)?String(r[iD]||'').trim()||null:null,ancho:a,largo:l,espesor:e,kg_por_metro:k});}
   if(rows.length){const{error}=await sb.from('bobinas').upsert(rows,{onConflict:'nombre'});if(error){msg.style.color='var(--red)';msg.textContent='Error: '+error.message;return;}}
   msg.style.color='var(--green)';msg.textContent=`✓ ${rows.length} importadas${skip?`, ${skip} omitidas`:''}`;
   document.getElementById('cm-bob').style.display='none';await reload();
