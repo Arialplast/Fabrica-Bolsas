@@ -346,9 +346,9 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
     <div class="nav-sec">Materia Prima</div>
     <div class="nav-item" onclick="go('mp-stock')"><div class="nav-dot" style="background:var(--teal)"></div>Stock MP</div>
     <div class="nav-item" onclick="go('mp-ingreso')"><div class="nav-dot"></div>Ingreso lotes</div>
-    <div class="nav-item" onclick="go('mp-inventario')"><div class="nav-dot" id="nav-dot-inv" style="background:var(--green)"></div>Inventario físico</div>
+    <div class="nav-item" onclick="goAdmin('mp-inventario')"><div class="nav-dot" id="nav-dot-inv" style="background:var(--green)"></div>Inventario físico 🔐</div>
     <div class="nav-item" onclick="go('mp-formulas')"><div class="nav-dot"></div>Fórmulas</div>
-    <div class="nav-item" onclick="go('costos')"><div class="nav-dot" style="background:var(--purple)"></div>Costos</div>
+    <div class="nav-item" onclick="goAdmin('costos')"><div class="nav-dot" style="background:var(--purple)"></div>Costos 🔐</div>
     <div class="nav-sec">Configuración</div>
     <div class="nav-item" onclick="go('bobinas')"><div class="nav-dot"></div>Bobinas</div>
     <div class="nav-item" onclick="go('extrusoras')"><div class="nav-dot"></div>Extrusoras</div>
@@ -1218,15 +1218,34 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
     <!-- COSTOS -->
     <div class="page" id="page-costos">
       <div class="page-hdr">
-        <div><div class="page-title">Costos de producción</div><div class="page-sub">Por orden · por tipo de bobina · por bolsa</div></div>
+        <div><div class="page-title">Costos de producción 🔐</div><div class="page-sub" id="costo-sub-lbl">Solo administrador</div></div>
         <div class="btn-grp">
-          <select class="st-sel" id="costo-vista" onchange="renderCostos()">
-            <option value="ordenes">Por órdenes</option>
-            <option value="bobinas">Por tipo de bobina</option>
-            <option value="bolsas">Por bolsa (corte)</option>
+          <select class="st-sel" id="costo-periodo" onchange="onCostoPeriodoChange()">
+            <option value="mes">Este mes</option>
+            <option value="mes_ant">Mes anterior</option>
+            <option value="semana">Esta semana</option>
+            <option value="custom">Rango personalizado</option>
           </select>
-          <div class="fg" style="margin:0"><label style="font-size:11px">% Gastos generales</label>
-            <input id="costo-gg" type="number" step="0.5" value="15" style="width:70px" oninput="renderCostos()"> %
+          <div id="costo-rango-wrap" style="display:none;gap:6px;align-items:center;">
+            <input type="date" id="costo-desde" class="st-sel" style="width:130px" onchange="renderCostos()">
+            <span style="font-size:12px">→</span>
+            <input type="date" id="costo-hasta" class="st-sel" style="width:130px" onchange="renderCostos()">
+          </div>
+          <select class="st-sel" id="costo-comp-periodo" onchange="renderCostos()">
+            <option value="">Sin comparación</option>
+            <option value="mes_ant">vs Mes anterior</option>
+            <option value="semana_ant">vs Semana anterior</option>
+            <option value="anio_ant">vs Mismo mes año anterior</option>
+          </select>
+          <select class="st-sel" id="costo-vista" onchange="renderCostos()">
+            <option value="resumen">Resumen</option>
+            <option value="bobinas">Por tipo de bobina</option>
+            <option value="bolsas">Por bolsa</option>
+            <option value="ordenes">Por órdenes</option>
+          </select>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <label style="font-size:11px;white-space:nowrap">GG%</label>
+            <input id="costo-gg" type="number" step="0.5" value="15" style="width:55px" oninput="renderCostos()">
           </div>
         </div>
       </div>
@@ -2521,6 +2540,9 @@ function verificarAdminPage(){
   }
 }
 // Reset admin panel when leaving page
+function goAdmin(name){
+  pedirAdminYEjecutar(()=>go(name));
+}
 function go(name){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
@@ -4577,25 +4599,27 @@ async function addProveedor(){
 // Stock MP
 function renderMPStock(){
   const filtro=document.getElementById('mp-filtro-cat')?.value||'';
+  const esAdmin=window._adminPageUnlocked||false;
   const kpis=document.getElementById('mp-stock-kpis');
   const tbl=document.getElementById('mp-stock-tbl');
-  // Agrupar lotes activos por tipo
   const lotesActivos=C.lotes_mp.filter(l=>l.kg_disponibles>0);
   const lotesFiltr=filtro?lotesActivos.filter(l=>l.tipos_mp?.categoria===filtro):lotesActivos;
-  // KPIs
   const kgBase=r1(lotesActivos.filter(l=>l.tipos_mp?.categoria==='base').reduce((s,l)=>s+(l.kg_disponibles||0),0));
   const kgAdit=r1(lotesActivos.filter(l=>l.tipos_mp?.categoria==='aditivo').reduce((s,l)=>s+(l.kg_disponibles||0),0));
-  const valorTotal=r2(lotesActivos.reduce((s,l)=>s+(l.kg_disponibles||0)*(l.precio_kg||0),0));
+  // Alerta stock bajo
+  const alertaStock=kgBase<cfg.alerta_stock_mp_kg;
   if(kpis)kpis.innerHTML='<div class="stats" style="margin-bottom:0;">'
-    +'<div class="stat"><div class="stat-lbl">Stock base (PE)</div><div class="stat-val">'+kgBase.toLocaleString('es-AR')+'</div><div class="stat-sub">kg disponibles</div></div>'
+    +'<div class="stat"><div class="stat-lbl">Stock base (PE)</div><div class="stat-val" style="color:'+(alertaStock?'var(--red)':'inherit')+'">'+kgBase.toLocaleString('es-AR')+'</div><div class="stat-sub">'+(alertaStock?'⚠ Stock bajo':'kg disponibles')+'</div></div>'
     +'<div class="stat"><div class="stat-lbl">Stock aditivos</div><div class="stat-val">'+kgAdit.toLocaleString('es-AR')+'</div><div class="stat-sub">kg disponibles</div></div>'
     +'<div class="stat"><div class="stat-lbl">Lotes activos</div><div class="stat-val">'+lotesActivos.length+'</div></div>'
-    +'<div class="stat"><div class="stat-lbl">Valor en stock</div><div class="stat-val">$'+valorTotal.toLocaleString('es-AR')+'</div></div>'
+    +(esAdmin?'<div class="stat"><div class="stat-lbl">Valor en stock</div><div class="stat-val">$'+r2(lotesActivos.reduce((s,l)=>s+(l.kg_disponibles||0)*(l.precio_kg||0),0)).toLocaleString('es-AR')+'</div></div>':'')
     +'</div>';
   if(!lotesFiltr.length){if(tbl)tbl.innerHTML='<div class="empty">Sin stock disponible.</div>';return;}
   let html='<div style="overflow-x:auto"><table><thead><tr>'
     +'<th>N° Lote</th><th>Material</th><th>Categoría</th><th>Big Bag</th><th>Proveedor</th>'
-    +'<th>Kg ingresados</th><th>Kg disponibles</th><th>Consumido</th><th>Precio/kg</th><th>Fecha</th><th>Estado</th><th>🏷️</th>'
+    +'<th>Kg ingresados</th><th>Kg disponibles</th><th>Consumido</th>'
+    +(esAdmin?'<th>Precio/kg</th>':'')
+    +'<th>Fecha</th><th>Estado</th><th>🏷️</th>'
     +'</tr></thead><tbody>';
   lotesFiltr.forEach(l=>{
     const pct=l.kg_ingresados?Math.round((1-l.kg_disponibles/l.kg_ingresados)*100):0;
@@ -4609,7 +4633,7 @@ function renderMPStock(){
       +'<td class="mono">'+l.kg_ingresados.toLocaleString('es-AR')+' kg</td>'
       +'<td class="mono" style="font-weight:600;color:'+col+'">'+l.kg_disponibles.toLocaleString('es-AR')+' kg</td>'
       +'<td><div style="display:flex;align-items:center;gap:6px"><div class="pbar" style="width:60px"><div class="pfill" style="width:'+pct+'%;background:'+col+'"></div></div><span style="font-size:11px">'+pct+'%</span></div></td>'
-      +'<td class="mono">$'+l.precio_kg+'/kg</td>'
+      +(esAdmin?'<td class="mono">$'+l.precio_kg+'/kg</td>':'')
       +'<td class="mono" style="font-size:11px">'+l.fecha_ingreso+'</td>'
       +'<td><span style="color:'+(l.kg_disponibles>0?'var(--green)':'var(--text3)')+'">'+( l.kg_disponibles>0?'Disponible':'Agotado')+'</span></td>'
       +'<td><button class="btn btn-sm" onclick="imprimirEtiquetaLote('+l.id+')" title="Imprimir etiqueta">🏷️</button></td>'
@@ -4812,125 +4836,422 @@ async function guardarFormula(){
 }
 
 // ===== COSTOS =====
-function renderCostos(){
-  const vista=document.getElementById('costo-vista')?.value||'ordenes';
-  const gg=parseFloat(document.getElementById('costo-gg')?.value)||15;
-  const wrap=document.getElementById('costos-wrap');
-  if(!wrap)return;
-  if(vista==='ordenes') renderCostosOrdenes(wrap,gg);
-  else if(vista==='bobinas') renderCostosBobinas(wrap,gg);
-  else renderCostosBolsas(wrap,gg);
+function onCostoPeriodoChange(){
+  const p=document.getElementById('costo-periodo')?.value;
+  const rw=document.getElementById('costo-rango-wrap');
+  if(rw)rw.style.display=p==='custom'?'flex':'none';
+  if(p!=='custom')renderCostos();
 }
-function calcCostoOrden(ordId,gg){
-  // Suma costos de todas las mezclas de esta orden
-  const mezclas=C.mezclas.filter(m=>m.orden_id===ordId);
-  const costoMP=r2(mezclas.reduce((s,m)=>s+(m.costo_total||0),0));
-  const kgMP=r3(mezclas.reduce((s,m)=>s+(m.kg_totales||0),0));
-  const bobs=C.bobinas_prod.filter(b=>b.orden_id===ordId&&!b.fuera_de_rango);
+function getCostoFiltroFechas(){
+  const p=document.getElementById('costo-periodo')?.value||'mes';
+  const now=new Date();
+  let ini,fin;
+  if(p==='mes'){
+    ini=new Date(now.getFullYear(),now.getMonth(),1);
+    fin=new Date(now.getFullYear(),now.getMonth()+1,0,23,59,59,999);
+  } else if(p==='mes_ant'){
+    ini=new Date(now.getFullYear(),now.getMonth()-1,1);
+    fin=new Date(now.getFullYear(),now.getMonth(),0,23,59,59,999);
+  } else if(p==='semana'){
+    ini=lunesDeHoy();ini.setHours(0,0,0,0);
+    fin=new Date(addDays(ini,6));fin.setHours(23,59,59,999);
+  } else {
+    const desde=document.getElementById('costo-desde')?.value;
+    const hasta=document.getElementById('costo-hasta')?.value;
+    ini=desde?new Date(desde+'T00:00:00'):new Date(now.getFullYear(),now.getMonth(),1);
+    fin=hasta?new Date(hasta+'T23:59:59'):new Date(now.getFullYear(),now.getMonth()+1,0,23,59,59,999);
+  }
+  return{ini,fin,label:ini.toLocaleDateString('es-AR',{month:'long',year:'numeric'})
+    +(p==='custom'?' al '+fin.toLocaleDateString('es-AR'):'')};
+}
+function filtrarBobinasPorFecha(ini,fin){
+  return C.bobinas_prod.filter(b=>{
+    const d=new Date((b.fecha_produccion||'')+'T00:00:00');
+    return d>=ini&&d<=fin&&!b.fuera_de_rango;
+  }).concat(
+    (C.bobinas_hist||[]).filter(b=>{
+      const d=new Date((b.fecha_produccion||'')+'T00:00:00');
+      return d>=ini&&d<=fin&&!b.fuera_de_rango&&!C.bobinas_prod.find(x=>x.id===b.id);
+    })
+  );
+}
+function calcCostoOrdenConFecha(ordId,gg){
+  const bobs=C.bobinas_prod.filter(b=>b.orden_id===ordId&&!b.fuera_de_rango)
+    .concat((C.bobinas_hist||[]).filter(b=>b.orden_id===ordId&&!b.fuera_de_rango&&!C.bobinas_prod.find(x=>x.id===b.id)));
   const kgProd=r3(bobs.reduce((s,b)=>s+(b.kg_reales||0),0));
   const mtsProd=r2(bobs.reduce((s,b)=>s+(b.metros_reales||0),0));
-  const rendimiento=kgMP>0?r2(kgProd/kgMP*100):0;
+  // Calcular costo MP desde consumos
+  // Si no hay consumos registrados, estimar por fórmula y precio promedio de lotes
+  const costoMP=calcCostoMPOrden(ordId,bobs);
   const costoKgMP=kgProd>0?r4(costoMP/kgProd):0;
   const costoKgTotal=r4(costoKgMP*(1+gg/100));
   const costoMetro=mtsProd>0?r4(costoMP*(1+gg/100)/mtsProd):0;
-  return{costoMP,kgMP,kgProd,mtsProd,rendimiento,costoKgMP,costoKgTotal,costoMetro,nMezclas:mezclas.length};
+  return{costoMP:r2(costoMP),kgProd,mtsProd,costoKgMP,costoKgTotal,costoMetro,nBobs:bobs.length};
 }
-function renderCostosOrdenes(wrap,gg){
-  const ordenes=C.ordenes.filter(o=>o.estado==='Completada'||o.estado==='En proceso');
-  if(!ordenes.length){wrap.innerHTML='<div class="empty">Sin órdenes con datos de costo.</div>';return;}
-  let html='<div class="an-section">Costos por orden de extrusión</div>'
-    +'<div style="overflow-x:auto"><table><thead><tr>'
-    +'<th>N° Orden</th><th>Bobina</th><th>Mezclas</th><th>Kg MP</th><th>Kg producidos</th><th>Rendimiento</th>'
-    +'<th>Costo MP</th><th>$/kg MP</th><th>$/kg c/GG ('+gg+'%)</th><th>$/metro</th>'
+function calcCostoMPOrden(ordId,bobs){
+  // Si hay consumos registrados en consumos_mp_bobina usarlos
+  // Si no, estimar: kg_bobina × % fórmula × precio_promedio_lote
+  if(!bobs.length)return 0;
+  const orden=C.ordenes.find(o=>o.id===ordId);
+  if(!orden)return 0;
+  const formula=C.formulas.filter(f=>f.bobina_id===orden.bobina_id);
+  if(!formula.length)return 0;
+  let costoTotal=0;
+  bobs.forEach(b=>{
+    formula.forEach(f=>{
+      const kgComp=r4((b.kg_reales||0)*f.porcentaje/100);
+      // Precio promedio del tipo de MP
+      const lotes=C.lotes_mp.filter(l=>l.tipo_mp_id===f.tipo_mp_id&&l.precio_kg>0);
+      const precioPromedio=lotes.length?r4(lotes.reduce((s,l)=>s+(l.precio_kg||0),0)/lotes.length):0;
+      costoTotal+=kgComp*precioPromedio;
+    });
+  });
+  return costoTotal;
+}
+function renderCostos(){
+  const vista=document.getElementById('costo-vista')?.value||'resumen';
+  const gg=parseFloat(document.getElementById('costo-gg')?.value)||cfg.gastos_generales_pct||15;
+  const wrap=document.getElementById('costos-wrap');
+  if(!wrap)return;
+  const{ini,fin,label}=getCostoFiltroFechas();
+  const compPer=document.getElementById('costo-comp-periodo')?.value||'';
+  const comp=compPer?getCostoComparacion(ini,fin,compPer):null;
+  // Update subtitle
+  const sub=document.getElementById('costo-sub-lbl');
+  if(sub)sub.textContent=label+(comp?' vs '+comp.label:'');
+  if(vista==='resumen') renderCostosResumen(wrap,gg,ini,fin,label,comp);
+  else if(vista==='bobinas') renderCostosBobinas(wrap,gg,ini,fin,label,comp);
+  else if(vista==='bolsas') renderCostosBolsas(wrap,gg,ini,fin,label,comp);
+  else renderCostosOrdenes(wrap,gg,ini,fin,label);
+}
+function getCostoComparacion(ini,fin,tipo){
+  const dur=fin-ini;
+  let cIni,cFin,label;
+  const now=new Date();
+  if(tipo==='mes_ant'){
+    cIni=new Date(ini);cIni.setMonth(cIni.getMonth()-1);
+    cFin=new Date(fin);cFin.setMonth(cFin.getMonth()-1);
+    label=cIni.toLocaleDateString('es-AR',{month:'long',year:'numeric'});
+  } else if(tipo==='semana_ant'){
+    cIni=new Date(ini-7*86400000);
+    cFin=new Date(fin-7*86400000);
+    label='semana anterior';
+  } else if(tipo==='anio_ant'){
+    cIni=new Date(ini);cIni.setFullYear(cIni.getFullYear()-1);
+    cFin=new Date(fin);cFin.setFullYear(cFin.getFullYear()-1);
+    label=cIni.toLocaleDateString('es-AR',{month:'long',year:'numeric'});
+  } else return null;
+  return{ini:cIni,fin:cFin,label};
+}
+// Helper: delta badge — muestra variación vs comparación
+function deltaBadge(actual,anterior,invertir=false){
+  if(!anterior||anterior===0)return '';
+  const pct=r2((actual-anterior)/anterior*100);
+  const sube=pct>0;
+  // invertir=true para costos (subida es mala)
+  const esBueno=invertir?!sube:sube;
+  const col=esBueno?'var(--green)':'var(--red)';
+  const icon=sube?'▲':'▼';
+  return '<span style="font-size:11px;color:'+col+';margin-left:4px">'+icon+(sube?'+':'')+pct+'%</span>';
+}
+function calcResumenPeriodo(ini,fin,gg){
+  const bobs=filtrarBobinasPorFecha(ini,fin);
+  const kgTotal=r3(bobs.reduce((s,b)=>s+(b.kg_reales||0),0));
+  const mtsTotal=r2(bobs.reduce((s,b)=>s+(b.metros_reales||0),0));
+  let costoMPTotal=0;
+  const ordenesConBobs=[...new Set(bobs.map(b=>b.orden_id).filter(Boolean))];
+  ordenesConBobs.forEach(ordId=>{
+    const bobsOrd=bobs.filter(b=>b.orden_id===ordId);
+    costoMPTotal+=calcCostoMPOrden(ordId,bobsOrd);
+  });
+  const costoKgMP=kgTotal>0?r4(costoMPTotal/kgTotal):0;
+  const costoKgTotal=r4(costoKgMP*(1+gg/100));
+  const costoMetro=mtsTotal>0?r4(costoMPTotal*(1+gg/100)/mtsTotal):0;
+  const ordsCorte=C.ord_corte.filter(o=>{
+    const d=new Date(o.created_at);return d>=ini&&d<=fin&&o.estado==='Completada'&&o.unidades_reales;
+  });
+  const totalBolsas=ordsCorte.reduce((s,o)=>s+(o.unidades_reales||0),0);
+  let costoTotalBolsas=0;
+  ordsCorte.forEach(o=>{
+    const mtsUsados=o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0;
+    costoTotalBolsas+=mtsUsados*costoMetro;
+  });
+  const costoPorBolsa=totalBolsas>0?r6(costoTotalBolsas/totalBolsas):0;
+  const costoPorBolsaTotal=r6(costoPorBolsa*(1+gg/100));
+  return{kgTotal,mtsTotal,costoMPTotal:r2(costoMPTotal),costoKgMP,costoKgTotal,costoMetro,totalBolsas,costoPorBolsa,costoPorBolsaTotal,bobs,porBobina:calcPorBobinaDetalle(bobs,gg)};
+}
+function calcPorBobinaDetalle(bobs,gg){
+  const porBobina={};
+  bobs.forEach(b=>{
+    const bid=b.bobina_tipo_id||b.bobinas?.id;
+    if(!bid)return;
+    if(!porBobina[bid])porBobina[bid]={nombre:b.bobinas?.nombre||'—',desc:b.bobinas?.descripcion||'',kg:0,mts:0,costo:0,bobs:0,errPctSum:0};
+    const orden=C.ordenes.find(o=>o.id===b.orden_id);
+    if(!orden)return;
+    const formula=C.formulas.filter(f=>f.bobina_id===orden.bobina_id);
+    let costoB=0;
+    formula.forEach(f=>{
+      const kgComp=r4((b.kg_reales||0)*f.porcentaje/100);
+      const lotes=C.lotes_mp.filter(l=>l.tipo_mp_id===f.tipo_mp_id&&l.precio_kg>0);
+      const precio=lotes.length?r4(lotes.reduce((s,l)=>s+(l.precio_kg||0),0)/lotes.length):0;
+      costoB+=kgComp*precio;
+    });
+    porBobina[bid].kg+=b.kg_reales||0;
+    porBobina[bid].mts+=b.metros_reales||0;
+    porBobina[bid].costo+=costoB;
+    porBobina[bid].bobs++;
+    porBobina[bid].errPctSum+=b.error_pct||0;
+  });
+  return porBobina;
+}
+function renderCostosResumen(wrap,gg,ini,fin,label,comp){
+  const A=calcResumenPeriodo(ini,fin,gg);
+  const B=comp?calcResumenPeriodo(comp.ini,comp.fin,gg):null;
+  let html='<div class="an-section">Resumen — '+label+(B?' <span style="font-size:12px;color:var(--text2)">vs '+comp.label+'</span>':'')+'</div>';
+  // KPIs con comparación
+  const kpis=[
+    {lbl:'Kg producidos',val:A.kgTotal.toLocaleString('es-AR')+' kg',ant:B?.kgTotal,cls:'kpi-ext',invertir:false},
+    {lbl:'$/kg (MP puro)',val:'$'+A.costoKgMP,ant:B?.costoKgMP,cls:'kpi-ext',invertir:true},
+    {lbl:'$/kg (c/'+gg+'% GG)',val:'$'+A.costoKgTotal,ant:B?.costoKgTotal,cls:'kpi-error',invertir:true},
+    {lbl:'$/metro (c/GG)',val:'$'+A.costoMetro,ant:B?.costoMetro,cls:'kpi-ext',invertir:true},
+    {lbl:'Bolsas cortadas',val:A.totalBolsas.toLocaleString('es-AR'),ant:B?.totalBolsas,cls:'kpi-corte',invertir:false},
+    {lbl:'$/bolsa (MP puro)',val:'$'+A.costoPorBolsa,ant:B?.costoPorBolsa,cls:'kpi-corte',invertir:true},
+    {lbl:'$/bolsa (c/GG)',val:'$'+A.costoPorBolsaTotal,ant:B?.costoPorBolsaTotal,cls:'kpi-error',invertir:true},
+    {lbl:'Costo MP total',val:'$'+A.costoMPTotal.toLocaleString('es-AR'),ant:B?.costoMPTotal,cls:'kpi-error',invertir:true},
+  ];
+  html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:1.5rem;">';
+  kpis.forEach(k=>{
+    const antStr=B&&k.ant!==undefined?'<div style="font-size:11px;color:var(--text3);margin-top:2px">'+(typeof k.ant==='number'&&k.ant>999?'$'+k.ant.toLocaleString('es-AR'):'$'+k.ant)+' '+( comp?.label||'')+deltaBadge(parseFloat(k.val.replace(/[$,]/g,'')),k.ant,k.invertir)+'</div>':'';
+    html+='<div class="kpi-card '+k.cls+'">'
+      +'<div class="kpi-lbl">'+k.lbl+'</div>'
+      +'<div class="kpi-val" style="font-size:20px">'+k.val+'</div>'
+      +antStr
+      +'</div>';
+  });
+  html+='</div>';
+  // Tabla por tipo de bobina con comparación
+  html+='<div class="an-section">Por tipo de bobina'+(B?' — comparación':'')+'</div>';
+  const porBobinaA=A.porBobina;
+  const porBobinaB=B?.porBobina||{};
+  const allBids=[...new Set([...Object.keys(porBobinaA),...Object.keys(porBobinaB)])];
+  if(allBids.length){
+    html+='<div style="overflow-x:auto"><table><thead><tr>'
+      +'<th>Tipo bobina</th><th>Bobinas</th><th>Kg prod.</th><th>$/kg MP</th><th>$/kg c/GG</th><th>$/metro c/GG</th>';
+    if(B)html+='<th style="color:var(--text2)">$/kg c/GG <small>'+comp.label+'</small></th><th>Δ $/kg</th>';
+    html+='</tr></thead><tbody>';
+    allBids.forEach(bid=>{
+      const a=porBobinaA[bid];
+      const b=porBobinaB[bid];
+      if(!a)return;
+      const kg=r3(a.kg),mts=r2(a.mts),costo=r2(a.costo);
+      const cKg=kg>0?r4(costo/kg):0;
+      const cKgGG=r4(cKg*(1+gg/100));
+      const cMts=mts>0?r4(costo*(1+gg/100)/mts):0;
+      let compCols='';
+      if(B){
+        const bKgGG=b?r4((b.kg>0?r4(b.costo/b.kg):0)*(1+gg/100)):null;
+        compCols='<td class="mono" style="color:var(--text2)">'+(bKgGG!==null?'$'+bKgGG:'—')+'</td>'
+          +'<td>'+( bKgGG!==null?deltaBadge(cKgGG,bKgGG,true):'—')+'</td>';
+      }
+      html+='<tr>'
+        +'<td style="font-weight:500">'+a.nombre+'</td>'
+        +'<td class="mono">'+a.bobs+'</td>'
+        +'<td class="mono">'+kg.toLocaleString('es-AR')+' kg</td>'
+        +'<td class="mono">$'+cKg+'</td>'
+        +'<td class="mono" style="font-weight:600">$'+cKgGG+'</td>'
+        +'<td class="mono">$'+cMts+'</td>'
+        +compCols
+        +'</tr>';
+    });
+    html+='</tbody></table></div>';
+  } else {
+    html+='<div class="empty">Sin datos de costo. Cargá fórmulas y lotes de MP.</div>';
+  }
+  wrap.innerHTML=html;
+}
+function renderCostosBobinas(wrap,gg,ini,fin,label,comp){
+  const porBobinaA=calcPorBobinaDetalle(filtrarBobinasPorFecha(ini,fin),gg);
+  const porBobinaB=comp?calcPorBobinaDetalle(filtrarBobinasPorFecha(comp.ini,comp.fin),gg):{};
+  const allBids=Object.keys(porBobinaA);
+  if(!allBids.length){wrap.innerHTML='<div class="empty">Sin bobinas producidas en el período.</div>';return;}
+  let html='<div class="an-section">Costo por tipo de bobina — '+label+(comp?' vs '+comp.label:'')+'</div>';
+  html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:1.5rem;">';
+  allBids.forEach(bid=>{
+    const a=porBobinaA[bid];
+    const b=porBobinaB[bid];
+    const kg=r3(a.kg),mts=r2(a.mts),costo=r2(a.costo);
+    const cKg=kg>0?r4(costo/kg):0;
+    const cKgGG=r4(cKg*(1+gg/100));
+    const cMts=mts>0?r4(costo*(1+gg/100)/mts):0;
+    const errProm=a.bobs>0?r2(a.errPctSum/a.bobs):0;
+    // Comparación
+    const bKg=b?r3(b.kg):null;
+    const bCKgGG=b&&bKg>0?r4((r4(b.costo/bKg))*(1+gg/100)):null;
+    const bCMts=b&&r2(b.mts)>0?r4(b.costo*(1+gg/100)/r2(b.mts)):null;
+    html+='<div class="kpi-card kpi-ext">'
+      +'<div class="kpi-lbl">'+a.nombre+'</div>'
+      +(a.desc?'<div style="font-size:11px;color:var(--text2);margin-bottom:6px">'+a.desc+'</div>':'')
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">'
+        +'<div><div class="stat-lbl">$/kg (c/GG)</div>'
+          +'<div style="font-size:18px;font-weight:700;font-family:\'DM Mono\',monospace">$'+cKgGG+'</div>'
+          +(bCKgGG!==null?'<div style="font-size:11px;color:var(--text3)">$'+bCKgGG+deltaBadge(cKgGG,bCKgGG,true)+'</div>':'')
+        +'</div>'
+        +'<div><div class="stat-lbl">$/metro (c/GG)</div>'
+          +'<div style="font-size:18px;font-weight:700;font-family:\'DM Mono\',monospace">$'+cMts+'</div>'
+          +(bCMts!==null?'<div style="font-size:11px;color:var(--text3)">$'+bCMts+deltaBadge(cMts,bCMts,true)+'</div>':'')
+        +'</div>'
+        +'<div><div class="stat-lbl">$/kg MP puro</div><div class="mono" style="font-size:14px">$'+cKg+'</div></div>'
+        +'<div><div class="stat-lbl">Error prom.</div><div class="mono" style="font-size:14px;color:'+(Math.abs(errProm)>5?'var(--red)':'var(--green)')+'">'+( errProm>0?'+':'')+errProm+'%</div></div>'
+      +'</div>'
+      +'<div style="font-size:11px;color:var(--text3)">'+a.bobs+' bobinas · '+kg.toLocaleString('es-AR')+' kg · '+mts.toLocaleString('es-AR')+' m</div>'
+      +(b?'<div style="font-size:10px;color:var(--text3)">'+comp.label+': '+bKg?.toLocaleString('es-AR')+' kg · '+b.bobs+' bobinas</div>':'')
+      +'</div>';
+  });
+  html+='</div>';
+  wrap.innerHTML=html;
+}
+function calcBolsasPeriodo(ini,fin,gg){
+  const bobs=filtrarBobinasPorFecha(ini,fin);
+  let costoMPTotal=0,mtsTotal=0;
+  const ordenesConBobs=[...new Set(bobs.map(b=>b.orden_id).filter(Boolean))];
+  ordenesConBobs.forEach(ordId=>{
+    const bobsOrd=bobs.filter(b=>b.orden_id===ordId);
+    costoMPTotal+=calcCostoMPOrden(ordId,bobsOrd);
+    mtsTotal+=bobsOrd.reduce((s,b)=>s+(b.metros_reales||0),0);
+  });
+  const costoMetroProm=mtsTotal>0?r4(costoMPTotal*(1+gg/100)/mtsTotal):0;
+  const ordsCorte=C.ord_corte.filter(o=>{
+    const d=new Date(o.created_at);return d>=ini&&d<=fin&&o.estado==='Completada'&&o.unidades_reales&&o.orden_corte_bobinas?.length;
+  });
+  const porProducto={};
+  ordsCorte.forEach(o=>{
+    const pid=o.producto_id;if(!pid)return;
+    if(!porProducto[pid])porProducto[pid]={nombre:o.productos?.descripcion||'—',unidades:0,mtsUsados:0,costoMP:0,scrap:0,ordenes:0};
+    const mts=r2(o.orden_corte_bobinas.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0));
+    porProducto[pid].unidades+=o.unidades_reales||0;
+    porProducto[pid].mtsUsados+=mts;
+    porProducto[pid].costoMP+=mts*costoMetroProm/(1+gg/100);
+    porProducto[pid].scrap+=o.peso_scrap_kg||0;
+    porProducto[pid].ordenes++;
+  });
+  return{costoMetroProm,porProducto,ordsCorte};
+}
+function renderCostosBolsas(wrap,gg,ini,fin,label,comp){
+  const A=calcBolsasPeriodo(ini,fin,gg);
+  const B=comp?calcBolsasPeriodo(comp.ini,comp.fin,gg):null;
+  if(!Object.keys(A.porProducto).length){wrap.innerHTML='<div class="empty">Sin órdenes de corte completadas en el período.</div>';return;}
+  let html='<div class="an-section">Costo por bolsa — '+label+(comp?' vs '+comp.label:'')+'</div>';
+  html+='<div style="font-size:12px;color:var(--text2);margin-bottom:1rem;">'
+    +'$/metro extrusión: <strong>$'+A.costoMetroProm+'</strong>'
+    +(B?'&nbsp;&nbsp;|&nbsp;&nbsp;'+comp.label+': <strong>$'+B.costoMetroProm+'</strong>'+deltaBadge(A.costoMetroProm,B.costoMetroProm,true):'')
+    +'&nbsp;&nbsp;(con '+gg+'% GG)</div>';
+  html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:1.5rem;">';
+  Object.entries(A.porProducto).forEach(([pid,x])=>{
+    const bx=B?.porProducto[pid];
+    const mtsXBolsaReal=x.unidades>0?r4(x.mtsUsados/x.unidades):0;
+    const costoPorBolsaMP=r6(x.costoMP/(x.unidades||1));
+    const costoPorBolsaTotal=r6(costoPorBolsaMP*(1+gg/100));
+    const precio1000=r2(costoPorBolsaTotal*1000);
+    // Comparación
+    const bCostoPorBolsaTotal=bx?r6((bx.costoMP/(bx.unidades||1))*(1+gg/100)):null;
+    const bPrecio1000=bCostoPorBolsaTotal?r2(bCostoPorBolsaTotal*1000):null;
+    const bMtsXBolsa=bx&&bx.unidades>0?r4(bx.mtsUsados/bx.unidades):null;
+    html+='<div class="kpi-card kpi-corte">'
+      +'<div class="kpi-lbl">'+x.nombre+'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">'
+        +'<div><div class="stat-lbl">$/bolsa (c/GG)</div>'
+          +'<div style="font-size:20px;font-weight:700;font-family:\'DM Mono\',monospace">$'+costoPorBolsaTotal+'</div>'
+          +(bCostoPorBolsaTotal!==null?'<div style="font-size:11px;color:var(--text3)">$'+bCostoPorBolsaTotal+deltaBadge(costoPorBolsaTotal,bCostoPorBolsaTotal,true)+'</div>':'')
+        +'</div>'
+        +'<div><div class="stat-lbl">$/1000 bolsas</div>'
+          +'<div style="font-size:16px;font-weight:700;font-family:\'DM Mono\',monospace">$'+precio1000+'</div>'
+          +(bPrecio1000!==null?'<div style="font-size:11px;color:var(--text3)">$'+bPrecio1000+deltaBadge(precio1000,bPrecio1000,true)+'</div>':'')
+        +'</div>'
+        +'<div><div class="stat-lbl">m/bolsa real</div>'
+          +'<div class="mono" style="font-size:14px">'+mtsXBolsaReal+' m</div>'
+          +(bMtsXBolsa!==null?'<div style="font-size:11px;color:var(--text3)">'+bMtsXBolsa+' m'+deltaBadge(mtsXBolsaReal,bMtsXBolsa,true)+'</div>':'')
+        +'</div>'
+        +'<div><div class="stat-lbl">Bolsas cortadas</div>'
+          +'<div class="mono" style="font-size:14px">'+x.unidades.toLocaleString('es-AR')+'</div>'
+          +(bx?'<div style="font-size:11px;color:var(--text3)">'+bx.unidades.toLocaleString('es-AR')+deltaBadge(x.unidades,bx.unidades,false)+'</div>':'')
+        +'</div>'
+      +'</div>'
+      +'<div style="font-size:11px;color:var(--text3)">'+r2(x.mtsUsados).toLocaleString('es-AR')+' m usados · '+x.ordenes+' órdenes · scrap: '+r1(x.scrap)+' kg</div>'
+      +'</div>';
+  });
+  html+='</div>';
+  // Tabla detalle por orden
+  html+='<div class="an-section">Detalle por orden de corte</div>';
+  html+='<div style="overflow-x:auto"><table><thead><tr>'
+    +'<th>N° Orden</th><th>Producto</th><th>Unidades</th><th>Metros usados</th><th>m/bolsa real</th><th>m/bolsa teo.</th><th>$/bolsa MP</th><th>$/bolsa c/GG</th><th>Scrap</th>'
     +'</tr></thead><tbody>';
+  A.ordsCorte.forEach(o=>{
+    const mts=r2(o.orden_corte_bobinas.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0));
+    const mtsXB=o.unidades_reales>0?r4(mts/o.unidades_reales):0;
+    const costoMPOrden=mts*A.costoMetroProm/(1+gg/100);
+    const cBolsaMP=o.unidades_reales>0?r6(costoMPOrden/o.unidades_reales):0;
+    const cBolsaTotal=r6(cBolsaMP*(1+gg/100));
+    const mtsTeoBolsa=o.productos?.metros_por_bolsa||0;
+    const colRend=mtsTeoBolsa>0&&mtsXB>mtsTeoBolsa*1.05?'var(--red)':'var(--green)';
+    html+='<tr>'
+      +'<td class="mono">'+o.numero_orden+'</td>'
+      +'<td style="font-size:12px">'+(o.productos?.descripcion||'—')+'</td>'
+      +'<td class="mono">'+o.unidades_reales.toLocaleString('es-AR')+'</td>'
+      +'<td class="mono">'+mts.toLocaleString('es-AR')+' m</td>'
+      +'<td class="mono" style="color:'+colRend+'">'+mtsXB+' m</td>'
+      +'<td class="mono">'+(mtsTeoBolsa||'—')+' m</td>'
+      +'<td class="mono">$'+cBolsaMP+'</td>'
+      +'<td class="mono" style="font-weight:600">$'+cBolsaTotal+'</td>'
+      +'<td class="mono">'+(o.peso_scrap_kg||'—')+' kg</td>'
+      +'</tr>';
+  });
+  html+='</tbody></table></div>';
+  wrap.innerHTML=html;
+}
+function renderCostosOrdenes(wrap,gg,ini,fin,label){
+  const ordenes=C.ordenes.filter(o=>{
+    if(o.estado!=='Completada'&&o.estado!=='En proceso')return false;
+    const bobs=C.bobinas_prod.filter(b=>b.orden_id===o.id);
+    if(!bobs.length)return false;
+    const ultimaBob=bobs.reduce((max,b)=>new Date(b.fecha_produccion+'T00:00:00')>new Date(max.fecha_produccion+'T00:00:00')?b:max,bobs[0]);
+    const d=new Date(ultimaBob.fecha_produccion+'T00:00:00');
+    return d>=ini&&d<=fin;
+  });
+  if(!ordenes.length){wrap.innerHTML='<div class="empty">Sin órdenes con producción en el período.</div>';return;}
+  let html='<div class="an-section">Costo por orden de extrusión — '+label+'</div>';
+  html+='<div style="overflow-x:auto"><table><thead><tr>'
+    +'<th>N° Orden</th><th>Bobina</th><th>Bobinas</th><th>Kg prod.</th><th>Metros</th>'
+    +'<th>Costo MP</th><th>$/kg MP</th><th>$/kg c/GG ('+gg+'%)</th><th>$/metro c/GG</th>'
+    +'</tr></thead><tbody>';
+  let totKg=0,totMts=0,totCosto=0;
   ordenes.forEach(o=>{
-    const c=calcCostoOrden(o.id,gg);
-    if(!c.nMezclas)return;
+    const c=calcCostoOrdenConFecha(o.id,gg);
+    totKg+=c.kgProd;totMts+=c.mtsProd;totCosto+=c.costoMP;
     html+='<tr>'
       +'<td class="mono">'+o.numero_orden+'</td>'
       +'<td style="font-size:12px">'+(o.bobinas?.nombre||'—')+'</td>'
-      +'<td class="mono">'+c.nMezclas+'</td>'
-      +'<td class="mono">'+c.kgMP.toLocaleString('es-AR')+' kg</td>'
+      +'<td class="mono">'+c.nBobs+'</td>'
       +'<td class="mono">'+c.kgProd.toLocaleString('es-AR')+' kg</td>'
-      +'<td class="mono" style="color:'+(c.rendimiento>=95?'var(--green)':c.rendimiento>=90?'var(--amber)':'var(--red)')+'">'+c.rendimiento+'%</td>'
+      +'<td class="mono">'+c.mtsProd.toLocaleString('es-AR')+' m</td>'
       +'<td class="mono">$'+c.costoMP.toLocaleString('es-AR')+'</td>'
       +'<td class="mono">$'+c.costoKgMP+'</td>'
       +'<td class="mono" style="font-weight:600">$'+c.costoKgTotal+'</td>'
       +'<td class="mono">$'+c.costoMetro+'</td>'
       +'</tr>';
   });
-  html+='</tbody></table></div>';
-  wrap.innerHTML=html;
-}
-function renderCostosBobinas(wrap,gg){
-  // Agrupar costos por tipo de bobina
-  const porBobina={};
-  C.ordenes.filter(o=>o.bobina_id).forEach(o=>{
-    const c=calcCostoOrden(o.id,gg);
-    if(!c.nMezclas)return;
-    const bId=o.bobina_id;
-    if(!porBobina[bId])porBobina[bId]={bobina:o.bobinas,costoMP:0,kgProd:0,mtsProd:0,nOrdenes:0};
-    porBobina[bId].costoMP+=c.costoMP;
-    porBobina[bId].kgProd+=c.kgProd;
-    porBobina[bId].mtsProd+=c.mtsProd;
-    porBobina[bId].nOrdenes++;
-  });
-  if(!Object.keys(porBobina).length){wrap.innerHTML='<div class="empty">Sin datos suficientes para calcular costos por tipo de bobina.</div>';return;}
-  let html='<div class="an-section">Costo promedio por tipo de bobina</div>'
-    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;">';
-  Object.values(porBobina).forEach(({bobina,costoMP,kgProd,mtsProd,nOrdenes})=>{
-    const costoKg=kgProd>0?r4(costoMP*(1+gg/100)/kgProd):0;
-    const costoMetro=mtsProd>0?r4(costoMP*(1+gg/100)/mtsProd):0;
-    html+='<div class="kpi-card kpi-ext">'
-      +'<div class="kpi-lbl">'+(bobina?.nombre||'—')+'</div>'
-      +'<div style="font-size:11px;color:var(--text2);margin-bottom:8px;">'+(bobina?.descripcion||'')+'</div>'
-      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">'
-        +'<div><div class="stat-lbl">$/kg producido</div><div class="kpi-val" style="font-size:18px">$'+costoKg+'</div></div>'
-        +'<div><div class="stat-lbl">$/metro</div><div class="kpi-val" style="font-size:18px">$'+costoMetro+'</div></div>'
-      +'</div>'
-      +'<div style="font-size:11px;color:var(--text3);margin-top:8px;">'+nOrdenes+' órdenes · '+Math.round(kgProd).toLocaleString('es-AR')+' kg producidos</div>'
-      +'<div style="font-size:10px;color:var(--text3)">Con '+gg+'% gastos generales</div>'
-      +'</div>';
-  });
-  html+='</div>';
-  wrap.innerHTML=html;
-}
-function renderCostosBolsas(wrap,gg){
-  const ordCompletadas=C.ord_corte.filter(o=>o.estado==='Completada'&&o.unidades_reales&&o.orden_corte_bobinas?.length);
-  if(!ordCompletadas.length){wrap.innerHTML='<div class="empty">Sin órdenes de corte completadas con datos.</div>';return;}
-  let html='<div class="an-section">Costo por bolsa (órdenes de corte completadas)</div>'
-    +'<div style="overflow-x:auto"><table><thead><tr>'
-    +'<th>N° Orden</th><th>Producto</th><th>Unidades</th><th>Metros usados</th><th>Rend. real (m/bolsa)</th><th>Rend. teórico</th><th>Costo MP/bolsa</th><th>Costo c/GG</th><th>Scrap</th>'
-    +'</tr></thead><tbody>';
-  ordCompletadas.forEach(o=>{
-    const mtsUsados=r2(o.orden_corte_bobinas.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0));
-    const rendReal=o.unidades_reales>0?r4(mtsUsados/o.unidades_reales):0;
-    const rendTeo=o.productos?.metros_por_bolsa||0;
-    const diffRend=rendTeo>0?r2((rendReal-rendTeo)/rendTeo*100):0;
-    // Calcular costo MP de las bobinas usadas: buscar costo de las mezclas de esas bobinas
-    let costoMPBobinas=0;
-    o.orden_corte_bobinas.forEach(ocb=>{
-      const bobProd=C.bobinas_prod.find(b=>b.id===ocb.bobina_producida_id)||C.bobinas_hist?.find(b=>b.id===ocb.bobina_producida_id);
-      if(bobProd?.orden_id){
-        const c=calcCostoOrden(bobProd.orden_id,0); // sin GG para costo MP puro
-        if(c.mtsProd>0)costoMPBobinas+=c.costoMP/c.mtsProd*(ocb.metros_usados||bobProd?.metros_reales||0);
-      }
-    });
-    const costoPorBolsaMP=o.unidades_reales>0?r6(costoMPBobinas/o.unidades_reales):0;
-    const costoPorBolsaTotal=r6(costoPorBolsaMP*(1+gg/100));
-    const colRend=diffRend>5?'var(--red)':diffRend>2?'var(--amber)':'var(--green)';
-    html+='<tr>'
-      +'<td class="mono">'+o.numero_orden+'</td>'
-      +'<td style="font-size:12px">'+(o.productos?.descripcion||'—')+'</td>'
-      +'<td class="mono">'+o.unidades_reales.toLocaleString('es-AR')+'</td>'
-      +'<td class="mono">'+mtsUsados+' m</td>'
-      +'<td class="mono" style="color:'+colRend+'">'+rendReal+' m/bolsa <span style="font-size:10px">'+(diffRend>0?'+':'')+diffRend+'%</span></td>'
-      +'<td class="mono">'+rendTeo+' m/bolsa</td>'
-      +'<td class="mono">$'+costoPorBolsaMP+'</td>'
-      +'<td class="mono" style="font-weight:600">$'+costoPorBolsaTotal+'</td>'
-      +'<td class="mono">'+(o.peso_scrap_kg||'—')+' kg</td>'
-      +'</tr>';
-  });
+  const totKgR=r3(totKg),totMtsR=r2(totMts),totCostoR=r2(totCosto);
+  const avgKg=totKgR>0?r4(totCostoR/totKgR):0;
+  const avgKgGG=r4(avgKg*(1+gg/100));
+  const avgMts=totMtsR>0?r4(totCostoR*(1+gg/100)/totMtsR):0;
+  html+='<tr style="background:var(--bg3);font-weight:600;">'
+    +'<td colspan="3">TOTAL PERÍODO</td>'
+    +'<td class="mono">'+totKgR.toLocaleString('es-AR')+' kg</td>'
+    +'<td class="mono">'+totMtsR.toLocaleString('es-AR')+' m</td>'
+    +'<td class="mono">$'+totCostoR.toLocaleString('es-AR')+'</td>'
+    +'<td class="mono">$'+avgKg+'</td>'
+    +'<td class="mono">$'+avgKgGG+'</td>'
+    +'<td class="mono">$'+avgMts+'</td>'
+    +'</tr>';
   html+='</tbody></table></div>';
   wrap.innerHTML=html;
 }
