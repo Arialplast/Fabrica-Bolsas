@@ -4528,7 +4528,7 @@ async function guardarLoteMP(){
   const msg=document.getElementById('msg-li');
   if(!tipoId||!kg||!precio||!fecha){msg.style.color='var(--red)';msg.textContent='Completá tipo, kg, precio y fecha.';return;}
   // Generar número de lote automático
-  const{data:cnt}=await sb.from('contadores').select('valor').eq('nombre','numero_lote').single().catch(()=>({data:null}));
+  const{data:cnt}=await sb.from('contadores').select('valor').eq('nombre','numero_lote').maybeSingle().then(r=>r).catch(()=>({data:null}));
   const next=(cnt?.valor||0)+1;
   const nroLote='LOTE-'+new Date().getFullYear()+'-'+String(next).padStart(3,'0');
   const{error}=await sb.from('lotes_mp').insert({
@@ -4718,7 +4718,7 @@ async function guardarMezcla(){
   const formula=C.formulas.filter(f=>f.bobina_id===orden.bobina_id);
   if(!formula.length){msg.style.color='var(--red)';msg.textContent='Sin fórmula definida para esta bobina.';return;}
   // Generar número de mezcla
-  const{data:cnt}=await sb.from('contadores').select('valor').eq('nombre','numero_mezcla').single().catch(()=>({data:{valor:0}}));
+  const{data:cnt}=await sb.from('contadores').select('valor').eq('nombre','numero_mezcla').maybeSingle().then(r=>r).catch(()=>({data:{valor:0}}));
   const next=(cnt?.valor||0)+1;
   const nroMezcla='MZC-'+String(next).padStart(5,'0');
   msg.innerHTML='<div class="loading" style="padding:0 0;justify-content:flex-start;display:inline-flex;gap:6px"><div class="spinner" style="width:14px;height:14px"></div>Guardando...</div>';
