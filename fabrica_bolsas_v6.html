@@ -1793,7 +1793,7 @@ async function poblarCargaSelects(){
   const cb=document.getElementById('cb-orden');
   if(cb){
     const enProceso=C.ordenes.filter(o=>o.estado==='En proceso');
-    cb.innerHTML='<option value="">— solo órdenes En proceso —</option>'+enProceso.map(o=>`<option value="${o.id}">${o.numero_orden} · ${o.cliente||''} · ${o.bobinas?.nombre||''}</option>`).join('');
+    cb.innerHTML='<option value="">— solo órdenes En proceso —</option>'+enProceso.map(o=>`<option value="${o.id}">${o.numero_orden} · ${o.cliente||''} · ${o.bobinas?.nombre||''}${o.bobinas?.descripcion?' ('+o.bobinas.descripcion+')':''}</option>`).join('');
   }
   const opSel=document.getElementById('cb-op-sel');
   if(opSel){
@@ -2872,15 +2872,10 @@ function calcKgProducidosPorOrdenExtrusora(ordenId){
 }
 
 function calcScheduleReal(){
-  // Calcula el schedule REAL basado en:
-  // - Para órdenes completadas: hora de fin real = fecha+hora de la última bobina producida
-  // - Para órdenes En proceso: cursor = ahora, kg restantes
-  // - Para órdenes Pendientes: cursor = fin real de la predecesora en cada extrusora
   const ahora=new Date();
 
-  // Paso 1: calcular fin real de cada orden completada/en proceso por extrusora
-  // usando la última bobina producida
-  const finRealXOrdenExt={}; // {ordenId_extId: Date}
+  // Paso 1: fin real de cada orden por extrusora (última bobina producida)
+  const finRealXOrdenExt={};
   C.bobinas_prod.forEach(b=>{
     if(!b.orden_id||!b.extrusora_id||!b.fecha_produccion||!b.hora_produccion)return;
     const key=`${b.orden_id}_${b.extrusora_id}`;
@@ -2888,14 +2883,17 @@ function calcScheduleReal(){
     if(!finRealXOrdenExt[key]||dt>finRealXOrdenExt[key])finRealXOrdenExt[key]=dt;
   });
 
-  // Paso 2: cursor por extrusora = fin real de la última orden completada en esa extrusora
+  // Paso 2: cursor por extrusora = fin real de la última orden con bobinas en esa extrusora
+  // (completadas O en proceso)
   const cursor={};
   C.extrusoras.forEach(e=>{cursor[e.id]=null;});
 
-  // Primero procesar órdenes completadas para fijar cursores
-  const completadas=C.ordenes.filter(o=>o.estado==='Completada')
-    .sort((a,b)=>(a.prioridad||99)-(b.prioridad||99)||new Date(a.created_at)-new Date(b.created_at));
-  completadas.forEach(o=>{
+  // Fijar cursores desde TODAS las órdenes que tienen bobinas producidas (no solo completadas)
+  const ordenesConBobinas=C.ordenes
+    .filter(o=>o.estado==='Completada'||o.estado==='En proceso')
+    .sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+
+  ordenesConBobinas.forEach(o=>{
     o.orden_extrusoras?.forEach(oe=>{
       const key=`${o.id}_${oe.extrusora_id}`;
       const finReal=finRealXOrdenExt[key];
@@ -2905,7 +2903,16 @@ function calcScheduleReal(){
     });
   });
 
-  // Paso 3: programar órdenes activas usando cursores reales
+  // Paso 3: para órdenes En proceso sin bobinas aún → cursor = ahora
+  C.ordenes.filter(o=>o.estado==='En proceso').forEach(o=>{
+    o.orden_extrusoras?.forEach(oe=>{
+      if(!cursor[oe.extrusora_id]){
+        cursor[oe.extrusora_id]=new Date(ahora);
+      }
+    });
+  });
+
+  // Paso 4: programar órdenes activas usando cursores reales
   const activas=C.ordenes
     .filter(o=>o.estado!=='Completada'&&o.estado!=='Suspendida')
     .sort((a,b)=>(a.prioridad||99)-(b.prioridad||99)||new Date(a.created_at)-new Date(b.created_at));
@@ -2915,38 +2922,37 @@ function calcScheduleReal(){
     if(!o.orden_extrusoras||!o.bobinas)return;
     const kgProducidos=C.bobinas_prod
       .filter(b=>b.orden_id===o.id)
-      .reduce((s,b)=>s+(b.metros_reales||0)*(b.bobinas?.kg_por_metro||b.bobina_tipo?.kg_por_metro||o.bobinas.kg_por_metro||0),0);
+      .reduce((s,b)=>s+(b.metros_reales||0)*(b.bobinas?.kg_por_metro||o.bobinas.kg_por_metro||0),0);
     const kgRestantes=Math.max(0,(o.kg_totales||0)-kgProducidos);
     const capT=o.orden_extrusoras.reduce((s,oe)=>s+(oe.extrusoras?oe.extrusoras.kg_por_hora:0),0);
     if(capT===0)return;
     const hsRestantes=kgRestantes/capT;
 
-    // Inicio: máximo entre cursores de todas las extrusoras asignadas
+    // Inicio: máximo cursor entre todas las extrusoras asignadas
     let iniMax=null;
     o.orden_extrusoras.forEach(oe=>{
       let cur=cursor[oe.extrusora_id];
       if(!cur){
-        if(o.estado==='En proceso'){
-          // Si está en proceso y hay bobinas, el cursor es la última bobina
-          const key=`${o.id}_${oe.extrusora_id}`;
-          cur=finRealXOrdenExt[key]||ahora;
-          if(cur.getHours()>=J_FIN)cur=nextJ(cur);
-          if(cur.getHours()<J_INI)cur.setHours(J_INI,0,0,0);
-        } else {
-          const ref=o.fecha_inicio_ref?new Date(o.fecha_inicio_ref+'T00:00:00'):ahora;
-          cur=jIni(ref);
-          if(cur<ahora)cur=jIni(ahora);
-        }
+        // Sin cursor previo → arrancar ahora o desde inicio de jornada si es pendiente
+        cur=o.estado==='En proceso'?new Date(ahora):jIni(ahora);
+        if(cur<ahora)cur=new Date(ahora);
       }
+      // Ajustar si el cursor cae fuera de jornada
+      if(cur.getHours()>=J_FIN){cur=nextJ(cur);}
+      else if(cur.getHours()<J_INI){cur=new Date(cur);cur.setHours(J_INI,0,0,0);}
+      // Si es fin de semana, saltar al lunes
+      const dow=cur.getDay();
+      if(dow===6){cur=addDays(cur,2);cur.setHours(J_INI,0,0,0);}
+      else if(dow===0){cur=addDays(cur,1);cur.setHours(J_INI,0,0,0);}
       if(!iniMax||cur>iniMax)iniMax=new Date(cur);
     });
 
-    const ini=iniMax||jIni(ahora);
+    const ini=iniMax||new Date(ahora);
     const fin=addHs(ini,hsRestantes);
     sched[o.id]={ini,fin,hs:r2(hsRestantes),kgRestantes,kgProducidos,
       pctAvance:o.kg_totales?Math.round(kgProducidos/o.kg_totales*100):0};
 
-    // Actualizar cursores con fin REAL de esta orden
+    // Actualizar cursores
     o.orden_extrusoras.forEach(oe=>{cursor[oe.extrusora_id]=new Date(fin);});
   });
   return sched;
@@ -3038,19 +3044,19 @@ function renderGanttDiario(){
       const leftPct=((iniC.getHours()+(iniC.getMinutes()/60))-J_INI)/totalHsGantt*100;
       const widthPct=((finC-iniC)/3600000)/totalHsGantt*100;
       if(tipo==='prog'){
-        // Barra programada: franja superior, semitransparente
         const cls=o.estado==='Completada'?'gd-bar-done':'gd-bar-prog';
+        const desc=o.bobinas?.descripcion?` · ${o.bobinas.descripcion}`:'';
         return`<div class="gd-bar ${cls}" style="left:${leftPct.toFixed(2)}%;width:${Math.max(widthPct,0.5).toFixed(2)}%;top:5%;height:38%;opacity:0.5;"
-          title="PROGRAMADO: ${o.numero_orden} · ${fmtDt(ini)}–${fmtDt(fin)}">${o.numero_orden}</div>`;
+          title="PROGRAMADO: ${o.numero_orden} · ${o.bobinas?.nombre||''}${desc}&#10;${fmtDt(ini)} → ${fmtDt(fin)}">${o.numero_orden}</div>`;
       } else {
-        // Barra real: franja inferior, sólida
         const progFin=schedProg[o.id]?.[ext.id]?.fin;
         const isLate=progFin&&fin>progFin&&fin-progFin>900000;
-        // Verde = en tiempo, Rojo = atrasado, Amarillo = pendiente reprogramado
         const cls=o.estado==='Pendiente'?'gd-bar-pend':isLate?'gd-bar-late':'gd-bar-done';
         const label=o.estado==='En proceso'?`▶${pct||0}%${isLate?' ⚠':''}`:o.numero_orden;
+        const desc=o.bobinas?.descripcion?` · ${o.bobinas.descripcion}`:'';
+        const kgInfo=schedReal[o.id]?` · ${r1(schedReal[o.id].kgProducidos)}/${o.kg_totales||0} kg`:'';
         return`<div class="gd-bar ${cls}" style="left:${leftPct.toFixed(2)}%;width:${Math.max(widthPct,0.5).toFixed(2)}%;top:55%;height:38%;"
-          title="REAL: ${o.numero_orden} · ${o.estado} · ${fmtDt(ini)}–${fmtDt(fin)}${isLate?' · ATRASADO':''}">${label}</div>`;
+          title="REAL: ${o.numero_orden} · ${o.bobinas?.nombre||''}${desc}&#10;${o.estado}${kgInfo}&#10;${fmtDt(ini)} → ${fmtDt(fin)}${isLate?' · ⚠ ATRASADO':''}">${label}</div>`;
       }
     }).join('');
 
@@ -4327,6 +4333,7 @@ function renderHistorial(){
   if(tipo===''||tipo==='extrusion'){
     C.ordenes.filter(o=>o.estado==='Completada'||o.estado==='Suspendida'||o.estado==='Cancelada').forEach(o=>{
       lista.push({id:o.id,numero:o.numero_orden,tipo:'Extrusión',cliente:o.cliente||'—',
+        bobinaNombre:o.bobinas?.nombre||'—',bobinaDesc:o.bobinas?.descripcion||'',
         estado:o.estado,fecha_suspension:o.fecha_suspension,motivo_suspension:o.motivo_suspension,
         fecha_cancelacion:o.fecha_cancelacion,motivo_cancelacion:o.motivo_cancelacion,
         kg_perdidos:o.kg_perdidos,bobinas:C.bobinas_prod.filter(b=>b.orden_id===o.id).length,
@@ -4338,6 +4345,7 @@ function renderHistorial(){
   if(tipo===''||tipo==='corte'){
     C.ord_corte.filter(o=>o.estado==='Completada'||o.estado==='Suspendida'||o.estado==='Cancelada').forEach(o=>{
       lista.push({id:o.id,numero:o.numero_orden,tipo:'Corte',cliente:o.cliente||'—',
+        bobinaNombre:o.productos?.descripcion||'—',bobinaDesc:'',
         estado:o.estado,fecha_suspension:o.fecha_suspension,motivo_suspension:o.motivo_suspension,
         fecha_cancelacion:o.fecha_cancelacion,motivo_cancelacion:o.motivo_cancelacion,
         kg_perdidos:null,bobinas:o.orden_corte_bobinas?.length||0,
@@ -4365,7 +4373,7 @@ function renderHistorial(){
   const tbl=document.getElementById('hist-tbl');
   if(!lista.length){tbl.innerHTML='<div class="empty">Sin órdenes para los filtros seleccionados.</div>';return;}
   tbl.innerHTML='<div style="overflow-x:auto"><table><thead><tr>'
-    +'<th>N° Orden</th><th>Tipo</th><th>Cliente</th><th>Estado</th><th>Bobinas/Bultos</th><th>Error prom.</th><th>Kg perdidos</th><th>Motivo</th><th>Fecha</th>'
+    +'<th>N° Orden</th><th>Tipo</th><th>Cliente</th><th>Bobina/Producto</th><th>Estado</th><th>Bobinas/Bultos</th><th>Error prom.</th><th>Kg perdidos</th><th>Motivo</th><th>Fecha</th>'
     +'</tr></thead><tbody>'
     +lista.map(x=>{
       const motivo=x.estado==='Cancelada'?x.motivo_cancelacion:x.estado==='Suspendida'?x.motivo_suspension:'—';
@@ -4375,6 +4383,8 @@ function renderHistorial(){
         +'<td class="mono">'+x.numero+'</td>'
         +'<td><span style="font-size:11px;background:var(--bg3);padding:2px 6px;border-radius:4px">'+x.tipo+'</span></td>'
         +'<td>'+x.cliente+'</td>'
+        +'<td><div style="font-weight:500;font-size:12px">'+x.bobinaNombre+'</div>'
+          +(x.bobinaDesc?'<div style="font-size:10px;color:var(--text2)">'+x.bobinaDesc+'</div>':'')+'</td>'
         +'<td><span style="color:'+colEst+';font-weight:600;font-size:12px">'+x.estado+'</span></td>'
         +'<td class="mono">'+x.bobinas+'</td>'
         +'<td class="mono" style="color:'+(Math.abs(x.error_pct_prom||0)>5?'var(--red)':'var(--text2)')+'">'+((x.error_pct_prom||0)>0?'+':'')+(x.error_pct_prom||'—')+'%</td>'
