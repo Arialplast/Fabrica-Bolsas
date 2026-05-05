@@ -815,12 +815,16 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
           <div class="btn-grp"><button class="btn btn-primary btn-sm" onclick="guardarConfigMP()">Guardar config MP</button><span id="msg-adm-mp" style="font-size:12px;"></span></div>
         </div>
         <div class="fp">
-          <div class="fp-t">Editar metros / kg de bobina producida</div>
-          <div class="alert alert-warn" style="margin-bottom:12px;font-size:12px;">Esta acción queda registrada como "editado por admin".</div>
+          <div class="fp-t">Editar metros / kg / fecha de bobina producida</div>
+          <div class="alert alert-warn" style="margin-bottom:12px;font-size:12px;">Esta acción queda registrada como "editado por admin". Usá esto para corregir bobinas cargadas al día siguiente que en realidad se produjeron el turno anterior.</div>
           <div class="fgrid fgrid3">
             <div class="fg"><label>N° Bobina</label><select id="adm-bob-sel" onchange="onAdmBobChange()"><option value="">— seleccionar —</option></select></div>
             <div class="fg"><label>Metros reales</label><input id="adm-bob-mts" type="number" step="0.01"></div>
             <div class="fg"><label>Kg reales</label><input id="adm-bob-kg" type="number" step="0.01"></div>
+          </div>
+          <div class="fgrid">
+            <div class="fg"><label>Fecha de producción real</label><input id="adm-bob-fecha" type="date"></div>
+            <div class="fg"><label>Hora de producción real</label><input id="adm-bob-hora" type="time"></div>
           </div>
           <div class="btn-grp"><button class="btn btn-primary btn-sm" onclick="editarBobinaAdmin()">Guardar corrección</button><span id="msg-adm-bob" style="font-size:12px;"></span></div>
         </div>
@@ -2591,14 +2595,21 @@ function go(name){
 function onAdmBobChange(){
   const id=parseInt(document.getElementById('adm-bob-sel').value);
   const b=C.bobinas_prod.find(x=>x.id===id);
-  if(b){document.getElementById('adm-bob-mts').value=b.metros_reales;document.getElementById('adm-bob-kg').value=b.kg_reales;}
+  if(b){
+    document.getElementById('adm-bob-mts').value=b.metros_reales;
+    document.getElementById('adm-bob-kg').value=b.kg_reales;
+    document.getElementById('adm-bob-fecha').value=b.fecha_produccion||'';
+    document.getElementById('adm-bob-hora').value=b.hora_produccion?.slice(0,5)||'';
+  }
 }
 async function editarBobinaAdmin(){
   const id=parseInt(document.getElementById('adm-bob-sel').value);
   const mts=parseFloat(document.getElementById('adm-bob-mts').value);
   const kg=parseFloat(document.getElementById('adm-bob-kg').value);
+  const fecha=document.getElementById('adm-bob-fecha').value;
+  const hora=document.getElementById('adm-bob-hora').value;
   const msg=document.getElementById('msg-adm-bob');
-  if(!id||!mts||!kg){msg.style.color='var(--red)';msg.textContent='Completá todos los campos.';return;}
+  if(!id||!mts||!kg){msg.style.color='var(--red)';msg.textContent='Completá metros y kg.';return;}
   const b=C.bobinas_prod.find(x=>x.id===id);
   const kgT=b?.kg_teoricos||r2(mts*(b?.bobinas?.kg_por_metro||0));
   const errKg=r2(kg-kgT);
@@ -2606,8 +2617,15 @@ async function editarBobinaAdmin(){
   const absE=Math.abs(errPct);
   const tolMax=errKg>0?cfg.tolerancia_pesada_pct:cfg.tolerancia_liviana_pct;
   const calidad=absE>tolMax?'RECHAZO':absE>tolMax*0.7?'ADVERTENCIA':'OK';
-  await sb.from('bobinas_producidas').update({metros_reales:mts,kg_reales:kg,error_kg:errKg,error_pct:errPct,estado_calidad:calidad,editado_admin:true}).eq('id',id);
-  msg.style.color='var(--green)';msg.textContent=`✓ Bobina actualizada. Nueva calidad: ${calidad}`;
+  const upd={metros_reales:mts,kg_reales:kg,error_kg:errKg,error_pct:errPct,estado_calidad:calidad,editado_admin:true};
+  if(fecha)upd.fecha_produccion=fecha;
+  if(hora)upd.hora_produccion=hora+':00';
+  await sb.from('bobinas_producidas').update(upd).eq('id',id);
+  const cambios=[];
+  if(fecha&&fecha!==b?.fecha_produccion)cambios.push('fecha → '+fecha);
+  if(hora)cambios.push('hora → '+hora);
+  msg.style.color='var(--green)';
+  msg.textContent='✓ Bobina actualizada. Calidad: '+calidad+(cambios.length?' · '+cambios.join(', '):'');
   await reload();
 }
 async function cambiarClaveAdmin(){
