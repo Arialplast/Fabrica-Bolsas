@@ -1416,9 +1416,37 @@ function addHs(start,hs){
   return cur;
 }
 function computeSchedule(){
-  const cursor={};C.extrusoras.forEach(e=>{cursor[e.id]=null;});
-  const activas=C.ordenes.filter(o=>o.estado!=='Completada'&&o.estado!=='Suspendida')
+  const ahora=new Date();
+
+  // Paso 1: fin real de órdenes completadas (última bobina producida por extrusora)
+  const finRealXOrdenExt={};
+  C.bobinas_prod.forEach(b=>{
+    if(!b.orden_id||!b.extrusora_id||!b.fecha_produccion||!b.hora_produccion)return;
+    const key=`${b.orden_id}_${b.extrusora_id}`;
+    const dt=new Date(`${b.fecha_produccion}T${b.hora_produccion}`);
+    if(!finRealXOrdenExt[key]||dt>finRealXOrdenExt[key])finRealXOrdenExt[key]=dt;
+  });
+
+  // Paso 2: cursor por extrusora = fin real de la última orden completada
+  const cursor={};
+  C.extrusoras.forEach(e=>{cursor[e.id]=null;});
+  C.ordenes.filter(o=>o.estado==='Completada')
+    .sort((a,b)=>new Date(a.created_at)-new Date(b.created_at))
+    .forEach(o=>{
+      o.orden_extrusoras?.forEach(oe=>{
+        const key=`${o.id}_${oe.extrusora_id}`;
+        const finReal=finRealXOrdenExt[key];
+        if(finReal&&(!cursor[oe.extrusora_id]||finReal>cursor[oe.extrusora_id])){
+          cursor[oe.extrusora_id]=new Date(finReal);
+        }
+      });
+    });
+
+  // Paso 3: programar órdenes activas en cascada desde los cursores reales
+  const activas=C.ordenes
+    .filter(o=>o.estado!=='Completada'&&o.estado!=='Suspendida')
     .sort((a,b)=>(a.prioridad||99)-(b.prioridad||99)||new Date(a.created_at)-new Date(b.created_at));
+
   const sched={};
   activas.forEach(o=>{
     if(!o.orden_extrusoras||!o.bobinas)return;
@@ -1426,28 +1454,32 @@ function computeSchedule(){
     const capT=o.orden_extrusoras.reduce((s,oe)=>s+(oe.extrusoras?oe.extrusoras.kg_por_hora:0),0);
     if(capT===0)return;
     const hsT=kg/capT;
+
     let iniMax=null;
     o.orden_extrusoras.forEach(oe=>{
       let cur=cursor[oe.extrusora_id];
       if(!cur){
-        const ref=o.fecha_inicio_ref?new Date(o.fecha_inicio_ref+'T00:00:00'):new Date();
-        cur=jIni(ref);
-        const now=new Date();
-        if(cur<now)cur=jIni(now);
+        // Sin cursor: arrancar desde ahora (no desde las 7:00)
+        cur=new Date(ahora);
       }
-      // Si el cursor cae en sábado o domingo, moverlo al lunes siguiente
+      // Ajustar si cae fuera de jornada
+      if(cur.getHours()>=J_FIN)cur=nextJ(cur);
+      else if(cur.getHours()<J_INI){cur=new Date(cur);cur.setHours(J_INI,0,0,0);}
+      // Fin de semana → lunes
       const dow=cur.getDay();
-      if(dow===6)cur=addDays(cur,2),cur.setHours(J_INI,0,0,0);
-      else if(dow===0)cur=addDays(cur,1),cur.setHours(J_INI,0,0,0);
+      if(dow===6){cur=addDays(cur,2);cur.setHours(J_INI,0,0,0);}
+      else if(dow===0){cur=addDays(cur,1);cur.setHours(J_INI,0,0,0);}
       if(!iniMax||cur>iniMax)iniMax=new Date(cur);
     });
-    const ini=iniMax||jIni(new Date());
+
+    const ini=iniMax||new Date(ahora);
     const fin=addHs(ini,hsT);
-    // Si la orden no termina antes del viernes 22hs, el cursor salta al lunes siguiente
-    const finDow=fin.getDay();
+    // Fin de semana → lunes
     let cursorFin=new Date(fin);
-    if(finDow===6)cursorFin=addDays(fin,2),cursorFin.setHours(J_INI,0,0,0);
-    else if(finDow===0)cursorFin=addDays(fin,1),cursorFin.setHours(J_INI,0,0,0);
+    const finDow=cursorFin.getDay();
+    if(finDow===6){cursorFin=addDays(cursorFin,2);cursorFin.setHours(J_INI,0,0,0);}
+    else if(finDow===0){cursorFin=addDays(cursorFin,1);cursorFin.setHours(J_INI,0,0,0);}
+
     sched[o.id]={};
     o.orden_extrusoras.forEach(oe=>{
       sched[o.id][oe.extrusora_id]={inicio:ini,fin,hs:r2(hsT)};
