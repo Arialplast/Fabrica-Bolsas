@@ -1295,7 +1295,7 @@ const MOTIVOS=['Rotura de máquina','Falta de materia prima','Material defectuos
 let sb=null;
 let C={bobinas:[],extrusoras:[],ordenes:[],capacidad:[],clientes:[],bobinas_prod:[],bobinas_hist:[],stock_mov:[],operarios:[],
   productos:[],maq_corte:[],emp:[],ord_corte:[],cap_corte:[],bobinas_fuera:[],suspensiones:[],
-  tipos_mp:[],proveedores:[],lotes_mp:[],formulas:[],mezclas:[]};
+  tipos_mp:[],proveedores:[],lotes_mp:[],formulas:[]};
 let gWeek=lunesDeHoy(),cWeek=lunesDeHoy(),gcWeek=lunesDeHoy(),capCorteWeek=lunesDeHoy();
 let xlsBobData=null,xlsBobCols=[];
 let xlsCliData=null,xlsCliCols=[];
@@ -1365,8 +1365,7 @@ async function reload(){
     sb.from('tipos_mp').select('*').order('categoria').order('nombre'),
     sb.from('proveedores').select('*').eq('activo',true).order('nombre'),
     sb.from('lotes_mp').select('*, tipos_mp(*), proveedores(nombre)').order('fecha_ingreso',{ascending:false}),
-    sb.from('formulas_bobina').select('*, tipos_mp(*), bobinas(nombre)'),
-    sb.from('ordenes_mezcla').select('*, ordenes(numero_orden), operarios(nombre), mezcla_consumos(*, lotes_mp(numero_lote,precio_kg), tipos_mp(nombre))').order('created_at',{ascending:false}).limit(50)
+    sb.from('formulas_bobina').select('*, tipos_mp(*), bobinas(nombre)')
   ]);
   const d=r=>results[r].status==='fulfilled'?results[r].value.data||[]:[];
   C.bobinas=d(0);C.extrusoras=d(1);C.ordenes=d(2);
@@ -1378,7 +1377,7 @@ async function reload(){
   C.bobinas_fuera=d(15);
   C.suspensiones=d(16);
   C.tipos_mp=d(17);C.proveedores=d(18);C.lotes_mp=d(19);
-  C.formulas=d(20);C.mezclas=d(21);
+  C.formulas=d(20);
   const rcfg=results[8].status==='fulfilled'?results[8].value:null;
   if(rcfg?.data){rcfg.data.forEach(r=>{
     if(r.clave==='clave_admin')cfg.clave_admin=r.valor;
@@ -2076,29 +2075,30 @@ async function _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,ca
     const consumos=[];
     let costoTotalBobina=0;
     for(const f of formula){
-      const kgConsumir=r4(kgR*f.porcentaje/100);
-      // FIFO: lote más antiguo con stock disponible
+      let kgRestante=r4(kgR*f.porcentaje/100);
+      if(kgRestante<=0)continue;
+      // FIFO: consumir de a un lote, spillover al siguiente si se agota
       const lotesDisp=C.lotes_mp.filter(l=>l.tipo_mp_id===f.tipo_mp_id&&l.kg_disponibles>0)
         .sort((a,b)=>new Date(a.fecha_ingreso)-new Date(b.fecha_ingreso));
       if(!lotesDisp.length)continue;
-      const lote=lotesDisp[0];
-      const costo=r4(kgConsumir*lote.precio_kg);
-      costoTotalBobina+=costo;
-      consumos.push({tipo_mp_id:f.tipo_mp_id,lote_id:lote.id,kg_teoricos:kgConsumir,kg_consumidos:kgConsumir,precio_kg:lote.precio_kg,costo_parcial:costo});
-      // Descontar del lote
-      const nuevoDisp=Math.max(0,r3(lote.kg_disponibles-kgConsumir));
-      await sb.from('lotes_mp').update({
-        kg_disponibles:nuevoDisp,
-        estado:nuevoDisp===0?'terminado':'en_uso',
-        fecha_inicio_uso:lote.fecha_inicio_uso||new Date().toISOString().slice(0,10),
-        fecha_fin_uso:nuevoDisp===0?new Date().toISOString().slice(0,10):null
-      }).eq('id',lote.id);
-      // Alerta si el lote se agotó
-      if(nuevoDisp===0){
-        console.warn('Lote MP agotado:',lote.numero_lote);
+      for(const lote of lotesDisp){
+        if(kgRestante<=0)break;
+        const kgDeLote=Math.min(kgRestante,lote.kg_disponibles);
+        const costo=r4(kgDeLote*lote.precio_kg);
+        costoTotalBobina+=costo;
+        consumos.push({tipo_mp_id:f.tipo_mp_id,lote_id:lote.id,kg_teoricos:r4(kgR*f.porcentaje/100),kg_consumidos:r3(kgDeLote),precio_kg:lote.precio_kg,costo_parcial:costo});
+        const nuevoDisp=Math.max(0,r3(lote.kg_disponibles-kgDeLote));
+        await sb.from('lotes_mp').update({
+          kg_disponibles:nuevoDisp,
+          estado:nuevoDisp===0?'terminado':'en_uso',
+          fecha_inicio_uso:lote.fecha_inicio_uso||new Date().toISOString().slice(0,10),
+          fecha_fin_uso:nuevoDisp===0?new Date().toISOString().slice(0,10):null
+        }).eq('id',lote.id);
+        if(nuevoDisp===0)console.warn('Lote MP agotado:',lote.numero_lote);
+        kgRestante=r3(kgRestante-kgDeLote);
       }
+      if(kgRestante>0.01)console.warn('Sin stock suficiente para',f.tipo_mp_id,'— faltan',kgRestante,'kg');
     }
-    // Insertar consumos (necesitamos el id de la bobina recién insertada)
     const{data:bobInsertada}=await sb.from('bobinas_producidas').select('id').eq('numero_bobina',nro).single();
     if(bobInsertada&&consumos.length){
       await sb.from('consumos_mp_bobina').insert(consumos.map(c=>({...c,bobina_producida_id:bobInsertada.id})));
@@ -3080,6 +3080,8 @@ function renderGanttDiario(){
   const vista=document.getElementById('gd-vista')?.value||'supervisor';
   if(vista==='admin') return renderGanttDiarioAdmin();
   // ---- VISTA SUPERVISOR (limpia) ----
+  const schedReal=calcScheduleReal();
+  const schedProg=computeSchedule();
   const ahora=new Date();
   const esHoy=dStr(gdDate)===dStr(ahora);
   const horaActual=ahora.getHours()+(ahora.getMinutes()/60);
