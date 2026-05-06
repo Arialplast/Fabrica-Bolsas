@@ -350,6 +350,7 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
     <div class="nav-item" onclick="goAdmin('mp-inventario')"><div class="nav-dot" id="nav-dot-inv" style="background:var(--green)"></div>Inventario físico 🔐</div>
     <div class="nav-item" onclick="go('mp-formulas')"><div class="nav-dot"></div>Fórmulas</div>
     <div class="nav-item" onclick="goAdmin('costos')"><div class="nav-dot" style="background:var(--purple)"></div>Costos 🔐</div>
+    <div class="nav-item" onclick="goAdmin('rentabilidad')"><div class="nav-dot" style="background:var(--green)"></div>Rentabilidad 🔐</div>
     <div class="nav-sec">Configuración</div>
     <div class="nav-item" onclick="go('bobinas')"><div class="nav-dot"></div>Bobinas</div>
     <div class="nav-item" onclick="go('extrusoras')"><div class="nav-dot"></div>Extrusoras</div>
@@ -801,12 +802,17 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
           <div class="btn-grp"><button class="btn btn-primary btn-sm" onclick="cambiarClaveAdmin()">Cambiar clave</button><span id="msg-adm-key" style="font-size:12px;"></span></div>
         </div>
         <div class="fp">
-          <div class="fp-t">Tolerancias de calidad</div>
-          <div class="fgrid fgrid3">
-            <div class="fg"><label>Tolerancia pesada (%)</label><input id="adm-tol-p" type="number" step="0.1"></div>
-            <div class="fg"><label>Tolerancia liviana (%)</label><input id="adm-tol-l" type="number" step="0.1"></div>
-            <div class="fg"><label>Exceso máx. orden (%)</label><input id="adm-tol-e" type="number" step="1"></div>
+          <div class="fp-t">Tolerancias de calidad — bobinas</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">
+            Error = diferencia entre kg reales y kg teóricos. <strong>Pesada</strong> = pesa más de lo teórico (error negativo). <strong>Liviana</strong> = pesa menos (error positivo).<br>
+            Fuera de rango: pesada si supera el % máximo pesada, liviana si supera el % máximo liviana.
           </div>
+          <div class="fgrid fgrid3">
+            <div class="fg"><label>% máx. pesada (−) para fuera de rango</label><input id="adm-tol-p" type="number" step="0.1" min="0" max="50"></div>
+            <div class="fg"><label>% máx. liviana (+) para fuera de rango</label><input id="adm-tol-l" type="number" step="0.1" min="0" max="50"></div>
+            <div class="fg"><label>% máx. exceso metros en orden corte</label><input id="adm-tol-e" type="number" step="1" min="0"></div>
+          </div>
+          <div style="font-size:11px;color:var(--text2);margin-top:6px;">Ejemplo: pesada 10% → una bobina que pese más de 10% sobre el teórico va a fuera de rango.</div>
           <div class="btn-grp"><button class="btn btn-primary btn-sm" onclick="guardarTolerancias()">Guardar tolerancias</button><span id="msg-adm-tol" style="font-size:12px;"></span></div>
         </div>
         <div class="fp">
@@ -890,7 +896,7 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
         <div class="fp-t">Producto y empaque</div>
         <div class="fgrid fgrid3">
           <div class="fg"><label>Producto (bolsa final)</label><select id="nc-prod" onchange="calcCorte()"><option value="">— seleccionar —</option></select></div>
-          <div class="fg"><label>Tipo de empaque</label><select id="nc-emp" onchange="calcCorte()"><option value="">— seleccionar —</option></select></div>
+          <div class="fg"><label>Tipo de empaque</label><select id="nc-emp" onchange="calcCorte();calcPrecioCorte()"><option value="">— seleccionar —</option></select></div>
           <div class="fg"><label>Cantidad de paquetes</label><input id="nc-cant" type="number" min="1" placeholder="ej: 500" oninput="calcCorte()"></div>
         </div>
         <div class="fgrid">
@@ -903,6 +909,22 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
         <div class="fp-t">Máquinas de corte asignadas</div>
         <div class="mq-grid" id="nc-maq-checks"></div>
         <div class="computed" id="nc-hs" style="margin-top:10px;">Seleccioná máquinas.</div>
+      </div>
+      <div class="fp">
+        <div class="fp-t">Precio de venta</div>
+        <div class="fgrid fgrid3">
+          <div class="fg">
+            <label>Precio por paquete ($) <span id="nc-precio-emp-lbl" style="font-size:11px;color:var(--text2)"></span></label>
+            <input id="nc-precio-paquete" type="number" step="0.01" placeholder="ej: 850.00" oninput="calcPrecioCorte()">
+          </div>
+          <div class="fg"><label>Precio por unidad ($)</label>
+            <div class="computed" id="nc-precio-unidad" style="margin-top:0">—</div>
+          </div>
+          <div class="fg"><label>Total estimado de la orden ($)</label>
+            <div class="computed" id="nc-precio-total" style="margin-top:0">—</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text2);margin-top:4px;">El precio del paquete calcula automáticamente el precio por unidad y el total de la orden según la cantidad de paquetes.</div>
       </div>
       <div class="fp">
         <div class="fp-t">Observaciones</div>
@@ -1272,6 +1294,43 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
         </div>
       </div>
       <div id="costos-wrap"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+
+    <!-- RENTABILIDAD -->
+    <div class="page" id="page-rentabilidad">
+      <div class="page-hdr">
+        <div><div class="page-title">Rentabilidad 🔐</div><div class="page-sub" id="rent-sub-lbl">Ganancia por orden · por producto · resumen período</div></div>
+        <div class="btn-grp">
+          <select class="st-sel" id="rent-periodo" onchange="onRentPeriodoChange()">
+            <option value="mes">Este mes</option>
+            <option value="mes_ant">Mes anterior</option>
+            <option value="semana">Esta semana</option>
+            <option value="dia">Hoy</option>
+            <option value="custom">Rango personalizado</option>
+          </select>
+          <div id="rent-rango-wrap" style="display:none;gap:6px;align-items:center;">
+            <input type="date" id="rent-desde" class="st-sel" style="width:130px" onchange="renderRentabilidad()">
+            <span style="font-size:12px">→</span>
+            <input type="date" id="rent-hasta" class="st-sel" style="width:130px" onchange="renderRentabilidad()">
+          </div>
+          <select class="st-sel" id="rent-comp" onchange="renderRentabilidad()">
+            <option value="">Sin comparación</option>
+            <option value="mes_ant">vs Mes anterior</option>
+            <option value="semana_ant">vs Semana anterior</option>
+            <option value="anio_ant">vs Mismo mes año anterior</option>
+          </select>
+          <select class="st-sel" id="rent-vista" onchange="renderRentabilidad()">
+            <option value="resumen">Resumen</option>
+            <option value="producto">Por producto</option>
+            <option value="ordenes">Por órdenes</option>
+          </select>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <label style="font-size:11px;white-space:nowrap">GG%</label>
+            <input id="rent-gg" type="number" step="0.5" value="15" style="width:55px" oninput="renderRentabilidad()">
+          </div>
+        </div>
+      </div>
+      <div id="rent-wrap"><div class="loading"><div class="spinner"></div></div></div>
     </div>
 
   </div>
@@ -2695,6 +2754,7 @@ function go(name){
   if(name==='mp-inventario'){renderInvAlerta();renderInvHist();poblarInvOp();}
   if(name==='mp-formulas'){poblarSelectsFormulas();renderFormulaBobina();}
   if(name==='costos')renderCostos();
+  if(name==='rentabilidad')renderRentabilidad();
   if(name==='historial-ordenes')renderHistorial();
   if(name==='suspension-maquinas'){renderSuspMaquinas();renderSuspHistorial();}
   if(name==='bobinas-fuera-rango')renderFueraDeRango();
@@ -3499,7 +3559,7 @@ function renderFueraDeRango(){
             :'Sin tipos compatibles (mismo ancho + dentro de tolerancia). Reasignación manual:')
           +'</div>')
       // Reasignación manual con recálculo en vivo
-      +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+      +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">'
         +'<span style="font-size:12px;color:var(--text2)">Reasignar manualmente a:</span>'
         +'<select class="st-sel" id="reasig-'+b.id+'" style="font-size:12px;" onchange="actualizarErrorReasig('+b.id+')">'
           +'<option value="">— tipo de bobina —</option>'
@@ -3507,12 +3567,37 @@ function renderFueraDeRango(){
             +t.nombre+(t.descripcion?' — '+t.descripcion:'')+' ('+t.kg_por_metro+' kg/m)</option>').join('')
         +'</select>'
         +'<div id="reasig-err-'+b.id+'" style="font-size:13px;font-weight:700;font-family:\'DM Mono\',monospace;min-width:60px;"></div>'
-        +'<button class="btn btn-sm btn-primary" onclick="reasignarBobina('+b.id+')">Confirmar</button>'
+        +'<button class="btn btn-sm btn-primary" onclick="reasignarBobina('+b.id+')">Confirmar reasignación</button>'
+      +'</div>'
+      // Opción de aceptar la bobina con el tipo original
+      +'<div style="background:var(--amberbg);border:1px solid var(--amberbd);border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;gap:10px;">'
+        +'<div style="flex:1;">'
+          +'<div style="font-size:12px;font-weight:600;color:var(--amber)">Aceptar bobina con tipo original</div>'
+          +'<div style="font-size:11px;color:var(--text2)">La bobina se suma a su orden original ('+(b.bobinas?.nombre||'—')+') con el error real. Usá esto si el error es aceptable para este caso específico.</div>'
+        +'</div>'
+        +'<button class="btn btn-sm" style="background:var(--amber);color:#fff;border:none;white-space:nowrap;" onclick="aceptarBobinaOriginal('+b.id+')">✓ Aceptar tal cual</button>'
       +'</div>'
       +'</div>';
   });
   w.innerHTML=html;
 }
+
+async function aceptarBobinaOriginal(id){
+  const b=C.bobinas_fuera.find(x=>x.id===id);
+  if(!b)return;
+  pedirAdminYEjecutar(async()=>{
+    // La bobina vuelve a su orden original con su tipo original, marcada como aceptada
+    await sb.from('bobinas_producidas').update({
+      fuera_de_rango:false,
+      en_stock:true,
+      motivo_fuera_rango:null,
+      reasignada:false,
+      // Mantener bobina_tipo_id original y orden_id original
+    }).eq('id',id);
+    await reload();
+  });
+}
+
 
 function actualizarErrorReasig(bobId){
   const b=C.bobinas_fuera.find(x=>x.id===bobId);if(!b)return;
@@ -3691,7 +3776,7 @@ function calcCorte(){
     ${unidades.toLocaleString('es-AR')} u ÷ ${capT.toLocaleString('es-AR')} b/h = <span class="res">${hs} hs</span>${mm?` (${hh}h ${mm}min)`:''}`;
 }
 function limpiarFormCorte(){
-  ['nc-nord','nc-flex','nc-cant','nc-obs'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  ['nc-nord','nc-flex','nc-cant','nc-obs','nc-precio-paquete'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   const np=document.getElementById('nc-prod');if(np)np.value='';
   const ne=document.getElementById('nc-emp');if(ne)ne.value='';
   const nc=document.getElementById('nc-cli');if(nc)nc.value='';
@@ -3714,6 +3799,7 @@ async function guardarOrdenCorte(){
   const pri=parseInt(document.getElementById('nc-pri').value)||1;
   const fecha=document.getElementById('nc-fecha').value;
   const obs=document.getElementById('nc-obs').value.trim();
+  const precioPaquete=parseFloat(document.getElementById('nc-precio-paquete').value)||null;
   const maqs=getMaqCorteSel();
   const msg=document.getElementById('msg-nc');
   if(!nord||!pId||!eId||!cant||maqs.length===0){msg.className='msg-err';msg.textContent='Completá todos los campos y seleccioná al menos una máquina.';return;}
@@ -3721,17 +3807,20 @@ async function guardarOrdenCorte(){
   const emp=C.emp.find(e=>e.id===eId);
   const unidades=cant*emp.unidades;
   const mts=r2(unidades*prod.metros_por_bolsa*(1+merma/100));
+  // Precio: paquete → bolsa → total
+  const pBolsa=precioPaquete&&emp.unidades?r6(precioPaquete/emp.unidades):null;
+  const precioTotal=precioPaquete&&cant?r2(precioPaquete*cant):null;
   msg.innerHTML='<div class="loading" style="padding:0.5rem 0;justify-content:flex-start"><div class="spinner"></div>Guardando...</div>';
   const{data:oc,error:e1}=await sb.from('ordenes_corte').insert({
     numero_orden:nord,ref_flexxus:flex||null,cliente:cli||null,
     producto_id:pId,empaque_id:eId,cantidad_paquetes:cant,
     unidades_a_producir:unidades,metros_necesarios:mts,merma_pct:merma,
-    prioridad:pri,fecha_inicio_ref:fecha||null,estado:'Pendiente',observaciones:obs||null
+    prioridad:pri,fecha_inicio_ref:fecha||null,estado:'Pendiente',observaciones:obs||null,
+    precio_paquete:precioPaquete,precio_bolsa:pBolsa,precio_total_venta:precioTotal
   }).select().single();
   if(e1){msg.className='msg-err';msg.textContent='Error: '+e1.message;return;}
   await sb.from('orden_corte_maquinas').insert(maqs.map(m=>({orden_corte_id:oc.id,maquina_id:m.id})));
-  // Generar QR de la orden
-  msg.className='msg-ok';msg.textContent=`✓ Orden ${nord} guardada — ${unidades.toLocaleString('es-AR')} u · ${mts} m necesarios`;
+  msg.className='msg-ok';msg.textContent='✓ Orden '+nord+' guardada — '+unidades.toLocaleString('es-AR')+' u · '+mts+' m necesarios'+(precioTotal?' · $'+precioTotal.toLocaleString('es-AR')+' venta estimada':'');
   await reload();
   setTimeout(()=>go('ordenes-corte'),1500);
 }
@@ -5123,6 +5212,195 @@ function renderPanelOperario(){
   }
 }
 
+
+function calcPrecioCorte(){
+  const eId=parseInt(document.getElementById('nc-emp')?.value);
+  const emp=C.emp.find(e=>e.id===eId);
+  const cant=parseInt(document.getElementById('nc-cant')?.value)||0;
+  const uniPorPaq=emp?.unidades||0;
+  const precioPaq=parseFloat(document.getElementById('nc-precio-paquete')?.value)||0;
+  // Actualizar label del empaque
+  const lbl=document.getElementById('nc-precio-emp-lbl');
+  if(lbl)lbl.textContent=emp?'(paquete de '+uniPorPaq+' u)':'';
+  // Calcular precio por unidad y total
+  const precioBolsa=precioPaq&&uniPorPaq?r6(precioPaq/uniPorPaq):0;
+  const unidades=cant&&uniPorPaq?cant*uniPorPaq:0;
+  const total=precioPaq&&cant?r2(precioPaq*cant):0;
+  const divUni=document.getElementById('nc-precio-unidad');
+  const divTot=document.getElementById('nc-precio-total');
+  if(divUni)divUni.textContent=precioBolsa?'$'+precioBolsa+' / unidad':'—';
+  if(divTot)divTot.textContent=total?'$'+total.toLocaleString('es-AR')+(cant?' ('+cant.toLocaleString('es-AR')+' paq × $'+precioPaq+')':''):'—';
+}
+
+// ===== RENTABILIDAD =====
+function onRentPeriodoChange(){
+  const p=document.getElementById('rent-periodo')?.value;
+  const rw=document.getElementById('rent-rango-wrap');
+  if(rw)rw.style.display=p==='custom'?'flex':'none';
+  renderRentabilidad();
+}
+function getRentFechas(){
+  const p=document.getElementById('rent-periodo')?.value||'mes';
+  const ahora=new Date();
+  let ini,fin,label;
+  if(p==='mes'){ini=new Date(ahora.getFullYear(),ahora.getMonth(),1);fin=new Date(ahora.getFullYear(),ahora.getMonth()+1,0,23,59,59);label=ahora.toLocaleDateString('es-AR',{month:'long',year:'numeric'});}
+  else if(p==='mes_ant'){ini=new Date(ahora.getFullYear(),ahora.getMonth()-1,1);fin=new Date(ahora.getFullYear(),ahora.getMonth(),0,23,59,59);label=ini.toLocaleDateString('es-AR',{month:'long',year:'numeric'});}
+  else if(p==='semana'){ini=lunesDeHoy();fin=addDays(ini,6);fin.setHours(23,59,59);label='Esta semana';}
+  else if(p==='dia'){ini=new Date(ahora.getFullYear(),ahora.getMonth(),ahora.getDate());fin=new Date(ini);fin.setHours(23,59,59);label='Hoy';}
+  else{const d=document.getElementById('rent-desde')?.value,h=document.getElementById('rent-hasta')?.value;ini=d?new Date(d+'T00:00:00'):new Date(ahora.getFullYear(),ahora.getMonth(),1);fin=h?new Date(h+'T23:59:59'):new Date();label=(d||'?')+' → '+(h||'?');}
+  return{ini,fin,label};
+}
+function getRentComparacion(ini,fin,tipo){
+  if(!tipo)return null;
+  let cIni,cFin,label;
+  if(tipo==='mes_ant'){cIni=new Date(ini);cIni.setMonth(cIni.getMonth()-1);cFin=new Date(fin);cFin.setMonth(cFin.getMonth()-1);label='mes anterior';}
+  else if(tipo==='semana_ant'){cIni=new Date(ini-7*86400000);cFin=new Date(fin-7*86400000);label='semana anterior';}
+  else if(tipo==='anio_ant'){cIni=new Date(ini);cIni.setFullYear(cIni.getFullYear()-1);cFin=new Date(fin);cFin.setFullYear(cFin.getFullYear()-1);label='mismo período año anterior';}
+  else return null;
+  return{ini:cIni,fin:cFin,label};
+}
+function calcRentPeriodo(ini,fin,gg){
+  const ords=C.ord_corte.filter(o=>{
+    if(o.estado!=='Completada')return false;
+    const d=new Date(o.fecha_completada||o.created_at);
+    return d>=ini&&d<=fin;
+  });
+  const ordsConPrecio=ords.filter(o=>o.precio_bolsa&&o.unidades_reales);
+  const bobs=filtrarBobinasPorFecha(ini,fin);
+  let costoMPTotal=0,mtsTotal=0;
+  const ordenesConBobs=[...new Set(bobs.map(b=>b.orden_id).filter(Boolean))];
+  ordenesConBobs.forEach(ordId=>{
+    const bobsOrd=bobs.filter(b=>b.orden_id===ordId);
+    costoMPTotal+=calcCostoMPOrden(ordId,bobsOrd);
+    mtsTotal+=bobsOrd.reduce((s,b)=>s+(b.metros_reales||0),0);
+  });
+  const costoMetroProm=mtsTotal>0?r4(costoMPTotal*(1+gg/100)/mtsTotal):0;
+  let ventaTotal=0,costoTotal=0,unidadesTotal=0;
+  const porOrden=ordsConPrecio.map(o=>{
+    const venta=r2(o.precio_bolsa*o.unidades_reales);
+    const mtsUsados=o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0;
+    const costo=r2(mtsUsados*costoMetroProm);
+    const ganancia=r2(venta-costo);
+    const margen=venta>0?r2(ganancia/venta*100):0;
+    ventaTotal+=venta;costoTotal+=costo;unidadesTotal+=o.unidades_reales||0;
+    return{o,venta,costo,ganancia,margen,mtsUsados,unidades:o.unidades_reales||0};
+  });
+  const gananciaTotal=r2(ventaTotal-costoTotal);
+  const margenTotal=ventaTotal>0?r2(gananciaTotal/ventaTotal*100):0;
+  const costoPorBolsa=unidadesTotal>0?r6(costoTotal/unidadesTotal):0;
+  const ventaPorBolsa=unidadesTotal>0?r6(ventaTotal/unidadesTotal):0;
+  const gananciaPorBolsa=r6(ventaPorBolsa-costoPorBolsa);
+  const porProducto={};
+  porOrden.forEach(({o,venta,costo,ganancia,unidades})=>{
+    const pid=o.producto_id;if(!pid)return;
+    if(!porProducto[pid])porProducto[pid]={nombre:o.productos?.descripcion||'—',venta:0,costo:0,ganancia:0,unidades:0,ordenes:0};
+    porProducto[pid].venta+=venta;porProducto[pid].costo+=costo;
+    porProducto[pid].ganancia+=ganancia;porProducto[pid].unidades+=unidades;porProducto[pid].ordenes++;
+  });
+  return{ventaTotal:r2(ventaTotal),costoTotal:r2(costoTotal),gananciaTotal,margenTotal,
+    unidadesTotal,costoPorBolsa,ventaPorBolsa,gananciaPorBolsa,
+    porOrden,porProducto,ordsSinPrecio:ords.length-ordsConPrecio.length,totalOrds:ords.length,costoMetroProm};
+}
+function renderRentabilidad(){
+  const vista=document.getElementById('rent-vista')?.value||'resumen';
+  const gg=parseFloat(document.getElementById('rent-gg')?.value)||cfg.gastos_generales_pct||15;
+  const wrap=document.getElementById('rent-wrap');if(!wrap)return;
+  const{ini,fin,label}=getRentFechas();
+  const compTipo=document.getElementById('rent-comp')?.value||'';
+  const comp=getRentComparacion(ini,fin,compTipo);
+  const sub=document.getElementById('rent-sub-lbl');
+  if(sub)sub.textContent=label+(comp?' vs '+comp.label:'');
+  const A=calcRentPeriodo(ini,fin,gg);
+  const B=comp?calcRentPeriodo(comp.ini,comp.fin,gg):null;
+  if(vista==='resumen') renderRentResumen(wrap,A,B,comp,gg,label);
+  else if(vista==='producto') renderRentProducto(wrap,A,B,comp,gg);
+  else renderRentOrdenes(wrap,A,gg);
+}
+function renderRentResumen(wrap,A,B,comp,gg,label){
+  const colGan=A.gananciaTotal>=0?'var(--green)':'var(--red)';
+  const colMar=A.margenTotal>=20?'var(--green)':A.margenTotal>=10?'var(--amber)':'var(--red)';
+  let html='<div class="an-section">Resumen — '+label+'</div>';
+  if(A.ordsSinPrecio>0)html+='<div class="alert alert-warn" style="font-size:12px;margin-bottom:1rem;">⚠ '+A.ordsSinPrecio+' orden'+(A.ordsSinPrecio>1?'es':'')+' sin precio de venta — no incluidas.</div>';
+  const kpis=[
+    {lbl:'Venta total',val:'$'+A.ventaTotal.toLocaleString('es-AR'),antV:B?.ventaTotal,col:'var(--accent)',inv:false},
+    {lbl:'Costo total (c/'+gg+'% GG)',val:'$'+A.costoTotal.toLocaleString('es-AR'),antV:B?.costoTotal,col:'var(--text1)',inv:true},
+    {lbl:'Ganancia bruta',val:'$'+A.gananciaTotal.toLocaleString('es-AR'),antV:B?.gananciaTotal,col:colGan,inv:false},
+    {lbl:'Margen %',val:A.margenTotal+'%',antV:B?.margenTotal,col:colMar,inv:false},
+    {lbl:'Unidades cortadas',val:A.unidadesTotal.toLocaleString('es-AR'),antV:B?.unidadesTotal,col:'var(--text1)',inv:false},
+    {lbl:'Venta / bolsa',val:'$'+A.ventaPorBolsa,antV:B?.ventaPorBolsa,col:'var(--accent)',inv:false},
+    {lbl:'Costo / bolsa',val:'$'+A.costoPorBolsa,antV:B?.costoPorBolsa,col:'var(--text1)',inv:true},
+    {lbl:'Ganancia / bolsa',val:'$'+A.gananciaPorBolsa,antV:B?.gananciaPorBolsa,col:A.gananciaPorBolsa>=0?'var(--green)':'var(--red)',inv:false},
+  ];
+  html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:1.5rem;">';
+  kpis.forEach(k=>{
+    const antStr=B&&k.antV!==undefined?'<div style="font-size:11px;color:var(--text3);margin-top:2px">$'+r2(k.antV).toLocaleString('es-AR')+deltaBadge(parseFloat(String(k.val).replace(/[$%,]/g,'')),k.antV,k.inv)+'</div>':'';
+    html+='<div class="kpi-card" style="border-top:3px solid '+k.col+';">'
+      +'<div class="kpi-lbl">'+k.lbl+'</div>'
+      +'<div class="kpi-val" style="font-size:20px;color:'+k.col+'">'+k.val+'</div>'
+      +antStr+'</div>';
+  });
+  html+='</div>';
+  // Semáforo
+  html+='<div style="background:var(--bg3);border-radius:var(--r);padding:14px;margin-bottom:1rem;display:flex;align-items:center;gap:16px;">'
+    +'<div style="font-size:32px">'+(A.margenTotal>=20?'🟢':A.margenTotal>=10?'🟡':'🔴')+'</div>'
+    +'<div><div style="font-size:14px;font-weight:700">Margen: <span style="color:'+colMar+'">'+A.margenTotal+'%</span></div>'
+      +'<div style="font-size:12px;color:var(--text2)">'+(A.margenTotal>=20?'Excelente — más del 20% de margen':A.margenTotal>=10?'Aceptable — entre 10% y 20%':'⚠ Bajo — menos del 10% de margen')+'</div></div>'
+    +'<div style="margin-left:auto;font-size:12px;color:var(--text3)">'+A.totalOrds+' órdenes · '+A.porOrden.length+' con precio</div>'
+  +'</div>';
+  wrap.innerHTML=html;
+}
+function renderRentProducto(wrap,A,B,comp,gg){
+  const productos=Object.entries(A.porProducto);
+  if(!productos.length){wrap.innerHTML='<div class="empty">Sin órdenes con precio de venta en el período.</div>';return;}
+  let html='<div class="an-section">Por producto'+(comp?' vs '+comp.label:'')+'</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:1.5rem;">';
+  productos.sort((a,b)=>b[1].ganancia-a[1].ganancia).forEach(([pid,x])=>{
+    const bx=B?.porProducto[pid];
+    const margen=x.venta>0?r2(x.ganancia/x.venta*100):0;
+    const colMar=margen>=20?'var(--green)':margen>=10?'var(--amber)':'var(--red)';
+    const vpb=x.unidades>0?r6(x.venta/x.unidades):0;
+    const gpb=x.unidades>0?r6(x.ganancia/x.unidades):0;
+    const bMargen=bx?.venta>0?r2(bx.ganancia/bx.venta*100):null;
+    html+='<div class="kpi-card" style="border-top:3px solid '+colMar+';">'
+      +'<div class="kpi-lbl">'+x.nombre+'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">'
+        +'<div><div class="stat-lbl">Margen</div><div style="font-size:20px;font-weight:800;color:'+colMar+'">'+margen+'%</div>'
+          +(bMargen!==null?'<div style="font-size:11px;color:var(--text3)">'+bMargen+'%'+deltaBadge(margen,bMargen,false)+'</div>':'')+'</div>'
+        +'<div><div class="stat-lbl">Ganancia</div><div style="font-size:16px;font-weight:700;color:'+colMar+'">$'+r2(x.ganancia).toLocaleString('es-AR')+'</div>'
+          +(bx?'<div style="font-size:11px;color:var(--text3)">$'+r2(bx.ganancia).toLocaleString('es-AR')+deltaBadge(x.ganancia,bx.ganancia,false)+'</div>':'')+'</div>'
+        +'<div><div class="stat-lbl">Venta/bolsa</div><div class="mono">$'+vpb+'</div></div>'
+        +'<div><div class="stat-lbl">Ganancia/bolsa</div><div class="mono" style="color:'+colMar+'">$'+gpb+'</div></div>'
+      +'</div>'
+      +'<div style="font-size:11px;color:var(--text3)">'+x.unidades.toLocaleString('es-AR')+' u · $'+r2(x.venta).toLocaleString('es-AR')+' venta · '+x.ordenes+' órdenes</div>'
+      +'</div>';
+  });
+  html+='</div>';
+  wrap.innerHTML=html;
+}
+function renderRentOrdenes(wrap,A,gg){
+  if(!A.porOrden.length){wrap.innerHTML='<div class="empty">Sin órdenes con precio de venta en el período.</div>';return;}
+  let html='<div class="an-section">Por orden de corte</div>'
+    +'<div style="overflow-x:auto"><table><thead><tr>'
+    +'<th>N° Orden</th><th>Producto</th><th>Cliente</th><th>Unidades</th><th>Venta</th><th>Costo</th><th>Ganancia</th><th>Margen</th><th>Gan./bolsa</th>'
+    +'</tr></thead><tbody>';
+  A.porOrden.sort((a,b)=>b.ganancia-a.ganancia).forEach(({o,venta,costo,ganancia,margen,unidades})=>{
+    const colMar=margen>=20?'var(--green)':margen>=10?'var(--amber)':'var(--red)';
+    const gpb=unidades>0?r6(ganancia/unidades):0;
+    html+='<tr>'
+      +'<td class="mono">'+o.numero_orden+'</td>'
+      +'<td style="font-size:12px">'+(o.productos?.descripcion||'—')+'</td>'
+      +'<td style="font-size:12px">'+(o.cliente||'—')+'</td>'
+      +'<td class="mono">'+unidades.toLocaleString('es-AR')+'</td>'
+      +'<td class="mono">$'+venta.toLocaleString('es-AR')+'</td>'
+      +'<td class="mono">$'+costo.toLocaleString('es-AR')+'</td>'
+      +'<td class="mono" style="font-weight:700;color:'+(ganancia>=0?'var(--green)':'var(--red)')+'">$'+r2(ganancia).toLocaleString('es-AR')+'</td>'
+      +'<td class="mono" style="font-weight:700;color:'+colMar+'">'+margen+'%</td>'
+      +'<td class="mono" style="color:'+(gpb>=0?'var(--green)':'var(--red)')+'">$'+gpb+'</td>'
+      +'</tr>';
+  });
+  html+='</tbody></table></div>';
+  wrap.innerHTML=html;
+}
 
 function poblarSelectsMP(){
   const t=document.getElementById('li-tipo');
