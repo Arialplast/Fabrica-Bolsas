@@ -328,12 +328,13 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
     <div class="logo-sub">Fábrica de Bolsas v5</div>
     <div class="nav-sec">Operaciones</div>
     <div class="nav-item active" onclick="go('dashboard')"><div class="nav-dot"></div>Dashboard</div>
+    <div class="nav-item" onclick="go('panel-operario')" style="background:var(--accentbg);border:1px solid var(--accentbd);border-radius:var(--r);margin-bottom:2px;"><div class="nav-dot" style="background:var(--accent)"></div>Panel operario 👷</div>
     <div class="nav-item" onclick="go('ordenes')"><div class="nav-dot"></div>Órdenes</div>
     <div class="nav-item" onclick="go('historial-ordenes')"><div class="nav-dot"></div>Historial órdenes</div>
     <div class="nav-item" onclick="go('suspension-maquinas')"><div class="nav-dot" style="background:var(--red)"></div>Suspensión máquinas</div>
     <div class="nav-item" onclick="go('nueva')"><div class="nav-dot"></div>Nueva orden</div>
     <div class="nav-item" onclick="go('gantt')"><div class="nav-dot"></div>Gantt semanal</div>
-    <div class="nav-item" onclick="go('gantt-diario')"><div class="nav-dot"></div>Gantt diario</div>
+    <div class="nav-item" onclick="goAdmin('gantt-diario')"><div class="nav-dot"></div>Gantt diario 🔐</div>
     <div class="nav-item" onclick="go('carga-bobinas')"><div class="nav-dot"></div>Carga de bobinas</div>
     <div class="nav-item" onclick="go('stock')"><div class="nav-dot"></div>Stock bobinas</div>
     <div class="nav-item" onclick="go('confeccion')"><div class="nav-dot"></div>Confección</div>
@@ -341,7 +342,7 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
     <div class="nav-item" onclick="go('ordenes-corte')"><div class="nav-dot"></div>Órdenes de corte</div>
     <div class="nav-item" onclick="go('nueva-corte')"><div class="nav-dot"></div>Nueva orden corte</div>
     <div class="nav-item" onclick="go('gantt-corte')"><div class="nav-dot"></div>Gantt corte semanal</div>
-    <div class="nav-item" onclick="go('gantt-corte-diario')"><div class="nav-dot"></div>Gantt corte diario</div>
+    <div class="nav-item" onclick="goAdmin('gantt-corte-diario')"><div class="nav-dot"></div>Gantt corte diario 🔐</div>
     <div class="nav-item" onclick="go('bobinas-fuera-rango')"><div class="nav-dot" style="background:var(--red)"></div>Fuera de rango</div>
     <div class="nav-sec">Materia Prima</div>
     <div class="nav-item" onclick="go('mp-stock')"><div class="nav-dot" style="background:var(--teal)"></div>Stock MP</div>
@@ -388,6 +389,26 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
       <div class="tw">
         <div class="tw-bar"><span class="tw-title">Órdenes activas</span><button class="btn btn-sm" onclick="go('ordenes')">Ver todas →</button></div>
         <div id="dash-tbl"><div class="loading"><div class="spinner"></div>Cargando...</div></div>
+      </div>
+    </div>
+
+    <!-- PANEL OPERARIO -->
+    <div class="page" id="page-panel-operario">
+      <div class="page-hdr">
+        <div><div class="page-title">Panel operario 👷</div><div class="page-sub" id="panel-op-fecha"></div></div>
+        <div class="btn-grp">
+          <button class="btn btn-sm" onclick="renderPanelOperario()">↻ Actualizar</button>
+          <button class="btn btn-sm btn-primary" onclick="go('carga-bobinas')">+ Cargar bobina</button>
+        </div>
+      </div>
+      <!-- ALERTA INVENTARIO -->
+      <div id="panel-inv-alerta" style="display:none;margin-bottom:1rem;"></div>
+      <!-- CARDS POR EXTRUSORA -->
+      <div id="panel-extrusoras" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-bottom:1.5rem;"></div>
+      <!-- PRÓXIMAS EN COLA -->
+      <div class="tw">
+        <div class="tw-bar"><span class="tw-title">Cola de producción — próximas órdenes</span></div>
+        <div id="panel-cola"></div>
       </div>
     </div>
 
@@ -579,22 +600,19 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
     <!-- GANTT DIARIO -->
     <div class="page" id="page-gantt-diario">
       <div class="page-hdr">
-        <div><div class="page-title">Gantt diario</div><div class="page-sub">Programación hora a hora · recálculo en tiempo real</div></div>
+        <div><div class="page-title">Gantt diario 🔐</div><div class="page-sub">Programación hora a hora · recálculo en tiempo real</div></div>
         <div class="btn-grp">
+          <select class="st-sel" id="gd-vista" onchange="renderGanttDiario()" style="font-size:12px;">
+            <option value="supervisor">Vista supervisor (limpia)</option>
+            <option value="admin">Vista admin (técnica)</option>
+          </select>
           <button class="wk-btn" onclick="gdPrev()">‹ Anterior</button>
           <div class="wk-lbl" id="gd-lbl" style="min-width:160px;text-align:center;font-size:13px;font-weight:500;">...</div>
-          <button class="wk-btn" onclick="gdNext()">›gg Siguiente</button>
+          <button class="wk-btn" onclick="gdNext()">Siguiente ›</button>
           <button class="btn btn-sm" onclick="gdHoy()">Hoy</button>
         </div>
       </div>
-      <!-- LEYENDA ATRASOS -->
-      <div style="display:flex;gap:16px;margin-bottom:1rem;flex-wrap:wrap;">
-        <div class="leg-i"><div class="leg-dot" style="background:var(--accent)"></div>Programado</div>
-        <div class="leg-i"><div class="leg-dot" style="background:var(--green)"></div>Completado</div>
-        <div class="leg-i"><div class="leg-dot" style="background:var(--red)"></div>Atrasado</div>
-        <div class="leg-i"><div style="width:2px;height:14px;background:var(--amber);display:inline-block;"></div>&nbsp;Hora actual</div>
-        <div style="margin-left:auto;font-size:12px;color:var(--text2);" id="gd-hora-actual">Hora: —</div>
-      </div>
+      <div id="gd-hora-actual" style="font-size:12px;color:var(--text2);margin-bottom:8px;"></div>
       <div id="gd-atrasos" style="margin-bottom:1rem;"></div>
       <div style="overflow-x:auto;">
         <div id="gd-container"><div class="loading"><div class="spinner"></div>Cargando...</div></div>
@@ -1384,6 +1402,9 @@ async function reload(){
   window.J_FIN=cfg.extrusion_hora_fin;
   }
   updateStats();renderDash();renderOrdenes();renderBobinas();renderExtrusoras();renderClientes();renderOperarios();renderGantt();renderCap();renderStock();renderConfHistorial();renderCargaHist();poblarSelects();poblarCargaSelects();poblarConfSelects();poblarFiltroOrden();
+  // Refresh panel operario if active
+  const panelActive=document.getElementById('page-panel-operario');
+  if(panelActive&&panelActive.classList.contains('active'))renderPanelOperario();
   renderOrdenesCorte();renderMaqCorte();renderProductos();renderEmpaque();renderFueraDeRango();poblarSelectsCorte();
   checkQRTarget();
 }
@@ -1696,8 +1717,65 @@ async function reactivarOrden(id,tipo){
 }
 async function cambiarEstado(id,estado){
   // Si es completar manualmente, pedir clave admin
-  if(estado==='Completada'){pedirAdminYEjecutar(async()=>{await sb.from('ordenes').update({estado}).eq('id',id);await reload();});return;}
-  await sb.from('ordenes').update({estado}).eq('id',id);await reload();
+  if(estado==='Completada'){
+    pedirAdminYEjecutar(async()=>{
+      await sb.from('ordenes').update({estado,fecha_completada:new Date().toISOString()}).eq('id',id);
+      await reload();
+    });
+    return;
+  }
+  // Si quiere poner En proceso, verificar conflicto de extrusoras
+  if(estado==='En proceso'){
+    const orden=C.ordenes.find(o=>o.id===id);
+    if(orden?.orden_extrusoras?.length){
+      // Extrusoras que usa esta orden
+      const extIds=orden.orden_extrusoras.map(oe=>oe.extrusora_id);
+      // Órdenes que ya están En proceso usando alguna de esas extrusoras
+      const conflictos=C.ordenes.filter(o=>
+        o.id!==id &&
+        o.estado==='En proceso' &&
+        o.orden_extrusoras?.some(oe=>extIds.includes(oe.extrusora_id))
+      );
+      if(conflictos.length){
+        const nros=conflictos.map(o=>o.numero_orden).join(', ');
+        const extsConflicto=orden.orden_extrusoras
+          .filter(oe=>conflictos.some(c=>c.orden_extrusoras?.some(x=>x.extrusora_id===oe.extrusora_id)))
+          .map(oe=>C.extrusoras.find(e=>e.id===oe.extrusora_id)?.nombre||'?').join(', ');
+        // Mostrar modal de conflicto con opción admin
+        document.body.insertAdjacentHTML('beforeend',`<div class="modal-overlay" id="conflict-modal">
+          <div class="modal-card" style="max-width:480px">
+            <div class="modal-title" style="color:var(--amber)">⚠ Conflicto de extrusora</div>
+            <div style="font-size:13px;margin-bottom:1rem;">
+              La extrusora <strong>${extsConflicto}</strong> ya tiene una orden En proceso:<br>
+              <strong>${nros}</strong><br><br>
+              No se recomienda tener dos órdenes en proceso en la misma extrusora al mismo tiempo.
+            </div>
+            <div class="fg"><label>Motivo de autorización (admin)</label>
+              <input id="conflict-motivo" type="text" placeholder="ej: arrancando extrusora en paralelo...">
+            </div>
+            <div class="btn-grp" style="margin-top:1rem;">
+              <button class="btn btn-primary btn-sm" onclick="confirmarConflictoAdmin(${id})">Autorizar con clave admin</button>
+              <button class="btn btn-sm" onclick="document.getElementById('conflict-modal').remove();location.reload()">Cancelar</button>
+            </div>
+          </div>
+        </div>`);
+        return;
+      }
+    }
+  }
+  await sb.from('ordenes').update({estado}).eq('id',id);
+  await reload();
+}
+async function confirmarConflictoAdmin(id){
+  const motivo=document.getElementById('conflict-motivo')?.value.trim();
+  pedirAdminYEjecutar(async()=>{
+    document.getElementById('conflict-modal')?.remove();
+    await sb.from('ordenes').update({
+      estado:'En proceso',
+      motivo_atraso:motivo?'Autorizado admin: '+motivo:null
+    }).eq('id',id);
+    await reload();
+  });
 }
 
 // ===== ADMIN MODAL =====
@@ -1913,7 +1991,10 @@ function calcCarga(){
       <div><span style="color:var(--text2)">Error %</span><div class="mono" style="font-size:20px;font-weight:700;color:${estado==='ok'?'var(--green)':estado==='warn'?'var(--amber)':'var(--red)'}">${errDisplay}</div></div>
     </div>
     <div style="font-size:11px;color:var(--text3);margin-top:8px;">Pesada (−): tol. ${cfg.tolerancia_pesada_pct}% · Liviana (+): tol. ${cfg.tolerancia_liviana_pct}%</div>`;
-  window._calcResult={kgT,errKg,errPct,estado};
+  // Store with inverted convention: pesada=negative, liviana=positive
+  const errKgStore=errKg>0?-Math.abs(errKg):Math.abs(errKg);
+  const errPctStore=errKg>0?-absErrPct:absErrPct;
+  window._calcResult={kgT,errKg:errKgStore,errPct:errPctStore,estado};
 }
 async function guardarBobina(){
   // Verificar si hay inventario vencido
@@ -1968,17 +2049,19 @@ async function _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,ca
   const msg=document.getElementById('msg-carga');
   msg.innerHTML='<div class="loading" style="padding:0.5rem 0;justify-content:flex-start"><div class="spinner"></div>Guardando...</div>';
   const opNom=C.operarios.find(o=>o.id===opId)?.nombre||'—';
-  // Determinar si está fuera de rango (pesada >10% o liviana >15%)
   const absE=Math.abs(errPct);
   const esPesada=errKg>0;
-  const fueraDeRango=(esPesada&&absE>10)||((!esPesada)&&absE>15);
-  const motivoFR=esPesada?`Pesada: −${absE}% (límite −10%)`:`Liviana: +${absE}% (límite +15%)`;
+  // Convención: pesada = negativo (pérdida de precisión), liviana = positivo (falta material)
+  const errPctStore=esPesada?-absE:absE;
+  const errKgStore=esPesada?-Math.abs(errKg):Math.abs(errKg);
+  const fueraDeRango=(esPesada&&absE>cfg.tolerancia_pesada_pct)||((!esPesada)&&absE>cfg.tolerancia_liviana_pct);
+  const motivoFR=esPesada?`Pesada: −${absE}% (límite −${cfg.tolerancia_pesada_pct}%)`:`Liviana: +${absE}% (límite +${cfg.tolerancia_liviana_pct}%)`;
   const{error:e1}=await sb.from('bobinas_producidas').insert({
     numero_bobina:nro,orden_id:ordId,extrusora_id:extId,bobina_tipo_id:bob.id,
     metros_teoricos:mtsR,metros_reales:mtsR,kg_teoricos:kgT,kg_reales:kgR,
-    error_kg:errKg,error_pct:errPct,estado_calidad:calidad,
+    error_kg:errKgStore,error_pct:errPctStore,estado_calidad:calidad,
     flexxus:'No pasada',fecha_produccion:fecha,hora_produccion:hora,
-    en_stock:!fueraDeRango,  // fuera de rango NO va al stock normal
+    en_stock:!fueraDeRango,
     fuera_de_rango:fueraDeRango,
     motivo_fuera_rango:fueraDeRango?motivoFR:null,
     operario_id:opId,operario:opNom,observaciones:obs||null
@@ -2607,7 +2690,7 @@ function go(name){
   if(name==='productos')renderProductos();
   if(name==='empaque')renderEmpaque();
   if(name==='capacidad-corte')renderCapCorte();
-  if(name==='mp-stock')renderMPStock();
+  if(name==='panel-operario')renderPanelOperario();
   if(name==='mp-ingreso'){renderTiposMP();renderProveedores();poblarSelectsMP();}
   if(name==='mp-inventario'){renderInvAlerta();renderInvHist();poblarInvOp();}
   if(name==='mp-formulas'){poblarSelectsFormulas();renderFormulaBobina();}
@@ -2644,10 +2727,13 @@ async function editarBobinaAdmin(){
   if(!id||!mts||!kg){msg.style.color='var(--red)';msg.textContent='Completá metros y kg.';return;}
   const b=C.bobinas_prod.find(x=>x.id===id);
   const kgT=b?.kg_teoricos||r2(mts*(b?.bobinas?.kg_por_metro||0));
-  const errKg=r2(kg-kgT);
-  const errPct=kgT>0?r2((errKg/kgT)*100):0;
-  const absE=Math.abs(errPct);
-  const tolMax=errKg>0?cfg.tolerancia_pesada_pct:cfg.tolerancia_liviana_pct;
+  const errKgRaw=r2(kg-kgT);
+  const esPesada=errKgRaw>0;
+  const absE=Math.abs(r2((errKgRaw/kgT)*100));
+  // Convención: pesada = negativo, liviana = positivo
+  const errKg=esPesada?-Math.abs(errKgRaw):Math.abs(errKgRaw);
+  const errPct=esPesada?-absE:absE;
+  const tolMax=esPesada?cfg.tolerancia_pesada_pct:cfg.tolerancia_liviana_pct;
   const calidad=absE>tolMax?'RECHAZO':absE>tolMax*0.7?'ADVERTENCIA':'OK';
   const upd={metros_reales:mts,kg_reales:kg,error_kg:errKg,error_pct:errPct,estado_calidad:calidad,editado_admin:true};
   if(fecha)upd.fecha_produccion=fecha;
@@ -2991,131 +3077,311 @@ function calcScheduleReal(){
 }
 
 function renderGanttDiario(){
-  const schedProg=computeSchedule();   // Programado original
-  const schedReal=calcScheduleReal();  // Real con kg restantes
-
-  const diasSem=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-  const fechaStr=gdDate.toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
-  document.getElementById('gd-lbl').textContent=fechaStr;
-
+  const vista=document.getElementById('gd-vista')?.value||'supervisor';
+  if(vista==='admin') return renderGanttDiarioAdmin();
+  // ---- VISTA SUPERVISOR (limpia) ----
   const ahora=new Date();
   const esHoy=dStr(gdDate)===dStr(ahora);
   const horaActual=ahora.getHours()+(ahora.getMinutes()/60);
-  document.getElementById('gd-hora-actual').textContent=esHoy?`Hora actual: ${ahora.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}`:fechaStr;
 
-  const HORAS=Array.from({length:J_FIN-J_INI},(_,i)=>J_INI+i); // 7..21
+  document.getElementById('gd-lbl').textContent=
+    gdDate.toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  document.getElementById('gd-hora-actual').textContent=esHoy
+    ?'Hora actual: '+ahora.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}):'';
+
+  const HORAS=Array.from({length:J_FIN-J_INI},(_,i)=>J_INI+i);
+  const totalHs=J_FIN-J_INI;
+  const diaIni=new Date(gdDate);diaIni.setHours(J_INI,0,0,0);
+  const diaFin=new Date(gdDate);diaFin.setHours(J_FIN,0,0,0);
+  const mtsXOrden={};
+  C.bobinas_prod.forEach(b=>{if(b.orden_id)mtsXOrden[b.orden_id]=(mtsXOrden[b.orden_id]||0)+(b.metros_reales||0);});
 
   // Calcular atrasos
   const atrasos=[];
   C.ordenes.filter(o=>o.estado==='En proceso').forEach(o=>{
-    const prog=schedProg[o.id];
-    const real=schedReal[o.id];
+    const prog=schedProg[o.id];const real=schedReal[o.id];
     if(!prog||!real)return;
     const ext0=o.orden_extrusoras?.[0];if(!ext0)return;
-    const finProg=prog[ext0.extrusora_id]?.fin;
-    const finReal=real.fin;
-    if(!finProg||!finReal)return;
-    const diffMs=finReal-finProg;
-    if(diffMs>900000){ // más de 15 min de atraso
-      const diffHs=r1(diffMs/3600000);
-      atrasos.push({orden:o.numero_orden,diffHs,finProg,finReal});
+    const finProg=prog[ext0.extrusora_id]?.fin;if(!finProg||!real.fin)return;
+    const diffMs=real.fin-finProg;
+    if(diffMs>900000)atrasos.push({orden:o.numero_orden,diffHs:r1(diffMs/3600000),finProg,finReal:real.fin});
+  });
+  const atrasosDiv=document.getElementById('gd-atrasos');
+  atrasosDiv.innerHTML=atrasos.length
+    ?atrasos.map(a=>'<div class="atraso-card">⚠ Orden <strong>'+a.orden+'</strong> — fin programado: <strong>'+fmtDt(a.finProg)+'</strong> → estimado: <strong>'+fmtDt(a.finReal)+'</strong> — atraso: <strong>'+a.diffHs+' hs</strong></div>').join('')
+    :'<div style="font-size:12px;color:var(--green);margin-bottom:6px;">✓ Sin atrasos detectados</div>';
+
+  const cont=document.getElementById('gd-container');
+  if(!C.extrusoras.length){cont.innerHTML='<div class="empty">Sin extrusoras.</div>';return;}
+
+  // Helper: posición de una hora en el Gantt
+  const toLeft=dt=>{
+    const h=dt.getHours()+(dt.getMinutes()/60);
+    return Math.max(0,Math.min(100,((h-J_INI)/totalHs*100)));
+  };
+  const toWidth=(ini,fin)=>{
+    const iniC=ini<diaIni?diaIni:ini;
+    const finC=fin>diaFin?diaFin:fin;
+    if(iniC>=finC)return 0;
+    return Math.max(0.8,((finC-iniC)/3600000)/totalHs*100);
+  };
+
+  let html='<div style="width:100%;overflow-x:auto;">';
+
+  // Cabecera de horas
+  html+='<div style="display:flex;margin-bottom:4px;margin-left:100px;">';
+  HORAS.forEach(h=>{
+    const isNow=esHoy&&Math.floor(horaActual)===h;
+    html+='<div style="flex:1;text-align:center;font-size:10px;font-weight:'+(isNow?700:400)+';color:'+(isNow?'var(--accent)':'var(--text3)')+';min-width:0;">'+String(h).padStart(2,'0')+'h</div>';
+  });
+  html+='</div>';
+
+  // Fila por extrusora
+  C.extrusoras.forEach(ext=>{
+    const fuera=ext.en_servicio===false;
+    const ordenesExt=C.ordenes.filter(o=>
+      o.estado!=='Suspendida'&&o.estado!=='Cancelada'&&
+      o.orden_extrusoras?.some(oe=>oe.extrusora_id===ext.id)
+    );
+
+    html+='<div style="display:flex;align-items:center;margin-bottom:10px;gap:0;">';
+    // Label extrusora
+    html+='<div style="width:100px;min-width:100px;padding-right:10px;">'
+      +'<div style="font-weight:700;font-size:13px">'+ext.nombre+'</div>'
+      +'<div style="font-size:10px;color:var(--text3)">'+ext.kg_por_hora+' kg/h</div>'
+      +'</div>';
+
+    // Área del Gantt
+    html+='<div style="flex:1;position:relative;height:52px;background:var(--bg3);border-radius:8px;overflow:hidden;">';
+
+    // Franjas de hora
+    HORAS.forEach((h,i)=>{
+      const isNow=esHoy&&Math.floor(horaActual)===h;
+      html+='<div style="position:absolute;left:'+(i/totalHs*100).toFixed(2)+'%;top:0;bottom:0;width:'+(1/totalHs*100).toFixed(2)+'%;'
+        +(isNow?'background:rgba(99,179,237,0.15);':'')
+        +'border-right:1px solid var(--border);"></div>';
+    });
+
+    if(fuera){
+      html+='<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--redbg);color:var(--red);font-size:12px;font-weight:600;">🔧 FUERA DE SERVICIO</div>';
+    } else {
+      // Una barra por orden, usando schedule real
+      ordenesExt.forEach(o=>{
+        const s=schedReal[o.id];if(!s||!s.ini||!s.fin)return;
+        const ini=new Date(s.ini);const fin=new Date(s.fin);
+        // Solo mostrar si intersecta con el día
+        if(fin<diaIni||ini>diaFin)return;
+        const left=toLeft(ini<diaIni?diaIni:ini);
+        const width=toWidth(ini,fin);
+        if(width<0.1)return;
+
+        const mtsP=mtsXOrden[o.id]||0;
+        const pct=o.metros?Math.min(100,Math.round(mtsP/o.metros*100)):0;
+        const progFin=schedProg[o.id]?.[ext.id]?.fin;
+        const isLate=progFin&&fin>progFin&&fin-progFin>900000;
+        const isComp=o.estado==='Completada';
+        const isProc=o.estado==='En proceso';
+        const isPend=o.estado==='Pendiente';
+
+        // Color de la barra
+        const bg=isComp?'var(--greenbg)':isLate?'var(--redbg)':isProc?'var(--accentbg)':'var(--bg2)';
+        const border=isComp?'var(--greenbd)':isLate?'var(--redbd)':isProc?'var(--accentbd)':'var(--border)';
+        const textCol=isComp?'var(--green)':isLate?'var(--red)':isProc?'var(--accent)':'var(--text2)';
+
+        // Barra de progreso interno (solo órdenes en proceso)
+        const progressBar=isProc&&pct>0
+          ?'<div style="position:absolute;left:0;top:0;bottom:0;width:'+pct+'%;background:'+(isLate?'rgba(248,113,113,0.3)':'rgba(99,179,237,0.25)')+';border-radius:inherit;"></div>'
+          :'';
+
+        // Etiqueta: N° orden + bobina + estado/progreso
+        const label=o.numero_orden+(isProc?' ▶'+pct+'%':isComp?' ✓':'');
+        const sublabel=(o.bobinas?.nombre||'')+(o.bobinas?.descripcion?' · '+o.bobinas.descripcion:'');
+
+        const tooltip='Orden: '+o.numero_orden
+          +'&#10;Bobina: '+(o.bobinas?.nombre||'—')+(o.bobinas?.descripcion?' — '+o.bobinas.descripcion:'')
+          +'&#10;Estado: '+o.estado+(isProc?' ('+pct+'%)':'')
+          +'&#10;'+fmtDt(ini)+' → '+fmtDt(fin)
+          +(isLate?'&#10;⚠ ATRASADO +'+r1((fin-progFin)/3600000)+' hs':'')
+          +(isProc?'&#10;Metros: '+r1(mtsP)+'/'+o.metros:'' );
+
+        html+='<div title="'+tooltip+'" style="position:absolute;left:'+left.toFixed(2)+'%;width:'+width.toFixed(2)+'%;'
+          +'top:4px;bottom:4px;'
+          +'background:'+bg+';'
+          +'border:1.5px solid '+border+';'
+          +'border-radius:6px;'
+          +'overflow:hidden;'
+          +'cursor:default;">'
+          +progressBar
+          +'<div style="position:relative;padding:2px 6px;height:100%;display:flex;flex-direction:column;justify-content:center;">'
+            +'<div style="font-size:11px;font-weight:700;color:'+textCol+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+label+'</div>'
+            +(sublabel?'<div style="font-size:9px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+sublabel+'</div>':'')
+          +'</div>'
+          +'</div>';
+      });
     }
+
+    // Línea de hora actual
+    if(esHoy&&horaActual>=J_INI&&horaActual<J_FIN){
+      const nowLeft=((horaActual-J_INI)/totalHs*100).toFixed(2);
+      html+='<div style="position:absolute;left:'+nowLeft+'%;top:0;bottom:0;width:2px;background:var(--accent);opacity:0.8;z-index:10;"></div>';
+    }
+
+    html+='</div></div>'; // fin área gantt + fila
   });
 
+  html+='</div>';
+
+  // Leyenda
+  html+='<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;font-size:11px;color:var(--text3);">'
+    +'<span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:10px;background:var(--accentbg);border:1.5px solid var(--accentbd);border-radius:3px;display:inline-block;"></span>En proceso</span>'
+    +'<span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:10px;background:var(--greenbg);border:1.5px solid var(--greenbd);border-radius:3px;display:inline-block;"></span>Completada</span>'
+    +'<span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:10px;background:var(--redbg);border:1.5px solid var(--redbd);border-radius:3px;display:inline-block;"></span>Atrasada</span>'
+    +'<span style="display:flex;align-items:center;gap:4px;"><span style="width:14px;height:10px;background:var(--bg2);border:1.5px solid var(--border);border-radius:3px;display:inline-block;"></span>Pendiente</span>'
+    +'<span style="display:flex;align-items:center;gap:4px;"><span style="width:2px;height:12px;background:var(--accent);display:inline-block;border-radius:1px;"></span>Hora actual</span>'
+    +'</div>';
+
+  cont.innerHTML=html;
+}
+
+
+// ===== GANTT DIARIO ADMIN (técnico, doble capa) =====
+function renderGanttDiarioAdmin(){
+  const schedProg=computeSchedule();
+  const schedReal=calcScheduleReal();
+  const ahora=new Date();
+  const esHoy=dStr(gdDate)===dStr(ahora);
+  const horaActual=ahora.getHours()+(ahora.getMinutes()/60);
+
+  document.getElementById('gd-lbl').textContent=
+    gdDate.toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+  document.getElementById('gd-hora-actual').textContent=esHoy
+    ?'Hora actual: '+ahora.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}):'';
+
+  const HORAS=Array.from({length:J_FIN-J_INI},(_,i)=>J_INI+i);
+  const totalHs=J_FIN-J_INI;
+  const diaIni=new Date(gdDate);diaIni.setHours(J_INI,0,0,0);
+  const diaFin=new Date(gdDate);diaFin.setHours(J_FIN,0,0,0);
+
+  // Atrasos
+  const atrasos=[];
+  C.ordenes.filter(o=>o.estado==='En proceso').forEach(o=>{
+    const prog=schedProg[o.id];const real=schedReal[o.id];
+    if(!prog||!real)return;
+    const ext0=o.orden_extrusoras?.[0];if(!ext0)return;
+    const finProg=prog[ext0.extrusora_id]?.fin;if(!finProg||!real.fin)return;
+    const diffMs=real.fin-finProg;
+    if(diffMs>900000)atrasos.push({orden:o.numero_orden,diffHs:r1(diffMs/3600000),finProg,finReal:real.fin,
+      bobina:o.bobinas?.nombre||'—',kgP:r1(real.kgProducidos||0),kgT:o.kg_totales||0});
+  });
   const atrasosDiv=document.getElementById('gd-atrasos');
-  if(atrasos.length){
-    atrasosDiv.innerHTML=atrasos.map(a=>`<div class="atraso-card">
-      ⚠ Orden <strong>${a.orden}</strong> — fin programado: <strong>${fmtDt(a.finProg)}</strong> →
-      fin real estimado: <strong>${fmtDt(a.finReal)}</strong> —
-      atraso: <strong>${a.diffHs} hs</strong>
-    </div>`).join('');
-  } else {
-    atrasosDiv.innerHTML=`<div style="font-size:12px;color:var(--green);margin-bottom:6px;">✓ Sin atrasos detectados para hoy</div>`;
-  }
+  atrasosDiv.innerHTML=atrasos.length
+    ?'<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px;">'
+      +atrasos.map(a=>'<div class="atraso-card">'
+        +'⚠ <strong>'+a.orden+'</strong> ('+a.bobina+') · '
+        +'Producido: <strong>'+a.kgP+'/'+a.kgT+' kg</strong> · '
+        +'Fin prog: <strong>'+fmtDt(a.finProg)+'</strong> → '
+        +'Est. real: <strong>'+fmtDt(a.finReal)+'</strong> · '
+        +'Atraso: <strong style="color:var(--red)">+'+a.diffHs+' hs</strong>'
+        +'</div>').join('')+'</div>'
+    :'<div style="font-size:12px;color:var(--green);margin-bottom:8px;">✓ Sin atrasos detectados</div>';
 
-  // Build gantt
   const cont=document.getElementById('gd-container');
-  if(!C.extrusoras.length){cont.innerHTML='<div class="empty">No hay extrusoras.</div>';return;}
+  if(!C.extrusoras.length){cont.innerHTML='<div class="empty">Sin extrusoras.</div>';return;}
 
-  let html=`<div class="gd-wrap">
-    <div class="gd-hdr">
-      <div class="gd-ext-col">Extrusora</div>
-      <div class="gd-hrs">${HORAS.map(h=>`<div class="gd-hr-head${esHoy&&Math.floor(horaActual)===h?' now-col':''}">${String(h).padStart(2,'0')}:00</div>`).join('')}</div>
-    </div>`;
+  const toLeftPct=(dt)=>{
+    const iniC=dt<diaIni?diaIni:dt>diaFin?null:dt;
+    if(!iniC)return null;
+    return((iniC.getHours()+(iniC.getMinutes()/60))-J_INI)/totalHs*100;
+  };
+  const toWidthPct=(ini,fin)=>{
+    const iniC=ini<diaIni?diaIni:ini;
+    const finC=fin>diaFin?diaFin:fin;
+    if(iniC>=finC)return 0;
+    return Math.max(0.5,((finC-iniC)/3600000)/totalHs*100);
+  };
+
+  let html='<div style="overflow-x:auto;">';
+  // Header horas
+  html+='<div style="display:flex;margin-bottom:2px;margin-left:90px;">';
+  HORAS.forEach(h=>{
+    const isNow=esHoy&&Math.floor(horaActual)===h;
+    html+='<div style="flex:1;text-align:center;font-size:10px;color:'+(isNow?'var(--accent)':'var(--text3)')+';font-weight:'+(isNow?700:400)+';min-width:0;border-right:1px solid var(--border);">'+String(h).padStart(2,'0')+'h</div>';
+  });
+  html+='</div>';
 
   C.extrusoras.forEach(ext=>{
-    // Órdenes que pasan por esta extrusora en este día
-    const barras=[];
-    C.ordenes.filter(o=>o.estado!=='Suspendida').forEach(o=>{
-      const oe=o.orden_extrusoras?.find(x=>x.extrusora_id===ext.id);if(!oe)return;
+    const ordenes=C.ordenes.filter(o=>o.estado!=='Suspendida'&&o.estado!=='Cancelada'&&o.orden_extrusoras?.some(oe=>oe.extrusora_id===ext.id));
+    html+='<div style="display:flex;align-items:center;margin-bottom:8px;">';
+    html+='<div style="width:90px;min-width:90px;padding-right:8px;">'
+      +'<div style="font-weight:700;font-size:12px">'+ext.nombre+'</div>'
+      +'<div style="font-size:10px;color:var(--text3)">'+ext.kg_por_hora+' kg/h</div>'
+      +'</div>';
+    html+='<div style="flex:1;position:relative;height:62px;background:var(--bg3);border-radius:6px;overflow:visible;">';
 
-      // Barra programada (azul semitransparente) — todas las órdenes activas
+    // Grid horas
+    HORAS.forEach((h,i)=>{
+      const isNow=esHoy&&Math.floor(horaActual)===h;
+      html+='<div style="position:absolute;left:'+(i/totalHs*100).toFixed(2)+'%;top:0;bottom:0;width:'+(1/totalHs*100).toFixed(2)+'%;border-right:1px solid var(--border);'+(isNow?'background:rgba(99,179,237,0.1);':'')+'z-index:0;"></div>';
+    });
+
+    ordenes.forEach(o=>{
+      // BARRA PROGRAMADA (arriba, semitransparente)
       const prog=schedProg[o.id];
       if(prog&&prog[ext.id]){
         const ini=new Date(prog[ext.id].inicio);
         const fin=new Date(prog[ext.id].fin);
-        barras.push({o,ini,fin,tipo:'prog'});
+        const left=toLeftPct(ini);
+        if(left!==null){
+          const width=toWidthPct(ini,fin);
+          const desc=o.bobinas?.descripcion?' · '+o.bobinas.descripcion:'';
+          html+='<div title="PROG: '+o.numero_orden+' · '+(o.bobinas?.nombre||'')+desc+'&#10;'+fmtDt(ini)+' → '+fmtDt(fin)+'" style="position:absolute;left:'+left.toFixed(2)+'%;width:'+width.toFixed(2)+'%;top:3px;height:26px;background:var(--accentbg);border:1px solid var(--accentbd);border-radius:4px;overflow:hidden;opacity:0.7;z-index:1;cursor:default;">'
+            +'<div style="padding:1px 5px;font-size:9px;font-weight:600;color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+o.numero_orden+(o.bobinas?.nombre?' · '+o.bobinas.nombre:'')+'</div>'
+            +'</div>';
+        }
       }
-      // Barra real/proyectada (sólida) — TODAS las órdenes activas y pendientes
-      // para mostrar cómo se corre el programa completo
+      // BARRA REAL (abajo, sólida)
       const real=schedReal[o.id];
       if(real&&real.ini&&real.fin){
-        barras.push({o,ini:real.ini,fin:real.fin,tipo:'real',pct:real.pctAvance||0});
+        const ini=new Date(real.ini);const fin=new Date(real.fin);
+        const left=toLeftPct(ini);
+        if(left!==null){
+          const width=toWidthPct(ini,fin);
+          const progFin=schedProg[o.id]?.[ext.id]?.fin;
+          const isLate=progFin&&fin>progFin&&fin-progFin>900000;
+          const isComp=o.estado==='Completada';
+          const isProc=o.estado==='En proceso';
+          const bg=isComp?'var(--greenbg)':isLate?'var(--redbg)':isProc?'var(--accentbg)':'var(--bg2)';
+          const bd=isComp?'var(--greenbd)':isLate?'var(--redbd)':isProc?'var(--accentbd)':'var(--border)';
+          const tc=isComp?'var(--green)':isLate?'var(--red)':isProc?'var(--accent)':'var(--text2)';
+          const pct=real.pctAvance||0;
+          const label=isProc?'▶'+pct+'%'+(isLate?' ⚠':''):o.numero_orden;
+          const kgInfo=isProc?' · '+r1(real.kgProducidos||0)+'/'+o.kg_totales+' kg':'';
+          const desc=o.bobinas?.descripcion?' · '+o.bobinas.descripcion:'';
+          html+='<div title="REAL: '+o.numero_orden+' · '+(o.bobinas?.nombre||'')+desc+'&#10;'+o.estado+kgInfo+'&#10;'+fmtDt(ini)+' → '+fmtDt(fin)+(isLate?' · ⚠ ATRASADO':'')+'" style="position:absolute;left:'+left.toFixed(2)+'%;width:'+width.toFixed(2)+'%;bottom:3px;height:26px;background:'+bg+';border:1.5px solid '+bd+';border-radius:4px;overflow:hidden;z-index:2;cursor:default;">';
+          if(isProc&&pct>0)html+='<div style="position:absolute;left:0;top:0;bottom:0;width:'+pct+'%;background:'+(isLate?'rgba(248,113,113,0.35)':'rgba(99,179,237,0.3)');+'"></div>';
+          html+='<div style="position:relative;padding:1px 5px;font-size:9px;font-weight:700;color:'+tc+';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+label+'</div>'
+            +'<div style="position:relative;padding:0 5px;font-size:8px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+(o.bobinas?.nombre||'')+'</div>'
+            +'</div>';
+        }
       }
     });
 
-    // Calcular posición de cada barra en el día
-    const totalHsGantt=J_FIN-J_INI; // 15
-    const diaIni=new Date(gdDate);diaIni.setHours(J_INI,0,0,0);
-    const diaFin=new Date(gdDate);diaFin.setHours(J_FIN,0,0,0);
-
-    const barsHtml=barras.map(({o,ini,fin,tipo,pct})=>{
-      const iniC=ini<diaIni?diaIni:ini>diaFin?null:ini;
-      const finC=fin>diaFin?diaFin:fin<diaIni?null:fin;
-      if(!iniC||!finC||iniC>=finC)return'';
-      const leftPct=((iniC.getHours()+(iniC.getMinutes()/60))-J_INI)/totalHsGantt*100;
-      const widthPct=((finC-iniC)/3600000)/totalHsGantt*100;
-      if(tipo==='prog'){
-        const cls=o.estado==='Completada'?'gd-bar-done':'gd-bar-prog';
-        const desc=o.bobinas?.descripcion?` · ${o.bobinas.descripcion}`:'';
-        return`<div class="gd-bar ${cls}" style="left:${leftPct.toFixed(2)}%;width:${Math.max(widthPct,0.5).toFixed(2)}%;top:5%;height:38%;opacity:0.5;"
-          title="PROGRAMADO: ${o.numero_orden} · ${o.bobinas?.nombre||''}${desc}&#10;${fmtDt(ini)} → ${fmtDt(fin)}">${o.numero_orden}</div>`;
-      } else {
-        const progFin=schedProg[o.id]?.[ext.id]?.fin;
-        const isLate=progFin&&fin>progFin&&fin-progFin>900000;
-        const cls=o.estado==='Pendiente'?'gd-bar-pend':isLate?'gd-bar-late':'gd-bar-done';
-        const label=o.estado==='En proceso'?`▶${pct||0}%${isLate?' ⚠':''}`:o.numero_orden;
-        const desc=o.bobinas?.descripcion?` · ${o.bobinas.descripcion}`:'';
-        const kgInfo=schedReal[o.id]?` · ${r1(schedReal[o.id].kgProducidos)}/${o.kg_totales||0} kg`:'';
-        return`<div class="gd-bar ${cls}" style="left:${leftPct.toFixed(2)}%;width:${Math.max(widthPct,0.5).toFixed(2)}%;top:55%;height:38%;"
-          title="REAL: ${o.numero_orden} · ${o.bobinas?.nombre||''}${desc}&#10;${o.estado}${kgInfo}&#10;${fmtDt(ini)} → ${fmtDt(fin)}${isLate?' · ⚠ ATRASADO':''}">${label}</div>`;
-      }
-    }).join('');
-
     // Línea hora actual
-    const nowLine=esHoy&&horaActual>=J_INI&&horaActual<J_FIN?
-      `<div class="gd-now-line" style="left:${((horaActual-J_INI)/totalHsGantt*100).toFixed(2)}%"></div>`:'';
+    if(esHoy&&horaActual>=J_INI&&horaActual<J_FIN){
+      html+='<div style="position:absolute;left:'+((horaActual-J_INI)/totalHs*100).toFixed(2)+'%;top:-4px;bottom:-4px;width:2px;background:var(--accent);z-index:10;border-radius:1px;"></div>';
+    }
 
-    html+=`<div class="gd-row">
-      <div class="gd-ext-lbl">
-        <div class="gd-ext-nm">${ext.nombre}</div>
-        <div class="gd-ext-cp">${ext.kg_por_hora} kg/h</div>
-      </div>
-      <div class="gd-cells-row" style="position:relative;flex:1;min-height:56px;">
-        ${HORAS.map(h=>`<div class="gd-hr-cell${esHoy&&Math.floor(horaActual)===h?' now-col':''}"></div>`).join('')}
-        ${nowLine}
-        ${barsHtml}
-      </div>
-    </div>`;
+    html+='</div></div>';
   });
 
-  html+=`</div>
-    <div style="font-size:11px;color:var(--text3);margin-top:8px;display:flex;gap:16px;">
-      <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:8px;background:var(--accentbg);border:1px solid var(--accentbd);border-radius:2px;display:inline-block;opacity:0.5;"></span>Programado original</span>
-      <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:8px;background:var(--greenbg);border:1px solid var(--greenbd);border-radius:2px;display:inline-block;"></span>Real en tiempo</span>
-      <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:8px;background:var(--redbg);border:1px solid var(--redbd);border-radius:2px;display:inline-block;"></span>Real atrasado</span>
-      <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:8px;background:var(--amberbg);border:1px solid var(--amberbd);border-radius:2px;display:inline-block;"></span>Pendiente reprogramado</span>
-    </div>`;
+  html+='</div>';
+  html+='<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;font-size:11px;color:var(--text3);">'
+    +'<span><span style="display:inline-block;width:14px;height:8px;background:var(--accentbg);border:1px solid var(--accentbd);border-radius:2px;opacity:0.7;margin-right:3px;"></span>Programado</span>'
+    +'<span><span style="display:inline-block;width:14px;height:8px;background:var(--accentbg);border:1.5px solid var(--accentbd);border-radius:2px;margin-right:3px;"></span>Real en proceso</span>'
+    +'<span><span style="display:inline-block;width:14px;height:8px;background:var(--greenbg);border:1.5px solid var(--greenbd);border-radius:2px;margin-right:3px;"></span>Completada</span>'
+    +'<span><span style="display:inline-block;width:14px;height:8px;background:var(--redbg);border:1.5px solid var(--redbd);border-radius:2px;margin-right:3px;"></span>Atrasada</span>'
+    +'<span><span style="display:inline-block;width:2px;height:12px;background:var(--accent);border-radius:1px;margin-right:3px;"></span>Hora actual</span>'
+    +'</div>';
   cont.innerHTML=html;
 }
 
@@ -3167,103 +3433,214 @@ function renderFueraDeRango(){
   if(!lista.length){w.innerHTML='<div class="empty" style="color:var(--green)">✓ No hay bobinas fuera de rango.</div>';return;}
   const totMts=r1(lista.reduce((s,b)=>s+(b.metros_reales||0),0));
   const totKg=r1(lista.reduce((s,b)=>s+(b.kg_reales||0),0));
-  let html=`<div class="stats" style="margin-bottom:1.25rem;">
-    <div class="stat"><div class="stat-lbl">Total bobinas</div><div class="stat-val">${lista.length}</div></div>
-    <div class="stat"><div class="stat-lbl">Total metros</div><div class="stat-val">${totMts} m</div><div class="stat-sub">pendientes reasignación</div></div>
-    <div class="stat"><div class="stat-lbl">Total kg</div><div class="stat-val">${totKg} kg</div></div>
-  </div>
-  <div class="alert alert-warn" style="font-size:12px;margin-bottom:1rem;">
-    Solo el administrador puede reasignar bobinas. El sistema sugiere tipos compatibles por ancho exacto y tolerancia de peso.
-  </div>`;
+  let html='<div class="stats" style="margin-bottom:1.25rem;">'
+    +'<div class="stat"><div class="stat-lbl">Total bobinas</div><div class="stat-val">'+lista.length+'</div></div>'
+    +'<div class="stat"><div class="stat-lbl">Total metros</div><div class="stat-val">'+totMts+' m</div><div class="stat-sub">pendientes reasignación</div></div>'
+    +'<div class="stat"><div class="stat-lbl">Total kg</div><div class="stat-val">'+totKg+' kg</div></div>'
+    +'</div>'
+    +'<div class="alert alert-warn" style="font-size:12px;margin-bottom:1rem;">Solo el administrador puede reasignar bobinas. El sistema sugiere tipos compatibles por ancho exacto y tolerancia de peso.</div>';
   lista.forEach(b=>{
     const recom=calcRecomendaciones(b);
     const kgM_real=b.metros_reales>0?r4(b.kg_reales/b.metros_reales):0;
-    html+=`<div class="fp" style="margin-bottom:1rem;">
-      <div class="fp-t" style="color:var(--red);">⚠ ${b.numero_bobina} — Fuera de rango</div>
-      <!-- DATOS DE LA BOBINA -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:1rem;background:var(--bg3);border-radius:var(--r);padding:12px;">
-        <div><div class="stat-lbl">Tipo original</div><div style="font-weight:500;font-size:13px">${b.bobinas?.nombre||'—'}</div></div>
-        <div><div class="stat-lbl">Ancho</div><div style="font-family:'DM Mono',monospace;font-size:13px">${b.bobinas?.ancho??'—'} mm</div></div>
-        <div><div class="stat-lbl">Metros reales</div><div style="font-family:'DM Mono',monospace;font-size:13px">${b.metros_reales} m</div></div>
-        <div><div class="stat-lbl">Kg reales</div><div style="font-family:'DM Mono',monospace;font-size:13px">${b.kg_reales} kg</div></div>
-        <div><div class="stat-lbl">Kg/m real</div><div style="font-family:'DM Mono',monospace;font-size:13px">${kgM_real} kg/m</div></div>
-        <div><div class="stat-lbl">Error</div><div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--red)">${b.error_pct>0?'+':''}${b.error_pct}%</div></div>
-        <div style="grid-column:span 2"><div class="stat-lbl">Motivo</div><div style="font-size:12px;color:var(--red)">${b.motivo_fuera_rango||'—'}</div></div>
-      </div>
-      <!-- RECOMENDACIONES -->
-      ${recom.length?`
-      <div style="font-size:12px;font-weight:600;color:var(--green);margin-bottom:8px;">
-        🎯 ${recom.length} tipo${recom.length>1?'s':''} compatible${recom.length>1?'s':''} encontrado${recom.length>1?'s':''}
-      </div>
-      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">
-        ${recom.map((r,i)=>`
-          <div style="background:${i===0?'rgba(74,222,128,0.08)':'var(--bg3)'};border:1px solid ${i===0?'var(--greenbd)':'var(--border)'};border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-            <div style="display:flex;align-items:center;gap:6px;">
-              ${i===0?'<span style="font-size:14px">⭐</span>':'<span style="font-size:14px;opacity:0.5">○</span>'}
-              <div>
-                <div style="font-weight:600;font-size:13px">${r.tipo.nombre}</div>
-                <div style="font-size:11px;color:var(--text2)">${r.tipo.descripcion||''}</div>
-              </div>
-            </div>
-            <div style="font-size:11px;color:var(--text2);">
-              Ancho: <b>${r.tipo.ancho} mm</b> ·
-              kg/m: <b>${r.tipo.kg_por_metro}</b> ·
-              Error vs este tipo: <b style="color:${r.absErr<=r.tolMax*0.5?'var(--green)':'var(--amber)'}">${r.errPct>0?'+':''}${r.errPct}% (tol. ±${r.tolMax}%)</b>
-            </div>
-            ${r.ordenesCompatibles.length?`
-            <div style="font-size:11px;background:var(--accentbg);color:var(--accent);padding:2px 8px;border-radius:4px;border:1px solid var(--accentbd);">
-              ${r.ordenesCompatibles.length} orden${r.ordenesCompatibles.length>1?'es':''} activa${r.ordenesCompatibles.length>1?'s':''} necesitan este tipo
-            </div>`:`<div style="font-size:11px;color:var(--text3)">Sin órdenes activas</div>`}
-            <button class="btn btn-sm btn-teal" style="margin-left:auto;" 
-              onclick="confirmarReasignacion(${b.id},${r.tipo.id},'${r.tipo.nombre}')">
-              Reasignar aquí
-            </button>
-          </div>`).join('')}
-      </div>`:`
-      <div style="font-size:12px;color:var(--text3);margin-bottom:12px;padding:10px;background:var(--bg3);border-radius:var(--r);">
-        ${!b.bobinas?.ancho?'⚠ La bobina original no tiene ancho cargado — no se puede recomendar.':
-          'Sin tipos compatibles (mismo ancho + dentro de tolerancia de peso). Reasignación manual:'}
-      </div>`}
-      <!-- REASIGNACIÓN MANUAL -->
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <span style="font-size:12px;color:var(--text2);">Reasignar manualmente a:</span>
-        <select class="st-sel" id="reasig-${b.id}" style="font-size:12px;">
-          <option value="">— tipo de bobina —</option>
-          ${C.bobinas.map(t=>`<option value="${t.id}" ${t.id===b.bobina_tipo_id?'disabled':''}>
-            ${t.nombre}${t.descripcion?' — '+t.descripcion:''} (${t.kg_por_metro} kg/m)
-          </option>`).join('')}
-        </select>
-        <button class="btn btn-sm btn-primary" onclick="reasignarBobina(${b.id})">Confirmar</button>
-      </div>
-    </div>`;
+    // Error con nueva convención: pesada=negativo, liviana=positivo
+    const errPctOrig=b.error_pct||0;
+    const errColor=errPctOrig>0?'var(--accent)':'var(--amber)'; // liviana=verde, pesada=amarillo
+    html+='<div class="fp" style="margin-bottom:1rem;">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
+        +'<div class="fp-t" style="color:var(--red);margin:0">⚠ '+b.numero_bobina+' — Fuera de rango</div>'
+        +'<button class="btn btn-sm" onclick="imprimirTarjetaBobina(\''+b.numero_bobina+'\')" title="Imprimir tarjeta">🖨️</button>'
+      +'</div>'
+      // Datos originales
+      +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:1rem;background:var(--bg3);border-radius:var(--r);padding:12px;">'
+        +'<div><div class="stat-lbl">Tipo original</div>'
+          +'<div style="font-weight:500;font-size:13px">'+( b.bobinas?.nombre||'—')+'</div>'
+          +(b.bobinas?.descripcion?'<div style="font-size:11px;color:var(--text2)">'+b.bobinas.descripcion+'</div>':'')
+        +'</div>'
+        +'<div><div class="stat-lbl">Ancho</div><div class="mono" style="font-size:13px">'+(b.bobinas?.ancho??'—')+' mm</div></div>'
+        +'<div><div class="stat-lbl">Metros reales</div><div class="mono" style="font-size:13px">'+b.metros_reales+' m</div></div>'
+        +'<div><div class="stat-lbl">Kg reales</div><div class="mono" style="font-size:13px">'+b.kg_reales+' kg</div></div>'
+        +'<div><div class="stat-lbl">Kg teóricos</div><div class="mono" style="font-size:13px">'+b.kg_teoricos+' kg</div></div>'
+        +'<div><div class="stat-lbl">Kg/m real</div><div class="mono" style="font-size:13px">'+kgM_real+' kg/m</div></div>'
+        +'<div><div class="stat-lbl">Error original</div>'
+          +'<div class="mono" style="font-size:15px;font-weight:700;color:'+errColor+'">'+(errPctOrig>0?'+':'')+errPctOrig+'%</div>'
+          +'<div style="font-size:10px;color:var(--text3)">'+(errPctOrig>0?'liviana (falta material)':'pesada (exceso material)')+'</div>'
+        +'</div>'
+        +'<div style="grid-column:span 2"><div class="stat-lbl">Motivo</div><div style="font-size:12px;color:var(--red)">'+(b.motivo_fuera_rango||'—')+'</div></div>'
+      +'</div>'
+      // Recomendaciones
+      +(recom.length?
+        '<div style="font-size:12px;font-weight:600;color:var(--green);margin-bottom:8px;">🎯 '+recom.length+' tipo'+(recom.length>1?'s':'')+' compatible'+(recom.length>1?'s':'')+' encontrado'+(recom.length>1?'s':'')+'</div>'
+        +'<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">'
+        +recom.map((r,i)=>{
+          const esPesadaVsTipo=kgM_real>r.tipo.kg_por_metro;
+          const errVsTipo=esPesadaVsTipo?-r.absErr:r.absErr;
+          const errCol=esPesadaVsTipo?'var(--amber)':'var(--accent)';
+          return '<div style="background:'+(i===0?'rgba(74,222,128,0.08)':'var(--bg3)')+';border:1px solid '+(i===0?'var(--greenbd)':'var(--border)')+';border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'
+            +'<div style="display:flex;align-items:center;gap:6px;">'
+              +(i===0?'<span style="font-size:14px">⭐</span>':'<span style="font-size:14px;opacity:0.5">○</span>')
+              +'<div>'
+                +'<div style="font-weight:600;font-size:13px">'+r.tipo.nombre+'</div>'
+                +(r.tipo.descripcion?'<div style="font-size:11px;color:var(--text2)">'+r.tipo.descripcion+'</div>':'')
+              +'</div>'
+            +'</div>'
+            +'<div style="font-size:11px;color:var(--text2);">Ancho: <b>'+r.tipo.ancho+' mm</b> · kg/m teo: <b>'+r.tipo.kg_por_metro+'</b> · '
+              +'Error vs este tipo: <b style="color:'+errCol+'">'+(errVsTipo>0?'+':'')+errVsTipo+'% ('+(esPesadaVsTipo?'pesada':'liviana')+')</b></div>'
+            +(r.ordenesCompatibles.length
+              ?'<div style="font-size:11px;background:var(--accentbg);color:var(--accent);padding:2px 8px;border-radius:4px;border:1px solid var(--accentbd);">'+r.ordenesCompatibles.length+' orden'+(r.ordenesCompatibles.length>1?'es':'')+' activa'+(r.ordenesCompatibles.length>1?'s':'')+' necesitan este tipo</div>'
+              :'<div style="font-size:11px;color:var(--text3)">Sin órdenes activas → se creará orden REASIG</div>')
+            +'<button class="btn btn-sm btn-teal" style="margin-left:auto;" onclick="document.getElementById(\'reasig-'+b.id+'\').value=\''+r.tipo.id+'\';actualizarErrorReasig('+b.id+');reasignarBobina('+b.id+')">Reasignar aquí</button>'
+            +'</div>';
+        }).join('')
+        +'</div>'
+        :'<div style="font-size:12px;color:var(--text3);margin-bottom:12px;padding:10px;background:var(--bg3);border-radius:var(--r);">'
+          +(!b.bobinas?.ancho?'⚠ La bobina original no tiene ancho cargado — no se puede recomendar.'
+            :'Sin tipos compatibles (mismo ancho + dentro de tolerancia). Reasignación manual:')
+          +'</div>')
+      // Reasignación manual con recálculo en vivo
+      +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+        +'<span style="font-size:12px;color:var(--text2)">Reasignar manualmente a:</span>'
+        +'<select class="st-sel" id="reasig-'+b.id+'" style="font-size:12px;" onchange="actualizarErrorReasig('+b.id+')">'
+          +'<option value="">— tipo de bobina —</option>'
+          +C.bobinas.map(t=>'<option value="'+t.id+'" '+(t.id===b.bobina_tipo_id?'disabled':'')+'>'
+            +t.nombre+(t.descripcion?' — '+t.descripcion:'')+' ('+t.kg_por_metro+' kg/m)</option>').join('')
+        +'</select>'
+        +'<div id="reasig-err-'+b.id+'" style="font-size:13px;font-weight:700;font-family:\'DM Mono\',monospace;min-width:60px;"></div>'
+        +'<button class="btn btn-sm btn-primary" onclick="reasignarBobina('+b.id+')">Confirmar</button>'
+      +'</div>'
+      +'</div>';
   });
   w.innerHTML=html;
 }
 
-function confirmarReasignacion(bobId,tipoId,tipoNombre){
-  pedirAdminYEjecutar(async()=>{
-    await sb.from('bobinas_producidas').update({
-      fuera_de_rango:false, en_stock:true,
-      bobina_tipo_id:tipoId,
-      reasignada_a_orden:null
-    }).eq('id',bobId);
-    await reload();
-  });
+function actualizarErrorReasig(bobId){
+  const b=C.bobinas_fuera.find(x=>x.id===bobId);if(!b)return;
+  const tipoId=parseInt(document.getElementById('reasig-'+bobId)?.value);
+  const div=document.getElementById('reasig-err-'+bobId);
+  if(!div)return;
+  if(!tipoId){div.textContent='';return;}
+  const tipo=C.bobinas.find(t=>t.id===tipoId);if(!tipo||!tipo.kg_por_metro){div.textContent='';return;}
+  const kgTeo=r2(b.metros_reales*tipo.kg_por_metro);
+  const errKg=r2(b.kg_reales-kgTeo);
+  const absE=Math.abs(r2((errKg/kgTeo)*100));
+  const esPesada=errKg>0;
+  // Nueva convención: pesada=negativo, liviana=positivo
+  const errPct=esPesada?-absE:absE;
+  const tolMax=esPesada?cfg.tolerancia_pesada_pct:cfg.tolerancia_liviana_pct;
+  const ok=absE<=tolMax;
+  div.style.color=ok?'var(--green)':absE<=tolMax*1.3?'var(--amber)':'var(--red)';
+  div.textContent=(errPct>0?'+':'')+errPct+'% '+(ok?'✓':'⚠');
+  div.title=(esPesada?'Pesada':'Liviana')+' vs '+tipo.nombre+' — kg teo: '+kgTeo+' · tol: ±'+tolMax+'%';
 }
 
 async function reasignarBobina(id){
   const tipoId=parseInt(document.getElementById('reasig-'+id)?.value);
   if(!tipoId){alert('Seleccioná un tipo de bobina primero.');return;}
   const tipo=C.bobinas.find(b=>b.id===tipoId);
+  if(!tipo){alert('Tipo de bobina no encontrado.');return;}
+
+  // Buscar órdenes En proceso o Pendiente para ese tipo de bobina
+  const ordenesDisp=C.ordenes.filter(o=>
+    o.bobina_id===tipoId &&
+    (o.estado==='En proceso'||o.estado==='Pendiente')
+  );
+
   pedirAdminYEjecutar(async()=>{
+    let ordenDestino=null;
+
+    if(ordenesDisp.length===1){
+      // Solo una opción → asignar directamente
+      ordenDestino=ordenesDisp[0];
+    } else if(ordenesDisp.length>1){
+      // Varias opciones → preguntar al admin cuál
+      const elegida=await new Promise(resolve=>{
+        const opts=ordenesDisp.map(o=>`<option value="${o.id}">${o.numero_orden} · ${o.cliente||'—'} · ${o.estado}</option>`).join('');
+        document.body.insertAdjacentHTML('beforeend',`<div class="modal-overlay" id="reasig-ord-modal">
+          <div class="modal-card" style="max-width:420px">
+            <div class="modal-title">Asignar a orden existente</div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">
+              Hay ${ordenesDisp.length} órdenes activas para <strong>${tipo.nombre}</strong>.<br>Seleccioná a cuál asignar la bobina:
+            </div>
+            <div class="fg"><select id="reasig-ord-dest">${opts}</select></div>
+            <div class="btn-grp" style="margin-top:1rem;">
+              <button class="btn btn-primary btn-sm" onclick="
+                resolve(parseInt(document.getElementById('reasig-ord-dest').value));
+                document.getElementById('reasig-ord-modal').remove();
+              ">Confirmar</button>
+              <button class="btn btn-sm" onclick="
+                resolve(null);
+                document.getElementById('reasig-ord-modal').remove();
+              ">Cancelar</button>
+            </div>
+          </div>
+        </div>`);
+        // Exponer resolve al scope global para los onclick
+        window._reasigResolve=resolve;
+        // Reescribir botones con referencia global
+        document.querySelector('#reasig-ord-modal .btn-primary').onclick=()=>{
+          const v=parseInt(document.getElementById('reasig-ord-dest').value);
+          document.getElementById('reasig-ord-modal').remove();
+          resolve(v);
+        };
+        document.querySelector('#reasig-ord-modal .btn-sm:last-child').onclick=()=>{
+          document.getElementById('reasig-ord-modal').remove();
+          resolve(null);
+        };
+      });
+      if(!elegida)return;
+      ordenDestino=C.ordenes.find(o=>o.id===elegida);
+    } else {
+      // No hay órdenes activas → crear orden REASIG automática
+      const{data:cnt}=await sb.from('contadores').select('valor').eq('nombre','numero_orden').maybeSingle();
+      const next=(cnt?.valor||0)+1;
+      const nroOrden='REASIG-'+String(next).padStart(5,'0');
+      const{data:newOrden,error:eO}=await sb.from('ordenes').insert({
+        numero_orden:nroOrden,
+        bobina_id:tipoId,
+        cliente:'Reasignación automática',
+        metros:0,kg_totales:0,
+        estado:'En proceso',prioridad:99,
+        observaciones:'Orden automática — bobinas fuera de rango reasignadas',
+        created_at:new Date().toISOString()
+      }).select().single();
+      if(eO){alert('Error creando orden: '+eO.message);return;}
+      await sb.from('contadores').upsert({nombre:'numero_orden',valor:next},{onConflict:'nombre'});
+      ordenDestino=newOrden;
+    }
+
+    // Actualizar la bobina — recalcular error para el nuevo tipo
+    const bob=C.bobinas_fuera.find(b=>b.id===id);
+    let nuevoErrKg=null,nuevoErrPct=null,nuevaCalidad='OK';
+    if(bob&&tipo.kg_por_metro){
+      const kgTeoNuevo=r2(bob.metros_reales*tipo.kg_por_metro);
+      const errKgRaw=r2(bob.kg_reales-kgTeoNuevo);
+      const esPesada=errKgRaw>0;
+      const absE=Math.abs(r2((errKgRaw/kgTeoNuevo)*100));
+      nuevoErrKg=esPesada?-Math.abs(errKgRaw):Math.abs(errKgRaw);
+      nuevoErrPct=esPesada?-absE:absE;
+      const tolMax=esPesada?cfg.tolerancia_pesada_pct:cfg.tolerancia_liviana_pct;
+      nuevaCalidad=absE>tolMax?'RECHAZO':absE>tolMax*0.7?'ADVERTENCIA':'OK';
+    }
     await sb.from('bobinas_producidas').update({
-      fuera_de_rango:false, en_stock:true,
+      fuera_de_rango:false,en_stock:true,
       bobina_tipo_id:tipoId,
-      reasignada_a_orden:null
+      orden_id:ordenDestino.id,
+      reasignada:true,
+      ...(nuevoErrKg!==null&&{error_kg:nuevoErrKg,error_pct:nuevoErrPct,estado_calidad:nuevaCalidad,
+        motivo_fuera_rango:null})
     }).eq('id',id);
+
+    // Actualizar metros y kg de la orden destino
+    if(bob){
+      const ordenActual=C.ordenes.find(o=>o.id===ordenDestino.id)||ordenDestino;
+      await sb.from('ordenes').update({
+        metros:(ordenActual.metros||0)+(bob.metros_reales||0),
+        kg_totales:(ordenActual.kg_totales||0)+(bob.kg_reales||0)
+      }).eq('id',ordenDestino.id);
+    }
     await reload();
   });
 }
+
 
 // ===== MÓDULO CORTE =====
 function poblarSelectsCorte(){
@@ -4564,7 +4941,187 @@ function renderSuspHistorial(){
 
 
 
-// ===== MATERIA PRIMA =====
+// ===== PANEL OPERARIO =====
+function renderPanelOperario(){
+  const ahora=new Date();
+  const lbl=document.getElementById('panel-op-fecha');
+  if(lbl)lbl.textContent=ahora.toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long'})
+    +' · '+ahora.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+
+  // Alerta inventario vencido
+  const alertaInv=document.getElementById('panel-inv-alerta');
+  if(alertaInv){
+    const dias=calcDiasDesdeInventario();
+    if(dias!==null&&dias>=cfg.frecuencia_inventario_dias){
+      alertaInv.style.display='block';
+      alertaInv.innerHTML='<div class="alert alert-warn" style="font-size:13px;">⚠ <strong>Inventario de MP vencido</strong> — Hace '+dias+' días sin inventario. Avisá al administrador.</div>';
+    } else {
+      alertaInv.style.display='none';
+    }
+  }
+
+  const sched=calcScheduleReal();
+  const mtsXOrden={};
+  C.bobinas_prod.forEach(b=>{if(b.orden_id)mtsXOrden[b.orden_id]=(mtsXOrden[b.orden_id]||0)+(b.metros_reales||0);});
+
+  // Cards por extrusora
+  const extDiv=document.getElementById('panel-extrusoras');
+  if(extDiv){
+    let html='';
+    C.extrusoras.forEach(ext=>{
+      const enProceso=C.ordenes.find(o=>
+        o.estado==='En proceso'&&
+        o.orden_extrusoras?.some(oe=>oe.extrusora_id===ext.id)
+      );
+      const pendientes=C.ordenes.filter(o=>
+        o.estado==='Pendiente'&&
+        o.orden_extrusoras?.some(oe=>oe.extrusora_id===ext.id)
+      ).sort((a,b)=>(a.prioridad||99)-(b.prioridad||99));
+      const fuera=ext.en_servicio===false;
+
+      html+='<div style="background:var(--bg2);border:2px solid '+(fuera?'var(--redbd)':enProceso?'var(--accentbd)':'var(--border)')+';border-radius:12px;padding:16px;position:relative;">';
+
+      // Header extrusora
+      html+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">'
+        +'<div style="display:flex;align-items:center;gap:10px;">'
+          +'<div style="width:14px;height:14px;border-radius:50%;background:'+(fuera?'var(--red)':enProceso?'var(--green)':'var(--text3)')+'"></div>'
+          +'<div style="font-size:16px;font-weight:700">'+ext.nombre+'</div>'
+        +'</div>'
+        +'<div style="font-size:11px;color:var(--text3)">'+ext.kg_por_hora+' kg/h</div>'
+      +'</div>';
+
+      if(fuera){
+        html+='<div style="text-align:center;padding:20px 0;color:var(--red);">'
+          +'<div style="font-size:28px;margin-bottom:8px;">🔧</div>'
+          +'<div style="font-weight:700;font-size:14px">FUERA DE SERVICIO</div>'
+          +(ext.motivo_fuera_servicio?'<div style="font-size:12px;color:var(--text2);margin-top:4px">'+ext.motivo_fuera_servicio+'</div>':'')
+          +'</div>';
+      } else if(enProceso){
+        // ORDEN ACTUAL
+        const mtsP=mtsXOrden[enProceso.id]||0;
+        const pct=enProceso.metros?Math.min(100,Math.round(mtsP/enProceso.metros*100)):0;
+        const mtsResta=Math.max(0,r1((enProceso.metros||0)-mtsP));
+        const s=sched[enProceso.id];
+        const finEst=s?fmtDt(s.fin):'—';
+        const colPct=pct>=80?'var(--green)':pct>=50?'var(--accent)':'var(--amber)';
+
+        html+='<div style="background:var(--accentbg);border:1px solid var(--accentbd);border-radius:8px;padding:12px;margin-bottom:12px;">'
+          +'<div style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">▶ EN PROCESO</div>'
+          +'<div style="font-size:18px;font-weight:800;margin-bottom:2px;">'+enProceso.numero_orden+'</div>'
+          +'<div style="font-size:14px;font-weight:600;color:var(--text1);margin-bottom:1px;">'+( enProceso.bobinas?.nombre||'—')+'</div>'
+          +(enProceso.bobinas?.descripcion?'<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">'+enProceso.bobinas.descripcion+'</div>':'<div style="margin-bottom:8px;"></div>')
+          // Barra de progreso grande
+          +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">'
+            +'<div style="flex:1;height:14px;background:var(--bg3);border-radius:7px;overflow:hidden;">'
+              +'<div style="height:100%;width:'+pct+'%;background:'+colPct+';border-radius:7px;transition:width 0.5s;"></div>'
+            +'</div>'
+            +'<span style="font-size:18px;font-weight:800;color:'+colPct+';font-family:\'DM Mono\',monospace;min-width:50px;text-align:right">'+pct+'%</span>'
+          +'</div>'
+          // Metros hechos vs total vs faltan
+          +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;">'
+            +'<div style="background:var(--bg2);border-radius:6px;padding:6px;">'
+              +'<div style="font-size:10px;color:var(--text3);margin-bottom:2px">HECHOS</div>'
+              +'<div style="font-size:16px;font-weight:700;color:'+colPct+';font-family:\'DM Mono\',monospace">'+r1(mtsP).toLocaleString('es-AR')+'</div>'
+              +'<div style="font-size:10px;color:var(--text3)">metros</div>'
+            +'</div>'
+            +'<div style="background:var(--bg2);border-radius:6px;padding:6px;">'
+              +'<div style="font-size:10px;color:var(--text3);margin-bottom:2px">FALTAN</div>'
+              +'<div style="font-size:16px;font-weight:700;color:var(--amber);font-family:\'DM Mono\',monospace">'+mtsResta.toLocaleString('es-AR')+'</div>'
+              +'<div style="font-size:10px;color:var(--text3)">metros</div>'
+            +'</div>'
+            +'<div style="background:var(--bg2);border-radius:6px;padding:6px;">'
+              +'<div style="font-size:10px;color:var(--text3);margin-bottom:2px">TOTAL</div>'
+              +'<div style="font-size:16px;font-weight:700;font-family:\'DM Mono\',monospace">'+(enProceso.metros||0).toLocaleString('es-AR')+'</div>'
+              +'<div style="font-size:10px;color:var(--text3)">metros</div>'
+            +'</div>'
+          +'</div>'
+          +'<div style="font-size:11px;color:var(--text2);margin-top:8px;text-align:center">⏱ Fin estimado: <strong>'+finEst+'</strong></div>'
+          +'</div>';
+
+        // SIGUIENTE en esta extrusora
+        if(pendientes.length){
+          const sig=pendientes[0];
+          const sSig=sched[sig.id];
+          html+='<div style="border:1px solid var(--border);border-radius:8px;padding:10px;">'
+            +'<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">SIGUIENTE →</div>'
+            +'<div style="font-size:14px;font-weight:600">'+sig.numero_orden+'</div>'
+            +'<div style="font-size:13px;color:var(--text2)">'+( sig.bobinas?.nombre||'—')+'</div>'
+            +(sig.bobinas?.descripcion?'<div style="font-size:11px;color:var(--text3)">'+sig.bobinas.descripcion+'</div>':'')
+            +'<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--text3);">'
+              +'<span>'+(sig.metros||0).toLocaleString('es-AR')+' m · '+(sig.kg_totales||0).toLocaleString('es-AR')+' kg</span>'
+              +'<span>Inicio est: '+(sSig?fmtDt(sSig.ini):'—')+'</span>'
+            +'</div>'
+            +'</div>';
+        }
+      } else if(pendientes.length){
+        // Sin orden activa, pero hay pendiente
+        const sig=pendientes[0];
+        const sSig=sched[sig.id];
+        html+='<div style="text-align:center;padding:12px 0 8px;">'
+          +'<div style="font-size:22px;margin-bottom:4px;">⏳</div>'
+          +'<div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Sin orden activa</div>'
+          +'</div>'
+          +'<div style="border:1px solid var(--accentbd);background:var(--accentbg);border-radius:8px;padding:10px;">'
+            +'<div style="font-size:10px;font-weight:700;color:var(--accent);text-transform:uppercase;margin-bottom:4px;">PRÓXIMA →</div>'
+            +'<div style="font-size:15px;font-weight:700">'+sig.numero_orden+'</div>'
+            +'<div style="font-size:13px;font-weight:600">'+( sig.bobinas?.nombre||'—')+'</div>'
+            +(sig.bobinas?.descripcion?'<div style="font-size:11px;color:var(--text2)">'+sig.bobinas.descripcion+'</div>':'')
+            +'<div style="font-size:11px;color:var(--text3);margin-top:6px;">'+(sig.metros||0).toLocaleString('es-AR')+' m · '+(sig.kg_totales||0).toLocaleString('es-AR')+' kg</div>'
+            +(sSig?'<div style="font-size:11px;color:var(--accent);margin-top:4px;">Inicio est: <strong>'+fmtDt(sSig.ini)+'</strong></div>':'')
+          +'</div>';
+      } else {
+        html+='<div style="text-align:center;padding:24px 0;">'
+          +'<div style="font-size:28px;margin-bottom:8px;">✅</div>'
+          +'<div style="font-size:13px;color:var(--text3)">Sin órdenes asignadas</div>'
+          +'</div>';
+      }
+
+      html+='</div>';
+    });
+    extDiv.innerHTML=html||'<div class="empty">Sin extrusoras configuradas.</div>';
+  }
+
+  // Cola general de pendientes
+  const colaDiv=document.getElementById('panel-cola');
+  if(colaDiv){
+    const pendTodas=C.ordenes.filter(o=>o.estado==='Pendiente')
+      .sort((a,b)=>(a.prioridad||99)-(b.prioridad||99)||new Date(a.created_at)-new Date(b.created_at));
+    if(!pendTodas.length){
+      colaDiv.innerHTML='<div class="empty" style="color:var(--green)">✓ No hay órdenes pendientes en la cola.</div>';
+    } else {
+      let html='<div style="display:flex;flex-direction:column;gap:8px;padding:4px 0;">';
+      pendTodas.forEach((o,i)=>{
+        const exts=o.orden_extrusoras?.map(oe=>C.extrusoras.find(e=>e.id===oe.extrusora_id)?.nombre||'?').join(', ')||'—';
+        const s=sched[o.id];
+        const ini=s?fmtDt(s.ini):'—';
+        const fin=s?fmtDt(s.fin):'—';
+        html+='<div style="display:flex;align-items:center;gap:12px;background:var(--bg3);border-radius:8px;padding:10px 14px;border-left:4px solid '+(i===0?'var(--accent)':'var(--border)')+';">'
+          +'<div style="font-size:18px;font-weight:800;color:'+(i===0?'var(--accent)':'var(--text3)')+';min-width:28px;text-align:center">'+(i+1)+'°</div>'
+          +'<div style="flex:1;">'
+            +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">'
+              +'<span style="font-weight:700;font-size:13px">'+o.numero_orden+'</span>'
+              +'<span style="font-size:12px;color:var(--text2)">'+( o.bobinas?.nombre||'—')+'</span>'
+              +(o.bobinas?.descripcion?'<span style="font-size:11px;color:var(--text3)">'+o.bobinas.descripcion+'</span>':'')
+            +'</div>'
+            +'<div style="font-size:11px;color:var(--text3);">'
+              +'Extrusora: <strong>'+exts+'</strong> · '
+              +(o.metros||0).toLocaleString('es-AR')+' m · '
+              +(o.kg_totales||0).toLocaleString('es-AR')+' kg'
+            +'</div>'
+          +'</div>'
+          +'<div style="text-align:right;font-size:11px;color:var(--text2);white-space:nowrap;">'
+            +'<div>Inicio: <strong>'+ini+'</strong></div>'
+            +'<div>Fin: <strong>'+fin+'</strong></div>'
+          +'</div>'
+        +'</div>';
+      });
+      html+='</div>';
+      colaDiv.innerHTML=html;
+    }
+  }
+}
+
+
 function poblarSelectsMP(){
   const t=document.getElementById('li-tipo');
   if(t)t.innerHTML='<option value="">— seleccionar —</option>'+C.tipos_mp.map(x=>'<option value="'+x.id+'">'+x.nombre+' ('+x.categoria+')</option>').join('');
