@@ -418,8 +418,15 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
       <div class="page-hdr">
         <div><div class="page-title">Órdenes de extrusión</div><div class="page-sub">Prioridades · estados · atrasos</div></div>
         <div class="btn-grp">
+          <input type="text" class="st-sel" id="filtro-ord-nro" placeholder="N° orden..." style="width:110px" oninput="renderOrdenes()">
+          <select class="st-sel" id="filtro-ord-bobina" onchange="renderOrdenes()">
+            <option value="">Todos los tipos</option>
+          </select>
+          <select class="st-sel" id="filtro-ord-cliente" onchange="renderOrdenes()">
+            <option value="">Todos los clientes</option>
+          </select>
           <select class="st-sel" id="filtro-ord" onchange="renderOrdenes()">
-            <option value="">Todos</option><option>Pendiente</option><option>En proceso</option><option>Completada</option><option>Suspendida</option>
+            <option value="">Todos los estados</option><option>Pendiente</option><option>En proceso</option><option>Completada</option><option>Suspendida</option><option>Cancelada</option>
           </select>
           <button class="btn btn-primary btn-sm" onclick="go('nueva')">+ Nueva orden</button>
         </div>
@@ -578,12 +585,17 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
           <select class="st-sel" id="filtro-stock" onchange="renderStock()">
             <option value="true">En stock</option><option value="false">Consumidas</option><option value="">Todas</option>
           </select>
+          <select class="st-sel" id="filtro-stock-bobina" onchange="renderStock()">
+            <option value="">Todos los tipos</option>
+          </select>
           <select class="st-sel" id="filtro-stock-ord" onchange="renderStock()">
             <option value="">Todas las órdenes</option>
           </select>
           <select class="st-sel" id="filtro-stock-flex" onchange="renderStock()">
             <option value="">Todos Flexxus</option><option value="No pasada">No pasada</option><option value="Pasada">Pasada</option>
           </select>
+          <input type="date" class="st-sel" id="filtro-stock-desde" style="width:130px" onchange="renderStock()" title="Fecha producción desde">
+          <input type="date" class="st-sel" id="filtro-stock-hasta" style="width:130px" onchange="renderStock()" title="Fecha producción hasta">
         </div>
       </div>
       <!-- RESUMEN TOTALES -->
@@ -880,6 +892,32 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
           <div class="btn-grp"><button class="btn btn-primary btn-sm" onclick="editarBobinaAdmin()">Guardar corrección</button><span id="msg-adm-bob" style="font-size:12px;"></span></div>
         </div>
         <div class="fp">
+          <div class="fp-t">Editar orden de corte</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Corregí el precio de venta u otros datos de una orden. Los cambios se reflejan inmediatamente en Rentabilidad.</div>
+          <div class="fgrid">
+            <div class="fg"><label>Orden de corte</label>
+              <select id="adm-oc-sel" onchange="onAdmOcChange()"><option value="">— seleccionar —</option></select>
+            </div>
+          </div>
+          <div id="adm-oc-form" style="display:none;">
+            <div class="fgrid fgrid3">
+              <div class="fg"><label>Cliente</label><input id="adm-oc-cli" type="text"></div>
+              <div class="fg"><label>Precio por paquete ($)</label><input id="adm-oc-precio-paq" type="number" step="0.01" oninput="calcAdmOcPrecio()"></div>
+              <div class="fg"><label>Precio por unidad ($) <span style="font-size:10px;color:var(--text3)" id="adm-oc-emp-lbl"></span></label>
+                <div class="computed" id="adm-oc-precio-uni">—</div>
+              </div>
+            </div>
+            <div class="fgrid">
+              <div class="fg"><label>Ref. Flexxus</label><input id="adm-oc-flex" type="text"></div>
+              <div class="fg"><label>Observaciones</label><input id="adm-oc-obs" type="text"></div>
+            </div>
+            <div class="btn-grp" style="margin-top:8px;">
+              <button class="btn btn-primary btn-sm" onclick="guardarEdicionOrdenCorte()">Guardar cambios</button>
+              <span id="msg-adm-oc" style="font-size:12px;margin-left:8px;"></span>
+            </div>
+          </div>
+        </div>
+        <div class="fp">
           <div class="fp-t">Flexxus — marcar bobinas como Pasadas</div>
           <div id="adm-flexxus-wrap"></div>
         </div>
@@ -898,8 +936,15 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
       <div class="page-hdr">
         <div><div class="page-title">Órdenes de corte</div><div class="page-sub">Gestión de corte y confección</div></div>
         <div class="btn-grp">
+          <input type="text" class="st-sel" id="filtro-oc-nro" placeholder="N° orden..." style="width:110px" oninput="renderOrdenesCorte()">
+          <select class="st-sel" id="filtro-oc-producto" onchange="renderOrdenesCorte()">
+            <option value="">Todos los productos</option>
+          </select>
+          <select class="st-sel" id="filtro-oc-cliente" onchange="renderOrdenesCorte()">
+            <option value="">Todos los clientes</option>
+          </select>
           <select class="st-sel" id="filtro-oc" onchange="renderOrdenesCorte()">
-            <option value="">Todos</option><option>Pendiente</option><option>En proceso</option><option>Completada</option><option>Suspendida</option>
+            <option value="">Todos los estados</option><option>Pendiente</option><option>En proceso</option><option>Completada</option><option>Suspendida</option><option>Cancelada</option>
           </select>
           <button class="btn btn-primary btn-sm" onclick="go('nueva-corte')">+ Nueva orden</button>
         </div>
@@ -1085,6 +1130,13 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
       <div class="page-hdr">
         <div><div class="page-title">Historial de órdenes</div><div class="page-sub">Completadas · Suspendidas · Canceladas</div></div>
         <div class="btn-grp">
+          <input type="text" class="st-sel" id="hist-nro" placeholder="N° orden..." style="width:110px" oninput="renderHistorial()">
+          <select class="st-sel" id="hist-bobina" onchange="renderHistorial()">
+            <option value="">Todos los tipos</option>
+          </select>
+          <select class="st-sel" id="hist-cliente" onchange="renderHistorial()">
+            <option value="">Todos los clientes</option>
+          </select>
           <select class="st-sel" id="hist-tipo" onchange="renderHistorial()">
             <option value="">Extrusión + Corte</option><option value="extrusion">Solo Extrusión</option><option value="corte">Solo Corte</option>
           </select>
@@ -1438,7 +1490,7 @@ async function reload(){
     sb.from('ordenes').select('*, bobinas(*), orden_extrusoras(*, extrusoras(*))').order('prioridad').order('created_at'),
     sb.from('capacidad_semanal').select('*, extrusoras(*)'),
     sb.from('clientes').select('*').order('razon_social'),
-    sb.from('bobinas_producidas').select('*, ordenes(numero_orden,metros), bobinas(*), extrusoras(nombre), operarios(nombre)').eq('en_stock',true).order('created_at',{ascending:false}),
+    sb.from('bobinas_producidas').select('*, ordenes(numero_orden,metros), bobinas(*), extrusoras(nombre), operarios(nombre)').eq('fuera_de_rango',false).order('created_at',{ascending:false}),
     sb.from('stock_movimientos').select('*, bobinas_producidas(numero_bobina)').order('fecha',{ascending:false}).limit(100),
     sb.from('bobinas_producidas').select('*, ordenes(numero_orden), bobinas(nombre), extrusoras(nombre)').order('created_at',{ascending:false}).limit(50),
     sb.from('configuracion').select('*'),
@@ -1507,6 +1559,9 @@ const r6=n=>Math.round(n*1000000)/1000000;
 function lunesDeHoy(){const d=new Date();d.setHours(0,0,0,0);const day=d.getDay();d.setDate(d.getDate()-(day===0?6:day-1));return d;}
 function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
 function dStr(d){return new Date(d).toISOString().slice(0,10);}
+// Fecha local (Argentina) — evita el bug de UTC que muestra mañana para las últimas horas
+function localDate(d){const dt=d||new Date();return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');}
+function localTime(d){const dt=d||new Date();return String(dt.getHours()).padStart(2,'0')+':'+String(dt.getMinutes()).padStart(2,'0')+':'+String(dt.getSeconds()).padStart(2,'0');}
 function fmtDt(d){if(!d)return'—';const dt=new Date(d);return dt.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})+' '+dt.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});}
 function fmtDate(d){return new Date(d).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'});}
 function fmtDateFull(d){return new Date(d).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'});}
@@ -1729,8 +1784,30 @@ function renderDash(){
 
 // ===== ÓRDENES =====
 function renderOrdenes(){
-  const filtro=document.getElementById('filtro-ord')?.value||'';
-  const lista=filtro?C.ordenes.filter(o=>o.estado===filtro):C.ordenes;
+  // Poblar selects de bobina y cliente — siempre actualizar
+  const sBob=document.getElementById('filtro-ord-bobina');
+  if(sBob&&C.bobinas.length){
+    const cur=sBob.value;
+    sBob.innerHTML='<option value="">Todos los tipos</option>';
+    C.bobinas.forEach(b=>{const o=document.createElement('option');o.value=b.id;o.textContent=b.nombre+(b.descripcion?' — '+b.descripcion:'');sBob.appendChild(o);});
+    sBob.value=cur;
+  }
+  const sCli=document.getElementById('filtro-ord-cliente');
+  if(sCli&&C.ordenes.length){
+    const cur=sCli.value;
+    sCli.innerHTML='<option value="">Todos los clientes</option>';
+    [...new Set(C.ordenes.map(o=>o.cliente).filter(Boolean))].sort().forEach(cli=>{const o=document.createElement('option');o.value=cli;o.textContent=cli;sCli.appendChild(o);});
+    sCli.value=cur;
+  }
+  const filtroEstado=document.getElementById('filtro-ord')?.value||'';
+  const filtroBobina=parseInt(document.getElementById('filtro-ord-bobina')?.value)||0;
+  const filtroCliente=document.getElementById('filtro-ord-cliente')?.value||'';
+  const filtroNro=document.getElementById('filtro-ord-nro')?.value.trim().toLowerCase()||'';
+  let lista=C.ordenes;
+  if(filtroEstado)lista=lista.filter(o=>o.estado===filtroEstado);
+  if(filtroBobina)lista=lista.filter(o=>o.bobina_id===filtroBobina);
+  if(filtroCliente)lista=lista.filter(o=>o.cliente===filtroCliente);
+  if(filtroNro)lista=lista.filter(o=>o.numero_orden?.toLowerCase().includes(filtroNro));
   const w=document.getElementById('ord-tbl');
   if(!lista.length){w.innerHTML='<div class="empty">No hay órdenes.</div>';return;}
   const sched=computeSchedule();
@@ -1955,7 +2032,7 @@ function limpiarFormOrden(){
   const fc=document.getElementById('f-cli');if(fc)fc.value='';
   const fp=document.getElementById('f-pri');if(fp)fp.value='1';
   const fe=document.getElementById('f-est');if(fe)fe.value='Pendiente';
-  const fd=document.getElementById('f-fecha');if(fd)fd.value=new Date().toISOString().slice(0,10);
+  const fd=document.getElementById('f-fecha');if(fd)fd.value=localDate();
   document.getElementById('msg-nueva').innerHTML='';
   document.getElementById('comp-kg').innerHTML='Seleccioná bobina y metros.';
   document.getElementById('comp-hs').innerHTML='Seleccioná al menos una extrusora.';
@@ -2001,7 +2078,7 @@ async function poblarCargaSelects(){
 }
 function initCarga(){
   const hoy=new Date();
-  const fd=document.getElementById('cb-fecha');if(fd)fd.value=hoy.toISOString().slice(0,10);
+  const fd=document.getElementById('cb-fecha');if(fd)fd.value=localDate(hoy);
   const fh=document.getElementById('cb-hora');if(fh)fh.value=hoy.toTimeString().slice(0,5);
   generarNroBobina();
   renderCargaHist();
@@ -2072,7 +2149,21 @@ function calcCarga(){
   if(absErrPct>tolMax){estado='bad';icono='🔴';titulo='RECHAZO — fuera de rango';detalle=`${tipoBobina} — supera límite ${tolMax}%`;}
   else if(absErrPct>tolAdv){estado='warn';icono='🟡';titulo='ADVERTENCIA';detalle=`${tipoBobina} — supera OK (${tolAdv}%), rechazo a partir de ${tolMax}%`;}
   sem.className=`semaforo-box semaforo-${estado==='ok'?'ok':estado==='warn'?'warn':'bad'}`;
-  sem.innerHTML=`<div class="semaforo-icon">${icono}</div><div class="semaforo-title">${titulo}</div><div class="semaforo-detail">${detalle}</div>`;
+  // Mensaje de acción para el operario — siempre que haya error
+  let accionMsg='';
+  if(absErrPct>0){
+    const esGrave=estado!=='ok';
+    const color=estado==='bad'?'var(--red)':estado==='warn'?'var(--amber)':'var(--text2)';
+    const size=esGrave?'18px':'13px';
+    const peso=esGrave?'900':'600';
+    const prefijo=esGrave?'':' un poco';
+    if(esPesadaCalc){
+      accionMsg='<div style="font-size:'+size+';font-weight:'+peso+';letter-spacing:0.04em;margin-top:8px;color:'+color+'">⬇ REDUCIR'+prefijo+' EL ESPESOR DE FILM</div>';
+    } else {
+      accionMsg='<div style="font-size:'+size+';font-weight:'+peso+';letter-spacing:0.04em;margin-top:8px;color:'+color+'">⬆ AUMENTAR'+prefijo+' EL ESPESOR DE FILM</div>';
+    }
+  }
+  sem.innerHTML=`<div class="semaforo-icon">${icono}</div><div class="semaforo-title">${titulo}</div><div class="semaforo-detail">${detalle}</div>${accionMsg}`;
   const errDisplay=errKg>0?`−${absErrPct}%`:`+${absErrPct}%`;
   const errKgDisplay=errKg>0?`+${errKg} kg (pesada)`:`${errKg} kg (liviana)`;
   box.innerHTML=`
@@ -2184,8 +2275,8 @@ async function _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,ca
         await sb.from('lotes_mp').update({
           kg_disponibles:nuevoDisp,
           estado:nuevoDisp===0?'terminado':'en_uso',
-          fecha_inicio_uso:lote.fecha_inicio_uso||new Date().toISOString().slice(0,10),
-          fecha_fin_uso:nuevoDisp===0?new Date().toISOString().slice(0,10):null
+          fecha_inicio_uso:lote.fecha_inicio_uso||localDate(),
+          fecha_fin_uso:nuevoDisp===0?localDate():null
         }).eq('id',lote.id);
         if(nuevoDisp===0)console.warn('Lote MP agotado:',lote.numero_lote);
         kgRestante=r3(kgRestante-kgDeLote);
@@ -2262,33 +2353,70 @@ function renderCargaHist(){
 function renderStock(){
   const filtroStock=document.getElementById('filtro-stock')?.value;
   const filtroFlex=document.getElementById('filtro-stock-flex')?.value||'';
+  const filtroOrd=document.getElementById('filtro-stock-ord')?.value||'';
+  const filtroBobina=parseInt(document.getElementById('filtro-stock-bobina')?.value)||0;
+  const filtroDesde=document.getElementById('filtro-stock-desde')?.value||'';
+  const filtroHasta=document.getElementById('filtro-stock-hasta')?.value||'';
+
+  // Poblar selector de tipos de bobina — usar los tipos que realmente tienen bobinas producidas
+  const sBob=document.getElementById('filtro-stock-bobina');
+  if(sBob){
+    const cur=sBob.value;
+    // Obtener IDs únicos de tipos presentes en bobinas_prod
+    const tiposPresentes=new Set(C.bobinas_prod.map(b=>b.bobina_tipo_id??b.bobinas?.id).filter(Boolean));
+    const tiposFiltrados=C.bobinas.filter(b=>tiposPresentes.has(b.id));
+    sBob.innerHTML='<option value="">Todos los tipos</option>';
+    tiposFiltrados.forEach(b=>{
+      const o=document.createElement('option');
+      o.value=b.id;
+      o.textContent=b.nombre+(b.descripcion?' — '+b.descripcion:'');
+      sBob.appendChild(o);
+    });
+    sBob.value=cur;
+  }
+
   let lista=[...C.bobinas_prod];
   if(filtroStock==='true')lista=lista.filter(b=>b.en_stock);
   else if(filtroStock==='false')lista=lista.filter(b=>!b.en_stock);
   if(filtroFlex)lista=lista.filter(b=>b.flexxus===filtroFlex);
+  if(filtroOrd)lista=lista.filter(b=>String(b.orden_id)===filtroOrd);
+  // Filtro tipo de bobina — el campo puede venir como bobina_tipo_id o dentro del join bobinas
+  if(filtroBobina){
+    lista=lista.filter(b=>{
+      const bid=b.bobina_tipo_id??b.bobinas?.id??null;
+      return bid===filtroBobina;
+    });
+  }
+  if(filtroDesde)lista=lista.filter(b=>b.fecha_produccion&&b.fecha_produccion>=filtroDesde);
+  if(filtroHasta)lista=lista.filter(b=>b.fecha_produccion&&b.fecha_produccion<=filtroHasta);
   const w=document.getElementById('stock-tbl');if(!w)return;
-  if(!lista.length){w.innerHTML='<div class="empty">Sin bobinas.</div>';return;}
-  w.innerHTML=`<div style="overflow-x:auto"><table><thead><tr><th>N° Bobina</th><th>Orden</th><th>Tipo</th><th>Mts</th><th>Kg reales</th><th>Calidad</th><th>Flexxus</th><th>Fecha</th><th>Estado</th><th>🖨️</th></tr></thead>
-    <tbody>${lista.map(b=>{
+  if(!lista.length){w.innerHTML='<div class="empty">Sin bobinas para los filtros seleccionados.</div>';return;}
+  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr>'
+    +'<th>N° Bobina</th><th>Orden</th><th>Tipo de bobina</th><th>Mts</th><th>Kg reales</th><th>Calidad</th><th>Flexxus</th><th>Fecha</th><th>Estado</th><th>🖨️</th>'
+    +'</tr></thead><tbody>'
+    +lista.map(b=>{
       const qcls=b.estado_calidad==='OK'?'q-ok':b.estado_calidad==='ADVERTENCIA'?'q-warn':'q-bad';
-      return`<tr>
-        <td class="mono" style="font-weight:500">${b.numero_bobina}</td>
-        <td class="mono">${b.ordenes?.numero_orden||'—'}</td>
-        <td style="font-size:12px">${b.bobinas?.nombre||'—'}</td>
-        <td class="mono">${b.metros_reales} m</td>
-        <td class="mono">${b.kg_reales} kg</td>
-        <td><span class="${qcls}">${b.estado_calidad}</span></td>
-        <td><span class="${b.flexxus==='Pasada'?'tag-flexxus-si':'tag-flexxus-no'}">${b.flexxus}</span>
-          <select class="fl-sel" style="margin-left:4px" onchange="cambiarFlexxus(${b.id},this.value)">
-            <option ${b.flexxus==='No pasada'?'selected':''}>No pasada</option>
-            <option ${b.flexxus==='Pasada'?'selected':''}>Pasada</option>
-          </select>
-        </td>
-        <td class="mono" style="font-size:11px">${b.fecha_produccion||'—'}</td>
-        <td>${b.en_stock?'<span class="badge b-stock">En stock</span>':'<span style="color:var(--text3);font-size:11px">Consumida</span>'}</td>
-        <td><button class="btn btn-sm" onclick="reimprimirTarjeta(${b.id})" title="Reimprimir tarjeta">🖨️</button></td>
-      </tr>`;
-    }).join('')}</tbody></table></div>`;
+      return '<tr>'
+        +'<td class="mono" style="font-weight:500">'+b.numero_bobina+'</td>'
+        +'<td class="mono">'+(b.ordenes?.numero_orden||'—')+'</td>'
+        +'<td>'
+          +'<div style="font-weight:500;font-size:12px">'+(b.bobinas?.nombre||'—')+'</div>'
+          +(b.bobinas?.descripcion?'<div style="font-size:10px;color:var(--text2)">'+b.bobinas.descripcion+'</div>':'')
+        +'</td>'
+        +'<td class="mono">'+b.metros_reales+' m</td>'
+        +'<td class="mono">'+b.kg_reales+' kg</td>'
+        +'<td><span class="'+qcls+'">'+b.estado_calidad+'</span></td>'
+        +'<td><span class="'+(b.flexxus==='Pasada'?'tag-flexxus-si':'tag-flexxus-no')+'">'+b.flexxus+'</span>'
+          +'<select class="fl-sel" style="margin-left:4px" onchange="cambiarFlexxus('+b.id+',this.value)">'
+            +'<option '+(b.flexxus==='No pasada'?'selected':'')+'>No pasada</option>'
+            +'<option '+(b.flexxus==='Pasada'?'selected':'')+'>Pasada</option>'
+          +'</select></td>'
+        +'<td class="mono" style="font-size:11px">'+(b.fecha_produccion||'—')+'</td>'
+        +'<td>'+(b.en_stock?'<span class="badge b-stock">En stock</span>':'<span style="color:var(--text3);font-size:11px">Consumida</span>')+'</td>'
+        +'<td><button class="btn btn-sm" onclick="reimprimirTarjeta('+b.id+')" title="Reimprimir tarjeta">🖨️</button></td>'
+        +'</tr>';
+    }).join('')
+    +'</tbody></table></div>';
 }
 async function cambiarFlexxus(id,val){await sb.from('bobinas_producidas').update({flexxus:val}).eq('id',id);await reload();}
 
@@ -2301,7 +2429,7 @@ function poblarConfSelects(){
     coc.innerHTML='<option value="">— seleccionar orden de corte —</option>'+
       enProc.map(o=>`<option value="${o.id}">${o.numero_orden} · ${o.productos?.descripcion||''} · ${o.unidades_a_producir?.toLocaleString('es-AR')||''} u</option>`).join('');
   }
-  // Bobinas en stock compatibles
+  // Bobinas en stock — se filtra por tipo al seleccionar la orden
   const cb=document.getElementById('conf-bob');
   if(cb){
     const enStock=C.bobinas_prod.filter(b=>b.en_stock&&!b.fuera_de_rango);
@@ -2318,6 +2446,31 @@ function onConfOCChange(){
   const info=document.getElementById('conf-oc-info');
   const prog=document.getElementById('conf-progreso');
   if(!oc){if(info)info.style.display='none';if(prog)prog.style.display='none';return;}
+
+  // Filtrar bobinas por tipo requerido por el producto de la orden
+  const tipoBobinaId=oc.productos?.bobina_id||oc.productos?.bobina_id;
+  const cb=document.getElementById('conf-bob');
+  if(cb){
+    const enStock=C.bobinas_prod.filter(b=>b.en_stock&&!b.fuera_de_rango);
+    // Si el producto tiene tipo de bobina definido, filtrar
+    let bobsFiltradas=enStock;
+    if(tipoBobinaId){
+      bobsFiltradas=enStock.filter(b=>(b.bobina_tipo_id??b.bobinas?.id)===tipoBobinaId);
+      if(!bobsFiltradas.length){
+        // Si no hay del tipo exacto, mostrar aviso pero igual mostrar todas
+        cb.innerHTML='<option value="">⚠ Sin bobinas del tipo requerido ('+( C.bobinas.find(x=>x.id===tipoBobinaId)?.nombre||'—')+')</option>';
+        // Mostrar todas como fallback con aviso
+        bobsFiltradas=enStock;
+      }
+    }
+    cb.innerHTML='<option value="">— seleccionar bobina —</option>'
+      +bobsFiltradas.map(b=>{
+        const esTipoExacto=!tipoBobinaId||(b.bobina_tipo_id??b.bobinas?.id)===tipoBobinaId;
+        return '<option value="'+b.id+'" '+(esTipoExacto?'':'style="color:var(--text3)"')+'>'+
+          b.numero_bobina+' · '+( b.bobinas?.nombre||'')+(b.bobinas?.descripcion?' — '+b.bobinas.descripcion:'')+' · '+b.metros_reales+'m'+(esTipoExacto?'':' ⚠ tipo diferente')+
+          '</option>';
+      }).join('');
+  }
   // Metros ya usados en esta orden
   const mtsUsados=oc.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0;
   const pct=oc.metros_necesarios?Math.round(mtsUsados/oc.metros_necesarios*100):0;
@@ -2752,6 +2905,12 @@ function verificarAdminPage(){
     // Poblar selector bobinas
     const sel=document.getElementById('adm-bob-sel');
     if(sel){sel.innerHTML='<option value="">— seleccionar bobina —</option>'+C.bobinas_prod.map(b=>`<option value="${b.id}">${b.numero_bobina} · ${b.ordenes?.numero_orden||''} · ${b.metros_reales}m · ${b.kg_reales}kg</option>`).join('');}
+    // Poblar selector órdenes de corte
+    const selOc=document.getElementById('adm-oc-sel');
+    if(selOc){
+      selOc.innerHTML='<option value="">— seleccionar orden de corte —</option>'
+        +C.ord_corte.map(o=>'<option value="'+o.id+'">'+o.numero_orden+' · '+(o.productos?.descripcion||'—')+' · '+(o.cliente||'—')+' · '+o.estado+'</option>').join('');
+    }
     renderAdmFlexxus();
   }else{
     err.textContent='Clave incorrecta.';
@@ -2803,6 +2962,63 @@ function go(name){
   }
   if(name!=='admin') _adminPageUnlocked=false;
 }
+function onAdmOcChange(){
+  const id=parseInt(document.getElementById('adm-oc-sel')?.value);
+  const form=document.getElementById('adm-oc-form');
+  if(!id||!form){if(form)form.style.display='none';return;}
+  const o=C.ord_corte.find(x=>x.id===id);
+  if(!o){form.style.display='none';return;}
+  form.style.display='block';
+  document.getElementById('adm-oc-cli').value=o.cliente||'';
+  document.getElementById('adm-oc-precio-paq').value=o.precio_paquete||'';
+  document.getElementById('adm-oc-flex').value=o.ref_flexxus||'';
+  document.getElementById('adm-oc-obs').value=o.observaciones||'';
+  const emp=C.emp.find(e=>e.id===o.empaque_id);
+  const lbl=document.getElementById('adm-oc-emp-lbl');
+  if(lbl)lbl.textContent=emp?'(paquete de '+emp.unidades+' u)':'';
+  calcAdmOcPrecio();
+  document.getElementById('msg-adm-oc').textContent='';
+}
+function calcAdmOcPrecio(){
+  const id=parseInt(document.getElementById('adm-oc-sel')?.value);
+  const o=C.ord_corte.find(x=>x.id===id);
+  const emp=o?C.emp.find(e=>e.id===o.empaque_id):null;
+  const paq=parseFloat(document.getElementById('adm-oc-precio-paq')?.value)||0;
+  const uniPorPaq=emp?.unidades||0;
+  const div=document.getElementById('adm-oc-precio-uni');
+  if(div)div.textContent=paq&&uniPorPaq?'$'+r6(paq/uniPorPaq)+' / unidad':'—';
+}
+async function guardarEdicionOrdenCorte(){
+  const id=parseInt(document.getElementById('adm-oc-sel')?.value);
+  const msg=document.getElementById('msg-adm-oc');
+  if(!id){msg.style.color='var(--red)';msg.textContent='Seleccioná una orden.';return;}
+  const o=C.ord_corte.find(x=>x.id===id);
+  const emp=o?C.emp.find(e=>e.id===o.empaque_id):null;
+  const cli=document.getElementById('adm-oc-cli')?.value.trim();
+  const precioPaq=parseFloat(document.getElementById('adm-oc-precio-paq')?.value)||null;
+  const flex=document.getElementById('adm-oc-flex')?.value.trim();
+  const obs=document.getElementById('adm-oc-obs')?.value.trim();
+  const pBolsa=precioPaq&&emp?.unidades?r6(precioPaq/emp.unidades):null;
+  const precioTotal=precioPaq&&o?.cantidad_paquetes?r2(precioPaq*o.cantidad_paquetes):null;
+  const upd={};
+  if(cli!==undefined)upd.cliente=cli||null;
+  if(precioPaq!==null){upd.precio_paquete=precioPaq;upd.precio_bolsa=pBolsa;upd.precio_total_venta=precioTotal;}
+  if(flex!==undefined)upd.ref_flexxus=flex||null;
+  if(obs!==undefined)upd.observaciones=obs||null;
+  msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Guardando...</div>';
+  const{error}=await sb.from('ordenes_corte').update(upd).eq('id',id);
+  if(error){msg.style.color='var(--red)';msg.textContent='Error: '+error.message;return;}
+  msg.style.color='var(--green)';
+  msg.textContent='✓ Orden actualizada'+(pBolsa?' · Precio bolsa: $'+pBolsa+' · Total: $'+precioTotal?.toLocaleString('es-AR'):'');
+  await reload();
+  // Repoblar el selector
+  const selOc=document.getElementById('adm-oc-sel');
+  if(selOc){
+    selOc.innerHTML='<option value="">— seleccionar orden de corte —</option>'
+      +C.ord_corte.map(o=>'<option value="'+o.id+'"'+(o.id===id?' selected':'')+'>'+o.numero_orden+' · '+(o.productos?.descripcion||'—')+' · '+(o.cliente||'—')+' · '+o.estado+'</option>').join('');
+  }
+}
+
 function onAdmBobChange(){
   const id=parseInt(document.getElementById('adm-bob-sel').value);
   const b=C.bobinas_prod.find(x=>x.id===id);
@@ -3826,7 +4042,7 @@ function limpiarFormCorte(){
   const nc=document.getElementById('nc-cli');if(nc)nc.value='';
   const np2=document.getElementById('nc-pri');if(np2)np2.value='1';
   const nm=document.getElementById('nc-merma');if(nm)nm.value='5';
-  const nf=document.getElementById('nc-fecha');if(nf)nf.value=new Date().toISOString().slice(0,10);
+  const nf=document.getElementById('nc-fecha');if(nf)nf.value=localDate();
   const mn=document.getElementById('msg-nc');if(mn)mn.innerHTML='';
   C.maq_corte.forEach(m=>{const c=document.getElementById('ncc-'+m.id);if(c)c.checked=false;const i=document.getElementById('nci-'+m.id);if(i)i.classList.remove('sel');});
   const bc=document.getElementById('nc-calc');if(bc)bc.innerHTML='Seleccioná producto, empaque y cantidad.';
@@ -3894,10 +4110,32 @@ function computeScheduleCorte(){
 }
 
 function renderOrdenesCorte(){
+  // Poblar selects — siempre actualizar
+  const sProd=document.getElementById('filtro-oc-producto');
+  if(sProd&&C.productos.length){
+    const cur=sProd.value;
+    sProd.innerHTML='<option value="">Todos los productos</option>';
+    C.productos.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=p.descripcion||p.codigo;sProd.appendChild(o);});
+    sProd.value=cur;
+  }
+  const sCli=document.getElementById('filtro-oc-cliente');
+  if(sCli&&C.ord_corte.length){
+    const cur=sCli.value;
+    sCli.innerHTML='<option value="">Todos los clientes</option>';
+    [...new Set(C.ord_corte.map(o=>o.cliente).filter(Boolean))].sort().forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;sCli.appendChild(o);});
+    sCli.value=cur;
+  }
   const filtro=document.getElementById('filtro-oc')?.value||'';
-  const lista=filtro?C.ord_corte.filter(o=>o.estado===filtro):C.ord_corte;
+  const filtroNro=document.getElementById('filtro-oc-nro')?.value.trim().toLowerCase()||'';
+  const filtroProd=parseInt(document.getElementById('filtro-oc-producto')?.value)||0;
+  const filtroCli=document.getElementById('filtro-oc-cliente')?.value||'';
+  let lista=C.ord_corte;
+  if(filtro)lista=lista.filter(o=>o.estado===filtro);
+  if(filtroNro)lista=lista.filter(o=>o.numero_orden?.toLowerCase().includes(filtroNro));
+  if(filtroProd)lista=lista.filter(o=>o.producto_id===filtroProd);
+  if(filtroCli)lista=lista.filter(o=>o.cliente===filtroCli);
   const w=document.getElementById('oc-tbl');if(!w)return;
-  if(!lista.length){w.innerHTML='<div class="empty">No hay órdenes de corte.</div>';return;}
+  if(!lista.length){w.innerHTML='<div class="empty">No hay órdenes de corte para los filtros seleccionados.</div>';return;}
   const sched=computeScheduleCorte();
   w.innerHTML=`<div style="overflow-x:auto"><table><thead><tr>
     <th>N° Orden</th><th>Producto</th><th>Cliente</th><th>Unidades</th><th>Paquetes</th><th>Metros nec.</th><th>Máquinas</th><th>Hs estim.</th><th>Pri.</th><th>Inicio</th><th>Fin</th><th>Estado</th><th>QR</th><th>Acc.</th>
@@ -4872,12 +5110,32 @@ function renderHistorial(){
   const estado=document.getElementById('hist-estado')?.value||'';
   const desde=document.getElementById('hist-desde')?.value;
   const hasta=document.getElementById('hist-hasta')?.value;
+  const nro=document.getElementById('hist-nro')?.value.trim().toLowerCase()||'';
+  const bobFiltro=document.getElementById('hist-bobina')?.value||'';
+  const cliFiltro=document.getElementById('hist-cliente')?.value||'';
+  // Poblar selects — siempre actualizar
+  const sBob=document.getElementById('hist-bobina');
+  if(sBob&&C.bobinas.length){
+    const cur=sBob.value;
+    sBob.innerHTML='<option value="">Todos los tipos</option>';
+    C.bobinas.forEach(b=>{const o=document.createElement('option');o.value=b.id;o.textContent=b.nombre+(b.descripcion?' — '+b.descripcion:'');sBob.appendChild(o);});
+    sBob.value=cur;
+  }
+  const sCli=document.getElementById('hist-cliente');
+  if(sCli){
+    const cur=sCli.value;
+    sCli.innerHTML='<option value="">Todos los clientes</option>';
+    const clis=[...new Set([...C.ordenes,...C.ord_corte].map(o=>o.cliente).filter(Boolean))].sort();
+    clis.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;sCli.appendChild(o);});
+    sCli.value=cur;
+  }
   // Unir extrusión y corte
   let lista=[];
   if(tipo===''||tipo==='extrusion'){
     C.ordenes.filter(o=>o.estado==='Completada'||o.estado==='Suspendida'||o.estado==='Cancelada').forEach(o=>{
       lista.push({id:o.id,numero:o.numero_orden,tipo:'Extrusión',cliente:o.cliente||'—',
         bobinaNombre:o.bobinas?.nombre||'—',bobinaDesc:o.bobinas?.descripcion||'',
+        bobina_id:o.bobina_id,
         estado:o.estado,fecha_suspension:o.fecha_suspension,motivo_suspension:o.motivo_suspension,
         fecha_cancelacion:o.fecha_cancelacion,motivo_cancelacion:o.motivo_cancelacion,
         kg_perdidos:o.kg_perdidos,bobinas:C.bobinas_prod.filter(b=>b.orden_id===o.id).length,
@@ -4900,6 +5158,9 @@ function renderHistorial(){
   if(estado)lista=lista.filter(x=>x.estado===estado);
   if(desde)lista=lista.filter(x=>new Date(x.created_at)>=new Date(desde));
   if(hasta)lista=lista.filter(x=>new Date(x.created_at)<=new Date(hasta+'T23:59:59'));
+  if(nro)lista=lista.filter(x=>x.numero?.toLowerCase().includes(nro));
+  if(bobFiltro)lista=lista.filter(x=>x.bobina_id===parseInt(bobFiltro));
+  if(cliFiltro)lista=lista.filter(x=>x.cliente===cliFiltro);
   lista.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
   // KPIs
   const totComp=lista.filter(x=>x.estado==='Completada').length;
@@ -5452,7 +5713,7 @@ function poblarSelectsMP(){
   const p=document.getElementById('li-prov');
   if(p)p.innerHTML='<option value="">— seleccionar —</option>'+C.proveedores.map(x=>'<option value="'+x.id+'">'+x.nombre+'</option>').join('');
   const fd=document.getElementById('li-fecha');
-  if(fd&&!fd.value)fd.value=new Date().toISOString().slice(0,10);
+  if(fd&&!fd.value)fd.value=localDate();
 }
 function calcCostoLote(){
   const kg=parseFloat(document.getElementById('li-kg')?.value)||0;
@@ -5686,7 +5947,7 @@ async function guardarMezcla(){
   const costoKg=kgTotal>0?r4(costoTotal/kgTotal):0;
   // Insertar mezcla
   const{data:mz,error:e1}=await sb.from('ordenes_mezcla').insert({
-    numero_mezcla:nroMezcla,orden_id:ordId,fecha:new Date().toISOString().slice(0,10),
+    numero_mezcla:nroMezcla,orden_id:ordId,fecha:localDate(),
     hora:new Date().toTimeString().slice(0,8),kg_totales:kgTotal,
     operario_id:opId,estado:'Completada',costo_total:r2(costoTotal),costo_kg:costoKg
   }).select().single();
@@ -6303,8 +6564,8 @@ async function guardarInventario(){
     msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Guardando...</div>';
     // Crear cabecera de inventario
     const{data:inv,error:e1}=await sb.from('inventarios_mp').insert({
-      fecha:new Date().toISOString().slice(0,10),
-      hora:new Date().toTimeString().slice(0,8),
+      fecha:localDate(),
+      hora:localTime(),
       estado:'completado',realizado_por:op||'—',
       autorizado_por:'admin',observaciones:obs||null
     }).select().single();
