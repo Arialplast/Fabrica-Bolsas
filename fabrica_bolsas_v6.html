@@ -900,13 +900,32 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
         </div>
         <div class="fp">
           <div class="fp-t">Editar orden de corte</div>
-          <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Corregí el precio de venta u otros datos de una orden. Los cambios se reflejan inmediatamente en Rentabilidad.</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Corregí datos de producción, precio o cantidades. Los cambios se reflejan inmediatamente en Rentabilidad.</div>
           <div class="fgrid">
             <div class="fg"><label>Orden de corte</label>
               <select id="adm-oc-sel" onchange="onAdmOcChange()"><option value="">— seleccionar —</option></select>
             </div>
           </div>
           <div id="adm-oc-form" style="display:none;">
+            <div class="alert alert-warn" style="font-size:12px;margin-bottom:12px;">
+              ⚠ Modificar unidades reales o bultos recalcula automáticamente el costo por bolsa y la rentabilidad.
+            </div>
+            <div class="fgrid fgrid3">
+              <div class="fg">
+                <label>Unidades reales producidas</label>
+                <input id="adm-oc-unidades" type="number" min="1" step="1" oninput="calcAdmOcDerived()">
+                <div style="font-size:10px;color:var(--text3);margin-top:2px" id="adm-oc-unidades-orig"></div>
+              </div>
+              <div class="fg">
+                <label>Bultos / paquetes reales</label>
+                <input id="adm-oc-bultos" type="number" min="1" step="1" oninput="calcAdmOcDerived()">
+                <div style="font-size:10px;color:var(--text3);margin-top:2px" id="adm-oc-bultos-orig"></div>
+              </div>
+              <div class="fg">
+                <label>Unidades por paquete <span style="font-size:10px;color:var(--text3)" id="adm-oc-emp-lbl2"></span></label>
+                <div class="computed" id="adm-oc-uni-paq">—</div>
+              </div>
+            </div>
             <div class="fgrid fgrid3">
               <div class="fg"><label>Cliente</label><input id="adm-oc-cli" type="text"></div>
               <div class="fg"><label>Precio por paquete ($)</label><input id="adm-oc-precio-paq" type="number" step="0.01" oninput="calcAdmOcPrecio()"></div>
@@ -922,6 +941,26 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
               <button class="btn btn-primary btn-sm" onclick="guardarEdicionOrdenCorte()">Guardar cambios</button>
               <span id="msg-adm-oc" style="font-size:12px;margin-left:8px;"></span>
             </div>
+          </div>
+        </div>
+        <div class="fp">
+          <div class="fp-t">Recalcular costos de órdenes cerradas</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">
+            Recalcula el costo real de cada bolsa para órdenes de corte ya completadas, usando el costo real de las bobinas específicas que se usaron. Usá esto si notás incongruencias en Costos o Rentabilidad.
+          </div>
+          <div class="fgrid">
+            <div class="fg"><label>Recalcular desde fecha</label>
+              <input type="date" id="adm-recalc-desde" value="">
+            </div>
+            <div class="fg"><label>Hasta fecha</label>
+              <input type="date" id="adm-recalc-hasta" value="">
+            </div>
+          </div>
+          <div id="adm-recalc-preview" style="margin-top:10px;font-size:12px;color:var(--text2);"></div>
+          <div class="btn-grp" style="margin-top:10px;">
+            <button class="btn btn-sm" onclick="previsualizarRecalculo()">Previsualizar</button>
+            <button class="btn btn-primary btn-sm" onclick="ejecutarRecalculo()">Recalcular costos</button>
+            <span id="msg-recalc" style="font-size:12px;margin-left:8px;"></span>
           </div>
         </div>
         <div class="fp">
@@ -1453,36 +1492,30 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
 
     <!-- COSTOS -->
     <div class="page" id="page-costos">
-      <div class="page-hdr">
+      <div class="page-hdr" style="flex-wrap:wrap;gap:8px;align-items:flex-start;">
         <div><div class="page-title">Costos de producción 🔐</div><div class="page-sub" id="costo-sub-lbl">Solo administrador</div></div>
-        <div class="btn-grp">
-          <select class="st-sel" id="costo-periodo" onchange="onCostoPeriodoChange()">
-            <option value="mes">Este mes</option>
-            <option value="mes_ant">Mes anterior</option>
-            <option value="semana">Esta semana</option>
-            <option value="custom">Rango personalizado</option>
-          </select>
-          <div id="costo-rango-wrap" style="display:none;gap:6px;align-items:center;">
-            <input type="date" id="costo-desde" class="st-sel" style="width:130px" onchange="renderCostos()">
-            <span style="font-size:12px">→</span>
-            <input type="date" id="costo-hasta" class="st-sel" style="width:130px" onchange="renderCostos()">
-          </div>
-          <select class="st-sel" id="costo-comp-periodo" onchange="renderCostos()">
-            <option value="">Sin comparación</option>
-            <option value="mes_ant">vs Mes anterior</option>
-            <option value="semana_ant">vs Semana anterior</option>
-            <option value="anio_ant">vs Mismo mes año anterior</option>
-          </select>
-          <select class="st-sel" id="costo-vista" onchange="renderCostos()">
-            <option value="resumen">Resumen</option>
-            <option value="bobinas">Por tipo de bobina</option>
-            <option value="bolsas">Por bolsa</option>
-            <option value="ordenes">Por órdenes</option>
-          </select>
-          <div style="display:flex;align-items:center;gap:4px;">
-            <label style="font-size:11px;white-space:nowrap">GG%</label>
-            <input id="costo-gg" type="number" step="0.5" value="15" style="width:55px" oninput="renderCostos()">
-          </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:1rem;align-items:center;">
+        <select class="st-sel" id="costo-periodo" onchange="onCostoPeriodoChange()">
+          <option value="mes">Este mes</option><option value="mes_ant">Mes anterior</option>
+          <option value="semana">Esta semana</option><option value="custom">Rango personalizado</option>
+        </select>
+        <div id="costo-rango-wrap" style="display:none;gap:6px;align-items:center;">
+          <input type="date" id="costo-desde" class="st-sel" style="width:130px" onchange="renderCostos()">
+          <span style="font-size:12px">→</span>
+          <input type="date" id="costo-hasta" class="st-sel" style="width:130px" onchange="renderCostos()">
+        </div>
+        <select class="st-sel" id="costo-vista" onchange="renderCostos()">
+          <option value="resumen">Resumen</option><option value="bobinas">Por tipo de bobina</option>
+          <option value="bolsas">Por bolsa</option><option value="ordenes">Por órdenes</option>
+        </select>
+        <select class="st-sel" id="costo-comp-periodo" onchange="renderCostos()">
+          <option value="">Sin comparación</option><option value="mes_ant">vs Mes anterior</option>
+          <option value="semana_ant">vs Semana anterior</option><option value="anio_ant">vs Mismo mes año anterior</option>
+        </select>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <label style="font-size:11px;white-space:nowrap">GG%</label>
+          <input id="costo-gg" type="number" step="0.5" value="15" style="width:55px" oninput="renderCostos()">
         </div>
       </div>
       <div id="costos-wrap"><div class="loading"><div class="spinner"></div></div></div>
@@ -1492,34 +1525,30 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
     <div class="page" id="page-rentabilidad">
       <div class="page-hdr">
         <div><div class="page-title">Rentabilidad 🔐</div><div class="page-sub" id="rent-sub-lbl">Ganancia por orden · por producto · resumen período</div></div>
-        <div class="btn-grp">
-          <select class="st-sel" id="rent-periodo" onchange="onRentPeriodoChange()">
-            <option value="mes">Este mes</option>
-            <option value="mes_ant">Mes anterior</option>
-            <option value="semana">Esta semana</option>
-            <option value="dia">Hoy</option>
-            <option value="custom">Rango personalizado</option>
-          </select>
-          <div id="rent-rango-wrap" style="display:none;gap:6px;align-items:center;">
-            <input type="date" id="rent-desde" class="st-sel" style="width:130px" onchange="renderRentabilidad()">
-            <span style="font-size:12px">→</span>
-            <input type="date" id="rent-hasta" class="st-sel" style="width:130px" onchange="renderRentabilidad()">
-          </div>
-          <select class="st-sel" id="rent-comp" onchange="renderRentabilidad()">
-            <option value="">Sin comparación</option>
-            <option value="mes_ant">vs Mes anterior</option>
-            <option value="semana_ant">vs Semana anterior</option>
-            <option value="anio_ant">vs Mismo mes año anterior</option>
-          </select>
-          <select class="st-sel" id="rent-vista" onchange="renderRentabilidad()">
-            <option value="resumen">Resumen</option>
-            <option value="producto">Por producto</option>
-            <option value="ordenes">Por órdenes</option>
-          </select>
-          <div style="display:flex;align-items:center;gap:4px;">
-            <label style="font-size:11px;white-space:nowrap">GG%</label>
-            <input id="rent-gg" type="number" step="0.5" value="15" style="width:55px" oninput="renderRentabilidad()">
-          </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:1rem;align-items:center;">
+        <select class="st-sel" id="rent-periodo" onchange="onRentPeriodoChange()">
+          <option value="mes">Este mes</option><option value="mes_ant">Mes anterior</option>
+          <option value="semana">Esta semana</option><option value="dia">Hoy</option>
+          <option value="custom">Rango personalizado</option>
+        </select>
+        <div id="rent-rango-wrap" style="display:none;gap:6px;align-items:center;">
+          <input type="date" id="rent-desde" class="st-sel" style="width:130px" onchange="renderRentabilidad()">
+          <span style="font-size:12px">→</span>
+          <input type="date" id="rent-hasta" class="st-sel" style="width:130px" onchange="renderRentabilidad()">
+        </div>
+        <select class="st-sel" id="rent-vista" onchange="renderRentabilidad()">
+          <option value="resumen">Resumen</option>
+          <option value="producto">Por producto</option>
+          <option value="ordenes">Por órdenes</option>
+        </select>
+        <select class="st-sel" id="rent-comp" onchange="renderRentabilidad()">
+          <option value="">Sin comparación</option><option value="mes_ant">vs Mes anterior</option>
+          <option value="semana_ant">vs Semana anterior</option><option value="anio_ant">vs Mismo mes año anterior</option>
+        </select>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <label style="font-size:11px;white-space:nowrap">GG%</label>
+          <input id="rent-gg" type="number" step="0.5" value="15" style="width:55px" oninput="renderRentabilidad()">
         </div>
       </div>
       <div id="rent-wrap"><div class="loading"><div class="spinner"></div></div></div>
@@ -1612,7 +1641,7 @@ async function reload(){
     sb.from('productos').select('*, bobinas(*)').order('codigo'),
     sb.from('maquinas_corte').select('*').order('nombre'),
     sb.from('tipos_empaque').select('*').order('nombre'),
-    sb.from('ordenes_corte').select('*, productos(*), tipos_empaque(*), orden_corte_maquinas(*, maquinas_corte(*)), orden_corte_bobinas(*, bobinas_producidas(numero_bobina,metros_reales))').order('prioridad').order('created_at'),
+    sb.from('ordenes_corte').select('*, productos(*), tipos_empaque(*), orden_corte_maquinas(*, maquinas_corte(*)), orden_corte_bobinas(*, bobinas_producidas(id,numero_bobina,metros_reales,kg_reales,orden_id,bobina_tipo_id))').order('prioridad').order('created_at'),
     sb.from('capacidad_corte_semanal').select('*, maquinas_corte(*)'),
     sb.from('bobinas_producidas').select('*, ordenes(numero_orden), bobinas(*), extrusoras(nombre), operarios(nombre)').eq('fuera_de_rango',true).order('created_at',{ascending:false}),
     sb.from('suspensiones_maquinas').select('*, extrusoras(nombre), maquinas_corte(nombre)').order('created_at',{ascending:false}).limit(100),
@@ -3161,11 +3190,40 @@ function onAdmOcChange(){
   document.getElementById('adm-oc-precio-paq').value=o.precio_paquete||'';
   document.getElementById('adm-oc-flex').value=o.ref_flexxus||'';
   document.getElementById('adm-oc-obs').value=o.observaciones||'';
+  // Unidades y bultos
+  const uniEl=document.getElementById('adm-oc-unidades');
+  const bultEl=document.getElementById('adm-oc-bultos');
+  if(uniEl)uniEl.value=o.unidades_reales||o.unidades_a_producir||'';
+  if(bultEl)bultEl.value=o.cantidad_bultos_reales||o.cantidad_paquetes||'';
+  // Labels con valores originales
+  const origUni=document.getElementById('adm-oc-unidades-orig');
+  const origBul=document.getElementById('adm-oc-bultos-orig');
+  if(origUni)origUni.textContent='Original: '+(o.unidades_reales||o.unidades_a_producir||'—')+' u';
+  if(origBul)origBul.textContent='Original: '+(o.cantidad_bultos_reales||o.cantidad_paquetes||'—')+' bultos';
+  // Empaque
   const emp=C.emp.find(e=>e.id===o.empaque_id);
   const lbl=document.getElementById('adm-oc-emp-lbl');
+  const lbl2=document.getElementById('adm-oc-emp-lbl2');
+  const uniPaqEl=document.getElementById('adm-oc-uni-paq');
   if(lbl)lbl.textContent=emp?'(paquete de '+emp.unidades+' u)':'';
+  if(lbl2)lbl2.textContent=emp?'(empaque: '+emp.nombre+')':'';
+  if(uniPaqEl)uniPaqEl.textContent=emp?emp.unidades+' u/paquete':'—';
   calcAdmOcPrecio();
+  calcAdmOcDerived();
   document.getElementById('msg-adm-oc').textContent='';
+}
+function calcAdmOcDerived(){
+  const id=parseInt(document.getElementById('adm-oc-sel')?.value);
+  const o=C.ord_corte.find(x=>x.id===id);
+  const emp=o?C.emp.find(e=>e.id===o.empaque_id):null;
+  const unidades=parseInt(document.getElementById('adm-oc-unidades')?.value)||0;
+  const bultos=parseInt(document.getElementById('adm-oc-bultos')?.value)||0;
+  // Si modificás unidades y hay empaque, actualizar bultos automáticamente
+  if(unidades&&emp?.unidades){
+    const bultosCalc=Math.ceil(unidades/emp.unidades);
+    const bultEl=document.getElementById('adm-oc-bultos');
+    if(bultEl&&!bultos)bultEl.value=bultosCalc;
+  }
 }
 function calcAdmOcPrecio(){
   const id=parseInt(document.getElementById('adm-oc-sel')?.value);
@@ -3186,20 +3244,39 @@ async function guardarEdicionOrdenCorte(){
   const precioPaq=parseFloat(document.getElementById('adm-oc-precio-paq')?.value)||null;
   const flex=document.getElementById('adm-oc-flex')?.value.trim();
   const obs=document.getElementById('adm-oc-obs')?.value.trim();
+  const unidadesNuevas=parseInt(document.getElementById('adm-oc-unidades')?.value)||null;
+  const bultosNuevos=parseInt(document.getElementById('adm-oc-bultos')?.value)||null;
   const pBolsa=precioPaq&&emp?.unidades?r6(precioPaq/emp.unidades):null;
-  const precioTotal=precioPaq&&o?.cantidad_paquetes?r2(precioPaq*o.cantidad_paquetes):null;
+  const precioTotal=precioPaq&&bultosNuevos?r2(precioPaq*bultosNuevos):
+                    precioPaq&&o?.cantidad_paquetes?r2(precioPaq*o.cantidad_paquetes):null;
   const upd={};
   if(cli!==undefined)upd.cliente=cli||null;
   if(precioPaq!==null){upd.precio_paquete=precioPaq;upd.precio_bolsa=pBolsa;upd.precio_total_venta=precioTotal;}
   if(flex!==undefined)upd.ref_flexxus=flex||null;
   if(obs!==undefined)upd.observaciones=obs||null;
+  if(unidadesNuevas&&unidadesNuevas!==o?.unidades_reales){
+    upd.unidades_reales=unidadesNuevas;
+    // Recalcular precio_bolsa si hay precio_paquete
+    if(pBolsa){upd.precio_bolsa=pBolsa;}
+    // Recalcular precio_total_venta
+    if(precioPaq&&bultosNuevos)upd.precio_total_venta=r2(precioPaq*bultosNuevos);
+  }
+  if(bultosNuevos&&bultosNuevos!==o?.cantidad_bultos_reales){
+    upd.cantidad_bultos_reales=bultosNuevos;
+    upd.cantidad_paquetes=bultosNuevos;
+  }
   msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Guardando...</div>';
   const{error}=await sb.from('ordenes_corte').update(upd).eq('id',id);
   if(error){msg.style.color='var(--red)';msg.textContent='Error: '+error.message;return;}
+  // Armar mensaje descriptivo
+  const cambios=[];
+  if(unidadesNuevas&&unidadesNuevas!==o?.unidades_reales)cambios.push('unidades: '+(o?.unidades_reales||'—')+' → '+unidadesNuevas);
+  if(bultosNuevos&&bultosNuevos!==o?.cantidad_bultos_reales)cambios.push('bultos: '+(o?.cantidad_bultos_reales||o?.cantidad_paquetes||'—')+' → '+bultosNuevos);
+  if(pBolsa)cambios.push('precio/bolsa: $'+pBolsa);
   msg.style.color='var(--green)';
-  msg.textContent='✓ Orden actualizada'+(pBolsa?' · Precio bolsa: $'+pBolsa+' · Total: $'+precioTotal?.toLocaleString('es-AR'):'');
+  msg.textContent='✓ Orden actualizada'+(cambios.length?' — '+cambios.join(', '):'');
   await reload();
-  // Repoblar el selector
+  // Repoblar el selector manteniendo la selección
   const selOc=document.getElementById('adm-oc-sel');
   if(selOc){
     selOc.innerHTML='<option value="">— seleccionar orden de corte —</option>'
@@ -3314,6 +3391,101 @@ async function guardarConfigMP(){
   cfg.frecuencia_inventario_dias=freq;cfg.gastos_generales_pct=gg;
   msg.style.color='var(--green)';msg.textContent='✓ Configuración MP guardada.';
 }
+// ===== RECÁLCULO DE COSTOS =====
+function calcCostoBobinaReal(bp){
+  if(!bp)return 0;
+  const ordEx=C.ordenes.find(o=>o.id===bp.orden_id);
+  if(!ordEx)return 0;
+  const formula=C.formulas.filter(f=>f.bobina_id===ordEx.bobina_id);
+  if(!formula.length)return 0;
+  let c=0;
+  formula.forEach(f=>{
+    const kgComp=r4((bp.kg_reales||0)*f.porcentaje/100);
+    const lotes=C.lotes_mp.filter(l=>l.tipo_mp_id===f.tipo_mp_id&&l.precio_kg>0);
+    const precio=lotes.length?r4(lotes.reduce((s,l)=>s+(l.precio_kg||0),0)/lotes.length):0;
+    c+=kgComp*precio;
+  });
+  return c;
+}
+function getOrdsParaRecalculo(){
+  const desde=document.getElementById('adm-recalc-desde')?.value;
+  const hasta=document.getElementById('adm-recalc-hasta')?.value;
+  return C.ord_corte.filter(o=>{
+    if(o.estado!=='Completada')return false;
+    if(!o.orden_corte_bobinas?.length)return false;
+    const f=o.fecha_completada||o.created_at;
+    if(desde&&f<desde)return false;
+    if(hasta&&f>hasta+'T23:59:59')return false;
+    return true;
+  });
+}
+function previsualizarRecalculo(){
+  const ords=getOrdsParaRecalculo();
+  const div=document.getElementById('adm-recalc-preview');
+  if(!ords.length){div.innerHTML='<span style="color:var(--text3)">Sin órdenes completadas en ese rango.</span>';return;}
+  let html='<div style="overflow-x:auto;max-height:300px;overflow-y:auto;"><table style="font-size:11px;"><thead><tr>'
+    +'<th>Orden</th><th>Producto</th><th>Unidades</th><th>Costo actual $/u</th><th>Costo recalculado $/u</th><th>Diferencia</th>'
+    +'</tr></thead><tbody>';
+  const gg=parseFloat(document.getElementById('rent-gg')?.value)||cfg.gastos_generales_pct||15;
+  ords.forEach(o=>{
+    const unidades=o.unidades_reales||0;
+    // Costo actual guardado
+    const costoActual=o.precio_bolsa?null:null; // no guardamos costo, calculamos
+    // Costo nuevo
+    let costoMP=0;
+    (o.orden_corte_bobinas||[]).forEach(ocb=>{
+      const bp=ocb.bobinas_producidas;
+      if(!bp)return;
+      const c=calcCostoBobinaReal(bp);
+      costoMP+=c;
+    });
+    const costoNuevo=unidades>0?r6(costoMP*(1+gg/100)/unidades):0;
+    html+='<tr>'
+      +'<td class="mono">'+o.numero_orden+'</td>'
+      +'<td style="font-size:10px">'+(o.productos?.descripcion||'—')+'</td>'
+      +'<td class="mono">'+unidades.toLocaleString('es-AR')+'</td>'
+      +'<td class="mono">'+( o.precio_bolsa?'$'+o.precio_bolsa:'—')+'</td>'
+      +'<td class="mono" style="color:var(--accent);font-weight:600">$'+costoNuevo+'</td>'
+      +'<td class="mono" style="color:'+(costoNuevo>0?'var(--green)':'var(--text3)')+'">'+( costoNuevo>0?'✓ calculado':'sin datos')+'</td>'
+      +'</tr>';
+  });
+  html+='</tbody></table></div>';
+  html='<div style="margin-bottom:8px;font-weight:600">'+ords.length+' órdenes encontradas:</div>'+html;
+  div.innerHTML=html;
+}
+async function ejecutarRecalculo(){
+  const ords=getOrdsParaRecalculo();
+  const msg=document.getElementById('msg-recalc');
+  if(!ords.length){msg.style.color='var(--red)';msg.textContent='Sin órdenes en ese rango.';return;}
+  pedirAdminYEjecutar(async()=>{
+    const gg=parseFloat(document.getElementById('rent-gg')?.value)||cfg.gastos_generales_pct||15;
+    msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Recalculando '+ords.length+' órdenes...</div>';
+    let actualizadas=0,sinDatos=0;
+    for(const o of ords){
+      const unidades=o.unidades_reales||0;
+      if(!unidades){sinDatos++;continue;}
+      let costoMP=0;
+      (o.orden_corte_bobinas||[]).forEach(ocb=>{
+        const bp=ocb.bobinas_producidas;
+        if(!bp)return;
+        const c=calcCostoBobinaReal(bp);
+        costoMP+=c;
+      });
+      if(costoMP<=0){sinDatos++;continue;}
+      const nuevoPrecioBolsa=r6(costoMP*(1+gg/100)/unidades);
+      await sb.from('ordenes_corte').update({
+        precio_bolsa:nuevoPrecioBolsa,
+        precio_total_venta:o.precio_paquete?null:r2(nuevoPrecioBolsa*unidades)
+      }).eq('id',o.id);
+      actualizadas++;
+    }
+    msg.style.color='var(--green)';
+    msg.textContent='✓ '+actualizadas+' órdenes actualizadas'+(sinDatos?' · '+sinDatos+' sin datos de bobinas':'');
+    await reload();
+    document.getElementById('adm-recalc-preview').innerHTML='';
+  });
+}
+
 function renderAdmFlexxus(){
   const noPasadas=C.bobinas_prod.filter(b=>b.flexxus==='No pasada');
   const wrap=document.getElementById('adm-flexxus-wrap');if(!wrap)return;
@@ -5774,6 +5946,24 @@ function calcRentPeriodo(ini,fin,gg){
     return d>=ini&&d<=fin;
   });
   const ordsConPrecio=ords.filter(o=>o.precio_bolsa&&o.unidades_reales);
+
+  // Helper: costo real de una bobina producida por fórmula
+  function costoBobinaReal(bp){
+    if(!bp)return 0;
+    const ordEx=C.ordenes.find(o=>o.id===bp.orden_id);
+    if(!ordEx)return 0;
+    const formula=C.formulas.filter(f=>f.bobina_id===ordEx.bobina_id);
+    let c=0;
+    formula.forEach(f=>{
+      const kgComp=r4((bp.kg_reales||0)*f.porcentaje/100);
+      const lotes=C.lotes_mp.filter(l=>l.tipo_mp_id===f.tipo_mp_id&&l.precio_kg>0);
+      const precio=lotes.length?r4(lotes.reduce((s,l)=>s+(l.precio_kg||0),0)/lotes.length):0;
+      c+=kgComp*precio;
+    });
+    return c;
+  }
+
+  // $/metro promedio del período (solo para info)
   const bobs=filtrarBobinasPorFecha(ini,fin);
   let costoMPTotal=0,mtsTotal=0;
   const ordenesConBobs=[...new Set(bobs.map(b=>b.orden_id).filter(Boolean))];
@@ -5783,15 +5973,25 @@ function calcRentPeriodo(ini,fin,gg){
     mtsTotal+=bobsOrd.reduce((s,b)=>s+(b.metros_reales||0),0);
   });
   const costoMetroProm=mtsTotal>0?r4(costoMPTotal*(1+gg/100)/mtsTotal):0;
+
   let ventaTotal=0,costoTotal=0,unidadesTotal=0;
   const porOrden=ordsConPrecio.map(o=>{
     const venta=r2(o.precio_bolsa*o.unidades_reales);
-    const mtsUsados=o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0;
-    const costo=r2(mtsUsados*costoMetroProm);
+    // Calcular costo real sumando costo de cada bobina específica
+    let costoMP=0;
+    let mtsUsados=0;
+    (o.orden_corte_bobinas||[]).forEach(ocb=>{
+      const bp=ocb.bobinas_producidas;
+      if(!bp)return;
+      mtsUsados+=bp.metros_reales||0;
+      const c=costoBobinaReal(bp);
+      costoMP+=c>0?c:(bp.metros_reales||0)*(costoMetroProm/(1+gg/100));
+    });
+    const costo=r2(costoMP*(1+gg/100));
     const ganancia=r2(venta-costo);
     const margen=venta>0?r2(ganancia/venta*100):0;
     ventaTotal+=venta;costoTotal+=costo;unidadesTotal+=o.unidades_reales||0;
-    return{o,venta,costo,ganancia,margen,mtsUsados,unidades:o.unidades_reales||0};
+    return{o,venta,costo,ganancia,margen,mtsUsados:r2(mtsUsados),unidades:o.unidades_reales||0};
   });
   const gananciaTotal=r2(ventaTotal-costoTotal);
   const margenTotal=ventaTotal>0?r2(gananciaTotal/ventaTotal*100):0;
@@ -7201,6 +7401,33 @@ function renderCostosBobinas(wrap,gg,ini,fin,label,comp){
   wrap.innerHTML=html;
 }
 function calcBolsasPeriodo(ini,fin,gg){
+  // Calcular costo real por bobina usando consumos_mp_bobina
+  // En lugar de un promedio del período, usar el costo real de cada bobina específica
+  const ordsCorte=C.ord_corte.filter(o=>{
+    const d=new Date(o.fecha_completada||o.created_at);
+    return d>=ini&&d<=fin&&o.estado==='Completada'&&o.unidades_reales&&o.orden_corte_bobinas?.length;
+  });
+
+  // Costo por bobina producida: usar consumos_mp o estimar por kg_reales × precio lote
+  function costoBobina(bobProd){
+    // Buscar consumos registrados
+    const consumos=C.pedido_cobros; // placeholder — usar consumos_mp_bobina si está en cache
+    // Fallback: calcular por fórmula × precio promedio de lotes
+    if(!bobProd)return 0;
+    const ordEx=C.ordenes.find(o=>o.id===bobProd.orden_id);
+    if(!ordEx)return 0;
+    const formula=C.formulas.filter(f=>f.bobina_id===ordEx.bobina_id);
+    let costo=0;
+    formula.forEach(f=>{
+      const kgComp=r4((bobProd.kg_reales||0)*f.porcentaje/100);
+      const lotes=C.lotes_mp.filter(l=>l.tipo_mp_id===f.tipo_mp_id&&l.precio_kg>0);
+      const precio=lotes.length?r4(lotes.reduce((s,l)=>s+(l.precio_kg||0),0)/lotes.length):0;
+      costo+=kgComp*precio;
+    });
+    return costo;
+  }
+
+  // Calcular $/metro promedio ponderado del período (para info)
   const bobs=filtrarBobinasPorFecha(ini,fin);
   let costoMPTotal=0,mtsTotal=0;
   const ordenesConBobs=[...new Set(bobs.map(b=>b.orden_id).filter(Boolean))];
@@ -7210,17 +7437,27 @@ function calcBolsasPeriodo(ini,fin,gg){
     mtsTotal+=bobsOrd.reduce((s,b)=>s+(b.metros_reales||0),0);
   });
   const costoMetroProm=mtsTotal>0?r4(costoMPTotal*(1+gg/100)/mtsTotal):0;
-  const ordsCorte=C.ord_corte.filter(o=>{
-    const d=new Date(o.created_at);return d>=ini&&d<=fin&&o.estado==='Completada'&&o.unidades_reales&&o.orden_corte_bobinas?.length;
-  });
+
   const porProducto={};
   ordsCorte.forEach(o=>{
     const pid=o.producto_id;if(!pid)return;
     if(!porProducto[pid])porProducto[pid]={nombre:o.productos?.descripcion||'—',unidades:0,mtsUsados:0,costoMP:0,scrap:0,ordenes:0};
-    const mts=r2(o.orden_corte_bobinas.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0));
+
+    // Usar metros y costo REAL de las bobinas específicas de esta orden
+    let mtsOrd=0,costoOrd=0;
+    (o.orden_corte_bobinas||[]).forEach(ocb=>{
+      const bp=ocb.bobinas_producidas;
+      if(!bp)return;
+      const mts=bp.metros_reales||0;
+      mtsOrd+=mts;
+      // Costo real de esta bobina
+      const cBob=costoBobina(bp);
+      costoOrd+=cBob>0?cBob:mts*(costoMetroProm/(1+gg/100)); // fallback al promedio si no hay fórmula
+    });
+
     porProducto[pid].unidades+=o.unidades_reales||0;
-    porProducto[pid].mtsUsados+=mts;
-    porProducto[pid].costoMP+=mts*costoMetroProm/(1+gg/100);
+    porProducto[pid].mtsUsados+=r2(mtsOrd);
+    porProducto[pid].costoMP+=r4(costoOrd);
     porProducto[pid].scrap+=o.peso_scrap_kg||0;
     porProducto[pid].ordenes++;
   });
