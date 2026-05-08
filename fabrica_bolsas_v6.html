@@ -1196,11 +1196,16 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
       <div class="fp">
         <div class="fp-t">Datos del pedido</div>
         <div class="fgrid fgrid3">
-          <div class="fg"><label>N° Pedido / Factura</label><input id="np-nro" type="text" placeholder="ej: PED-00001"></div>
+          <div class="fg"><label>N° Pedido <span style="font-size:11px;color:var(--text2)">(generado automáticamente)</span></label>
+            <div class="computed" id="np-nro-display" style="margin-top:0;font-size:14px;font-weight:700;">Cargando...</div>
+            <input type="hidden" id="np-nro">
+          </div>
           <div class="fg"><label>Cliente</label>
             <select id="np-cli" onchange="onNpCliChange()"><option value="">— seleccionar —</option></select>
           </div>
-          <div class="fg"><label>Ref. Flexxus</label><input id="np-flex" type="text" placeholder="Opcional"></div>
+          <div class="fg"><label>Ref. Flexxus <span style="font-size:11px;color:var(--text2)">(solo referencia, puede repetirse)</span></label>
+            <input id="np-flex" type="text" placeholder="ej: F-001234">
+          </div>
         </div>
         <div class="fgrid fgrid3">
           <div class="fg"><label>Fecha del pedido</label><input id="np-fecha" type="date"></div>
@@ -4396,7 +4401,7 @@ function calcCorte(){
     ${unidades.toLocaleString('es-AR')} u ÷ ${capT.toLocaleString('es-AR')} b/h = <span class="res">${hs} hs</span>${mm?` (${hh}h ${mm}min)`:''}`;
 }
 function limpiarFormCorte(){
-  ['nc-nord','nc-flex','nc-cant','nc-obs','nc-precio-paquete'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  ['np-flex','np-cant'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   const np=document.getElementById('nc-prod');if(np)np.value='';
   const ne=document.getElementById('nc-emp');if(ne)ne.value='';
   const nc=document.getElementById('nc-cli');if(nc)nc.value='';
@@ -4513,7 +4518,7 @@ function renderOrdenesCorte(){
   }
   const sched=computeScheduleCorte();
   w.innerHTML=alertHtml+`<div style="overflow-x:auto"><table><thead><tr>
-    <th>N° Orden</th><th>Producto</th><th>Cliente</th><th>Unidades</th><th>Paquetes</th><th>Metros nec.</th><th>Máquinas</th><th>Hs estim.</th><th>Pri.</th><th>Inicio</th><th>Fin</th><th>Estado</th><th>QR</th><th>Acc.</th>
+    <th>N° Orden</th><th>Producto</th><th>Cliente</th><th>Empaque</th><th>Unidades</th><th>Paquetes</th><th>Metros nec.</th><th>Máquinas</th><th>Hs estim.</th><th>Pri.</th><th>Inicio</th><th>Fin</th><th>Estado</th><th>QR</th><th>Acc.</th>
   </tr></thead><tbody>${lista.map(o=>{
     const maqsStr=o.orden_corte_maquinas?.map(om=>om.maquinas_corte?.nombre||'?').join(', ')||'—';
     const cap=o.orden_corte_maquinas?.reduce((s,om)=>s+(om.maquinas_corte?.bolsas_por_hora||0),0)||0;
@@ -4527,6 +4532,12 @@ function renderOrdenesCorte(){
       <td class="mono">${o.numero_orden}</td>
       <td>${o.productos?.codigo||'—'} <span style="font-size:11px;color:var(--text2)">${o.productos?.descripcion||''}</span></td>
       <td>${o.cliente||'—'}</td>
+      <td>
+        <select class="st-sel" style="font-size:11px;padding:2px 4px;" onchange="cambiarEmpaqueCorte(${o.id},this.value)">
+          <option value="">— empaque —</option>
+          ${C.emp.map(e=>`<option value="${e.id}" ${e.id===o.empaque_id?'selected':''}>${e.nombre} (${e.unidades}u)</option>`).join('')}
+        </select>
+      </td>
       <td class="mono">${o.unidades_a_producir?.toLocaleString('es-AR')||'—'}</td>
       <td class="mono">${o.cantidad_paquetes?.toLocaleString('es-AR')||'—'}</td>
       <td class="mono">${o.metros_necesarios||'—'} m</td>
@@ -4554,6 +4565,7 @@ function renderOrdenesCorte(){
         ${o.estado==='En proceso'?`<button class="btn btn-sm btn-teal" onclick="abrirCierreOrdenCorte(${o.id})">Cerrar</button>`:''}
         ${o.estado==='Completada'?`<button class="btn btn-sm" onclick="verDetalleOrdenCorte(${o.id})">📊 Detalle</button>`:''}
         ${o.estado==='Suspendida'?`<button class="btn btn-sm" onclick="cambiarEstadoCorte(${o.id},'Pendiente')">Reactivar</button>`:''}
+        ${(o.estado==='Pendiente'||o.estado==='En proceso')?`<button class="btn btn-sm" style="background:var(--amberbg);color:var(--amber);border:1px solid var(--amberbd);white-space:nowrap;" onclick="abrirGenerarOrdenExtrusion(${o.id})" title="Generar orden de extrusión para esta orden de corte">🧵 Extrusión</button>`:''}
         ${o.estado!=='Cancelada'&&o.estado!=='Completada'?`<button class="btn btn-sm btn-warn" onclick="abrirCancelarOrden(${o.id},'corte')">Cancelar</button>`:''}
         ${o.estado!=='Cancelada'&&o.estado!=='Suspendida'&&o.estado!=='Completada'?`<button class="btn btn-sm" style="background:var(--amberbg);color:var(--amber);border:1px solid var(--amberbd)" onclick="abrirSuspenderOrden(${o.id},'corte')">Suspender</button>`:''}
         ${o.estado==='Cancelada'?'<span style="color:var(--red);font-size:11px">Cancelada</span>':''}
@@ -4561,6 +4573,88 @@ function renderOrdenesCorte(){
     </tr>`;
   }).join('')}</tbody></table></div>`;
 }
+async function cambiarEmpaqueCorte(id,empId){
+  await sb.from('ordenes_corte').update({empaque_id:parseInt(empId)||null}).eq('id',id);
+  await reload();
+}
+
+function abrirGenerarOrdenExtrusion(ocId){
+  const oc=C.ord_corte.find(x=>x.id===ocId);if(!oc)return;
+  const prod=oc.productos;
+  const mtsNec=oc.metros_necesarios||0;
+  const bobId=prod?.bobina_id||0;
+  const bob=C.bobinas.find(b=>b.id===bobId);
+  const kgEst=bob&&bob.kg_por_metro?r2(mtsNec*bob.kg_por_metro):0;
+  const lastOrd=C.ordenes.length?C.ordenes[0].numero_orden:'ORD-00000';
+  const lastNum=parseInt(lastOrd.replace(/\D/g,''))||0;
+  const nroSug='ORD-'+String(lastNum+1).padStart(5,'0');
+  const bobOpts=C.bobinas.map(b=>'<option value="'+b.id+'" '+(b.id===bobId?'selected':'')+'>'+b.nombre+(b.descripcion?' \u2014 '+b.descripcion:'')+'</option>').join('');
+  const extOpts=C.extrusoras.map(e=>'<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;"><input type="checkbox" value="'+e.id+'" class="gex-ext-chk" style="width:14px;height:14px;">'+e.nombre+'</label>').join('');
+  const html='<div class="modal-overlay" id="gen-ext-modal">'
+    +'<div class="modal-card" style="max-width:520px">'
+    +'<div class="modal-title">Generar orden de extrusión</div>'
+    +'<div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Para: <strong>'+oc.numero_orden+'</strong> &middot; '+(prod&&prod.descripcion?prod.descripcion:'')+'</div>'
+    +'<div class="fgrid fgrid3">'
+      +'<div class="fg"><label>N\u00b0 Orden extrusión</label><input id="gex-nro" type="text" value="'+nroSug+'"></div>'
+      +'<div class="fg"><label>Tipo de bobina</label><select id="gex-bob"><option value="">— seleccionar —</option>'+bobOpts+'</select></div>'
+      +'<div class="fg"><label>Cliente</label><input id="gex-cli" type="text" value="'+(oc.cliente||'')+'"></div>'
+    +'</div>'
+    +'<div class="fgrid fgrid3">'
+      +'<div class="fg"><label>Metros a producir</label><input id="gex-mts" type="number" step="1" value="'+mtsNec+'" oninput="calcGexKg()"><div style="font-size:10px;color:var(--text3);margin-top:2px">Metros necesarios de la OC</div></div>'
+      +'<div class="fg"><label>Kg estimados</label><div class="computed" id="gex-kg-calc">'+(kgEst?kgEst+' kg':'sin dato')+'</div></div>'
+      +'<div class="fg"><label>Prioridad</label><input id="gex-pri" type="number" min="1" value="1"></div>'
+    +'</div>'
+    +'<div class="fg"><label>Extrusoras</label><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">'+extOpts+'</div></div>'
+    +'<div class="fg" style="margin-top:8px;"><label>Fecha inicio referencial</label><input id="gex-fecha" type="date" value="'+localDate()+'"></div>'
+    +'<div class="btn-grp" style="margin-top:1rem;">'
+      +'<button class="btn btn-primary btn-sm" onclick="confirmarGenerarOrdenExt('+ocId+')">Crear orden de extrusión</button>'
+      +'<button class="btn btn-sm" onclick="document.getElementById(\'gen-ext-modal\').remove()">Cancelar</button>'
+    +'</div>'
+    +'<div id="msg-gex" style="font-size:12px;margin-top:8px;"></div>'
+    +'</div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+function calcGexKg(){
+  const bobId=parseInt(document.getElementById('gex-bob')?.value)||0;
+  const bob=C.bobinas.find(b=>b.id===bobId);
+  const mts=parseFloat(document.getElementById('gex-mts')?.value)||0;
+  const div=document.getElementById('gex-kg-calc');
+  if(div)div.textContent=bob&&bob.kg_por_metro&&mts?r2(mts*bob.kg_por_metro)+' kg':'sin dato';
+}
+async function confirmarGenerarOrdenExt(ocId){
+  const nro=document.getElementById('gex-nro')?.value.trim();
+  const bobId=parseInt(document.getElementById('gex-bob')?.value)||0;
+  const cli=document.getElementById('gex-cli')?.value.trim();
+  const mts=parseFloat(document.getElementById('gex-mts')?.value)||0;
+  const pri=parseInt(document.getElementById('gex-pri')?.value)||1;
+  const fecha=document.getElementById('gex-fecha')?.value;
+  const extIds=[...document.querySelectorAll('.gex-ext-chk:checked')].map(e=>parseInt(e.value));
+  const msg=document.getElementById('msg-gex');
+  if(!nro||!bobId||!mts){msg.style.color='var(--red)';msg.textContent='Completá N° orden, tipo de bobina y metros.';return;}
+  const bob=C.bobinas.find(b=>b.id===bobId);
+  const kg=bob?.kg_por_metro?r2(mts*bob.kg_por_metro):0;
+  msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Creando...</div>';
+  const{data:ord,error:e1}=await sb.from('ordenes').insert({
+    numero_orden:nro,bobina_id:bobId,cliente:cli||null,
+    metros:mts,kg_totales:kg,prioridad:pri,
+    fecha_inicio_ref:fecha||null,estado:'Pendiente',
+    observaciones:'Generada desde orden de corte '+(C.ord_corte.find(x=>x.id===ocId)?.numero_orden||ocId)
+  }).select().single();
+  if(e1){msg.style.color='var(--red)';msg.textContent='Error: '+e1.message;return;}
+  // Asignar extrusoras
+  if(extIds.length){
+    await sb.from('orden_extrusoras').insert(extIds.map(eid=>({orden_id:ord.id,extrusora_id:eid})));
+  }
+  // Actualizar contador
+  const{data:cnt}=await sb.from('contadores').select('valor').eq('nombre','numero_orden').maybeSingle();
+  const next=Math.max((cnt?.valor||0)+1,parseInt(nro.replace(/\D/g,''))||0);
+  await sb.from('contadores').upsert({nombre:'numero_orden',valor:next},{onConflict:'nombre'});
+  msg.style.color='var(--green)';msg.textContent='✓ Orden '+nro+' creada — '+mts+' m · '+kg+' kg';
+  await reload();
+  setTimeout(()=>{document.getElementById('gen-ext-modal')?.remove();go('ordenes');},1200);
+}
+
 function verDetalleOrdenCorte(id){
   const o=C.ord_corte.find(x=>x.id===id);if(!o)return;
   const mtsUsados=r1(o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0);
@@ -4636,6 +4730,7 @@ function verDetalleOrdenCorte(id){
 }
 
 async function cambiarPriCorte(id,val){await sb.from('ordenes_corte').update({prioridad:parseInt(val)||1}).eq('id',id);await reload();}
+
 async function cambiarEstadoCorte(id,estado){
   if(estado==='Completada'){pedirAdminYEjecutar(async()=>{await sb.from('ordenes_corte').update({estado}).eq('id',id);await reload();});return;}
   await sb.from('ordenes_corte').update({estado}).eq('id',id);await reload();
@@ -6180,7 +6275,10 @@ function renderPedidos(){
       +'<td><span style="font-weight:600;font-size:12px;color:'+colEstPed(p.estado)+'">'+p.estado+'</span></td>'
       +'<td style="white-space:nowrap;">'
         +'<button class="btn btn-sm" onclick="verDetallePedido('+p.id+')">Ver</button> '
-        +'<button class="btn btn-sm" onclick="abrirRegistrarCobro('+p.id+')">Cobro</button>'
+        +(p.estado!=='Cobrado'&&p.estado!=='Cancelado'
+          ?'<button class="btn btn-sm" onclick="abrirRegistrarCobro('+p.id+')">Cobro</button> '
+           +'<button class="btn btn-sm btn-del" onclick="anularPedido('+p.id+',\''+p.numero_pedido+'\')">Anular</button>'
+          :'<span style="font-size:11px;color:var(--text3)">'+p.estado+'</span>')
       +'</td>'
       +'</tr>';
   });
@@ -6203,7 +6301,20 @@ function initNuevoPedido(){
   document.getElementById('np-lineas').innerHTML='';
   document.getElementById('np-cobros').innerHTML='';
   document.getElementById('np-totales-wrap').style.display='none';
+  const ordsWrap=document.getElementById('np-ordenes-wrap');
+  if(ordsWrap)ordsWrap.style.display='none';
   document.getElementById('msg-np').textContent='';
+  // Generar número de pedido automático
+  const disp=document.getElementById('np-nro-display');
+  if(disp)disp.textContent='Generando...';
+  sb.from('pedidos').select('numero_pedido').order('numero_pedido',{ascending:false}).limit(1).then(({data})=>{
+    const lastNum=data?.length?parseInt(data[0].numero_pedido.replace(/\D/g,''))||0:0;
+    const nro='PED-'+String(lastNum+1).padStart(5,'0');
+    const inp=document.getElementById('np-nro');
+    const disp=document.getElementById('np-nro-display');
+    if(inp)inp.value=nro;
+    if(disp)disp.textContent=nro;
+  });
   // Poblar clientes
   const sc=document.getElementById('np-cli');
   if(sc){sc.innerHTML='<option value="">— seleccionar —</option>'+C.clientes.map(c=>'<option value="'+c.id+'" data-dias="'+(c.dias_credito||0)+'" data-iva="'+(c.condicion_iva||'con_iva')+'">'+c.nombre+'</option>').join('');}
@@ -6356,34 +6467,33 @@ function eliminarCobroNP(id){_pedCobros=_pedCobros.filter(c=>c.id!==id);renderCo
 // Estado de órdenes sugeridas confirmadas
 let _pedOrdenes=[]; // [{linea_id, producto_id, cantidad, empaque_id, merma, maquinas[], confirmar}]
 
-function generarOrdenesCorte(){
+async function generarOrdenesCorte(){
   const wrap=document.getElementById('np-ordenes-wrap');
   const div=document.getElementById('np-ordenes-sugeridas');
   if(!wrap||!div)return;
   const lineasValidas=_pedLineas.filter(l=>l.producto_id&&l.cantidad>0);
   if(!lineasValidas.length){wrap.style.display='none';return;}
   wrap.style.display='block';
-  // Inicializar o mantener estado existente
-  lineasValidas.forEach(l=>{
+  // Obtener el número más alto de ordenes_corte desde la DB para evitar duplicados
+  const{data:maxOC}=await sb.from('ordenes_corte').select('numero_orden').order('numero_orden',{ascending:false}).limit(1);
+  const lastNum=maxOC?.length?parseInt(maxOC[0].numero_orden.replace(/\D/g,''))||0:0;
+  lineasValidas.forEach((l,idx)=>{
     if(!_pedOrdenes.find(o=>o.linea_id===l.id)){
-      const prod=C.productos.find(p=>p.id===l.producto_id);
-      // Buscar empaque más usado para este producto
       const empId=C.ord_corte.find(o=>o.producto_id===l.producto_id)?.empaque_id||0;
       const emp=C.emp.find(e=>e.id===empId);
       const paquetes=emp?Math.ceil(l.cantidad/emp.unidades):l.cantidad;
-      // Máquinas de corte disponibles
       const maqIds=C.maq_corte.filter(m=>m.en_servicio!==false).map(m=>m.id);
+      const nroSug='OC-'+String(lastNum+_pedOrdenes.length+idx+1).padStart(5,'0');
       _pedOrdenes.push({
         linea_id:l.id,producto_id:l.producto_id,
         cantidad:l.cantidad,paquetes,
         empaque_id:empId,merma:5,
         maquinas:maqIds.slice(0,1),
         confirmar:true,
-        numero_orden:''
+        numero_orden:nroSug
       });
     }
   });
-  // Limpiar órdenes de líneas eliminadas
   _pedOrdenes=_pedOrdenes.filter(o=>lineasValidas.find(l=>l.id===o.linea_id));
   renderOrdenesNP();
 }
@@ -6398,14 +6508,13 @@ function renderOrdenesNP(){
     const l=_pedLineas.find(x=>x.id===o.linea_id);
     const prod=C.productos.find(p=>p.id===o.producto_id);
     const nroSug=o.numero_orden||('OC-'+String(lastNum+i+1).padStart(5,'0'));
-    if(!o.numero_orden)o.numero_orden=nroSug;
     html+='<div style="background:'+(o.confirmar?'var(--accentbg)':'var(--bg3)')+';border:1.5px solid '+(o.confirmar?'var(--accentbd)':'var(--border)')+';border-radius:var(--r);padding:12px;margin-bottom:10px;">'
       // Header con toggle
       +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
         +'<input type="checkbox" id="ord-chk-'+o.linea_id+'" '+(o.confirmar?'checked':'')+' onchange="_pedOrdenes.find(x=>x.linea_id==='+o.linea_id+').confirmar=this.checked;renderOrdenesNP()" style="width:16px;height:16px;">'
         +'<label for="ord-chk-'+o.linea_id+'" style="font-weight:600;font-size:13px;cursor:pointer;color:var(--accent)">'
           +(prod?prod.codigo+' · '+prod.descripcion:'—')
-          +' <span style="font-size:11px;color:var(--text2)">— '+l?.cantidad?.toLocaleString('es-AR')+' u</span>'
+          +' <span style="font-size:11px;color:var(--text2)">— '+l?.cantidad?.toLocaleString('es-AR')+' u pedidas</span>'
         +'</label>'
         +(o.confirmar?'<span style="font-size:11px;color:var(--accent);margin-left:auto">✓ Se creará la orden</span>':'<span style="font-size:11px;color:var(--text3);margin-left:auto">No crear orden</span>')
       +'</div>'
@@ -6451,7 +6560,7 @@ function onNpOrdMaqChange(lineaId,maqId,checked){
 }
 
 async function guardarPedido(){
-  const nro=document.getElementById('np-nro').value.trim();
+  let nro=document.getElementById('np-nro').value.trim();
   const cliId=parseInt(document.getElementById('np-cli').value)||null;
   const cliNom=document.getElementById('np-cli')?.selectedOptions[0]?.textContent||'';
   const flex=document.getElementById('np-flex').value.trim();
@@ -6460,7 +6569,13 @@ async function guardarPedido(){
   const ivaOpt=document.getElementById('np-iva').value;
   const conIva=ivaOpt==='con_iva';
   const msg=document.getElementById('msg-np');
-  if(!nro||!fecha||_pedLineas.length===0){msg.style.color='var(--red)';msg.textContent='Completá N° pedido, fecha y al menos una línea.';return;}
+  if(!fecha||_pedLineas.length===0){msg.style.color='var(--red)';msg.textContent='Completá fecha y al menos una línea.';return;}
+  // Si por algún motivo el número no se generó, generarlo ahora
+  if(!nro){
+    const{data}=await sb.from('pedidos').select('numero_pedido').order('numero_pedido',{ascending:false}).limit(1);
+    const lastNum=data?.length?parseInt(data[0].numero_pedido.replace(/\D/g,''))||0:0;
+    nro='PED-'+String(lastNum+1).padStart(5,'0');
+  }
   const sub=r2(_pedLineas.reduce((s,l)=>s+(l.subtotal_linea||0),0));
   const iva=conIva?r2(sub*21/100):0;
   const total=r2(sub+iva);
@@ -6486,22 +6601,30 @@ async function guardarPedido(){
   // Crear órdenes de corte confirmadas
   const ordenes=_pedOrdenes.filter(o=>o.confirmar&&o.numero_orden);
   let ordsCreadas=0;
+  const errores=[];
   for(const o of ordenes){
     const l=_pedLineas.find(x=>x.id===o.linea_id);
     const prod=C.productos.find(p=>p.id===o.producto_id);
     const emp=C.emp.find(e=>e.id===o.empaque_id);
-    if(!prod||!emp||!l)continue;
-    const unidades=o.paquetes*emp.unidades;
-    const mts=r2(unidades*prod.metros_por_bolsa*(1+o.merma/100));
+    if(!prod){errores.push(o.numero_orden+': sin producto');continue;}
+    if(!l){errores.push(o.numero_orden+': sin línea');continue;}
+    // Generar número único consultando el max real en este momento
+    const{data:maxOC}=await sb.from('ordenes_corte').select('numero_orden').order('numero_orden',{ascending:false}).limit(1);
+    const maxNum=maxOC?.length?parseInt(maxOC[0].numero_orden.replace(/\D/g,''))||0:0;
+    const nroFinal='OC-'+String(maxNum+1).padStart(5,'0');
+    const uniPorPaq=emp?.unidades||0;
+    const unidades=l.cantidad;
+    const paquetesReales=uniPorPaq>0?Math.ceil(unidades/uniPorPaq):o.paquetes||unidades;
+    const mts=r2(unidades*(prod.metros_por_bolsa||0)*(1+o.merma/100));
     const{data:oc,error:eOC}=await sb.from('ordenes_corte').insert({
-      numero_orden:o.numero_orden,
+      numero_orden:nroFinal,
       cliente:cliNom||null,
       producto_id:o.producto_id,
-      empaque_id:o.empaque_id,
-      cantidad_paquetes:o.paquetes,
+      empaque_id:o.empaque_id||null,
+      cantidad_paquetes:paquetesReales,
       unidades_a_producir:unidades,
       metros_necesarios:mts,
-      merma_pct:o.merma,
+      merma_pct:o.merma||5,
       prioridad:99,
       estado:'Pendiente',
       observaciones:'Generada desde pedido '+nro,
@@ -6509,17 +6632,17 @@ async function guardarPedido(){
       precio_paquete:l.precio_paquete||null,
       precio_total_venta:l.subtotal_linea||null
     }).select().single();
-    if(eOC)continue;
+    if(eOC){errores.push(nroFinal+': '+eOC.message);console.error('Error creando OC',nroFinal,eOC);continue;}
     // Asignar máquinas
-    if(o.maquinas.length){
+    if(o.maquinas?.length){
       await sb.from('orden_corte_maquinas').insert(o.maquinas.map(m=>({orden_corte_id:oc.id,maquina_id:m})));
     }
     // Vincular orden al pedido
-    const liIns=lineasInsertadas.find(li=>li.producto_id===o.producto_id);
+    const liIns=lineasInsertadas?.find(li=>li.producto_id===o.producto_id);
     await sb.from('pedido_ordenes_corte').insert({
       pedido_id:ped.id,orden_corte_id:oc.id,
       pedido_linea_id:liIns?.id||null
-    });
+    }).then(r=>{if(r.error)console.error('Error vinculando',r.error);});
     ordsCreadas++;
   }
   // Actualizar estado del pedido si hay órdenes creadas
@@ -6531,13 +6654,41 @@ async function guardarPedido(){
       monto:c.monto,fecha_cobro_est:c.fecha_cobro_est||null,cobrado:false
     })));
   }
-  msg.style.color='var(--green)';
-  msg.textContent='✓ Pedido '+nro+' guardado — $'+total.toLocaleString('es-AR')+(ordsCreadas?' · '+ordsCreadas+' orden'+(ordsCreadas>1?'es':'')+' de corte creada'+(ordsCreadas>1?'s':''):'');
+  msg.style.color=errores.length&&ordsCreadas===0?'var(--red)':errores.length?'var(--amber)':'var(--green)';
+  msg.textContent='✓ Pedido '+nro+' guardado — $'+total.toLocaleString('es-AR')
+    +(ordsCreadas?' · '+ordsCreadas+' orden'+(ordsCreadas>1?'es':'')+' de corte creada'+(ordsCreadas>1?'s':''):'')
+    +(errores.length?' · ⚠ '+errores.join(' | '):'');
   await reload();
-  setTimeout(()=>go('pedidos'),1500);
+  // Solo redirigir si todo OK, y con más tiempo para leer el mensaje
+  const delay=errores.length?6000:2000;
+  setTimeout(()=>go('pedidos'),delay);
 }
 
-// === DETALLE PEDIDO ===
+async function anularPedido(id,nro){
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="anular-modal">'
+    +'<div class="modal-card" style="max-width:420px">'
+    +'<div class="modal-title" style="color:var(--red)">⚠ Anular pedido '+nro+'</div>'
+    +'<div style="font-size:13px;margin-bottom:12px;">Esta acción cancela el pedido. Las órdenes de corte asociadas <strong>no</strong> se cancelan automáticamente — podés cancelarlas manualmente si corresponde.</div>'
+    +'<div class="fg"><label>Motivo de anulación</label><input id="anular-motivo" type="text" placeholder="ej: cliente canceló el pedido..." style="width:100%"></div>'
+    +'<div class="btn-grp" style="margin-top:1rem;">'
+      +'<button class="btn btn-sm btn-del" onclick="confirmarAnulacion('+id+')">Confirmar anulación</button>'
+      +'<button class="btn btn-sm" onclick="document.getElementById(\'anular-modal\').remove()">Cancelar</button>'
+    +'</div></div></div>'
+  );
+}
+async function confirmarAnulacion(id){
+  const motivo=document.getElementById('anular-motivo')?.value.trim()||'Sin motivo';
+  document.getElementById('anular-modal')?.remove();
+  // Cancelar el pedido
+  await sb.from('pedidos').update({estado:'Cancelado',observaciones:motivo}).eq('id',id);
+  // Cancelar todos los cobros pendientes del pedido
+  await sb.from('pedido_cobros').delete().eq('pedido_id',id).eq('cobrado',false);
+  await reload();
+  renderPedidos();
+}
+
+
 function verDetallePedido(id){
   const p=C.pedidos.find(x=>x.id===id);if(!p)return;
   const lineas=p.pedido_lineas||[];
