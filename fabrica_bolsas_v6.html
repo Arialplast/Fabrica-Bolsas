@@ -1402,6 +1402,17 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
             <label>Operario que realizó el conteo</label>
             <select id="inv-op"><option value="">— seleccionar —</option></select>
           </div>
+          <!-- TIPO DE AJUSTE -->
+          <div style="margin-top:12px;padding:12px;background:var(--amberbg);border:1px solid var(--amberbd);border-radius:var(--r);">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;font-weight:600;color:var(--amber);">
+              <input type="checkbox" id="inv-ajuste-sistema" style="width:16px;height:16px;">
+              Este inventario es un ajuste de sistema (error de software)
+            </label>
+            <div style="font-size:11px;color:var(--text2);margin-top:6px;margin-left:26px;">
+              Marcá esta opción cuando la diferencia se debe a un error del sistema y no a consumo real. 
+              El stock se ajusta igual, pero la diferencia <strong>no se contabiliza como ganancia ni pérdida</strong> en los reportes.
+            </div>
+          </div>
           <div id="inv-resumen" style="margin-top:12px;"></div>
           <div class="btn-grp" style="margin-top:12px;">
             <button class="btn btn-primary" onclick="guardarInventario()">Guardar inventario (requiere admin)</button>
@@ -2360,40 +2371,52 @@ async function _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,ca
   await sb.from('contadores').update({valor:window._nextNroBobina}).eq('nombre','numero_bobina');
 
   // === CONSUMO AUTOMÁTICO DE MP ===
-  // Solo si hay fórmulas definidas y lotes disponibles
   const formula=C.formulas.filter(f=>f.bobina_id===bob.id);
   if(formula.length){
     const consumos=[];
     let costoTotalBobina=0;
+    // Recargar lotes frescos de la DB para evitar stale cache entre bobinas
+    const{data:lotesActuales}=await sb.from('lotes_mp').select('*').gt('kg_disponibles',0).order('fecha_ingreso');
+    const lotesVivos=lotesActuales||[];
+    // Cache local para actualizar entre componentes de la misma bobina
+    const lotesCache={};
+    lotesVivos.forEach(l=>{lotesCache[l.id]=l.kg_disponibles;});
     for(const f of formula){
       let kgRestante=r4(kgR*f.porcentaje/100);
       if(kgRestante<=0)continue;
-      // FIFO: consumir de a un lote, spillover al siguiente si se agota
-      const lotesDisp=C.lotes_mp.filter(l=>l.tipo_mp_id===f.tipo_mp_id&&l.kg_disponibles>0)
+      const lotesComp=lotesVivos
+        .filter(l=>l.tipo_mp_id===f.tipo_mp_id&&(lotesCache[l.id]??l.kg_disponibles)>0)
         .sort((a,b)=>new Date(a.fecha_ingreso)-new Date(b.fecha_ingreso));
-      if(!lotesDisp.length)continue;
-      for(const lote of lotesDisp){
+      if(!lotesComp.length){console.warn('Sin lotes para tipo_mp_id',f.tipo_mp_id);continue;}
+      for(const lote of lotesComp){
         if(kgRestante<=0)break;
-        const kgDeLote=Math.min(kgRestante,lote.kg_disponibles);
+        const dispActual=lotesCache[lote.id]??lote.kg_disponibles;
+        if(dispActual<=0)continue;
+        const kgDeLote=r3(Math.min(kgRestante,dispActual));
         const costo=r4(kgDeLote*lote.precio_kg);
         costoTotalBobina+=costo;
-        consumos.push({tipo_mp_id:f.tipo_mp_id,lote_id:lote.id,kg_teoricos:r4(kgR*f.porcentaje/100),kg_consumidos:r3(kgDeLote),precio_kg:lote.precio_kg,costo_parcial:costo});
-        const nuevoDisp=Math.max(0,r3(lote.kg_disponibles-kgDeLote));
+        consumos.push({tipo_mp_id:f.tipo_mp_id,lote_id:lote.id,kg_teoricos:r4(kgR*f.porcentaje/100),kg_consumidos:kgDeLote,precio_kg:lote.precio_kg,costo_parcial:costo});
+        const nuevoDisp=r3(dispActual-kgDeLote);
+        // Actualizar cache local
+        lotesCache[lote.id]=nuevoDisp;
+        // Actualizar en DB
         await sb.from('lotes_mp').update({
           kg_disponibles:nuevoDisp,
           estado:nuevoDisp===0?'terminado':'en_uso',
           fecha_inicio_uso:lote.fecha_inicio_uso||localDate(),
           fecha_fin_uso:nuevoDisp===0?localDate():null
         }).eq('id',lote.id);
-        if(nuevoDisp===0)console.warn('Lote MP agotado:',lote.numero_lote);
         kgRestante=r3(kgRestante-kgDeLote);
       }
-      if(kgRestante>0.01)console.warn('Sin stock suficiente para',f.tipo_mp_id,'— faltan',kgRestante,'kg');
+      if(kgRestante>0.01)console.warn('Sin stock suficiente para tipo_mp_id',f.tipo_mp_id,'— faltan',kgRestante,'kg');
     }
     const{data:bobInsertada}=await sb.from('bobinas_producidas').select('id').eq('numero_bobina',nro).single();
     if(bobInsertada&&consumos.length){
       await sb.from('consumos_mp_bobina').insert(consumos.map(c=>({...c,bobina_producida_id:bobInsertada.id})));
     }
+    // Actualizar C.lotes_mp con valores frescos
+    const{data:lotesRef}=await sb.from('lotes_mp').select('*, tipos_mp(*), proveedores(nombre)').order('fecha_ingreso',{ascending:false});
+    if(lotesRef)C.lotes_mp=lotesRef;
   }
   if(fueraDeRango){
     msg.className='msg-err';
@@ -7419,17 +7442,21 @@ async function guardarInventario(){
   const loteIds=form.dataset.lotes.split(',').map(Number);
   const op=document.getElementById('inv-op')?.value;
   const obs=document.getElementById('inv-obs')?.value.trim();
+  const esAjusteSistema=document.getElementById('inv-ajuste-sistema')?.checked||false;
   const msg=document.getElementById('msg-inv');
   pedirAdminYEjecutar(async()=>{
     msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Guardando...</div>';
+    const obsFinal=(esAjusteSistema?'[AJUSTE DE SISTEMA] ':'')+(obs||'');
     // Crear cabecera de inventario
     const{data:inv,error:e1}=await sb.from('inventarios_mp').insert({
-      fecha:localDate(),
-      hora:localTime(),
+      fecha:localDate(),hora:localTime(),
       estado:'completado',realizado_por:op||'—',
-      autorizado_por:'admin',observaciones:obs||null
+      autorizado_por:'admin',
+      observaciones:obsFinal||null,
+      ajuste_sistema:esAjusteSistema
     }).select().single();
     if(e1){msg.style.color='var(--red)';msg.textContent='Error: '+e1.message;return;}
+    let difGanancia=0,difPerdida=0;
     // Guardar detalle por lote
     for(const lid of loteIds){
       const lote=C.lotes_mp.find(l=>l.id===lid);
@@ -7441,11 +7468,17 @@ async function guardarInventario(){
       const dif=r3(real-lote.kg_disponibles);
       const difPct=lote.kg_disponibles>0?r2(dif/lote.kg_disponibles*100):0;
       const costoDif=r2(Math.abs(dif)*lote.precio_kg);
+      if(!esAjusteSistema){
+        if(dif>0)difGanancia+=r2(dif*lote.precio_kg);
+        else difPerdida+=r2(Math.abs(dif)*lote.precio_kg);
+      }
       await sb.from('inventario_detalle').insert({
         inventario_id:inv.id,lote_id:lid,
         kg_sistema:lote.kg_disponibles,kg_bigbag:bb,kg_tachos:tac,kg_tolvas:tol,
         kg_real_total:real,diferencia_kg:dif,diferencia_pct:difPct,
-        costo_diferencia:costoDif,ajuste_aplicado:true
+        costo_diferencia:costoDif,
+        ajuste_aplicado:true,
+        es_ajuste_sistema:esAjusteSistema
       });
       // Ajustar stock en sistema al valor real
       await sb.from('lotes_mp').update({kg_disponibles:real}).eq('id',lid);
@@ -7453,8 +7486,18 @@ async function guardarInventario(){
     // Actualizar último inventario en config
     await sb.from('configuracion').upsert({clave:'ultimo_inventario',valor:new Date().toISOString()},{onConflict:'clave'});
     cfg.ultimo_inventario=new Date().toISOString();
-    msg.style.color='var(--green)';msg.textContent='✓ Inventario guardado y stock ajustado.';
+    let msgFinal='✓ Inventario guardado y stock ajustado.';
+    if(esAjusteSistema){
+      msgFinal+=' Marcado como ajuste de sistema — sin impacto en rentabilidad.';
+    } else {
+      if(difGanancia>0)msgFinal+=' Ganancia MP: $'+difGanancia.toLocaleString('es-AR')+'.';
+      if(difPerdida>0)msgFinal+=' Pérdida MP: $'+difPerdida.toLocaleString('es-AR')+'.';
+    }
+    msg.style.color='var(--green)';msg.textContent=msgFinal;
     document.getElementById('inv-form-wrap').style.display='none';
+    // Resetear checkbox
+    const chk=document.getElementById('inv-ajuste-sistema');
+    if(chk)chk.checked=false;
     await reload();
     renderInvAlerta();
     renderInvHist();
@@ -7467,17 +7510,31 @@ async function renderInvHist(){
     .order('created_at',{ascending:false}).limit(20);
   if(!invs?.length){tbl.innerHTML='<div class="empty">Sin inventarios registrados.</div>';return;}
   let html='<div style="overflow-x:auto"><table><thead><tr>'
-    +'<th>Fecha</th><th>Realizado por</th><th>Lotes</th><th>Diferencia total</th><th>Estado</th>'
+    +'<th>Fecha</th><th>Realizado por</th><th>Lotes</th><th>Diferencia total</th><th>Impacto $</th><th>Tipo</th>'
     +'</tr></thead><tbody>';
   invs.forEach(inv=>{
-    const difTotal=r3((inv.inventario_detalle||[]).reduce((s,d)=>s+(d.diferencia_kg||0),0));
+    const det=inv.inventario_detalle||[];
+    const difTotal=r3(det.reduce((s,d)=>s+(d.diferencia_kg||0),0));
+    const esAjSist=inv.ajuste_sistema||det.some(d=>d.es_ajuste_sistema);
     const col=Math.abs(difTotal)>10?'var(--red)':Math.abs(difTotal)>3?'var(--amber)':'var(--green)';
+    let impactoStr='—';
+    if(!esAjSist&&det.length){
+      const gan=r2(det.filter(d=>(d.diferencia_kg||0)>0).reduce((s,d)=>s+(d.costo_diferencia||0),0));
+      const per=r2(det.filter(d=>(d.diferencia_kg||0)<0).reduce((s,d)=>s+(d.costo_diferencia||0),0));
+      impactoStr=(gan>0?'<span style="color:var(--green)">+$'+gan.toLocaleString('es-AR')+'</span>':'')
+        +(per>0?(gan>0?' / ':'')+'<span style="color:var(--red)">−$'+per.toLocaleString('es-AR')+'</span>':'');
+      if(!gan&&!per)impactoStr='<span style="color:var(--green)">Sin diferencia</span>';
+    }
     html+='<tr>'
-      +'<td class="mono" style="font-size:12px">'+inv.fecha+' '+( inv.hora?.slice(0,5)||'')+'</td>'
+      +'<td class="mono" style="font-size:12px">'+inv.fecha+' '+(inv.hora?.slice(0,5)||'')+'</td>'
       +'<td>'+(inv.realizado_por||'—')+'</td>'
-      +'<td class="mono">'+(inv.inventario_detalle?.length||0)+' lotes</td>'
-      +'<td class="mono" style="color:'+col+'">'+( difTotal>0?'+':'')+difTotal.toLocaleString('es-AR')+' kg</td>'
-      +'<td><span style="color:var(--green)">✓ '+inv.estado+'</span></td>'
+      +'<td class="mono">'+det.length+' lotes</td>'
+      +'<td class="mono" style="color:'+col+'">'+(difTotal>0?'+':'')+difTotal.toLocaleString('es-AR')+' kg</td>'
+      +'<td>'+impactoStr+'</td>'
+      +'<td>'+(esAjSist
+        ?'<span style="color:var(--amber);font-size:11px;font-weight:600">⚙ Ajuste sistema</span>'
+        :'<span style="color:var(--green);font-size:11px">✓ Normal</span>')
+      +'</td>'
       +'</tr>';
   });
   html+='</tbody></table></div>';
