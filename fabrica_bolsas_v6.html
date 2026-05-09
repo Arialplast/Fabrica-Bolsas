@@ -2618,25 +2618,24 @@ function onConfOCChange(){
   const tipoBobinaId=oc.productos?.bobina_id||oc.productos?.bobina_id;
   const cb=document.getElementById('conf-bob');
   if(cb){
+    const savedBobId=cb.value; // preservar selección actual (ej: del QR)
     const enStock=C.bobinas_prod.filter(b=>b.en_stock&&!b.fuera_de_rango);
-    // Si el producto tiene tipo de bobina definido, filtrar
     let bobsFiltradas=enStock;
     if(tipoBobinaId){
       bobsFiltradas=enStock.filter(b=>(b.bobina_tipo_id??b.bobinas?.id)===tipoBobinaId);
-      if(!bobsFiltradas.length){
-        // Si no hay del tipo exacto, mostrar aviso pero igual mostrar todas
-        cb.innerHTML='<option value="">⚠ Sin bobinas del tipo requerido ('+( C.bobinas.find(x=>x.id===tipoBobinaId)?.nombre||'—')+')</option>';
-        // Mostrar todas como fallback con aviso
-        bobsFiltradas=enStock;
-      }
+      if(!bobsFiltradas.length) bobsFiltradas=enStock;
     }
     cb.innerHTML='<option value="">— seleccionar bobina —</option>'
       +bobsFiltradas.map(b=>{
         const esTipoExacto=!tipoBobinaId||(b.bobina_tipo_id??b.bobinas?.id)===tipoBobinaId;
         return '<option value="'+b.id+'" '+(esTipoExacto?'':'style="color:var(--text3)"')+'>'+
-          b.numero_bobina+' · '+( b.bobinas?.nombre||'')+(b.bobinas?.descripcion?' — '+b.bobinas.descripcion:'')+' · '+b.metros_reales+'m'+(esTipoExacto?'':' ⚠ tipo diferente')+
+          b.numero_bobina+' · '+(b.bobinas?.nombre||'')+(b.bobinas?.descripcion?' — '+b.bobinas.descripcion:'')+' · '+b.metros_reales+'m'+(esTipoExacto?'':' ⚠ tipo diferente')+
           '</option>';
       }).join('');
+    // Restaurar bobina pre-seleccionada si todavía está en la lista
+    if(savedBobId&&cb.querySelector('option[value="'+savedBobId+'"]')){
+      cb.value=savedBobId;
+    }
   }
   // Metros ya usados en esta orden
   const mtsUsados=oc.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0;
