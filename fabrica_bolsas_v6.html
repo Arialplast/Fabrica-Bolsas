@@ -2517,74 +2517,7 @@ function renderCargaHist(){
 }
 
 // ===== STOCK =====
-function renderStock(){
-  const filtroStock=document.getElementById('filtro-stock')?.value;
-  const filtroFlex=document.getElementById('filtro-stock-flex')?.value||'';
-  const filtroOrd=document.getElementById('filtro-stock-ord')?.value||'';
-  const filtroBobina=parseInt(document.getElementById('filtro-stock-bobina')?.value)||0;
-  const filtroDesde=document.getElementById('filtro-stock-desde')?.value||'';
-  const filtroHasta=document.getElementById('filtro-stock-hasta')?.value||'';
 
-  // Poblar selector de tipos de bobina — usar los tipos que realmente tienen bobinas producidas
-  const sBob=document.getElementById('filtro-stock-bobina');
-  if(sBob){
-    const cur=sBob.value;
-    // Obtener IDs únicos de tipos presentes en bobinas_prod
-    const tiposPresentes=new Set(C.bobinas_prod.map(b=>b.bobina_tipo_id??b.bobinas?.id).filter(Boolean));
-    const tiposFiltrados=C.bobinas.filter(b=>tiposPresentes.has(b.id));
-    sBob.innerHTML='<option value="">Todos los tipos</option>';
-    tiposFiltrados.forEach(b=>{
-      const o=document.createElement('option');
-      o.value=b.id;
-      o.textContent=b.nombre+(b.descripcion?' — '+b.descripcion:'');
-      sBob.appendChild(o);
-    });
-    sBob.value=cur;
-  }
-
-  let lista=[...C.bobinas_prod];
-  if(filtroStock==='true')lista=lista.filter(b=>b.en_stock);
-  else if(filtroStock==='false')lista=lista.filter(b=>!b.en_stock);
-  if(filtroFlex)lista=lista.filter(b=>b.flexxus===filtroFlex);
-  if(filtroOrd)lista=lista.filter(b=>String(b.orden_id)===filtroOrd);
-  // Filtro tipo de bobina — el campo puede venir como bobina_tipo_id o dentro del join bobinas
-  if(filtroBobina){
-    lista=lista.filter(b=>{
-      const bid=b.bobina_tipo_id??b.bobinas?.id??null;
-      return bid===filtroBobina;
-    });
-  }
-  if(filtroDesde)lista=lista.filter(b=>b.fecha_produccion&&b.fecha_produccion>=filtroDesde);
-  if(filtroHasta)lista=lista.filter(b=>b.fecha_produccion&&b.fecha_produccion<=filtroHasta);
-  const w=document.getElementById('stock-tbl');if(!w)return;
-  if(!lista.length){w.innerHTML='<div class="empty">Sin bobinas para los filtros seleccionados.</div>';return;}
-  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr>'
-    +'<th>N° Bobina</th><th>Orden</th><th>Tipo de bobina</th><th>Mts</th><th>Kg reales</th><th>Calidad</th><th>Flexxus</th><th>Fecha</th><th>Estado</th><th>🖨️</th>'
-    +'</tr></thead><tbody>'
-    +lista.map(b=>{
-      const qcls=b.estado_calidad==='OK'?'q-ok':b.estado_calidad==='ADVERTENCIA'?'q-warn':'q-bad';
-      return '<tr>'
-        +'<td class="mono" style="font-weight:500">'+b.numero_bobina+'</td>'
-        +'<td class="mono">'+(b.ordenes?.numero_orden||'—')+'</td>'
-        +'<td>'
-          +'<div style="font-weight:500;font-size:12px">'+(b.bobinas?.nombre||'—')+'</div>'
-          +(b.bobinas?.descripcion?'<div style="font-size:10px;color:var(--text2)">'+b.bobinas.descripcion+'</div>':'')
-        +'</td>'
-        +'<td class="mono">'+b.metros_reales+' m</td>'
-        +'<td class="mono">'+b.kg_reales+' kg</td>'
-        +'<td><span class="'+qcls+'">'+b.estado_calidad+'</span></td>'
-        +'<td><span class="'+(b.flexxus==='Pasada'?'tag-flexxus-si':'tag-flexxus-no')+'">'+b.flexxus+'</span>'
-          +'<select class="fl-sel" style="margin-left:4px" onchange="cambiarFlexxus('+b.id+',this.value)">'
-            +'<option '+(b.flexxus==='No pasada'?'selected':'')+'>No pasada</option>'
-            +'<option '+(b.flexxus==='Pasada'?'selected':'')+'>Pasada</option>'
-          +'</select></td>'
-        +'<td class="mono" style="font-size:11px">'+(b.fecha_produccion||'—')+'</td>'
-        +'<td>'+(b.en_stock?'<span class="badge b-stock">En stock</span>':'<span style="color:var(--text3);font-size:11px">Consumida</span>')+'</td>'
-        +'<td><button class="btn btn-sm" onclick="reimprimirTarjeta('+b.id+')" title="Reimprimir tarjeta">🖨️</button></td>'
-        +'</tr>';
-    }).join('')
-    +'</tbody></table></div>';
-}
 async function cambiarFlexxus(id,val){await sb.from('bobinas_producidas').update({flexxus:val}).eq('id',id);await reload();}
 
 // ===== CONFECCIÓN =====
@@ -3638,11 +3571,34 @@ function renderStock(){
   const filtroStock=document.getElementById('filtro-stock')?.value;
   const filtroFlex=document.getElementById('filtro-stock-flex')?.value||'';
   const filtroOrd=document.getElementById('filtro-stock-ord')?.value||'';
+  const filtroBobina=parseInt(document.getElementById('filtro-stock-bobina')?.value)||0;
+  const filtroDesde=document.getElementById('filtro-stock-desde')?.value||'';
+  const filtroHasta=document.getElementById('filtro-stock-hasta')?.value||'';
+
+  // Poblar selector de tipos — solo los que tienen bobinas reales
+  const sBob=document.getElementById('filtro-stock-bobina');
+  if(sBob&&C.bobinas.length){
+    const cur=sBob.value;
+    const tiposPresentes=new Set(C.bobinas_prod.map(b=>b.bobina_tipo_id??b.bobinas?.id).filter(Boolean));
+    const tiposFiltrados=C.bobinas.filter(b=>tiposPresentes.has(b.id));
+    sBob.innerHTML='<option value="">Todos los tipos</option>';
+    tiposFiltrados.forEach(b=>{
+      const o=document.createElement('option');
+      o.value=b.id;
+      o.textContent=b.nombre+(b.descripcion?' — '+b.descripcion:'');
+      sBob.appendChild(o);
+    });
+    sBob.value=cur;
+  }
+
   let lista=[...C.bobinas_prod];
   if(filtroStock==='true')lista=lista.filter(b=>b.en_stock);
   else if(filtroStock==='false')lista=lista.filter(b=>!b.en_stock);
   if(filtroFlex)lista=lista.filter(b=>b.flexxus===filtroFlex);
   if(filtroOrd)lista=lista.filter(b=>b.ordenes?.numero_orden===filtroOrd);
+  if(filtroBobina)lista=lista.filter(b=>(b.bobina_tipo_id??b.bobinas?.id)===filtroBobina);
+  if(filtroDesde)lista=lista.filter(b=>b.fecha_produccion&&b.fecha_produccion>=filtroDesde);
+  if(filtroHasta)lista=lista.filter(b=>b.fecha_produccion&&b.fecha_produccion<=filtroHasta);
 
   // Calcular totales
   const totBobs=lista.length;
@@ -3650,7 +3606,6 @@ function renderStock(){
   const totKg=r1(lista.reduce((s,b)=>s+(b.kg_reales||0),0));
   const noFlex=lista.filter(b=>b.flexxus==='No pasada');
   const totNoFlexMts=r1(noFlex.reduce((s,b)=>s+(b.metros_reales||0),0));
-
   const totDiv=document.getElementById('stock-totales');
   if(totDiv){
     totDiv.style.display='block';
@@ -3663,31 +3618,35 @@ function renderStock(){
 
   const w=document.getElementById('stock-tbl');if(!w)return;
   if(!lista.length){w.innerHTML='<div class="empty">Sin bobinas para los filtros seleccionados.</div>';return;}
-  w.innerHTML=`<div style="overflow-x:auto"><table><thead><tr>
-    <th>N° Bobina</th><th>Orden</th><th>Tipo</th><th>Mts</th><th>Kg reales</th><th>Calidad</th><th>Flexxus</th><th>Operario</th><th>Fecha</th><th>Estado</th><th>🖨️</th>
-  </tr></thead>
-  <tbody>${lista.map(b=>{
-    const qcls=b.estado_calidad==='OK'?'q-ok':b.estado_calidad==='ADVERTENCIA'?'q-warn':'q-bad';
-    return`<tr>
-      <td class="mono" style="font-weight:500">${b.numero_bobina}</td>
-      <td class="mono">${b.ordenes?.numero_orden||'—'}</td>
-      <td style="font-size:12px">${b.bobinas?.nombre||'—'}</td>
-      <td class="mono">${b.metros_reales} m</td>
-      <td class="mono">${b.kg_reales} kg</td>
-      <td><span class="${qcls}">${b.estado_calidad}</span></td>
-      <td>
-        <span class="${b.flexxus==='Pasada'?'tag-flexxus-si':'tag-flexxus-no'}">${b.flexxus}</span>
-        <select class="fl-sel" style="margin-left:4px" onchange="cambiarFlexxus(${b.id},this.value)">
-          <option ${b.flexxus==='No pasada'?'selected':''}>No pasada</option>
-          <option ${b.flexxus==='Pasada'?'selected':''}>Pasada</option>
-        </select>
-      </td>
-      <td style="font-size:12px">${b.operario||b.operarios?.nombre||'—'}</td>
-      <td class="mono" style="font-size:11px">${b.fecha_produccion||'—'}</td>
-      <td>${b.en_stock?'<span class="badge b-stock">En stock</span>':'<span style="color:var(--text3);font-size:11px">Consumida</span>'}</td>
-      <td><button class="btn btn-sm" onclick="reimprimirTarjeta(${b.id})" title="Reimprimir">🖨️</button></td>
-    </tr>`;
-  }).join('')}</tbody></table></div>`;
+  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr>'
+    +'<th>N° Bobina</th><th>Orden</th><th>Tipo de bobina</th><th>Mts</th><th>Kg reales</th><th>Calidad</th><th>Flexxus</th><th>Operario</th><th>Fecha</th><th>Estado</th><th>🖨️</th>'
+    +'</tr></thead><tbody>'
+    +lista.map(b=>{
+      const qcls=b.estado_calidad==='OK'?'q-ok':b.estado_calidad==='ADVERTENCIA'?'q-warn':'q-bad';
+      return '<tr>'
+        +'<td class="mono" style="font-weight:500">'+b.numero_bobina+'</td>'
+        +'<td class="mono">'+(b.ordenes?.numero_orden||'—')+'</td>'
+        +'<td>'
+          +'<div style="font-weight:500;font-size:12px">'+(b.bobinas?.nombre||'—')+'</div>'
+          +(b.bobinas?.descripcion?'<div style="font-size:10px;color:var(--text2)">'+b.bobinas.descripcion+'</div>':'')
+        +'</td>'
+        +'<td class="mono">'+b.metros_reales+' m</td>'
+        +'<td class="mono">'+b.kg_reales+' kg</td>'
+        +'<td><span class="'+qcls+'">'+b.estado_calidad+'</span></td>'
+        +'<td>'
+          +'<span class="'+(b.flexxus==='Pasada'?'tag-flexxus-si':'tag-flexxus-no')+'">'+b.flexxus+'</span>'
+          +'<select class="fl-sel" style="margin-left:4px" onchange="cambiarFlexxus('+b.id+',this.value)">'
+            +'<option '+(b.flexxus==='No pasada'?'selected':'')+'>No pasada</option>'
+            +'<option '+(b.flexxus==='Pasada'?'selected':'')+'>Pasada</option>'
+          +'</select>'
+        +'</td>'
+        +'<td style="font-size:12px">'+(b.operario||b.operarios?.nombre||'—')+'</td>'
+        +'<td class="mono" style="font-size:11px">'+(b.fecha_produccion||'—')+'</td>'
+        +'<td>'+(b.en_stock?'<span class="badge b-stock">En stock</span>':'<span style="color:var(--text3);font-size:11px">Consumida</span>')+'</td>'
+        +'<td><button class="btn btn-sm" onclick="reimprimirTarjeta('+b.id+')" title="Reimprimir">🖨️</button></td>'
+        +'</tr>';
+    }).join('')
+    +'</tbody></table></div>';
 }
 
 // ===== GANTT DIARIO =====
