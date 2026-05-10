@@ -907,19 +907,35 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
             </div>
           </div>
           <div id="adm-oc-form" style="display:none;">
-            <div class="alert alert-warn" style="font-size:12px;margin-bottom:12px;">
-              ⚠ Modificar unidades reales o bultos recalcula automáticamente el costo por bolsa y la rentabilidad.
+            <div style="font-size:12px;color:var(--amber);background:var(--amberbg);border:1px solid var(--amberbd);border-radius:var(--r);padding:8px 12px;margin-bottom:12px;">
+              ⚠ Modificar bolsones o unidades recalcula automáticamente metros y refleja en Rentabilidad.
             </div>
-            <div class="fgrid fgrid3">
+            <!-- PLANIFICADO -->
+            <div class="an-section" style="margin-top:0;">Planificado</div>
+            <div class="fgrid fgrid3" style="margin-bottom:10px;">
+              <div class="fg">
+                <label style="font-weight:700">Bolsones a producir</label>
+                <input id="adm-oc-bolsones" type="number" min="1" step="1" oninput="calcAdmOcMetros()">
+                <div style="font-size:10px;color:var(--text3);margin-top:2px" id="adm-oc-bolsones-orig"></div>
+              </div>
+              <div class="fg">
+                <label>Paquetes por bolsón</label>
+                <input id="adm-oc-paq-bolson" type="number" min="1" step="1" oninput="calcAdmOcMetros()">
+                <div style="font-size:10px;color:var(--text3);margin-top:2px" id="adm-oc-paq-bolson-orig"></div>
+              </div>
+              <div class="fg">
+                <label>Unidades planificadas (calculado)</label>
+                <div class="computed" id="adm-oc-unidades-plan-calc" style="margin-top:0">—</div>
+                <div style="font-size:11px;color:var(--accent);margin-top:4px" id="adm-oc-metros-calc"></div>
+              </div>
+            </div>
+            <!-- REALES (cierre) -->
+            <div class="an-section">Reales (al cierre)</div>
+            <div class="fgrid fgrid3" style="margin-bottom:10px;">
               <div class="fg">
                 <label>Unidades reales producidas</label>
                 <input id="adm-oc-unidades" type="number" min="1" step="1" oninput="calcAdmOcDerived()">
                 <div style="font-size:10px;color:var(--text3);margin-top:2px" id="adm-oc-unidades-orig"></div>
-              </div>
-              <div class="fg">
-                <label>Unidades a producir (planificadas)</label>
-                <input id="adm-oc-unidades-plan" type="number" min="1" step="1">
-                <div style="font-size:10px;color:var(--text3);margin-top:2px" id="adm-oc-unidades-plan-orig"></div>
               </div>
               <div class="fg">
                 <label>Bultos / paquetes reales</label>
@@ -931,7 +947,9 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
                 <div class="computed" id="adm-oc-uni-paq">—</div>
               </div>
             </div>
-            <div class="fgrid fgrid3">
+            <!-- PRECIO Y DATOS -->
+            <div class="an-section">Precio y datos</div>
+            <div class="fgrid fgrid3" style="margin-bottom:10px;">
               <div class="fg"><label>Cliente</label><input id="adm-oc-cli" type="text"></div>
               <div class="fg"><label>Precio por paquete ($)</label><input id="adm-oc-precio-paq" type="number" step="0.01" oninput="calcAdmOcPrecio()"></div>
               <div class="fg"><label>Precio por unidad ($) <span style="font-size:10px;color:var(--text3)" id="adm-oc-emp-lbl"></span></label>
@@ -1018,15 +1036,24 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
       <div class="fp">
         <div class="fp-t">Producto y empaque</div>
         <div class="fgrid fgrid3">
-          <div class="fg"><label>Producto (bolsa final)</label><select id="nc-prod" onchange="calcCorte()"><option value="">— seleccionar —</option></select></div>
-          <div class="fg"><label>Tipo de empaque</label><select id="nc-emp" onchange="calcCorte();calcPrecioCorte()"><option value="">— seleccionar —</option></select></div>
-          <div class="fg"><label>Cantidad de paquetes</label><input id="nc-cant" type="number" min="1" placeholder="ej: 500" oninput="calcCorte()"></div>
+          <div class="fg"><label>Producto (bolsa final)</label><select id="nc-prod" onchange="onNcProdChange()"><option value="">— seleccionar —</option></select></div>
+          <div class="fg"><label>Tipo de empaque</label>
+            <select id="nc-emp" onchange="calcCorte();calcPrecioCorte()"><option value="">— seleccionar —</option></select>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px" id="nc-emp-info"></div>
+          </div>
+          <div class="fg"><label>Paquetes por bolsón</label>
+            <input id="nc-paq-bolson" type="number" min="1" value="1" oninput="calcCorte()">
+            <div style="font-size:10px;color:var(--text3);margin-top:2px" id="nc-paq-bolson-ref"></div>
+          </div>
         </div>
-        <div class="fgrid">
-          <div class="fg"><label>% Merma (de la orden)</label><input id="nc-merma" type="number" step="0.1" value="5" oninput="calcCorte()"></div>
+        <div class="fgrid fgrid3">
+          <div class="fg"><label style="font-weight:700">Bolsones a producir</label>
+            <input id="nc-bolsones" type="number" min="1" placeholder="ej: 100" oninput="calcCorte()" style="font-size:16px;font-weight:700;">
+          </div>
+          <div class="fg"><label>% Merma</label><input id="nc-merma" type="number" step="0.1" value="5" oninput="calcCorte()"></div>
           <div class="fg"><label>Fecha de inicio (referencia)</label><input id="nc-fecha" type="date"></div>
         </div>
-        <div class="computed" id="nc-calc">Seleccioná producto, empaque y cantidad.</div>
+        <div class="computed" id="nc-calc">Seleccioná producto, empaque, paquetes por bolsón y cantidad de bolsones.</div>
       </div>
       <div class="fp">
         <div class="fp-t">Máquinas de corte asignadas</div>
@@ -3165,18 +3192,23 @@ function onAdmOcChange(){
   document.getElementById('adm-oc-precio-paq').value=o.precio_paquete||'';
   document.getElementById('adm-oc-flex').value=o.ref_flexxus||'';
   document.getElementById('adm-oc-obs').value=o.observaciones||'';
+  // Bolsones y paquetes por bolsón
+  const bolsonesEl=document.getElementById('adm-oc-bolsones');
+  const paqBolsonEl=document.getElementById('adm-oc-paq-bolson');
+  if(bolsonesEl)bolsonesEl.value=o.bolsones_a_producir||'';
+  if(paqBolsonEl)paqBolsonEl.value=o.paquetes_por_bolson||1;
+  const origBolsones=document.getElementById('adm-oc-bolsones-orig');
+  const origPaqBolson=document.getElementById('adm-oc-paq-bolson-orig');
+  if(origBolsones)origBolsones.textContent='Original: '+(o.bolsones_a_producir||'—')+' bolsones';
+  if(origPaqBolson)origPaqBolson.textContent='Original: '+(o.paquetes_por_bolson||1)+' paq/bolsón';
   // Unidades y bultos
   const uniEl=document.getElementById('adm-oc-unidades');
-  const uniPlanEl=document.getElementById('adm-oc-unidades-plan');
   const bultEl=document.getElementById('adm-oc-bultos');
   if(uniEl)uniEl.value=o.unidades_reales||'';
-  if(uniPlanEl)uniPlanEl.value=o.unidades_a_producir||'';
   if(bultEl)bultEl.value=o.cantidad_bultos_reales||o.cantidad_paquetes||'';
   const origUni=document.getElementById('adm-oc-unidades-orig');
-  const origUniPlan=document.getElementById('adm-oc-unidades-plan-orig');
   const origBul=document.getElementById('adm-oc-bultos-orig');
   if(origUni)origUni.textContent='Original: '+(o.unidades_reales||'—')+' u reales';
-  if(origUniPlan)origUniPlan.textContent='Original: '+(o.unidades_a_producir||'—')+' u planificadas';
   if(origBul)origBul.textContent='Original: '+(o.cantidad_bultos_reales||o.cantidad_paquetes||'—')+' bultos';
   // Empaque
   const emp=C.emp.find(e=>e.id===o.empaque_id);
@@ -3188,7 +3220,30 @@ function onAdmOcChange(){
   if(uniPaqEl)uniPaqEl.textContent=emp?emp.unidades+' u/paquete':'—';
   calcAdmOcPrecio();
   calcAdmOcDerived();
+  calcAdmOcMetros();
   document.getElementById('msg-adm-oc').textContent='';
+}
+function calcAdmOcMetros(){
+  const id=parseInt(document.getElementById('adm-oc-sel')?.value);
+  const o=C.ord_corte.find(x=>x.id===id);
+  const prod=o?C.productos.find(p=>p.id===o.producto_id):null;
+  const emp=o?C.emp.find(e=>e.id===o.empaque_id):null;
+  const bolsones=parseInt(document.getElementById('adm-oc-bolsones')?.value)||0;
+  const paqBolson=parseInt(document.getElementById('adm-oc-paq-bolson')?.value)||1;
+  const calcDiv=document.getElementById('adm-oc-unidades-plan-calc');
+  const metrosDiv=document.getElementById('adm-oc-metros-calc');
+  if(!bolsones){if(calcDiv)calcDiv.textContent='—';if(metrosDiv)metrosDiv.textContent='';return;}
+  const uniPorPaq=emp?.unidades||0;
+  const totalPaq=bolsones*paqBolson;
+  const totalUni=uniPorPaq>0?totalPaq*uniPorPaq:totalPaq;
+  if(calcDiv)calcDiv.textContent=totalUni.toLocaleString('es-AR')+' u ('+totalPaq.toLocaleString('es-AR')+' paq)';
+  if(prod?.metros_por_bolsa&&totalUni){
+    const merma=o?.merma_pct||5;
+    const mts=r2(totalUni*prod.metros_por_bolsa*(1+merma/100));
+    if(metrosDiv)metrosDiv.textContent='→ '+mts.toLocaleString('es-AR')+' m necesarios (merma '+merma+'%)';
+  } else {
+    if(metrosDiv)metrosDiv.textContent='';
+  }
 }
 function calcAdmOcDerived(){
   const id=parseInt(document.getElementById('adm-oc-sel')?.value);
@@ -3223,7 +3278,8 @@ async function guardarEdicionOrdenCorte(){
   const flex=document.getElementById('adm-oc-flex')?.value.trim();
   const obs=document.getElementById('adm-oc-obs')?.value.trim();
   const unidadesNuevas=parseInt(document.getElementById('adm-oc-unidades')?.value)||null;
-  const unidadesPlanNuevas=parseInt(document.getElementById('adm-oc-unidades-plan')?.value)||null;
+  const bolsonesNuevos=parseInt(document.getElementById('adm-oc-bolsones')?.value)||null;
+  const paqBolsonNuevo=parseInt(document.getElementById('adm-oc-paq-bolson')?.value)||null;
   const bultosNuevos=parseInt(document.getElementById('adm-oc-bultos')?.value)||null;
   const pBolsa=precioPaq&&emp?.unidades?r6(precioPaq/emp.unidades):null;
   const precioTotal=precioPaq&&bultosNuevos?r2(precioPaq*bultosNuevos):
@@ -3233,13 +3289,29 @@ async function guardarEdicionOrdenCorte(){
   if(precioPaq!==null){upd.precio_paquete=precioPaq;upd.precio_bolsa=pBolsa;upd.precio_total_venta=precioTotal;}
   if(flex!==undefined)upd.ref_flexxus=flex||null;
   if(obs!==undefined)upd.observaciones=obs||null;
+  const cambios=[];
   if(unidadesNuevas&&unidadesNuevas!==o?.unidades_reales){
     upd.unidades_reales=unidadesNuevas;
     if(pBolsa)upd.precio_bolsa=pBolsa;
     if(precioPaq&&bultosNuevos)upd.precio_total_venta=r2(precioPaq*bultosNuevos);
   }
-  if(unidadesPlanNuevas&&unidadesPlanNuevas!==o?.unidades_a_producir){
-    upd.unidades_a_producir=unidadesPlanNuevas;
+  if(bolsonesNuevos||paqBolsonNuevo){
+    const emp=C.emp.find(e=>e.id===o?.empaque_id);
+    const prod=C.productos.find(p=>p.id===o?.producto_id);
+    const bolsones=bolsonesNuevos||o?.bolsones_a_producir||0;
+    const paqBolson=paqBolsonNuevo||o?.paquetes_por_bolson||1;
+    if(bolsonesNuevos)upd.bolsones_a_producir=bolsonesNuevos;
+    if(paqBolsonNuevo)upd.paquetes_por_bolson=paqBolsonNuevo;
+    const totalPaq=bolsones*paqBolson;
+    const uniPorPaq=emp?.unidades||0;
+    const totalUni=uniPorPaq>0?totalPaq*uniPorPaq:totalPaq;
+    upd.cantidad_paquetes=totalPaq;
+    upd.unidades_a_producir=totalUni;
+    if(prod?.metros_por_bolsa){
+      const merma=o?.merma_pct||5;
+      upd.metros_necesarios=r2(totalUni*prod.metros_por_bolsa*(1+merma/100));
+      cambios.push('bolsones: '+bolsones+' × '+paqBolson+' paq = '+totalPaq.toLocaleString('es-AR')+' paq · '+totalUni.toLocaleString('es-AR')+' u · '+upd.metros_necesarios+' m');
+    }
   }
   if(bultosNuevos&&bultosNuevos!==o?.cantidad_bultos_reales){
     upd.cantidad_bultos_reales=bultosNuevos;
@@ -3249,9 +3321,7 @@ async function guardarEdicionOrdenCorte(){
   const{error}=await sb.from('ordenes_corte').update(upd).eq('id',id);
   if(error){msg.style.color='var(--red)';msg.textContent='Error: '+error.message;return;}
   // Armar mensaje descriptivo
-  const cambios=[];
   if(unidadesNuevas&&unidadesNuevas!==o?.unidades_reales)cambios.push('u. reales: '+(o?.unidades_reales||'—')+' → '+unidadesNuevas);
-  if(unidadesPlanNuevas&&unidadesPlanNuevas!==o?.unidades_a_producir)cambios.push('u. planificadas: '+(o?.unidades_a_producir||'—')+' → '+unidadesPlanNuevas);
   if(bultosNuevos&&bultosNuevos!==o?.cantidad_bultos_reales)cambios.push('bultos: '+(o?.cantidad_bultos_reales||o?.cantidad_paquetes||'—')+' → '+bultosNuevos);
   if(pBolsa)cambios.push('precio/bolsa: $'+pBolsa);
   msg.style.color='var(--green)';
@@ -4380,41 +4450,70 @@ function togMaqCorte(id){
 }
 function getMaqCorteSel(){return C.maq_corte.filter(m=>{const c=document.getElementById('ncc-'+m.id);return c&&c.checked;});}
 
+function onNcProdChange(){
+  const pId=parseInt(document.getElementById('nc-prod')?.value);
+  const prod=C.productos.find(p=>p.id===pId);
+  if(prod){
+    // Auto-seleccionar empaque del producto
+    const empSel=document.getElementById('nc-emp');
+    if(empSel&&prod.empaque_id)empSel.value=prod.empaque_id;
+    // Pre-llenar paquetes por bolsón del producto
+    const paqBolEl=document.getElementById('nc-paq-bolson');
+    const paqBolRef=document.getElementById('nc-paq-bolson-ref');
+    if(paqBolEl&&prod.paquetes_por_bolson){
+      paqBolEl.value=prod.paquetes_por_bolson;
+      if(paqBolRef)paqBolRef.textContent='Referencia del producto: '+prod.paquetes_por_bolson+' paq/bolsón';
+    }
+    const emp=C.emp.find(e=>e.id===prod.empaque_id);
+    const empInfo=document.getElementById('nc-emp-info');
+    if(empInfo&&emp)empInfo.textContent=emp.unidades+' u/paquete';
+  }
+  calcCorte();
+}
 function calcCorte(){
   const pId=parseInt(document.getElementById('nc-prod')?.value);
   const eId=parseInt(document.getElementById('nc-emp')?.value);
-  const cant=parseInt(document.getElementById('nc-cant')?.value)||0;
+  const bolsones=parseInt(document.getElementById('nc-bolsones')?.value)||0;
+  const paqPorBolson=parseInt(document.getElementById('nc-paq-bolson')?.value)||1;
   const merma=parseFloat(document.getElementById('nc-merma')?.value)||5;
   const prod=C.productos.find(p=>p.id===pId);
   const emp=C.emp.find(e=>e.id===eId);
   const box=document.getElementById('nc-calc');
   const boxHs=document.getElementById('nc-hs');
-  if(!prod||!emp||!cant){if(box)box.innerHTML='Seleccioná producto, empaque y cantidad.';return;}
-  const unidades=cant*emp.unidades;
+  const empInfo=document.getElementById('nc-emp-info');
+  if(empInfo&&emp)empInfo.textContent=emp.unidades+' u/paquete';
+  if(!prod||!emp||!bolsones){
+    if(box)box.innerHTML='Seleccioná producto, empaque, paquetes por bolsón y bolsones a producir.';
+    return;
+  }
+  const totalPaq=bolsones*paqPorBolson;
+  const unidades=totalPaq*emp.unidades;
   const mtsNecesarios=r2(unidades*prod.metros_por_bolsa*(1+merma/100));
-  if(box)box.innerHTML=`<b>${cant} paquetes</b> × <b>${emp.unidades} u</b> = <span class="res">${unidades.toLocaleString('es-AR')} unidades</span><br>
-    Metros necesarios: <b>${unidades} u</b> × <b>${prod.metros_por_bolsa} m/bolsa</b> + ${merma}% merma = <span class="res">${mtsNecesarios.toLocaleString('es-AR')} m</span>`;
+  if(box)box.innerHTML=
+    '<b>'+bolsones+' bolsones</b> × <b>'+paqPorBolson+' paq/bolsón</b> = <b>'+totalPaq.toLocaleString('es-AR')+' paquetes</b><br>'
+    +'<b>'+totalPaq.toLocaleString('es-AR')+' paq</b> × <b>'+emp.unidades+' u/paq</b> = <span class="res">'+unidades.toLocaleString('es-AR')+' unidades</span><br>'
+    +'Metros necesarios: '+unidades.toLocaleString('es-AR')+' u × '+prod.metros_por_bolsa+' m/bolsa + '+merma+'% merma = <span class="res">'+mtsNecesarios.toLocaleString('es-AR')+' m</span>';
   const maqs=getMaqCorteSel();
   if(!maqs.length){if(boxHs)boxHs.innerHTML='Seleccioná máquinas.';return;}
   const capT=maqs.reduce((s,m)=>s+m.bolsas_por_hora,0);
   const hs=r2(unidades/capT);
   const hh=Math.floor(hs),mm=Math.round((hs-hh)*60);
-  if(boxHs)boxHs.innerHTML=`${maqs.map(m=>`<b>${m.nombre}</b>`).join('+')} = <b>${capT.toLocaleString('es-AR')} b/h</b> combinadas<br>
-    ${unidades.toLocaleString('es-AR')} u ÷ ${capT.toLocaleString('es-AR')} b/h = <span class="res">${hs} hs</span>${mm?` (${hh}h ${mm}min)`:''}`;
+  if(boxHs)boxHs.innerHTML=maqs.map(m=>'<b>'+m.nombre+'</b>').join('+')+' = <b>'+capT.toLocaleString('es-AR')+' b/h</b><br>'
+    +unidades.toLocaleString('es-AR')+' u ÷ '+capT.toLocaleString('es-AR')+' b/h = <span class="res">'+hs+' hs</span>'+(mm?' ('+hh+'h '+mm+'min)':'');
 }
 function limpiarFormCorte(){
-  ['np-flex','np-cant'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  ['nc-bolsones','nc-flex','nc-obs','nc-precio-paquete'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
   const np=document.getElementById('nc-prod');if(np)np.value='';
   const ne=document.getElementById('nc-emp');if(ne)ne.value='';
   const nc=document.getElementById('nc-cli');if(nc)nc.value='';
   const np2=document.getElementById('nc-pri');if(np2)np2.value='1';
   const nm=document.getElementById('nc-merma');if(nm)nm.value='5';
+  const npb=document.getElementById('nc-paq-bolson');if(npb)npb.value='1';
   const nf=document.getElementById('nc-fecha');if(nf)nf.value=localDate();
   const mn=document.getElementById('msg-nc');if(mn)mn.innerHTML='';
   C.maq_corte.forEach(m=>{const c=document.getElementById('ncc-'+m.id);if(c)c.checked=false;const i=document.getElementById('nci-'+m.id);if(i)i.classList.remove('sel');});
-  const bc=document.getElementById('nc-calc');if(bc)bc.innerHTML='Seleccioná producto, empaque y cantidad.';
+  const bc=document.getElementById('nc-calc');if(bc)bc.innerHTML='Seleccioná producto, empaque, paquetes por bolson y bolsones a producir.';
   const bh=document.getElementById('nc-hs');if(bh)bh.innerHTML='Seleccioná máquinas.';
-  // Auto-generar número OC
   const nordEl=document.getElementById('nc-nord');
   if(nordEl){
     nordEl.value='...';
@@ -4425,39 +4524,43 @@ function limpiarFormCorte(){
 }
 async function guardarOrdenCorte(){
   let nord=document.getElementById('nc-nord').value.trim();
-  const flex=document.getElementById('nc-flex').value.trim();
+  const flex=document.getElementById('nc-flex')?.value.trim();
   const cli=document.getElementById('nc-cli').value;
   const pId=parseInt(document.getElementById('nc-prod').value);
   const eId=parseInt(document.getElementById('nc-emp').value);
-  const cant=parseInt(document.getElementById('nc-cant').value);
+  const bolsones=parseInt(document.getElementById('nc-bolsones')?.value)||0;
+  const paqPorBolson=parseInt(document.getElementById('nc-paq-bolson')?.value)||1;
   const merma=parseFloat(document.getElementById('nc-merma').value)||5;
   const pri=parseInt(document.getElementById('nc-pri').value)||1;
   const fecha=document.getElementById('nc-fecha').value;
-  const obs=document.getElementById('nc-obs').value.trim();
-  const precioPaquete=parseFloat(document.getElementById('nc-precio-paquete').value)||null;
+  const obs=document.getElementById('nc-obs')?.value.trim();
+  const precioPaquete=parseFloat(document.getElementById('nc-precio-paquete')?.value)||null;
   const maqs=getMaqCorteSel();
   const msg=document.getElementById('msg-nc');
-  if(!pId||!eId||!cant||maqs.length===0){msg.className='msg-err';msg.textContent='Completá todos los campos y seleccioná al menos una máquina.';return;}
-  // Siempre generar número único desde el contador
+  if(!pId||!eId||!bolsones||maqs.length===0){
+    msg.className='msg-err';msg.textContent='Completá producto, empaque, bolsones y seleccioná al menos una máquina.';return;
+  }
   nord=await generarNroOC();
   const prod=C.productos.find(p=>p.id===pId);
   const emp=C.emp.find(e=>e.id===eId);
-  const unidades=cant*emp.unidades;
-  const mts=r2(unidades*prod.metros_por_bolsa*(1+merma/100));
-  // Precio: paquete → bolsa → total
-  const pBolsa=precioPaquete&&emp.unidades?r6(precioPaquete/emp.unidades):null;
-  const precioTotal=precioPaquete&&cant?r2(precioPaquete*cant):null;
+  const totalPaq=bolsones*paqPorBolson;
+  const unidades=totalPaq*(emp?.unidades||0);
+  const mts=r2(unidades*(prod?.metros_por_bolsa||0)*(1+merma/100));
+  const pBolsa=precioPaquete&&emp?.unidades?r6(precioPaquete/emp.unidades):null;
+  const precioTotal=precioPaquete&&totalPaq?r2(precioPaquete*totalPaq):null;
   msg.innerHTML='<div class="loading" style="padding:0.5rem 0;justify-content:flex-start"><div class="spinner"></div>Guardando...</div>';
   const{data:oc,error:e1}=await sb.from('ordenes_corte').insert({
     numero_orden:nord,ref_flexxus:flex||null,cliente:cli||null,
-    producto_id:pId,empaque_id:eId,cantidad_paquetes:cant,
-    unidades_a_producir:unidades,metros_necesarios:mts,merma_pct:merma,
+    producto_id:pId,empaque_id:eId,
+    bolsones_a_producir:bolsones,paquetes_por_bolson:paqPorBolson,
+    cantidad_paquetes:totalPaq,unidades_a_producir:unidades,
+    metros_necesarios:mts,merma_pct:merma,
     prioridad:pri,fecha_inicio_ref:fecha||null,estado:'Pendiente',observaciones:obs||null,
     precio_paquete:precioPaquete,precio_bolsa:pBolsa,precio_total_venta:precioTotal
   }).select().single();
   if(e1){msg.className='msg-err';msg.textContent='Error: '+e1.message;return;}
   await sb.from('orden_corte_maquinas').insert(maqs.map(m=>({orden_corte_id:oc.id,maquina_id:m.id})));
-  msg.className='msg-ok';msg.textContent='✓ Orden '+nord+' guardada — '+unidades.toLocaleString('es-AR')+' u · '+mts+' m necesarios'+(precioTotal?' · $'+precioTotal.toLocaleString('es-AR')+' venta estimada':'');
+  msg.className='msg-ok';msg.textContent='✓ Orden '+nord+' guardada — '+bolsones+' bolsones · '+unidades.toLocaleString('es-AR')+' u · '+mts+' m'+(precioTotal?' · $'+precioTotal.toLocaleString('es-AR'):'');
   await reload();
   setTimeout(()=>go('ordenes-corte'),1500);
 }
@@ -4530,7 +4633,7 @@ function renderOrdenesCorte(){
   }
   const sched=computeScheduleCorte();
   w.innerHTML=alertHtml+`<div style="overflow-x:auto"><table><thead><tr>
-    <th>N° Orden</th><th>Producto</th><th>Cliente</th><th>Empaque</th><th>Ord. Extrusión</th><th>Pedido</th><th>Unidades</th><th>Paquetes</th><th>Metros nec.</th><th>Máquinas</th><th>Hs estim.</th><th>Pri.</th><th>Inicio</th><th>Fin</th><th>Estado</th><th>QR</th><th>Acc.</th>
+    <th>N° Orden</th><th>Producto</th><th>Cliente</th><th>Empaque</th><th>Ord. Extrusión</th><th>Pedido</th><th>Bolsones</th><th>Unidades</th><th>Metros nec.</th><th>Máquinas</th><th>Hs estim.</th><th>Pri.</th><th>Inicio</th><th>Fin</th><th>Estado</th><th>QR</th><th>Acc.</th>
   </tr></thead><tbody>${lista.map(o=>{
     const maqsStr=o.orden_corte_maquinas?.map(om=>om.maquinas_corte?.nombre||'?').join(', ')||'—';
     const cap=o.orden_corte_maquinas?.reduce((s,om)=>s+(om.maquinas_corte?.bolsas_por_hora||0),0)||0;
@@ -4552,6 +4655,7 @@ function renderOrdenesCorte(){
       </td>
       <td class="mono" style="font-size:11px">${o.orden_extrusion_id?('<span style="color:var(--accent)">'+(C.ordenes.find(x=>x.id===o.orden_extrusion_id)?.numero_orden||'#'+o.orden_extrusion_id)+'</span>'):'—'}</td>
       <td class="mono" style="font-size:11px">${(()=>{const ped=C.pedidos.find(p=>p.pedido_ordenes_corte?.some(poc=>poc.orden_corte_id===o.id));return ped?'<span style="color:var(--teal)">'+ped.numero_pedido+'</span>':'—';})()}</td>
+      <td class="mono" style="font-weight:700;color:var(--accent)">${o.bolsones_a_producir?o.bolsones_a_producir.toLocaleString('es-AR')+'<div style="font-size:10px;color:var(--text3);font-weight:400">×'+( o.paquetes_por_bolson||1)+' paq</div>':'—'}</td>
       <td class="mono">${o.unidades_a_producir?.toLocaleString('es-AR')||'—'}</td>
       <td class="mono">${o.cantidad_paquetes?.toLocaleString('es-AR')||'—'}</td>
       <td class="mono">${o.metros_necesarios||'—'} m</td>
@@ -4758,80 +4862,205 @@ async function cambiarEstadoCorte(id,estado){
 
 function imprimirQROrdenCorte(id){
   const o=C.ord_corte.find(x=>x.id===id);if(!o)return;
+  const emp=C.emp.find(e=>e.id===o.empaque_id);
   const appUrl=window.location.href.split('?')[0];
-  const qrData=`${appUrl}?oc=${encodeURIComponent(o.numero_orden)}`;
-  const qrUrl=`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrData)}`;
-  const win=window.open('','_blank','width=400,height=500');
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>QR Orden ${o.numero_orden}</title>
-  <style>body{font-family:Arial;text-align:center;padding:2rem;background:#fff;}
-  .num{font-size:24px;font-weight:700;margin-bottom:1rem;font-family:'Courier New',monospace;}
-  .sub{font-size:13px;color:#64748b;margin-top:1rem;}
-  @media print{body{padding:0;}}</style></head><body>
-  <div class="num">${o.numero_orden}</div>
-  <div class="sub">${o.productos?.descripcion||''} · ${o.unidades_a_producir?.toLocaleString('es-AR')||'—'} u</div>
-  <img src="${qrUrl}" style="width:180px;height:180px;margin:1rem auto;display:block;">
-  <div class="sub">Escanear para asociar bobinas</div>
-  <script>window.onload=()=>{setTimeout(()=>window.print(),400);}<\/script>
-  </body></html>`);
+  const qrData=appUrl+'?oc='+encodeURIComponent(o.numero_orden);
+  const qrUrl='https://api.qrserver.com/v1/create-qr-code/?size=160x160&data='+encodeURIComponent(qrData);
+  const paqPorBolson=o.paquetes_por_bolson||1;
+  const totalPaq=(o.bolsones_a_producir||0)*paqPorBolson;
+  const win=window.open('','_blank','width=500,height=700');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8">'
+    +'<title>Orden '+o.numero_orden+'</title>'
+    +'<style>'
+    +'@page{size:A5;margin:8mm}'
+    +'*{box-sizing:border-box;margin:0;padding:0}'
+    +'body{font-family:Arial,sans-serif;background:#fff;padding:8mm}'
+    +'.header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #1e293b;padding-bottom:4mm;margin-bottom:4mm}'
+    +'.nro{font-size:22pt;font-weight:900;font-family:"Courier New",monospace;color:#1e293b}'
+    +'.empresa{font-size:9pt;color:#64748b}'
+    +'.desc{font-size:16pt;font-weight:700;color:#1e293b;margin-bottom:3mm}'
+    +'.bolsones-box{background:#1e293b;color:#fff;border-radius:8px;padding:6mm;text-align:center;margin:4mm 0}'
+    +'.bolsones-lbl{font-size:9pt;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em}'
+    +'.bolsones-num{font-size:52pt;font-weight:900;line-height:1;letter-spacing:-2px}'
+    +'.bolsones-sub{font-size:11pt;color:#cbd5e1;margin-top:1mm}'
+    +'.datos{display:grid;grid-template-columns:1fr 1fr;gap:3mm;font-size:10pt;margin:3mm 0}'
+    +'.dato-lbl{font-size:7pt;color:#64748b;text-transform:uppercase}'
+    +'.dato-val{font-weight:600}'
+    +'.footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:4mm;padding-top:3mm;border-top:1px solid #e2e8f0}'
+    +'@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}'
+    +'</style></head><body>'
+    +'<div class="header">'
+      +'<div><div class="empresa">Orden de corte / confección</div><div class="nro">'+o.numero_orden+'</div></div>'
+      +'<div style="font-size:9pt;color:#64748b;text-align:right">'+(o.cliente||'')+'<br>'+(o.fecha_inicio_ref||'')+'</div>'
+    +'</div>'
+    +'<div class="desc">'+(o.productos?.descripcion||'—')+'</div>'
+    +'<div style="font-size:9pt;color:#64748b;margin-bottom:3mm">'+(emp?emp.nombre+' · '+emp.unidades+' u/paquete':'Sin empaque')+'</div>'
+    // BOLSONES — el dato principal para el operario
+    +'<div class="bolsones-box">'
+      +'<div class="bolsones-lbl">Bolsones a producir</div>'
+      +'<div class="bolsones-num">'+(o.bolsones_a_producir||'—')+'</div>'
+      +'<div class="bolsones-sub">× '+paqPorBolson+' paq/bolsón = '+totalPaq.toLocaleString('es-AR')+' paquetes · '+(o.unidades_a_producir||0).toLocaleString('es-AR')+' unidades</div>'
+    +'</div>'
+    +'<div class="datos">'
+      +'<div><div class="dato-lbl">Metros necesarios</div><div class="dato-val">'+(o.metros_necesarios||'—')+' m</div></div>'
+      +'<div><div class="dato-lbl">Merma estimada</div><div class="dato-val">'+(o.merma_pct||5)+'%</div></div>'
+      +'<div><div class="dato-lbl">Máquinas</div><div class="dato-val">'+(o.orden_corte_maquinas?.map(m=>m.maquinas_corte?.nombre||'?').join(', ')||'—')+'</div></div>'
+      +'<div><div class="dato-lbl">Prioridad</div><div class="dato-val">'+(o.prioridad||'—')+'</div></div>'
+    +'</div>'
+    +(o.observaciones?'<div style="font-size:10pt;color:#475569;background:#f8fafc;padding:3mm;border-radius:4px;margin-top:3mm">'+o.observaciones+'</div>':'')
+    +'<div class="footer">'
+      +'<div style="font-size:8pt;color:#94a3b8">Impreso: '+new Date().toLocaleString('es-AR')+'</div>'
+      +'<div style="text-align:center"><img src="'+qrUrl+'" style="width:28mm;height:28mm"><div style="font-size:7pt;color:#94a3b8">Escanear para asociar bobinas</div></div>'
+    +'</div>'
+    +'<script>window.onload=()=>{setTimeout(()=>window.print(),400);}<\/script>'
+    +'</body></html>');
   win.document.close();
 }
 
 function abrirCierreOrdenCorte(id){
   const o=C.ord_corte.find(x=>x.id===id);if(!o)return;
-  // Calcular metros usados y bolsas teóricas
-  const mtsUsados=o.orden_corte_bobinas?.reduce((s,b)=>s+(b.metros_usados||b.bobinas_producidas?.metros_reales||0),0)||0;
-  const bolsasTeo=o.productos?.metros_por_bolsa?Math.floor(mtsUsados/o.productos.metros_por_bolsa*(1-o.merma_pct/100)):0;
-  document.body.insertAdjacentHTML('beforeend',`<div class="modal-overlay" id="cierre-modal">
-    <div class="modal-card" style="max-width:520px;">
-      <div class="modal-title">Cerrar orden ${o.numero_orden}</div>
-      <div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;margin-bottom:1rem;font-size:13px;">
-        <div>Metros usados de bobina: <strong>${r1(mtsUsados)} m</strong></div>
-        <div>Bolsas teóricas (con ${o.merma_pct}% merma): <strong>${bolsasTeo.toLocaleString('es-AR')} u</strong></div>
-        <div>Unidades pedidas: <strong>${o.unidades_a_producir?.toLocaleString('es-AR')} u</strong></div>
-      </div>
-      <div class="fgrid fgrid3" style="margin-bottom:10px;">
-        <div class="fg"><label>Bultos reales</label><input id="ci-bultos" type="number" min="0" placeholder="ej: 490"></div>
-        <div class="fg"><label>Unidades reales</label><input id="ci-uni" type="number" min="0" placeholder="ej: ${o.unidades_a_producir}"></div>
-        <div class="fg"><label>Peso scrap (kg) *</label><input id="ci-scrap" type="number" step="0.001" min="0" placeholder="OBLIGATORIO"></div>
-      </div>
-      <div class="fg" style="margin-bottom:1rem;"><label>Observaciones</label><input id="ci-obs" type="text" placeholder="Opcional"></div>
-      <div id="ci-merma-calc" style="font-size:12px;color:var(--text2);margin-bottom:1rem;"></div>
-      <div class="btn-grp">
-        <button class="btn btn-primary btn-sm" onclick="cerrarOrdenCorte(${id})">Cerrar orden</button>
-        <button class="btn btn-sm" onclick="document.getElementById('cierre-modal').remove()">Cancelar</button>
-      </div>
-      <div id="ci-err" style="color:var(--red);font-size:12px;margin-top:8px;"></div>
-    </div>
-  </div>`);
-  // Calcular merma en tiempo real
-  ['ci-bultos','ci-uni','ci-scrap'].forEach(id=>{
-    document.getElementById(id)?.addEventListener('input',()=>{
-      const uni=parseInt(document.getElementById('ci-uni')?.value)||0;
-      const scrap=parseFloat(document.getElementById('ci-scrap')?.value)||0;
-      if(uni&&bolsasTeo){
-        const mermaReal=r1((1-uni/bolsasTeo)*100);
-        const diff=uni-o.unidades_a_producir;
-        document.getElementById('ci-merma-calc').innerHTML=
-          `Merma real: <strong>${mermaReal}%</strong> (teórica: ${o.merma_pct}%) &nbsp;·&nbsp; 
-           Diferencia vs pedido: <strong style="color:${diff>=0?'var(--green)':'var(--red)'}">${diff>=0?'+':''}${diff.toLocaleString('es-AR')} u</strong>
-           ${scrap?`&nbsp;·&nbsp; Scrap: <strong>${scrap} kg</strong>`:''}`;
-      }
-    });
-  });
+  const prod=o.productos;
+  const emp=C.emp.find(e=>e.id===o.empaque_id);
+  const uniPorPaq=emp?.unidades||0;
+  const paqPorBolson=o.paquetes_por_bolson||1;
+  const mtsUsados=r2(o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0);
+  const kgUsados=r3(o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.kg_reales||0),0)||0);
+  const mtsPorBolsa=prod?.metros_por_bolsa||0;
+
+  const html='<div class="modal-overlay" id="cierre-modal">'
+    +'<div class="modal-card" style="max-width:560px;max-height:90vh;overflow-y:auto;">'
+    +'<div class="modal-title">📦 Cerrar orden '+o.numero_orden+'</div>'
+    // Info de la orden
+    +'<div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;margin-bottom:1rem;font-size:12px;display:grid;grid-template-columns:1fr 1fr;gap:6px;">'
+      +'<div>Producto: <strong>'+(prod?.descripcion||'—')+'</strong></div>'
+      +'<div>Empaque: <strong>'+(emp?emp.nombre+' ('+emp.unidades+' u/paq)':'sin empaque')+'</strong></div>'
+      +'<div>Metros usados: <strong>'+mtsUsados+' m</strong></div>'
+      +'<div>Kg bobinas: <strong>'+kgUsados+' kg</strong></div>'
+      +'<div>Bolsones planificados: <strong>'+(o.bolsones_a_producir||'—')+'</strong></div>'
+      +'<div>Paq/bolsón: <strong>'+paqPorBolson+'</strong></div>'
+    +'</div>'
+    // Ingreso del operario
+    +'<div class="fp-t" style="margin-bottom:8px;">El operario informa</div>'
+    +'<div class="fgrid fgrid3" style="margin-bottom:8px;">'
+      +'<div class="fg"><label>Bolsones completos</label>'
+        +'<input id="ci-bolsones" type="number" min="0" value="" placeholder="ej: 10" oninput="calcCierreOC('+id+')">'
+      +'</div>'
+      +'<div class="fg"><label>Paquetes sueltos</label>'
+        +'<input id="ci-paq-sueltos" type="number" min="0" value="0" placeholder="ej: 7" oninput="calcCierreOC('+id+')">'
+        +'<div style="font-size:10px;color:var(--text3);margin-top:2px">No completan un bolsón</div>'
+      +'</div>'
+      +'<div class="fg"><label>Scrap pesado (kg) *</label>'
+        +'<input id="ci-scrap" type="number" step="0.01" min="0" placeholder="OBLIGATORIO" oninput="calcCierreOC('+id+')">'
+      +'</div>'
+    +'</div>'
+    +'<div class="fg" style="margin-bottom:1rem;"><label>Observaciones</label><input id="ci-obs" type="text" placeholder="Opcional"></div>'
+    // Resultados calculados
+    +'<div id="ci-calc-wrap" style="display:none;background:var(--bg3);border-radius:var(--r);padding:12px;margin-bottom:1rem;">'
+      +'<div class="fp-t" style="margin-bottom:8px;">El sistema calcula</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;" id="ci-calc-grid"></div>'
+    +'</div>'
+    +'<div class="btn-grp">'
+      +'<button class="btn btn-primary btn-sm" onclick="cerrarOrdenCorte('+id+')">Cerrar orden</button>'
+      +'<button class="btn btn-sm" onclick="document.getElementById(\'cierre-modal\').remove()">Cancelar</button>'
+    +'</div>'
+    +'<div id="ci-err" style="color:var(--red);font-size:12px;margin-top:8px;"></div>'
+    +'</div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
 }
+
+function calcCierreOC(id){
+  const o=C.ord_corte.find(x=>x.id===id);if(!o)return;
+  const prod=o.productos;
+  const emp=C.emp.find(e=>e.id===o.empaque_id);
+  const uniPorPaq=emp?.unidades||0;
+  const paqPorBolson=o.paquetes_por_bolson||1;
+  const mtsPorBolsa=prod?.metros_por_bolsa||0;
+  const kgPorMt=mtsPorBolsa>0?(o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.kg_reales||0),0)||0)/
+    (o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||1):0;
+
+  const bolsones=parseInt(document.getElementById('ci-bolsones')?.value)||0;
+  const paqSueltos=parseInt(document.getElementById('ci-paq-sueltos')?.value)||0;
+  const scrapPesado=parseFloat(document.getElementById('ci-scrap')?.value)||0;
+
+  if(!bolsones&&!paqSueltos){
+    document.getElementById('ci-calc-wrap').style.display='none';
+    return;
+  }
+
+  const totalPaq=r2(bolsones*paqPorBolson+paqSueltos);
+  const totalUni=uniPorPaq>0?totalPaq*uniPorPaq:totalPaq;
+  const mtsUsados=r2(o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0);
+  const mtsTeoricos=r2(totalUni*mtsPorBolsa);
+  const mtsScrap=r2(mtsUsados-mtsTeoricos);
+  // Scrap calculado en kg: proporcional al kg/metro de las bobinas usadas
+  const kgPorMetro=mtsUsados>0?(o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.kg_reales||0),0)||0)/mtsUsados:0;
+  const scrapCalcKg=r3(mtsScrap*kgPorMetro);
+  // Diferencia: calculado - pesado → positivo=ganancia, negativo=pérdida
+  const difScrap=r3(scrapCalcKg-scrapPesado);
+  const difColor=difScrap>=0?'var(--green)':'var(--red)';
+  const difStr=(difScrap>=0?'+':'')+difScrap+' kg';
+
+  const diffVsPlan=totalUni-(o.unidades_a_producir||0);
+  const diffColor=diffVsPlan>=0?'var(--green)':'var(--red)';
+
+  const grid=document.getElementById('ci-calc-grid');
+  const wrap=document.getElementById('ci-calc-wrap');
+  if(!grid||!wrap)return;
+  wrap.style.display='block';
+  grid.innerHTML=''
+    +'<div><span style="color:var(--text3)">Total paquetes</span><br><strong>'+totalPaq.toLocaleString('es-AR')+'</strong></div>'
+    +'<div><span style="color:var(--text3)">Total unidades (bolsas)</span><br><strong>'+totalUni.toLocaleString('es-AR')+'</strong></div>'
+    +'<div><span style="color:var(--text3)">Metros teóricos para esas bolsas</span><br><strong>'+mtsTeoricos+' m</strong></div>'
+    +'<div><span style="color:var(--text3)">Metros scrap calculado</span><br><strong>'+mtsScrap+' m</strong></div>'
+    +'<div><span style="color:var(--text3)">Scrap calculado (kg)</span><br><strong>'+scrapCalcKg+' kg</strong></div>'
+    +'<div><span style="color:var(--text3)">Diferencia scrap (calc − pesado)</span><br>'
+      +'<strong style="color:'+difColor+'">'+difStr+'</strong>'
+      +'<div style="font-size:10px;color:var(--text3)">'+(difScrap>=0?'Ganancia: usaste menos material del esperado':'Pérdida: más desperdicio del esperado')+'</div>'
+    +'</div>'
+    +'<div><span style="color:var(--text3)">Diferencia vs planificado</span><br>'
+      +'<strong style="color:'+diffColor+'">'+(diffVsPlan>=0?'+':'')+diffVsPlan.toLocaleString('es-AR')+' u</strong>'
+    +'</div>'
+    +(uniPorPaq?'<div><span style="color:var(--text3)">Check empaque</span><br><strong>'+bolsones+' bolsones + '+paqSueltos+' paq sueltos</strong><div style="font-size:10px;color:var(--text3)">= '+totalPaq+' paq × '+uniPorPaq+' u</div></div>':'');
+}
+
 async function cerrarOrdenCorte(id){
-  const bultos=parseInt(document.getElementById('ci-bultos')?.value)||null;
-  const uni=parseInt(document.getElementById('ci-uni')?.value)||null;
-  const scrap=parseFloat(document.getElementById('ci-scrap')?.value);
+  const o=C.ord_corte.find(x=>x.id===id);if(!o)return;
+  const prod=o.productos;
+  const emp=C.emp.find(e=>e.id===o.empaque_id);
+  const uniPorPaq=emp?.unidades||0;
+  const paqPorBolson=o.paquetes_por_bolson||1;
+  const bolsones=parseInt(document.getElementById('ci-bolsones')?.value)||0;
+  const paqSueltos=parseInt(document.getElementById('ci-paq-sueltos')?.value)||0;
+  const scrapPesado=parseFloat(document.getElementById('ci-scrap')?.value);
   const obs=document.getElementById('ci-obs')?.value.trim();
   const err=document.getElementById('ci-err');
-  if(!bultos||!uni||isNaN(scrap)){err.textContent='Completá todos los campos. El peso de scrap es obligatorio.';return;}
+  if((!bolsones&&!paqSueltos)||isNaN(scrapPesado)){
+    err.textContent='Completá bolsones (o paquetes sueltos) y el peso de scrap.';return;
+  }
+  const totalPaq=bolsones*paqPorBolson+paqSueltos;
+  const totalUni=uniPorPaq>0?totalPaq*uniPorPaq:totalPaq;
+  const mtsUsados=r2(o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0);
+  const mtsTeoricos=r2(totalUni*(prod?.metros_por_bolsa||0));
+  const mtsScrap=r2(mtsUsados-mtsTeoricos);
+  const kgPorMetro=mtsUsados>0?(o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.kg_reales||0),0)||0)/mtsUsados:0;
+  const scrapCalcKg=r3(mtsScrap*kgPorMetro);
+  const difScrap=r3(scrapCalcKg-scrapPesado);
   pedirAdminYEjecutar(async()=>{
     await sb.from('ordenes_corte').update({
-      estado:'Completada',bultos_reales:bultos,unidades_reales:uni,peso_scrap_kg:scrap,observaciones:obs||null
+      estado:'Completada',
+      bolsones_reales:bolsones,
+      paquetes_sueltos_reales:paqSueltos,
+      cantidad_bultos_reales:totalPaq,
+      unidades_reales:totalUni,
+      peso_scrap_kg:scrapPesado,
+      scrap_calculado_kg:scrapCalcKg,
+      scrap_diferencia_kg:difScrap,
+      fecha_completada:new Date().toISOString(),
+      observaciones:obs||null
     }).eq('id',id);
     document.getElementById('cierre-modal')?.remove();
     await reload();
+    renderOrdenesCorte();
   });
 }
 
@@ -6527,14 +6756,21 @@ async function generarOrdenesCorte(){
   const lastNum=(cntOC?.valor||0);
   lineasValidas.forEach((l,idx)=>{
     if(!_pedOrdenes.find(o=>o.linea_id===l.id)){
-      const empId=C.ord_corte.find(o=>o.producto_id===l.producto_id)?.empaque_id||0;
+      const prod=C.productos.find(p=>p.id===l.producto_id);
+      const empId=C.ord_corte.find(o=>o.producto_id===l.producto_id)?.empaque_id||prod?.empaque_id||0;
       const emp=C.emp.find(e=>e.id===empId);
-      const paquetes=emp?Math.ceil(l.cantidad/emp.unidades):l.cantidad;
+      const paqPorBolson=prod?.paquetes_por_bolson||1;
+      const uniPorPaq=emp?.unidades||0;
+      const totalPaq=uniPorPaq>0?Math.ceil(l.cantidad/uniPorPaq):l.cantidad;
+      const bolsonesSug=Math.ceil(totalPaq/paqPorBolson);
       const maqIds=C.maq_corte.filter(m=>m.en_servicio!==false).map(m=>m.id);
       const nroSug='OC-'+String(lastNum+_pedOrdenes.length+idx+1).padStart(5,'0');
       _pedOrdenes.push({
         linea_id:l.id,producto_id:l.producto_id,
-        cantidad:l.cantidad,paquetes,
+        cantidad:l.cantidad,
+        bolsones:bolsonesSug,paqPorBolson,
+        totalPaq:bolsonesSug*paqPorBolson,
+        totalUni:bolsonesSug*paqPorBolson*uniPorPaq,
         empaque_id:empId,merma:5,
         maquinas:maqIds.slice(0,1),
         confirmar:true,
@@ -6548,38 +6784,55 @@ async function generarOrdenesCorte(){
 function renderOrdenesNP(){
   const div=document.getElementById('np-ordenes-sugeridas');if(!div)return;
   if(!_pedOrdenes.length){div.innerHTML='<div class="empty">No hay líneas válidas.</div>';return;}
-  // Generar número de orden sugerido
-  const lastOC=C.ord_corte.length?C.ord_corte[0].numero_orden:'OC-00000';
-  const lastNum=parseInt(lastOC.replace(/\D/g,''))||0;
   let html='';
   _pedOrdenes.forEach((o,i)=>{
     const l=_pedLineas.find(x=>x.id===o.linea_id);
     const prod=C.productos.find(p=>p.id===o.producto_id);
-    const nroSug=o.numero_orden||('OC-'+String(lastNum+i+1).padStart(5,'0'));
+    const emp=C.emp.find(e=>e.id===o.empaque_id);
+    const uniPorPaq=emp?.unidades||0;
+    const totalPaq=o.bolsones*(o.paqPorBolson||1);
+    const totalUni=uniPorPaq>0?totalPaq*uniPorPaq:totalPaq;
     html+='<div style="background:'+(o.confirmar?'var(--accentbg)':'var(--bg3)')+';border:1.5px solid '+(o.confirmar?'var(--accentbd)':'var(--border)')+';border-radius:var(--r);padding:12px;margin-bottom:10px;">'
-      // Header con toggle
       +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">'
         +'<input type="checkbox" id="ord-chk-'+o.linea_id+'" '+(o.confirmar?'checked':'')+' onchange="_pedOrdenes.find(x=>x.linea_id==='+o.linea_id+').confirmar=this.checked;renderOrdenesNP()" style="width:16px;height:16px;">'
         +'<label for="ord-chk-'+o.linea_id+'" style="font-weight:600;font-size:13px;cursor:pointer;color:var(--accent)">'
           +(prod?prod.codigo+' · '+prod.descripcion:'—')
-          +' <span style="font-size:11px;color:var(--text2)">— '+l?.cantidad?.toLocaleString('es-AR')+' u pedidas</span>'
+          +' <span style="font-size:11px;color:var(--text2)">— '+(l?.cantidad||0).toLocaleString('es-AR')+' u pedidas</span>'
         +'</label>'
-        +(o.confirmar?'<span style="font-size:11px;color:var(--accent);margin-left:auto">✓ Se creará la orden</span>':'<span style="font-size:11px;color:var(--text3);margin-left:auto">No crear orden</span>')
+        +(o.confirmar
+          ?'<span style="font-size:11px;color:var(--accent);margin-left:auto">✓ Se creará la orden</span>'
+          :'<span style="font-size:11px;color:var(--text3);margin-left:auto">No crear orden</span>')
       +'</div>'
       +(o.confirmar
-        ?'<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;">'
-          +'<div class="fg"><label style="font-size:11px">N° Orden</label>'
-            +'<input type="text" value="'+o.numero_orden+'" oninput="_pedOrdenes.find(x=>x.linea_id==='+o.linea_id+').numero_orden=this.value"></div>'
+        ?'<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px;">'
+          // Empaque
           +'<div class="fg"><label style="font-size:11px">Empaque</label>'
             +'<select onchange="onNpOrdEmpChange('+o.linea_id+',this.value)">'
-              +C.emp.map(e=>'<option value="'+e.id+'" '+(e.id===o.empaque_id?'selected':'')+'>'+e.nombre+' ('+e.unidades+' u)</option>').join('')
+              +C.emp.map(e=>'<option value="'+e.id+'" '+(e.id===o.empaque_id?'selected':'')+'>'+e.nombre+' ('+e.unidades+'u)</option>').join('')
             +'</select></div>'
-          +'<div class="fg"><label style="font-size:11px">Paquetes</label>'
-            +'<div class="computed" id="np-paq-'+o.linea_id+'" style="margin-top:0">'+(o.paquetes||'—')+'</div></div>'
+          // Bolsones — campo principal
+          +'<div class="fg"><label style="font-size:11px;font-weight:700">Bolsones</label>'
+            +'<input type="number" min="1" value="'+(o.bolsones||'')+'" placeholder="ej: 100" style="font-weight:700" oninput="onNpOrdBolsonesChange('+o.linea_id+',this.value)"></div>'
+          // Paquetes por bolsón
+          +'<div class="fg"><label style="font-size:11px">Paq/bolsón</label>'
+            +'<input type="number" min="1" value="'+(o.paqPorBolson||1)+'" oninput="onNpOrdPaqBolsonChange('+o.linea_id+',this.value)"></div>'
+          // Unidades calculadas
+          +'<div class="fg"><label style="font-size:11px">Unidades (calculado)</label>'
+            +'<div class="computed" id="np-uni-'+o.linea_id+'" style="margin-top:0;font-weight:600;color:var(--accent)">'
+              +(totalUni>0?totalUni.toLocaleString('es-AR')+' u':'—')
+            +'</div></div>'
+          // Merma
           +'<div class="fg"><label style="font-size:11px">% Merma</label>'
-            +'<input type="number" value="'+o.merma+'" min="0" max="30" step="0.5" oninput="_pedOrdenes.find(x=>x.linea_id==='+o.linea_id+').merma=parseFloat(this.value)||5"></div>'
+            +'<input type="number" value="'+(o.merma||5)+'" min="0" max="30" step="0.5" oninput="_pedOrdenes.find(x=>x.linea_id==='+o.linea_id+').merma=parseFloat(this.value)||5"></div>'
         +'</div>'
-        +'<div class="fg" style="margin-top:8px;"><label style="font-size:11px">Máquinas de corte</label>'
+        // Aviso si unidades calculadas difieren del pedido
+        +(totalUni>0&&l?.cantidad?
+          '<div style="font-size:11px;color:'+(Math.abs(totalUni-l.cantidad)>0?'var(--amber)':'var(--green)')+';margin-bottom:8px;">'
+            +(totalUni===l.cantidad
+              ?'✓ Coincide exactamente con el pedido'
+              :'⚠ Pedido: '+l.cantidad.toLocaleString('es-AR')+' u · Orden: '+totalUni.toLocaleString('es-AR')+' u · Diferencia: '+(totalUni-l.cantidad>0?'+':'')+(totalUni-l.cantidad).toLocaleString('es-AR')+' u')
+          +'</div>':'')
+        +'<div class="fg"><label style="font-size:11px">Máquinas de corte</label>'
           +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">'
             +C.maq_corte.map(m=>'<label style="display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;">'
               +'<input type="checkbox" '+(o.maquinas.includes(m.id)?'checked':'')+' onchange="onNpOrdMaqChange('+o.linea_id+','+m.id+',this.checked)" style="width:14px;height:14px;">'
@@ -6592,14 +6845,35 @@ function renderOrdenesNP(){
   div.innerHTML=html;
 }
 function onNpOrdEmpChange(lineaId,empId){
-  const o=_pedOrdenes.find(x=>x.linea_id===lineaId);
-  const l=_pedLineas.find(x=>x.id===lineaId);
-  if(!o||!l)return;
+  const o=_pedOrdenes.find(x=>x.linea_id===lineaId);if(!o)return;
   o.empaque_id=parseInt(empId);
+  calcNpOrdUni(lineaId);
+  renderOrdenesNP();
+}
+function onNpOrdBolsonesChange(lineaId,val){
+  const o=_pedOrdenes.find(x=>x.linea_id===lineaId);if(!o)return;
+  o.bolsones=parseInt(val)||0;
+  calcNpOrdUni(lineaId);
+  // Actualizar solo el display sin re-renderizar todo
   const emp=C.emp.find(e=>e.id===o.empaque_id);
-  o.paquetes=emp?Math.ceil(l.cantidad/emp.unidades):l.cantidad;
-  const div=document.getElementById('np-paq-'+lineaId);
-  if(div)div.textContent=o.paquetes;
+  const uniPorPaq=emp?.unidades||0;
+  const totalPaq=o.bolsones*(o.paqPorBolson||1);
+  const totalUni=uniPorPaq>0?totalPaq*uniPorPaq:totalPaq;
+  const div=document.getElementById('np-uni-'+lineaId);
+  if(div)div.textContent=totalUni>0?totalUni.toLocaleString('es-AR')+' u':'—';
+}
+function onNpOrdPaqBolsonChange(lineaId,val){
+  const o=_pedOrdenes.find(x=>x.linea_id===lineaId);if(!o)return;
+  o.paqPorBolson=parseInt(val)||1;
+  onNpOrdBolsonesChange(lineaId,o.bolsones);
+}
+function calcNpOrdUni(lineaId){
+  const o=_pedOrdenes.find(x=>x.linea_id===lineaId);if(!o)return;
+  const emp=C.emp.find(e=>e.id===o.empaque_id);
+  const uniPorPaq=emp?.unidades||0;
+  const totalPaq=o.bolsones*(o.paqPorBolson||1);
+  o.totalPaq=totalPaq;
+  o.totalUni=uniPorPaq>0?totalPaq*uniPorPaq:totalPaq;
 }
 function onNpOrdMaqChange(lineaId,maqId,checked){
   const o=_pedOrdenes.find(x=>x.linea_id===lineaId);if(!o)return;
@@ -6659,14 +6933,19 @@ async function guardarPedido(){
     // Generar número único usando contador
     const nroFinal=await generarNroOC();
     const uniPorPaq=emp?.unidades||0;
-    const unidades=l.cantidad;
-    const paquetesReales=uniPorPaq>0?Math.ceil(unidades/uniPorPaq):o.paquetes||unidades;
+    const bolsones=o.bolsones||1;
+    const paqPorBolson=o.paqPorBolson||1;
+    const totalPaq=bolsones*paqPorBolson;
+    const unidades=uniPorPaq>0?totalPaq*uniPorPaq:l.cantidad;
+    const paquetesReales=totalPaq;
     const mts=r2(unidades*(prod.metros_por_bolsa||0)*(1+o.merma/100));
     const{data:oc,error:eOC}=await sb.from('ordenes_corte').insert({
       numero_orden:nroFinal,
       cliente:cliNom||null,
       producto_id:o.producto_id,
       empaque_id:o.empaque_id||null,
+      bolsones_a_producir:bolsones,
+      paquetes_por_bolson:paqPorBolson,
       cantidad_paquetes:paquetesReales,
       unidades_a_producir:unidades,
       metros_necesarios:mts,
