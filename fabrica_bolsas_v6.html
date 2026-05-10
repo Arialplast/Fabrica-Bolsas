@@ -917,6 +917,11 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
                 <div style="font-size:10px;color:var(--text3);margin-top:2px" id="adm-oc-unidades-orig"></div>
               </div>
               <div class="fg">
+                <label>Unidades a producir (planificadas)</label>
+                <input id="adm-oc-unidades-plan" type="number" min="1" step="1">
+                <div style="font-size:10px;color:var(--text3);margin-top:2px" id="adm-oc-unidades-plan-orig"></div>
+              </div>
+              <div class="fg">
                 <label>Bultos / paquetes reales</label>
                 <input id="adm-oc-bultos" type="number" min="1" step="1" oninput="calcAdmOcDerived()">
                 <div style="font-size:10px;color:var(--text3);margin-top:2px" id="adm-oc-bultos-orig"></div>
@@ -3162,13 +3167,16 @@ function onAdmOcChange(){
   document.getElementById('adm-oc-obs').value=o.observaciones||'';
   // Unidades y bultos
   const uniEl=document.getElementById('adm-oc-unidades');
+  const uniPlanEl=document.getElementById('adm-oc-unidades-plan');
   const bultEl=document.getElementById('adm-oc-bultos');
-  if(uniEl)uniEl.value=o.unidades_reales||o.unidades_a_producir||'';
+  if(uniEl)uniEl.value=o.unidades_reales||'';
+  if(uniPlanEl)uniPlanEl.value=o.unidades_a_producir||'';
   if(bultEl)bultEl.value=o.cantidad_bultos_reales||o.cantidad_paquetes||'';
-  // Labels con valores originales
   const origUni=document.getElementById('adm-oc-unidades-orig');
+  const origUniPlan=document.getElementById('adm-oc-unidades-plan-orig');
   const origBul=document.getElementById('adm-oc-bultos-orig');
-  if(origUni)origUni.textContent='Original: '+(o.unidades_reales||o.unidades_a_producir||'—')+' u';
+  if(origUni)origUni.textContent='Original: '+(o.unidades_reales||'—')+' u reales';
+  if(origUniPlan)origUniPlan.textContent='Original: '+(o.unidades_a_producir||'—')+' u planificadas';
   if(origBul)origBul.textContent='Original: '+(o.cantidad_bultos_reales||o.cantidad_paquetes||'—')+' bultos';
   // Empaque
   const emp=C.emp.find(e=>e.id===o.empaque_id);
@@ -3215,6 +3223,7 @@ async function guardarEdicionOrdenCorte(){
   const flex=document.getElementById('adm-oc-flex')?.value.trim();
   const obs=document.getElementById('adm-oc-obs')?.value.trim();
   const unidadesNuevas=parseInt(document.getElementById('adm-oc-unidades')?.value)||null;
+  const unidadesPlanNuevas=parseInt(document.getElementById('adm-oc-unidades-plan')?.value)||null;
   const bultosNuevos=parseInt(document.getElementById('adm-oc-bultos')?.value)||null;
   const pBolsa=precioPaq&&emp?.unidades?r6(precioPaq/emp.unidades):null;
   const precioTotal=precioPaq&&bultosNuevos?r2(precioPaq*bultosNuevos):
@@ -3226,10 +3235,11 @@ async function guardarEdicionOrdenCorte(){
   if(obs!==undefined)upd.observaciones=obs||null;
   if(unidadesNuevas&&unidadesNuevas!==o?.unidades_reales){
     upd.unidades_reales=unidadesNuevas;
-    // Recalcular precio_bolsa si hay precio_paquete
-    if(pBolsa){upd.precio_bolsa=pBolsa;}
-    // Recalcular precio_total_venta
+    if(pBolsa)upd.precio_bolsa=pBolsa;
     if(precioPaq&&bultosNuevos)upd.precio_total_venta=r2(precioPaq*bultosNuevos);
+  }
+  if(unidadesPlanNuevas&&unidadesPlanNuevas!==o?.unidades_a_producir){
+    upd.unidades_a_producir=unidadesPlanNuevas;
   }
   if(bultosNuevos&&bultosNuevos!==o?.cantidad_bultos_reales){
     upd.cantidad_bultos_reales=bultosNuevos;
@@ -3240,7 +3250,8 @@ async function guardarEdicionOrdenCorte(){
   if(error){msg.style.color='var(--red)';msg.textContent='Error: '+error.message;return;}
   // Armar mensaje descriptivo
   const cambios=[];
-  if(unidadesNuevas&&unidadesNuevas!==o?.unidades_reales)cambios.push('unidades: '+(o?.unidades_reales||'—')+' → '+unidadesNuevas);
+  if(unidadesNuevas&&unidadesNuevas!==o?.unidades_reales)cambios.push('u. reales: '+(o?.unidades_reales||'—')+' → '+unidadesNuevas);
+  if(unidadesPlanNuevas&&unidadesPlanNuevas!==o?.unidades_a_producir)cambios.push('u. planificadas: '+(o?.unidades_a_producir||'—')+' → '+unidadesPlanNuevas);
   if(bultosNuevos&&bultosNuevos!==o?.cantidad_bultos_reales)cambios.push('bultos: '+(o?.cantidad_bultos_reales||o?.cantidad_paquetes||'—')+' → '+bultosNuevos);
   if(pBolsa)cambios.push('precio/bolsa: $'+pBolsa);
   msg.style.color='var(--green)';
@@ -4403,9 +4414,17 @@ function limpiarFormCorte(){
   C.maq_corte.forEach(m=>{const c=document.getElementById('ncc-'+m.id);if(c)c.checked=false;const i=document.getElementById('nci-'+m.id);if(i)i.classList.remove('sel');});
   const bc=document.getElementById('nc-calc');if(bc)bc.innerHTML='Seleccioná producto, empaque y cantidad.';
   const bh=document.getElementById('nc-hs');if(bh)bh.innerHTML='Seleccioná máquinas.';
+  // Auto-generar número OC
+  const nordEl=document.getElementById('nc-nord');
+  if(nordEl){
+    nordEl.value='...';
+    sb.from('contadores').select('valor').eq('nombre','numero_orden_corte').maybeSingle().then(({data})=>{
+      if(nordEl)nordEl.value='OC-'+String((data?.valor||0)+1).padStart(5,'0');
+    });
+  }
 }
 async function guardarOrdenCorte(){
-  const nord=document.getElementById('nc-nord').value.trim();
+  let nord=document.getElementById('nc-nord').value.trim();
   const flex=document.getElementById('nc-flex').value.trim();
   const cli=document.getElementById('nc-cli').value;
   const pId=parseInt(document.getElementById('nc-prod').value);
@@ -4418,7 +4437,9 @@ async function guardarOrdenCorte(){
   const precioPaquete=parseFloat(document.getElementById('nc-precio-paquete').value)||null;
   const maqs=getMaqCorteSel();
   const msg=document.getElementById('msg-nc');
-  if(!nord||!pId||!eId||!cant||maqs.length===0){msg.className='msg-err';msg.textContent='Completá todos los campos y seleccioná al menos una máquina.';return;}
+  if(!pId||!eId||!cant||maqs.length===0){msg.className='msg-err';msg.textContent='Completá todos los campos y seleccioná al menos una máquina.';return;}
+  // Siempre generar número único desde el contador
+  nord=await generarNroOC();
   const prod=C.productos.find(p=>p.id===pId);
   const emp=C.emp.find(e=>e.id===eId);
   const unidades=cant*emp.unidades;
@@ -4633,9 +4654,7 @@ async function confirmarGenerarOrdenExt(ocId){
   const oc=C.ord_corte.find(x=>x.id===ocId);
   msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Creando...</div>';
   // Generar número único consultando el max real
-  const{data:maxOrd}=await sb.from('ordenes').select('numero_orden').order('numero_orden',{ascending:false}).limit(1);
-  const maxNum=maxOrd?.length?parseInt(maxOrd[0].numero_orden.replace(/\D/g,''))||0:0;
-  const nro='ORD-'+String(maxNum+1).padStart(5,'0');
+  const nro=await generarNroORD();
   const{data:ord,error:e1}=await sb.from('ordenes').insert({
     numero_orden:nro,bobina_id:bobId,cliente:cli||null,
     metros:mts,kg_totales:kg,prioridad:pri,
@@ -6503,9 +6522,9 @@ async function generarOrdenesCorte(){
   const lineasValidas=_pedLineas.filter(l=>l.producto_id&&l.cantidad>0);
   if(!lineasValidas.length){wrap.style.display='none';return;}
   wrap.style.display='block';
-  // Obtener el número más alto de ordenes_corte desde la DB para evitar duplicados
-  const{data:maxOC}=await sb.from('ordenes_corte').select('numero_orden').order('numero_orden',{ascending:false}).limit(1);
-  const lastNum=maxOC?.length?parseInt(maxOC[0].numero_orden.replace(/\D/g,''))||0:0;
+  // Obtener contador actual para sugerir números
+  const{data:cntOC}=await sb.from('contadores').select('valor').eq('nombre','numero_orden_corte').maybeSingle();
+  const lastNum=(cntOC?.valor||0);
   lineasValidas.forEach((l,idx)=>{
     if(!_pedOrdenes.find(o=>o.linea_id===l.id)){
       const empId=C.ord_corte.find(o=>o.producto_id===l.producto_id)?.empaque_id||0;
@@ -6637,10 +6656,8 @@ async function guardarPedido(){
     const emp=C.emp.find(e=>e.id===o.empaque_id);
     if(!prod){errores.push(o.numero_orden+': sin producto');continue;}
     if(!l){errores.push(o.numero_orden+': sin línea');continue;}
-    // Generar número único consultando el max real en este momento
-    const{data:maxOC}=await sb.from('ordenes_corte').select('numero_orden').order('numero_orden',{ascending:false}).limit(1);
-    const maxNum=maxOC?.length?parseInt(maxOC[0].numero_orden.replace(/\D/g,''))||0:0;
-    const nroFinal='OC-'+String(maxNum+1).padStart(5,'0');
+    // Generar número único usando contador
+    const nroFinal=await generarNroOC();
     const uniPorPaq=emp?.unidades||0;
     const unidades=l.cantidad;
     const paquetesReales=uniPorPaq>0?Math.ceil(unidades/uniPorPaq):o.paquetes||unidades;
@@ -6969,6 +6986,21 @@ function renderFlujoCaja(){
   wrap.innerHTML=html;
 }
 
+
+// Generador de número OC usando contador en DB — evita duplicados
+async function generarNroOC(){
+  const{data:cnt}=await sb.from('contadores').select('valor').eq('nombre','numero_orden_corte').maybeSingle();
+  const next=(cnt?.valor||0)+1;
+  await sb.from('contadores').upsert({nombre:'numero_orden_corte',valor:next},{onConflict:'nombre'});
+  return 'OC-'+String(next).padStart(5,'0');
+}
+// Generador de número ORD usando contador en DB
+async function generarNroORD(){
+  const{data:cnt}=await sb.from('contadores').select('valor').eq('nombre','numero_orden').maybeSingle();
+  const next=(cnt?.valor||0)+1;
+  await sb.from('contadores').upsert({nombre:'numero_orden',valor:next},{onConflict:'nombre'});
+  return 'ORD-'+String(next).padStart(5,'0');
+}
 
 function poblarSelectsMP(){
   const t=document.getElementById('li-tipo');
