@@ -3226,14 +3226,18 @@ function onAdmOcChange(){
   const origBul=document.getElementById('adm-oc-bultos-orig');
   if(origUni)origUni.textContent='Original: '+(o.unidades_reales||'—')+' u reales';
   if(origBul)origBul.textContent='Original: '+(o.cantidad_bultos_reales||o.cantidad_paquetes||'—')+' bultos';
-  // Empaque
-  const emp=C.emp.find(e=>e.id===o.empaque_id);
+  // Empaque: tomar de la orden, si no del producto
+  const prod=C.productos.find(p=>p.id===o.producto_id);
+  const empId=o.empaque_id||prod?.empaque_id||0;
+  const emp=C.emp.find(e=>e.id===empId);
   const lbl=document.getElementById('adm-oc-emp-lbl');
   const lbl2=document.getElementById('adm-oc-emp-lbl2');
   const uniPaqEl=document.getElementById('adm-oc-uni-paq');
-  if(lbl)lbl.textContent=emp?'(paquete de '+emp.unidades+' u)':'';
-  if(lbl2)lbl2.textContent=emp?'(empaque: '+emp.nombre+')':'';
-  if(uniPaqEl)uniPaqEl.textContent=emp?emp.unidades+' u/paquete':'—';
+  if(lbl)lbl.textContent=emp?'(paquete de '+emp.unidades+' u)':'(sin empaque)';
+  if(lbl2)lbl2.textContent=emp
+    ?(emp.nombre+(o.empaque_id?'':' — del producto'))
+    :'sin empaque'+( prod?.empaque_id?'':' (tampoco en el producto)');
+  if(uniPaqEl)uniPaqEl.textContent=emp?emp.unidades+' u/paquete':'— asigná empaque';
   calcAdmOcPrecio();
   calcAdmOcDerived();
   calcAdmOcMetros();
@@ -3243,7 +3247,9 @@ function calcAdmOcMetros(){
   const id=parseInt(document.getElementById('adm-oc-sel')?.value);
   const o=C.ord_corte.find(x=>x.id===id);
   const prod=o?C.productos.find(p=>p.id===o.producto_id):null;
-  const emp=o?C.emp.find(e=>e.id===o.empaque_id):null;
+  // Empaque: tomar de la orden, si no tiene tomar del producto
+  const empId=o?.empaque_id||prod?.empaque_id||0;
+  const emp=C.emp.find(e=>e.id===empId);
   const bolsones=parseInt(document.getElementById('adm-oc-bolsones')?.value)||0;
   const paqBolson=parseInt(document.getElementById('adm-oc-paq-bolson')?.value)||1;
   const calcDiv=document.getElementById('adm-oc-unidades-plan-calc');
@@ -3252,14 +3258,25 @@ function calcAdmOcMetros(){
   const uniPorPaq=emp?.unidades||0;
   const totalPaq=bolsones*paqBolson;
   const totalUni=uniPorPaq>0?totalPaq*uniPorPaq:totalPaq;
-  if(calcDiv)calcDiv.textContent=totalUni.toLocaleString('es-AR')+' u ('+totalPaq.toLocaleString('es-AR')+' paq)';
+  if(calcDiv){
+    calcDiv.textContent=totalUni.toLocaleString('es-AR')+' u';
+    calcDiv.title=bolsones+' bolsones × '+paqBolson+' paq/bolsón = '+totalPaq.toLocaleString('es-AR')+' paq × '+(uniPorPaq||'?')+' u/paq';
+    if(uniPorPaq===0)calcDiv.textContent+=' ⚠ sin empaque — asigná empaque para calcular bien';
+  }
   if(prod?.metros_por_bolsa&&totalUni){
     const merma=o?.merma_pct||5;
     const mts=r2(totalUni*prod.metros_por_bolsa*(1+merma/100));
-    if(metrosDiv)metrosDiv.textContent='→ '+mts.toLocaleString('es-AR')+' m necesarios (merma '+merma+'%)';
+    if(metrosDiv)metrosDiv.textContent='→ '+mts.toLocaleString('es-AR')+' m (merma '+merma+'%) · empaque: '+(emp?emp.nombre+' '+emp.unidades+'u/paq':'sin definir');
   } else {
-    if(metrosDiv)metrosDiv.textContent='';
+    if(metrosDiv)metrosDiv.textContent=uniPorPaq===0?'Asigná un empaque para calcular metros':'';
   }
+  // También actualizar el display de u/paquete
+  const uniPaqEl=document.getElementById('adm-oc-uni-paq');
+  if(uniPaqEl)uniPaqEl.textContent=emp?emp.unidades+' u/paquete':'— (sin empaque)';
+  const lbl=document.getElementById('adm-oc-emp-lbl');
+  const lbl2=document.getElementById('adm-oc-emp-lbl2');
+  if(lbl)lbl.textContent=emp?'(paquete de '+emp.unidades+' u)':'';
+  if(lbl2)lbl2.textContent=emp?'('+emp.nombre+')':'';
 }
 function calcAdmOcDerived(){
   const id=parseInt(document.getElementById('adm-oc-sel')?.value);
@@ -3312,8 +3329,10 @@ async function guardarEdicionOrdenCorte(){
     if(precioPaq&&bultosNuevos)upd.precio_total_venta=r2(precioPaq*bultosNuevos);
   }
   if(bolsonesNuevos||paqBolsonNuevo){
-    const emp=C.emp.find(e=>e.id===o?.empaque_id);
     const prod=C.productos.find(p=>p.id===o?.producto_id);
+    // Empaque: tomar de la orden, si no del producto
+    const empId=o?.empaque_id||prod?.empaque_id||0;
+    const emp=C.emp.find(e=>e.id===empId);
     const bolsones=bolsonesNuevos||o?.bolsones_a_producir||0;
     const paqBolson=paqBolsonNuevo||o?.paquetes_por_bolson||1;
     if(bolsonesNuevos)upd.bolsones_a_producir=bolsonesNuevos;
