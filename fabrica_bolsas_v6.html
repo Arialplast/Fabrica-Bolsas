@@ -1132,6 +1132,22 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
           <div class="fg"><label>Peso por bolsa (kg)</label><input id="pr-peso" type="number" step="0.0001" placeholder="0.025"></div>
           <div class="fg"><label>% Merma default</label><input id="pr-merma" type="number" step="0.1" value="5"></div>
         </div>
+        <div class="fgrid fgrid3">
+          <div class="fg">
+            <label>Empaque <span style="font-size:11px;color:var(--text2)">(tipo de paquete fijo del producto)</span></label>
+            <select id="pr-emp" onchange="calcPrUniBolson()"><option value="">— sin empaque —</option></select>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px" id="pr-emp-info"></div>
+          </div>
+          <div class="fg">
+            <label>Paquetes por bolsón <span style="font-size:11px;color:var(--text2)">(referencia)</span></label>
+            <input id="pr-paq-bolson" type="number" min="1" value="1" placeholder="ej: 50" oninput="calcPrUniBolson()">
+            <div style="font-size:10px;color:var(--text3);margin-top:2px" id="pr-bolson-info"></div>
+          </div>
+          <div class="fg">
+            <label>Unidades por bolsón <span style="font-size:11px;color:var(--text2)">(calculado)</span></label>
+            <div class="computed" id="pr-uni-bolson" style="margin-top:0">—</div>
+          </div>
+        </div>
         <div class="btn-grp"><button class="btn btn-primary btn-sm" onclick="addProducto()">Agregar</button><span id="msg-pr" style="font-size:12px;"></span></div>
       </div>
       <div class="tw"><div id="pr-tbl"><div class="loading"><div class="spinner"></div></div></div></div>
@@ -1675,7 +1691,7 @@ async function reload(){
     sb.from('bobinas_producidas').select('*, ordenes(numero_orden), bobinas(nombre), extrusoras(nombre)').order('created_at',{ascending:false}).limit(50),
     sb.from('configuracion').select('*'),
     sb.from('operarios').select('*').eq('activo',true).order('nombre'),
-    sb.from('productos').select('*, bobinas(*)').order('codigo'),
+    sb.from('productos').select('*, bobinas(*), tipos_empaque(*)').order('codigo'),
     sb.from('maquinas_corte').select('*').order('nombre'),
     sb.from('tipos_empaque').select('*').order('nombre'),
     sb.from('ordenes_corte').select('*, productos(*), tipos_empaque(*), orden_corte_maquinas(*, maquinas_corte(*)), orden_corte_bobinas(*, bobinas_producidas(id,numero_bobina,metros_reales,kg_reales,orden_id,bobina_tipo_id)), orden_extrusion_id').order('prioridad').order('created_at'),
@@ -5181,32 +5197,148 @@ async function delMaqCorte(id){
 }
 
 // ===== PRODUCTOS =====
+function calcPrUniBolson(){
+  const empId=parseInt(document.getElementById('pr-emp')?.value)||0;
+  const paqBolson=parseInt(document.getElementById('pr-paq-bolson')?.value)||1;
+  const emp=C.emp.find(e=>e.id===empId);
+  const div=document.getElementById('pr-uni-bolson');
+  const info=document.getElementById('pr-bolson-info');
+  if(emp&&paqBolson){
+    const uniPorBolson=emp.unidades*paqBolson;
+    if(div)div.textContent=uniPorBolson.toLocaleString('es-AR')+' unidades/bolsón';
+    if(info)info.textContent=paqBolson+' paq × '+emp.unidades+' u/paq';
+  } else {
+    if(div)div.textContent='—';
+    if(info)info.textContent='';
+  }
+  const empInfo=document.getElementById('pr-emp-info');
+  if(empInfo&&emp)empInfo.textContent=emp.unidades+' unidades por paquete';
+  else if(empInfo)empInfo.textContent='';
+}
 function renderProductos(){
   const w=document.getElementById('pr-tbl');if(!w)return;
+  // Poblar selector de empaque
+  const prEmp=document.getElementById('pr-emp');
+  if(prEmp&&C.emp.length){
+    const cur=prEmp.value;
+    prEmp.innerHTML='<option value="">— sin empaque —</option>'+C.emp.map(e=>'<option value="'+e.id+'">'+e.nombre+' ('+e.unidades+' u/paq)</option>').join('');
+    prEmp.value=cur;
+  }
   if(!C.productos.length){w.innerHTML='<div class="empty">No hay productos.</div>';return;}
-  w.innerHTML=`<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Código</th><th>Descripción</th><th>Bobina requerida</th><th>m/bolsa</th><th>kg/bolsa</th><th>% Merma</th><th></th></tr></thead>
-    <tbody>${C.productos.map((p,i)=>`<tr>
-      <td style="color:var(--text3)">${i+1}</td>
-      <td class="mono" style="font-weight:500">${p.codigo}</td>
-      <td>${p.descripcion}</td>
-      <td style="font-size:12px">${p.bobinas?.nombre||'—'}</td>
-      <td class="mono">${p.metros_por_bolsa}</td>
-      <td class="mono">${p.peso_por_bolsa||'—'}</td>
-      <td class="mono">${p.merma_pct}%</td>
-      <td><button class="btn btn-sm btn-del" onclick="delProducto(${p.id})">×</button></td>
-    </tr>`).join('')}</tbody></table></div>`;
+  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr>'
+    +'<th>#</th><th>Código</th><th>Descripción</th><th>Bobina</th><th>Empaque</th><th>Paq/bolsón</th><th>U/bolsón</th><th>m/bolsa</th><th>% Merma</th><th></th>'
+    +'</tr></thead><tbody>'
+    +C.productos.map((p,i)=>{
+      const emp=C.emp.find(e=>e.id===p.empaque_id);
+      const uniPorBolson=emp&&p.paquetes_por_bolson?emp.unidades*p.paquetes_por_bolson:0;
+      return '<tr>'
+        +'<td style="color:var(--text3)">'+(i+1)+'</td>'
+        +'<td class="mono" style="font-weight:500">'+p.codigo+'</td>'
+        +'<td>'+p.descripcion+'</td>'
+        +'<td style="font-size:12px">'+(p.bobinas?.nombre||'—')+'</td>'
+        +'<td style="font-size:12px">'+(emp?emp.nombre+' <span style="color:var(--text3)">'+emp.unidades+' u/paq</span>':'<span style="color:var(--text3)">—</span>')+'</td>'
+        +'<td class="mono" style="font-weight:600">'+(p.paquetes_por_bolson||'—')+'</td>'
+        +'<td class="mono" style="color:var(--accent)">'+(uniPorBolson?uniPorBolson.toLocaleString('es-AR')+' u':'—')+'</td>'
+        +'<td class="mono">'+p.metros_por_bolsa+'</td>'
+        +'<td class="mono">'+p.merma_pct+'%</td>'
+        +'<td>'
+          +'<button class="btn btn-sm" onclick="editarProducto('+p.id+')" style="margin-right:4px">✏️</button>'
+          +'<button class="btn btn-sm btn-del" onclick="delProducto('+p.id+')">×</button>'
+        +'</td>'
+        +'</tr>';
+    }).join('')+'</tbody></table></div>';
 }
 async function addProducto(){
-  const cod=document.getElementById('pr-cod').value.trim(),des=document.getElementById('pr-des').value.trim();
+  const cod=document.getElementById('pr-cod').value.trim();
+  const des=document.getElementById('pr-des').value.trim();
   const bId=parseInt(document.getElementById('pr-bob').value)||null;
-  const mts=parseFloat(document.getElementById('pr-mts').value),peso=parseFloat(document.getElementById('pr-peso').value)||null;
+  const mts=parseFloat(document.getElementById('pr-mts').value);
+  const peso=parseFloat(document.getElementById('pr-peso').value)||null;
   const merma=parseFloat(document.getElementById('pr-merma').value)||5;
+  const empId=parseInt(document.getElementById('pr-emp').value)||null;
+  const paqBolson=parseInt(document.getElementById('pr-paq-bolson').value)||1;
   const msg=document.getElementById('msg-pr');
   if(!cod||!des||!mts){msg.style.color='var(--red)';msg.textContent='Completá código, descripción y metros/bolsa.';return;}
-  await sb.from('productos').insert({codigo:cod,descripcion:des,bobina_id:bId,metros_por_bolsa:mts,peso_por_bolsa:peso,merma_pct:merma});
+  await sb.from('productos').insert({
+    codigo:cod,descripcion:des,bobina_id:bId,
+    metros_por_bolsa:mts,peso_por_bolsa:peso,merma_pct:merma,
+    empaque_id:empId,paquetes_por_bolson:paqBolson
+  });
   ['pr-cod','pr-des','pr-mts','pr-peso'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('pr-merma').value='5';
-  msg.style.color='var(--green)';msg.textContent=`✓ ${cod} agregado.`;await reload();
+  document.getElementById('pr-paq-bolson').value='1';
+  const empEl=document.getElementById('pr-emp');if(empEl)empEl.value='';
+  msg.style.color='var(--green)';msg.textContent='✓ '+cod+' agregado.';
+  await reload();renderProductos();
+}
+function editarProducto(id){
+  const p=C.productos.find(x=>x.id===id);if(!p)return;
+  const bobOpts=C.bobinas.map(b=>'<option value="'+b.id+'" '+(b.id===p.bobina_id?'selected':'')+'>'+b.nombre+(b.descripcion?' — '+b.descripcion:'')+'</option>').join('');
+  const empOpts=C.emp.map(e=>'<option value="'+e.id+'" '+(e.id===p.empaque_id?'selected':'')+'>'+e.nombre+' ('+e.unidades+' u/paq)</option>').join('');
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="edit-prod-modal">'
+    +'<div class="modal-card" style="max-width:540px">'
+    +'<div class="modal-title">✏️ Editar producto</div>'
+    +'<div class="fgrid fgrid3" style="margin-bottom:10px;">'
+      +'<div class="fg"><label>Código</label><input id="epr-cod" type="text" value="'+p.codigo+'"></div>'
+      +'<div class="fg" style="grid-column:span 2"><label>Descripción</label><input id="epr-des" type="text" value="'+p.descripcion+'"></div>'
+    +'</div>'
+    +'<div class="fgrid fgrid3" style="margin-bottom:10px;">'
+      +'<div class="fg"><label>Bobina requerida</label><select id="epr-bob"><option value="">— sin bobina —</option>'+bobOpts+'</select></div>'
+      +'<div class="fg"><label>Metros por bolsa</label><input id="epr-mts" type="number" step="0.0001" value="'+(p.metros_por_bolsa||'')+'"></div>'
+      +'<div class="fg"><label>% Merma default</label><input id="epr-merma" type="number" step="0.1" value="'+(p.merma_pct||5)+'"></div>'
+    +'</div>'
+    +'<div class="fgrid fgrid3" style="margin-bottom:10px;">'
+      +'<div class="fg"><label>Empaque (fijo del producto)</label><select id="epr-emp" onchange="calcEprUniBolson()"><option value="">— sin empaque —</option>'+empOpts+'</select>'
+        +'<div style="font-size:10px;color:var(--text3);margin-top:2px" id="epr-emp-info">'+(C.emp.find(e=>e.id===p.empaque_id)?.unidades||''?C.emp.find(e=>e.id===p.empaque_id).unidades+' u/paq':'')+'</div>'
+      +'</div>'
+      +'<div class="fg"><label>Paquetes por bolsón</label><input id="epr-paq-bolson" type="number" min="1" value="'+(p.paquetes_por_bolson||1)+'" oninput="calcEprUniBolson()"></div>'
+      +'<div class="fg"><label>Unidades por bolsón</label><div class="computed" id="epr-uni-bolson" style="margin-top:0">—</div></div>'
+    +'</div>'
+    +'<div class="btn-grp" style="margin-top:1rem;">'
+      +'<button class="btn btn-primary btn-sm" onclick="guardarEdicionProducto('+id+')">Guardar</button>'
+      +'<button class="btn btn-sm" onclick="document.getElementById(\'edit-prod-modal\').remove()">Cancelar</button>'
+      +'<span id="msg-epr" style="font-size:12px;margin-left:8px;"></span>'
+    +'</div>'
+    +'</div></div>'
+  );
+  calcEprUniBolson();
+}
+function calcEprUniBolson(){
+  const empId=parseInt(document.getElementById('epr-emp')?.value)||0;
+  const paq=parseInt(document.getElementById('epr-paq-bolson')?.value)||1;
+  const emp=C.emp.find(e=>e.id===empId);
+  const div=document.getElementById('epr-uni-bolson');
+  const info=document.getElementById('epr-emp-info');
+  if(emp){
+    if(div)div.textContent=(emp.unidades*paq).toLocaleString('es-AR')+' u';
+    if(info)info.textContent=emp.unidades+' u/paq';
+  } else {
+    if(div)div.textContent='—';
+    if(info)info.textContent='';
+  }
+}
+async function guardarEdicionProducto(id){
+  const cod=document.getElementById('epr-cod')?.value.trim();
+  const des=document.getElementById('epr-des')?.value.trim();
+  const bId=parseInt(document.getElementById('epr-bob')?.value)||null;
+  const mts=parseFloat(document.getElementById('epr-mts')?.value)||null;
+  const merma=parseFloat(document.getElementById('epr-merma')?.value)||5;
+  const empId=parseInt(document.getElementById('epr-emp')?.value)||null;
+  const paqBolson=parseInt(document.getElementById('epr-paq-bolson')?.value)||1;
+  const msg=document.getElementById('msg-epr');
+  if(!cod||!des||!mts){msg.style.color='var(--red)';msg.textContent='Completá código, descripción y metros/bolsa.';return;}
+  msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Guardando...</div>';
+  const{error}=await sb.from('productos').update({
+    codigo:cod,descripcion:des,bobina_id:bId,
+    metros_por_bolsa:mts,merma_pct:merma,
+    empaque_id:empId,paquetes_por_bolson:paqBolson
+  }).eq('id',id);
+  if(error){msg.style.color='var(--red)';msg.textContent='Error: '+error.message;return;}
+  msg.style.color='var(--green)';msg.textContent='✓ Guardado';
+  await reload();
+  document.getElementById('edit-prod-modal')?.remove();
+  renderProductos();
 }
 async function delProducto(id){
   if(C.ord_corte.some(o=>o.producto_id===id)){alert('Producto en uso.');return;}
