@@ -92,6 +92,26 @@ tr:hover td{background:rgba(255,255,255,0.02);}
 
 /* BADGES */
 .badge{display:inline-flex;align-items:center;font-size:11px;padding:2px 8px;border-radius:20px;font-weight:500;border:1px solid;white-space:nowrap;}
+/* Tipo de venta cards */
+.tv-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:1rem;}
+.tv-card{display:flex;align-items:center;gap:10px;padding:12px 14px;border:2px solid var(--border);border-radius:var(--rl);cursor:pointer;transition:all .15s;}
+.tv-card:hover{border-color:var(--accent);background:var(--accentbg);}
+.tv-card input[type=radio]{width:16px;height:16px;accent-color:var(--accent);}
+.tv-name{font-weight:700;font-size:13px;}
+.tv-desc{font-size:11px;color:var(--text2);margin-top:1px;}
+.tv-card.sel-blanco{border-color:#3b82f6;background:#eff6ff;}
+.tv-card.sel-negro{border-color:#6b7280;background:#f3f4f6;}
+.tv-card.sel-mixto{border-color:#f59e0b;background:#fffbeb;}
+.mix-panel{background:var(--amberbg);border:1px solid var(--amberbd);border-radius:var(--r);padding:12px 14px;margin-bottom:1rem;}
+/* Líneas de pedido mejoradas */
+.ped-linea{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:12px;margin-bottom:8px;transition:border-color .15s;}
+.ped-linea:hover{border-color:var(--accent);}
+.ped-linea-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.ped-linea-num{background:var(--accent);color:#fff;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;}
+.ped-precio-tag{display:inline-flex;align-items:center;gap:4px;font-size:10px;padding:2px 6px;border-radius:10px;font-weight:600;}
+.ped-precio-lista{background:var(--greenbg);color:var(--green);border:1px solid var(--greenbd);}
+.ped-precio-especial{background:#fdf4ff;color:#9333ea;border:1px solid #d8b4fe;}
+.ped-precio-manual{background:var(--amberbg);color:var(--amber);border:1px solid var(--amberbd);}
 .b-pend{background:var(--amberbg);color:var(--amber);border-color:var(--amberbd);}
 .b-prog{background:var(--accentbg);color:var(--accent);border-color:var(--accentbd);}
 .b-done{background:var(--greenbg);color:var(--green);border-color:var(--greenbd);}
@@ -352,6 +372,9 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
     <div class="nav-item" onclick="go('nuevo-pedido')"><div class="nav-dot"></div>Nuevo pedido</div>
     <div class="nav-item" onclick="goAdmin('flujo-caja')"><div class="nav-dot" style="background:var(--green)"></div>Flujo de caja 🔐</div>
     <div class="nav-item" onclick="goAdmin('informe-corte')"><div class="nav-dot" style="background:var(--purple)"></div>Informe producción 🔐</div>
+    <div class="nav-sec">Precios y ventas</div>
+    <div class="nav-item" onclick="goAdmin('listas-precios')"><div class="nav-dot" style="background:var(--teal)"></div>Listas de precios 🔐</div>
+    <div class="nav-item" onclick="go('clientes-precios')"><div class="nav-dot"></div>Precios por cliente</div>
     <div class="nav-sec">Materia Prima</div>
     <div class="nav-item" onclick="go('mp-stock')"><div class="nav-dot" style="background:var(--teal)"></div>Stock MP</div>
     <div class="nav-item" onclick="go('mp-ingreso')"><div class="nav-dot"></div>Ingreso lotes</div>
@@ -1241,65 +1264,130 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
 
     <!-- NUEVO PEDIDO -->
     <div class="page" id="page-nuevo-pedido">
-      <div class="page-hdr"><div><div class="page-title">Nuevo pedido</div><div class="page-sub">Cargá las líneas del pedido y el sistema sugerirá las órdenes de corte</div></div></div>
+      <div class="page-hdr">
+        <div><div class="page-title">Nuevo pedido / venta</div><div class="page-sub" id="np-sub">Completá los datos del cliente y las líneas</div></div>
+        <div class="btn-grp">
+          <button class="btn btn-sm" onclick="go('pedidos')">← Volver</button>
+        </div>
+      </div>
+
+      <!-- DATOS DEL PEDIDO -->
       <div class="fp">
         <div class="fp-t">Datos del pedido</div>
         <div class="fgrid fgrid3">
-          <div class="fg"><label>N° Pedido <span style="font-size:11px;color:var(--text2)">(generado automáticamente)</span></label>
-            <div class="computed" id="np-nro-display" style="margin-top:0;font-size:14px;font-weight:700;">Cargando...</div>
+          <div class="fg">
+            <label>N° Pedido <span style="font-size:11px;color:var(--text2)">(automático)</span></label>
+            <div class="computed" id="np-nro-display" style="margin-top:0;font-size:16px;font-weight:800;letter-spacing:.04em;">—</div>
             <input type="hidden" id="np-nro">
           </div>
-          <div class="fg"><label>Cliente</label>
+          <div class="fg">
+            <label>Cliente *</label>
             <select id="np-cli" onchange="onNpCliChange()"><option value="">— seleccionar —</option></select>
+            <div id="np-cli-info" style="font-size:11px;color:var(--text2);margin-top:3px;"></div>
           </div>
-          <div class="fg"><label>Ref. Flexxus <span style="font-size:11px;color:var(--text2)">(solo referencia, puede repetirse)</span></label>
-            <input id="np-flex" type="text" placeholder="ej: F-001234">
+          <div class="fg">
+            <label>Ref. interna / Flexxus</label>
+            <input id="np-flex" type="text" placeholder="opcional">
           </div>
         </div>
         <div class="fgrid fgrid3">
           <div class="fg"><label>Fecha del pedido</label><input id="np-fecha" type="date"></div>
-          <div class="fg"><label>Fecha entrega estimada</label><input id="np-entrega" type="date" placeholder="Se calcula de las órdenes"></div>
-          <div class="fg"><label>Condición fiscal</label>
-            <select id="np-iva">
-              <option value="con_iva">Con IVA (21%)</option>
-              <option value="sin_iva">Sin IVA (en negro)</option>
-              <option value="exento">Exento</option>
-            </select>
+          <div class="fg"><label>Fecha entrega estimada</label><input id="np-entrega" type="date"></div>
+          <div class="fg"><label>Observaciones</label><input id="np-obs-ped" type="text" placeholder="opcional"></div>
+        </div>
+      </div>
+
+      <!-- TIPO DE VENTA -->
+      <div class="fp">
+        <div class="fp-t">Tipo de venta</div>
+        <div class="tv-grid" id="tv-grid">
+          <label class="tv-card sel-blanco" data-tipo="blanco">
+            <input type="radio" name="tv" value="blanco" checked onchange="onTipoVentaChange()">
+            <div>
+              <div class="tv-name">⚪ Blanco</div>
+              <div class="tv-desc">Factura A/B/C · IVA discriminado</div>
+            </div>
+          </label>
+          <label class="tv-card" data-tipo="negro">
+            <input type="radio" name="tv" value="negro" onchange="onTipoVentaChange()">
+            <div>
+              <div class="tv-name">⚫ Negro</div>
+              <div class="tv-desc">Sin comprobante · sin IVA</div>
+            </div>
+          </label>
+          <label class="tv-card" data-tipo="mixto">
+            <input type="radio" name="tv" value="mixto" onchange="onTipoVentaChange()">
+            <div>
+              <div class="tv-name">◑ Mixto</div>
+              <div class="tv-desc">Parte facturada · parte no</div>
+            </div>
+          </label>
+        </div>
+        <!-- Panel mixto -->
+        <div class="mix-panel" id="mix-panel" style="display:none;">
+          <div style="font-size:11px;color:var(--amber);margin-bottom:10px;font-weight:600;">Definí qué % del total se factura:</div>
+          <div class="fgrid" style="max-width:360px;">
+            <div class="fg"><label>% Facturado (blanco)</label>
+              <input id="np-pct-blanco" type="number" min="1" max="99" value="50" oninput="calcMixto()">
+            </div>
+            <div class="fg"><label>% No facturado (negro)</label>
+              <div class="computed" id="np-pct-negro" style="margin-top:0;">50%</div>
+            </div>
           </div>
         </div>
-        <div id="np-dias-credito" style="font-size:12px;color:var(--text2);margin-top:4px;display:none;"></div>
+        <!-- Panel IVA (solo blanco/mixto) -->
+        <div id="np-iva-panel" style="margin-top:10px;">
+          <div class="fgrid" style="max-width:360px;">
+            <div class="fg"><label>Tipo de comprobante</label>
+              <select id="np-comp">
+                <option value="B">Factura B (consumidor final)</option>
+                <option value="A">Factura A (responsable inscripto)</option>
+                <option value="C">Factura C (monotributista)</option>
+              </select>
+            </div>
+            <div class="fg"><label>Alícuota IVA</label>
+              <select id="np-alicuota">
+                <option value="21">21%</option>
+                <option value="10.5">10.5%</option>
+                <option value="0">Exento / 0%</option>
+              </select>
+            </div>
+          </div>
+        </div>
       </div>
+
       <!-- LÍNEAS DEL PEDIDO -->
       <div class="fp">
         <div class="fp-t">Líneas del pedido</div>
-        <div id="np-lineas">
-          <!-- Se agregan dinámicamente -->
-        </div>
+        <div id="np-lineas"></div>
         <button class="btn btn-sm" onclick="agregarLineaPedido()" style="margin-top:8px;">+ Agregar línea</button>
       </div>
+
       <!-- TOTALES -->
       <div class="fp" id="np-totales-wrap" style="display:none;">
-        <div class="fp-t">Totales</div>
+        <div class="fp-t">Resumen de totales</div>
         <div id="np-totales"></div>
       </div>
+
       <!-- ÓRDENES DE CORTE -->
       <div class="fp" id="np-ordenes-wrap" style="display:none;">
         <div class="fp-t">Órdenes de corte para este pedido</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">
-          El sistema sugiere una orden de corte por cada línea del pedido. Podés confirmar, ajustar o quitar las que no necesitás.
-        </div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Una orden por cada línea. Podés ajustar bolsones, empaque y máquinas antes de confirmar.</div>
         <div id="np-ordenes-sugeridas"></div>
         <button class="btn btn-sm" onclick="generarOrdenesCorte()" style="margin-top:8px;">🔄 Regenerar sugerencias</button>
       </div>
+
       <!-- COBROS PLANIFICADOS -->
       <div class="fp">
         <div class="fp-t">Cobros planificados</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Podés planificar varios cobros parciales (ej: un cobro por cada entrega parcial).</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Planificá los cobros parciales según la condición de pago del cliente.</div>
         <div id="np-cobros"></div>
         <button class="btn btn-sm" onclick="agregarCobroPedido()" style="margin-top:8px;">+ Agregar cobro</button>
       </div>
-      <div class="btn-grp" style="margin-top:1rem;">
-        <button class="btn btn-primary" onclick="guardarPedido()">Guardar pedido</button>
+
+      <div class="btn-grp" style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">
+        <button class="btn btn-primary" onclick="guardarPedido()">💾 Guardar pedido</button>
+        <button class="btn" onclick="go('pedidos')">Cancelar</button>
         <span id="msg-np" style="font-size:12px;margin-left:8px;"></span>
       </div>
     </div>
@@ -1332,6 +1420,77 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
       </div>
       <div id="inf-kpis" style="margin-bottom:1rem;"></div>
       <div id="inf-tbl"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+
+    <!-- LISTAS DE PRECIOS -->
+    <div class="page" id="page-listas-precios">
+      <div class="page-hdr">
+        <div><div class="page-title">Listas de precios 🔐</div><div class="page-sub">Precios por kg → calcula precio por paquete automáticamente</div></div>
+        <div class="btn-grp">
+          <select class="st-sel" id="lp-sel-lista" onchange="renderListaPrecios()">
+            <option value="">— seleccionar lista —</option>
+          </select>
+        </div>
+      </div>
+      <!-- Editor de nombre de lista -->
+      <div class="fp" id="lp-nombre-wrap" style="display:none;">
+        <div class="fp-t">Configurar lista</div>
+        <div class="fgrid">
+          <div class="fg"><label>Nombre de la lista</label><input id="lp-nombre" type="text" placeholder="ej: Mayorista"></div>
+          <div class="fg"><label>Descripción (opcional)</label><input id="lp-desc" type="text" placeholder="ej: Clientes mayoristas zona norte"></div>
+        </div>
+        <div class="btn-grp" style="margin-top:8px;">
+          <button class="btn btn-sm btn-primary" onclick="guardarNombreLista()">Guardar nombre</button>
+          <span id="msg-lp-nombre" style="font-size:12px;margin-left:8px;"></span>
+        </div>
+      </div>
+      <!-- Tabla de precios -->
+      <div id="lp-tabla-wrap" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <div style="font-size:12px;color:var(--text2)">
+            Ingresá el <strong>precio por kg</strong> o el <strong>margen %</strong> — el sistema calcula el precio del paquete automáticamente.
+          </div>
+          <div class="btn-grp">
+            <button class="btn btn-sm" onclick="aplicarMargenGlobal()">Aplicar margen global</button>
+            <button class="btn btn-sm btn-primary" onclick="guardarListaPrecios()">💾 Guardar lista</button>
+            <span id="msg-lp" style="font-size:12px;margin-left:4px;"></span>
+          </div>
+        </div>
+        <!-- Margen global -->
+        <div id="lp-margen-global-wrap" style="display:none;background:var(--amberbg);border:1px solid var(--amberbd);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;">
+          <div style="font-size:12px;font-weight:600;color:var(--amber);margin-bottom:8px;">Aplicar a todos los productos:</div>
+          <div class="fgrid" style="max-width:400px;">
+            <div class="fg"><label>Modo</label>
+              <select id="lp-mg-modo">
+                <option value="margen">Margen % sobre costo</option>
+                <option value="kg">Precio $/kg fijo</option>
+              </select>
+            </div>
+            <div class="fg"><label>Valor</label><input id="lp-mg-valor" type="number" step="0.1" placeholder="ej: 40"></div>
+          </div>
+          <div class="btn-grp" style="margin-top:8px;">
+            <button class="btn btn-sm btn-primary" onclick="confirmarMargenGlobal()">Aplicar</button>
+            <button class="btn btn-sm" onclick="document.getElementById('lp-margen-global-wrap').style.display='none'">Cancelar</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto;" id="lp-tabla"></div>
+      </div>
+      <div id="lp-empty" style="color:var(--text3);font-size:13px;padding:2rem 0;">Seleccioná una lista para editar sus precios.</div>
+    </div>
+
+    <!-- PRECIOS POR CLIENTE -->
+    <div class="page" id="page-clientes-precios">
+      <div class="page-hdr">
+        <div><div class="page-title">Precios por cliente</div><div class="page-sub">Lista asignada y precios especiales por producto</div></div>
+        <div class="btn-grp">
+          <select class="st-sel" id="cp-sel-cli" onchange="renderClientePrecios()">
+            <option value="">— seleccionar cliente —</option>
+          </select>
+        </div>
+      </div>
+      <div id="cp-wrap">
+        <div style="color:var(--text3);font-size:13px;padding:2rem 0;">Seleccioná un cliente para ver y editar sus precios.</div>
+      </div>
     </div>
 
     <!-- HISTORIAL ÓRDENES -->
@@ -1716,7 +1875,9 @@ async function reload(){
     sb.from('tipos_mp').select('*').order('categoria').order('nombre'),
     sb.from('proveedores').select('*').eq('activo',true).order('nombre'),
     sb.from('lotes_mp').select('*, tipos_mp(*), proveedores(nombre)').order('fecha_ingreso',{ascending:false}),
-    sb.from('formulas_bobina').select('*, tipos_mp(*), bobinas(nombre)'),
+    sb.from('listas_precios').select('*').order('id'),
+    sb.from('lista_precios_items').select('*, productos(*), listas_precios(nombre)'),
+    sb.from('cliente_precios_especiales').select('*, productos(*), listas_precios(nombre)'),
     sb.from('pedidos').select('*, pedido_lineas(*, productos(*)), pedido_cobros(*), pedido_ordenes_corte(*, ordenes_corte(numero_orden,estado,fecha_completada))').order('created_at',{ascending:false})
   ]);
   const d=r=>results[r].status==='fulfilled'?results[r].value.data||[]:[];
@@ -1730,7 +1891,10 @@ async function reload(){
   C.suspensiones=d(16);
   C.tipos_mp=d(17);C.proveedores=d(18);C.lotes_mp=d(19);
   C.formulas=d(20);
-  C.pedidos=d(21);
+  C.listas_precios=d(21)||[];
+  C.lista_items=d(22)||[];
+  C.cli_precios_esp=d(23)||[];
+  C.pedidos=d(24);
   C.pedido_lineas=C.pedidos.flatMap(p=>p.pedido_lineas||[]);
   C.pedido_cobros=C.pedidos.flatMap(p=>p.pedido_cobros||[]);
   const rcfg=results[8].status==='fulfilled'?results[8].value:null;
@@ -3199,6 +3363,8 @@ function go(name){
   if(name==='pedidos')renderPedidos();
   if(name==='nuevo-pedido')initNuevoPedido();
   if(name==='flujo-caja')renderFlujoCaja();
+  if(name==='listas-precios')initListasPrecios();
+  if(name==='clientes-precios')initClientePrecios();
   if(name==='informe-corte')renderInformeCorte();
   if(name==='rentabilidad')renderRentabilidad();
   if(name==='historial-ordenes')renderHistorial();
@@ -3575,6 +3741,366 @@ function renderInformeCorte(){
         +'</tr>';
     }).join('')
     +'</tbody></table></div>';
+}
+
+// ===== LISTAS DE PRECIOS =====
+let _lpEdicion={};
+
+function initListasPrecios(){
+  _lpEdicion={};
+  const sel=document.getElementById('lp-sel-lista');
+  if(sel){
+    sel.innerHTML='<option value="">— seleccionar lista —</option>'
+      +C.listas_precios.map(l=>'<option value="'+l.id+'">'+l.nombre+'</option>').join('');
+  }
+  renderListaPrecios();
+}
+function renderListaPrecios(){
+  const listaId=parseInt(document.getElementById('lp-sel-lista')?.value)||0;
+  const empty=document.getElementById('lp-empty');
+  const tablaWrap=document.getElementById('lp-tabla-wrap');
+  const nombreWrap=document.getElementById('lp-nombre-wrap');
+  if(!listaId){
+    if(empty)empty.style.display='block';
+    if(tablaWrap)tablaWrap.style.display='none';
+    if(nombreWrap)nombreWrap.style.display='none';
+    return;
+  }
+  if(empty)empty.style.display='none';
+  if(tablaWrap)tablaWrap.style.display='block';
+  if(nombreWrap)nombreWrap.style.display='block';
+  const lista=C.listas_precios.find(l=>l.id===listaId);
+  const nombreEl=document.getElementById('lp-nombre');
+  const descEl=document.getElementById('lp-desc');
+  if(nombreEl)nombreEl.value=lista?.nombre||'';
+  if(descEl)descEl.value=lista?.descripcion||'';
+  // Inicializar edición
+  C.productos.forEach(p=>{
+    if(!_lpEdicion[listaId])_lpEdicion[listaId]={};
+    if(!_lpEdicion[listaId][p.id]){
+      const item=C.lista_items.find(i=>i.lista_id===listaId&&i.producto_id===p.id);
+      _lpEdicion[listaId][p.id]={precio_kg:item?.precio_kg||0,margen_pct:item?.margen_pct||0,precio_paquete:item?.precio_paquete||0};
+    }
+  });
+  renderTablaLP(listaId);
+}
+function lpGetKgPaq(p){
+  const emp=C.emp.find(e=>e.id===p.empaque_id);
+  const uniPaq=emp?.unidades||0;
+  return uniPaq>0&&p.peso_por_bolsa?r4(uniPaq*p.peso_por_bolsa):0;
+}
+function lpGetCostoKg(prodId){
+  // Usar costo promedio de órdenes recientes
+  const ords=C.ord_corte.filter(o=>o.producto_id===prodId&&o.estado==='Completada'&&o.unidades_reales>0);
+  if(!ords.length)return 0;
+  const o=ords.sort((a,b)=>new Date(b.fecha_completada||b.created_at)-new Date(a.fecha_completada||a.created_at))[0];
+  const emp=C.emp.find(e=>e.id===o.empaque_id);
+  const uniPaq=emp?.unidades||0;
+  if(!uniPaq||!o.unidades_reales)return 0;
+  const kgUsados=o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.kg_reales||0),0)||0;
+  if(!kgUsados)return 0;
+  return r4(kgUsados/o.unidades_reales);
+}
+function renderTablaLP(listaId){
+  const tbl=document.getElementById('lp-tabla');if(!tbl)return;
+  const ed=_lpEdicion[listaId]||{};
+  if(!C.productos.length){tbl.innerHTML='<div class="empty">No hay productos configurados.</div>';return;}
+  let html='<table style="width:100%;border-collapse:collapse;">'
+    +'<thead><tr style="background:var(--bg3)">'
+    +'<th style="padding:8px;text-align:left;font-size:11px">Código</th>'
+    +'<th style="padding:8px;text-align:left;font-size:11px">Producto</th>'
+    +'<th style="padding:8px;text-align:center;font-size:11px">Kg/paquete</th>'
+    +'<th style="padding:8px;text-align:center;font-size:11px">Costo $/kg</th>'
+    +'<th style="padding:8px;text-align:center;font-size:11px">▶ Precio $/kg</th>'
+    +'<th style="padding:8px;text-align:center;font-size:11px">▶ Margen %</th>'
+    +'<th style="padding:8px;text-align:center;font-size:11px;font-weight:700;color:var(--accent)">▶ Precio paquete $</th>'
+    +'<th style="padding:8px;text-align:center;font-size:11px">$/bolsa</th>'
+    +'</tr></thead><tbody>';
+  C.productos.forEach(p=>{
+    const kgPaq=lpGetKgPaq(p);
+    const costoKg=lpGetCostoKg(p.id);
+    const v=ed[p.id]||{precio_kg:0,margen_pct:0,precio_paquete:0};
+    const emp=C.emp.find(e=>e.id===p.empaque_id);
+    const uniPaq=emp?.unidades||0;
+    const precioBolsa=uniPaq>0&&v.precio_paquete?r4(v.precio_paquete/uniPaq):0;
+    const mCol=v.margen_pct>=30?'var(--green)':v.margen_pct>=15?'var(--amber)':v.margen_pct>0?'var(--red)':'var(--text3)';
+    html+='<tr style="border-bottom:1px solid var(--border);">'
+      +'<td style="padding:6px 8px;font-size:11px;font-family:monospace;color:var(--text3)">'+p.codigo+'</td>'
+      +'<td style="padding:6px 8px;font-size:12px">'+p.descripcion+'</td>'
+      +'<td style="padding:6px 8px;text-align:center;font-size:11px;color:var(--text2)">'+(kgPaq?kgPaq+' kg':'—')+'</td>'
+      +'<td style="padding:6px 8px;text-align:center;font-size:11px;color:var(--text3)">'+(costoKg?'$'+costoKg:'—')+'</td>'
+      // Precio $/kg
+      +'<td style="padding:3px 6px;text-align:center">'
+        +'<input type="number" step="1" value="'+(v.precio_kg||'')+'" placeholder="$/kg" '
+          +'style="width:80px;text-align:right;" id="lp-kg-'+p.id+'" '
+          +'oninput="onLpKgChange('+listaId+','+p.id+','+kgPaq+','+costoKg+',this.value)">'
+      +'</td>'
+      // Margen %
+      +'<td style="padding:3px 6px;text-align:center">'
+        +'<input type="number" step="0.1" value="'+(v.margen_pct||'')+'" placeholder="%" '
+          +'style="width:60px;text-align:right;color:'+mCol+';" id="lp-m-'+p.id+'" '
+          +'oninput="onLpMargenChange('+listaId+','+p.id+','+kgPaq+','+costoKg+',this.value)">'
+      +'</td>'
+      // Precio paquete
+      +'<td style="padding:3px 6px;text-align:center">'
+        +'<input type="number" step="0.01" value="'+(v.precio_paquete||'')+'" placeholder="$" '
+          +'style="width:90px;text-align:right;font-weight:700;color:var(--accent);" id="lp-pp-'+p.id+'" '
+          +'oninput="onLpPaqChange('+listaId+','+p.id+','+kgPaq+','+costoKg+',this.value)">'
+      +'</td>'
+      +'<td style="padding:6px 8px;text-align:center;font-size:11px;color:var(--text2)" id="lp-pb-'+p.id+'">'+(precioBolsa?'$'+precioBolsa:'—')+'</td>'
+      +'</tr>';
+  });
+  html+='</tbody></table>';
+  tbl.innerHTML=html;
+}
+function onLpKgChange(listaId,prodId,kgPaq,costoKg,val){
+  const v=_lpEdicion[listaId]||{};if(!v[prodId])v[prodId]={};
+  const kg=parseFloat(val)||0;
+  v[prodId].precio_kg=kg;
+  if(kgPaq>0)v[prodId].precio_paquete=r2(kg*kgPaq);
+  if(costoKg>0&&kg>0)v[prodId].margen_pct=r2((kg-costoKg)/kg*100);
+  _lpEdicion[listaId]=v;
+  actualizarFilaLP(listaId,prodId,kgPaq);
+}
+function onLpMargenChange(listaId,prodId,kgPaq,costoKg,val){
+  const v=_lpEdicion[listaId]||{};if(!v[prodId])v[prodId]={};
+  const m=parseFloat(val)||0;
+  v[prodId].margen_pct=m;
+  if(costoKg>0&&m<100){
+    v[prodId].precio_kg=r2(costoKg/(1-m/100));
+    if(kgPaq>0)v[prodId].precio_paquete=r2(v[prodId].precio_kg*kgPaq);
+  }
+  _lpEdicion[listaId]=v;
+  actualizarFilaLP(listaId,prodId,kgPaq);
+}
+function onLpPaqChange(listaId,prodId,kgPaq,costoKg,val){
+  const v=_lpEdicion[listaId]||{};if(!v[prodId])v[prodId]={};
+  const pp=parseFloat(val)||0;
+  v[prodId].precio_paquete=pp;
+  if(kgPaq>0){
+    v[prodId].precio_kg=r2(pp/kgPaq);
+    if(costoKg>0&&v[prodId].precio_kg>0)v[prodId].margen_pct=r2((v[prodId].precio_kg-costoKg)/v[prodId].precio_kg*100);
+  }
+  _lpEdicion[listaId]=v;
+  actualizarFilaLP(listaId,prodId,kgPaq);
+}
+function actualizarFilaLP(listaId,prodId,kgPaq){
+  const v=(_lpEdicion[listaId]||{})[prodId]||{};
+  const prod=C.productos.find(p=>p.id===prodId);
+  const emp=C.emp.find(e=>e.id===prod?.empaque_id);
+  const uniPaq=emp?.unidades||0;
+  const kgEl=document.getElementById('lp-kg-'+prodId);
+  const mEl=document.getElementById('lp-m-'+prodId);
+  const ppEl=document.getElementById('lp-pp-'+prodId);
+  const pbEl=document.getElementById('lp-pb-'+prodId);
+  if(kgEl&&v.precio_kg&&!document.activeElement?.id?.includes('lp-kg'))kgEl.value=v.precio_kg;
+  if(mEl&&v.margen_pct!==undefined){
+    if(!document.activeElement?.id?.includes('lp-m'))mEl.value=v.margen_pct;
+    const col=v.margen_pct>=30?'var(--green)':v.margen_pct>=15?'var(--amber)':v.margen_pct>0?'var(--red)':'var(--text3)';
+    mEl.style.color=col;
+  }
+  if(ppEl&&v.precio_paquete&&!document.activeElement?.id?.includes('lp-pp'))ppEl.value=v.precio_paquete;
+  if(pbEl&&v.precio_paquete&&uniPaq>0)pbEl.textContent='$'+r4(v.precio_paquete/uniPaq);
+}
+function aplicarMargenGlobal(){
+  document.getElementById('lp-margen-global-wrap').style.display='block';
+}
+function confirmarMargenGlobal(){
+  const listaId=parseInt(document.getElementById('lp-sel-lista')?.value)||0;
+  const modo=document.getElementById('lp-mg-modo')?.value;
+  const val=parseFloat(document.getElementById('lp-mg-valor')?.value)||0;
+  if(!val||!listaId)return;
+  if(!_lpEdicion[listaId])_lpEdicion[listaId]={};
+  C.productos.forEach(p=>{
+    const kgPaq=lpGetKgPaq(p);
+    const costoKg=lpGetCostoKg(p.id);
+    const v=_lpEdicion[listaId][p.id]||{};
+    if(modo==='margen'&&costoKg>0&&val<100){
+      v.margen_pct=val;v.precio_kg=r2(costoKg/(1-val/100));
+      if(kgPaq>0)v.precio_paquete=r2(v.precio_kg*kgPaq);
+    } else if(modo==='kg'){
+      v.precio_kg=val;if(kgPaq>0)v.precio_paquete=r2(val*kgPaq);
+      if(costoKg>0)v.margen_pct=r2((val-costoKg)/val*100);
+    }
+    _lpEdicion[listaId][p.id]=v;
+  });
+  document.getElementById('lp-margen-global-wrap').style.display='none';
+  renderTablaLP(listaId);
+}
+async function guardarNombreLista(){
+  const listaId=parseInt(document.getElementById('lp-sel-lista')?.value)||0;
+  const nombre=document.getElementById('lp-nombre')?.value.trim();
+  const desc=document.getElementById('lp-desc')?.value.trim();
+  const msg=document.getElementById('msg-lp-nombre');
+  if(!listaId||!nombre){msg.style.color='var(--red)';msg.textContent='Ingresa un nombre.';return;}
+  await sb.from('listas_precios').update({nombre,descripcion:desc||null}).eq('id',listaId);
+  await reload();initListasPrecios();
+  msg.style.color='var(--green)';msg.textContent='Guardado';setTimeout(()=>msg.textContent='',2000);
+}
+async function guardarListaPrecios(){
+  const listaId=parseInt(document.getElementById('lp-sel-lista')?.value)||0;
+  const msg=document.getElementById('msg-lp');
+  if(!listaId)return;
+  msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:12px;height:12px"></div>Guardando...</div>';
+  const ed=_lpEdicion[listaId]||{};
+  const items=Object.entries(ed).filter(([,v])=>v.precio_paquete>0||v.precio_kg>0).map(([prodId,v])=>({
+    lista_id:listaId,producto_id:parseInt(prodId),
+    precio_kg:v.precio_kg||null,margen_pct:v.margen_pct||null,precio_paquete:v.precio_paquete||null
+  }));
+  if(items.length)await sb.from('lista_precios_items').upsert(items,{onConflict:'lista_id,producto_id'});
+  await reload();
+  msg.style.color='var(--green)';msg.textContent='✓ '+items.length+' precios guardados';
+  setTimeout(()=>msg.textContent='',3000);
+}
+
+// ===== PRECIOS POR CLIENTE =====
+let _cpeEdicion={};
+function initClientePrecios(){
+  _cpeEdicion={};
+  const sel=document.getElementById('cp-sel-cli');
+  if(sel){
+    sel.innerHTML='<option value="">— seleccionar cliente —</option>'
+      +C.clientes.map(c=>'<option value="'+c.id+'">'+c.nombre+'</option>').join('');
+  }
+  renderClientePrecios();
+}
+function renderClientePrecios(){
+  const cliId=parseInt(document.getElementById('cp-sel-cli')?.value)||0;
+  const wrap=document.getElementById('cp-wrap');if(!wrap)return;
+  if(!cliId){wrap.innerHTML='<div style="color:var(--text3);font-size:13px;padding:2rem 0;">Selecciona un cliente.</div>';return;}
+  const cli=C.clientes.find(c=>c.id===cliId);
+  const lista=C.listas_precios.find(l=>l.id===cli?.lista_precio_id);
+  const precEsp=C.cli_precios_esp.filter(p=>p.cliente_id===cliId);
+
+  let html='<div class="fp"><div class="fp-t">Lista base del cliente</div>'
+    +'<div class="fgrid"><div class="fg"><label>Lista asignada</label>'
+      +'<select id="cp-lista" onchange="guardarListaCliente('+cliId+',this.value)">'
+        +'<option value="">— sin lista —</option>'
+        +C.listas_precios.map(l=>'<option value="'+l.id+'" '+(l.id===cli?.lista_precio_id?'selected':'')+'>'+l.nombre+'</option>').join('')
+      +'</select>'
+      +(lista?'<div style="font-size:11px;color:var(--green);margin-top:4px;">Lista: <strong>'+lista.nombre+'</strong></div>'
+             :'<div style="font-size:11px;color:var(--amber);margin-top:4px;">Sin lista asignada</div>')
+    +'</div></div></div>';
+
+  html+='<div class="fp"><div class="fp-t">Precios especiales por producto</div>'
+    +'<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Sobreescriben la lista base. Ingresa $/kg <strong>o</strong> descuento % — no los dos.</div>'
+    +'<div style="overflow-x:auto"><table><thead><tr>'
+      +'<th>Producto</th><th>Lista base</th><th>$/kg especial</th><th>Descuento %</th>'
+      +'<th style="color:var(--accent)">Precio final $/paq</th><th>$/bolsa</th><th></th>'
+    +'</tr></thead><tbody>';
+
+  C.productos.forEach(p=>{
+    const emp=C.emp.find(e=>e.id===p.empaque_id);
+    const uniPaq=emp?.unidades||0;
+    const kgPaq=uniPaq>0&&p.peso_por_bolsa?r4(uniPaq*p.peso_por_bolsa):0;
+    const itemLista=lista?C.lista_items.find(i=>i.lista_id===lista.id&&i.producto_id===p.id):null;
+    const precioPaqLista=itemLista?.precio_paquete||0;
+    const esp=precEsp.find(x=>x.producto_id===p.id);
+    const precioKgEsp=esp?.precio_kg||0;
+    const descPct=esp?.descuento_pct||0;
+    let precioFinal=esp?.precio_paquete_final||0;
+    if(!precioFinal){
+      if(precioKgEsp&&kgPaq>0)precioFinal=r2(precioKgEsp*kgPaq);
+      else if(descPct&&precioPaqLista)precioFinal=r2(precioPaqLista*(1-descPct/100));
+      else precioFinal=precioPaqLista;
+    }
+    const precioBolsa=uniPaq>0&&precioFinal?r4(precioFinal/uniPaq):0;
+    const tieneEsp=!!esp;
+    html+='<tr style="'+(tieneEsp?'background:var(--accentbg);':'')+'">'
+      +'<td style="font-size:12px"><span style="font-size:10px;color:var(--text3);font-family:monospace">'+p.codigo+'</span><br>'+p.descripcion+'</td>'
+      +'<td class="mono" style="font-size:11px">'+(precioPaqLista?'$'+precioPaqLista:'—')+'</td>'
+      +'<td style="padding:3px 6px;">'
+        +'<input type="number" step="1" value="'+(precioKgEsp||'')+'" placeholder="$/kg" style="width:80px;font-size:11px;" '
+          +'id="cpe-kg-'+p.id+'" oninput="onCpeKgChange('+cliId+','+p.id+','+kgPaq+','+precioPaqLista+','+uniPaq+',this.value)">'
+      +'</td>'
+      +'<td style="padding:3px 6px;">'
+        +'<input type="number" step="0.1" value="'+(descPct||'')+'" placeholder="%" style="width:60px;font-size:11px;" '
+          +'id="cpe-d-'+p.id+'" oninput="onCpeDescChange('+cliId+','+p.id+','+kgPaq+','+precioPaqLista+','+uniPaq+',this.value)">'
+      +'</td>'
+      +'<td class="mono" style="font-weight:700;color:'+(tieneEsp?'var(--accent)':'var(--text2)')+'" id="cpe-fp-'+p.id+'">'+(precioFinal?'$'+precioFinal:'—')+'</td>'
+      +'<td class="mono" style="font-size:11px;color:var(--text2)" id="cpe-fb-'+p.id+'">'+(precioBolsa?'$'+precioBolsa:'—')+'</td>'
+      +'<td>'+(tieneEsp?'<button class="btn btn-sm btn-del" onclick="borrarPrecioEsp('+cliId+','+p.id+')" title="Quitar">×</button>':'')+'</td>'
+      +'</tr>';
+  });
+  html+='</tbody></table></div>'
+    +'<div class="btn-grp" style="margin-top:12px;">'
+      +'<button class="btn btn-primary btn-sm" onclick="guardarPreciosEspeciales('+cliId+')">Guardar precios especiales</button>'
+      +'<span id="msg-cpe" style="font-size:12px;margin-left:8px;"></span>'
+    +'</div></div>';
+  wrap.innerHTML=html;
+}
+function onCpeKgChange(cliId,prodId,kgPaq,precioPaqLista,uniPaq,val){
+  if(!_cpeEdicion[prodId])_cpeEdicion[prodId]={};
+  const kg=parseFloat(val)||0;
+  _cpeEdicion[prodId].precio_kg=kg;_cpeEdicion[prodId].descuento_pct=0;
+  const fp=kg&&kgPaq>0?r2(kg*kgPaq):precioPaqLista||0;
+  const fpEl=document.getElementById('cpe-fp-'+prodId);
+  const fbEl=document.getElementById('cpe-fb-'+prodId);
+  if(fpEl)fpEl.textContent=fp?'$'+fp:'—';
+  if(fbEl)fbEl.textContent=fp&&uniPaq>0?'$'+r4(fp/uniPaq):'—';
+  if(kg){const dEl=document.getElementById('cpe-d-'+prodId);if(dEl)dEl.value='';}
+}
+function onCpeDescChange(cliId,prodId,kgPaq,precioPaqLista,uniPaq,val){
+  if(!_cpeEdicion[prodId])_cpeEdicion[prodId]={};
+  const d=parseFloat(val)||0;
+  _cpeEdicion[prodId].descuento_pct=d;_cpeEdicion[prodId].precio_kg=0;
+  const fp=d&&precioPaqLista?r2(precioPaqLista*(1-d/100)):precioPaqLista||0;
+  const fpEl=document.getElementById('cpe-fp-'+prodId);
+  const fbEl=document.getElementById('cpe-fb-'+prodId);
+  if(fpEl)fpEl.textContent=fp?'$'+fp:'—';
+  if(fbEl)fbEl.textContent=fp&&uniPaq>0?'$'+r4(fp/uniPaq):'—';
+  if(d){const kEl=document.getElementById('cpe-kg-'+prodId);if(kEl)kEl.value='';}
+}
+async function guardarListaCliente(cliId,listaId){
+  await sb.from('clientes').update({lista_precio_id:parseInt(listaId)||null}).eq('id',cliId);
+  await reload();renderClientePrecios();
+}
+async function guardarPreciosEspeciales(cliId){
+  const msg=document.getElementById('msg-cpe');
+  msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:12px;height:12px"></div></div>';
+  const cli=C.clientes.find(c=>c.id===cliId);
+  const items=[];
+  C.productos.forEach(p=>{
+    const kgEl=document.getElementById('cpe-kg-'+p.id);
+    const dEl=document.getElementById('cpe-d-'+p.id);
+    const kg=parseFloat(kgEl?.value)||0;
+    const d=parseFloat(dEl?.value)||0;
+    if(!kg&&!d)return;
+    const emp=C.emp.find(e=>e.id===p.empaque_id);
+    const uniPaq=emp?.unidades||0;
+    const kgPaq=uniPaq>0&&p.peso_por_bolsa?r4(uniPaq*p.peso_por_bolsa):0;
+    const lista=C.listas_precios.find(l=>l.id===cli?.lista_precio_id);
+    const itemLista=lista?C.lista_items.find(i=>i.lista_id===lista.id&&i.producto_id===p.id):null;
+    const precioPaqLista=itemLista?.precio_paquete||0;
+    let fp=0;
+    if(kg&&kgPaq>0)fp=r2(kg*kgPaq);
+    else if(d&&precioPaqLista)fp=r2(precioPaqLista*(1-d/100));
+    items.push({cliente_id:cliId,producto_id:p.id,lista_id:cli?.lista_precio_id||null,precio_kg:kg||null,descuento_pct:d||null,precio_paquete_final:fp||null});
+  });
+  if(items.length)await sb.from('cliente_precios_especiales').upsert(items,{onConflict:'cliente_id,producto_id'});
+  _cpeEdicion={};
+  await reload();
+  msg.style.color='var(--green)';msg.textContent='✓ '+items.length+' precios guardados';
+  renderClientePrecios();
+}
+async function borrarPrecioEsp(cliId,prodId){
+  await sb.from('cliente_precios_especiales').delete().eq('cliente_id',cliId).eq('producto_id',prodId);
+  await reload();renderClientePrecios();
+}
+// Helper global para obtener precio de venta
+function getPrecioVenta(prodId,cliId){
+  const cli=C.clientes.find(c=>c.id===cliId);
+  const prod=C.productos.find(p=>p.id===prodId);
+  const emp=C.emp.find(e=>e.id===prod?.empaque_id);
+  const uniPaq=emp?.unidades||0;
+  const kgPaq=uniPaq>0&&prod?.peso_por_bolsa?r4(uniPaq*prod.peso_por_bolsa):0;
+  const esp=C.cli_precios_esp.find(x=>x.cliente_id===cliId&&x.producto_id===prodId);
+  if(esp?.precio_paquete_final)return{precio_paquete:esp.precio_paquete_final,precio_kg:esp.precio_kg||r4(esp.precio_paquete_final/kgPaq),fuente:'especial'};
+  if(cli?.lista_precio_id){
+    const item=C.lista_items.find(i=>i.lista_id===cli.lista_precio_id&&i.producto_id===prodId);
+    if(item?.precio_paquete)return{precio_paquete:item.precio_paquete,precio_kg:item.precio_kg,fuente:'lista'};
+  }
+  return null;
 }
 
 function calcCostoBobinaReal(bp){
@@ -6790,7 +7316,11 @@ function renderPedidos(){
       +'<td>'+( p.cliente||'—')+'</td>'
       +'<td class="mono" style="font-size:11px">'+( p.fecha_pedido||'—')+'</td>'
       +'<td class="mono" style="font-weight:600">$'+( p.total||0).toLocaleString('es-AR')+'</td>'
-      +'<td style="font-size:11px;color:var(--text3)">'+(p.con_iva?'Con IVA':'Sin IVA')+'</td>'
+      +'<td style="font-size:11px">'
+        +(p.tipo_venta==='negro'?'<span style="color:var(--text3)">⚫ Negro</span>'
+         :p.tipo_venta==='mixto'?'<span style="color:var(--amber)">◑ Mixto '+( p.pct_blanco||50)+'%</span>'
+         :'<span style="color:#3b82f6">⚪ Blanco</span>')
+      +'</td>'
       +'<td>'+cobrosStr+'</td>'
       +'<td class="mono" style="font-size:11px">'+(p.fecha_entrega_est||'—')+'</td>'
       +'<td><span style="font-weight:600;font-size:12px;color:'+colEstPed(p.estado)+'">'+p.estado+'</span></td>'
@@ -6815,7 +7345,10 @@ let _pedCobroId=0;
 
 function initNuevoPedido(){
   _pedLineas=[];_pedCobros=[];_pedOrdenes=[];_pedLineaId=0;_pedCobroId=0;
-  document.getElementById('np-nro').value='';
+  // Reset tipo venta
+  const radioBlanco=document.querySelector('input[name="tv"][value="blanco"]');
+  if(radioBlanco){radioBlanco.checked=true;onTipoVentaChange();}
+  document.getElementById('np-obs-ped')&&(document.getElementById('np-obs-ped').value='');
   document.getElementById('np-flex').value='';
   document.getElementById('np-fecha').value=localDate();
   document.getElementById('np-entrega').value='';
@@ -6841,17 +7374,25 @@ function initNuevoPedido(){
   if(sc){sc.innerHTML='<option value="">— seleccionar —</option>'+C.clientes.map(c=>'<option value="'+c.id+'" data-dias="'+(c.dias_credito||0)+'" data-iva="'+(c.condicion_iva||'con_iva')+'">'+c.nombre+'</option>').join('');}
   agregarLineaPedido();
 }
-function onNpCliChange(){
-  const sel=document.getElementById('np-cli');
-  const opt=sel?.selectedOptions[0];
-  const dias=parseInt(opt?.dataset.dias)||0;
-  const iva=opt?.dataset.iva||'con_iva';
-  document.getElementById('np-iva').value=iva;
-  const div=document.getElementById('np-dias-credito');
-  if(div){
-    if(dias>0){div.style.display='block';div.textContent='Este cliente tiene '+dias+' días de crédito. Las fechas de cobro se calcularán automáticamente.';}
-    else{div.style.display='none';}
-  }
+function onTipoVentaChange(){
+  const tipo=document.querySelector('input[name="tv"]:checked')?.value||'blanco';
+  // Update card styles
+  document.querySelectorAll('.tv-card').forEach(c=>{
+    c.classList.remove('sel-blanco','sel-negro','sel-mixto');
+  });
+  const sel=document.querySelector('.tv-card[data-tipo="'+tipo+'"]');
+  if(sel)sel.classList.add('sel-'+tipo);
+  // Show/hide panels
+  const mixPanel=document.getElementById('mix-panel');
+  const ivaPanel=document.getElementById('np-iva-panel');
+  if(mixPanel)mixPanel.style.display=tipo==='mixto'?'block':'none';
+  if(ivaPanel)ivaPanel.style.display=tipo==='negro'?'none':'block';
+  calcTotalesNP();
+}
+function calcMixto(){
+  const pct=parseInt(document.getElementById('np-pct-blanco')?.value)||50;
+  const neg=document.getElementById('np-pct-negro');
+  if(neg)neg.textContent=(100-Math.min(99,Math.max(1,pct)))+'%';
   calcTotalesNP();
 }
 function agregarLineaPedido(){
@@ -6862,23 +7403,35 @@ function agregarLineaPedido(){
 function renderLineasNP(){
   const wrap=document.getElementById('np-lineas');
   if(!wrap)return;
-  wrap.innerHTML=_pedLineas.map((l,i)=>'<div style="display:grid;grid-template-columns:2.5fr 1fr 1fr 1fr 1fr auto;gap:8px;align-items:end;margin-bottom:8px;padding:10px;background:var(--bg3);border-radius:var(--r);" id="linea-'+l.id+'">'
-    +'<div class="fg"><label style="font-size:11px">Producto</label>'
-      +'<select onchange="onNpProdChange('+l.id+',this)">'
-        +'<option value="">— seleccionar —</option>'
-        +C.productos.map(p=>'<option value="'+p.id+'" '+(p.id===l.producto_id?'selected':'')+'>'+p.codigo+' · '+p.descripcion+'</option>').join('')
-      +'</select></div>'
-    +'<div class="fg"><label style="font-size:11px">Cantidad (u)</label>'
-      +'<input type="number" min="1" value="'+(l.cantidad||'')+'" placeholder="unidades" oninput="onNpLineaChange('+l.id+',\'cantidad\',this.value)"></div>'
-    +'<div class="fg"><label style="font-size:11px">Precio/paq ($)</label>'
-      +'<input type="number" step="0.01" value="'+(l.precio_paquete||'')+'" placeholder="por paquete" oninput="onNpLineaChange('+l.id+',\'precio_paquete\',this.value)"></div>'
-    +'<div class="fg"><label style="font-size:11px">Precio/u ($)</label>'
-      +'<input type="number" step="0.000001" id="np-ppu-inp-'+l.id+'" value="'+(l.precio_unitario||'')+'" placeholder="por unidad" oninput="onNpPrecioUniChange('+l.id+',this.value)"></div>'
-    +'<div class="fg"><label style="font-size:11px;font-weight:700;color:var(--accent)">Subtotal</label>'
-      +'<div class="computed" id="np-sub-'+l.id+'" style="font-weight:700;color:var(--accent)">'+(l.subtotal_linea?'$'+r2(l.subtotal_linea).toLocaleString('es-AR'):'—')+'</div></div>'
-    +'<button class="btn btn-sm btn-del" onclick="eliminarLineaNP('+l.id+')" style="margin-bottom:2px;">✕</button>'
-    +'</div>'
-  ).join('');
+  wrap.innerHTML=_pedLineas.map((l,i)=>{
+    const cliId=parseInt(document.getElementById('np-cli')?.value)||0;
+    const fuenteTag=l._precio_fuente==='especial'
+      ?'<span class="ped-precio-tag ped-precio-especial">★ Especial</span>'
+      :l._precio_fuente==='lista'
+      ?'<span class="ped-precio-tag ped-precio-lista">Lista</span>'
+      :l.precio_paquete?'<span class="ped-precio-tag ped-precio-manual">Manual</span>':'';
+    return '<div class="ped-linea">'
+      +'<div class="ped-linea-header">'
+        +'<div class="ped-linea-num">'+(i+1)+'</div>'
+        +'<select style="flex:1;" onchange="onNpProdChange('+l.id+',this)">'
+          +'<option value="">— seleccionar producto —</option>'
+          +C.productos.map(p=>'<option value="'+p.id+'" '+(p.id===l.producto_id?'selected':'')+'>'+p.codigo+' · '+p.descripcion+'</option>').join('')
+        +'</select>'
+        +fuenteTag
+        +'<button class="btn btn-sm btn-del" onclick="eliminarLineaNP('+l.id+')" style="margin-left:auto;">✕</button>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;align-items:end;">'
+        +'<div class="fg"><label style="font-size:11px">Cantidad (u)</label>'
+          +'<input type="number" min="1" value="'+(l.cantidad||'')+'" placeholder="unidades" oninput="onNpLineaChange('+l.id+',\'cantidad\',this.value)"></div>'
+        +'<div class="fg"><label style="font-size:11px">Precio/paq ($)</label>'
+          +'<input type="number" step="0.01" id="np-ppu-inp-'+l.id+'" value="'+(l.precio_paquete||'')+'" placeholder="por paquete" oninput="onNpLineaChange('+l.id+',\'precio_paquete\',this.value)"></div>'
+        +'<div class="fg"><label style="font-size:11px">Precio/u ($)</label>'
+          +'<div class="computed" style="margin-top:0">'+(l.precio_unitario?'$'+l.precio_unitario:'—')+'</div></div>'
+        +'<div class="fg"><label style="font-size:11px;font-weight:700;color:var(--accent)">Subtotal</label>'
+          +'<div class="computed" id="np-sub-'+l.id+'" style="margin-top:0;font-weight:700;color:var(--accent)">'+(l.subtotal_linea?'$'+r2(l.subtotal_linea).toLocaleString('es-AR'):'—')+'</div></div>'
+      +'</div>'
+      +'</div>';
+  }).join('');
 }
 function onNpPrecioUniChange(id,val){
   const l=_pedLineas.find(x=>x.id===id);if(!l)return;
@@ -6888,13 +7441,41 @@ function onNpPrecioUniChange(id,val){
   if(divSub)divSub.textContent=l.subtotal_linea?'$'+r2(l.subtotal_linea).toLocaleString('es-AR'):'—';
   calcTotalesNP();
 }
+function sugerirPrecioLinea(lineaId,prodId,cliId){
+  if(!cliId||!prodId)return;
+  const l=_pedLineas.find(x=>x.id===lineaId);if(!l)return;
+  const precio=getPrecioVenta(prodId,cliId);
+  if(precio){
+    l.precio_paquete=precio.precio_paquete;
+    l._precio_fuente=precio.fuente; // 'lista' o 'especial'
+    const prod=C.productos.find(p=>p.id===prodId);
+    const emp=C.emp.find(e=>e.id===prod?.empaque_id);
+    l.unidades_paquete=emp?.unidades||0;
+    l.precio_unitario=l.unidades_paquete>0?r6(l.precio_paquete/l.unidades_paquete):0;
+    recalcSubtotalLinea(l);
+  }
+}
+function recalcSubtotalLinea(l){
+  if(l.precio_paquete&&l.unidades_paquete>0){
+    const paquetes=l.cantidad/l.unidades_paquete;
+    l.subtotal_linea=r2(paquetes*l.precio_paquete);
+  } else if(l.precio_unitario>0){
+    l.subtotal_linea=r2(l.cantidad*l.precio_unitario);
+  } else {
+    l.subtotal_linea=0;
+  }
+}
 function onNpProdChange(id,sel){
   const prod=C.productos.find(p=>p.id===parseInt(sel.value));
-  const l=_pedLineas.find(x=>x.id===id);
-  if(!l)return;
+  const l=_pedLineas.find(x=>x.id===id);if(!l)return;
   l.producto_id=parseInt(sel.value)||0;
   l.descripcion=prod?.descripcion||'';
-  calcLinea(l,prod);
+  l._precio_fuente=null;
+  // Auto-sugerir precio desde la lista del cliente
+  const cliId=parseInt(document.getElementById('np-cli')?.value)||0;
+  if(cliId&&l.producto_id){
+    sugerirPrecioLinea(id,l.producto_id,cliId);
+  }
   renderLineasNP();calcTotalesNP();
 }
 function onNpLineaChange(id,campo,val){
@@ -6933,23 +7514,31 @@ function eliminarLineaNP(id){
   renderLineasNP();calcTotalesNP();
 }
 function calcTotalesNP(){
-  const ivaOpt=document.getElementById('np-iva')?.value||'con_iva';
-  const conIva=ivaOpt==='con_iva';
-  const pctIva=21;
+  const tipo=document.querySelector('input[name="tv"]:checked')?.value||'blanco';
+  const alicuota=parseFloat(document.getElementById('np-alicuota')?.value)||21;
+  const pctBlanco=tipo==='mixto'?parseInt(document.getElementById('np-pct-blanco')?.value)||50:tipo==='blanco'?100:0;
   const sub=r2(_pedLineas.reduce((s,l)=>s+(l.subtotal_linea||0),0));
-  const iva=conIva?r2(sub*pctIva/100):0;
+  const subBlanco=r2(sub*pctBlanco/100);
+  const subNegro=r2(sub-subBlanco);
+  const iva=tipo!=='negro'?r2(subBlanco*alicuota/100):0;
   const total=r2(sub+iva);
   const wrap=document.getElementById('np-totales-wrap');
   const div=document.getElementById('np-totales');
   if(sub>0){
     if(wrap)wrap.style.display='block';
-    if(div)div.innerHTML='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">'
-      +'<div class="kpi-card"><div class="kpi-lbl">Subtotal</div><div class="kpi-val">$'+sub.toLocaleString('es-AR')+'</div></div>'
-      +(conIva?'<div class="kpi-card"><div class="kpi-lbl">IVA 21%</div><div class="kpi-val">$'+iva.toLocaleString('es-AR')+'</div></div>':'')
-      +'<div class="kpi-card kpi-ext"><div class="kpi-lbl">TOTAL</div><div class="kpi-val" style="font-size:22px">$'+total.toLocaleString('es-AR')+'</div></div>'
-      +'</div>';
-    // Generar sugerencias de órdenes automáticamente
+    let html='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">';
+    html+='<div class="kpi-card"><div class="kpi-lbl">Subtotal neto</div><div class="kpi-val">$'+sub.toLocaleString('es-AR')+'</div></div>';
+    if(tipo==='mixto'){
+      html+='<div class="kpi-card"><div class="kpi-lbl">Blanco ('+pctBlanco+'%)</div><div class="kpi-val" style="color:#3b82f6">$'+subBlanco.toLocaleString('es-AR')+'</div></div>';
+      html+='<div class="kpi-card"><div class="kpi-lbl">Negro ('+(100-pctBlanco)+'%)</div><div class="kpi-val" style="color:var(--text2)">$'+subNegro.toLocaleString('es-AR')+'</div></div>';
+    }
+    if(iva>0)html+='<div class="kpi-card"><div class="kpi-lbl">IVA '+alicuota+'%</div><div class="kpi-val">$'+iva.toLocaleString('es-AR')+'</div></div>';
+    html+='<div class="kpi-card kpi-ext"><div class="kpi-lbl">TOTAL</div><div class="kpi-val" style="font-size:22px">$'+total.toLocaleString('es-AR')+'</div></div>';
+    html+='</div>';
+    if(div)div.innerHTML=html;
     generarOrdenesCorte();
+  } else {
+    if(wrap)wrap.style.display='none';
   }
 }
 function agregarCobroPedido(){
@@ -7132,25 +7721,29 @@ async function guardarPedido(){
   const flex=document.getElementById('np-flex').value.trim();
   const fecha=document.getElementById('np-fecha').value;
   const entrega=document.getElementById('np-entrega').value;
-  const ivaOpt=document.getElementById('np-iva').value;
-  const conIva=ivaOpt==='con_iva';
+  const tipo=document.querySelector('input[name="tv"]:checked')?.value||'blanco';
+  const alicuota=parseFloat(document.getElementById('np-alicuota')?.value)||21;
+  const pctBlanco=tipo==='mixto'?parseInt(document.getElementById('np-pct-blanco')?.value)||50:tipo==='blanco'?100:0;
+  const conIva=tipo!=='negro';
   const msg=document.getElementById('msg-np');
   if(!fecha||_pedLineas.length===0){msg.style.color='var(--red)';msg.textContent='Completá fecha y al menos una línea.';return;}
-  // Si por algún motivo el número no se generó, generarlo ahora
   if(!nro){
     const{data}=await sb.from('pedidos').select('numero_pedido').order('numero_pedido',{ascending:false}).limit(1);
     const lastNum=data?.length?parseInt(data[0].numero_pedido.replace(/\D/g,''))||0:0;
     nro='PED-'+String(lastNum+1).padStart(5,'0');
   }
   const sub=r2(_pedLineas.reduce((s,l)=>s+(l.subtotal_linea||0),0));
-  const iva=conIva?r2(sub*21/100):0;
+  const subBlanco=r2(sub*pctBlanco/100);
+  const iva=conIva?r2(subBlanco*alicuota/100):0;
   const total=r2(sub+iva);
   msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Guardando pedido...</div>';
   const{data:ped,error:e1}=await sb.from('pedidos').insert({
     numero_pedido:nro,cliente_id:cliId,cliente:cliNom||null,
     ref_flexxus:flex||null,fecha_pedido:fecha,
     fecha_entrega_est:entrega||null,con_iva:conIva,
-    porcentaje_iva:conIva?21:0,subtotal:sub,total_iva:iva,total,estado:'Pendiente'
+    porcentaje_iva:conIva?alicuota:0,subtotal:sub,total_iva:iva,total,
+    estado:'Pendiente',
+    tipo_venta:tipo,pct_blanco:pctBlanco
   }).select().single();
   if(e1){msg.style.color='var(--red)';msg.textContent='Error: '+e1.message;return;}
   // Insertar líneas
