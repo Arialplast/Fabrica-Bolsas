@@ -1033,17 +1033,31 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
       <div id="fuera-rango-wrap"><div class="loading"><div class="spinner"></div></div></div>
     </div>
 
-    <!-- ÓRDENES DE CORTE -->
     <div class="page" id="page-ordenes-corte">
       <div class="page-hdr">
         <div><div class="page-title">Órdenes de corte</div><div class="page-sub">Gestión de corte y confección</div></div>
-        <div class="btn-grp">
+        <div class="btn-grp" style="flex-wrap:wrap;gap:6px;">
           <input type="text" class="st-sel" id="filtro-oc-nro" placeholder="N° orden..." style="width:110px" oninput="renderOrdenesCorte()">
           <select class="st-sel" id="filtro-oc-producto" onchange="renderOrdenesCorte()">
             <option value="">Todos los productos</option>
           </select>
-          <select class="st-sel" id="filtro-oc-cliente" onchange="renderOrdenesCorte()">
-            <option value="">Todos los clientes</option>
+          <!-- Multi-select clientes -->
+          <div style="position:relative;" id="oc-cli-wrap">
+            <button class="st-sel" id="oc-cli-btn" onclick="toggleOCCliDropdown()" style="cursor:pointer;text-align:left;min-width:140px;" type="button">
+              <span id="oc-cli-label">Todos los clientes</span> ▾
+            </button>
+            <div id="oc-cli-dropdown" style="display:none;position:absolute;top:100%;left:0;z-index:200;background:var(--bg1);border:1px solid var(--border);border-radius:var(--r);box-shadow:0 4px 16px rgba(0,0,0,.15);min-width:200px;max-height:260px;overflow-y:auto;padding:6px 0;">
+              <label style="display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border);">
+                <input type="checkbox" id="oc-cli-all" checked onchange="onOCCliAll(this)"> <strong>Todos los clientes</strong>
+              </label>
+              <div id="oc-cli-list"></div>
+            </div>
+          </div>
+          <!-- Filtro OE -->
+          <select class="st-sel" id="filtro-oc-oe" onchange="renderOrdenesCorte()" title="Filtrar por orden de extrusión">
+            <option value="">Con y sin OE</option>
+            <option value="con_oe">Con OE generada</option>
+            <option value="sin_oe">Sin OE — necesita extrusión</option>
           </select>
           <select class="st-sel" id="filtro-oc" onchange="renderOrdenesCorte()">
             <option value="">Todos los estados</option><option>Pendiente</option><option>En proceso</option><option>Pendiente empaque</option><option>Completada</option><option>Suspendida</option><option>Cancelada</option>
@@ -5991,6 +6005,42 @@ function computeScheduleCorte(){
   return sched;
 }
 
+function toggleOCCliDropdown(){
+  const dd=document.getElementById('oc-cli-dropdown');
+  if(!dd)return;
+  const isOpen=dd.style.display!=='none';
+  dd.style.display=isOpen?'none':'block';
+  if(!isOpen){
+    // Close on outside click
+    setTimeout(()=>document.addEventListener('click',function h(e){
+      if(!document.getElementById('oc-cli-wrap')?.contains(e.target)){
+        dd.style.display='none';document.removeEventListener('click',h);
+      }
+    }),10);
+  }
+}
+function onOCCliAll(cb){
+  document.querySelectorAll('.oc-cli-chk').forEach(c=>c.checked=cb.checked);
+  updateOCCliLabel();
+  renderOrdenesCorte();
+}
+function onOCCliChange(){
+  const chks=[...document.querySelectorAll('.oc-cli-chk')];
+  const allChk=document.getElementById('oc-cli-all');
+  if(allChk)allChk.checked=chks.every(c=>c.checked);
+  updateOCCliLabel();
+  renderOrdenesCorte();
+}
+function updateOCCliLabel(){
+  const chks=[...document.querySelectorAll('.oc-cli-chk')];
+  const sel=chks.filter(c=>c.checked);
+  const lbl=document.getElementById('oc-cli-label');
+  if(!lbl)return;
+  if(sel.length===0)lbl.textContent='Ningún cliente';
+  else if(sel.length===chks.length)lbl.textContent='Todos los clientes';
+  else if(sel.length===1)lbl.textContent=sel[0].value;
+  else lbl.textContent=sel.length+' clientes';
+}
 function renderOrdenesCorte(){
   // Poblar selects — siempre actualizar
   const sProd=document.getElementById('filtro-oc-producto');
@@ -6000,22 +6050,34 @@ function renderOrdenesCorte(){
     C.productos.forEach(p=>{const o=document.createElement('option');o.value=p.id;o.textContent=(p.codigo?p.codigo+' · ':'')+( p.descripcion||p.codigo);sProd.appendChild(o);});
     sProd.value=cur;
   }
-  const sCli=document.getElementById('filtro-oc-cliente');
+  const sCli=document.getElementById('oc-cli-list');
   if(sCli&&C.ord_corte.length){
-    const cur=sCli.value;
-    sCli.innerHTML='<option value="">Todos los clientes</option>';
-    [...new Set(C.ord_corte.map(o=>o.cliente).filter(Boolean))].sort().forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;sCli.appendChild(o);});
-    sCli.value=cur;
+    const clientes=[...new Set(C.ord_corte.map(o=>o.cliente).filter(Boolean))].sort();
+    // Only rebuild if list changed
+    if(sCli.dataset.built!==clientes.join(',')){
+      sCli.innerHTML=clientes.map(c=>
+        '<label style="display:flex;align-items:center;gap:8px;padding:5px 12px;cursor:pointer;font-size:12px;">'
+        +'<input type="checkbox" class="oc-cli-chk" value="'+c+'" checked onchange="onOCCliChange()"> '+c+'</label>'
+      ).join('');
+      sCli.dataset.built=clientes.join(',');
+    }
   }
   const filtro=document.getElementById('filtro-oc')?.value||'';
   const filtroNro=document.getElementById('filtro-oc-nro')?.value.trim().toLowerCase()||'';
   const filtroProd=parseInt(document.getElementById('filtro-oc-producto')?.value)||0;
-  const filtroCli=document.getElementById('filtro-oc-cliente')?.value||'';
+  const filtroOE=document.getElementById('filtro-oc-oe')?.value||'';
+  // Multi-select clientes
+  const chks=[...document.querySelectorAll('.oc-cli-chk')];
+  const allChk=document.getElementById('oc-cli-all');
+  const clientesSel=chks.filter(c=>c.checked).map(c=>c.value);
+  const todosCli=allChk?.checked||chks.every(c=>c.checked)||!chks.length;
   let lista=C.ord_corte;
   if(filtro)lista=lista.filter(o=>o.estado===filtro);
   if(filtroNro)lista=lista.filter(o=>o.numero_orden?.toLowerCase().includes(filtroNro));
   if(filtroProd)lista=lista.filter(o=>o.producto_id===filtroProd);
-  if(filtroCli)lista=lista.filter(o=>o.cliente===filtroCli);
+  if(!todosCli&&clientesSel.length)lista=lista.filter(o=>clientesSel.includes(o.cliente));
+  if(filtroOE==='con_oe')lista=lista.filter(o=>o.orden_extrusion_id||(()=>{const ped=C.pedidos.find(p=>p.id===o.pedido_ref_id);return ped&&C.ordenes.some(e=>e.pedido_ref_id===ped.id);})());
+  if(filtroOE==='sin_oe')lista=lista.filter(o=>!o.orden_extrusion_id&&(()=>{const ped=C.pedidos.find(p=>p.id===o.pedido_ref_id);return !ped||!C.ordenes.some(e=>e.pedido_ref_id===ped.id);})());
   const w=document.getElementById('oc-tbl');if(!w)return;
   if(!lista.length){w.innerHTML='<div class="empty">No hay órdenes de corte para los filtros seleccionados.</div>';return;}
   // Alerta llamativa para órdenes pendientes de empaque
