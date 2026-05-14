@@ -2359,6 +2359,7 @@ function renderOrdenes(){
     if(esCanc) btnAcc+='<span style="color:var(--red);font-size:11px">Cancelada</span>';
     if(esSusp) btnAcc+='<button class="btn btn-sm" onclick="reactivarOrden('+o.id+',\'extrusion\')">Reactivar</button>';
     if(esComp) btnAcc+='<button class="btn btn-sm" onclick="verDetalleOrden('+o.id+')">📊 Detalle</button>';
+    if(!esCanc&&!esComp) btnAcc+='<button class="btn btn-sm btn-primary" onclick="abrirEditarOrdenExtrusion('+o.id+')" title="Editar orden">✏️</button>';
     btnAcc+='<button class="btn btn-sm" onclick="imprimirOrden('+o.id+',\'extrusion\')" title="Imprimir orden">🖨️</button>';
     if(!esCanc&&!esComp) btnAcc+='<button class="btn btn-sm btn-warn" onclick="abrirCancelarOrden('+o.id+',\'extrusion\')">Cancelar</button>';
     if(!esCanc&&!esSusp&&!esComp) btnAcc+='<button class="btn btn-sm" style="background:var(--amberbg);color:var(--amber);border:1px solid var(--amberbd)" onclick="abrirSuspenderOrden('+o.id+',\'extrusion\')">Suspender</button>';
@@ -8176,6 +8177,7 @@ function renderPedidosLista(){
       +'<td><span style="font-weight:600;font-size:12px;color:'+colEstPed(p.estado)+'">'+p.estado+'</span></td>'
       +'<td style="white-space:nowrap;">'
         +'<button class="btn btn-sm" onclick="verDetallePedido('+p.id+')">Ver</button> '
+        +'<button class="btn btn-sm" onclick="imprimirPedido('+p.id+')" title="Imprimir para depósito">🖨️</button> '
         +(p.estado!=='Cobrado'&&p.estado!=='Cancelado'
           ?'<button class="btn btn-sm" onclick="abrirRegistrarCobro('+p.id+')">Cobro</button> '
            +'<button class="btn btn-sm btn-del" onclick="anularPedido('+p.id+',\''+p.numero_pedido+'\')">Anular</button>'
@@ -8847,7 +8849,7 @@ async function guardarPedido(){
     }).select().single();
     if(oe&&extIds.length){
       await sb.from('orden_extrusoras').insert(
-        extIds.map((eId,idx)=>({orden_id:oe.id,extrusora_id:eId,orden:idx+1}))
+        extIds.map(eId=>({orden_id:oe.id,extrusora_id:eId}))
       );
       // Vincular la OE a la OC correspondiente si se creó
       const ocLinea=_pedOrdenes.find(x=>x.linea_id===o.linea_id);
@@ -8941,10 +8943,225 @@ function verDetallePedido(id){
     +(ords.length?'<div class="fp-t" style="margin-bottom:8px;">Órdenes de corte asociadas</div>'
       +'<div style="font-size:12px;color:var(--text2)">'+ords.map(o=>(o.ordenes_corte?.numero_orden||'—')+' — '+(o.ordenes_corte?.estado||'—')).join(' · ')+'</div>':'')
     +'<div class="btn-grp" style="margin-top:1rem;">'
-      +'<button class="btn btn-sm btn-primary" onclick="abrirRegistrarCobro('+p.id+')">Registrar cobro</button>'
+      +'<button class="btn btn-sm btn-primary" onclick="imprimirPedido('+p.id+')">🖨️ Imprimir para depósito</button>'
+      +'<button class="btn btn-sm" onclick="abrirRegistrarCobro('+p.id+')">Registrar cobro</button>'
       +'<button class="btn btn-sm" onclick="document.getElementById(\'det-ped-modal\').remove()">Cerrar</button>'
     +'</div></div></div>'
   );
+}
+
+// ===== IMPRIMIR PEDIDO (para depósito) =====
+function imprimirPedido(pedId){
+  const p=C.pedidos.find(x=>x.id===pedId);if(!p)return;
+  const lineas=p.pedido_lineas||[];
+  const ords=(p.pedido_ordenes_corte||[]).map(o=>o.ordenes_corte).filter(Boolean);
+  const fecha=new Date().toLocaleDateString('es-AR');
+  const hora=new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+
+  // Para cada línea calcular bultos
+  const lineasData=lineas.map(l=>{
+    const prod=C.productos.find(x=>x.id===l.producto_id);
+    const emp=C.emp.find(e=>e.id===prod?.empaque_id);
+    const uniPaq=emp?.unidades||0;
+    const paqPorBulto=prod?.paquetes_por_bolson||1;
+    const totalPaq=l.cantidad||0;                          // cantidad ya es paquetes
+    const totalBultos=Math.ceil(totalPaq/paqPorBulto);
+    const totalUni=uniPaq?totalPaq*uniPaq:0;
+    return{l,prod,emp,uniPaq,paqPorBulto,totalPaq,totalBultos,totalUni};
+  });
+
+  const totalBultosGlobal=lineasData.reduce((s,x)=>s+x.totalBultos,0);
+
+  // Construir sección por línea con grilla de bultos
+  const lineasHTML=lineasData.map(({l,prod,emp,uniPaq,paqPorBulto,totalPaq,totalBultos,totalUni})=>{
+    // Grilla de bultos — igual que OC
+    const cols=totalBultos<=12?4:totalBultos<=24?6:totalBultos<=40?8:10;
+    let grid='';
+    for(let i=1;i<=totalBultos;i++){
+      grid+='<div style="border:1.5px solid #94a3b8;border-radius:3px;aspect-ratio:1.3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;">'
+        +'<div style="font-size:7pt;font-weight:700;color:#475569;">'+i+'</div>'
+        +'<div style="font-size:5.5pt;color:#94a3b8;">'+paqPorBulto+'paq</div>'
+        +'</div>';
+    }
+    return '<div style="border:1.5px solid #e2e8f0;border-radius:6px;padding:10px 12px;margin-bottom:10px;page-break-inside:avoid;">'
+      // Header línea
+      +'<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px;">'
+        +'<span style="font-family:Courier New,monospace;font-size:9pt;color:#64748b;font-weight:600;">'+(prod?.codigo||'—')+'</span>'
+        +'<span style="font-size:12pt;font-weight:700;">'+(prod?.descripcion||l.descripcion||'—')+'</span>'
+        +'<span style="margin-left:auto;font-size:9pt;color:#475569;">'+(emp?emp.nombre+' · '+uniPaq+'u/paq':'')+'</span>'
+      +'</div>'
+      // Datos clave
+      +'<div style="display:flex;gap:16px;margin-bottom:8px;font-size:9.5pt;">'
+        +'<div style="background:#1e293b;color:#fff;border-radius:5px;padding:4px 12px;font-weight:900;font-size:16pt;font-family:Courier New,monospace;">'+totalBultos+' bultos</div>'
+        +'<div style="display:flex;flex-direction:column;justify-content:center;gap:2px;">'
+          +'<div style="color:#475569;"><strong>'+totalPaq.toLocaleString('es-AR')+'</strong> paquetes · '+paqPorBulto+' paq/bulto</div>'
+          +(totalUni?'<div style="color:#64748b;">'+totalUni.toLocaleString('es-AR')+' unidades</div>':'')
+        +'</div>'
+        +'<div style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:9pt;color:#475569;">'
+          +'Armados: <div style="width:55px;border-bottom:1.5px solid #1e293b;"></div>'
+        +'</div>'
+      +'</div>'
+      // Grilla
+      +(totalBultos>0?'<div style="display:grid;grid-template-columns:repeat('+cols+',1fr);gap:3px;">'+grid+'</div>':'')
+      +'<div style="font-size:7pt;color:#94a3b8;margin-top:4px;">Tachá cada bulto al armarlo. '+paqPorBulto+' paquetes por bulto.</div>'
+    +'</div>';
+  }).join('');
+
+  const ordsStr=ords.length?ords.map(o=>o.numero_orden).join(' · '):'—';
+
+  const html='<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Pedido '+p.numero_pedido+'</title>'
+    +'<style>'
+    +'@page{size:A4;margin:10mm 12mm;}'
+    +'*{box-sizing:border-box;margin:0;padding:0;}'
+    +'body{font-family:Arial,sans-serif;color:#1e293b;font-size:10pt;}'
+    +'@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}'
+    +'</style></head><body>'
+
+    // HEADER
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1e293b;padding-bottom:7px;margin-bottom:10px;">'
+      +'<div>'
+        +'<div style="font-size:7.5pt;color:#64748b;text-transform:uppercase;letter-spacing:.07em;">Orden de preparación — Depósito</div>'
+        +'<div style="font-size:24pt;font-weight:900;font-family:Courier New,monospace;line-height:1.1;">'+p.numero_pedido+'</div>'
+        +'<div style="font-size:13pt;font-weight:700;margin-top:2px;">'+(p.cliente||'—')+'</div>'
+      +'</div>'
+      +'<div style="text-align:right;">'
+        +'<div style="font-size:8pt;color:#64748b;">Impreso: '+fecha+' '+hora+'</div>'
+        +(p.fecha_entrega_est?'<div style="font-size:10pt;font-weight:700;color:#dc2626;margin-top:3px;">Entrega: '+p.fecha_entrega_est+'</div>':'')
+        +'<div style="font-size:8.5pt;color:#475569;margin-top:3px;">OC: '+ordsStr+'</div>'
+        +'<div style="margin-top:6px;background:#f1f5f9;border-radius:4px;padding:4px 10px;font-size:9pt;">'
+          +'Total: <strong>'+totalBultosGlobal+' bultos</strong>'
+        +'</div>'
+      +'</div>'
+    +'</div>'
+
+    +(p.observaciones?'<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:4px;padding:6px 10px;font-size:9pt;margin-bottom:10px;">'+p.observaciones+'</div>':'')
+
+    // LÍNEAS CON GRILLA
+    +lineasHTML
+
+    // FIRMA
+    +'<div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:8px;border-top:1px solid #e2e8f0;">'
+      +'<div style="width:160px;border-top:1.5px solid #1e293b;padding-top:4px;text-align:center;font-size:8pt;color:#64748b;">Preparado por</div>'
+      +'<div style="width:160px;border-top:1.5px solid #1e293b;padding-top:4px;text-align:center;font-size:8pt;color:#64748b;">Revisado por</div>'
+      +'<div style="width:160px;border-top:1.5px solid #1e293b;padding-top:4px;text-align:center;font-size:8pt;color:#64748b;">Fecha y hora despacho</div>'
+    +'</div>'
+
+    +'<scr'+'ipt>window.onload=()=>setTimeout(()=>window.print(),400);<\/script>'
+    +'</body></html>';
+
+  const win=window.open('','_blank','width=800,height=1100');
+  win.document.write(html);
+  win.document.close();
+}
+
+// ===== EDITAR ORDEN DE EXTRUSIÓN =====
+function abrirEditarOrdenExtrusion(id){
+  pedirAdminYEjecutar(()=>_abrirEditarOrdenExtrusion(id));
+}
+function _abrirEditarOrdenExtrusion(id){
+  const o=C.ordenes.find(x=>x.id===id);if(!o)return;
+  const extActuales=(o.orden_extrusoras||[]).map(e=>e.extrusora_id);
+  const bob=C.bobinas.find(b=>b.id===o.bobina_id);
+
+  document.getElementById('edit-oe-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="edit-oe-modal">'
+    +'<div class="modal-card" style="max-width:520px;">'
+    +'<div class="modal-title">✏️ Editar orden '+o.numero_orden+'</div>'
+
+    // Info de la orden
+    +'<div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;font-size:13px;">'
+      +'<div style="font-weight:600">'+(bob?.nombre||'—')+'</div>'
+      +'<div style="color:var(--text2);font-size:12px;margin-top:2px;">'
+        +o.metros+' m · Estado: <strong>'+o.estado+'</strong>'
+        +(o.cliente?' · '+o.cliente:'')
+      +'</div>'
+    +'</div>'
+
+    // Metros
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">'
+      +'<div class="fg"><label>Metros a extruir</label>'
+        +'<input type="number" id="eoe-metros" value="'+o.metros+'" min="1" step="10" style="font-weight:700;font-size:15px;"></div>'
+      +'<div class="fg"><label>Prioridad <span style="font-size:11px;color:var(--text3)">(1=más urgente)</span></label>'
+        +'<input type="number" id="eoe-prioridad" value="'+(o.prioridad||1)+'" min="1" max="99"></div>'
+    +'</div>'
+
+    // Extrusoras
+    +'<div class="fg" style="margin-bottom:14px;">'
+      +'<label>Extrusoras asignadas</label>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">'
+      +C.extrusoras.map(e=>'<label style="display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:var(--r);border:1.5px solid '+(extActuales.includes(e.id)?'var(--accentbd)':'var(--border)')+';background:'+(extActuales.includes(e.id)?'var(--accentbg)':'var(--bg3)')+';cursor:pointer;font-size:13px;">'
+        +'<input type="checkbox" id="eoe-ext-'+e.id+'" '+(extActuales.includes(e.id)?'checked':'')+' style="width:14px;height:14px;" onchange="this.closest(\'label\').style.borderColor=this.checked?\'var(--accentbd)\':\' var(--border)\';this.closest(\'label\').style.background=this.checked?\'var(--accentbg)\':\' var(--bg3)\'">'
+        +'<strong>'+e.nombre+'</strong>'
+        +(e.kg_por_hora?'<span style="font-size:10px;color:var(--text3)">'+e.kg_por_hora+'kg/h</span>':'')
+      +'</label>').join('')
+      +'</div>'
+      +'<div id="eoe-ext-warn" style="font-size:11px;color:var(--amber);margin-top:4px;display:none;">⚠ Seleccioná al menos una extrusora</div>'
+    +'</div>'
+
+    // Observaciones
+    +'<div class="fg" style="margin-bottom:14px;">'
+      +'<label>Observaciones</label>'
+      +'<input type="text" id="eoe-obs" value="'+(o.observaciones||'')+'" placeholder="opcional">'
+    +'</div>'
+
+    +'<div style="background:var(--amberbg);border:1px solid var(--amberbd);border-radius:var(--r);padding:8px 12px;font-size:11px;color:var(--amber);margin-bottom:14px;">'
+      +'⚠ Cambiar extrusoras actualiza el Gantt y recalcula toda la cola de órdenes.'
+    +'</div>'
+
+    +'<div class="btn-grp">'
+      +'<button class="btn btn-primary btn-sm" onclick="confirmarEditarOrdenExtrusion('+id+')">Guardar cambios</button>'
+      +'<button class="btn btn-sm" onclick="document.getElementById(\'edit-oe-modal\').remove()">Cancelar</button>'
+      +'<span id="eoe-msg" style="font-size:12px;margin-left:8px;"></span>'
+    +'</div>'
+    +'</div></div>'
+  );
+}
+
+async function confirmarEditarOrdenExtrusion(id){
+  const metros=parseFloat(document.getElementById('eoe-metros')?.value)||0;
+  const prioridad=parseInt(document.getElementById('eoe-prioridad')?.value)||1;
+  const obs=document.getElementById('eoe-obs')?.value.trim();
+  const msg=document.getElementById('eoe-msg');
+  const warn=document.getElementById('eoe-ext-warn');
+
+  // Extrusoras seleccionadas
+  const extIds=C.extrusoras.filter(e=>document.getElementById('eoe-ext-'+e.id)?.checked).map(e=>e.id);
+  if(!extIds.length){
+    if(warn)warn.style.display='block';
+    return;
+  }
+  if(warn)warn.style.display='none';
+  if(!metros){msg.style.color='var(--red)';msg.textContent='Ingresá los metros.';return;}
+
+  msg.innerHTML='<div class="loading" style="display:inline-flex;gap:4px;align-items:center"><div class="spinner" style="width:12px;height:12px"></div></div>';
+
+  // 1. Actualizar la orden
+  const{error:e1}=await sb.from('ordenes').update({
+    metros,prioridad,
+    observaciones:obs||null
+  }).eq('id',id);
+  if(e1){msg.style.color='var(--red)';msg.textContent='Error: '+e1.message;return;}
+
+  // 2. Reemplazar extrusoras — borrar las actuales e insertar las nuevas
+  const{error:e2}=await sb.from('orden_extrusoras').delete().eq('orden_id',id);
+  if(e2){msg.style.color='var(--red)';msg.textContent='Error extrusoras: '+e2.message;return;}
+
+  const{error:e3}=await sb.from('orden_extrusoras').insert(
+    extIds.map(eId=>({orden_id:id,extrusora_id:eId}))
+  );
+  if(e3){msg.style.color='var(--red)';msg.textContent='Error asignación: '+e3.message;return;}
+
+  msg.style.color='var(--green)';msg.textContent='✓ Guardado — Gantt actualizado';
+
+  // 3. Recargar datos y refrescar Gantt
+  await reload();
+  setTimeout(()=>{
+    document.getElementById('edit-oe-modal')?.remove();
+    // Si el Gantt está visible, refrescarlo
+    if(typeof renderGantt==='function')renderGantt();
+    if(typeof renderGanttDiario==='function')renderGanttDiario();
+  },1000);
 }
 
 function abrirRegistrarCobro(pedId){
@@ -9289,7 +9506,7 @@ function renderMPStock(){
     +'<th>N° Lote</th><th>Material</th><th>Categoría</th><th>Big Bag</th><th>Proveedor</th>'
     +'<th>Kg ingresados</th><th>Kg disponibles</th><th>Consumido</th>'
     +(esAdmin?'<th>Precio/kg</th>':'')
-    +'<th>Fecha</th><th>Estado</th><th>🏷️</th>'
+    +'<th>Fecha</th><th>Estado</th><th></th>'
     +'</tr></thead><tbody>';
   lotesFiltr.forEach(l=>{
     const pct=l.kg_ingresados?Math.round((1-l.kg_disponibles/l.kg_ingresados)*100):0;
@@ -9306,14 +9523,213 @@ function renderMPStock(){
       +(esAdmin?'<td class="mono">$'+l.precio_kg+'/kg</td>':'')
       +'<td class="mono" style="font-size:11px">'+l.fecha_ingreso+'</td>'
       +'<td><span style="color:'+(l.kg_disponibles>0?'var(--green)':'var(--text3)')+'">'+( l.kg_disponibles>0?'Disponible':'Agotado')+'</span></td>'
-      +'<td><button class="btn btn-sm" onclick="imprimirEtiquetaLote('+l.id+')" title="Imprimir etiqueta">🏷️</button></td>'
+      +'<td style="white-space:nowrap">'
+        +'<button class="btn btn-sm" onclick="imprimirEtiquetaLote('+l.id+')" title="Imprimir etiqueta">🏷️</button> '
+        +'<button class="btn btn-sm" onclick="verTrazabilidadLote('+l.id+',\''+( l.tipos_mp?.nombre||'').replace(/'/g,'')+'\',\''+( l.numero_bigbag||'')+'\')" title="Trazabilidad">🔍</button> '
+        +'<button class="btn btn-sm btn-warn" onclick="abrirAjusteLote('+l.id+',\''+( l.tipos_mp?.nombre||'').replace(/'/g,'')+'\','+l.numero_bigbag+','+l.kg_disponibles+')" title="Ajuste de inventario">⚖️</button>'
+      +'</td>'
       +'</tr>';
   });
   html+='</tbody></table></div>';
   if(tbl)tbl.innerHTML=html;
 }
 
-// Mezcla
+// ===== TRAZABILIDAD DE LOTE MP =====
+async function verTrazabilidadLote(loteId, material, bigbag){
+  document.getElementById('traz-modal')?.remove();
+
+  // Mostrar modal con loading mientras carga
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="traz-modal">'
+    +'<div class="modal-card" style="max-width:680px;max-height:90vh;overflow-y:auto;">'
+    +'<div class="modal-title">🔍 Trazabilidad · '+material+' · Big Bag '+bigbag+'</div>'
+    +'<div id="traz-body"><div class="loading" style="padding:2rem;display:flex;justify-content:center;"><div class="spinner"></div></div></div>'
+    +'<div class="btn-grp" style="margin-top:1rem;">'
+      +'<button class="btn btn-sm" onclick="document.getElementById(\'traz-modal\').remove()">Cerrar</button>'
+    +'</div>'
+    +'</div></div>'
+  );
+
+  // Consultar consumos de este lote con toda la cadena
+  const {data:consumos, error} = await sb
+    .from('consumos_mp_bobina')
+    .select(`
+      kg_consumidos,
+      bobinas_producidas(
+        id, numero_bobina, metros_reales, kg_reales, fecha_produccion,
+        ordenes(id, numero_orden, metros, pedido_ref_id,
+          pedidos(numero_pedido, cliente, estado)
+        )
+      )
+    `)
+    .eq('lote_id', loteId)
+    .order('created_at');
+
+  const body = document.getElementById('traz-body');
+  if(!body) return;
+
+  if(error){
+    body.innerHTML='<div class="alert alert-warn">Error al cargar: '+error.message+'</div>';
+    return;
+  }
+  if(!consumos?.length){
+    body.innerHTML='<div class="empty">Este lote aún no tiene consumos registrados.</div>';
+    return;
+  }
+
+  // Agrupar por orden de extrusión
+  const porOrden = {};
+  let kgTotalUsado = 0;
+  consumos.forEach(c=>{
+    const bp = c.bobinas_producidas;
+    if(!bp) return;
+    const ord = bp.ordenes;
+    const ordKey = ord?.id || 'sin_orden';
+    if(!porOrden[ordKey]) porOrden[ordKey] = {orden:ord, bobinas:[], kgTotal:0};
+    porOrden[ordKey].bobinas.push({...bp, kg_consumidos:c.kg_consumidos});
+    porOrden[ordKey].kgTotal += c.kg_consumidos||0;
+    kgTotalUsado += c.kg_consumidos||0;
+  });
+
+  // Obtener lote para mostrar kg ingresados
+  const lote = C.lotes_mp.find(l=>l.id===loteId);
+
+  let html = '';
+
+  // Resumen
+  html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1rem;">'
+    +'<div class="kpi-card"><div class="kpi-lbl">Kg ingresados</div><div class="kpi-val">'+(lote?.kg_ingresados||'—')+' kg</div></div>'
+    +'<div class="kpi-card kpi-ext"><div class="kpi-lbl">Kg consumidos</div><div class="kpi-val">'+r2(kgTotalUsado)+' kg</div></div>'
+    +'<div class="kpi-card"><div class="kpi-lbl">Órdenes involucradas</div><div class="kpi-val">'+Object.keys(porOrden).length+'</div></div>'
+    +'</div>';
+
+  // Por cada orden de extrusión
+  Object.values(porOrden).forEach(({orden, bobinas, kgTotal})=>{
+    const ped = orden?.pedidos;
+    const nroOrd = orden?.numero_orden || 'Sin orden';
+
+    html += '<div style="border:1.5px solid var(--border);border-radius:var(--rl);margin-bottom:12px;overflow:hidden;">';
+
+    // Header orden
+    html += '<div style="background:var(--bg3);padding:10px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'
+      +'<div style="font-family:monospace;font-weight:700;font-size:13px;color:var(--accent)">⚙️ '+nroOrd+'</div>'
+      +(orden?.metros?'<div style="font-size:12px;color:var(--text2)">'+orden.metros+' m solicitados</div>':'')
+      +'<div style="font-size:12px;color:var(--text2)">'+r2(kgTotal)+' kg de este lote</div>'
+      +'<div style="margin-left:auto;display:flex;align-items:center;gap:6px;">';
+
+    // Pedido vinculado
+    if(ped){
+      html += '<div style="background:var(--accentbg);border:1px solid var(--accentbd);border-radius:var(--r);padding:3px 10px;font-size:11px;">'
+        +'📦 '+ped.numero_pedido+' · <strong>'+(ped.cliente||'—')+'</strong>'
+        +' <span style="color:var(--text3)">'+( ped.estado||'')+'</span>'
+        +'</div>';
+    } else {
+      html += '<span style="font-size:11px;color:var(--text3)">Sin pedido vinculado</span>';
+    }
+    html += '</div></div>';
+
+    // Bobinas
+    html += '<div style="padding:10px 14px;">'
+      +'<div style="font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Bobinas producidas con este material</div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+
+    bobinas.forEach(bp=>{
+      html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:6px 10px;min-width:140px;">'
+        +'<div style="font-family:monospace;font-weight:700;font-size:12px;">'+bp.numero_bobina+'</div>'
+        +'<div style="font-size:11px;color:var(--text2);margin-top:2px;">'
+          +(bp.metros_reales?bp.metros_reales+' m · ':'')
+          +(bp.kg_reales?bp.kg_reales+' kg':'')
+        +'</div>'
+        +'<div style="font-size:10px;color:var(--text3);">'
+          +r3(bp.kg_consumidos)+' kg de este lote'
+        +'</div>'
+        +(bp.fecha_produccion?'<div style="font-size:10px;color:var(--text3);">'+bp.fecha_produccion+'</div>':'')
+        +'</div>';
+    });
+
+    html += '</div></div></div>';
+  });
+
+  body.innerHTML = html;
+}
+
+// ===== AJUSTE DE INVENTARIO MP =====
+function abrirAjusteLote(loteId, material, bigbag, kgActual){
+  document.getElementById('ajuste-lote-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="ajuste-lote-modal">'
+    +'<div class="modal-card" style="max-width:420px;">'
+    +'<div class="modal-title">⚖️ Ajuste de inventario</div>'
+    +'<div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;font-size:13px;">'
+      +'<div style="font-weight:600">'+material+'</div>'
+      +'<div style="color:var(--text2);font-size:12px;margin-top:2px;">Big Bag: '+bigbag+' · Stock actual: <strong>'+kgActual+' kg</strong></div>'
+    +'</div>'
+    +'<div class="fg" style="margin-bottom:10px;">'
+      +'<label>Kg reales en planta <span style="color:var(--text3);font-size:11px">(lo que hay físicamente ahora)</span></label>'
+      +'<input type="number" id="aj-kg-real" min="0" step="0.1" placeholder="ej: 250.5" style="font-size:16px;font-weight:600;" autofocus>'
+    +'</div>'
+    +'<div class="fg" style="margin-bottom:14px;">'
+      +'<label>Motivo del ajuste</label>'
+      +'<select id="aj-motivo">'
+        +'<option value="conteo_fisico">Conteo físico — diferencia con sistema</option>'
+        +'<option value="bigbag_vacio">Big bag vacío no registrado</option>'
+        +'<option value="merma_fisica">Merma / derrame físico</option>'
+        +'<option value="error_carga">Error en carga inicial</option>'
+        +'<option value="otro">Otro</option>'
+      +'</select>'
+    +'</div>'
+    +'<div class="fg" style="margin-bottom:14px;">'
+      +'<label>Observación <span style="color:var(--text3);font-size:11px">(opcional)</span></label>'
+      +'<input type="text" id="aj-obs" placeholder="ej: conteo del 12/05">'
+    +'</div>'
+    +'<div style="font-size:11px;color:var(--amber);background:var(--amberbg);border:1px solid var(--amberbd);border-radius:var(--r);padding:8px 12px;margin-bottom:14px;">'
+      +'⚠ Este ajuste sobreescribe el stock del lote. Usarlo solo cuando el conteo físico difiere del sistema.'
+    +'</div>'
+    +'<div class="btn-grp">'
+      +'<button class="btn btn-primary btn-sm" onclick="confirmarAjusteLote('+loteId+','+kgActual+')">Confirmar ajuste</button>'
+      +'<button class="btn btn-sm" onclick="document.getElementById(\'ajuste-lote-modal\').remove()">Cancelar</button>'
+      +'<span id="aj-msg" style="font-size:12px;margin-left:8px;"></span>'
+    +'</div>'
+    +'</div></div>'
+  );
+}
+async function confirmarAjusteLote(loteId, kgAnterior){
+  const kgReal=parseFloat(document.getElementById('aj-kg-real')?.value);
+  const motivo=document.getElementById('aj-motivo')?.value;
+  const obs=document.getElementById('aj-obs')?.value.trim();
+  const msg=document.getElementById('aj-msg');
+  if(isNaN(kgReal)||kgReal<0){msg.style.color='var(--red)';msg.textContent='Ingresá un valor válido.';return;}
+  msg.innerHTML='<div class="loading" style="display:inline-flex;gap:4px;align-items:center"><div class="spinner" style="width:12px;height:12px"></div></div>';
+  const diferencia=r3(kgReal-kgAnterior);
+  const nuevoEstado=kgReal===0?'terminado':'en_uso';
+  const{error}=await sb.from('lotes_mp').update({
+    kg_disponibles:kgReal,
+    estado:nuevoEstado,
+    fecha_fin_uso:kgReal===0?localDate():null,
+    observaciones:(obs?'[Ajuste '+localDate()+'] '+motivo+': '+obs:'[Ajuste '+localDate()+'] '+motivo)
+  }).eq('id',loteId);
+  if(error){msg.style.color='var(--red)';msg.textContent='Error: '+error.message;return;}
+  // Registrar el ajuste en stock_movimientos si existe la tabla
+  await sb.from('stock_movimientos').insert({
+    tipo:'ajuste_inventario',
+    lote_mp_id:loteId,
+    kg_anterior:kgAnterior,
+    kg_nuevo:kgReal,
+    diferencia_kg:diferencia,
+    motivo:motivo,
+    observaciones:obs||null,
+    fecha:localDate()
+  }).then(()=>{}).catch(()=>{}); // silencioso si no existe la tabla
+  msg.style.color='var(--green)';
+  msg.textContent='✓ Ajuste guardado ('+(diferencia>0?'+':'')+diferencia+' kg)';
+  await reload();
+  setTimeout(()=>{
+    document.getElementById('ajuste-lote-modal')?.remove();
+    renderMPStock();
+  },1200);
+}
+
+// ===== MEZCLA =====
 function poblarSelectsMezcla(){
   const so=document.getElementById('mz-orden');
   if(so)so.innerHTML='<option value="">— seleccionar orden —</option>'+
