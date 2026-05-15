@@ -674,35 +674,52 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
 
     <!-- CONFECCIÓN -->
     <div class="page" id="page-confeccion">
-      <div class="page-hdr"><div><div class="page-title">Confección · Asociar bobinas</div><div class="page-sub">Asociá bobinas del stock a órdenes de corte En proceso</div></div></div>
+      <div class="page-hdr"><div><div class="page-title">Confección · Asociar bobinas</div><div class="page-sub">Asociá hasta 4 bobinas del mismo tipo a una orden de corte (la cortadora puede correr 1-4 bobinas en paralelo)</div></div></div>
       <div class="fp">
-        <div class="fp-t">Asociar bobina a orden de corte</div>
+        <div class="fp-t">Asociar bobinas a orden de corte</div>
         <div class="fgrid">
           <div class="fg"><label>Orden de corte (En proceso)</label>
             <select id="conf-oc" onchange="onConfOCChange()"><option value="">— seleccionar orden —</option></select>
           </div>
-          <div class="fg"><label>Bobina a asociar</label>
-            <select id="conf-bob" onchange="onConfBobChange()"><option value="">— seleccionar bobina en stock —</option></select>
-          </div>
-        </div>
-        <div class="fgrid">
           <div class="fg"><label>Operario</label>
             <select id="conf-op-sel"><option value="">— seleccionar —</option></select>
           </div>
-          <div class="fg"></div>
         </div>
         <!-- INFO ORDEN -->
         <div id="conf-oc-info" style="display:none;margin-bottom:10px;"></div>
-        <!-- INFO BOBINA -->
-        <div class="computed" id="conf-detail" style="display:none;"></div>
         <!-- PROGRESO METROS -->
         <div class="progress-orden" id="conf-progreso" style="display:none;">
           <div class="progress-lbl"><span id="conf-prog-lbl">Metros usados</span><span id="conf-prog-pct">0%</span></div>
           <div class="progress-bar-wrap"><div class="progress-bar-fill" id="conf-prog-fill" style="width:0%"></div></div>
           <div style="font-size:11px;color:var(--text3);margin-top:5px;" id="conf-prog-det"></div>
         </div>
-        <div class="btn-grp" style="margin-top:10px;">
-          <button class="btn btn-primary btn-sm" onclick="asociarBobinaOrdenCorte()">Asociar bobina a orden</button>
+        <!-- LECTOR DE PISTOLA USB -->
+        <div id="conf-pistola-wrap" style="display:none;margin-top:14px;background:var(--bg2);border:1.5px dashed var(--accentbd);border-radius:var(--rl);padding:12px 14px;">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div style="font-size:18px;">🔫</div>
+            <div style="flex:1;min-width:200px;">
+              <div style="font-size:12px;font-weight:600;color:var(--accent);">Lector de pistola USB</div>
+              <div style="font-size:11px;color:var(--text2);">Apoyá la pistola sobre el QR de cada bobina. Se marca automáticamente en la lista (máx 4).</div>
+            </div>
+            <input id="conf-pistola-input" type="text" autocomplete="off"
+              placeholder="Esperando escaneo..."
+              onkeydown="onPistolaKey(event)"
+              style="flex:1;min-width:220px;font-family:'Courier New',monospace;font-size:13px;background:var(--bg1);border:1.5px solid var(--accent);">
+            <button class="btn btn-sm" onclick="document.getElementById('conf-pistola-input').focus()">Foco</button>
+          </div>
+          <div id="conf-pistola-msg" style="font-size:11px;margin-top:6px;min-height:14px;"></div>
+        </div>
+        <!-- LISTA DE BOBINAS COMPATIBLES (checkboxes, máx 4) -->
+        <div id="conf-bobinas-wrap" style="display:none;margin-top:14px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+            <label style="font-size:12px;font-weight:600;color:var(--text2);margin:0;">Bobinas disponibles del mismo tipo <span style="color:var(--text3);font-weight:400">(seleccioná de 1 a 4)</span></label>
+            <div id="conf-bob-resumen" style="font-size:12px;color:var(--text2);"></div>
+          </div>
+          <div id="conf-bob-list" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);max-height:300px;overflow-y:auto;padding:6px;"></div>
+        </div>
+        <div class="btn-grp" style="margin-top:12px;">
+          <button class="btn btn-primary btn-sm" onclick="asociarBobinasOrdenCorte()">Asociar bobinas seleccionadas</button>
+          <button class="btn btn-sm" onclick="limpiarSeleccionBobinas()" style="margin-left:4px;">Limpiar selección</button>
           <span id="msg-conf" style="font-size:12px;margin-left:8px;"></span>
         </div>
       </div>
@@ -2919,47 +2936,37 @@ function poblarConfSelects(){
     coc.innerHTML='<option value="">— seleccionar orden de corte —</option>'+
       enProc.map(o=>`<option value="${o.id}">${o.numero_orden} · ${o.productos?.descripcion||''} · ${o.unidades_a_producir?.toLocaleString('es-AR')||''} u</option>`).join('');
   }
-  // Bobinas en stock — se filtra por tipo al seleccionar la orden
-  const cb=document.getElementById('conf-bob');
-  if(cb){
-    const enStock=C.bobinas_prod.filter(b=>b.en_stock&&!b.fuera_de_rango);
-    cb.innerHTML='<option value="">— seleccionar bobina —</option>'+
-      enStock.map(b=>`<option value="${b.id}">${b.numero_bobina} · ${b.bobinas?.nombre||''} · ${b.metros_reales}m</option>`).join('');
-  }
   // Operarios
   const co=document.getElementById('conf-op-sel');
   if(co)co.innerHTML='<option value="">— seleccionar —</option>'+C.operarios.map(o=>`<option value="${o.nombre}">${o.nombre}</option>`).join('');
 }
+
+// === Set de bobinas seleccionadas (máx 4) ===
+let _confBobSel=new Set();
+const MAX_BOBINAS_CONF=4;
+
 function onConfOCChange(){
   const ocId=parseInt(document.getElementById('conf-oc')?.value);
   const oc=C.ord_corte.find(x=>x.id===ocId);
   const info=document.getElementById('conf-oc-info');
   const prog=document.getElementById('conf-progreso');
-  if(!oc){if(info)info.style.display='none';if(prog)prog.style.display='none';return;}
-
-  // Filtrar bobinas por tipo requerido por el producto de la orden
-  const tipoBobinaId=oc.productos?.bobina_id||oc.productos?.bobina_id;
-  const cb=document.getElementById('conf-bob');
-  if(cb){
-    const savedBobId=cb.value; // preservar selección actual (ej: del QR)
-    const enStock=C.bobinas_prod.filter(b=>b.en_stock&&!b.fuera_de_rango);
-    let bobsFiltradas=enStock;
-    if(tipoBobinaId){
-      bobsFiltradas=enStock.filter(b=>(b.bobina_tipo_id??b.bobinas?.id)===tipoBobinaId);
-      if(!bobsFiltradas.length) bobsFiltradas=enStock;
-    }
-    cb.innerHTML='<option value="">— seleccionar bobina —</option>'
-      +bobsFiltradas.map(b=>{
-        const esTipoExacto=!tipoBobinaId||(b.bobina_tipo_id??b.bobinas?.id)===tipoBobinaId;
-        return '<option value="'+b.id+'" '+(esTipoExacto?'':'style="color:var(--text3)"')+'>'+
-          b.numero_bobina+' · '+(b.bobinas?.nombre||'')+(b.bobinas?.descripcion?' — '+b.bobinas.descripcion:'')+' · '+b.metros_reales+'m'+(esTipoExacto?'':' ⚠ tipo diferente')+
-          '</option>';
-      }).join('');
-    // Restaurar bobina pre-seleccionada si todavía está en la lista
-    if(savedBobId&&cb.querySelector('option[value="'+savedBobId+'"]')){
-      cb.value=savedBobId;
-    }
+  const wrap=document.getElementById('conf-bobinas-wrap');
+  const pistolaWrap=document.getElementById('conf-pistola-wrap');
+  // Si cambia la orden, limpiar selección previa
+  _confBobSel=new Set();
+  if(!oc){
+    if(info)info.style.display='none';
+    if(prog)prog.style.display='none';
+    if(wrap)wrap.style.display='none';
+    if(pistolaWrap)pistolaWrap.style.display='none';
+    return;
   }
+  // Mostrar lector de pistola con foco automático
+  if(pistolaWrap){
+    pistolaWrap.style.display='block';
+    setTimeout(()=>document.getElementById('conf-pistola-input')?.focus(),100);
+  }
+
   // Metros ya usados en esta orden
   const mtsUsados=oc.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0;
   const pct=oc.metros_necesarios?Math.round(mtsUsados/oc.metros_necesarios*100):0;
@@ -2981,95 +2988,321 @@ function onConfOCChange(){
     document.getElementById('conf-prog-fill').style.cssText=`width:${Math.min(100,pct)}%;background:${pctColor}`;
     document.getElementById('conf-prog-det').textContent=`${r1(mtsUsados)} m de ${oc.metros_necesarios||'—'} m necesarios${pct>100?' — EXCEDE el total':''} (límite admin: ${maxPct}%)`;
   }
-  // Mostrar bobinas ya asociadas
-  const wrap=document.getElementById('conf-asociadas-wrap');
-  const tbl=document.getElementById('conf-asociadas-tbl');
-  if(wrap&&tbl){
+
+  // Renderizar lista de bobinas compatibles (mismo tipo que el producto)
+  if(wrap){
     wrap.style.display='block';
-    document.getElementById('conf-asoc-title').textContent=`Bobinas asociadas a ${oc.numero_orden}`;
+    renderConfBobinasList(oc);
+  }
+
+  // Panel de bobinas ya asociadas
+  const wrapAsoc=document.getElementById('conf-asociadas-wrap');
+  const tblAsoc=document.getElementById('conf-asociadas-tbl');
+  if(wrapAsoc&&tblAsoc){
+    wrapAsoc.style.display='block';
+    document.getElementById('conf-asoc-title').textContent='Bobinas ya asociadas a '+oc.numero_orden;
     const asoc=oc.orden_corte_bobinas||[];
-    if(!asoc.length){tbl.innerHTML='<div class="empty">Sin bobinas asociadas aún.</div>';return;}
-    tbl.innerHTML=`<div style="overflow-x:auto"><table><thead><tr><th>N° Bobina</th><th>Metros</th><th>Fecha</th></tr></thead>
-      <tbody>${asoc.map(b=>`<tr>
-        <td class="mono">${b.bobinas_producidas?.numero_bobina||'—'}</td>
-        <td class="mono">${b.bobinas_producidas?.metros_reales||'—'} m</td>
-        <td class="mono" style="font-size:11px">${b.fecha_asignacion?new Date(b.fecha_asignacion).toLocaleDateString('es-AR'):''}</td>
-      </tr>`).join('')}</tbody></table></div>`;
+    if(!asoc.length){tblAsoc.innerHTML='<div class="empty">Sin bobinas asociadas aún.</div>';}
+    else {
+      tblAsoc.innerHTML='<div style="overflow-x:auto"><table><thead><tr>'
+        +'<th>N° Bobina</th><th>Tipo</th><th>Metros</th><th>Fecha asignación</th>'
+        +'</tr></thead><tbody>'
+        +asoc.map(b=>{
+          const bp=b.bobinas_producidas;
+          const tipo=bp?.bobinas?.nombre||C.bobinas.find(x=>x.id===bp?.bobina_tipo_id)?.nombre||'—';
+          return '<tr>'
+            +'<td class="mono">'+(bp?.numero_bobina||'—')+'</td>'
+            +'<td style="font-size:12px">'+tipo+'</td>'
+            +'<td class="mono">'+(bp?.metros_reales||'—')+' m</td>'
+            +'<td class="mono" style="font-size:11px">'+(b.fecha_asignacion?new Date(b.fecha_asignacion).toLocaleString('es-AR'):'')+'</td>'
+            +'</tr>';
+        }).join('')
+        +'</tbody></table></div>';
+    }
   }
 }
-function onConfBobChange(){
-  const bId=parseInt(document.getElementById('conf-bob')?.value);
-  const b=C.bobinas_prod.find(x=>x.id===bId);
-  const det=document.getElementById('conf-detail');
-  if(b&&det){
-    det.style.display='block';
-    det.innerHTML='<b>'+b.numero_bobina+'</b> · '+(b.bobinas?.nombre||'')+' · <b>'+b.metros_reales+' m</b> · '+b.kg_reales+' kg · Calidad: <span class="'+(b.estado_calidad==='OK'?'q-ok':'q-warn')+'">'+b.estado_calidad+'</span>';
-    // Filtrar selector de órdenes por tipo de bobina compatible
-    const tipoBobinaId=b.bobina_tipo_id||b.bobinas?.id;
-    const ocSel=document.getElementById('conf-oc');
-    if(ocSel&&tipoBobinaId){
-      const curVal=ocSel.value;
-      const ordenes=C.ord_corte.filter(o=>o.estado==='En proceso');
-      // Órdenes que necesitan este tipo de bobina (basado en el tipo de bobina del producto)
-      const compatibles=ordenes.filter(o=>{
-        const prod=o.productos;
-        return prod?.bobina_id===tipoBobinaId;
-      });
-      const listaFinal=compatibles.length?compatibles:ordenes; // fallback: mostrar todas
-      ocSel.innerHTML='<option value="">— seleccionar orden —</option>'
-        +listaFinal.map(o=>'<option value="'+o.id+'"'+(compatibles.length?'':' style="color:var(--text3)"')+'>'+o.numero_orden+' · '+(o.productos?.descripcion||'—')+' · '+(o.cliente||'—')+(compatibles.length<ordenes.length?' ✓':'')+'</option>').join('');
-      if(curVal)ocSel.value=curVal;
-      // Aviso si hay filtro aplicado
-      if(compatibles.length&&compatibles.length<ordenes.length){
-        const msg=document.getElementById('msg-conf');
-        if(msg)msg.style.color='var(--accent)',msg.textContent='Mostrando '+compatibles.length+' orden'+(compatibles.length>1?'es':'')+' compatibles con este tipo de bobina.';
-      }
+
+function renderConfBobinasList(oc){
+  const list=document.getElementById('conf-bob-list');
+  if(!list||!oc)return;
+  const tipoBobinaId=oc.productos?.bobina_id||0;
+  const idsAsociadas=new Set((oc.orden_corte_bobinas||[]).map(b=>b.bobina_producida_id));
+  // Bobinas disponibles del mismo tipo, en stock, no fuera de rango, no ya asociadas a esta orden
+  const bobs=C.bobinas_prod
+    .filter(b=>b.en_stock&&!b.fuera_de_rango)
+    .filter(b=>!idsAsociadas.has(b.id))
+    .filter(b=>!tipoBobinaId||(b.bobina_tipo_id??b.bobinas?.id)===tipoBobinaId)
+    .sort((a,b)=>new Date(a.fecha_produccion||0)-new Date(b.fecha_produccion||0));
+
+  if(!bobs.length){
+    list.innerHTML='<div style="color:var(--text3);font-size:12px;padding:14px;text-align:center;">No hay bobinas disponibles del tipo requerido para esta orden.</div>';
+    actualizarResumenBobinas(oc);
+    return;
+  }
+
+  // Limpiar selecciones que ya no estén disponibles
+  for(const id of [..._confBobSel]){
+    if(!bobs.find(b=>b.id===id))_confBobSel.delete(id);
+  }
+
+  list.innerHTML=bobs.map(b=>{
+    const sel=_confBobSel.has(b.id);
+    const qcls=b.estado_calidad==='OK'?'q-ok':(b.estado_calidad==='rechazada'?'q-err':'q-warn');
+    const fechaTxt=b.fecha_produccion?new Date(b.fecha_produccion+'T00:00:00').toLocaleDateString('es-AR'):'—';
+    return '<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);cursor:pointer;'
+      +(sel?'background:var(--accentbg);border:1px solid var(--accentbd);':'background:transparent;border:1px solid transparent;')
+      +'margin-bottom:4px;font-size:13px;">'
+      +'<input type="checkbox" '+(sel?'checked':'')
+      +' onchange="toggleBobinaConf('+b.id+',this.checked)" style="width:16px;height:16px;flex-shrink:0;">'
+      +'<div style="flex:1;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'
+        +'<span class="mono" style="font-weight:600;color:var(--accent);min-width:90px;">'+b.numero_bobina+'</span>'
+        +'<span style="color:var(--text2);font-size:12px;">'+(b.bobinas?.nombre||'—')+(b.bobinas?.descripcion?' · '+b.bobinas.descripcion:'')+'</span>'
+        +'<span class="mono" style="font-weight:700;">'+(b.metros_reales||0).toLocaleString('es-AR')+' m</span>'
+        +'<span class="mono" style="color:var(--text3);font-size:11px;">'+(b.kg_reales||0)+' kg</span>'
+        +'<span class="'+qcls+'" style="font-size:11px;">'+b.estado_calidad+'</span>'
+        +'<span style="color:var(--text3);font-size:11px;">'+fechaTxt+'</span>'
+        +(b.ordenes?.numero_orden?'<span style="color:var(--text3);font-size:10px;">OE '+b.ordenes.numero_orden+'</span>':'')
+      +'</div>'
+    +'</label>';
+  }).join('');
+
+  actualizarResumenBobinas(oc);
+}
+
+function toggleBobinaConf(id,checked){
+  if(checked){
+    if(_confBobSel.size>=MAX_BOBINAS_CONF){
+      const msg=document.getElementById('msg-conf');
+      if(msg){msg.style.color='var(--amber)';msg.textContent='Máximo '+MAX_BOBINAS_CONF+' bobinas en paralelo (capacidad de la cortadora).';}
+      // Forzar el desmarcado visual
+      const cb=event?.target;if(cb)cb.checked=false;
+      return;
     }
+    _confBobSel.add(id);
   } else {
-    if(det)det.style.display='none';
-    // Restaurar todas las órdenes
-    const ocSel=document.getElementById('conf-oc');
-    if(ocSel){
-      const ordenes=C.ord_corte.filter(o=>o.estado==='En proceso');
-      ocSel.innerHTML='<option value="">— seleccionar orden —</option>'
-        +ordenes.map(o=>'<option value="'+o.id+'">'+o.numero_orden+' · '+(o.productos?.descripcion||'—')+' · '+(o.cliente||'—')+'</option>').join('');
-    }
+    _confBobSel.delete(id);
+  }
+  const ocId=parseInt(document.getElementById('conf-oc')?.value);
+  const oc=C.ord_corte.find(x=>x.id===ocId);
+  if(oc)renderConfBobinasList(oc);
+}
+
+function actualizarResumenBobinas(oc){
+  const res=document.getElementById('conf-bob-resumen');
+  if(!res||!oc)return;
+  const mtsUsados=oc.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0;
+  const mtsNec=oc.metros_necesarios||0;
+  const faltan=Math.max(0,r1(mtsNec-mtsUsados));
+  const mtsSel=[..._confBobSel].reduce((s,id)=>{
+    const b=C.bobinas_prod.find(x=>x.id===id);return s+(b?.metros_reales||0);
+  },0);
+  const limite=mtsNec*1.15;
+  const totalSiAsocia=mtsUsados+mtsSel;
+  const excede=mtsNec>0&&totalSiAsocia>limite;
+  res.innerHTML='<strong>Seleccionadas: '+_confBobSel.size+'/'+MAX_BOBINAS_CONF+'</strong> · '
+    +'<span style="color:var(--accent)">'+r1(mtsSel).toLocaleString('es-AR')+' m</span>'
+    +(mtsNec?' · Faltan: <span style="color:'+(faltan>0?'var(--amber)':'var(--green)')+'">'+faltan.toLocaleString('es-AR')+' m</span>':'')
+    +(excede?' · <span style="color:var(--red)">⚠ Excede 115% (requerirá admin)</span>':'');
+}
+
+function limpiarSeleccionBobinas(){
+  _confBobSel=new Set();
+  const ocId=parseInt(document.getElementById('conf-oc')?.value);
+  const oc=C.ord_corte.find(x=>x.id===ocId);
+  if(oc)renderConfBobinasList(oc);
+  const msg=document.getElementById('msg-conf');
+  if(msg)msg.textContent='';
+}
+
+// ===== LECTOR PISTOLA USB =====
+// La pistola "tipea" el contenido del QR + Enter. Aceptamos:
+//   - URL completa: https://app.com/?consumir=BOB-2025-00123
+//   - Solo el número: BOB-2025-00123
+function extraerNumeroBobinaDeEscaneo(raw){
+  if(!raw)return '';
+  const txt=raw.trim();
+  // Si trae "consumir=XXX" en cualquier parte
+  const m=txt.match(/consumir=([^&\s]+)/i);
+  if(m)return decodeURIComponent(m[1]).trim();
+  // Si trae una URL pero sin "consumir=", intentar el último segmento
+  if(txt.startsWith('http')){
+    try{
+      const u=new URL(txt);
+      const c=u.searchParams.get('consumir');
+      if(c)return c.trim();
+    }catch(e){}
+  }
+  // Caso simple: el texto es el número de bobina directo
+  return txt;
+}
+
+function pistolaFeedback(msg,color,beep){
+  const el=document.getElementById('conf-pistola-msg');
+  if(el){el.textContent=msg;el.style.color=color;}
+  if(beep){
+    try{
+      const AC=window.AudioContext||window.webkitAudioContext;
+      if(AC){
+        const ctx=new AC();
+        const osc=ctx.createOscillator();
+        const gain=ctx.createGain();
+        osc.connect(gain);gain.connect(ctx.destination);
+        osc.frequency.value=beep==='error'?220:880;
+        osc.type='sine';
+        gain.gain.setValueAtTime(0.1,ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(beep==='error'?0.3:0.12));
+        osc.start();osc.stop(ctx.currentTime+(beep==='error'?0.3:0.12));
+      }
+    }catch(e){}
   }
 }
-async function asociarBobinaOrdenCorte(){
+
+function onPistolaKey(ev){
+  // La pistola termina con Enter
+  if(ev.key!=='Enter')return;
+  ev.preventDefault();
+  const input=ev.target;
+  const raw=input.value;
+  input.value='';
+  // Re-enfocar para el próximo escaneo
+  setTimeout(()=>input.focus(),10);
+  procesarEscaneoBobina(raw);
+}
+
+function procesarEscaneoBobina(raw){
+  const nro=extraerNumeroBobinaDeEscaneo(raw);
+  if(!nro){pistolaFeedback('Escaneo vacío.','var(--red)','error');return;}
   const ocId=parseInt(document.getElementById('conf-oc')?.value);
-  const bId=parseInt(document.getElementById('conf-bob')?.value);
+  const oc=C.ord_corte.find(x=>x.id===ocId);
+  if(!oc){pistolaFeedback('Elegí primero una orden de corte.','var(--red)','error');return;}
+  // Buscar bobina por número
+  const b=C.bobinas_prod.find(x=>x.numero_bobina===nro);
+  if(!b){pistolaFeedback('✕ Bobina '+nro+' no encontrada.','var(--red)','error');return;}
+  if(!b.en_stock){pistolaFeedback('✕ Bobina '+nro+' no está en stock (ya consumida).','var(--red)','error');return;}
+  if(b.fuera_de_rango){pistolaFeedback('✕ Bobina '+nro+' está fuera de rango (revisar).','var(--red)','error');return;}
+  // Validar tipo
+  const tipoBobinaId=oc.productos?.bobina_id;
+  const tipoB=b.bobina_tipo_id??b.bobinas?.id;
+  if(tipoBobinaId&&tipoB!==tipoBobinaId){
+    const reqNom=C.bobinas.find(x=>x.id===tipoBobinaId)?.nombre||'?';
+    const tieneNom=C.bobinas.find(x=>x.id===tipoB)?.nombre||'?';
+    pistolaFeedback('✕ '+nro+' es tipo "'+tieneNom+'" — la orden requiere "'+reqNom+'".','var(--red)','error');
+    return;
+  }
+  // Ya asociada a esta orden
+  if(oc.orden_corte_bobinas?.some(x=>x.bobina_producida_id===b.id)){
+    pistolaFeedback('⚠ '+nro+' ya está asociada a '+oc.numero_orden+'.','var(--amber)','error');
+    return;
+  }
+  // Ya marcada en la selección actual
+  if(_confBobSel.has(b.id)){
+    pistolaFeedback('⚠ '+nro+' ya estaba marcada.','var(--amber)','error');
+    return;
+  }
+  // Límite de 4
+  if(_confBobSel.size>=MAX_BOBINAS_CONF){
+    pistolaFeedback('⚠ Ya tenés '+MAX_BOBINAS_CONF+' bobinas (máximo). Asociá o quitá alguna.','var(--amber)','error');
+    return;
+  }
+  // Agregar
+  _confBobSel.add(b.id);
+  renderConfBobinasList(oc);
+  pistolaFeedback('✓ '+nro+' agregada ('+_confBobSel.size+'/'+MAX_BOBINAS_CONF+' · '+(b.metros_reales||0)+' m)','var(--green)','ok');
+}
+
+// Compatibilidad con flujo QR: pre-selecciona una bobina y filtra órdenes compatibles
+function onConfBobChange(){
+  // Esta función la sigue llamando el flujo QR. Buscamos la bobina por _qrBobinaTarget
+  // y la marcamos en la lista una vez que el usuario elija orden compatible.
+  // Lo gestiona preseleccionarBobinaQR().
+}
+
+function preseleccionarBobinaQR(numeroBobina){
+  const b=C.bobinas_prod.find(x=>x.numero_bobina===numeroBobina&&x.en_stock);
+  if(!b)return false;
+  const tipoBobinaId=b.bobina_tipo_id||b.bobinas?.id;
+  // Filtrar órdenes compatibles
+  const ocSel=document.getElementById('conf-oc');
+  if(ocSel&&tipoBobinaId){
+    const ordenes=C.ord_corte.filter(o=>o.estado==='En proceso');
+    const compatibles=ordenes.filter(o=>o.productos?.bobina_id===tipoBobinaId);
+    const listaFinal=compatibles.length?compatibles:ordenes;
+    ocSel.innerHTML='<option value="">— seleccionar orden —</option>'
+      +listaFinal.map(o=>'<option value="'+o.id+'">'+o.numero_orden+' · '+(o.productos?.descripcion||'—')+' · '+(o.cliente||'—')+'</option>').join('');
+    // Si hay una sola compatible, seleccionarla y pre-marcar la bobina
+    if(compatibles.length===1){
+      ocSel.value=compatibles[0].id;
+      onConfOCChange();
+      _confBobSel=new Set([b.id]);
+      renderConfBobinasList(compatibles[0]);
+    }
+  }
+  return true;
+}
+
+async function asociarBobinasOrdenCorte(){
+  const ocId=parseInt(document.getElementById('conf-oc')?.value);
   const op=document.getElementById('conf-op-sel')?.value||'';
   const msg=document.getElementById('msg-conf');
-  if(!ocId||!bId){msg.style.color='var(--red)';msg.textContent='Seleccioná orden y bobina.';return;}
+  if(!ocId){msg.style.color='var(--red)';msg.textContent='Seleccioná una orden.';return;}
+  if(!_confBobSel.size){msg.style.color='var(--red)';msg.textContent='Seleccioná al menos una bobina.';return;}
+  if(_confBobSel.size>MAX_BOBINAS_CONF){msg.style.color='var(--red)';msg.textContent='Máximo '+MAX_BOBINAS_CONF+' bobinas.';return;}
   const oc=C.ord_corte.find(x=>x.id===ocId);
-  const bob=C.bobinas_prod.find(x=>x.id===bId);
-  if(!oc||!bob){msg.style.color='var(--red)';msg.textContent='Error: datos no encontrados.';return;}
-  // Verificar que la bobina no esté ya asociada a esta orden
-  if(oc.orden_corte_bobinas?.some(b=>b.bobina_producida_id===bId)){
-    msg.style.color='var(--red)';msg.textContent='Esta bobina ya está asociada a esta orden.';return;
+  if(!oc){msg.style.color='var(--red)';msg.textContent='Orden no encontrada.';return;}
+  const bobs=[..._confBobSel].map(id=>C.bobinas_prod.find(x=>x.id===id)).filter(Boolean);
+  if(bobs.length!==_confBobSel.size){msg.style.color='var(--red)';msg.textContent='Error: alguna bobina no fue encontrada.';return;}
+  // Validar que ninguna ya esté asociada
+  const idsYaAsoc=new Set((oc.orden_corte_bobinas||[]).map(b=>b.bobina_producida_id));
+  for(const b of bobs){
+    if(idsYaAsoc.has(b.id)){msg.style.color='var(--red)';msg.textContent='La bobina '+b.numero_bobina+' ya está asociada a esta orden.';return;}
   }
-  // Verificar límite de metros (orden + 15%)
+  // Validar mismo tipo
+  const tipoBobinaId=oc.productos?.bobina_id;
+  if(tipoBobinaId){
+    const distinta=bobs.find(b=>(b.bobina_tipo_id??b.bobinas?.id)!==tipoBobinaId);
+    if(distinta){msg.style.color='var(--red)';msg.textContent='La bobina '+distinta.numero_bobina+' no es del mismo tipo que el resto. Todas deben ser del tipo de la orden.';return;}
+  }
+  // Validar entre las seleccionadas: todas mismo tipo
+  if(bobs.length>1){
+    const tipoRef=bobs[0].bobina_tipo_id??bobs[0].bobinas?.id;
+    const otra=bobs.find(b=>(b.bobina_tipo_id??b.bobinas?.id)!==tipoRef);
+    if(otra){msg.style.color='var(--red)';msg.textContent='Todas las bobinas seleccionadas deben ser del mismo tipo.';return;}
+  }
+  // Validar límite 115%
   const mtsUsados=oc.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0;
-  const mtsNuevos=mtsUsados+(bob.metros_reales||0);
-  const pctNuevo=oc.metros_necesarios?mtsNuevos/oc.metros_necesarios*100:0;
+  const mtsNuevos=bobs.reduce((s,b)=>s+(b.metros_reales||0),0);
+  const total=mtsUsados+mtsNuevos;
+  const pctNuevo=oc.metros_necesarios?total/oc.metros_necesarios*100:0;
+
   const ejecutar=async()=>{
-    const{error:e1}=await sb.from('orden_corte_bobinas').insert({
-      orden_corte_id:ocId, bobina_producida_id:bId, metros_usados:bob.metros_reales
-    });
+    msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Asociando '+bobs.length+' bobina'+(bobs.length>1?'s':'')+'...</div>';
+    // Insertar todas las asociaciones de una vez
+    const rows=bobs.map(b=>({
+      orden_corte_id:ocId,
+      bobina_producida_id:b.id,
+      metros_usados:b.metros_reales
+    }));
+    const{error:e1}=await sb.from('orden_corte_bobinas').insert(rows);
     if(e1){msg.style.color='var(--red)';msg.textContent='Error: '+e1.message;return;}
-    // Sacar del stock general
-    await sb.from('bobinas_producidas').update({en_stock:false}).eq('id',bId);
-    // Registrar en stock_movimientos
-    await sb.from('stock_movimientos').insert({
-      bobina_producida_id:bId,tipo:'salida',motivo:'corte_confeccion',
-      orden_corte:oc.numero_orden,metros:bob.metros_reales,kg:bob.kg_reales,operario:op||null
-    });
-    msg.style.color='var(--green)';msg.textContent=`✓ Bobina ${bob.numero_bobina} asociada a ${oc.numero_orden}`;
-    document.getElementById('conf-bob').value='';
-    document.getElementById('conf-detail').style.display='none';
+    // Sacar todas del stock
+    const ids=bobs.map(b=>b.id);
+    await sb.from('bobinas_producidas').update({en_stock:false}).in('id',ids);
+    // Registrar movimientos
+    const movs=bobs.map(b=>({
+      bobina_producida_id:b.id,tipo:'salida',motivo:'corte_confeccion',
+      orden_corte:oc.numero_orden,metros:b.metros_reales,kg:b.kg_reales,operario:op||null
+    }));
+    await sb.from('stock_movimientos').insert(movs);
+    msg.style.color='var(--green)';
+    msg.textContent='✓ '+bobs.length+' bobina'+(bobs.length>1?'s':'')+' asociada'+(bobs.length>1?'s':'')+' a '+oc.numero_orden+' — '+r1(mtsNuevos).toLocaleString('es-AR')+' m';
+    _confBobSel=new Set();
     await reload();
-    onConfOCChange(); // refresh progreso
+    // Restaurar la orden seleccionada (reload repuebla el select y pierde el value)
+    const sel=document.getElementById('conf-oc');
+    if(sel)sel.value=ocId;
+    onConfOCChange(); // refresh progreso, lista disponibles y bobinas ya asociadas
+    // Re-enfocar pistola para seguir escaneando
+    setTimeout(()=>document.getElementById('conf-pistola-input')?.focus(),100);
   };
   if(pctNuevo>(100+15)){
     pedirAdminYEjecutar(ejecutar);
@@ -6514,22 +6747,17 @@ function checkQRTarget(){
     if(b){
       go('confeccion');
       setTimeout(()=>{
-        // Poblar selector de bobinas primero
+        // Poblar selector de órdenes
         poblarConfSelects();
-        const sel=document.getElementById('conf-bob');
-        if(sel){
-          sel.value=b.id;
-          // Disparar el cambio para que filtre las órdenes compatibles
-          onConfBobChange();
-          // Scroll al formulario
-          sel.scrollIntoView({behavior:'smooth',block:'center'});
-          // Resaltar que hay una bobina pre-seleccionada
-          const msg=document.getElementById('msg-conf');
-          if(msg){
-            msg.style.color='var(--green)';
-            msg.textContent='✓ Bobina '+nro+' pre-seleccionada. Elegí la orden de corte.';
-          }
+        // Filtrar órdenes compatibles por tipo y pre-seleccionar bobina si hay una sola orden
+        const ok=preseleccionarBobinaQR(nro);
+        const msg=document.getElementById('msg-conf');
+        if(ok&&msg){
+          msg.style.color='var(--green)';
+          msg.textContent='✓ Bobina '+nro+' pre-seleccionada. Verificá la orden y otras bobinas a sumar (máx 4).';
         }
+        // Scroll al formulario
+        document.getElementById('conf-oc')?.scrollIntoView({behavior:'smooth',block:'center'});
       },400);
     } else {
       // Bobina no encontrada en stock
