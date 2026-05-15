@@ -7894,11 +7894,37 @@ function getRentComparacion(ini,fin,tipo){
 function calcRentPeriodo(ini,fin,gg,prodFiltro=0){
   let ords=C.ord_corte.filter(o=>{
     if(o.estado!=='Completada')return false;
-    const d=new Date(o.fecha_completada||o.created_at);
-    return d>=ini&&d<=fin;
+    const fechaStr=o.fecha_completada||o.created_at;
+    if(!fechaStr)return false;
+    const d=new Date(fechaStr);
+    return !isNaN(d)&&d>=ini&&d<=fin;
   });
   if(prodFiltro)ords=ords.filter(o=>o.producto_id===prodFiltro);
-  const ordsConPrecio=ords.filter(o=>o.precio_bolsa&&o.unidades_reales);
+  // Calcular precio_bolsa desde precio_paquete si no está disponible
+  const getPrecioBolsa=(o)=>{
+    if(o.precio_bolsa)return o.precio_bolsa;
+    if(o.precio_paquete){
+      const prod=C.productos.find(p=>p.id===o.producto_id);
+      const emp=C.emp.find(e=>e.id===prod?.empaque_id);
+      const uniPaq=emp?.unidades||0;
+      return uniPaq>0?r6(o.precio_paquete/uniPaq):0;
+    }
+    // Fallback: buscar precio en pedido vinculado
+    const pedOC=C.pedidos.find(p=>p.pedido_ordenes_corte?.some(x=>x.orden_corte_id===o.id));
+    if(pedOC){
+      const linea=pedOC.pedido_lineas?.find(l=>l.producto_id===o.producto_id);
+      if(linea?.precio_unitario)return linea.precio_unitario;
+      if(linea?.precio_paquete){
+        const prod=C.productos.find(p=>p.id===o.producto_id);
+        const emp=C.emp.find(e=>e.id===prod?.empaque_id);
+        const uniPaq=emp?.unidades||0;
+        return uniPaq>0?r6(linea.precio_paquete/uniPaq):0;
+      }
+    }
+    return 0;
+  };
+
+  const ordsConPrecio=ords.filter(o=>(o.precio_bolsa||o.precio_paquete||getPrecioBolsa(o))&&o.unidades_reales);
 
   // Helper: costo real de una bobina producida por fórmula
   function costoBobinaReal(bp){
@@ -7931,7 +7957,8 @@ function calcRentPeriodo(ini,fin,gg,prodFiltro=0){
 
   let ventaTotal=0,costoTotal=0,costoMPTotal2=0,unidadesTotal=0;
   const porOrden=ordsConPrecio.map(o=>{
-    const venta=r2(o.precio_bolsa*o.unidades_reales);
+    const precioBolsa=getPrecioBolsa(o);
+    const venta=r2(precioBolsa*o.unidades_reales);
     let costoMP=0;
     let mtsUsados=0;
     (o.orden_corte_bobinas||[]).forEach(ocb=>{
@@ -8000,6 +8027,7 @@ function renderRentResumen(wrap,A,B,comp,gg,label){
   const colMar=A.margenTotal>=20?'var(--green)':A.margenTotal>=10?'var(--amber)':'var(--red)';
   let html='<div class="an-section">Resumen — '+label+'</div>';
   if(A.ordsSinPrecio>0)html+='<div class="alert alert-warn" style="font-size:12px;margin-bottom:1rem;">⚠ '+A.ordsSinPrecio+' orden'+(A.ordsSinPrecio>1?'es':'')+' sin precio de venta — no incluidas.</div>';
+  if(B&&B.totalOrds<3)html+='<div style="background:var(--amberbg);border:1px solid var(--amberbd);border-radius:var(--r);padding:8px 12px;font-size:12px;color:var(--amber);margin-bottom:1rem;">⚠ El período de comparación tiene muy pocas órdenes ('+B.totalOrds+') — los promedios pueden no ser representativos.</div>';
   // Usar costoMPPuro (sin GG) almacenado — no cambia con slider
   const costoSinGG=A.costoMPPuro!=null?A.costoMPPuro:r2(A.costoTotal/(1+gg/100));
   const gananciaSinGG=r2(A.ventaTotal-costoSinGG);
@@ -8010,20 +8038,19 @@ function renderRentResumen(wrap,A,B,comp,gg,label){
   const costoPorBolsaSinGG=A.unidadesTotal>0?r6(costoSinGG/A.unidadesTotal):0;
   const gananciaPorBolsaSinGG=r6(A.ventaPorBolsa-costoPorBolsaSinGG);
 
-  // KPIs: marginal como primario, c/GG como dato secundario dentro de la misma card
   const kpis=[
-    {lbl:'Venta total',       val:'$'+A.ventaTotal.toLocaleString('es-AR'),    antV:B?.ventaTotal,    col:'var(--accent)', inv:false, principal:true},
-    {lbl:'Venta / bolsa',     val:'$'+A.ventaPorBolsa,                         antV:B?.ventaPorBolsa, col:'var(--accent)', inv:false, principal:true},
-    {lbl:'Costo MP',          val:'$'+costoSinGG.toLocaleString('es-AR'),      antV:BCostoSinGG,      col:'var(--text1)',  inv:true,  principal:true, secundario:'$'+A.costoTotal.toLocaleString('es-AR')},
-    {lbl:'Costo MP / bolsa',  val:'$'+costoPorBolsaSinGG,                      antV:B&&BCostoSinGG!==undefined?r6(BCostoSinGG/(B.unidadesTotal||1)):undefined, col:'var(--text1)', inv:true, principal:true, secundario:'$'+r6(A.costoPorBolsa)},
-    {lbl:'Ganancia marginal', val:'$'+gananciaSinGG.toLocaleString('es-AR'),   antV:BGananciaSinGG,   col:gananciaSinGG>=0?'var(--green)':'var(--red)', inv:false, principal:true, secundario:'$'+A.gananciaTotal.toLocaleString('es-AR')},
-    {lbl:'Ganancia / bolsa',  val:'$'+gananciaPorBolsaSinGG,                   antV:B&&BGananciaSinGG!==undefined?r6((B.ventaPorBolsa||0)-r6(BCostoSinGG/(B.unidadesTotal||1))):undefined, col:gananciaPorBolsaSinGG>=0?'var(--green)':'var(--red)', inv:false, principal:true, secundario:'$'+A.gananciaPorBolsa},
-    {lbl:'Margen %',          val:margenSinGG+'%',                             antV:BMargenSinGG,     col:margenSinGG>=30?'var(--green)':margenSinGG>=15?'var(--amber)':'var(--red)', inv:false, principal:true, secundario:A.margenTotal+'%'},
-    {lbl:'Unidades cortadas', val:A.unidadesTotal.toLocaleString('es-AR'),     antV:B?.unidadesTotal, col:'var(--text1)',  inv:false, principal:true},
+    {lbl:'Venta total',       val:'$'+A.ventaTotal.toLocaleString('es-AR'),    actNum:A.ventaTotal,         antV:B?.ventaTotal,    col:'var(--accent)', inv:false, principal:true},
+    {lbl:'Venta / bolsa',     val:'$'+A.ventaPorBolsa,                         actNum:A.ventaPorBolsa,      antV:B?.ventaPorBolsa, col:'var(--accent)', inv:false, principal:true},
+    {lbl:'Costo MP',          val:'$'+costoSinGG.toLocaleString('es-AR'),      actNum:costoSinGG,           antV:BCostoSinGG,      col:'var(--text1)',  inv:true,  principal:true, secundario:'$'+A.costoTotal.toLocaleString('es-AR')},
+    {lbl:'Costo MP / bolsa',  val:'$'+costoPorBolsaSinGG,                      actNum:costoPorBolsaSinGG,   antV:B&&BCostoSinGG!=null?r6(BCostoSinGG/(B.unidadesTotal||1)):undefined, col:'var(--text1)', inv:true, principal:true, secundario:'$'+r6(A.costoPorBolsa)},
+    {lbl:'Ganancia marginal', val:'$'+gananciaSinGG.toLocaleString('es-AR'),   actNum:gananciaSinGG,        antV:BGananciaSinGG,   col:gananciaSinGG>=0?'var(--green)':'var(--red)', inv:false, principal:true, secundario:'$'+A.gananciaTotal.toLocaleString('es-AR')},
+    {lbl:'Ganancia / bolsa',  val:'$'+gananciaPorBolsaSinGG,                   actNum:gananciaPorBolsaSinGG,antV:B&&BGananciaSinGG!=null?r6((B.ventaPorBolsa||0)-r6(BCostoSinGG/(B.unidadesTotal||1))):undefined, col:gananciaPorBolsaSinGG>=0?'var(--green)':'var(--red)', inv:false, principal:true, secundario:'$'+A.gananciaPorBolsa},
+    {lbl:'Margen %',          val:margenSinGG+'%',                             actNum:margenSinGG,          antV:BMargenSinGG,     col:margenSinGG>=30?'var(--green)':margenSinGG>=15?'var(--amber)':'var(--red)', inv:false, principal:true, secundario:A.margenTotal+'%'},
+    {lbl:'Unidades cortadas', val:A.unidadesTotal.toLocaleString('es-AR'),     actNum:A.unidadesTotal,      antV:B?.unidadesTotal, col:'var(--text1)',  inv:false, principal:true},
   ];
   html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:1.5rem;">';
   kpis.forEach(k=>{
-    const antStr=B&&k.antV!==undefined?'<div style="font-size:11px;color:var(--text3);margin-top:2px;">'+(typeof k.antV==='number'&&String(k.val).includes('%')?r2(k.antV)+'%':'$'+r2(k.antV).toLocaleString('es-AR'))+deltaBadge(parseFloat(String(k.val).replace(/[$%,.]/g,'')),k.antV,k.inv)+'</div>':'';
+    const antStr=B&&k.antV!==undefined?'<div style="font-size:11px;color:var(--text3);margin-top:2px;">'+(String(k.val).includes('%')?r2(k.antV)+'%':'$'+r2(k.antV).toLocaleString('es-AR'))+deltaBadge(k.actNum!==undefined?k.actNum:parseFloat(String(k.val).replace(/[$%,.]/g,'').replace(',','.')),k.antV,k.inv)+'</div>':'';
     const esPrincipal=k.principal;
     html+='<div class="kpi-card" style="border-top:3px solid '+k.col+';'+(esPrincipal?'':'opacity:.75;')+'">'
       +'<div class="kpi-lbl" style="'+(esPrincipal?'':'font-size:10px;')+'">'+k.lbl+'</div>'
@@ -10118,14 +10145,13 @@ function getCostoFiltroFechas(){
     +(p==='custom'?' al '+fin.toLocaleDateString('es-AR'):'')};
 }
 function filtrarBobinasPorFecha(ini,fin){
-  return C.bobinas_prod.filter(b=>{
-    const d=new Date((b.fecha_produccion||'')+'T00:00:00');
-    return d>=ini&&d<=fin&&!b.fuera_de_rango;
-  }).concat(
-    (C.bobinas_hist||[]).filter(b=>{
-      const d=new Date((b.fecha_produccion||'')+'T00:00:00');
-      return d>=ini&&d<=fin&&!b.fuera_de_rango&&!C.bobinas_prod.find(x=>x.id===b.id);
-    })
+  const enRango=(b)=>{
+    if(!b.fecha_produccion)return false;
+    const d=new Date(b.fecha_produccion+'T00:00:00');
+    return !isNaN(d)&&d>=ini&&d<=fin&&!b.fuera_de_rango;
+  };
+  return C.bobinas_prod.filter(enRango).concat(
+    (C.bobinas_hist||[]).filter(b=>enRango(b)&&!C.bobinas_prod.find(x=>x.id===b.id))
   );
 }
 function calcCostoOrdenConFecha(ordId,gg){
@@ -10198,10 +10224,10 @@ function getCostoComparacion(ini,fin,tipo){
 }
 // Helper: delta badge — muestra variación vs comparación
 function deltaBadge(actual,anterior,invertir=false){
-  if(!anterior||anterior===0)return '';
-  const pct=r2((actual-anterior)/anterior*100);
+  if(anterior===undefined||anterior===null||anterior===0)return '';
+  const pct=r2((actual-anterior)/Math.abs(anterior)*100);
+  if(Math.abs(pct)>999)return '<span style="font-size:11px;color:var(--text3);margin-left:4px">N/C</span>'; // no comparable
   const sube=pct>0;
-  // invertir=true para costos (subida es mala)
   const esBueno=invertir?!sube:sube;
   const col=esBueno?'var(--green)':'var(--red)';
   const icon=sube?'▲':'▼';
@@ -10263,18 +10289,18 @@ function renderCostosResumen(wrap,gg,ini,fin,label,comp){
   let html='<div class="an-section">Resumen — '+label+(B?' <span style="font-size:12px;color:var(--text2)">vs '+comp.label+'</span>':'')+'</div>';
   // KPIs con comparación
   const kpis=[
-    {lbl:'Kg producidos',val:A.kgTotal.toLocaleString('es-AR')+' kg',ant:B?.kgTotal,cls:'kpi-ext',invertir:false},
-    {lbl:'$/kg (MP puro)',val:'$'+A.costoKgMP,ant:B?.costoKgMP,cls:'kpi-ext',invertir:true},
-    {lbl:'$/kg (c/'+gg+'% GG)',val:'$'+A.costoKgTotal,ant:B?.costoKgTotal,cls:'kpi-error',invertir:true},
-    {lbl:'$/metro (c/GG)',val:'$'+A.costoMetro,ant:B?.costoMetro,cls:'kpi-ext',invertir:true},
-    {lbl:'Bolsas cortadas',val:A.totalBolsas.toLocaleString('es-AR'),ant:B?.totalBolsas,cls:'kpi-corte',invertir:false},
-    {lbl:'$/bolsa (MP puro)',val:'$'+A.costoPorBolsa,ant:B?.costoPorBolsa,cls:'kpi-corte',invertir:true},
-    {lbl:'$/bolsa (c/GG)',val:'$'+A.costoPorBolsaTotal,ant:B?.costoPorBolsaTotal,cls:'kpi-error',invertir:true},
-    {lbl:'Costo MP total',val:'$'+A.costoMPTotal.toLocaleString('es-AR'),ant:B?.costoMPTotal,cls:'kpi-error',invertir:true},
+    {lbl:'Kg producidos',      val:A.kgTotal.toLocaleString('es-AR')+' kg', actNum:A.kgTotal,        ant:B?.kgTotal,        cls:'kpi-ext',   invertir:false},
+    {lbl:'$/kg (MP puro)',     val:'$'+A.costoKgMP,                          actNum:A.costoKgMP,      ant:B?.costoKgMP,      cls:'kpi-ext',   invertir:true},
+    {lbl:'$/kg (c/'+gg+'% GG)',val:'$'+A.costoKgTotal,                       actNum:A.costoKgTotal,   ant:B?.costoKgTotal,   cls:'kpi-error', invertir:true},
+    {lbl:'$/metro (c/GG)',     val:'$'+A.costoMetro,                          actNum:A.costoMetro,     ant:B?.costoMetro,     cls:'kpi-ext',   invertir:true},
+    {lbl:'Bolsas cortadas',    val:A.totalBolsas.toLocaleString('es-AR'),    actNum:A.totalBolsas,    ant:B?.totalBolsas,    cls:'kpi-corte', invertir:false},
+    {lbl:'$/bolsa (MP puro)',  val:'$'+A.costoPorBolsa,                       actNum:A.costoPorBolsa,  ant:B?.costoPorBolsa,  cls:'kpi-corte', invertir:true},
+    {lbl:'$/bolsa (c/GG)',     val:'$'+A.costoPorBolsaTotal,                  actNum:A.costoPorBolsaTotal, ant:B?.costoPorBolsaTotal, cls:'kpi-error', invertir:true},
+    {lbl:'Costo MP total',     val:'$'+A.costoMPTotal.toLocaleString('es-AR'),actNum:A.costoMPTotal,   ant:B?.costoMPTotal,   cls:'kpi-error', invertir:true},
   ];
   html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:1.5rem;">';
   kpis.forEach(k=>{
-    const antStr=B&&k.ant!==undefined?'<div style="font-size:11px;color:var(--text3);margin-top:2px">'+(typeof k.ant==='number'&&k.ant>999?'$'+k.ant.toLocaleString('es-AR'):'$'+k.ant)+' '+( comp?.label||'')+deltaBadge(parseFloat(k.val.replace(/[$,]/g,'')),k.ant,k.invertir)+'</div>':'';
+    const antStr=B&&k.ant!==undefined?'<div style="font-size:11px;color:var(--text3);margin-top:2px">'+(typeof k.ant==='number'&&k.ant>999?'$'+k.ant.toLocaleString('es-AR'):'$'+k.ant)+' '+( comp?.label||'')+deltaBadge(k.actNum,k.ant,k.invertir)+'</div>':'';
     html+='<div class="kpi-card '+k.cls+'">'
       +'<div class="kpi-lbl">'+k.lbl+'</div>'
       +'<div class="kpi-val" style="font-size:20px">'+k.val+'</div>'
