@@ -6714,17 +6714,29 @@ function calcCierreOC(id){
   const mtsNecesarios=o.metros_necesarios||r2(mtsTeoricosPlan*(1+merma/100));
   // Metros productivos reales: los que efectivamente se convirtieron en bolsas
   const mtsProductivos=r2(totalUniReal*mtsPorBolsa);
-  // Merma real (m): lo usado − lo productivo
+  // Merma real (m): usados − productivos
+  //   positivo → se desperdiciaron metros (PÉRDIDA)
+  //   negativo → se produjo más de lo esperado por metro (GANANCIA)
   const mermaRealMts=r2(mtsUsados-mtsProductivos);
+  const esGananciaMts=mermaRealMts<0;
+  const mermaAbsMts=Math.abs(mermaRealMts);
   const mermaRealPct=mtsUsados>0?r2(mermaRealMts/mtsUsados*100):0;
-  const mermaColor=mermaRealPct<=merma?'var(--green)':mermaRealPct<=merma*1.5?'var(--amber)':'var(--red)';
-  // Validación de coherencia: mts usados debe ser >= mts productivos
-  const incoherente=mtsUsados>0&&mtsUsados<mtsProductivos-0.5;
+  const mermaAbsPct=Math.abs(mermaRealPct);
+  // Color: ganancia → verde; pérdida dentro de merma plan → verde; entre 1× y 1.5× → ámbar; mayor → rojo
+  let mermaColor;
+  if(esGananciaMts)mermaColor='var(--green)';
+  else if(mermaRealPct<=merma)mermaColor='var(--green)';
+  else if(mermaRealPct<=merma*1.5)mermaColor='var(--amber)';
+  else mermaColor='var(--red)';
 
   // === Scrap ===
   const kgPorMetro=mtsUsados>0?r4(kgUsados/mtsUsados):0;
-  const scrapCalcKg=r3(mermaRealMts*kgPorMetro);
+  // Si hubo ganancia (mts negativos), el scrap calculado físicamente debería ser 0
+  const scrapCalcKg=esGananciaMts?0:r3(mermaRealMts*kgPorMetro);
   const tieneScrap=!isNaN(scrapPesado)&&scrapPesado>=0;
+  // Diferencia: calculado − pesado
+  //   positivo → menos desperdicio real del esperado (GANANCIA)
+  //   negativo → más desperdicio real del esperado (PÉRDIDA)
   const difScrap=tieneScrap?r3(scrapCalcKg-scrapPesado):0;
   const difScrapColor=difScrap>=0?'var(--green)':'var(--red)';
 
@@ -6771,25 +6783,35 @@ function calcCierreOC(id){
       +'<div><span style="color:var(--text3)">Metros productivos reales</span><br><strong>'+mtsProductivos.toLocaleString('es-AR')+' m</strong></div>'
     +'</div>'
     +'<div style="background:rgba(255,255,255,.04);border-radius:var(--r);padding:6px 10px;font-size:12px;margin-bottom:6px;">'
-      +'Merma real: <strong style="color:'+mermaColor+'">'+mermaRealMts.toLocaleString('es-AR')+' m = '+mermaRealPct+'%</strong>'
-      +' <span style="color:var(--text3)">(planificada: '+merma+'%)</span>'
-      +(mermaRealPct>merma?' <span style="color:var(--amber)">⚠ Supera lo planificado</span>':'')
+      +(esGananciaMts
+        ?'Ganancia: <strong style="color:'+mermaColor+'">+'+mermaAbsMts.toLocaleString('es-AR')+' m</strong>'
+          +' <span style="color:var(--text3)">— se produjo más de lo esperado por metro</span>'
+        :'Merma real: <strong style="color:'+mermaColor+'">'+mermaRealMts.toLocaleString('es-AR')+' m = '+mermaRealPct+'%</strong>'
+          +' <span style="color:var(--text3)">(planificada: '+merma+'%)</span>'
+          +(mermaRealPct>merma?' <span style="color:var(--amber)">⚠ Supera lo planificado</span>':''))
     +'</div>'
-    +(incoherente?'<div style="color:var(--red);background:rgba(239,68,68,.1);border-radius:var(--r);padding:6px 10px;font-size:11px;margin-bottom:6px;">⚠ Los metros usados son MENOS que los productivos reales. Revisá la carga de bobinas o las unidades producidas.</div>':'')
 
     // ANÁLISIS DE SCRAP
     +(tieneScrap?
       '<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px 0;">Análisis de scrap</div>'
-      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:12px;">'
-        +'<div><span style="color:var(--text3)">Calculado (m → kg)</span><br><strong>'+mermaRealMts+' m → '+scrapCalcKg+' kg</strong></div>'
-        +'<div><span style="color:var(--text3)">Pesado</span><br><strong>'+scrapPesado+' kg</strong></div>'
-        +'<div><span style="color:var(--text3)">Diferencia (calc − pesado)</span><br>'
-          +'<strong style="color:'+difScrapColor+'">'+(difScrap>=0?'+':'')+difScrap+' kg</strong>'
+      +(esGananciaMts
+        // Caso especial: hubo ganancia de metros, scrap calculado = 0
+        ?'<div style="background:rgba(34,197,94,.08);border-radius:var(--r);padding:8px 10px;font-size:12px;">'
+          +'<strong style="color:var(--green)">Calculado: 0 kg</strong> (hubo ganancia de metros, no se espera scrap)'
+          +' · Pesado: <strong>'+scrapPesado+' kg</strong>'
+          +(scrapPesado>0?'<div style="font-size:11px;color:var(--text3);margin-top:3px;">El scrap pesado ('+scrapPesado+' kg) puede provenir de descartes de proceso (borde, arranque, ajustes).</div>':'')
         +'</div>'
-      +'</div>'
-      +'<div style="font-size:11px;color:var(--text3);margin-top:4px;">'
-        +(difScrap>=0?'+ Ganancia: menos desperdicio del esperado':'− Pérdida: más desperdicio del esperado')
-      +'</div>'
+        // Caso normal: hubo pérdida de metros, comparamos calc vs pesado
+        :'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:12px;">'
+          +'<div><span style="color:var(--text3)">Calculado (m → kg)</span><br><strong>'+mermaRealMts+' m → '+scrapCalcKg+' kg</strong></div>'
+          +'<div><span style="color:var(--text3)">Pesado</span><br><strong>'+scrapPesado+' kg</strong></div>'
+          +'<div><span style="color:var(--text3)">Diferencia (calc − pesado)</span><br>'
+            +'<strong style="color:'+difScrapColor+'">'+(difScrap>=0?'+':'')+difScrap+' kg</strong>'
+          +'</div>'
+        +'</div>'
+        +'<div style="font-size:11px;color:var(--text3);margin-top:4px;">'
+          +(difScrap>=0?'+ Ganancia: menos desperdicio del esperado':'− Pérdida: más desperdicio del esperado')
+        +'</div>')
     :'<div style="color:var(--amber);font-size:11px;margin-top:8px;">⚠ Ingresá el scrap pesado para completar el análisis.</div>')
 
     +(uniPorPaq===0?'<div style="color:var(--red);font-size:11px;margin-top:8px;">⚠ Sin empaque definido — configurá el empaque en el producto para calcular bien.</div>':'')
