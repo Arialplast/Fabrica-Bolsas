@@ -7916,21 +7916,22 @@ function calcRentPeriodo(ini,fin,gg,prodFiltro=0){
     return c;
   }
 
-  // $/metro promedio del período (solo para info)
+  // $/metro puro de MP (sin GG) — no depende de GG%
   const bobs=filtrarBobinasPorFecha(ini,fin);
-  let costoMPTotal=0,mtsTotal=0;
+  let costoMPRawTotal=0,mtsTotal=0;
   const ordenesConBobs=[...new Set(bobs.map(b=>b.orden_id).filter(Boolean))];
   ordenesConBobs.forEach(ordId=>{
     const bobsOrd=bobs.filter(b=>b.orden_id===ordId);
-    costoMPTotal+=calcCostoMPOrden(ordId,bobsOrd);
+    costoMPRawTotal+=calcCostoMPOrden(ordId,bobsOrd); // calcCostoMPOrden ya devuelve costo sin GG
     mtsTotal+=bobsOrd.reduce((s,b)=>s+(b.metros_reales||0),0);
   });
-  const costoMetroProm=mtsTotal>0?r4(costoMPTotal*(1+gg/100)/mtsTotal):0;
+  // $/metro SIN GG — constante independiente del slider
+  const costoMetroPromSinGG=mtsTotal>0?r4(costoMPRawTotal/mtsTotal):0;
+  const costoMetroProm=r4(costoMetroPromSinGG*(1+gg/100)); // con GG solo para compatibilidad
 
-  let ventaTotal=0,costoTotal=0,unidadesTotal=0;
+  let ventaTotal=0,costoTotal=0,costoMPTotal2=0,unidadesTotal=0;
   const porOrden=ordsConPrecio.map(o=>{
     const venta=r2(o.precio_bolsa*o.unidades_reales);
-    // Calcular costo real sumando costo de cada bobina específica
     let costoMP=0;
     let mtsUsados=0;
     (o.orden_corte_bobinas||[]).forEach(ocb=>{
@@ -7938,13 +7939,15 @@ function calcRentPeriodo(ini,fin,gg,prodFiltro=0){
       if(!bp)return;
       mtsUsados+=bp.metros_reales||0;
       const c=costoBobinaReal(bp);
-      costoMP+=c>0?c:(bp.metros_reales||0)*(costoMetroProm/(1+gg/100));
+      // Fallback usa $/metro SIN GG — no varía con el slider
+      costoMP+=c>0?c:(bp.metros_reales||0)*costoMetroPromSinGG;
     });
-    const costo=r2(costoMP*(1+gg/100));
+    // costoMP = costo puro de MP sin GG — FIJO independiente de GG%
+    const costo=r2(costoMP*(1+gg/100));  // con GG — varía con el slider (dato secundario)
     const ganancia=r2(venta-costo);
     const margen=venta>0?r2(ganancia/venta*100):0;
-    ventaTotal+=venta;costoTotal+=costo;unidadesTotal+=o.unidades_reales||0;
-    return{o,venta,costo,ganancia,margen,mtsUsados:r2(mtsUsados),unidades:o.unidades_reales||0};
+    ventaTotal+=venta;costoTotal+=costo;costoMPTotal2+=costoMP;unidadesTotal+=o.unidades_reales||0;
+    return{o,venta,costoMP:r2(costoMP),costo,ganancia,margen,mtsUsados:r2(mtsUsados),unidades:o.unidades_reales||0};
   });
   const gananciaTotal=r2(ventaTotal-costoTotal);
   const margenTotal=ventaTotal>0?r2(gananciaTotal/ventaTotal*100):0;
@@ -7952,13 +7955,14 @@ function calcRentPeriodo(ini,fin,gg,prodFiltro=0){
   const ventaPorBolsa=unidadesTotal>0?r6(ventaTotal/unidadesTotal):0;
   const gananciaPorBolsa=r6(ventaPorBolsa-costoPorBolsa);
   const porProducto={};
-  porOrden.forEach(({o,venta,costo,ganancia,unidades})=>{
+  porOrden.forEach(({o,venta,costoMP,costo,ganancia,unidades})=>{
     const pid=o.producto_id;if(!pid)return;
-    if(!porProducto[pid])porProducto[pid]={nombre:o.productos?.descripcion||'—',venta:0,costo:0,ganancia:0,unidades:0,ordenes:0};
-    porProducto[pid].venta+=venta;porProducto[pid].costo+=costo;
+    if(!porProducto[pid])porProducto[pid]={nombre:o.productos?.descripcion||'—',venta:0,costoMP:0,costo:0,ganancia:0,unidades:0,ordenes:0};
+    porProducto[pid].venta+=venta;porProducto[pid].costoMP+=costoMP;
+    porProducto[pid].costo+=costo;
     porProducto[pid].ganancia+=ganancia;porProducto[pid].unidades+=unidades;porProducto[pid].ordenes++;
   });
-  return{ventaTotal:r2(ventaTotal),costoTotal:r2(costoTotal),gananciaTotal,margenTotal,
+  return{ventaTotal:r2(ventaTotal),costoTotal:r2(costoTotal),costoMPPuro:r2(costoMPTotal2),gananciaTotal,margenTotal,
     unidadesTotal,costoPorBolsa,ventaPorBolsa,gananciaPorBolsa,
     porOrden,porProducto,ordsSinPrecio:ords.length-ordsConPrecio.length,totalOrds:ords.length,costoMetroProm};
 }
@@ -7996,24 +8000,37 @@ function renderRentResumen(wrap,A,B,comp,gg,label){
   const colMar=A.margenTotal>=20?'var(--green)':A.margenTotal>=10?'var(--amber)':'var(--red)';
   let html='<div class="an-section">Resumen — '+label+'</div>';
   if(A.ordsSinPrecio>0)html+='<div class="alert alert-warn" style="font-size:12px;margin-bottom:1rem;">⚠ '+A.ordsSinPrecio+' orden'+(A.ordsSinPrecio>1?'es':'')+' sin precio de venta — no incluidas.</div>';
+  // Usar costoMPPuro (sin GG) almacenado — no cambia con slider
+  const costoSinGG=A.costoMPPuro!=null?A.costoMPPuro:r2(A.costoTotal/(1+gg/100));
+  const gananciaSinGG=r2(A.ventaTotal-costoSinGG);
+  const margenSinGG=A.ventaTotal>0?r2(gananciaSinGG/A.ventaTotal*100):0;
+  const BCostoSinGG=B?(B.costoMPPuro!=null?B.costoMPPuro:r2(B.costoTotal/(1+gg/100))):undefined;
+  const BGananciaSinGG=B&&BCostoSinGG!==undefined?r2(B.ventaTotal-BCostoSinGG):undefined;
+  const BMargenSinGG=B&&B.ventaTotal>0&&BGananciaSinGG!==undefined?r2(BGananciaSinGG/B.ventaTotal*100):undefined;
+  const costoPorBolsaSinGG=A.unidadesTotal>0?r6(costoSinGG/A.unidadesTotal):0;
+  const gananciaPorBolsaSinGG=r6(A.ventaPorBolsa-costoPorBolsaSinGG);
+
+  // KPIs: marginal como primario, c/GG como dato secundario dentro de la misma card
   const kpis=[
-    {lbl:'Venta total',val:'$'+A.ventaTotal.toLocaleString('es-AR'),antV:B?.ventaTotal,col:'var(--accent)',inv:false},
-    {lbl:'Costo MP sin GG',val:'$'+r2(A.costoTotal/(1+gg/100)).toLocaleString('es-AR'),antV:B?r2(B.costoTotal/(1+gg/100)):undefined,col:'var(--text1)',inv:true},
-    {lbl:'Costo total c/'+gg+'% GG',val:'$'+A.costoTotal.toLocaleString('es-AR'),antV:B?.costoTotal,col:'var(--text2)',inv:true},
-    {lbl:'Ganancia bruta',val:'$'+A.gananciaTotal.toLocaleString('es-AR'),antV:B?.gananciaTotal,col:colGan,inv:false},
-    {lbl:'Margen %',val:A.margenTotal+'%',antV:B?.margenTotal,col:colMar,inv:false},
-    {lbl:'Unidades cortadas',val:A.unidadesTotal.toLocaleString('es-AR'),antV:B?.unidadesTotal,col:'var(--text1)',inv:false},
-    {lbl:'Venta / bolsa',val:'$'+A.ventaPorBolsa,antV:B?.ventaPorBolsa,col:'var(--accent)',inv:false},
-    {lbl:'Costo MP / bolsa',val:'$'+r6(A.costoPorBolsa/(1+gg/100)),antV:B?r6(B.costoPorBolsa/(1+gg/100)):undefined,col:'var(--text1)',inv:true},
-    {lbl:'Ganancia / bolsa',val:'$'+A.gananciaPorBolsa,antV:B?.gananciaPorBolsa,col:A.gananciaPorBolsa>=0?'var(--green)':'var(--red)',inv:false},
+    {lbl:'Venta total',       val:'$'+A.ventaTotal.toLocaleString('es-AR'),    antV:B?.ventaTotal,    col:'var(--accent)', inv:false, principal:true},
+    {lbl:'Venta / bolsa',     val:'$'+A.ventaPorBolsa,                         antV:B?.ventaPorBolsa, col:'var(--accent)', inv:false, principal:true},
+    {lbl:'Costo MP',          val:'$'+costoSinGG.toLocaleString('es-AR'),      antV:BCostoSinGG,      col:'var(--text1)',  inv:true,  principal:true, secundario:'$'+A.costoTotal.toLocaleString('es-AR')},
+    {lbl:'Costo MP / bolsa',  val:'$'+costoPorBolsaSinGG,                      antV:B&&BCostoSinGG!==undefined?r6(BCostoSinGG/(B.unidadesTotal||1)):undefined, col:'var(--text1)', inv:true, principal:true, secundario:'$'+r6(A.costoPorBolsa)},
+    {lbl:'Ganancia marginal', val:'$'+gananciaSinGG.toLocaleString('es-AR'),   antV:BGananciaSinGG,   col:gananciaSinGG>=0?'var(--green)':'var(--red)', inv:false, principal:true, secundario:'$'+A.gananciaTotal.toLocaleString('es-AR')},
+    {lbl:'Ganancia / bolsa',  val:'$'+gananciaPorBolsaSinGG,                   antV:B&&BGananciaSinGG!==undefined?r6((B.ventaPorBolsa||0)-r6(BCostoSinGG/(B.unidadesTotal||1))):undefined, col:gananciaPorBolsaSinGG>=0?'var(--green)':'var(--red)', inv:false, principal:true, secundario:'$'+A.gananciaPorBolsa},
+    {lbl:'Margen %',          val:margenSinGG+'%',                             antV:BMargenSinGG,     col:margenSinGG>=30?'var(--green)':margenSinGG>=15?'var(--amber)':'var(--red)', inv:false, principal:true, secundario:A.margenTotal+'%'},
+    {lbl:'Unidades cortadas', val:A.unidadesTotal.toLocaleString('es-AR'),     antV:B?.unidadesTotal, col:'var(--text1)',  inv:false, principal:true},
   ];
   html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:1.5rem;">';
   kpis.forEach(k=>{
-    const antStr=B&&k.antV!==undefined?'<div style="font-size:11px;color:var(--text3);margin-top:2px">$'+r2(k.antV).toLocaleString('es-AR')+deltaBadge(parseFloat(String(k.val).replace(/[$%,]/g,'')),k.antV,k.inv)+'</div>':'';
-    html+='<div class="kpi-card" style="border-top:3px solid '+k.col+';">'
-      +'<div class="kpi-lbl">'+k.lbl+'</div>'
-      +'<div class="kpi-val" style="font-size:20px;color:'+k.col+'">'+k.val+'</div>'
-      +antStr+'</div>';
+    const antStr=B&&k.antV!==undefined?'<div style="font-size:11px;color:var(--text3);margin-top:2px;">'+(typeof k.antV==='number'&&String(k.val).includes('%')?r2(k.antV)+'%':'$'+r2(k.antV).toLocaleString('es-AR'))+deltaBadge(parseFloat(String(k.val).replace(/[$%,.]/g,'')),k.antV,k.inv)+'</div>':'';
+    const esPrincipal=k.principal;
+    html+='<div class="kpi-card" style="border-top:3px solid '+k.col+';'+(esPrincipal?'':'opacity:.75;')+'">'
+      +'<div class="kpi-lbl" style="'+(esPrincipal?'':'font-size:10px;')+'">'+k.lbl+'</div>'
+      +'<div class="kpi-val" style="font-size:'+(esPrincipal?'22':'17')+'px;color:'+k.col+'">'+k.val+'</div>'
+      +antStr
+      +(k.secundario?'<div style="font-size:10px;color:var(--text3);margin-top:3px;border-top:1px solid var(--border);padding-top:3px;">c/'+gg+'% GG: '+k.secundario+'</div>':'')
+    +'</div>';
   });
   html+='</div>';
   // Semáforo
@@ -8029,26 +8046,73 @@ function renderRentProducto(wrap,A,B,comp,gg){
   const productos=Object.entries(A.porProducto);
   if(!productos.length){wrap.innerHTML='<div class="empty">Sin órdenes con precio de venta en el período.</div>';return;}
   let html='<div class="an-section">Por producto'+(comp?' vs '+comp.label:'')+'</div>'
-    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:1.5rem;">';
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-bottom:1.5rem;">';
+
   productos.sort((a,b)=>b[1].ganancia-a[1].ganancia).forEach(([pid,x])=>{
     const bx=B?.porProducto[pid];
-    const margen=x.venta>0?r2(x.ganancia/x.venta*100):0;
-    const colMar=margen>=20?'var(--green)':margen>=10?'var(--amber)':'var(--red)';
+
+    // Marginal (sin GG) — usa costoMP puro, no cambia con slider
+    const costoSinGG=r2(x.costoMP||x.costo/(1+gg/100));
+    const gananciaMarg=r2(x.venta-costoSinGG);
+    const margenMarg=x.venta>0?r2(gananciaMarg/x.venta*100):0;
     const vpb=x.unidades>0?r6(x.venta/x.unidades):0;
-    const gpb=x.unidades>0?r6(x.ganancia/x.unidades):0;
-    const bMargen=bx?.venta>0?r2(bx.ganancia/bx.venta*100):null;
+    const cpbSinGG=x.unidades>0?r6(costoSinGG/x.unidades):0;
+    const gpbMarg=x.unidades>0?r6(gananciaMarg/x.unidades):0;
+
+    // Con GG (secundario)
+    const margenCGG=x.venta>0?r2(x.ganancia/x.venta*100):0;
+    const gpbCGG=x.unidades>0?r6(x.ganancia/x.unidades):0;
+
+    // Comparación período B
+    const bCostoSinGG=bx?r2(bx.costo/(1+gg/100)):null;
+    const bGananciaMarg=bx?r2(bx.venta-bCostoSinGG):null;
+    const bMargenMarg=bx&&bx.venta>0?r2(bGananciaMarg/bx.venta*100):null;
+
+    const colMar=margenMarg>=30?'var(--green)':margenMarg>=15?'var(--amber)':'var(--red)';
+
     html+='<div class="kpi-card" style="border-top:3px solid '+colMar+';">'
-      +'<div class="kpi-lbl">'+x.nombre+'</div>'
-      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">'
-        +'<div><div class="stat-lbl">Margen</div><div style="font-size:20px;font-weight:800;color:'+colMar+'">'+margen+'%</div>'
-          +(bMargen!==null?'<div style="font-size:11px;color:var(--text3)">'+bMargen+'%'+deltaBadge(margen,bMargen,false)+'</div>':'')+'</div>'
-        +'<div><div class="stat-lbl">Ganancia</div><div style="font-size:16px;font-weight:700;color:'+colMar+'">$'+r2(x.ganancia).toLocaleString('es-AR')+'</div>'
-          +(bx?'<div style="font-size:11px;color:var(--text3)">$'+r2(bx.ganancia).toLocaleString('es-AR')+deltaBadge(x.ganancia,bx.ganancia,false)+'</div>':'')+'</div>'
-        +'<div><div class="stat-lbl">Venta/bolsa</div><div class="mono">$'+vpb+'</div></div>'
-        +'<div><div class="stat-lbl">Ganancia/bolsa</div><div class="mono" style="color:'+colMar+'">$'+gpb+'</div></div>'
+      +'<div class="kpi-lbl" style="font-size:13px;font-weight:700;margin-bottom:8px;">'+x.nombre+'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'
+
+        // Margen
+        +'<div>'
+          +'<div class="stat-lbl">Margen (sin GG)</div>'
+          +'<div style="font-size:22px;font-weight:900;color:'+colMar+'">'+margenMarg+'%</div>'
+          +(bMargenMarg!==null?'<div style="font-size:11px;color:var(--text3)">'+bMargenMarg+'%'+deltaBadge(margenMarg,bMargenMarg,false)+'</div>':'')
+          +'<div style="font-size:10px;color:var(--text3);margin-top:2px;">c/GG: '+margenCGG+'%</div>'
+        +'</div>'
+
+        // Ganancia
+        +'<div>'
+          +'<div class="stat-lbl">Ganancia marginal</div>'
+          +'<div style="font-size:17px;font-weight:800;color:'+colMar+'">$'+r2(gananciaMarg).toLocaleString('es-AR')+'</div>'
+          +(bGananciaMarg!==null?'<div style="font-size:11px;color:var(--text3)">$'+r2(bGananciaMarg).toLocaleString('es-AR')+deltaBadge(gananciaMarg,bGananciaMarg,false)+'</div>':'')
+          +'<div style="font-size:10px;color:var(--text3);margin-top:2px;">c/GG: $'+r2(x.ganancia).toLocaleString('es-AR')+'</div>'
+        +'</div>'
+
+        // Venta/bolsa
+        +'<div>'
+          +'<div class="stat-lbl">Venta / bolsa</div>'
+          +'<div class="mono" style="font-size:14px;font-weight:700;color:var(--accent)">$'+vpb+'</div>'
+          +(bx&&bx.unidades>0?'<div style="font-size:11px;color:var(--text3)">$'+r6(bx.venta/bx.unidades)+deltaBadge(vpb,r6(bx.venta/bx.unidades),false)+'</div>':'')
+        +'</div>'
+
+        // Ganancia/bolsa
+        +'<div>'
+          +'<div class="stat-lbl">Gan. / bolsa (sin GG)</div>'
+          +'<div class="mono" style="font-size:14px;font-weight:700;color:'+colMar+'">$'+gpbMarg+'</div>'
+          +(bx&&bx.unidades>0&&bCostoSinGG!==null?'<div style="font-size:11px;color:var(--text3)">$'+r6(bGananciaMarg/bx.unidades)+deltaBadge(gpbMarg,r6(bGananciaMarg/bx.unidades),false)+'</div>':'')
+          +'<div style="font-size:10px;color:var(--text3);margin-top:2px;">c/GG: $'+gpbCGG+'</div>'
+        +'</div>'
+
       +'</div>'
-      +'<div style="font-size:11px;color:var(--text3)">'+x.unidades.toLocaleString('es-AR')+' u · $'+r2(x.venta).toLocaleString('es-AR')+' venta · '+x.ordenes+' órdenes</div>'
-      +'</div>';
+      +'<div style="font-size:11px;color:var(--text3);border-top:1px solid var(--border);padding-top:6px;display:flex;gap:12px;flex-wrap:wrap;">'
+        +'<span>'+x.unidades.toLocaleString('es-AR')+' u</span>'
+        +'<span>$'+r2(x.venta).toLocaleString('es-AR')+' venta</span>'
+        +'<span>'+x.ordenes+' orden'+(x.ordenes>1?'es':'')+'</span>'
+        +(bx?'<span style="color:var(--accent)">ant: '+bx.unidades.toLocaleString('es-AR')+' u</span>':'')
+      +'</div>'
+    +'</div>';
   });
   html+='</div>';
   wrap.innerHTML=html;
@@ -8057,21 +8121,43 @@ function renderRentOrdenes(wrap,A,gg){
   if(!A.porOrden.length){wrap.innerHTML='<div class="empty">Sin órdenes con precio de venta en el período.</div>';return;}
   let html='<div class="an-section">Por orden de corte</div>'
     +'<div style="overflow-x:auto"><table><thead><tr>'
-    +'<th>N° Orden</th><th>Producto</th><th>Cliente</th><th>Unidades</th><th>Venta</th><th>Costo</th><th>Ganancia</th><th>Margen</th><th>Gan./bolsa</th>'
+    +'<th>N° Orden</th><th>Producto</th><th>Cliente</th><th>Unidades</th>'
+    +'<th>Venta</th><th>Costo MP</th>'
+    +'<th>Gan. marginal<br><span style="font-size:9px;font-weight:400;opacity:.7">/ c/'+gg+'% GG</span></th>'
+    +'<th>Margen s/GG<br><span style="font-size:9px;font-weight:400;opacity:.7">/ c/GG</span></th>'
+    +'<th>Gan./bolsa<br><span style="font-size:9px;font-weight:400;opacity:.7">/ c/GG</span></th>'
     +'</tr></thead><tbody>';
-  A.porOrden.sort((a,b)=>b.ganancia-a.ganancia).forEach(({o,venta,costo,ganancia,margen,unidades})=>{
-    const colMar=margen>=20?'var(--green)':margen>=10?'var(--amber)':'var(--red)';
-    const gpb=unidades>0?r6(ganancia/unidades):0;
+  // Ordenar por ganancia MARGINAL (no cambia con GG%)
+  A.porOrden.sort((a,b)=>(b.venta-b.costoMP)-(a.venta-a.costoMP)).forEach(({o,venta,costoMP,costo,ganancia,margen,unidades})=>{
+    // Marginal (primario) — fijo
+    const gananciaMarg=r2(venta-costoMP);
+    const margenMarg=venta>0?r2(gananciaMarg/venta*100):0;
+    const gpbMarg=unidades>0?r6(gananciaMarg/unidades):0;
+    // Con GG (secundario) — varía con slider
+    const gpbCGG=unidades>0?r6(ganancia/unidades):0;
+    const colMar=margenMarg>=30?'var(--green)':margenMarg>=15?'var(--amber)':'var(--red)';
     html+='<tr>'
       +'<td class="mono">'+o.numero_orden+'</td>'
       +'<td style="font-size:12px">'+(o.productos?.descripcion||'—')+'</td>'
       +'<td style="font-size:12px">'+(o.cliente||'—')+'</td>'
       +'<td class="mono">'+unidades.toLocaleString('es-AR')+'</td>'
       +'<td class="mono">$'+venta.toLocaleString('es-AR')+'</td>'
-      +'<td class="mono">$'+costo.toLocaleString('es-AR')+'</td>'
-      +'<td class="mono" style="font-weight:700;color:'+(ganancia>=0?'var(--green)':'var(--red)')+'">$'+r2(ganancia).toLocaleString('es-AR')+'</td>'
-      +'<td class="mono" style="font-weight:700;color:'+colMar+'">'+margen+'%</td>'
-      +'<td class="mono" style="color:'+(gpb>=0?'var(--green)':'var(--red)')+'">$'+gpb+'</td>'
+      +'<td class="mono" style="color:var(--text2)">$'+costoMP.toLocaleString('es-AR')+'</td>'
+      // Ganancia: marginal grande, c/GG gris abajo
+      +'<td class="mono">'
+        +'<div style="font-weight:700;color:'+(gananciaMarg>=0?'var(--green)':'var(--red)')+'">$'+r2(gananciaMarg).toLocaleString('es-AR')+'</div>'
+        +'<div style="font-size:10px;color:var(--text3)">$'+r2(ganancia).toLocaleString('es-AR')+'</div>'
+      +'</td>'
+      // Margen: marginal grande, c/GG gris abajo
+      +'<td class="mono">'
+        +'<div style="font-weight:700;color:'+colMar+'">'+margenMarg+'%</div>'
+        +'<div style="font-size:10px;color:var(--text3)">'+margen+'%</div>'
+      +'</td>'
+      // Gan/bolsa: marginal grande, c/GG gris abajo
+      +'<td class="mono">'
+        +'<div style="color:'+(gpbMarg>=0?'var(--green)':'var(--red)')+'">$'+gpbMarg+'</div>'
+        +'<div style="font-size:10px;color:var(--text3)">$'+gpbCGG+'</div>'
+      +'</td>'
       +'</tr>';
   });
   html+='</tbody></table></div>';
