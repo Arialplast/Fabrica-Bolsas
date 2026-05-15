@@ -6604,24 +6604,50 @@ function abrirCierreOrdenCorte(id){
   const mtsUsados=r2(o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0);
   const kgUsados=r3(o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.kg_reales||0),0)||0);
   const mtsPorBolsa=prod?.metros_por_bolsa||0;
+  const uniPlan=o.unidades_a_producir||0;
+  const bolsonesPlan=o.bolsones_a_producir||0;
+  const paqPlan=o.cantidad_paquetes||(bolsonesPlan*paqPorBolson);
+  const merma=o.merma_pct||5;
+  // Metros teóricos puros (sin merma) — lo que la orden necesita en bolsas netas
+  const mtsTeoricosPlan=r2(uniPlan*mtsPorBolsa);
+  // Metros necesarios = teóricos + merma planificada (ya viene calculado en la orden)
+  const mtsNecesarios=o.metros_necesarios||r2(mtsTeoricosPlan*(1+merma/100));
+  const nBobinas=o.orden_corte_bobinas?.length||0;
 
   const html='<div class="modal-overlay" id="cierre-modal">'
-    +'<div class="modal-card" style="max-width:560px;max-height:90vh;overflow-y:auto;">'
+    +'<div class="modal-card" style="max-width:640px;max-height:92vh;overflow-y:auto;">'
     +'<div class="modal-title">📦 Cerrar orden '+o.numero_orden+'</div>'
-    // Info de la orden
-    +'<div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;margin-bottom:1rem;font-size:12px;display:grid;grid-template-columns:1fr 1fr;gap:6px;">'
-      +'<div>Producto: <strong>'+(prod?.descripcion||'—')+'</strong></div>'
-      +'<div>Empaque: <strong>'+(emp?emp.nombre+' ('+emp.unidades+' u/paq)':'sin empaque')+'</strong></div>'
-      +'<div>Metros usados: <strong>'+mtsUsados+' m</strong></div>'
-      +'<div>Kg bobinas: <strong>'+kgUsados+' kg</strong></div>'
-      +'<div>Bolsones planificados: <strong>'+(o.bolsones_a_producir||'—')+'</strong></div>'
-      +'<div>Paq/bolsón: <strong>'+paqPorBolson+'</strong></div>'
+
+    // === BLOQUE 1: PLANIFICACIÓN ===
+    +'<div style="background:var(--bg3);border-radius:var(--r);padding:12px 14px;margin-bottom:12px;">'
+      +'<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Planificación de la orden</div>'
+      +'<div style="font-weight:600;font-size:13px;margin-bottom:6px;">'+(prod?.codigo+' · '+prod.descripcion||'—')+'</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;">'
+        +'<div>Empaque: <strong>'+(emp?emp.nombre+' ('+emp.unidades+' u/paq)':'sin empaque')+'</strong></div>'
+        +'<div>Merma planificada: <strong>'+merma+'%</strong></div>'
+        +'<div>Bolsones planificados: <strong>'+bolsonesPlan.toLocaleString('es-AR')+'</strong> ('+paqPorBolson+' paq/bolsón)</div>'
+        +'<div>Paquetes totales: <strong>'+paqPlan.toLocaleString('es-AR')+'</strong></div>'
+        +'<div style="grid-column:span 2">Unidades a producir: <strong style="color:var(--accent)">'+uniPlan.toLocaleString('es-AR')+' u</strong></div>'
+        +'<div>Metros teóricos (sin merma): <strong>'+mtsTeoricosPlan.toLocaleString('es-AR')+' m</strong></div>'
+        +'<div>Metros necesarios (con merma): <strong>'+mtsNecesarios.toLocaleString('es-AR')+' m</strong></div>'
+      +'</div>'
     +'</div>'
-    // Ingreso del operario
+
+    // === BLOQUE 2: BOBINAS CONSUMIDAS ===
+    +'<div style="background:var(--bg2);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;">'
+      +'<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Bobinas consumidas</div>'
+      +'<div style="font-size:12px;">'
+        +'<strong>'+nBobinas+'</strong> bobina'+(nBobinas===1?'':'s')+' asociada'+(nBobinas===1?'':'s')+' · '
+        +'<strong>'+mtsUsados.toLocaleString('es-AR')+' m</strong> · '
+        +'<strong>'+kgUsados+' kg</strong>'
+      +'</div>'
+    +'</div>'
+
+    // === BLOQUE 3: INFORME DEL OPERARIO ===
     +'<div class="fp-t" style="margin-bottom:8px;">El operario informa</div>'
     +'<div class="fgrid fgrid3" style="margin-bottom:8px;">'
       +'<div class="fg"><label>Bolsones completos</label>'
-        +'<input id="ci-bolsones" type="number" min="0" value="" placeholder="ej: 10" oninput="calcCierreOC('+id+')">'
+        +'<input id="ci-bolsones" type="number" min="0" value="" placeholder="ej: '+bolsonesPlan+'" oninput="calcCierreOC('+id+')">'
       +'</div>'
       +'<div class="fg"><label>Paquetes sueltos</label>'
         +'<input id="ci-paq-sueltos" type="number" min="0" value="0" placeholder="ej: 7" oninput="calcCierreOC('+id+')">'
@@ -6632,14 +6658,14 @@ function abrirCierreOrdenCorte(id){
       +'</div>'
     +'</div>'
     +'<div class="fg" style="margin-bottom:1rem;"><label>Observaciones</label><input id="ci-obs" type="text" placeholder="Opcional"></div>'
-    // Resultados calculados
-    +'<div id="ci-calc-wrap" style="display:none;background:var(--bg3);border-radius:var(--r);padding:12px;margin-bottom:1rem;">'
-      +'<div class="fp-t" style="margin-bottom:8px;">El sistema calcula</div>'
-      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;" id="ci-calc-grid"></div>'
-    +'</div>'
-    +'<div class="btn-grp">'
-      +'<button class="btn btn-primary btn-sm" onclick="cerrarOrdenCorte('+id+')">Cerrar orden</button>'
+
+    // === BLOQUE 4: INFORME CALCULADO (se muestra al ingresar datos) ===
+    +'<div id="ci-calc-wrap" style="display:none;"></div>'
+
+    +'<div class="btn-grp" style="margin-top:1rem;">'
+      +'<button class="btn btn-primary btn-sm" onclick="cerrarOrdenCorte('+id+')">Cerrar orden 🔐</button>'
       +'<button class="btn btn-sm" onclick="document.getElementById(\'cierre-modal\').remove()">Cancelar</button>'
+      +'<span style="font-size:10px;color:var(--text3);margin-left:8px;align-self:center;">Requiere admin · (futuro: rol depósito)</span>'
     +'</div>'
     +'<div id="ci-err" style="color:var(--red);font-size:12px;margin-top:8px;"></div>'
     +'</div></div>';
@@ -6654,54 +6680,120 @@ function calcCierreOC(id){
   const uniPorPaq=emp?.unidades||0;
   const paqPorBolson=o.paquetes_por_bolson||prod?.paquetes_por_bolson||1;
   const mtsPorBolsa=prod?.metros_por_bolsa||0;
+  const merma=o.merma_pct||5;
   const bolsones=parseInt(document.getElementById('ci-bolsones')?.value)||0;
   const paqSueltos=parseInt(document.getElementById('ci-paq-sueltos')?.value)||0;
-  const scrapPesado=parseFloat(document.getElementById('ci-scrap')?.value)||0;
+  const scrapPesado=parseFloat(document.getElementById('ci-scrap')?.value);
   const wrap=document.getElementById('ci-calc-wrap');
-  const grid=document.getElementById('ci-calc-grid');
   if(!bolsones&&!paqSueltos){if(wrap)wrap.style.display='none';return;}
   if(wrap)wrap.style.display='block';
-  // Cadena: bolsones x paq/bolson + sueltos = total paq → total uni
-  const totalPaq=(bolsones*paqPorBolson)+paqSueltos;
-  const totalUni=uniPorPaq>0?totalPaq*uniPorPaq:0;
-  // Metros
+
+  // === Producción real ===
+  const totalPaqReal=(bolsones*paqPorBolson)+paqSueltos;
+  const totalUniReal=uniPorPaq>0?totalPaqReal*uniPorPaq:0;
+
+  // === Planificado ===
+  const bolsonesPlan=o.bolsones_a_producir||0;
+  const paqPlan=o.cantidad_paquetes||(bolsonesPlan*paqPorBolson);
+  const uniPlan=o.unidades_a_producir||0;
+
+  // === Diferencias ===
+  const difBolsones=bolsones-bolsonesPlan;
+  const difPaq=totalPaqReal-paqPlan;
+  const difUni=totalUniReal-uniPlan;
+  const cumplPct=uniPlan>0?r1(totalUniReal/uniPlan*100):0;
+  const cumplColor=cumplPct>=100?'var(--green)':cumplPct>=95?'var(--amber)':'var(--red)';
+  const faltaBultos=difPaq<0;
+
+  // === Metros ===
   const mtsUsados=r2(o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0);
   const kgUsados=r3(o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.kg_reales||0),0)||0);
-  const mtsTeoricos=r2(totalUni*mtsPorBolsa);
-  const mtsScrap=r2(mtsUsados-mtsTeoricos);
-  // Scrap kg proporcional
+  // Metros teóricos: lo que la orden requiere SIN merma
+  const mtsTeoricosPlan=r2(uniPlan*mtsPorBolsa);
+  // Metros necesarios: teóricos + merma planificada
+  const mtsNecesarios=o.metros_necesarios||r2(mtsTeoricosPlan*(1+merma/100));
+  // Metros productivos reales: los que efectivamente se convirtieron en bolsas
+  const mtsProductivos=r2(totalUniReal*mtsPorBolsa);
+  // Merma real (m): lo usado − lo productivo
+  const mermaRealMts=r2(mtsUsados-mtsProductivos);
+  const mermaRealPct=mtsUsados>0?r2(mermaRealMts/mtsUsados*100):0;
+  const mermaColor=mermaRealPct<=merma?'var(--green)':mermaRealPct<=merma*1.5?'var(--amber)':'var(--red)';
+  // Validación de coherencia: mts usados debe ser >= mts productivos
+  const incoherente=mtsUsados>0&&mtsUsados<mtsProductivos-0.5;
+
+  // === Scrap ===
   const kgPorMetro=mtsUsados>0?r4(kgUsados/mtsUsados):0;
-  const scrapCalcKg=r3(mtsScrap*kgPorMetro);
-  // Diferencia scrap: calculado − pesado → + ganancia, − perdida
-  const difScrap=r3(scrapCalcKg-scrapPesado);
-  const difColor=difScrap>=0?'var(--green)':'var(--red)';
-  // vs planificado
-  const bolsonesPlan=o.bolsones_a_producir||0;
-  const uniPlan=o.unidades_a_producir||0;
-  if(!grid)return;
-  grid.innerHTML=''
-    +'<div style="grid-column:span 2;background:var(--bg2);border-radius:var(--r);padding:8px;font-size:12px;">'
-      +'<strong>'+bolsones+' bolsones</strong> x '+paqPorBolson+' paq/bolson + '+paqSueltos+' paq sueltos'
-      +' = <strong>'+totalPaq.toLocaleString('es-AR')+' paquetes</strong>'
-      +(uniPorPaq>0?' x '+uniPorPaq+' u/paq = <strong style="color:var(--accent)">'+totalUni.toLocaleString('es-AR')+' unidades</strong>':'<span style="color:var(--red)"> sin empaque definido</span>')
+  const scrapCalcKg=r3(mermaRealMts*kgPorMetro);
+  const tieneScrap=!isNaN(scrapPesado)&&scrapPesado>=0;
+  const difScrap=tieneScrap?r3(scrapCalcKg-scrapPesado):0;
+  const difScrapColor=difScrap>=0?'var(--green)':'var(--red)';
+
+  // === Render ===
+  wrap.innerHTML=''
+    +'<div style="background:var(--bg3);border-radius:var(--r);padding:12px 14px;margin-bottom:1rem;">'
+
+    // PRODUCCIÓN REAL
+    +'<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Producción real</div>'
+    +'<div style="background:var(--bg2);border-radius:var(--r);padding:8px 10px;font-size:12px;margin-bottom:6px;">'
+      +'<strong>'+bolsones+' bolsones</strong> × '+paqPorBolson+' paq/bolsón'
+      +(paqSueltos>0?' + <strong>'+paqSueltos+'</strong> paq sueltos':'')
+      +' = <strong style="color:var(--accent)">'+totalPaqReal.toLocaleString('es-AR')+' paquetes</strong>'
+      +(uniPorPaq>0?' × '+uniPorPaq+' u/paq = <strong style="color:var(--accent)">'+totalUniReal.toLocaleString('es-AR')+' unidades</strong>':'<span style="color:var(--red)"> · sin empaque definido</span>')
     +'</div>'
-    +'<div><span style="color:var(--text3)">Planificado</span><br>'
-      +'<strong>'+bolsonesPlan+' bolsones / '+uniPlan.toLocaleString('es-AR')+' u</strong>'
+
+    // RESULTADO VS PLANIFICADO
+    +'<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px 0;">Resultado vs planificado</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px;margin-bottom:6px;">'
+      +'<div><span style="color:var(--text3)">Bolsones</span><br>'
+        +'<strong>'+bolsones+' / '+bolsonesPlan+'</strong>'
+        +' <span style="color:'+(difBolsones>=0?'var(--green)':'var(--red)')+';font-weight:600">'+(difBolsones>=0?'+':'')+difBolsones+'</span>'
+      +'</div>'
+      +'<div><span style="color:var(--text3)">Paquetes/bultos</span><br>'
+        +'<strong>'+totalPaqReal.toLocaleString('es-AR')+' / '+paqPlan.toLocaleString('es-AR')+'</strong>'
+        +' <span style="color:'+(difPaq>=0?'var(--green)':'var(--red)')+';font-weight:600">'+(difPaq>=0?'+':'')+difPaq.toLocaleString('es-AR')+'</span>'
+      +'</div>'
+      +'<div><span style="color:var(--text3)">Unidades</span><br>'
+        +'<strong>'+totalUniReal.toLocaleString('es-AR')+' / '+uniPlan.toLocaleString('es-AR')+'</strong>'
+        +' <span style="color:'+(difUni>=0?'var(--green)':'var(--red)')+';font-weight:600">'+(difUni>=0?'+':'')+difUni.toLocaleString('es-AR')+'</span>'
+      +'</div>'
     +'</div>'
-    +'<div><span style="color:var(--text3)">Diferencia vs plan</span><br>'
-      +'<strong style="color:'+(bolsones>=bolsonesPlan?'var(--green)':'var(--red)')+'">'
-        +(bolsones-bolsonesPlan>=0?'+':'')+(bolsones-bolsonesPlan)+' bolsones'
-        +' | '+(totalUni-uniPlan>=0?'+':'')+(totalUni-uniPlan).toLocaleString('es-AR')+' u'
-      +'</strong>'
+    +'<div style="background:'+(cumplPct>=100?'rgba(34,197,94,.08)':cumplPct>=95?'rgba(245,158,11,.08)':'rgba(239,68,68,.08)')+';border-radius:var(--r);padding:6px 10px;font-size:12px;margin-bottom:6px;">'
+      +'Cumplimiento: <strong style="color:'+cumplColor+';font-size:14px">'+cumplPct+'%</strong>'
+      +(faltaBultos?' · <span style="color:var(--red);font-weight:600">⚠ Faltan '+Math.abs(difPaq).toLocaleString('es-AR')+' bultos vs lo planificado</span>':' · <span style="color:var(--green)">✓ Cumple o supera el plan</span>')
     +'</div>'
-    +'<div><span style="color:var(--text3)">Metros usados / teoricos</span><br><strong>'+mtsUsados+' m / '+mtsTeoricos+' m</strong></div>'
-    +'<div><span style="color:var(--text3)">Scrap calculado</span><br><strong>'+mtsScrap+' m = '+scrapCalcKg+' kg</strong></div>'
-    +'<div><span style="color:var(--text3)">Scrap pesado</span><br><strong>'+scrapPesado+' kg</strong></div>'
-    +'<div><span style="color:var(--text3)">Diferencia scrap (calc - pesado)</span><br>'
-      +'<strong style="color:'+difColor+'">'+(difScrap>=0?'+':'')+difScrap+' kg</strong>'
-      +'<div style="font-size:10px;color:var(--text3)">'+(difScrap>=0?'+ Ganancia: menos desperdicio del esperado':'- Perdida: mas desperdicio del esperado')+'</div>'
+
+    // ANÁLISIS DE METROS
+    +'<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px 0;">Análisis de metros</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px;margin-bottom:6px;">'
+      +'<div><span style="color:var(--text3)">Metros teóricos (s/merma)</span><br><strong>'+mtsTeoricosPlan.toLocaleString('es-AR')+' m</strong></div>'
+      +'<div><span style="color:var(--text3)">Metros necesarios (c/'+merma+'% merma)</span><br><strong>'+mtsNecesarios.toLocaleString('es-AR')+' m</strong></div>'
+      +'<div><span style="color:var(--text3)">Metros usados (bobinas)</span><br><strong>'+mtsUsados.toLocaleString('es-AR')+' m</strong></div>'
+      +'<div><span style="color:var(--text3)">Metros productivos reales</span><br><strong>'+mtsProductivos.toLocaleString('es-AR')+' m</strong></div>'
     +'</div>'
-    +(uniPorPaq===0?'<div style="grid-column:span 2;color:var(--red);font-size:11px;">Sin empaque definido - configura el empaque en el producto para calcular bien.</div>':'');
+    +'<div style="background:rgba(255,255,255,.04);border-radius:var(--r);padding:6px 10px;font-size:12px;margin-bottom:6px;">'
+      +'Merma real: <strong style="color:'+mermaColor+'">'+mermaRealMts.toLocaleString('es-AR')+' m = '+mermaRealPct+'%</strong>'
+      +' <span style="color:var(--text3)">(planificada: '+merma+'%)</span>'
+      +(mermaRealPct>merma?' <span style="color:var(--amber)">⚠ Supera lo planificado</span>':'')
+    +'</div>'
+    +(incoherente?'<div style="color:var(--red);background:rgba(239,68,68,.1);border-radius:var(--r);padding:6px 10px;font-size:11px;margin-bottom:6px;">⚠ Los metros usados son MENOS que los productivos reales. Revisá la carga de bobinas o las unidades producidas.</div>':'')
+
+    // ANÁLISIS DE SCRAP
+    +(tieneScrap?
+      '<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:10px 0 6px 0;">Análisis de scrap</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:12px;">'
+        +'<div><span style="color:var(--text3)">Calculado (m → kg)</span><br><strong>'+mermaRealMts+' m → '+scrapCalcKg+' kg</strong></div>'
+        +'<div><span style="color:var(--text3)">Pesado</span><br><strong>'+scrapPesado+' kg</strong></div>'
+        +'<div><span style="color:var(--text3)">Diferencia (calc − pesado)</span><br>'
+          +'<strong style="color:'+difScrapColor+'">'+(difScrap>=0?'+':'')+difScrap+' kg</strong>'
+        +'</div>'
+      +'</div>'
+      +'<div style="font-size:11px;color:var(--text3);margin-top:4px;">'
+        +(difScrap>=0?'+ Ganancia: menos desperdicio del esperado':'− Pérdida: más desperdicio del esperado')
+      +'</div>'
+    :'<div style="color:var(--amber);font-size:11px;margin-top:8px;">⚠ Ingresá el scrap pesado para completar el análisis.</div>')
+
+    +(uniPorPaq===0?'<div style="color:var(--red);font-size:11px;margin-top:8px;">⚠ Sin empaque definido — configurá el empaque en el producto para calcular bien.</div>':'')
+    +'</div>';
 }
 async function cerrarOrdenCorte(id){
   const o=C.ord_corte.find(x=>x.id===id);if(!o)return;
@@ -6715,16 +6807,20 @@ async function cerrarOrdenCorte(id){
   const scrapPesado=parseFloat(document.getElementById('ci-scrap')?.value);
   const obs=document.getElementById('ci-obs')?.value.trim();
   const err=document.getElementById('ci-err');
-  if((!bolsones&&!paqSueltos)||isNaN(scrapPesado)){err.textContent='Completa bolsones y peso de scrap.';return;}
+  if((!bolsones&&!paqSueltos)||isNaN(scrapPesado)){err.textContent='Completá bolsones y peso de scrap.';return;}
   const totalPaq=(bolsones*paqPorBolson)+paqSueltos;
   const totalUni=uniPorPaq>0?totalPaq*uniPorPaq:0;
   const mtsUsados=r2(o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0);
   const kgUsados=r3(o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.kg_reales||0),0)||0);
-  const mtsTeoricos=r2(totalUni*(prod?.metros_por_bolsa||0));
-  const mtsScrap=r2(mtsUsados-mtsTeoricos);
+  // Metros productivos reales: los que efectivamente se convirtieron en bolsas
+  const mtsProductivos=r2(totalUni*(prod?.metros_por_bolsa||0));
+  // Scrap en metros: usados − productivos (merma real)
+  const mtsScrap=r2(mtsUsados-mtsProductivos);
+  // Conversión metros → kg usando relación promedio de las bobinas asociadas
   const kgPorMetro=mtsUsados>0?r4(kgUsados/mtsUsados):0;
   const scrapCalcKg=r3(mtsScrap*kgPorMetro);
   const difScrap=r3(scrapCalcKg-scrapPesado);
+  // TODO: cuando exista el rol "responsable_deposito", permitir también ese rol
   pedirAdminYEjecutar(async()=>{
     await sb.from('ordenes_corte').update({
       estado:'Completada',bolsones_reales:bolsones,paquetes_sueltos_reales:paqSueltos,
