@@ -1923,6 +1923,9 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
           <option value="producto">Por producto</option>
           <option value="ordenes">Por órdenes</option>
         </select>
+        <select class="st-sel" id="rent-prod" onchange="renderRentabilidad()">
+          <option value="">Todos los productos</option>
+        </select>
         <select class="st-sel" id="rent-comp" onchange="renderRentabilidad()">
           <option value="">Sin comparación</option><option value="mes_ant">vs Mes anterior</option>
           <option value="semana_ant">vs Semana anterior</option><option value="anio_ant">vs Mismo mes año anterior</option>
@@ -7888,12 +7891,13 @@ function getRentComparacion(ini,fin,tipo){
   else return null;
   return{ini:cIni,fin:cFin,label};
 }
-function calcRentPeriodo(ini,fin,gg){
-  const ords=C.ord_corte.filter(o=>{
+function calcRentPeriodo(ini,fin,gg,prodFiltro=0){
+  let ords=C.ord_corte.filter(o=>{
     if(o.estado!=='Completada')return false;
     const d=new Date(o.fecha_completada||o.created_at);
     return d>=ini&&d<=fin;
   });
+  if(prodFiltro)ords=ords.filter(o=>o.producto_id===prodFiltro);
   const ordsConPrecio=ords.filter(o=>o.precio_bolsa&&o.unidades_reales);
 
   // Helper: costo real de una bobina producida por fórmula
@@ -7962,13 +7966,27 @@ function renderRentabilidad(){
   const vista=document.getElementById('rent-vista')?.value||'resumen';
   const gg=parseFloat(document.getElementById('rent-gg')?.value)||cfg.gastos_generales_pct||15;
   const wrap=document.getElementById('rent-wrap');if(!wrap)return;
+  const prodFiltro=parseInt(document.getElementById('rent-prod')?.value)||0;
+
+  // Poblar selector de productos si está vacío
+  const selProd=document.getElementById('rent-prod');
+  if(selProd&&selProd.options.length<=1){
+    C.productos.forEach(p=>{
+      const o=document.createElement('option');
+      o.value=p.id;
+      o.textContent=(p.codigo?p.codigo+' · ':'')+p.descripcion;
+      selProd.appendChild(o);
+    });
+    if(prodFiltro)selProd.value=prodFiltro;
+  }
+
   const{ini,fin,label}=getRentFechas();
   const compTipo=document.getElementById('rent-comp')?.value||'';
   const comp=getRentComparacion(ini,fin,compTipo);
   const sub=document.getElementById('rent-sub-lbl');
-  if(sub)sub.textContent=label+(comp?' vs '+comp.label:'');
-  const A=calcRentPeriodo(ini,fin,gg);
-  const B=comp?calcRentPeriodo(comp.ini,comp.fin,gg):null;
+  if(sub)sub.textContent=label+(comp?' vs '+comp.label:'')+(prodFiltro?' · '+C.productos.find(p=>p.id===prodFiltro)?.descripcion:'');
+  const A=calcRentPeriodo(ini,fin,gg,prodFiltro);
+  const B=comp?calcRentPeriodo(comp.ini,comp.fin,gg,prodFiltro):null;  // mismo filtro en comparación
   if(vista==='resumen') renderRentResumen(wrap,A,B,comp,gg,label);
   else if(vista==='producto') renderRentProducto(wrap,A,B,comp,gg);
   else renderRentOrdenes(wrap,A,gg);
@@ -7980,12 +7998,13 @@ function renderRentResumen(wrap,A,B,comp,gg,label){
   if(A.ordsSinPrecio>0)html+='<div class="alert alert-warn" style="font-size:12px;margin-bottom:1rem;">⚠ '+A.ordsSinPrecio+' orden'+(A.ordsSinPrecio>1?'es':'')+' sin precio de venta — no incluidas.</div>';
   const kpis=[
     {lbl:'Venta total',val:'$'+A.ventaTotal.toLocaleString('es-AR'),antV:B?.ventaTotal,col:'var(--accent)',inv:false},
-    {lbl:'Costo total (c/'+gg+'% GG)',val:'$'+A.costoTotal.toLocaleString('es-AR'),antV:B?.costoTotal,col:'var(--text1)',inv:true},
+    {lbl:'Costo MP sin GG',val:'$'+r2(A.costoTotal/(1+gg/100)).toLocaleString('es-AR'),antV:B?r2(B.costoTotal/(1+gg/100)):undefined,col:'var(--text1)',inv:true},
+    {lbl:'Costo total c/'+gg+'% GG',val:'$'+A.costoTotal.toLocaleString('es-AR'),antV:B?.costoTotal,col:'var(--text2)',inv:true},
     {lbl:'Ganancia bruta',val:'$'+A.gananciaTotal.toLocaleString('es-AR'),antV:B?.gananciaTotal,col:colGan,inv:false},
     {lbl:'Margen %',val:A.margenTotal+'%',antV:B?.margenTotal,col:colMar,inv:false},
     {lbl:'Unidades cortadas',val:A.unidadesTotal.toLocaleString('es-AR'),antV:B?.unidadesTotal,col:'var(--text1)',inv:false},
     {lbl:'Venta / bolsa',val:'$'+A.ventaPorBolsa,antV:B?.ventaPorBolsa,col:'var(--accent)',inv:false},
-    {lbl:'Costo / bolsa',val:'$'+A.costoPorBolsa,antV:B?.costoPorBolsa,col:'var(--text1)',inv:true},
+    {lbl:'Costo MP / bolsa',val:'$'+r6(A.costoPorBolsa/(1+gg/100)),antV:B?r6(B.costoPorBolsa/(1+gg/100)):undefined,col:'var(--text1)',inv:true},
     {lbl:'Ganancia / bolsa',val:'$'+A.gananciaPorBolsa,antV:B?.gananciaPorBolsa,col:A.gananciaPorBolsa>=0?'var(--green)':'var(--red)',inv:false},
   ];
   html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:1.5rem;">';
