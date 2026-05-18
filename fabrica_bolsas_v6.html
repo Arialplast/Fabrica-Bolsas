@@ -6705,6 +6705,7 @@ function renderOrdenesCorte(){
       </td>
       <td><button class="btn btn-sm" onclick="imprimirQROrdenCorte(${o.id})" title="QR de la orden">📋</button>
           <button class="btn btn-sm" onclick="imprimirOrden(${o.id},'corte')" title="Imprimir orden">🖨️</button>
+          <button class="btn btn-sm" onclick="imprimirBobinasOC(${o.id})" title="Imprimir bobinas asociadas (guía para cortador)" style="background:rgba(15,118,110,.08);color:#0f766e;border-color:rgba(15,118,110,.3);">🧵</button>
           <button class="btn btn-sm" onclick="verLotesDeOC(${o.id})" title="Ver lotes MP consumidos">📦</button></td>
       <td>
         ${o.estado==='En proceso'?`<button class="btn btn-sm btn-teal" onclick="abrirCierreOrdenCorte(${o.id})">Cerrar</button>`:''}
@@ -9016,6 +9017,198 @@ function imprimirOrden(id, tipo){
   win.document.write(html);
   win.document.close();
 } // end imprimirOrden
+
+
+// ===== IMPRIMIR LISTADO DE BOBINAS ASOCIADAS A UNA OC (guía para cortador) =====
+function imprimirBobinasOC(ocId){
+  const oc=C.ord_corte.find(x=>x.id===ocId);
+  if(!oc){alert('OC no encontrada');return;}
+  const prod=oc.productos;
+  const tipoBobinaId=prod?.bobina_id||0;
+  const tipoBobina=C.bobinas.find(b=>b.id===tipoBobinaId);
+  const oeAsociadaId=oc.orden_extrusion_id||null;
+  const oeAsoc=oeAsociadaId?C.ordenes.find(o=>o.id===oeAsociadaId):null;
+  const ped=oc.pedido_ref_id?C.pedidos.find(p=>p.id===oc.pedido_ref_id):null;
+  const cli=oc.cliente||ped?.cliente||'';
+  const fechaImp=new Date().toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+
+  // === Recolectar las 3 listas ===
+  // 1) EN STOCK de la OE asociada (disponibles para cortar ahora)
+  const bobsEnStock=oeAsociadaId
+    ?C.bobinas_prod.filter(b=>b.orden_id===oeAsociadaId&&b.en_stock&&!b.fuera_de_rango&&b.estado_calidad!=='rechazada')
+    :[];
+  // 2) YA CORTADAS en esta OC (referencia histórica)
+  const idsYaCortadas=new Set((oc.orden_corte_bobinas||[]).map(b=>b.bobina_producida_id));
+  const bobsYaCortadas=[...idsYaCortadas].map(id=>C.bobinas_prod.find(b=>b.id===id)).filter(Boolean);
+  // 3) STOCK LIBRE del mismo tipo (solo si NO hay OE asociada)
+  const bobsStockLibre=!oeAsociadaId&&tipoBobinaId
+    ?C.bobinas_prod.filter(b=>(b.bobina_tipo_id===tipoBobinaId||b.bobinas?.id===tipoBobinaId)&&b.en_stock&&!b.fuera_de_rango&&b.estado_calidad!=='rechazada')
+    :[];
+
+  // Ordenar por fecha de producción (más viejas primero, FIFO)
+  const sortBobinas=arr=>arr.sort((a,b)=>(a.fecha_produccion||'').localeCompare(b.fecha_produccion||''));
+  sortBobinas(bobsEnStock);
+  sortBobinas(bobsYaCortadas);
+  sortBobinas(bobsStockLibre);
+
+  // Totales
+  const mtsStock=r1(bobsEnStock.reduce((s,b)=>s+(b.metros_reales||0),0));
+  const kgStock=r1(bobsEnStock.reduce((s,b)=>s+(b.kg_reales||0),0));
+  const mtsCortadas=r1(bobsYaCortadas.reduce((s,b)=>s+(b.metros_reales||0),0));
+  const mtsLibre=r1(bobsStockLibre.reduce((s,b)=>s+(b.metros_reales||0),0));
+  const kgLibre=r1(bobsStockLibre.reduce((s,b)=>s+(b.kg_reales||0),0));
+
+  const mtsNec=oc.metros_necesarios||0;
+  const mtsTotal=mtsStock+mtsCortadas;
+  const pct=mtsNec?Math.round(mtsTotal/mtsNec*100):0;
+
+  const calidadBadge=q=>{
+    if(q==='OK')return '<span class="badge badge-ok">OK</span>';
+    if(q==='rechazada')return '<span class="badge badge-bad">RECHAZADA</span>';
+    return '<span class="badge badge-warn">'+(q||'ADV').toUpperCase()+'</span>';
+  };
+  const fmtFecha=f=>f?new Date(f+'T00:00:00').toLocaleDateString('es-AR'):'—';
+
+  const rowBobina=(b,modo)=>{
+    // modo: 'stock' | 'cortada' | 'libre'
+    const ageBg=modo==='cortada'?'background:#f1f5f9;color:#94a3b8;text-decoration:line-through;':modo==='libre'?'background:#eff6ff;':'';
+    return `<tr style="${ageBg}">
+      <td class="nro-bob">${b.numero_bobina}</td>
+      <td>${b.bobinas?.nombre||tipoBobina?.nombre||'—'}${b.bobinas?.descripcion?' <span style="color:#94a3b8;font-size:8pt;">'+b.bobinas.descripcion+'</span>':''}</td>
+      <td class="num"><strong>${(b.metros_reales||0).toLocaleString('es-AR')}</strong></td>
+      <td class="num">${b.kg_reales||0}</td>
+      <td>${calidadBadge(b.estado_calidad)}</td>
+      <td>${fmtFecha(b.fecha_produccion)}</td>
+      <td>${modo==='cortada'?'<strong style="color:#16a34a;">✓ usada</strong>':modo==='libre'?'<span style="color:#3b82f6;">stock libre</span>':'<strong style="color:#0f766e;">EN STOCK</strong>'}</td>
+    </tr>`;
+  };
+
+  const win=window.open('','_blank','width=900,height=700');
+  const html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Bobinas para ${oc.numero_orden}</title>
+  <style>
+    @page{size:A4;margin:14mm 14mm 14mm 14mm;}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Segoe UI',Arial,sans-serif;font-size:10.5pt;color:#1e293b;}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0f766e;padding-bottom:10px;margin-bottom:14px;}
+    .titulo{font-size:20pt;font-weight:800;color:#0f766e;line-height:1.1;}
+    .subtitulo{font-size:10pt;color:#64748b;margin-top:4px;}
+    .nro{font-size:24pt;font-weight:800;font-family:'Courier New',monospace;color:#6c8ef5;text-align:right;line-height:1;}
+    .meta-line{font-size:10pt;color:#64748b;margin-top:4px;text-align:right;}
+    .grid-info{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+    .box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;}
+    .lbl{font-size:8pt;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:3px;}
+    .val{font-size:13pt;font-weight:700;}
+    .val.mono{font-family:'Courier New',monospace;}
+    .producto{background:#fef3c7;border:1.5px solid #f59e0b;border-radius:6px;padding:10px 14px;margin-bottom:14px;}
+    .producto-lbl{font-size:8pt;font-weight:600;color:#92400e;text-transform:uppercase;letter-spacing:0.05em;}
+    .producto-val{font-size:14pt;font-weight:800;color:#1e293b;margin-top:2px;}
+    .seccion{font-size:11pt;font-weight:800;color:#fff;padding:6px 12px;border-radius:5px;margin:16px 0 8px;letter-spacing:0.03em;}
+    .seccion-stock{background:#0f766e;}
+    .seccion-cortadas{background:#94a3b8;}
+    .seccion-libre{background:#3b82f6;}
+    .seccion-info{font-size:9pt;font-weight:500;opacity:0.9;margin-left:6px;}
+    table{width:100%;border-collapse:collapse;font-size:10pt;}
+    th{background:#f1f5f9;padding:6px 8px;text-align:left;font-size:8.5pt;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.04em;border-bottom:2px solid #cbd5e1;}
+    td{padding:7px 8px;border-bottom:1px solid #e2e8f0;}
+    tr:last-child td{border-bottom:none;}
+    .num{text-align:right;font-family:'Courier New',monospace;}
+    .nro-bob{font-family:'Courier New',monospace;font-weight:700;color:#0f766e;font-size:11pt;}
+    .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:8pt;font-weight:700;}
+    .badge-ok{background:#dcfce7;color:#16a34a;}
+    .badge-warn{background:#fef9c3;color:#ca8a04;}
+    .badge-bad{background:#fee2e2;color:#dc2626;}
+    .resumen-box{background:#ecfeff;border:1.5px solid #0e7490;border-radius:6px;padding:10px 14px;margin-top:10px;font-size:11pt;}
+    .resumen-box strong{color:#0f766e;font-size:13pt;}
+    .footer{margin-top:24px;font-size:8pt;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:8px;display:flex;justify-content:space-between;}
+    .empty-section{padding:14px;text-align:center;color:#94a3b8;font-style:italic;background:#f8fafc;border-radius:4px;border:1px dashed #cbd5e1;}
+    .alerta-sin-oe{background:#fef3c7;border:1.5px solid #f59e0b;border-radius:6px;padding:10px 14px;margin-bottom:8px;font-size:10pt;color:#92400e;}
+    .alerta-sin-oe strong{color:#78350f;}
+    @media print{body{font-size:10pt;}}
+  </style>
+  </head><body>
+
+  <!-- ENCABEZADO -->
+  <div class="header">
+    <div>
+      <div class="titulo">🧵 Bobinas asociadas</div>
+      <div class="subtitulo">Guía para el cortador · Listado ordenado por fecha (FIFO)</div>
+    </div>
+    <div>
+      <div class="nro">${oc.numero_orden}</div>
+      <div class="meta-line">${oeAsoc?'OE asociada: '+oeAsoc.numero_orden:'⚠ Sin OE asociada'}</div>
+      <div class="meta-line">Impreso: ${fechaImp}</div>
+    </div>
+  </div>
+
+  <!-- PRODUCTO A PRODUCIR (clave) -->
+  <div class="producto">
+    <div class="producto-lbl">Producto a cortar</div>
+    <div class="producto-val">${prod?.codigo?prod.codigo+' · ':''}${prod?.descripcion||'—'}</div>
+  </div>
+
+  <!-- INFO DE LA OC -->
+  <div class="grid-info">
+    <div class="box"><div class="lbl">Cliente</div><div class="val">${cli||'—'}</div></div>
+    <div class="box"><div class="lbl">Unidades a producir</div><div class="val">${(oc.unidades_a_producir||0).toLocaleString('es-AR')} u</div></div>
+    <div class="box"><div class="lbl">Paquetes</div><div class="val">${(oc.cantidad_paquetes||0).toLocaleString('es-AR')} paq</div></div>
+    <div class="box"><div class="lbl">Metros necesarios</div><div class="val mono">${mtsNec.toLocaleString('es-AR')} m</div></div>
+  </div>
+
+  ${!oeAsociadaId?'<div class="alerta-sin-oe">⚠ <strong>Esta OC no tiene OE asociada</strong>. Abajo se listan las bobinas disponibles en stock libre del mismo tipo para que sirvan de guía.</div>':''}
+
+  <!-- SECCIÓN 1: EN STOCK -->
+  <div class="seccion seccion-stock">
+    🟢 EN STOCK — Bobinas para cortar AHORA
+    <span class="seccion-info">${bobsEnStock.length} bobina${bobsEnStock.length===1?'':'s'} · ${mtsStock.toLocaleString('es-AR')} m · ${kgStock} kg</span>
+  </div>
+  ${bobsEnStock.length
+    ?`<table>
+      <thead><tr><th>N° Bobina</th><th>Tipo</th><th style="text-align:right;">Metros</th><th style="text-align:right;">Kg</th><th>Calidad</th><th>Producida</th><th>Estado</th></tr></thead>
+      <tbody>${bobsEnStock.map(b=>rowBobina(b,'stock')).join('')}</tbody>
+    </table>`
+    :'<div class="empty-section">No hay bobinas en stock de la OE asociada.</div>'
+  }
+
+  <!-- SECCIÓN 2: YA CORTADAS -->
+  ${bobsYaCortadas.length?`
+    <div class="seccion seccion-cortadas">
+      ✓ YA CORTADAS EN ESTA OC — Referencia histórica
+      <span class="seccion-info">${bobsYaCortadas.length} bobina${bobsYaCortadas.length===1?'':'s'} · ${mtsCortadas.toLocaleString('es-AR')} m</span>
+    </div>
+    <table>
+      <thead><tr><th>N° Bobina</th><th>Tipo</th><th style="text-align:right;">Metros</th><th style="text-align:right;">Kg</th><th>Calidad</th><th>Producida</th><th>Estado</th></tr></thead>
+      <tbody>${bobsYaCortadas.map(b=>rowBobina(b,'cortada')).join('')}</tbody>
+    </table>`:''}
+
+  <!-- SECCIÓN 3: STOCK LIBRE (solo si no hay OE) -->
+  ${bobsStockLibre.length?`
+    <div class="seccion seccion-libre">
+      🔵 STOCK LIBRE del mismo tipo — Sin OE asociada a esta OC
+      <span class="seccion-info">${bobsStockLibre.length} bobina${bobsStockLibre.length===1?'':'s'} · ${mtsLibre.toLocaleString('es-AR')} m · ${kgLibre} kg</span>
+    </div>
+    <table>
+      <thead><tr><th>N° Bobina</th><th>Tipo</th><th style="text-align:right;">Metros</th><th style="text-align:right;">Kg</th><th>Calidad</th><th>Producida</th><th>Estado</th></tr></thead>
+      <tbody>${bobsStockLibre.map(b=>rowBobina(b,'libre')).join('')}</tbody>
+    </table>`:''}
+
+  <!-- RESUMEN AL PIE -->
+  <div class="resumen-box">
+    📊 <strong>Total disponible: ${mtsStock.toLocaleString('es-AR')} m</strong> en stock (${bobsEnStock.length} bobinas)
+    ${mtsNec?' · Necesita <strong>'+mtsNec.toLocaleString('es-AR')+' m</strong>':''}
+    ${mtsNec&&mtsStock>0?(mtsStock>=mtsNec?' · ✓ <strong>Stock suficiente</strong> para completar la OC':' · ⚠ Faltan <strong>'+r1(mtsNec-mtsStock).toLocaleString('es-AR')+' m</strong>'):''}
+    ${bobsYaCortadas.length?'<br>📝 Ya cortado en esta OC: <strong>'+mtsCortadas.toLocaleString('es-AR')+' m</strong> · Total acumulado (cortado + en stock): <strong>'+(mtsStock+mtsCortadas).toLocaleString('es-AR')+' m</strong> ('+pct+'% de la OC)':''}
+  </div>
+
+  <div class="footer">
+    <div>Fábrica de bolsas · Sistema de gestión</div>
+    <div>Pág. 1</div>
+  </div>
+
+  <scr${''}ipt>window.onload=()=>setTimeout(()=>window.print(),400);</scr${''}ipt>
+  </body></html>`;
+  win.document.write(html);
+  win.document.close();
+}
 
 
 function abrirCancelarOrden(id, tipo){
