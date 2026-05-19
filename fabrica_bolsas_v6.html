@@ -382,7 +382,6 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
     <div class="nav-item" onclick="go('gantt-corte')"><div class="nav-dot"></div>Gantt corte semanal</div>
     <div class="nav-item" onclick="goAdmin('gantt-corte-diario')"><div class="nav-dot"></div>Gantt corte diario 🔐</div>
     <div class="nav-item" onclick="go('bobinas-fuera-rango')"><div class="nav-dot" style="background:var(--red)"></div>Fuera de rango</div>
-    <div class="nav-item" onclick="goAdmin('ajuste-stock-bob')"><div class="nav-dot" style="background:var(--amber)"></div>Ajuste stock bobinas 🔧</div>
     <div class="nav-sec">Pedidos y Cobranzas</div>
     <div class="nav-item" onclick="go('pedidos')"><div class="nav-dot" style="background:var(--teal)"></div>Pedidos</div>
     <div class="nav-item" onclick="go('nuevo-pedido')"><div class="nav-dot"></div>Nuevo pedido</div>
@@ -1127,86 +1126,6 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
       <div class="page-hdr"><div><div class="page-title">Bobinas fuera de rango</div><div class="page-sub">No cuentan en su orden original · pendientes de reasignación admin</div></div></div>
       <div class="alert alert-warn" style="font-size:12px;">Estas bobinas superaron el límite de error tolerable. No se sumaron a los metros de su orden. Solo el administrador puede reasignarlas a otro producto.</div>
       <div id="fuera-rango-wrap"><div class="loading"><div class="spinner"></div></div></div>
-    </div>
-
-    <!-- AJUSTE DE STOCK DE BOBINAS (admin) -->
-    <div class="page" id="page-ajuste-stock-bob">
-      <div class="page-hdr">
-        <div>
-          <div class="page-title">🔧 Ajuste de stock de bobinas</div>
-          <div class="page-sub">Conciliar el stock del sistema con el inventario físico — solo admin</div>
-        </div>
-        <div class="btn-grp">
-          <button class="btn btn-sm" onclick="renderAjusteStockBob()">🔄 Refrescar</button>
-        </div>
-      </div>
-
-      <div class="alert alert-warn" style="font-size:12px;margin-bottom:14px;">
-        <strong>⚠ Acción crítica:</strong> Las bobinas que marques como "fuera de stock" se sacan del inventario y se registran en historial con el motivo seleccionado. Esto es <strong>irreversible</strong> (excepto reactivar manualmente desde Supabase).
-      </div>
-
-      <!-- Resumen arriba -->
-      <div id="asb-resumen" style="background:var(--bg2);border:1.5px solid var(--accentbd);border-radius:var(--rl);padding:12px 16px;margin-bottom:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;"></div>
-
-      <!-- Filtros -->
-      <div style="background:var(--bg3);border-radius:var(--rl);padding:10px 14px;margin-bottom:14px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:10px;">
-          <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">🔍 Buscar N° bobina</label>
-            <input id="asb-search" type="text" placeholder="ej: 12453" oninput="renderAjusteStockBob()"></div>
-          <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">Tipo de bobina</label>
-            <select id="asb-tipo" onchange="renderAjusteStockBob()"><option value="">Todos</option></select></div>
-          <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">Calidad</label>
-            <select id="asb-calidad" onchange="renderAjusteStockBob()">
-              <option value="">Todas</option>
-              <option value="OK">OK</option>
-              <option value="advertencia">Advertencia</option>
-              <option value="fuera_rango">Fuera de rango</option>
-            </select></div>
-          <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">OE origen</label>
-            <select id="asb-oe" onchange="renderAjusteStockBob()"><option value="">Todas</option></select></div>
-          <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">Producidas antes de</label>
-            <input id="asb-fecha" type="date" onchange="renderAjusteStockBob()"></div>
-        </div>
-      </div>
-
-      <!-- Acciones masivas -->
-      <div id="asb-acciones" style="display:none;background:linear-gradient(135deg,rgba(245,158,11,.08),var(--bg2));border:1.5px solid var(--amber);border-radius:var(--rl);padding:12px 16px;margin-bottom:14px;">
-        <div style="font-weight:700;font-size:13px;color:var(--amber);margin-bottom:8px;">⚙️ Acción masiva sobre <span id="asb-sel-count">0</span> bobina(s) seleccionada(s)</div>
-        <div style="display:grid;grid-template-columns:1fr 2fr;gap:10px;align-items:end;">
-          <div class="fg" style="margin-bottom:0;">
-            <label style="font-size:11px;">Motivo</label>
-            <select id="asb-motivo">
-              <option value="vendida">📦 Vendida</option>
-              <option value="descartada">🗑️ Descartada</option>
-              <option value="perdida">❓ Perdida</option>
-              <option value="ajuste_inicial" selected>🔧 Ajuste inicial de inventario</option>
-              <option value="otro">📝 Otro (especificar)</option>
-            </select>
-          </div>
-          <div class="fg" style="margin-bottom:0;">
-            <label style="font-size:11px;">Detalle (opcional)</label>
-            <input id="asb-detalle" type="text" placeholder="Ej: vendida a Tito sin facturar / no estaba en el depósito el 31/05">
-          </div>
-        </div>
-        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-sm btn-del" onclick="ejecutarAjusteStockBob()">⚠ Marcar fuera de stock</button>
-          <button class="btn btn-sm" onclick="limpiarSelAjuste()">✕ Limpiar selección</button>
-          <span id="asb-msg" style="font-size:12px;margin-left:8px;align-self:center;"></span>
-        </div>
-      </div>
-
-      <!-- Lista de bobinas -->
-      <div class="tw">
-        <div class="tw-bar">
-          <span class="tw-title">📋 Bobinas en stock — el sistema cree que están disponibles</span>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <label style="font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;">
-              <input type="checkbox" id="asb-todos" onchange="toggleTodasBobAjuste(this.checked)" style="width:14px;height:14px;"> Seleccionar todas (filtradas)
-            </label>
-          </div>
-        </div>
-        <div id="asb-lista" style="padding:8px 14px 14px;"></div>
-      </div>
     </div>
 
     <div class="page" id="page-ordenes-corte">
@@ -5038,7 +4957,6 @@ function go(name){
   if(name==='planificar')renderPlanificar();
   if(name==='simulador')initSimulador();
   if(name==='flujo-mp')initFlujoMP();
-  if(name==='ajuste-stock-bob')initAjusteStockBob();
   if(name==='nueva-corte'){poblarSelectsCorte();limpiarFormCorte();}
   if(name==='gantt-corte')renderGanttCorte();
   if(name==='analytics')renderAnalytics();
@@ -5632,31 +5550,29 @@ function onNrPedidoChange(){
   const ped=C.pedidos.find(p=>p.id===pedId);
   if(!ped){if(wrap)wrap.style.display='none';return;}
   if(wrap)wrap.style.display='block';
-  // Info del pedido
+  // Info del pedido (cantidad = paquetes)
   const lineas=ped.pedido_lineas||[];
-  const totalLineas=lineas.reduce((s,l)=>s+(l.cantidad||0),0);
-  if(info)info.textContent=lineas.length+' líneas · '+totalLineas.toLocaleString('es-AR')+' u · $'+(ped.total||0).toLocaleString('es-AR');
+  const totalPaq=lineas.reduce((s,l)=>s+(parseFloat(l.cantidad)||0),0);
+  if(info)info.textContent=lineas.length+' líneas · '+totalPaq.toLocaleString('es-AR')+' paq · $'+(ped.total||0).toLocaleString('es-AR');
   // Mostrar stock disponible para cada línea del pedido
   let html='';
   lineas.forEach(l=>{
     const prod=C.productos.find(p=>p.id===l.producto_id)||l.productos;
-    const emp=C.emp.find(e=>e.id===prod?.empaque_id);
-    const uniPaq=emp?.unidades||0;
+    const uniPaq=parseInt(l.unidades_paquete)||(C.emp.find(e=>e.id===prod?.empaque_id)?.unidades||0);
     // Stock disponible: reservado-para-este-pedido + disponible (libre)
     const stockDisp=C.stock_bolsas.filter(s=>s.producto_id===l.producto_id && (
       s.estado==='disponible' ||
       (s.estado==='reservado' && s.pedido_id===pedId)
     ));
-    const totalPaqDisp=stockDisp.reduce((s,x)=>s+(x.cantidad_paquetes||0),0);
-    const totalUniDisp=uniPaq>0?totalPaqDisp*uniPaq:0;
-    const paqReservadoPropio=stockDisp.filter(s=>s.estado==='reservado').reduce((s,x)=>s+(x.cantidad_paquetes||0),0);
-    const paqPedido=uniPaq>0?Math.ceil((l.cantidad||0)/uniPaq):0;
+    const totalPaqDisp=stockDisp.reduce((s,x)=>s+(parseFloat(x.cantidad_paquetes)||0),0);
+    const paqReservadoPropio=stockDisp.filter(s=>s.estado==='reservado').reduce((s,x)=>s+(parseFloat(x.cantidad_paquetes)||0),0);
+    const paqPedido=parseFloat(l.cantidad)||0;  // YA son paquetes
     const color=totalPaqDisp>=paqPedido?'var(--green)':totalPaqDisp>0?'var(--amber)':'var(--red)';
     html+='<div style="background:var(--bg3);border-radius:var(--r);padding:12px;margin-bottom:8px;">'
       +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
         +'<div style="flex:1;font-size:13px;font-weight:600">'+(prod?prod.codigo+' · '+prod.descripcion:'—')+'</div>'
-        +'<div style="font-size:11px;color:var(--text2)">Pedido: '+( l.cantidad||0).toLocaleString('es-AR')+' u ('+paqPedido+' paq)</div>'
-        +'<div style="font-size:11px;font-weight:600;color:'+color+'">Stock: '+totalPaqDisp+' paq'+(paqReservadoPropio>0?' <span style="color:var(--accent);font-weight:500;">('+paqReservadoPropio+' reservados)</span>':'')+'</div>'
+        +'<div style="font-size:11px;color:var(--text2)">Pedido: '+paqPedido.toLocaleString('es-AR')+' paq'+(uniPaq>0?' ('+(paqPedido*uniPaq).toLocaleString('es-AR')+' u)':'')+'</div>'
+        +'<div style="font-size:11px;font-weight:600;color:'+color+'">Stock: '+totalPaqDisp.toLocaleString('es-AR')+' paq'+(paqReservadoPropio>0?' <span style="color:var(--accent);font-weight:500;">('+paqReservadoPropio+' reservados)</span>':'')+'</div>'
       +'</div>'
       +(totalPaqDisp>0
         ?'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">'
@@ -5667,7 +5583,7 @@ function onNrPedidoChange(){
             +'<div class="computed" id="nr-uni-'+l.id+'" style="margin-top:0">—</div>'
           +'</div>'
           +'<div class="fg"><label style="font-size:11px">Precio/paq</label>'
-            +'<div class="computed" style="margin-top:0">$'+(l.precio_paquete||0)+'</div>'
+            +'<div class="computed" style="margin-top:0">$'+r2(l.precio_paquete||0).toLocaleString('es-AR')+'</div>'
           +'</div>'
         +'</div>'
         :'<div style="font-size:12px;color:var(--red);">⚠ Sin stock disponible para este producto</div>'
@@ -10195,8 +10111,7 @@ function renderOrdenesCorte(){
       <td><button class="btn btn-sm" onclick="imprimirQROrdenCorte(${o.id})" title="QR de la orden">📋</button>
           <button class="btn btn-sm" onclick="imprimirOrden(${o.id},'corte')" title="Imprimir orden">🖨️</button>
           <button class="btn btn-sm" onclick="imprimirBobinasOC(${o.id})" title="Imprimir bobinas asociadas (guía para cortador)" style="background:rgba(15,118,110,.08);color:#0f766e;border-color:rgba(15,118,110,.3);">🧵</button>
-          <button class="btn btn-sm" onclick="verLotesDeOC(${o.id})" title="Ver lotes MP consumidos">📦</button>
-          ${(o.estado==='Pendiente'||o.estado==='Suspendida')?`<button class="btn btn-sm btn-primary" onclick="abrirEditarOrdenCorte(${o.id})" title="Editar orden (admin)">✏️</button>`:''}</td>
+          <button class="btn btn-sm" onclick="verLotesDeOC(${o.id})" title="Ver lotes MP consumidos">📦</button></td>
       <td>
         ${o.estado==='En proceso'?`<button class="btn btn-sm btn-teal" onclick="abrirCierreOrdenCorte(${o.id})">Cerrar</button>`:''}
         ${o.estado==='Completada'?`<button class="btn btn-sm" onclick="verDetalleOrdenCorte(${o.id})">📊 Detalle</button>`:''}
@@ -10377,64 +10292,14 @@ function renderPlanCardCompact(tipo,o,enProceso,maqId,globalIdx){
     const cli=o.cliente||ped?.cliente||'';
     lineaCliente=cli||'(producción para stock)';
     const tipoBob=prod?.bobina_id||0;
-    const oeAsocId=o.orden_extrusion_id||null;
+    const stockBob=tipoBob
+      ?C.bobinas_prod.filter(b=>b.bobina_tipo_id===tipoBob&&(b.metros_reales||0)>0&&b.estado_calidad!=='rechazada'&&b.en_stock)
+        .reduce((s,b)=>s+(b.metros_reales||0),0):0;
     const mtsNec=o.metros_necesarios||0;
-
-    // Bobinas disponibles en stock del tipo correcto (no fuera de rango, no rechazadas, no ya asociadas a esta OC)
-    const idsYaAsoc=new Set((o.orden_corte_bobinas||[]).map(b=>b.bobina_producida_id));
-    const bobsDisponibles=tipoBob
-      ?C.bobinas_prod.filter(b=>
-        (b.bobina_tipo_id===tipoBob||b.bobinas?.id===tipoBob)
-        &&(b.metros_reales||0)>0
-        &&b.estado_calidad!=='rechazada'
-        &&b.en_stock
-        &&!b.fuera_de_rango
-        &&!idsYaAsoc.has(b.id))
-      :[];
-
-    // Separar en 2 grupos
-    const mtsOEAsoc=oeAsocId
-      ?bobsDisponibles.filter(b=>b.orden_id===oeAsocId).reduce((s,b)=>s+(b.metros_reales||0),0)
-      :0;
-    const cantOEAsoc=oeAsocId
-      ?bobsDisponibles.filter(b=>b.orden_id===oeAsocId).length
-      :0;
-    const mtsOtras=bobsDisponibles.filter(b=>!oeAsocId||b.orden_id!==oeAsocId).reduce((s,b)=>s+(b.metros_reales||0),0);
-    const cantOtras=bobsDisponibles.filter(b=>!oeAsocId||b.orden_id!==oeAsocId).length;
-
-    // Construir badge (puede tener 2 mini-badges)
-    if(mtsNec===0){
-      badge='<span class="plan-badge plan-badge-info">sin datos</span>';
-    } else {
-      const partes=[];
-      // Badge OE asociada (verde)
-      if(oeAsocId&&mtsOEAsoc>0){
-        const pctOE=Math.round(mtsOEAsoc/mtsNec*100);
-        if(mtsOEAsoc>=mtsNec){
-          partes.push('<span class="plan-badge plan-badge-ok" title="Bobinas listas en la OE asociada">🎯 OE lista</span>');
-        } else {
-          partes.push('<span class="plan-badge plan-badge-warn" title="'+cantOEAsoc+' bobinas de la OE asociada ('+r1(mtsOEAsoc).toLocaleString('es-AR')+' m, '+pctOE+'%)">🎯 OE '+pctOE+'%</span>');
-        }
-      }
-      // Badge otras OEs / stock libre (azul)
-      if(mtsOtras>0){
-        const pctOtras=Math.round(mtsOtras/mtsNec*100);
-        const lblOtras=oeAsocId?'otras':'stock';
-        partes.push('<span class="plan-badge plan-badge-info" title="'+cantOtras+' bobinas en stock libre / otras OEs ('+r1(mtsOtras).toLocaleString('es-AR')+' m)">🧵 '+lblOtras+' '+pctOtras+'%</span>');
-      }
-      // Si no hay nada
-      if(!partes.length){
-        badge='<span class="plan-badge plan-badge-err">⏳ esperar bobinas</span>';
-      } else {
-        // Si suma ≥ 100%, agregar checkmark adicional
-        const totalDisp=mtsOEAsoc+mtsOtras;
-        if(totalDisp>=mtsNec&&mtsOEAsoc<mtsNec){
-          // Tiene cubrimiento mixto: agregar indicador
-          partes.push('<span class="plan-badge plan-badge-ok" title="Stock suficiente combinando OE asociada + otras fuentes">✓ total</span>');
-        }
-        badge=partes.join(' ');
-      }
-    }
+    if(mtsNec===0)badge='<span class="plan-badge plan-badge-info">sin datos</span>';
+    else if(stockBob>=mtsNec)badge='<span class="plan-badge plan-badge-ok">✓ bobinas listas</span>';
+    else if(stockBob>0)badge='<span class="plan-badge plan-badge-warn">⏳ bobinas '+Math.round(stockBob/mtsNec*100)+'%</span>';
+    else badge='<span class="plan-badge plan-badge-err">⏳ esperar bobinas</span>';
   }
 
   if(enProceso){
@@ -10578,41 +10443,25 @@ function sugerirOrdenAutomatico(tipo){
   const fuente=tipo==='oe'?C.ordenes:C.ord_corte;
   const scored=lista.map(id=>{
     const o=fuente.find(x=>x.id===id);
-    let stockOk=false,stockOEAsoc=false,vtoDias=99999,esStock=false;
+    let stockOk=false,vtoDias=99999,esStock=false;
     const ped=o.pedido_ref_id?C.pedidos.find(p=>p.id===o.pedido_ref_id):null;
     if(tipo==='oc'){
       const prod=o.productos;
       const tipoBob=prod?.bobina_id||0;
-      const oeAsocId=o.orden_extrusion_id||null;
-      const idsYaAsoc=new Set((o.orden_corte_bobinas||[]).map(b=>b.bobina_producida_id));
-      const bobsDisp=tipoBob
-        ?C.bobinas_prod.filter(b=>
-          (b.bobina_tipo_id===tipoBob||b.bobinas?.id===tipoBob)
-          &&(b.metros_reales||0)>0
-          &&b.estado_calidad!=='rechazada'
-          &&b.en_stock
-          &&!b.fuera_de_rango
-          &&!idsYaAsoc.has(b.id))
-        :[];
-      const mtsOE=oeAsocId?bobsDisp.filter(b=>b.orden_id===oeAsocId).reduce((s,b)=>s+(b.metros_reales||0),0):0;
-      const mtsTotal=bobsDisp.reduce((s,b)=>s+(b.metros_reales||0),0);
-      const mtsNec=o.metros_necesarios||0;
-      stockOEAsoc=mtsOE>=mtsNec; // ideal: la OE asociada cubre todo
-      stockOk=mtsTotal>=mtsNec; // suficiente combinando todo
+      const stockBob=tipoBob
+        ?C.bobinas_prod.filter(b=>b.bobina_tipo_id===tipoBob&&(b.metros_reales||0)>0&&b.estado_calidad!=='rechazada'&&b.en_stock)
+          .reduce((s,b)=>s+(b.metros_reales||0),0):0;
+      stockOk=stockBob>=(o.metros_necesarios||0);
     }
     if(tipo==='oe')esStock=!ped;
     if(ped?.fecha_entrega_est){
       vtoDias=Math.ceil((new Date(ped.fecha_entrega_est+'T00:00:00')-new Date())/(1000*60*60*24));
     }
-    return {id,o,stockOk,stockOEAsoc,vtoDias,esStock,fecha_creacion:o.fecha_creacion||o.created_at||''};
+    return {id,o,stockOk,vtoDias,esStock,fecha_creacion:o.fecha_creacion||o.created_at||''};
   });
   scored.sort((a,b)=>{
     if(tipo==='oc'){
-      // 1) Prioridad máxima: OE asociada ya lista (no mover bobinas entre OCs)
-      if(a.stockOEAsoc!==b.stockOEAsoc)return a.stockOEAsoc?-1:1;
-      // 2) Después: cualquier stock disponible (mixto OK)
       if(a.stockOk!==b.stockOk)return a.stockOk?-1:1;
-      // 3) Fecha de entrega
       if(a.vtoDias!==b.vtoDias)return a.vtoDias-b.vtoDias;
       return (a.fecha_creacion||'').localeCompare(b.fecha_creacion||'');
     } else {
@@ -11183,215 +11032,6 @@ function renderFlujoMP(){
   });
 
   desgloseDiv.innerHTML=html;
-}
-
-// ====== AJUSTE DE STOCK DE BOBINAS ======
-let _asbSel=new Set();
-
-function initAjusteStockBob(){
-  _asbSel=new Set();
-  // Poblar selects de filtros
-  const selTipo=document.getElementById('asb-tipo');
-  if(selTipo){
-    selTipo.innerHTML='<option value="">Todos</option>'
-      +C.bobinas.map(b=>'<option value="'+b.id+'">'+b.nombre+(b.descripcion?' · '+b.descripcion:'')+'</option>').join('');
-  }
-  const selOE=document.getElementById('asb-oe');
-  if(selOE){
-    // Solo OEs que tienen bobinas en stock
-    const oeIds=new Set(C.bobinas_prod.filter(b=>b.en_stock).map(b=>b.orden_id).filter(Boolean));
-    const oes=C.ordenes.filter(o=>oeIds.has(o.id));
-    selOE.innerHTML='<option value="">Todas</option>'
-      +oes.map(o=>'<option value="'+o.id+'">'+o.numero_orden+'</option>').join('');
-  }
-  // Limpiar filtros
-  ['asb-search','asb-calidad','asb-fecha'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
-  renderAjusteStockBob();
-}
-
-function _filtrarBobinasAjuste(){
-  const q=(document.getElementById('asb-search')?.value||'').toLowerCase().trim();
-  const tipoId=parseInt(document.getElementById('asb-tipo')?.value)||0;
-  const calidad=document.getElementById('asb-calidad')?.value||'';
-  const oeId=parseInt(document.getElementById('asb-oe')?.value)||0;
-  const fechaStr=document.getElementById('asb-fecha')?.value||'';
-  const fechaLim=fechaStr?new Date(fechaStr+'T23:59:59'):null;
-
-  return C.bobinas_prod
-    .filter(b=>b.en_stock) // Solo las que el sistema cree que están
-    .filter(b=>{
-      if(q&&!String(b.numero_bobina||'').toLowerCase().includes(q))return false;
-      if(tipoId){
-        const bt=b.bobina_tipo_id||b.bobinas?.id;
-        if(bt!==tipoId)return false;
-      }
-      if(calidad){
-        if(calidad==='fuera_rango'&&!b.fuera_de_rango)return false;
-        if(calidad==='OK'&&(b.estado_calidad!=='OK'||b.fuera_de_rango))return false;
-        if(calidad==='advertencia'&&b.estado_calidad!=='advertencia')return false;
-      }
-      if(oeId&&b.orden_id!==oeId)return false;
-      if(fechaLim&&b.fecha_produccion){
-        if(new Date(b.fecha_produccion+'T00:00:00')>fechaLim)return false;
-      }
-      return true;
-    })
-    .sort((a,b)=>(a.fecha_produccion||'').localeCompare(b.fecha_produccion||''));
-}
-
-function renderAjusteStockBob(){
-  const bobs=_filtrarBobinasAjuste();
-  // Resumen
-  const totalBob=C.bobinas_prod.filter(b=>b.en_stock).length;
-  const totalKg=r1(C.bobinas_prod.filter(b=>b.en_stock).reduce((s,b)=>s+(b.kg_reales||0),0));
-  const totalMts=r1(C.bobinas_prod.filter(b=>b.en_stock).reduce((s,b)=>s+(b.metros_reales||0),0));
-  const filtKg=r1(bobs.reduce((s,b)=>s+(b.kg_reales||0),0));
-  const filtMts=r1(bobs.reduce((s,b)=>s+(b.metros_reales||0),0));
-
-  const resumen=document.getElementById('asb-resumen');
-  if(resumen){
-    resumen.innerHTML=
-      '<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Total bobinas en sistema</div><div style="font-size:22px;font-weight:900;color:var(--accent);">'+totalBob+'</div></div>'
-      +'<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Total metros</div><div style="font-size:18px;font-weight:800;">'+totalMts.toLocaleString('es-AR')+' m</div></div>'
-      +'<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Total kg</div><div style="font-size:18px;font-weight:800;">'+totalKg.toLocaleString('es-AR')+' kg</div></div>'
-      +'<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Filtradas ahora</div><div style="font-size:18px;font-weight:800;color:var(--amber);">'+bobs.length+'</div><div style="font-size:11px;color:var(--text3);">'+filtMts.toLocaleString('es-AR')+' m · '+filtKg.toLocaleString('es-AR')+' kg</div></div>'
-      +'<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Seleccionadas</div><div style="font-size:22px;font-weight:900;color:'+(_asbSel.size?'var(--amber)':'var(--text3)')+';">'+_asbSel.size+'</div></div>';
-  }
-
-  // Limpiar selecciones que ya no están en la lista filtrada
-  const idsVisibles=new Set(bobs.map(b=>b.id));
-  for(const id of [..._asbSel]){
-    if(!idsVisibles.has(id))_asbSel.delete(id);
-  }
-
-  // Mostrar/ocultar panel de acciones
-  const accDiv=document.getElementById('asb-acciones');
-  const countSpan=document.getElementById('asb-sel-count');
-  if(accDiv)accDiv.style.display=_asbSel.size>0?'block':'none';
-  if(countSpan)countSpan.textContent=_asbSel.size;
-
-  // Lista
-  const cont=document.getElementById('asb-lista');
-  if(!cont)return;
-  if(!bobs.length){
-    cont.innerHTML='<div class="empty" style="padding:30px;text-align:center;color:var(--text3);">No hay bobinas en stock con esos filtros.</div>';
-    return;
-  }
-
-  // Render como tabla compacta
-  let html='<table style="width:100%;border-collapse:collapse;font-size:12px;">'
-    +'<thead><tr style="background:var(--bg3);">'
-      +'<th style="padding:6px 8px;text-align:center;width:40px;"><input type="checkbox" id="asb-check-all-visible" onchange="toggleSelVisibles(this.checked)" style="width:14px;height:14px;"></th>'
-      +'<th style="padding:6px 8px;text-align:left;">N° Bobina</th>'
-      +'<th style="padding:6px 8px;text-align:left;">Tipo</th>'
-      +'<th style="padding:6px 8px;text-align:right;">Metros</th>'
-      +'<th style="padding:6px 8px;text-align:right;">Kg</th>'
-      +'<th style="padding:6px 8px;text-align:center;">Calidad</th>'
-      +'<th style="padding:6px 8px;text-align:left;">OE origen</th>'
-      +'<th style="padding:6px 8px;text-align:left;">Producida</th>'
-    +'</tr></thead><tbody>';
-  bobs.forEach(b=>{
-    const sel=_asbSel.has(b.id);
-    const oe=b.orden_id?C.ordenes.find(o=>o.id===b.orden_id):null;
-    const tipo=b.bobinas?.nombre||C.bobinas.find(x=>x.id===b.bobina_tipo_id)?.nombre||'—';
-    const qcls=b.fuera_de_rango?'q-err':b.estado_calidad==='OK'?'q-ok':'q-warn';
-    const qtxt=b.fuera_de_rango?'FUERA RANGO':b.estado_calidad||'—';
-    const fecha=b.fecha_produccion?new Date(b.fecha_produccion+'T00:00:00').toLocaleDateString('es-AR'):'—';
-    html+='<tr style="background:'+(sel?'rgba(245,158,11,.08)':'transparent')+';border-bottom:1px solid var(--border);">'
-      +'<td style="padding:6px 8px;text-align:center;"><input type="checkbox" '+(sel?'checked':'')+' onchange="toggleBobAjuste('+b.id+',this.checked)" style="width:16px;height:16px;"></td>'
-      +'<td style="padding:6px 8px;font-family:monospace;font-weight:700;color:var(--accent);">'+b.numero_bobina+'</td>'
-      +'<td style="padding:6px 8px;">'+tipo+'</td>'
-      +'<td style="padding:6px 8px;text-align:right;font-family:monospace;font-weight:700;">'+(b.metros_reales||0).toLocaleString('es-AR')+'</td>'
-      +'<td style="padding:6px 8px;text-align:right;font-family:monospace;">'+(b.kg_reales||0)+'</td>'
-      +'<td style="padding:6px 8px;text-align:center;"><span class="'+qcls+'" style="font-size:10px;">'+qtxt+'</span></td>'
-      +'<td style="padding:6px 8px;color:var(--text2);font-size:11px;">'+(oe?.numero_orden||'—')+'</td>'
-      +'<td style="padding:6px 8px;color:var(--text3);font-size:11px;">'+fecha+'</td>'
-    +'</tr>';
-  });
-  html+='</tbody></table>';
-  cont.innerHTML=html;
-}
-
-function toggleBobAjuste(id,checked){
-  if(checked)_asbSel.add(id);
-  else _asbSel.delete(id);
-  renderAjusteStockBob();
-}
-
-function toggleSelVisibles(checked){
-  const bobs=_filtrarBobinasAjuste();
-  if(checked)bobs.forEach(b=>_asbSel.add(b.id));
-  else bobs.forEach(b=>_asbSel.delete(b.id));
-  renderAjusteStockBob();
-}
-
-function toggleTodasBobAjuste(checked){
-  toggleSelVisibles(checked);
-  const chk=document.getElementById('asb-check-all-visible');
-  if(chk)chk.checked=checked;
-}
-
-function limpiarSelAjuste(){
-  _asbSel=new Set();
-  renderAjusteStockBob();
-}
-
-async function ejecutarAjusteStockBob(){
-  if(!_asbSel.size)return;
-  const motivo=document.getElementById('asb-motivo')?.value||'ajuste_inicial';
-  const detalle=document.getElementById('asb-detalle')?.value.trim()||'';
-  const msg=document.getElementById('asb-msg');
-  const motivoLbl={
-    vendida:'Vendida',
-    descartada:'Descartada',
-    perdida:'Perdida',
-    ajuste_inicial:'Ajuste inicial de inventario',
-    otro:'Otro'
-  }[motivo]||motivo;
-  const motivoTxt=detalle?motivoLbl+': '+detalle:motivoLbl;
-
-  // Confirmación visual antes de ejecutar
-  const n=_asbSel.size;
-  const kg=r1([..._asbSel].reduce((s,id)=>s+(C.bobinas_prod.find(b=>b.id===id)?.kg_reales||0),0));
-  const mts=r1([..._asbSel].reduce((s,id)=>s+(C.bobinas_prod.find(b=>b.id===id)?.metros_reales||0),0));
-  if(!confirm('⚠ Vas a marcar fuera de stock:\n\n• '+n+' bobina(s)\n• '+mts.toLocaleString('es-AR')+' m\n• '+kg.toLocaleString('es-AR')+' kg\n\nMotivo: '+motivoTxt+'\n\nEsta acción se registra en historial. ¿Confirmás?'))return;
-
-  pedirAdminYEjecutar(async()=>{
-    msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Procesando '+n+' bobinas...</div>';
-    msg.style.color='var(--text2)';
-    try{
-      const ids=[..._asbSel];
-      // 1. Sacar del stock
-      const{error:e1}=await sb.from('bobinas_producidas').update({en_stock:false}).in('id',ids);
-      if(e1)throw e1;
-      // 2. Registrar movimientos
-      const movs=ids.map(id=>{
-        const b=C.bobinas_prod.find(x=>x.id===id);
-        return {
-          bobina_producida_id:id,
-          tipo:'salida',
-          motivo:motivo,
-          metros:b?.metros_reales||0,
-          kg:b?.kg_reales||0,
-          operario:'admin',
-          observaciones:motivoTxt
-        };
-      });
-      await sb.from('stock_movimientos').insert(movs);
-      msg.style.color='var(--green)';
-      msg.textContent='✓ '+n+' bobina(s) marcadas fuera de stock — '+mts.toLocaleString('es-AR')+' m · '+kg.toLocaleString('es-AR')+' kg';
-      _asbSel=new Set();
-      // Limpiar input de detalle
-      const inpDet=document.getElementById('asb-detalle');
-      if(inpDet)inpDet.value='';
-      await reload();
-      renderAjusteStockBob();
-    } catch(err){
-      console.error('Error ajustando stock:',err);
-      msg.style.color='var(--red)';
-      msg.textContent='Error: '+(err.message||err);
-    }
-  });
 }
 
 async function cambiarEmpaqueCorte(id,empId){
@@ -14974,16 +14614,16 @@ async function guardarPedidoFinal(){
   // Insertar líneas
   let lineasInsertadas=[];
   if(_pedLineas.length){
-    const{data:li}=await sb.from('pedido_lineas').insert(_pedLineas.map(l=>({
+    const{data:li,error:eLi}=await sb.from('pedido_lineas').insert(_pedLineas.map(l=>({
       pedido_id:ped.id,producto_id:l.producto_id||null,
       descripcion:l.descripcion||null,
       cantidad:l.cantidad,                          // en PAQUETES
-      unidades:l.unidades_paquete>0?l.cantidad*l.unidades_paquete:null, // unidades calculadas
       precio_unitario:l.precio_unitario||null,
       precio_paquete:l.precio_paquete||null,
       unidades_paquete:l.unidades_paquete||null,
       subtotal_linea:l.subtotal_linea
     }))).select();
+    if(eLi){msg.style.color='var(--red)';msg.textContent='Error guardando líneas: '+eLi.message;return;}
     lineasInsertadas=li||[];
   }
   // Crear órdenes de corte confirmadas
@@ -15188,23 +14828,27 @@ function verDetallePedido(id){
     +'</div>'
     +'<div class="fp-t" style="margin-bottom:8px;">Líneas</div>'
     +'<table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:1rem;">'
-      +'<thead><tr style="background:var(--bg3)"><th style="padding:6px;text-align:left">Producto</th><th>Cantidad</th><th>Precio/u</th><th>Subtotal</th><th>Estado</th></tr></thead>'
-      +'<tbody>'+lineas.map(l=>'<tr style="border-bottom:1px solid var(--border);">'
+      +'<thead><tr style="background:var(--bg3)"><th style="padding:6px;text-align:left">Producto</th><th>Paquetes</th><th>Unidades</th><th>Precio/paq</th><th>Subtotal</th><th>Estado</th></tr></thead>'
+      +'<tbody>'+lineas.map(l=>{
+        const cantPaq=parseFloat(l.cantidad)||0;
+        const uniPaq=parseInt(l.unidades_paquete)||0;
+        const cantUni=cantPaq*uniPaq;
+        return '<tr style="border-bottom:1px solid var(--border);">'
         +'<td style="padding:6px">'+(l.productos?.codigo?'<span class="mono" style="font-size:10px;color:var(--text3)">'+l.productos.codigo+'</span> ':'')+( l.productos?.descripcion||l.descripcion||'—')+'</td>'
-        +'<td style="text-align:center">'+(l.cantidad||0).toLocaleString('es-AR')+'</td>'
-        +'<td style="text-align:right">$'+(l.precio_unitario||0)+'</td>'
+        +'<td style="text-align:center;font-weight:600;">'+cantPaq.toLocaleString('es-AR')+' paq</td>'
+        +'<td style="text-align:center;color:var(--text2);font-size:11px;">'+cantUni.toLocaleString('es-AR')+' u</td>'
+        +'<td style="text-align:right">$'+r2(l.precio_paquete||0).toLocaleString('es-AR')+'</td>'
         +'<td style="text-align:right;font-weight:600">$'+r2(l.subtotal_linea||0).toLocaleString('es-AR')+'</td>'
         +'<td style="text-align:center;color:'+colEstPed(l.estado_linea||'Pendiente')+'">'+( l.estado_linea||'Pendiente')+'</td>'
-        +'</tr>').join('')+'</tbody>'
+        +'</tr>';}).join('')+'</tbody>'
     +'</table>'
     +(()=>{
       const resumen={};
       lineas.forEach(l=>{
         if(!l.producto_id)return;
         const prod=C.productos.find(p=>p.id===l.producto_id)||l.productos;
-        const emp=C.emp.find(e=>e.id===prod?.empaque_id);
-        const uniPaq=emp?.unidades||0;
-        const paqPedido=uniPaq>0?Math.ceil((l.cantidad||0)/uniPaq):(parseFloat(l.cantidad_paquetes)||0);
+        // l.cantidad YA está en paquetes (regla del sistema: cantidad = paquetes)
+        const paqPedido=parseFloat(l.cantidad)||0;
         if(!resumen[l.producto_id]){
           resumen[l.producto_id]={prod,paqPedido:0,paqReservado:0,paqRemitido:0};
         }
@@ -15468,183 +15112,6 @@ async function confirmarEditarOrdenExtrusion(id){
   setTimeout(()=>{
     document.getElementById('edit-oe-modal')?.remove();
     // Si el Gantt está visible, refrescarlo
-    if(typeof renderGantt==='function')renderGantt();
-    if(typeof renderGanttDiario==='function')renderGanttDiario();
-  },1000);
-}
-
-// ===== EDITAR ORDEN DE CORTE (protegida con admin) =====
-function abrirEditarOrdenCorte(id){
-  pedirAdminYEjecutar(()=>_abrirEditarOrdenCorte(id));
-}
-function _abrirEditarOrdenCorte(id){
-  const o=C.ord_corte.find(x=>x.id===id);if(!o)return;
-  const prod=o.productos||C.productos.find(p=>p.id===o.producto_id);
-  const empActual=o.empaque_id;
-  const maqActuales=(o.orden_corte_maquinas||[]).map(m=>m.maquina_id);
-  const oeAsoc=o.orden_extrusion_id?C.ordenes.find(x=>x.id===o.orden_extrusion_id):null;
-
-  document.getElementById('edit-oc-modal')?.remove();
-  document.body.insertAdjacentHTML('beforeend',
-    '<div class="modal-overlay" id="edit-oc-modal">'
-    +'<div class="modal-card" style="max-width:620px;max-height:92vh;overflow-y:auto;">'
-    +'<div class="modal-title">✏️ Editar orden de corte '+o.numero_orden+'</div>'
-
-    // Info de la orden
-    +'<div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;font-size:13px;">'
-      +'<div style="font-weight:700">'+(prod?.codigo?prod.codigo+' · ':'')+(prod?.descripcion||'(sin producto)')+'</div>'
-      +'<div style="color:var(--text2);font-size:12px;margin-top:3px;">'
-        +'Estado: <strong>'+o.estado+'</strong>'
-        +(o.cliente?' · Cliente: '+o.cliente:'')
-        +(oeAsoc?' · OE: '+oeAsoc.numero_orden:' · Sin OE')
-      +'</div>'
-    +'</div>'
-
-    // Bolsones / paq por bolson / merma
-    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;">'
-      +'<div class="fg" style="margin-bottom:0;"><label>Bolsones a producir</label>'
-        +'<input type="number" id="eoc-bolsones" value="'+(o.bolsones_a_producir||0)+'" min="1" step="1" oninput="recalcEditOC()" style="font-weight:700;font-size:15px;"></div>'
-      +'<div class="fg" style="margin-bottom:0;"><label>Paq por bolsón</label>'
-        +'<input type="number" id="eoc-paqbol" value="'+(o.paquetes_por_bolson||1)+'" min="1" step="1" oninput="recalcEditOC()"></div>'
-      +'<div class="fg" style="margin-bottom:0;"><label>% Merma</label>'
-        +'<input type="number" id="eoc-merma" value="'+(o.merma_pct||5)+'" min="0" max="30" step="0.5" oninput="recalcEditOC()"></div>'
-    +'</div>'
-
-    // Resumen calculado
-    +'<div id="eoc-calc" style="background:var(--accentbg);border-radius:var(--r);padding:8px 12px;margin-bottom:12px;font-size:12px;color:var(--accent);"></div>'
-
-    // Empaque y prioridad
-    +'<div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:12px;">'
-      +'<div class="fg" style="margin-bottom:0;"><label>Empaque</label>'
-        +'<select id="eoc-empaque" onchange="recalcEditOC()">'
-          +'<option value="">— sin empaque —</option>'
-          +C.emp.map(e=>'<option value="'+e.id+'" '+(e.id===empActual?'selected':'')+'>'+e.nombre+' ('+e.unidades+' u/paq)</option>').join('')
-        +'</select></div>'
-      +'<div class="fg" style="margin-bottom:0;"><label>Prioridad <span style="font-size:11px;color:var(--text3)">(1=urgente)</span></label>'
-        +'<input type="number" id="eoc-prioridad" value="'+(o.prioridad||1)+'" min="1" max="99"></div>'
-    +'</div>'
-
-    // Máquinas de corte
-    +'<div class="fg" style="margin-bottom:14px;">'
-      +'<label>Máquinas de corte asignadas</label>'
-      +'<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">'
-      +C.maq_corte.map(m=>'<label style="display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:var(--r);border:1.5px solid '+(maqActuales.includes(m.id)?'var(--accentbd)':'var(--border)')+';background:'+(maqActuales.includes(m.id)?'var(--accentbg)':'var(--bg3)')+';cursor:pointer;font-size:13px;">'
-        +'<input type="checkbox" id="eoc-maq-'+m.id+'" '+(maqActuales.includes(m.id)?'checked':'')+' style="width:14px;height:14px;" onchange="this.closest(\'label\').style.borderColor=this.checked?\'var(--accentbd)\':\' var(--border)\';this.closest(\'label\').style.background=this.checked?\'var(--accentbg)\':\' var(--bg3)\'">'
-        +'<strong>'+m.nombre+'</strong>'
-        +(m.bolsas_por_hora?'<span style="font-size:10px;color:var(--text3)">'+m.bolsas_por_hora+'b/h</span>':'')
-      +'</label>').join('')
-      +'</div>'
-      +'<div id="eoc-maq-warn" style="font-size:11px;color:var(--amber);margin-top:4px;display:none;">⚠ Seleccioná al menos una máquina</div>'
-    +'</div>'
-
-    // Observaciones
-    +'<div class="fg" style="margin-bottom:14px;">'
-      +'<label>Observaciones</label>'
-      +'<input type="text" id="eoc-obs" value="'+(o.observaciones||'').replace(/"/g,'&quot;')+'" placeholder="opcional">'
-    +'</div>'
-
-    +'<div style="background:var(--amberbg);border:1px solid var(--amberbd);border-radius:var(--r);padding:8px 12px;font-size:11px;color:var(--amber);margin-bottom:14px;">'
-      +'⚠ Editar cantidades recalcula automáticamente metros necesarios. Cambiar máquinas actualiza el Gantt.'
-    +'</div>'
-
-    +'<div class="btn-grp">'
-      +'<button class="btn btn-primary btn-sm" onclick="confirmarEditarOrdenCorte('+id+')">Guardar cambios</button>'
-      +'<button class="btn btn-sm" onclick="document.getElementById(\'edit-oc-modal\').remove()">Cancelar</button>'
-      +'<span id="eoc-msg" style="font-size:12px;margin-left:8px;"></span>'
-    +'</div>'
-    +'</div></div>'
-  );
-  recalcEditOC();
-}
-
-function recalcEditOC(){
-  const bolsones=parseInt(document.getElementById('eoc-bolsones')?.value)||0;
-  const paqBol=parseInt(document.getElementById('eoc-paqbol')?.value)||1;
-  const merma=parseFloat(document.getElementById('eoc-merma')?.value)||5;
-  const empId=parseInt(document.getElementById('eoc-empaque')?.value)||0;
-  const emp=C.emp.find(e=>e.id===empId);
-  const uniPorPaq=emp?.unidades||0;
-  const totalPaq=bolsones*paqBol;
-  const totalUni=totalPaq*uniPorPaq;
-  // Buscar el producto desde la orden actual (necesitamos metros_por_bolsa)
-  const modal=document.getElementById('edit-oc-modal');
-  if(!modal)return;
-  // Tomamos producto desde el título o desde una variable temporal
-  // Mejor: buscar la OC por el botón guardar (que tiene el id)
-  const btnGuardar=modal.querySelector('button[onclick*="confirmarEditarOrdenCorte"]');
-  const ocId=btnGuardar?parseInt(btnGuardar.getAttribute('onclick').match(/\d+/)?.[0]):0;
-  const oc=C.ord_corte.find(x=>x.id===ocId);
-  const prod=oc?.productos||(oc?.producto_id?C.productos.find(p=>p.id===oc.producto_id):null);
-  const mtsPorBolsa=prod?.metros_por_bolsa||0;
-  const mtsNecesarios=totalUni&&mtsPorBolsa?r2(totalUni*mtsPorBolsa*(1+merma/100)):0;
-  const div=document.getElementById('eoc-calc');
-  if(div){
-    div.innerHTML='<strong>'+bolsones.toLocaleString('es-AR')+'</strong> bolsones × '
-      +'<strong>'+paqBol+'</strong> paq/bolsón = '
-      +'<strong>'+totalPaq.toLocaleString('es-AR')+'</strong> paquetes'
-      +(uniPorPaq?' · <strong>'+totalUni.toLocaleString('es-AR')+'</strong> unidades':'')
-      +(mtsNecesarios?' · <strong>'+mtsNecesarios.toLocaleString('es-AR')+' m</strong> necesarios (con '+merma+'% merma)':'');
-  }
-}
-
-async function confirmarEditarOrdenCorte(id){
-  const bolsones=parseInt(document.getElementById('eoc-bolsones')?.value)||0;
-  const paqBol=parseInt(document.getElementById('eoc-paqbol')?.value)||1;
-  const merma=parseFloat(document.getElementById('eoc-merma')?.value)||5;
-  const empId=parseInt(document.getElementById('eoc-empaque')?.value)||null;
-  const prioridad=parseInt(document.getElementById('eoc-prioridad')?.value)||1;
-  const obs=document.getElementById('eoc-obs')?.value.trim();
-  const msg=document.getElementById('eoc-msg');
-  const warn=document.getElementById('eoc-maq-warn');
-
-  const maqIds=C.maq_corte.filter(m=>document.getElementById('eoc-maq-'+m.id)?.checked).map(m=>m.id);
-  if(!maqIds.length){
-    if(warn)warn.style.display='block';
-    return;
-  }
-  if(warn)warn.style.display='none';
-
-  if(bolsones<=0){msg.style.color='var(--red)';msg.textContent='Bolsones debe ser mayor a 0.';return;}
-
-  // Calcular derivados
-  const totalPaq=bolsones*paqBol;
-  const emp=empId?C.emp.find(e=>e.id===empId):null;
-  const uniPorPaq=emp?.unidades||0;
-  const totalUni=totalPaq*uniPorPaq;
-  const oc=C.ord_corte.find(x=>x.id===id);
-  const prod=oc?.productos||(oc?.producto_id?C.productos.find(p=>p.id===oc.producto_id):null);
-  const mtsPorBolsa=prod?.metros_por_bolsa||0;
-  const mtsNecesarios=totalUni&&mtsPorBolsa?r2(totalUni*mtsPorBolsa*(1+merma/100)):oc?.metros_necesarios||0;
-
-  msg.innerHTML='<div class="loading" style="display:inline-flex;gap:4px;align-items:center"><div class="spinner" style="width:12px;height:12px"></div></div>';
-
-  // 1. Actualizar la OC
-  const{error:e1}=await sb.from('ordenes_corte').update({
-    bolsones_a_producir:bolsones,
-    paquetes_por_bolson:paqBol,
-    cantidad_paquetes:totalPaq,
-    unidades_a_producir:totalUni||oc?.unidades_a_producir,
-    metros_necesarios:mtsNecesarios,
-    merma_pct:merma,
-    empaque_id:empId,
-    prioridad,
-    observaciones:obs||null
-  }).eq('id',id);
-  if(e1){msg.style.color='var(--red)';msg.textContent='Error: '+e1.message;return;}
-
-  // 2. Reemplazar máquinas
-  const{error:e2}=await sb.from('orden_corte_maquinas').delete().eq('orden_corte_id',id);
-  if(e2){msg.style.color='var(--red)';msg.textContent='Error máquinas: '+e2.message;return;}
-  const{error:e3}=await sb.from('orden_corte_maquinas').insert(
-    maqIds.map(mId=>({orden_corte_id:id,maquina_id:mId}))
-  );
-  if(e3){msg.style.color='var(--red)';msg.textContent='Error asignación: '+e3.message;return;}
-
-  msg.style.color='var(--green)';msg.textContent='✓ Guardado';
-
-  await reload();
-  setTimeout(()=>{
-    document.getElementById('edit-oc-modal')?.remove();
     if(typeof renderGantt==='function')renderGantt();
     if(typeof renderGanttDiario==='function')renderGanttDiario();
   },1000);
