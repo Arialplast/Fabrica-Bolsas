@@ -1869,19 +1869,43 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
     <!-- STOCK DE BOLSAS TERMINADAS -->
     <div class="page" id="page-stock-bolsas">
       <div class="page-hdr">
-        <div><div class="page-title">Stock de bolsas terminadas</div><div class="page-sub">Disponible · reservado · entregado</div></div>
+        <div><div class="page-title">📦 Stock de bolsas terminadas</div><div class="page-sub">Paquetes · bultos · valorizado al precio promedio de venta</div></div>
         <div class="btn-grp">
-          <select class="st-sel" id="sb-filtro-prod" onchange="renderStockBolsas()"><option value="">Todos los productos</option></select>
-          <select class="st-sel" id="sb-filtro-est" onchange="renderStockBolsas()">
-            <option value="">Todos los estados</option>
-            <option value="disponible">Disponible</option>
-            <option value="reservado">Reservado</option>
-            <option value="entregado">Entregado</option>
-          </select>
+          <button class="btn btn-sm" onclick="renderStockBolsas()">🔄 Refrescar</button>
         </div>
       </div>
-      <div id="sb-kpis" style="margin-bottom:1rem;"></div>
-      <div class="tw"><div id="sb-tbl"><div class="loading"><div class="spinner"></div></div></div></div>
+
+      <!-- KPIs valorizados arriba -->
+      <div id="sb-kpis" style="margin-bottom:14px;"></div>
+
+      <!-- Filtros -->
+      <div style="background:var(--bg3);border-radius:var(--rl);padding:10px 14px;margin-bottom:14px;">
+        <div style="display:grid;grid-template-columns:2fr 1.5fr 1.5fr 1fr;gap:10px;align-items:end;">
+          <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">🔍 Buscar por código o descripción</label>
+            <input id="sb-search" type="text" placeholder="ej: bolsa camiseta 30x40 / B-001" oninput="renderStockBolsas()"></div>
+          <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">Tipo de bobina</label>
+            <select id="sb-filtro-bob" onchange="renderStockBolsas()"><option value="">Todas</option></select></div>
+          <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">Producto específico</label>
+            <select id="sb-filtro-prod" onchange="renderStockBolsas()"><option value="">Todos los productos</option></select></div>
+          <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">Estado</label>
+            <select id="sb-filtro-est" onchange="renderStockBolsas()">
+              <option value="">Todos</option>
+              <option value="disponible" selected>Disponible</option>
+              <option value="reservado">Reservado</option>
+              <option value="entregado">Entregado</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla -->
+      <div class="tw">
+        <div class="tw-bar">
+          <span class="tw-title">📋 Productos con stock</span>
+          <span id="sb-count" style="font-size:11px;color:var(--text3);font-weight:400;"></span>
+        </div>
+        <div id="sb-tbl" style="padding:8px 14px 14px;"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
     </div>
 
     <!-- REMITOS -->
@@ -5368,70 +5392,194 @@ function renderInformeCorte(){
 
 // ===== STOCK DE BOLSAS TERMINADAS =====
 function renderStockBolsas(){
-  // Poblar filtro producto
+  // Poblar filtros (solo primera vez)
   const sProd=document.getElementById('sb-filtro-prod');
-  if(sProd){
-    const cur=sProd.value;
+  if(sProd&&!sProd.options.length>1){
+    const curP=sProd.value;
+    const idsConStock=[...new Set(C.stock_bolsas.filter(s=>s.estado!=='entregado').map(s=>s.producto_id).filter(Boolean))];
     sProd.innerHTML='<option value="">Todos los productos</option>'
-      +[...new Set(C.stock_bolsas.map(s=>s.producto_id).filter(Boolean))]
+      +idsConStock
         .map(id=>C.productos.find(p=>p.id===id))
         .filter(Boolean)
-        .map(p=>'<option value="'+p.id+'">'+p.codigo+' · '+p.descripcion+'</option>').join('');
-    sProd.value=cur;
+        .sort((a,b)=>(a.descripcion||'').localeCompare(b.descripcion||''))
+        .map(p=>'<option value="'+p.id+'">'+(p.codigo?p.codigo+' · ':'')+p.descripcion+'</option>').join('');
+    sProd.value=curP;
   }
-  const filtroEst=document.getElementById('sb-filtro-est')?.value||'';
+  const sBob=document.getElementById('sb-filtro-bob');
+  if(sBob&&sBob.options.length<=1){
+    const curB=sBob.value;
+    sBob.innerHTML='<option value="">Todas</option>'
+      +C.bobinas.map(b=>'<option value="'+b.id+'">'+b.nombre+(b.descripcion?' · '+b.descripcion:'')+'</option>').join('');
+    sBob.value=curB;
+  }
+
+  // Calcular precio promedio de venta POR PRODUCTO desde pedidos
+  // Usamos líneas de pedidos NO CANCELADOS / NO ANULADOS para calcular el promedio ponderado por cantidad
+  const precioProm={}; // {producto_id: {precioPromPaq, cantPedidos}}
+  C.pedidos
+    .filter(p=>p.estado!=='Cancelado'&&p.estado!=='Anulado')
+    .forEach(p=>{
+      (p.pedido_lineas||[]).forEach(l=>{
+        if(!l.producto_id||!l.precio_paquete||!l.cantidad)return;
+        if(!precioProm[l.producto_id])precioProm[l.producto_id]={sumaMonto:0,sumaCant:0,cantPedidos:0};
+        precioProm[l.producto_id].sumaMonto+=(l.cantidad*l.precio_paquete);
+        precioProm[l.producto_id].sumaCant+=l.cantidad;
+        precioProm[l.producto_id].cantPedidos++;
+      });
+    });
+  // Resolver promedios
+  Object.keys(precioProm).forEach(id=>{
+    const x=precioProm[id];
+    x.precioPromPaq=x.sumaCant>0?r2(x.sumaMonto/x.sumaCant):0;
+  });
+
+  // Filtros activos
+  const q=(document.getElementById('sb-search')?.value||'').toLowerCase().trim();
+  const tipoBob=parseInt(document.getElementById('sb-filtro-bob')?.value)||0;
   const filtroProd=parseInt(document.getElementById('sb-filtro-prod')?.value)||0;
-  let lista=C.stock_bolsas;
-  if(filtroEst)lista=lista.filter(s=>s.estado===filtroEst);
-  if(filtroProd)lista=lista.filter(s=>s.producto_id===filtroProd);
+  const filtroEst=document.getElementById('sb-filtro-est')?.value||'';
 
-  // KPIs por producto
-  const kpis=document.getElementById('sb-kpis');
-  if(kpis){
-    const disp=C.stock_bolsas.filter(s=>s.estado==='disponible');
-    const res=C.stock_bolsas.filter(s=>s.estado==='reservado');
-    const totDispPaq=disp.reduce((s,x)=>s+(x.cantidad_paquetes||0),0);
-    const totResPaq=res.reduce((s,x)=>s+(x.cantidad_paquetes||0),0);
-    kpis.innerHTML='<div class="stats" style="margin-bottom:0">'
-      +'<div class="stat"><div class="stat-lbl">Disponible</div><div class="stat-val" style="color:var(--green)">'+totDispPaq.toLocaleString('es-AR')+' paq</div></div>'
-      +'<div class="stat"><div class="stat-lbl">Reservado</div><div class="stat-val" style="color:var(--amber)">'+totResPaq.toLocaleString('es-AR')+' paq</div></div>'
-      +'<div class="stat"><div class="stat-lbl">Tipos de producto</div><div class="stat-val">'+new Set(disp.map(s=>s.producto_id)).size+'</div></div>'
-      +'</div>';
-  }
-
-  // Agrupar por producto
+  // Agrupar TODO el stock por producto (para totales y KPIs)
   const porProd={};
-  C.stock_bolsas.filter(s=>s.estado!=='entregado').forEach(s=>{
-    const pid=s.producto_id;if(!pid)return;
-    if(!porProd[pid])porProd[pid]={prod:C.productos.find(p=>p.id===pid),disponible:0,reservado:0,lotes:[]};
+  C.stock_bolsas.forEach(s=>{
+    const pid=s.producto_id;
+    if(!pid)return;
+    const prod=C.productos.find(p=>p.id===pid);
+    if(!prod)return;
+    if(!porProd[pid])porProd[pid]={
+      prod,disponible:0,reservado:0,entregado:0,lotes:[]
+    };
     if(s.estado==='disponible')porProd[pid].disponible+=s.cantidad_paquetes||0;
     else if(s.estado==='reservado')porProd[pid].reservado+=s.cantidad_paquetes||0;
+    else if(s.estado==='entregado')porProd[pid].entregado+=s.cantidad_paquetes||0;
     porProd[pid].lotes.push(s);
   });
 
-  const tbl=document.getElementById('sb-tbl');if(!tbl)return;
-  if(!Object.keys(porProd).length){tbl.innerHTML='<div class="empty">Sin stock de bolsas terminadas.</div>';return;}
+  // Filtrar productos a mostrar
+  const productos=Object.values(porProd).filter(({prod,disponible,reservado,entregado})=>{
+    if(filtroProd&&prod.id!==filtroProd)return false;
+    if(tipoBob&&prod.bobina_id!==tipoBob)return false;
+    if(q){
+      const txt=((prod.codigo||'')+' '+(prod.descripcion||'')).toLowerCase();
+      if(!txt.includes(q))return false;
+    }
+    // Filtrar por estado: si filtroEst, solo productos con stock en ese estado
+    if(filtroEst){
+      if(filtroEst==='disponible'&&disponible<=0)return false;
+      if(filtroEst==='reservado'&&reservado<=0)return false;
+      if(filtroEst==='entregado'&&entregado<=0)return false;
+    } else {
+      // Si no hay filtro, mostrar productos que tengan algo (excluir solo entregado total)
+      if(disponible<=0&&reservado<=0)return false;
+    }
+    return true;
+  }).sort((a,b)=>(a.prod.descripcion||'').localeCompare(b.prod.descripcion||''));
 
-  let html='<div style="overflow-x:auto"><table><thead><tr>'
-    +'<th>Producto</th><th>Empaque</th><th>Disponible (paq)</th><th>Disponible (u)</th>'
-    +'<th>Reservado (paq)</th><th>Lotes / órdenes</th>'
-    +'</tr></thead><tbody>';
-  Object.values(porProd).forEach(({prod,disponible,reservado,lotes})=>{
-    if(!prod)return;
+  // === KPIs valorizados ===
+  let totDispPaq=0,totDispBultos=0,totDispUni=0,totDispValor=0;
+  let totResPaq=0,totResValor=0;
+  let prodSinPrecio=0;
+  productos.forEach(({prod,disponible,reservado})=>{
+    const paqPorBolson=prod.paquetes_por_bolson||1;
     const emp=C.emp.find(e=>e.id===prod.empaque_id);
     const uniPaq=emp?.unidades||0;
-    const dispU=uniPaq>0?disponible*uniPaq:0;
-    html+='<tr>'
-      +'<td><span class="mono" style="color:var(--text3);font-size:11px">'+prod.codigo+'</span><br>'+prod.descripcion+'</td>'
-      +'<td style="font-size:11px;color:var(--text2)">'+(emp?emp.nombre+' '+emp.unidades+'u':'—')+'</td>'
-      +'<td class="mono" style="font-weight:700;color:var(--green)">'+disponible.toLocaleString('es-AR')+'</td>'
-      +'<td class="mono" style="color:var(--green)">'+(dispU?dispU.toLocaleString('es-AR'):'—')+'</td>'
-      +'<td class="mono" style="color:var(--amber)">'+(reservado?reservado.toLocaleString('es-AR'):'—')+'</td>'
-      +'<td style="font-size:11px;color:var(--text2)">'
-        +lotes.filter(l=>l.estado==='disponible').map(l=>'<div>'+(l.ordenes_corte?.numero_orden||'OC #'+l.orden_corte_id||'Manual')+' · '+l.cantidad_paquetes+' paq</div>').join('')
+    const precioP=precioProm[prod.id]?.precioPromPaq||0;
+    if(!precioP)prodSinPrecio++;
+    totDispPaq+=disponible;
+    totDispBultos+=Math.floor(disponible/paqPorBolson);
+    totDispUni+=disponible*uniPaq;
+    totDispValor+=disponible*precioP;
+    totResPaq+=reservado;
+    totResValor+=reservado*precioP;
+  });
+
+  const kpis=document.getElementById('sb-kpis');
+  if(kpis){
+    kpis.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">'
+      +'<div style="background:linear-gradient(135deg,rgba(34,197,94,.08),var(--bg2));border:1.5px solid var(--green);border-radius:var(--rl);padding:12px 16px;">'
+        +'<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Disponible (paq)</div>'
+        +'<div style="font-size:22px;font-weight:900;color:var(--green);">'+totDispPaq.toLocaleString('es-AR')+'</div>'
+        +'<div style="font-size:11px;color:var(--text3);margin-top:2px;">'+totDispBultos.toLocaleString('es-AR')+' bultos · '+totDispUni.toLocaleString('es-AR')+' u</div>'
+      +'</div>'
+      +'<div style="background:linear-gradient(135deg,rgba(34,197,94,.06),var(--bg2));border:1.5px solid var(--green);border-radius:var(--rl);padding:12px 16px;">'
+        +'<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">💰 Valorizado disponible</div>'
+        +'<div style="font-size:22px;font-weight:900;color:var(--green);">$'+r2(totDispValor).toLocaleString('es-AR')+'</div>'
+        +(prodSinPrecio?'<div style="font-size:11px;color:var(--amber);margin-top:2px;">⚠ '+prodSinPrecio+' producto'+(prodSinPrecio===1?'':'s')+' sin precio de venta</div>':'<div style="font-size:11px;color:var(--text3);margin-top:2px;">Al precio promedio de venta</div>')
+      +'</div>'
+      +'<div style="background:var(--bg2);border:1.5px solid var(--amberbd);border-radius:var(--rl);padding:12px 16px;">'
+        +'<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Reservado (paq)</div>'
+        +'<div style="font-size:22px;font-weight:900;color:var(--amber);">'+totResPaq.toLocaleString('es-AR')+'</div>'
+        +'<div style="font-size:11px;color:var(--text3);margin-top:2px;">$'+r2(totResValor).toLocaleString('es-AR')+'</div>'
+      +'</div>'
+      +'<div style="background:var(--bg2);border:1.5px solid var(--accentbd);border-radius:var(--rl);padding:12px 16px;">'
+        +'<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Tipos de producto</div>'
+        +'<div style="font-size:22px;font-weight:900;color:var(--accent);">'+productos.length+'</div>'
+        +'<div style="font-size:11px;color:var(--text3);margin-top:2px;">con stock visible</div>'
+      +'</div>'
+    +'</div>';
+  }
+
+  const countEl=document.getElementById('sb-count');
+  if(countEl)countEl.textContent=' — '+productos.length+' producto'+(productos.length===1?'':'s');
+
+  const tbl=document.getElementById('sb-tbl');if(!tbl)return;
+  if(!productos.length){
+    tbl.innerHTML='<div class="empty" style="padding:30px;text-align:center;color:var(--text3);">Sin stock de bolsas que coincida con los filtros.</div>';
+    return;
+  }
+
+  let html='<div style="overflow-x:auto"><table style="width:100%;font-size:12px;border-collapse:collapse;">'
+    +'<thead style="background:var(--bg3);"><tr>'
+      +'<th style="text-align:left;padding:8px;">Producto</th>'
+      +'<th style="text-align:left;padding:8px;">Bobina · Empaque</th>'
+      +'<th style="text-align:right;padding:8px;">Disp (paq)</th>'
+      +'<th style="text-align:right;padding:8px;">Disp (bultos)</th>'
+      +'<th style="text-align:right;padding:8px;">Disp (u)</th>'
+      +'<th style="text-align:right;padding:8px;">$/paq prom.</th>'
+      +'<th style="text-align:right;padding:8px;">💰 Valor disp.</th>'
+      +'<th style="text-align:right;padding:8px;">Reservado</th>'
+      +'<th style="text-align:left;padding:8px;">Detalle lotes</th>'
+    +'</tr></thead><tbody>';
+
+  productos.forEach(({prod,disponible,reservado,lotes})=>{
+    const paqPorBolson=prod.paquetes_por_bolson||1;
+    const emp=C.emp.find(e=>e.id===prod.empaque_id);
+    const bob=C.bobinas.find(b=>b.id===prod.bobina_id);
+    const uniPaq=emp?.unidades||0;
+    const dispBultos=Math.floor(disponible/paqPorBolson);
+    const dispPaqSueltos=disponible-(dispBultos*paqPorBolson);
+    const dispUni=disponible*uniPaq;
+    const precioP=precioProm[prod.id]?.precioPromPaq||0;
+    const cantPed=precioProm[prod.id]?.cantPedidos||0;
+    const valorDisp=disponible*precioP;
+    const lotesDisp=lotes.filter(l=>l.estado==='disponible');
+    html+='<tr style="border-bottom:1px solid var(--border);">'
+      +'<td style="padding:8px;"><div style="font-weight:700;">'+(prod.descripcion||'—')+'</div>'+(prod.codigo?'<div style="font-family:monospace;color:var(--text3);font-size:10px;">'+prod.codigo+'</div>':'')+'</td>'
+      +'<td style="padding:8px;font-size:11px;color:var(--text2);">'+(bob?.nombre||'—')+(emp?'<br><span style="color:var(--text3)">'+emp.nombre+' '+emp.unidades+'u</span>':'')+'</td>'
+      +'<td style="padding:8px;text-align:right;font-family:monospace;font-weight:700;color:var(--green);">'+disponible.toLocaleString('es-AR')+'</td>'
+      +'<td style="padding:8px;text-align:right;font-family:monospace;font-weight:700;">'+dispBultos.toLocaleString('es-AR')+(dispPaqSueltos>0?'<br><span style="font-size:10px;color:var(--text3);font-weight:400;">+'+dispPaqSueltos+' paq sueltos</span>':'')+'</td>'
+      +'<td style="padding:8px;text-align:right;font-family:monospace;color:var(--text2);">'+(dispUni?dispUni.toLocaleString('es-AR'):'—')+'</td>'
+      +'<td style="padding:8px;text-align:right;font-family:monospace;">'+(precioP?'$'+precioP.toLocaleString('es-AR')+'<br><span style="font-size:10px;color:var(--text3);font-weight:400;">'+cantPed+' pedido'+(cantPed===1?'':'s')+'</span>':'<span style="color:var(--text3);font-style:italic;">sin ventas</span>')+'</td>'
+      +'<td style="padding:8px;text-align:right;font-family:monospace;font-weight:800;color:var(--green);">'+(valorDisp?'$'+r2(valorDisp).toLocaleString('es-AR'):'—')+'</td>'
+      +'<td style="padding:8px;text-align:right;font-family:monospace;color:var(--amber);">'+(reservado?reservado.toLocaleString('es-AR'):'—')+'</td>'
+      +'<td style="padding:8px;font-size:10px;color:var(--text2);max-width:200px;">'
+        +lotesDisp.map(l=>'<div>'+(l.ordenes_corte?.numero_orden||(l.orden_corte_id?'OC #'+l.orden_corte_id:'Manual'))+' · '+l.cantidad_paquetes+' paq</div>').join('')
       +'</td>'
       +'</tr>';
   });
+
+  // Fila total al pie
+  html+='<tr style="background:linear-gradient(90deg,rgba(34,197,94,.06),transparent);font-weight:700;border-top:2px solid var(--green);">'
+    +'<td colspan="2" style="padding:10px 8px;font-weight:800;color:var(--green);">📊 TOTALES</td>'
+    +'<td style="padding:10px 8px;text-align:right;font-family:monospace;color:var(--green);">'+totDispPaq.toLocaleString('es-AR')+'</td>'
+    +'<td style="padding:10px 8px;text-align:right;font-family:monospace;">'+totDispBultos.toLocaleString('es-AR')+'</td>'
+    +'<td style="padding:10px 8px;text-align:right;font-family:monospace;color:var(--text2);">'+totDispUni.toLocaleString('es-AR')+'</td>'
+    +'<td style="padding:10px 8px;"></td>'
+    +'<td style="padding:10px 8px;text-align:right;font-family:monospace;font-weight:900;color:var(--green);font-size:13px;">$'+r2(totDispValor).toLocaleString('es-AR')+'</td>'
+    +'<td style="padding:10px 8px;text-align:right;font-family:monospace;color:var(--amber);">'+totResPaq.toLocaleString('es-AR')+'</td>'
+    +'<td></td>'
+  +'</tr>';
+
   html+='</tbody></table></div>';
   tbl.innerHTML=html;
 }
