@@ -2473,10 +2473,15 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
           </div>
         </div>
         <div class="card-bd">
-          <div style="display:flex;gap:8px;margin-bottom:14px;">
+          <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
             <button class="btn btn-sm cc-tab active" data-tab="consolidado" onclick="cambiarTabCC('consolidado')">Consolidado</button>
             <button class="btn btn-sm cc-tab" data-tab="formal" onclick="cambiarTabCC('formal')">Solo formal</button>
             <button class="btn btn-sm cc-tab" data-tab="informal" onclick="cambiarTabCC('informal')">Solo informal</button>
+            <div style="margin-left:auto;display:flex;gap:6px;align-items:center;font-size:11px;">
+              <span style="color:var(--text2)">Desde:</span><input type="date" id="cc-desde" onchange="renderDetalleCC()" style="font-size:12px;padding:3px 6px;">
+              <span style="color:var(--text2)">Hasta:</span><input type="date" id="cc-hasta" onchange="renderDetalleCC()" style="font-size:12px;padding:3px 6px;">
+              <button class="btn btn-sm" onclick="document.getElementById('cc-desde').value='';document.getElementById('cc-hasta').value='';renderDetalleCC()" style="font-size:11px;">Limpiar</button>
+            </div>
           </div>
           <div id="cc-detalle"></div>
         </div>
@@ -3328,6 +3333,7 @@ async function reload(){
     sb.from('tipos_retencion').select('*').eq('activo',true).order('nombre').then(r=>r).catch(()=>({data:[]})),
     sb.from('remitos_valorizados').select('*, rv_lineas(*), rv_remitos(remito_id), clientes(nombre,razon_social)').order('created_at',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
     sb.from('compensaciones').select('*, comp_aplicaciones(*), clientes(nombre,razon_social)').order('fecha',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
+    sb.from('saldos_iniciales').select('*, clientes(nombre,razon_social)').order('fecha_estimada_cobro',{ascending:true,nullsFirst:false}).then(r=>r).catch(()=>({data:[]})),
   ]);
   const d=r=>results[r].status==='fulfilled'?results[r].value.data||[]:[];
   C.bobinas=d(0);C.extrusoras=d(1);C.ordenes=d(2);
@@ -3354,6 +3360,7 @@ async function reload(){
   C.tipos_retencion=d(30)||[];
   C.rvs=d(31)||[];
   C.compensaciones=d(32)||[];
+  C.saldos_iniciales=d(33)||[];
   const rcfg=results[8].status==='fulfilled'?results[8].value:null;
   if(rcfg?.data){rcfg.data.forEach(r=>{
     if(r.clave==='clave_admin')cfg.clave_admin=r.valor;
@@ -6750,6 +6757,7 @@ function calcularSaldosCliente(cliId){
   let saldoFormal=0, saldoInformal=0;
   let pendFormal=0, pendInformal=0;
   let totalFactFormal=0, totalFactInformal=0;
+  let siFormal=0, siInformal=0;        // saldos iniciales pendientes
 
   (C.facturas||[]).forEach(f=>{
     if(f.cliente_id!==cliId)return;
@@ -6765,11 +6773,35 @@ function calcularSaldosCliente(cliId){
     totalFactInformal+=parseFloat(rv.total)||0;
     if(['pendiente','parcial'].includes(rv.estado))pendInformal++;
   });
+  // Saldos iniciales pendientes (cobrado_el IS NULL → no cobrados)
+  (C.saldos_iniciales||[]).forEach(si=>{
+    if(si.cliente_id!==cliId)return;
+    if(si.cobrado_el)return; // ya cobrado
+    const monto=parseFloat(si.monto)||0;
+    if(si.plano==='formal'){
+      saldoFormal+=monto; siFormal++;
+    } else {
+      saldoInformal+=monto; siInformal++;
+    }
+  });
+  // Crédito disponible del cliente = recibos con saldo sin imputar (de cualquier plano)
+  let creditoFormal=0, creditoInformal=0;
+  (C.recibos||[]).forEach(r=>{
+    if(r.cliente_id!==cliId)return;
+    const disponible=(parseFloat(r.total_cobrado)||0) - (parseFloat(r.total_retenciones)||0) - (parseFloat(r.total_aplicado)||0);
+    if(disponible<=0.01)return;
+    if(r.plano==='formal')creditoFormal+=disponible;
+    else creditoInformal+=disponible;
+  });
   return {
     saldoFormal:r2(saldoFormal),
     saldoInformal:r2(saldoInformal),
     saldoTotal:r2(saldoFormal+saldoInformal),
     pendFormal,pendInformal,
+    siFormal,siInformal,
+    creditoFormal:r2(creditoFormal),
+    creditoInformal:r2(creditoInformal),
+    creditoTotal:r2(creditoFormal+creditoInformal),
     totalFactFormal:r2(totalFactFormal),
     totalFactInformal:r2(totalFactInformal),
     totalFact:r2(totalFactFormal+totalFactInformal)
@@ -6786,7 +6818,7 @@ function renderCCResumen(){
     return {cli:c,...s};
   }).filter(x=>{
     if(!soloPend)return true;
-    return x.saldoTotal>0.01;
+    return x.saldoTotal>0.01 || x.creditoTotal>0.01;
   }).sort((a,b)=>b.saldoTotal-a.saldoTotal);
 
   if(!lista.length){wrap.innerHTML='<div class="empty">No hay clientes con saldo pendiente. 🎉</div>';return;}
@@ -6796,19 +6828,23 @@ function renderCCResumen(){
     +'<th style="text-align:right;color:var(--green);">Saldo Formal</th>'
     +'<th style="text-align:right;color:#9333ea;">Saldo Informal</th>'
     +'<th style="text-align:right;font-weight:700;">Saldo Total</th>'
+    +'<th style="text-align:right;color:var(--accent);">Crédito disp.</th>'
     +'<th></th>'
     +'</tr></thead><tbody>';
   lista.forEach(s=>{
+    const tieneCredito=s.creditoTotal>0.01;
     html+='<tr>'
       +'<td><strong>'+(s.cli.razon_social||s.cli.nombre)+'</strong>'
-        +(s.pendFormal||s.pendInformal?'<div style="font-size:10px;color:var(--text2);">'
+        +(s.pendFormal||s.pendInformal||s.siFormal||s.siInformal?'<div style="font-size:10px;color:var(--text2);">'
           +(s.pendFormal?s.pendFormal+' factura(s) ':'')
           +(s.pendInformal?s.pendInformal+' RV ':'')
+          +(s.siFormal||s.siInformal?'<span style="color:var(--amber);">'+(s.siFormal+s.siInformal)+' saldo(s) inicial(es)</span> ':'')
           +'pendiente(s)</div>':'')
       +'</td>'
       +'<td style="text-align:right" class="mono">'+(s.saldoFormal>0.01?fmtMoney(s.saldoFormal):'<span style="color:var(--text3);">—</span>')+'</td>'
       +'<td style="text-align:right;color:#9333ea;" class="mono">'+(s.saldoInformal>0.01?fmtMoney(s.saldoInformal):'<span style="color:var(--text3);">—</span>')+'</td>'
       +'<td style="text-align:right;font-weight:700;color:'+(s.saldoTotal>0?'var(--red)':'var(--text2)')+';" class="mono">'+fmtMoney(s.saldoTotal)+'</td>'
+      +'<td style="text-align:right;color:var(--accent);font-weight:600;" class="mono">'+(tieneCredito?'💳 '+fmtMoney(s.creditoTotal):'<span style="color:var(--text3);">—</span>')+'</td>'
       +'<td><button class="btn btn-sm" onclick="verDetalleCC('+s.cli.id+')">Ver detalle</button></td>'
       +'</tr>';
   });
@@ -6841,6 +6877,19 @@ function renderDetalleCC(){
   const cliId=_ccCliId;
   if(!cliId)return;
 
+  // Filtros de fecha
+  const fDesde=document.getElementById('cc-desde')?.value||'';
+  const fHasta=document.getElementById('cc-hasta')?.value||'';
+  const enRango=(fecha)=>{
+    if(!fecha)return true;
+    if(fDesde && fecha<fDesde)return false;
+    if(fHasta && fecha>fHasta)return false;
+    return true;
+  };
+
+  // Banner de saldos del cliente (crédito disponible incluido)
+  const s=calcularSaldosCliente(cliId);
+
   const movs=[];
 
   // FORMAL
@@ -6853,16 +6902,44 @@ function renderDetalleCC(){
         id:f.id,obj:f,
         estado:f.estado,saldo:parseFloat(f.saldo)||0
       }));
+    // Saldos iniciales formales
+    (C.saldos_iniciales||[]).filter(si=>si.cliente_id===cliId && si.plano==='formal')
+      .forEach(si=>{
+        const cobrado=si.cobrado_el?parseFloat(si.monto_cobrado_real||si.monto)||0:0;
+        const saldoSI=Math.max(0,(parseFloat(si.monto)||0)-cobrado);
+        movs.push({
+          fecha:si.fecha_estimada_cobro||si.created_at?.slice(0,10)||'',
+          tipo:'SALDO_INI',plano:'formal',
+          ref:'📋 Saldo inicial: '+(si.concepto||'Sin concepto'),
+          debe:parseFloat(si.monto)||0,haber:0,
+          id:si.id,obj:si,
+          estado:si.cobrado_el?'cobrado':(saldoSI>0?'pendiente':'cobrado'),
+          saldo:saldoSI
+        });
+        if(si.cobrado_el && cobrado>0){
+          movs.push({
+            fecha:si.cobrado_el,tipo:'COBRO_SI',plano:'formal',
+            ref:'Cobro saldo inicial: '+(si.concepto||'Sin concepto'),
+            debe:0,haber:cobrado,
+            id:si.id,obj:si
+          });
+        }
+      });
     (C.recibos||[]).filter(r=>r.cliente_id===cliId && r.plano==='formal')
-      .forEach(r=>movs.push({
-        fecha:r.fecha,tipo:'RECIBO',plano:'formal',
-        ref:'Recibo formal '+(r.numero||'#'+r.id),
-        debe:0,haber:parseFloat(r.total_aplicado)||0,
-        id:r.id,obj:r
-      }));
-    // Compensaciones que afectan formal:
-    // - "informal_a_formal" → suma haber al cliente formal (le aplico crédito a factura formal)
-    // - "formal_a_informal" → es un débito al formal (sale dinero del plano formal)
+      .forEach(r=>{
+        const totalAplicado=parseFloat(r.total_aplicado)||0;
+        const totalCobrado=parseFloat(r.total_cobrado)||0;
+        const totalRet=parseFloat(r.total_retenciones)||0;
+        const disponible=totalCobrado-totalRet-totalAplicado;
+        movs.push({
+          fecha:r.fecha,tipo:'RECIBO',plano:'formal',
+          ref:'Recibo formal '+(r.numero||'#'+r.id),
+          debe:0,haber:totalAplicado||totalCobrado-totalRet,
+          id:r.id,obj:r,
+          disponible:r2(disponible)
+        });
+      });
+    // Compensaciones
     (C.compensaciones||[]).filter(c=>c.cliente_id===cliId)
       .forEach(c=>{
         if(c.direccion==='informal_a_formal'){
@@ -6887,13 +6964,43 @@ function renderDetalleCC(){
         id:rv.id,obj:rv,
         estado:rv.estado,saldo:parseFloat(rv.saldo)||0
       }));
+    // Saldos iniciales informales
+    (C.saldos_iniciales||[]).filter(si=>si.cliente_id===cliId && si.plano==='informal')
+      .forEach(si=>{
+        const cobrado=si.cobrado_el?parseFloat(si.monto_cobrado_real||si.monto)||0:0;
+        const saldoSI=Math.max(0,(parseFloat(si.monto)||0)-cobrado);
+        movs.push({
+          fecha:si.fecha_estimada_cobro||si.created_at?.slice(0,10)||'',
+          tipo:'SALDO_INI',plano:'informal',
+          ref:'📋 Saldo inicial: '+(si.concepto||'Sin concepto'),
+          debe:parseFloat(si.monto)||0,haber:0,
+          id:si.id,obj:si,
+          estado:si.cobrado_el?'cobrado':(saldoSI>0?'pendiente':'cobrado'),
+          saldo:saldoSI
+        });
+        if(si.cobrado_el && cobrado>0){
+          movs.push({
+            fecha:si.cobrado_el,tipo:'COBRO_SI',plano:'informal',
+            ref:'Cobro saldo inicial: '+(si.concepto||'Sin concepto'),
+            debe:0,haber:cobrado,
+            id:si.id,obj:si
+          });
+        }
+      });
     (C.recibos||[]).filter(r=>r.cliente_id===cliId && r.plano==='informal')
-      .forEach(r=>movs.push({
-        fecha:r.fecha,tipo:'RECIBO',plano:'informal',
-        ref:'Recibo informal '+(r.numero||'#'+r.id),
-        debe:0,haber:parseFloat(r.total_aplicado)||0,
-        id:r.id,obj:r
-      }));
+      .forEach(r=>{
+        const totalAplicado=parseFloat(r.total_aplicado)||0;
+        const totalCobrado=parseFloat(r.total_cobrado)||0;
+        const totalRet=parseFloat(r.total_retenciones)||0;
+        const disponible=totalCobrado-totalRet-totalAplicado;
+        movs.push({
+          fecha:r.fecha,tipo:'RECIBO',plano:'informal',
+          ref:'Recibo informal '+(r.numero||'#'+r.id),
+          debe:0,haber:totalAplicado||totalCobrado-totalRet,
+          id:r.id,obj:r,
+          disponible:r2(disponible)
+        });
+      });
     (C.compensaciones||[]).filter(c=>c.cliente_id===cliId)
       .forEach(c=>{
         if(c.direccion==='formal_a_informal'){
@@ -6908,47 +7015,401 @@ function renderDetalleCC(){
       });
   }
 
-  movs.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+  // Filtrar por fechas
+  let movsFiltrados=movs.filter(m=>enRango(m.fecha));
+  movsFiltrados.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+
+  // Banner de crédito disponible
+  let creditoDisp=0;
+  if(_ccTab==='consolidado')creditoDisp=s.creditoTotal;
+  else if(_ccTab==='formal')creditoDisp=s.creditoFormal;
+  else creditoDisp=s.creditoInformal;
+
+  let bannerHtml='';
+  if(creditoDisp>0.01){
+    bannerHtml='<div style="background:rgba(99,102,241,.08);border:1px solid var(--accent);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">'
+      +'<div><span style="font-size:13px;color:var(--accent);font-weight:700;">💳 CRÉDITO DISPONIBLE: '+fmtMoney(creditoDisp)+'</span>'
+        +'<div style="font-size:11px;color:var(--text2);margin-top:2px;">Recibos cobrados que aún no fueron imputados a facturas/RVs/saldos iniciales.</div></div>'
+      +'</div>';
+  }
+
   let acum=0;
-  let html='<div style="overflow-x:auto"><table><thead><tr>'
+  let html=bannerHtml
+    +'<div style="overflow-x:auto"><table><thead><tr>'
     +'<th>Fecha</th><th>Plano</th><th>Comprobante</th>'
     +'<th style="text-align:right">Debe</th><th style="text-align:right">Haber</th><th style="text-align:right">Saldo</th><th>Estado/Acc.</th>'
     +'</tr></thead><tbody>';
-  movs.forEach(m=>{
+  movsFiltrados.forEach(m=>{
     acum+=m.debe-m.haber;
     let estado='';
     if(m.tipo==='FACTURA' || m.tipo==='RV'){
-      const col={pendiente:'var(--amber)',parcial:'var(--accent)',pagada:'var(--green)'}[m.estado]||'var(--text2)';
-      estado='<span style="font-size:11px;color:'+col+';font-weight:600;">'+(m.estado||'').toUpperCase()+'</span><br><span style="font-size:10px;color:var(--text3);">saldo '+fmtMoney(m.saldo)+'</span>';
+      const col={pendiente:'var(--amber)',parcial:'var(--accent)',cobrada:'var(--green)',pagada:'var(--green)'}[m.estado]||'var(--text2)';
+      estado='<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">'
+        +'<span style="font-size:11px;color:'+col+';font-weight:600;">'+(m.estado||'').toUpperCase()+'</span>'
+        +'<span style="font-size:10px;color:var(--text3);">saldo '+fmtMoney(m.saldo)+'</span>';
+      if(m.saldo>0.01 && s.creditoTotal>0.01){
+        estado+='<button class="btn btn-sm btn-primary" onclick="abrirImputar(\''+m.tipo+'\','+m.id+')" style="font-size:10px;padding:3px 6px;">💵 Imputar</button>';
+      }
+      estado+='</div>';
+    } else if(m.tipo==='SALDO_INI'){
+      const col=m.estado==='cobrado'?'var(--green)':'var(--amber)';
+      estado='<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">'
+        +'<span style="font-size:11px;color:'+col+';font-weight:600;">'+m.estado.toUpperCase()+'</span>';
+      if(m.estado!=='cobrado')estado+='<span style="font-size:10px;color:var(--text3);">saldo '+fmtMoney(m.saldo)+'</span>';
+      if(m.saldo>0.01 && s.creditoTotal>0.01){
+        estado+='<button class="btn btn-sm btn-primary" onclick="abrirImputar(\'SALDO_INI\','+m.id+')" style="font-size:10px;padding:3px 6px;">💵 Imputar</button>';
+      } else if(m.estado!=='cobrado'){
+        estado+='<button class="btn btn-sm" onclick="marcarCobradoSI('+m.id+')" style="font-size:10px;padding:3px 6px;">Marcar cobrado</button>';
+      }
+      estado+='</div>';
     } else if(m.tipo==='RECIBO'){
-      estado='<button class="btn btn-sm" onclick="imprimirRecibo('+m.id+')">🖨</button>';
+      const dispCol=m.disponible>0.01?'var(--accent)':'var(--text3)';
+      estado='<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">'
+        +'<button class="btn btn-sm" onclick="imprimirRecibo('+m.id+')" style="font-size:10px;padding:3px 6px;">🖨</button>';
+      if(m.disponible>0.01){
+        estado+='<span style="font-size:10px;color:'+dispCol+';">crédito: '+fmtMoney(m.disponible)+'</span>'
+          +'<button class="btn btn-sm btn-primary" onclick="abrirImputarRecibo('+m.id+')" style="font-size:10px;padding:3px 6px;">💵 Imputar</button>';
+      }
+      estado+='</div>';
     } else if(m.tipo==='COMP'){
       estado='<span style="font-size:10px;color:#06b6d4;">↔ puente</span>';
+    } else if(m.tipo==='COBRO_SI'){
+      estado='<span style="font-size:10px;color:var(--green);">✓ aplicado</span>';
     }
     const planoColor=m.plano==='formal'?'var(--green)':'#9333ea';
     html+='<tr>'
       +'<td>'+m.fecha+'</td>'
       +'<td><span style="font-size:11px;font-weight:600;color:'+planoColor+';">'+m.plano.toUpperCase()+'</span></td>'
-      +'<td><strong>'+m.tipo+'</strong> · '+m.ref+'</td>'
+      +'<td><strong>'+m.tipo.replace('_',' ')+'</strong> · '+m.ref+'</td>'
       +'<td style="text-align:right" class="mono">'+(m.debe?fmtMoney(m.debe):'—')+'</td>'
       +'<td style="text-align:right;color:var(--green);" class="mono">'+(m.haber?fmtMoney(m.haber):'—')+'</td>'
       +'<td style="text-align:right;font-weight:600;" class="mono">'+fmtMoney(acum)+'</td>'
       +'<td>'+estado+'</td>'
       +'</tr>';
   });
-  if(!movs.length){
-    html+='<tr><td colspan="7" class="empty">Sin movimientos.</td></tr>';
+  if(!movsFiltrados.length){
+    html+='<tr><td colspan="7" class="empty">Sin movimientos en el rango.</td></tr>';
   }
   html+='</tbody>'
-    +'<tfoot><tr style="font-weight:700;background:var(--bg2);"><td colspan="5" style="text-align:right">SALDO ACTUAL ('+_ccTab.toUpperCase()+'):</td>'
+    +'<tfoot><tr style="font-weight:700;background:var(--bg2);"><td colspan="5" style="text-align:right">SALDO ADEUDADO ('+_ccTab.toUpperCase()+'):</td>'
     +'<td style="text-align:right" class="mono">'+fmtMoney(acum)+'</td><td></td></tr></tfoot>'
     +'</table></div>';
   document.getElementById('cc-detalle').innerHTML=html;
 }
 
 function cerrarDetalleCC(){
-  document.getElementById('cc-detalle-card').style.display='none';
   _ccCliId=null;
+  document.getElementById('cc-detalle-card').style.display='none';
+  document.getElementById('imputar-modal-overlay')?.remove();
+}
+
+// =================================================================
+// IMPUTACIÓN DE CRÉDITO (Ola 2)
+// =================================================================
+// Hay dos puntos de entrada:
+// 1) abrirImputar(tipo,id) → arranca desde una factura/RV/saldo inicial específico
+//    → busca recibos con crédito disponible del mismo plano y permite elegir
+// 2) abrirImputarRecibo(reciboId) → arranca desde un recibo con crédito
+//    → muestra facturas/RVs/saldos del cliente del mismo plano para imputar
+
+let _impCtx=null; // {modo:'desde_destino'|'desde_recibo', destino?, recibo?, items:[]}
+
+function abrirImputar(tipoDestino,destinoId){
+  const cliId=_ccCliId;
+  if(!cliId)return;
+  let destino=null, plano=null, saldoDisp=0;
+  if(tipoDestino==='FACTURA'){
+    destino=C.facturas.find(f=>f.id===destinoId);
+    if(!destino)return;
+    plano='formal';
+    saldoDisp=parseFloat(destino.saldo)||0;
+  } else if(tipoDestino==='RV'){
+    destino=C.rvs.find(r=>r.id===destinoId);
+    if(!destino)return;
+    plano='informal';
+    saldoDisp=parseFloat(destino.saldo)||0;
+  } else if(tipoDestino==='SALDO_INI'){
+    destino=C.saldos_iniciales.find(s=>s.id===destinoId);
+    if(!destino)return;
+    plano=destino.plano;
+    const cobrado=destino.cobrado_el?parseFloat(destino.monto_cobrado_real||destino.monto)||0:0;
+    saldoDisp=Math.max(0,(parseFloat(destino.monto)||0)-cobrado);
+  }
+  // Recibos con crédito del mismo plano
+  const recibosDisp=(C.recibos||[]).filter(r=>{
+    if(r.cliente_id!==cliId)return false;
+    if(r.plano!==plano)return false;
+    const totalCobrado=parseFloat(r.total_cobrado)||0;
+    const totalRet=parseFloat(r.total_retenciones)||0;
+    const totalAplicado=parseFloat(r.total_aplicado)||0;
+    return (totalCobrado-totalRet-totalAplicado)>0.01;
+  }).map(r=>({
+    ...r,
+    _disponible:r2((parseFloat(r.total_cobrado)||0)-(parseFloat(r.total_retenciones)||0)-(parseFloat(r.total_aplicado)||0))
+  }));
+  if(!recibosDisp.length){
+    alert('No hay recibos con crédito disponible del plano '+plano+' para imputar.');
+    return;
+  }
+  _impCtx={
+    modo:'desde_destino',
+    tipoDestino,destino,plano,saldoDisp,
+    recibosDisp,
+    items:recibosDisp.map(r=>({recibo_id:r.id,monto:0,maxMonto:r._disponible}))
+  };
+  renderModalImputar();
+}
+
+function abrirImputarRecibo(reciboId){
+  const cliId=_ccCliId;
+  if(!cliId)return;
+  const recibo=C.recibos.find(r=>r.id===reciboId);
+  if(!recibo)return;
+  const totalCobrado=parseFloat(recibo.total_cobrado)||0;
+  const totalRet=parseFloat(recibo.total_retenciones)||0;
+  const totalAplicado=parseFloat(recibo.total_aplicado)||0;
+  const disponible=r2(totalCobrado-totalRet-totalAplicado);
+  if(disponible<=0.01){alert('Este recibo no tiene crédito disponible.');return;}
+  const plano=recibo.plano;
+  // Destinos pendientes del cliente y plano
+  const destinos=[];
+  if(plano==='formal'){
+    (C.facturas||[]).filter(f=>f.cliente_id===cliId && f.estado!=='anulada' && (parseFloat(f.saldo)||0)>0.01).forEach(f=>{
+      destinos.push({tipo:'FACTURA',id:f.id,ref:'Factura '+f.tipo+' '+(f.numero||''),fecha:f.fecha,saldo:parseFloat(f.saldo)||0});
+    });
+  } else {
+    (C.rvs||[]).filter(rv=>rv.cliente_id===cliId && rv.estado!=='anulada' && (parseFloat(rv.saldo)||0)>0.01).forEach(rv=>{
+      destinos.push({tipo:'RV',id:rv.id,ref:'RV '+(rv.numero||'#'+rv.id),fecha:rv.fecha,saldo:parseFloat(rv.saldo)||0});
+    });
+  }
+  // Saldos iniciales del mismo plano y cliente
+  (C.saldos_iniciales||[]).filter(si=>si.cliente_id===cliId && si.plano===plano && !si.cobrado_el).forEach(si=>{
+    const cobrado=parseFloat(si.monto_cobrado_real)||0;
+    const saldoSI=Math.max(0,(parseFloat(si.monto)||0)-cobrado);
+    if(saldoSI>0.01)destinos.push({tipo:'SALDO_INI',id:si.id,ref:'📋 Saldo inicial: '+(si.concepto||'Sin concepto'),fecha:si.fecha_estimada_cobro||'',saldo:saldoSI});
+  });
+  if(!destinos.length){
+    alert('No hay facturas/RVs/saldos iniciales pendientes del plano '+plano+' para este cliente.');
+    return;
+  }
+  // Ordenar por fecha (más viejas primero)
+  destinos.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+  _impCtx={
+    modo:'desde_recibo',
+    recibo,plano,disponible,
+    destinos,
+    items:destinos.map(d=>({tipo:d.tipo,id:d.id,monto:0,maxMonto:Math.min(d.saldo,disponible)}))
+  };
+  renderModalImputar();
+}
+
+function renderModalImputar(){
+  document.getElementById('imputar-modal-overlay')?.remove();
+  if(!_impCtx)return;
+  const overlay=document.createElement('div');
+  overlay.id='imputar-modal-overlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:flex;align-items:flex-start;justify-content:center;padding:40px 20px;overflow:auto;';
+  let html='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px;max-width:780px;width:100%;max-height:calc(100vh - 80px);overflow:auto;">';
+  if(_impCtx.modo==='desde_destino'){
+    const destLabel=_impCtx.tipoDestino==='FACTURA'?'Factura '+(_impCtx.destino.tipo||'')+' '+(_impCtx.destino.numero||''):
+                    _impCtx.tipoDestino==='RV'?'RV '+(_impCtx.destino.numero||''):
+                    'Saldo inicial: '+(_impCtx.destino.concepto||'Sin concepto');
+    html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">'
+      +'<div><div style="font-size:16px;font-weight:700;">💵 Imputar crédito a:</div>'
+        +'<div style="font-size:13px;color:var(--text2);">'+destLabel+'</div>'
+        +'<div style="font-size:12px;color:var(--amber);margin-top:4px;">Saldo pendiente: '+fmtMoney(_impCtx.saldoDisp)+'</div></div>'
+      +'<button class="btn btn-sm" onclick="cerrarImputar()">×</button>'
+      +'</div>'
+      +'<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Elegí cuánto imputar de cada recibo disponible del plano <strong>'+_impCtx.plano.toUpperCase()+'</strong>:</div>'
+      +'<table style="width:100%;font-size:12px;">'
+      +'<thead><tr style="background:var(--bg3)"><th>Recibo</th><th style="text-align:right">Crédito disp.</th><th style="text-align:right">Monto a imputar</th></tr></thead><tbody>';
+    _impCtx.recibosDisp.forEach((r,i)=>{
+      html+='<tr style="border-bottom:1px solid var(--border);">'
+        +'<td style="padding:6px"><strong>'+(r.numero||'#'+r.id)+'</strong><div style="font-size:10px;color:var(--text3);">'+r.fecha+'</div></td>'
+        +'<td style="text-align:right" class="mono">'+fmtMoney(r._disponible)+'</td>'
+        +'<td style="text-align:right;padding:6px"><input type="number" step="0.01" min="0" max="'+Math.min(r._disponible,_impCtx.saldoDisp)+'" '
+          +'value="0" id="imp-item-'+i+'" oninput="updImputarItem('+i+',this.value)" style="width:120px;text-align:right;"></td>'
+        +'</tr>';
+    });
+    html+='</tbody></table>';
+  } else {
+    const recLabel='Recibo '+(_impCtx.recibo.numero||'#'+_impCtx.recibo.id)+' ('+_impCtx.recibo.fecha+')';
+    html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">'
+      +'<div><div style="font-size:16px;font-weight:700;">💵 Imputar crédito desde recibo</div>'
+        +'<div style="font-size:13px;color:var(--text2);">'+recLabel+'</div>'
+        +'<div style="font-size:12px;color:var(--accent);margin-top:4px;">Crédito disponible: '+fmtMoney(_impCtx.disponible)+'</div></div>'
+      +'<button class="btn btn-sm" onclick="cerrarImputar()">×</button>'
+      +'</div>'
+      +'<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Elegí a qué facturas/RVs/saldos iniciales del plano <strong>'+_impCtx.plano.toUpperCase()+'</strong> aplicar:</div>'
+      +'<table style="width:100%;font-size:12px;">'
+      +'<thead><tr style="background:var(--bg3)"><th>Destino</th><th>Fecha</th><th style="text-align:right">Saldo</th><th style="text-align:right">Imputar</th></tr></thead><tbody>';
+    _impCtx.destinos.forEach((d,i)=>{
+      html+='<tr style="border-bottom:1px solid var(--border);">'
+        +'<td style="padding:6px">'+d.ref+'</td>'
+        +'<td style="font-size:11px;color:var(--text2)">'+(d.fecha||'—')+'</td>'
+        +'<td style="text-align:right" class="mono">'+fmtMoney(d.saldo)+'</td>'
+        +'<td style="text-align:right;padding:6px"><input type="number" step="0.01" min="0" max="'+Math.min(d.saldo,_impCtx.disponible)+'" '
+          +'value="0" id="imp-item-'+i+'" oninput="updImputarItem('+i+',this.value)" style="width:120px;text-align:right;"></td>'
+        +'</tr>';
+    });
+    html+='</tbody></table>';
+  }
+  html+='<div style="margin-top:14px;padding:10px;background:var(--bg3);border-radius:6px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">'
+    +'<div style="font-size:13px;"><strong>Total a imputar:</strong> <span id="imp-total" class="mono" style="font-weight:700;">'+fmtMoney(0)+'</span></div>'
+    +'<div class="btn-grp">'
+      +'<button class="btn" onclick="cerrarImputar()">Cancelar</button>'
+      +'<button class="btn btn-primary" onclick="confirmarImputar()">✓ Confirmar imputación</button>'
+    +'</div>'
+    +'<div id="msg-imp" style="font-size:12px;flex-basis:100%;"></div>'
+    +'</div>';
+  html+='</div>';
+  overlay.innerHTML=html;
+  document.body.appendChild(overlay);
+}
+
+function updImputarItem(idx,val){
+  if(!_impCtx)return;
+  _impCtx.items[idx].monto=parseFloat(val)||0;
+  const total=_impCtx.items.reduce((s,it)=>s+(it.monto||0),0);
+  const el=document.getElementById('imp-total');
+  if(el)el.textContent=fmtMoney(total);
+}
+
+function cerrarImputar(){
+  _impCtx=null;
+  document.getElementById('imputar-modal-overlay')?.remove();
+}
+
+async function confirmarImputar(){
+  if(!_impCtx)return;
+  const msg=document.getElementById('msg-imp');
+  const total=_impCtx.items.reduce((s,it)=>s+(it.monto||0),0);
+  if(total<=0){msg.style.color='var(--red)';msg.textContent='Cargá al menos un monto a imputar.';return;}
+
+  msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:12px;height:12px"></div>Procesando...</div>';
+
+  try{
+    if(_impCtx.modo==='desde_destino'){
+      // Imputamos múltiples recibos a UN destino
+      let imputadoTotal=0;
+      for(let i=0;i<_impCtx.items.length;i++){
+        const it=_impCtx.items[i];
+        if(it.monto<=0)continue;
+        await aplicarImputacion({
+          recibo_id:it.recibo_id,
+          tipoDestino:_impCtx.tipoDestino,
+          destinoId:_impCtx.destino.id,
+          monto:it.monto
+        });
+        imputadoTotal+=it.monto;
+      }
+      msg.style.color='var(--green)';msg.textContent='✓ Imputado '+fmtMoney(imputadoTotal);
+    } else {
+      // Imputamos UN recibo a múltiples destinos
+      let imputadoTotal=0;
+      for(let i=0;i<_impCtx.items.length;i++){
+        const it=_impCtx.items[i];
+        if(it.monto<=0)continue;
+        await aplicarImputacion({
+          recibo_id:_impCtx.recibo.id,
+          tipoDestino:it.tipo,
+          destinoId:it.id,
+          monto:it.monto
+        });
+        imputadoTotal+=it.monto;
+      }
+      msg.style.color='var(--green)';msg.textContent='✓ Imputado '+fmtMoney(imputadoTotal);
+    }
+    await reload();
+    setTimeout(()=>{
+      cerrarImputar();
+      renderDetalleCC();
+      renderCCResumen();
+    },800);
+  } catch(err){
+    console.error(err);
+    msg.style.color='var(--red)';msg.textContent='Error: '+(err.message||err);
+  }
+}
+
+// Aplica una imputación: actualiza recibo_facturas/recibo_rvs/saldos_iniciales y
+// actualiza saldo + estado del destino + total_aplicado del recibo
+async function aplicarImputacion({recibo_id,tipoDestino,destinoId,monto}){
+  if(tipoDestino==='FACTURA'){
+    // Buscar fila existente o crear
+    const{data:existing}=await sb.from('recibo_facturas')
+      .select('*').eq('recibo_id',recibo_id).eq('factura_id',destinoId).maybeSingle();
+    if(existing){
+      await sb.from('recibo_facturas').update({
+        monto_aplicado:r2((parseFloat(existing.monto_aplicado)||0)+monto)
+      }).eq('id',existing.id);
+    } else {
+      await sb.from('recibo_facturas').insert({recibo_id,factura_id:destinoId,monto_aplicado:r2(monto)});
+    }
+    // Actualizar saldo factura
+    const f=C.facturas.find(x=>x.id===destinoId);
+    if(f){
+      const nuevoSaldo=r2(Math.max(0,(parseFloat(f.saldo)||0)-monto));
+      const nuevoEstado=nuevoSaldo<=0.01?'cobrada':'parcial';
+      await sb.from('facturas').update({saldo:nuevoSaldo,estado:nuevoEstado}).eq('id',destinoId);
+    }
+  } else if(tipoDestino==='RV'){
+    const{data:existing}=await sb.from('recibo_rvs')
+      .select('*').eq('recibo_id',recibo_id).eq('rv_id',destinoId).maybeSingle();
+    if(existing){
+      await sb.from('recibo_rvs').update({
+        monto_aplicado:r2((parseFloat(existing.monto_aplicado)||0)+monto)
+      }).eq('id',existing.id);
+    } else {
+      await sb.from('recibo_rvs').insert({recibo_id,rv_id:destinoId,monto_aplicado:r2(monto)});
+    }
+    const rv=C.rvs.find(x=>x.id===destinoId);
+    if(rv){
+      const nuevoSaldo=r2(Math.max(0,(parseFloat(rv.saldo)||0)-monto));
+      const nuevoEstado=nuevoSaldo<=0.01?'cobrada':'parcial';
+      await sb.from('remitos_valorizados').update({saldo:nuevoSaldo,estado:nuevoEstado}).eq('id',destinoId);
+    }
+  } else if(tipoDestino==='SALDO_INI'){
+    const si=C.saldos_iniciales.find(x=>x.id===destinoId);
+    if(si){
+      const cobradoActual=parseFloat(si.monto_cobrado_real)||0;
+      const nuevoCobrado=r2(cobradoActual+monto);
+      const monto_total=parseFloat(si.monto)||0;
+      const update={monto_cobrado_real:nuevoCobrado};
+      if(nuevoCobrado>=monto_total-0.01){
+        update.cobrado_el=localDate();
+      }
+      await sb.from('saldos_iniciales').update(update).eq('id',destinoId);
+    }
+  }
+  // Actualizar total_aplicado del recibo
+  const r=C.recibos.find(x=>x.id===recibo_id);
+  if(r){
+    const nuevoAplicado=r2((parseFloat(r.total_aplicado)||0)+monto);
+    await sb.from('recibos').update({total_aplicado:nuevoAplicado}).eq('id',recibo_id);
+  }
+}
+
+// Marcar saldo inicial como cobrado (sin pasar por recibo)
+async function marcarCobradoSI(siId){
+  const si=C.saldos_iniciales.find(x=>x.id===siId);
+  if(!si)return;
+  const cobradoActual=parseFloat(si.monto_cobrado_real)||0;
+  const restante=r2(Math.max(0,(parseFloat(si.monto)||0)-cobradoActual));
+  const fechaIn=prompt('Fecha real de cobro (YYYY-MM-DD):',localDate());
+  if(!fechaIn)return;
+  const montoIn=prompt('Monto cobrado (saldo pendiente: '+fmtMoney(restante)+'):',restante);
+  if(!montoIn)return;
+  const monto=parseFloat(montoIn);
+  if(isNaN(monto)||monto<=0){alert('Monto inválido');return;}
+  const nuevoCobrado=r2(cobradoActual+monto);
+  const monto_total=parseFloat(si.monto)||0;
+  const update={monto_cobrado_real:nuevoCobrado};
+  if(nuevoCobrado>=monto_total-0.01){update.cobrado_el=fechaIn;}
+  await sb.from('saldos_iniciales').update(update).eq('id',siId);
+  await reload();
+  renderDetalleCC();
+  renderCCResumen();
 }
 
 function imprimirEstadoCuenta(tipo){
@@ -14839,81 +15300,17 @@ function renderLineasV2(){
 }
 
 function refreshV2Row(id){
-  // Actualización quirúrgica — NO re-renderiza la fila para no perder el foco del input.
-  // Solo actualiza los textos derivados (subtotal, IVA, unidades, stock, badge fuente precio).
-  const l=_pedLineas.find(x=>x.id===id);
-  if(!l)return;
-  const row=document.getElementById('v2-row-'+id);
-  if(!row)return;
-  const prod=l.producto_id?C.productos.find(p=>p.id===l.producto_id):null;
-  const emp=prod?C.emp.find(e=>e.id===prod.empaque_id):null;
-  const uniPaq=emp?.unidades||0;
-  const mtsPorBolsa=prod?.metros_por_bolsa||0;
-  const merma=prod?.merma_pct||5;
-  const totalUni=uniPaq>0&&l.cantidad?l.cantidad*uniPaq:0;
-  const mtsAprox=totalUni&&mtsPorBolsa?r1(totalUni*mtsPorBolsa*(1+merma/100)):0;
-  // Actualizar borde según estado
-  const completo=l.producto_id&&l.cantidad>0&&l.precio_paquete>0;
-  row.classList.remove('ok','warn','empty');
-  row.classList.add(completo?'ok':(l.producto_id?'warn':'empty'));
-  // Subtotal
-  const cells=row.children;
-  // cells: [0]num [1]producto [2]cantidad [3]precio [4]stock [5]subtotal [6]del
-  // [2] cantidad: actualizar el .cant-sub
-  const cantSub=cells[2]?.querySelector('.cant-sub');
-  if(cantSub)cantSub.textContent=(l.cantidad&&uniPaq?(l.cantidad*uniPaq).toLocaleString('es-AR')+' u'+(mtsAprox?' · ≈'+mtsAprox.toLocaleString('es-AR')+'m':''):'paquetes');
-  // [3] precio: actualizar el .precio-src
-  const precSrc=cells[3]?.querySelector('.precio-src');
-  if(precSrc){
-    let srcClass='',srcText='';
-    if(l._precio_fuente==='especial'){srcClass='esp';srcText='⭐ Especial';}
-    else if(l._precio_fuente==='lista'){srcClass='lista';srcText='📋 Lista';}
-    else if(l.precio_paquete){srcClass='man';srcText='✏️ Manual';}
-    else if(l.producto_id){srcClass='';srcText='sin precio';}
-    precSrc.className='precio-src '+srcClass;
-    precSrc.textContent=srcText;
-    if(!srcClass)precSrc.style.color='var(--text3)';
-    else precSrc.style.color='';
-  }
-  // [4] stock: actualizar badge + stk-sub
-  if(prod){
-    const stockDisp=C.stock_bolsas
-      .filter(s=>s.producto_id===prod.id&&s.estado==='disponible')
-      .reduce((s,x)=>s+(x.cantidad_paquetes||0),0);
-    const stkBadge=cells[4]?.querySelector('.stk');
-    const stkSub=cells[4]?.querySelector('.stk-sub');
-    if(stkBadge){
-      stkBadge.className='stk';
-      if(stockDisp>0&&l.cantidad>0&&stockDisp>=l.cantidad){stkBadge.classList.add('ok');stkBadge.textContent='✓ '+stockDisp.toLocaleString('es-AR');}
-      else if(stockDisp>0&&l.cantidad>0){stkBadge.classList.add('warn');stkBadge.textContent='⚠ '+stockDisp.toLocaleString('es-AR');}
-      else if(stockDisp>0){stkBadge.classList.add('ok');stkBadge.textContent=stockDisp.toLocaleString('es-AR')+' paq';}
-      else{stkBadge.classList.add('no');stkBadge.textContent='— sin stock';}
-    }
-    if(stkSub){
-      if(stockDisp>0&&l.cantidad>0&&stockDisp>=l.cantidad)stkSub.textContent='cubre todo';
-      else if(stockDisp>0&&l.cantidad>0)stkSub.textContent='faltan '+(l.cantidad-stockDisp).toLocaleString('es-AR')+' paq';
-      else if(stockDisp>0)stkSub.textContent='disponibles';
-      else stkSub.textContent=l.cantidad>0?'producir '+l.cantidad.toLocaleString('es-AR')+' paq':'';
-    }
-  }
-  // [5] subtotal y subtotal-IVA
-  const alic=parseFloat(document.getElementById('v2-alicuota')?.value)||21;
-  const tipo=document.querySelector('input[name="v2-tv"]:checked')?.value||'blanco';
-  const pctBlanco=tipo==='mixto'?(parseInt(document.getElementById('v2-pct-blanco')?.value)||50):tipo==='blanco'?100:0;
-  const ivaLinea=l.subtotal_linea?r2(l.subtotal_linea*pctBlanco/100*alic/100):0;
-  const subDiv=cells[5]?.querySelector('.sub');
-  const subIvaDiv=cells[5]?.querySelector('.sub-iva');
-  if(subDiv)subDiv.textContent=(l.subtotal_linea?'$ '+r2(l.subtotal_linea).toLocaleString('es-AR'):'—');
-  if(subIvaDiv){
-    if(ivaLinea>0){subIvaDiv.style.display='';subIvaDiv.textContent='+ IVA $ '+ivaLinea.toLocaleString('es-AR');}
-    else subIvaDiv.style.display='none';
-  } else if(ivaLinea>0 && cells[5]){
-    // Crear el subIvaDiv si no existía
-    const newDiv=document.createElement('div');
-    newDiv.className='sub-iva';
-    newDiv.textContent='+ IVA $ '+ivaLinea.toLocaleString('es-AR');
-    cells[5].appendChild(newDiv);
-  }
+  // Sólo redibuja la fila completa (más simple que parchar cada celda)
+  // No es necesario en cada keystroke — usamos esto luego de cantidad/precio change
+  // El subtotal y stock cambian, así que mejor re-render selectivo:
+  const idx=_pedLineas.findIndex(x=>x.id===id);
+  if(idx<0)return;
+  const oldRow=document.getElementById('v2-row-'+id);
+  if(!oldRow)return;
+  // Como las celdas son simples, hacemos un re-render completo de líneas (es rápido):
+  renderLineasV2();
+  // Mantener foco en el input que estaba siendo editado:
+  // (opcional — por simplicidad lo dejamos sin restaurar foco, ya que el oninput se sigue disparando)
 }
 
 function eliminarLineaV2(id){
@@ -14945,11 +15342,11 @@ function refreshV2Footer(){
     return s+((l.cantidad||0)*(emp?.unidades||0));
   },0);
   // Total bultos usando paq/bolsón aplicable (puede ser especial por cliente)
-  const cliId=parseInt(document.getElementById('v2-cli')?.value)||0;
+  const cliIdFt=parseInt(document.getElementById('v2-cli')?.value)||0;
   let totalBultos=0, hayBultoEspecial=false;
   _pedLineas.forEach(l=>{
     if(!l.producto_id||!l.cantidad)return;
-    const info=(typeof getPaqBolsonAplicable==='function')?getPaqBolsonAplicable(l.producto_id,cliId):{paq:1,esEspecial:false};
+    const info=(typeof getPaqBolsonAplicable==='function')?getPaqBolsonAplicable(l.producto_id,cliIdFt):{paq:1,esEspecial:false};
     totalBultos+=Math.ceil(l.cantidad/(info.paq||1));
     if(info.esEspecial)hayBultoEspecial=true;
   });
@@ -15245,12 +15642,10 @@ async function generarOrdenesCorte(){
     } else {
       // Recalcular paq/bolsón aplicable (por si cambió el cliente y tiene especial)
       const pbInfoCurrent=(typeof getPaqBolsonAplicable==='function')?getPaqBolsonAplicable(l.producto_id,cliId):{paq:oExist.paqPorBolson||prod?.paquetes_por_bolson||1,esEspecial:false};
-      // Si el paq/bolsón aplicable cambió (cliente con/sin especial), actualizar
       if(pbInfoCurrent.paq!==oExist.paqPorBolson){
         oExist.paqPorBolson=pbInfoCurrent.paq;
         oExist.paqPorBolsonEsEspecial=pbInfoCurrent.esEspecial;
         oExist.paqPorBolsonDefecto=pbInfoCurrent.defecto||prod?.paquetes_por_bolson||1;
-        // Recalcular bolsones con el nuevo paq/bolsón
         oExist.bolsones=Math.ceil(totalPaqLinea/oExist.paqPorBolson);
         oExist.totalPaq=oExist.bolsones*oExist.paqPorBolson;
         oExist.totalUni=oExist.totalPaq*uniPorPaq;
@@ -16080,7 +16475,6 @@ function imprimirPedido(pedId){
   (p.pedido_ordenes_corte||[]).forEach(po=>{
     const oc=po.ordenes_corte;
     if(oc&&oc.producto_id&&oc.paquetes_por_bolson){
-      // Si hay varias OC del mismo producto, quedarnos con la primera (todas deberían tener el mismo paq/bolsón)
       if(!ocPorProducto[oc.producto_id])ocPorProducto[oc.producto_id]=oc.paquetes_por_bolson;
     }
   });
