@@ -413,6 +413,7 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
     <div class="nav-item" onclick="go('capacidad')"><div class="nav-dot"></div>Capacidad extrusión</div>
     <div class="nav-item" onclick="go('maquinas-corte')"><div class="nav-dot"></div>Máq. de corte</div>
     <div class="nav-item" onclick="go('productos')"><div class="nav-dot"></div>Productos</div>
+    <div class="nav-item" onclick="goAdmin('recalc-pesos')"><div class="nav-dot" style="background:var(--amber)"></div>Recalcular pesos 🧮</div>
     <div class="nav-item" onclick="go('empaque')"><div class="nav-dot"></div>Tipos de empaque</div>
     <div class="nav-item" onclick="go('capacidad-corte')"><div class="nav-dot"></div>Capacidad corte</div>
     <div class="nav-item" onclick="go('analytics')" style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px;">
@@ -1268,11 +1269,14 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
         <div class="fgrid fgrid3">
           <div class="fg"><label>Código</label><input id="pr-cod" type="text" placeholder="BOL-001"></div>
           <div class="fg"><label>Descripción</label><input id="pr-des" type="text" placeholder="Bolsa kraft 25x30"></div>
-          <div class="fg"><label>Bobina requerida</label><select id="pr-bob"><option value="">— seleccionar —</option></select></div>
+          <div class="fg"><label>Bobina requerida</label><select id="pr-bob" onchange="calcPrPesoBolsa()"><option value="">— seleccionar —</option></select></div>
         </div>
         <div class="fgrid fgrid3">
-          <div class="fg"><label>Metros por bolsa</label><input id="pr-mts" type="number" step="0.0001" placeholder="0.1200"></div>
-          <div class="fg"><label>Peso por bolsa (kg)</label><input id="pr-peso" type="number" step="0.0001" placeholder="0.025"></div>
+          <div class="fg"><label>Metros por bolsa</label><input id="pr-mts" type="number" step="0.0001" placeholder="0.1200" oninput="calcPrPesoBolsa()"></div>
+          <div class="fg"><label>Peso por bolsa (kg) <span style="font-size:10px;color:var(--text3)" id="pr-peso-lbl">calculado</span></label>
+            <input id="pr-peso" type="number" step="0.0001" placeholder="0.025" style="background:var(--bg3);">
+            <div style="font-size:10px;color:var(--text3);margin-top:2px" id="pr-peso-info">Se calcula con bobina (kg/m) × metros/bolsa. Editable si lo necesitás.</div>
+          </div>
           <div class="fg"><label>% Merma default</label><input id="pr-merma" type="number" step="0.1" value="5"></div>
         </div>
         <div class="fgrid fgrid3">
@@ -1308,6 +1312,68 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
         <div class="btn-grp"><button class="btn btn-primary btn-sm" onclick="addEmpaque()">Agregar</button><span id="msg-te" style="font-size:12px;"></span></div>
       </div>
       <div class="tw"><div id="te-tbl"><div class="loading"><div class="spinner"></div></div></div></div>
+    </div>
+
+    <!-- RECALCULAR PESOS MASIVO -->
+    <div class="page" id="page-recalc-pesos">
+      <div class="page-hdr">
+        <div>
+          <div class="page-title">🧮 Recalcular pesos de productos</div>
+          <div class="page-sub">Aplicar fórmula <strong>kg/m bobina × m/bolsa</strong> a productos cargados — admin</div>
+        </div>
+        <div class="btn-grp">
+          <button class="btn btn-sm" onclick="renderRecalcPesos()">🔄 Refrescar</button>
+        </div>
+      </div>
+
+      <div class="alert alert-warn" style="font-size:12px;margin-bottom:14px;">
+        <strong>⚠ Acción crítica:</strong> Esto actualiza el campo <code>peso_por_bolsa</code> de los productos seleccionados. Afecta cálculos de costos, kg/paquete y rentabilidad. Es <strong>reversible</strong> editando el producto manualmente.
+      </div>
+
+      <!-- KPIs -->
+      <div id="rp-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px;"></div>
+
+      <!-- Filtros -->
+      <div style="background:var(--bg3);border-radius:var(--rl);padding:10px 14px;margin-bottom:14px;">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px;align-items:end;">
+          <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">🔍 Buscar producto</label>
+            <input id="rp-search" type="text" placeholder="código o descripción" oninput="renderRecalcPesos()"></div>
+          <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">Tipo bobina</label>
+            <select id="rp-bob" onchange="renderRecalcPesos()"><option value="">Todas</option></select></div>
+          <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">Mostrar</label>
+            <select id="rp-filtro" onchange="renderRecalcPesos()">
+              <option value="todos">Todos los productos</option>
+              <option value="con-dif">Solo con diferencia &gt; 5%</option>
+              <option value="sin-peso">Solo sin peso cargado</option>
+              <option value="ok">Solo OK (dif ≤ 5%)</option>
+            </select></div>
+          <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">Umbral diferencia (%)</label>
+            <input id="rp-umbral" type="number" min="0" max="50" step="1" value="5" onchange="renderRecalcPesos()"></div>
+        </div>
+      </div>
+
+      <!-- Panel de acción masiva -->
+      <div id="rp-acciones" style="display:none;background:linear-gradient(135deg,rgba(245,158,11,.08),var(--bg2));border:1.5px solid var(--amber);border-radius:var(--rl);padding:12px 16px;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <div style="font-weight:700;font-size:13px;color:var(--amber);">⚙️ <span id="rp-sel-count">0</span> producto(s) seleccionado(s)</div>
+          <button class="btn btn-sm btn-primary" onclick="ejecutarRecalcPesos()">🧮 Aplicar peso calculado</button>
+          <button class="btn btn-sm" onclick="limpiarSelRecalc()">✕ Limpiar selección</button>
+          <span id="rp-msg" style="font-size:12px;margin-left:8px;"></span>
+        </div>
+      </div>
+
+      <!-- Tabla -->
+      <div class="tw">
+        <div class="tw-bar">
+          <span class="tw-title">📋 Comparativa peso actual vs calculado</span>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <label style="font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;">
+              <input type="checkbox" id="rp-todos" onchange="toggleTodosRecalc(this.checked)" style="width:14px;height:14px;"> Seleccionar todos (filtrados)
+            </label>
+          </div>
+        </div>
+        <div id="rp-lista" style="padding:8px 14px 14px;"></div>
+      </div>
     </div>
 
     <!-- CAPACIDAD CORTE SEMANAL -->
@@ -5239,6 +5305,7 @@ function go(name){
   if(name==='planificar')renderPlanificar();
   if(name==='simulador')initSimulador();
   if(name==='flujo-mp')initFlujoMP();
+  if(name==='recalc-pesos')initRecalcPesos();
   if(name==='nueva-corte'){poblarSelectsCorte();limpiarFormCorte();}
   if(name==='gantt-corte')renderGanttCorte();
   if(name==='analytics')renderAnalytics();
@@ -11159,7 +11226,8 @@ function renderOrdenesCorte(){
       <td><button class="btn btn-sm" onclick="imprimirQROrdenCorte(${o.id})" title="QR de la orden">📋</button>
           <button class="btn btn-sm" onclick="imprimirOrden(${o.id},'corte')" title="Imprimir orden">🖨️</button>
           <button class="btn btn-sm" onclick="imprimirBobinasOC(${o.id})" title="Imprimir bobinas asociadas (guía para cortador)" style="background:rgba(15,118,110,.08);color:#0f766e;border-color:rgba(15,118,110,.3);">🧵</button>
-          <button class="btn btn-sm" onclick="verLotesDeOC(${o.id})" title="Ver lotes MP consumidos">📦</button></td>
+          <button class="btn btn-sm" onclick="verLotesDeOC(${o.id})" title="Ver lotes MP consumidos">📦</button>
+          ${(o.estado==='Pendiente'||o.estado==='Suspendida')?`<button class="btn btn-sm btn-primary" onclick="abrirEditarOrdenCorte(${o.id})" title="Editar orden (admin)">✏️</button>`:''}</td>
       <td>
         ${o.estado==='En proceso'?`<button class="btn btn-sm btn-teal" onclick="abrirCierreOrdenCorte(${o.id})">Cerrar</button>`:''}
         ${o.estado==='Completada'?`<button class="btn btn-sm" onclick="verDetalleOrdenCorte(${o.id})">📊 Detalle</button>`:''}
@@ -12082,6 +12150,205 @@ function renderFlujoMP(){
   desgloseDiv.innerHTML=html;
 }
 
+// ====== RECALCULAR PESOS DE PRODUCTOS (masivo, admin) ======
+let _rpSel=new Set();
+
+function initRecalcPesos(){
+  _rpSel=new Set();
+  // Poblar select bobinas
+  const selBob=document.getElementById('rp-bob');
+  if(selBob){
+    selBob.innerHTML='<option value="">Todas</option>'
+      +C.bobinas.map(b=>'<option value="'+b.id+'">'+b.nombre+(b.descripcion?' · '+b.descripcion:'')+(b.kg_por_metro?' ('+b.kg_por_metro+' kg/m)':' ⚠ sin kg/m')+'</option>').join('');
+  }
+  // Limpiar filtros
+  const inp=document.getElementById('rp-search');if(inp)inp.value='';
+  renderRecalcPesos();
+}
+
+// Calcula la info de cada producto: peso actual, peso calculado, diferencia
+function _enriquecerProductosRecalc(){
+  return C.productos.map(p=>{
+    const bob=C.bobinas.find(b=>b.id===p.bobina_id);
+    const kgM=bob?.kg_por_metro||0;
+    const mts=p.metros_por_bolsa||0;
+    const pesoCalc=(kgM&&mts)?r6(kgM*mts):0;
+    const pesoActual=p.peso_por_bolsa||0;
+    const dif=pesoCalc-pesoActual;
+    const difPct=pesoActual>0?Math.abs(dif/pesoActual*100):(pesoCalc>0?100:0);
+    return {...p,_bob:bob,_kgM:kgM,_pesoCalc:pesoCalc,_pesoActual:pesoActual,_dif:dif,_difPct:difPct};
+  });
+}
+
+function renderRecalcPesos(){
+  const q=(document.getElementById('rp-search')?.value||'').toLowerCase().trim();
+  const filtroBob=parseInt(document.getElementById('rp-bob')?.value)||0;
+  const filtro=document.getElementById('rp-filtro')?.value||'todos';
+  const umbral=parseFloat(document.getElementById('rp-umbral')?.value)||5;
+
+  let prods=_enriquecerProductosRecalc();
+
+  // Solo productos que podemos recalcular (tienen bobina con kg/m y metros)
+  prods=prods.filter(p=>p._kgM>0&&p.metros_por_bolsa>0);
+
+  // Filtro por texto
+  if(q){
+    prods=prods.filter(p=>{
+      const txt=((p.codigo||'')+' '+(p.descripcion||'')).toLowerCase();
+      return txt.includes(q);
+    });
+  }
+  // Filtro por bobina
+  if(filtroBob)prods=prods.filter(p=>p.bobina_id===filtroBob);
+  // Filtro por estado
+  if(filtro==='sin-peso')prods=prods.filter(p=>p._pesoActual<=0);
+  else if(filtro==='con-dif')prods=prods.filter(p=>p._difPct>umbral&&p._pesoActual>0);
+  else if(filtro==='ok')prods=prods.filter(p=>p._difPct<=umbral&&p._pesoActual>0);
+
+  // Ordenar por mayor diferencia % primero (para revisar lo más raro primero)
+  prods.sort((a,b)=>b._difPct-a._difPct);
+
+  // === KPIs ===
+  const allEnriq=_enriquecerProductosRecalc().filter(p=>p._kgM>0&&p.metros_por_bolsa>0);
+  const totalCargables=allEnriq.length;
+  const sinPeso=allEnriq.filter(p=>p._pesoActual<=0).length;
+  const conDifGrande=allEnriq.filter(p=>p._difPct>umbral&&p._pesoActual>0).length;
+  const ok=allEnriq.filter(p=>p._difPct<=umbral&&p._pesoActual>0).length;
+  const sinBobina=C.productos.filter(p=>!p._kgM&&p.metros_por_bolsa).length;
+  const sinKgM=C.productos.filter(p=>{const b=C.bobinas.find(x=>x.id===p.bobina_id);return p.bobina_id&&p.metros_por_bolsa&&(!b?.kg_por_metro);}).length;
+
+  const kpis=document.getElementById('rp-kpis');
+  if(kpis){
+    kpis.innerHTML=
+      '<div style="background:var(--bg2);border:1.5px solid var(--accentbd);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Total recalculables</div><div style="font-size:22px;font-weight:900;color:var(--accent);">'+totalCargables+'</div></div>'
+      +'<div style="background:var(--bg2);border:1.5px solid var(--green);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">✓ OK (dif ≤ '+umbral+'%)</div><div style="font-size:22px;font-weight:900;color:var(--green);">'+ok+'</div></div>'
+      +'<div style="background:var(--bg2);border:1.5px solid var(--amber);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">⚠ Con diferencia &gt; '+umbral+'%</div><div style="font-size:22px;font-weight:900;color:var(--amber);">'+conDifGrande+'</div></div>'
+      +'<div style="background:var(--bg2);border:1.5px solid var(--red);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Sin peso cargado</div><div style="font-size:22px;font-weight:900;color:var(--red);">'+sinPeso+'</div></div>'
+      +'<div style="background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Bobinas sin kg/m</div><div style="font-size:22px;font-weight:900;color:var(--text3);">'+sinKgM+'</div><div style="font-size:11px;color:var(--text3);margin-top:2px;">no se pueden recalcular</div></div>';
+  }
+
+  // Limpiar selecciones que no están en la lista filtrada
+  const idsVisibles=new Set(prods.map(p=>p.id));
+  for(const id of [..._rpSel]){
+    if(!idsVisibles.has(id))_rpSel.delete(id);
+  }
+
+  // Panel acción
+  const accDiv=document.getElementById('rp-acciones');
+  const countSpan=document.getElementById('rp-sel-count');
+  if(accDiv)accDiv.style.display=_rpSel.size>0?'block':'none';
+  if(countSpan)countSpan.textContent=_rpSel.size;
+
+  // Lista
+  const cont=document.getElementById('rp-lista');
+  if(!cont)return;
+  if(!prods.length){
+    cont.innerHTML='<div class="empty" style="padding:30px;text-align:center;color:var(--text3);">Sin productos que coincidan con los filtros.</div>';
+    return;
+  }
+
+  let html='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">'
+    +'<thead><tr style="background:var(--bg3);">'
+      +'<th style="padding:6px 8px;text-align:center;width:40px;"><input type="checkbox" id="rp-check-all-vis" onchange="toggleSelVisRecalc(this.checked)" style="width:14px;height:14px;"></th>'
+      +'<th style="padding:6px 8px;text-align:left;">Producto</th>'
+      +'<th style="padding:6px 8px;text-align:left;">Bobina (kg/m)</th>'
+      +'<th style="padding:6px 8px;text-align:right;">m/bolsa</th>'
+      +'<th style="padding:6px 8px;text-align:right;">Peso actual</th>'
+      +'<th style="padding:6px 8px;text-align:right;">Peso calculado</th>'
+      +'<th style="padding:6px 8px;text-align:right;">Diferencia</th>'
+      +'<th style="padding:6px 8px;text-align:center;">Estado</th>'
+    +'</tr></thead><tbody>';
+  prods.forEach(p=>{
+    const sel=_rpSel.has(p.id);
+    let estadoColor='var(--green)',estadoTxt='✓ OK';
+    if(p._pesoActual<=0){estadoColor='var(--red)';estadoTxt='SIN PESO';}
+    else if(p._difPct>30){estadoColor='var(--red)';estadoTxt='⚠ DIF ALTA';}
+    else if(p._difPct>umbral){estadoColor='var(--amber)';estadoTxt='⚠ REVISAR';}
+    const rowBg=sel?'rgba(34,197,94,.06)':(p._difPct>30?'rgba(239,68,68,.04)':p._difPct>umbral?'rgba(245,158,11,.04)':'transparent');
+    html+='<tr style="background:'+rowBg+';border-bottom:1px solid var(--border);">'
+      +'<td style="padding:6px 8px;text-align:center;"><input type="checkbox" '+(sel?'checked':'')+' onchange="toggleProdRecalc('+p.id+',this.checked)" style="width:16px;height:16px;"></td>'
+      +'<td style="padding:6px 8px;"><div style="font-weight:700;font-size:12px;">'+(p.descripcion||'—')+'</div>'+(p.codigo?'<div style="font-family:monospace;color:var(--text3);font-size:10px;">'+p.codigo+'</div>':'')+'</td>'
+      +'<td style="padding:6px 8px;font-size:11px;color:var(--text2);">'+(p._bob?.nombre||'—')+'<br><span style="color:var(--text3);font-family:monospace;font-size:10px;">'+p._kgM+' kg/m</span></td>'
+      +'<td style="padding:6px 8px;text-align:right;font-family:monospace;">'+p.metros_por_bolsa+'</td>'
+      +'<td style="padding:6px 8px;text-align:right;font-family:monospace;'+(p._pesoActual<=0?'color:var(--red);font-style:italic;':'')+'">'+(p._pesoActual||'—')+'</td>'
+      +'<td style="padding:6px 8px;text-align:right;font-family:monospace;font-weight:700;color:var(--accent);">'+p._pesoCalc+'</td>'
+      +'<td style="padding:6px 8px;text-align:right;font-family:monospace;color:'+estadoColor+';font-weight:700;">'+(p._pesoActual>0?(p._dif>0?'+':'')+r6(p._dif)+' ('+r1(p._difPct)+'%)':'—')+'</td>'
+      +'<td style="padding:6px 8px;text-align:center;"><span style="background:'+estadoColor+';color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;">'+estadoTxt+'</span></td>'
+    +'</tr>';
+  });
+  html+='</tbody></table></div>';
+  cont.innerHTML=html;
+}
+
+function toggleProdRecalc(id,checked){
+  if(checked)_rpSel.add(id);
+  else _rpSel.delete(id);
+  renderRecalcPesos();
+}
+
+function toggleSelVisRecalc(checked){
+  const q=(document.getElementById('rp-search')?.value||'').toLowerCase().trim();
+  const filtroBob=parseInt(document.getElementById('rp-bob')?.value)||0;
+  const filtro=document.getElementById('rp-filtro')?.value||'todos';
+  const umbral=parseFloat(document.getElementById('rp-umbral')?.value)||5;
+  let prods=_enriquecerProductosRecalc().filter(p=>p._kgM>0&&p.metros_por_bolsa>0);
+  if(q)prods=prods.filter(p=>((p.codigo||'')+' '+(p.descripcion||'')).toLowerCase().includes(q));
+  if(filtroBob)prods=prods.filter(p=>p.bobina_id===filtroBob);
+  if(filtro==='sin-peso')prods=prods.filter(p=>p._pesoActual<=0);
+  else if(filtro==='con-dif')prods=prods.filter(p=>p._difPct>umbral&&p._pesoActual>0);
+  else if(filtro==='ok')prods=prods.filter(p=>p._difPct<=umbral&&p._pesoActual>0);
+  if(checked)prods.forEach(p=>_rpSel.add(p.id));
+  else prods.forEach(p=>_rpSel.delete(p.id));
+  renderRecalcPesos();
+}
+
+function toggleTodosRecalc(checked){
+  toggleSelVisRecalc(checked);
+  const chk=document.getElementById('rp-check-all-vis');
+  if(chk)chk.checked=checked;
+}
+
+function limpiarSelRecalc(){
+  _rpSel=new Set();
+  renderRecalcPesos();
+}
+
+async function ejecutarRecalcPesos(){
+  if(!_rpSel.size)return;
+  const msg=document.getElementById('rp-msg');
+  const n=_rpSel.size;
+  // Resumen para confirmar
+  const prods=_enriquecerProductosRecalc().filter(p=>_rpSel.has(p.id));
+  const conDifGrande=prods.filter(p=>p._difPct>30).length;
+  let confirmTxt='Vas a aplicar el peso calculado a '+n+' producto(s).';
+  if(conDifGrande>0)confirmTxt+='\n\n⚠ '+conDifGrande+' tienen diferencia > 30% — revisá bien antes de aplicar.';
+  confirmTxt+='\n\n¿Confirmás?';
+  if(!confirm(confirmTxt))return;
+
+  pedirAdminYEjecutar(async()=>{
+    msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Aplicando a '+n+' productos...</div>';
+    msg.style.color='var(--text2)';
+    try{
+      // Update uno por uno (Supabase no permite update masivo con valores distintos)
+      let okCount=0,errCount=0;
+      for(const p of prods){
+        const{error}=await sb.from('productos').update({peso_por_bolsa:p._pesoCalc}).eq('id',p.id);
+        if(error){errCount++;console.error('Error update producto '+p.id+':',error);}
+        else okCount++;
+      }
+      msg.style.color=errCount?'var(--amber)':'var(--green)';
+      msg.textContent='✓ '+okCount+' actualizado(s)'+(errCount?' · ⚠ '+errCount+' error(es)':'');
+      _rpSel=new Set();
+      await reload();
+      renderRecalcPesos();
+    } catch(err){
+      console.error('Error masivo:',err);
+      msg.style.color='var(--red)';
+      msg.textContent='Error: '+(err.message||err);
+    }
+  });
+}
+
 async function cambiarEmpaqueCorte(id,empId){
   await sb.from('ordenes_corte').update({empaque_id:parseInt(empId)||null}).eq('id',id);
   await reload();
@@ -12750,6 +13017,49 @@ function calcPrUniBolson(){
   if(empInfo&&emp)empInfo.textContent=emp.unidades+' unidades por paquete';
   else if(empInfo)empInfo.textContent='';
 }
+
+// === Calcular peso por bolsa = kg_por_metro de bobina × metros por bolsa ===
+function calcPrPesoBolsa(){
+  const bobId=parseInt(document.getElementById('pr-bob')?.value)||0;
+  const mts=parseFloat(document.getElementById('pr-mts')?.value)||0;
+  const bob=C.bobinas.find(b=>b.id===bobId);
+  const kgM=bob?.kg_por_metro||0;
+  const inp=document.getElementById('pr-peso');
+  const lbl=document.getElementById('pr-peso-lbl');
+  const info=document.getElementById('pr-peso-info');
+  if(!inp)return;
+  if(bobId&&mts&&kgM){
+    const peso=r6(kgM*mts);
+    inp.value=peso;
+    if(lbl)lbl.textContent='= '+kgM+' kg/m × '+mts+' m';
+    if(info)info.textContent='✓ Autocalculado: '+kgM+' kg/m × '+mts+' m = '+peso+' kg/bolsa. Podés editarlo manualmente si querés.';
+  } else if(bobId&&!kgM){
+    if(lbl)lbl.textContent='manual (bobina sin kg/m)';
+    if(info)info.textContent='⚠ La bobina elegida no tiene kg/m cargado. Ingresá el peso manualmente o cargá el kg/m en Bobinas.';
+  } else {
+    if(lbl)lbl.textContent='manual';
+    if(info)info.textContent='Elegí bobina + metros/bolsa para que se calcule solo.';
+  }
+}
+
+function calcEprPesoBolsa(){
+  const bobId=parseInt(document.getElementById('epr-bob')?.value)||0;
+  const mts=parseFloat(document.getElementById('epr-mts')?.value)||0;
+  const bob=C.bobinas.find(b=>b.id===bobId);
+  const kgM=bob?.kg_por_metro||0;
+  const inp=document.getElementById('epr-peso');
+  const info=document.getElementById('epr-peso-info');
+  if(!inp)return;
+  if(bobId&&mts&&kgM){
+    const peso=r6(kgM*mts);
+    inp.value=peso;
+    if(info)info.textContent='✓ '+kgM+' kg/m × '+mts+' m = '+peso+' kg/bolsa';
+  } else if(bobId&&!kgM){
+    if(info)info.textContent='⚠ La bobina elegida no tiene kg/m cargado.';
+  } else {
+    if(info)info.textContent='Elegí bobina + metros para autocalcular.';
+  }
+}
 function renderProductos(){
   const w=document.getElementById('pr-tbl');if(!w)return;
   // Poblar selector de empaque
@@ -12808,24 +13118,31 @@ async function addProducto(){
 }
 function editarProducto(id){
   const p=C.productos.find(x=>x.id===id);if(!p)return;
-  const bobOpts=C.bobinas.map(b=>'<option value="'+b.id+'" '+(b.id===p.bobina_id?'selected':'')+'>'+b.nombre+(b.descripcion?' — '+b.descripcion:'')+'</option>').join('');
+  const bobOpts=C.bobinas.map(b=>'<option value="'+b.id+'" '+(b.id===p.bobina_id?'selected':'')+' data-kgm="'+(b.kg_por_metro||0)+'">'+b.nombre+(b.descripcion?' — '+b.descripcion:'')+(b.kg_por_metro?' ('+b.kg_por_metro+' kg/m)':'')+'</option>').join('');
   const empOpts=C.emp.map(e=>'<option value="'+e.id+'" '+(e.id===p.empaque_id?'selected':'')+'>'+e.nombre+' ('+e.unidades+' u/paq)</option>').join('');
   document.body.insertAdjacentHTML('beforeend',
     '<div class="modal-overlay" id="edit-prod-modal">'
-    +'<div class="modal-card" style="max-width:540px">'
+    +'<div class="modal-card" style="max-width:560px">'
     +'<div class="modal-title">✏️ Editar producto</div>'
     +'<div class="fgrid fgrid3" style="margin-bottom:10px;">'
-      +'<div class="fg"><label>Código</label><input id="epr-cod" type="text" value="'+p.codigo+'"></div>'
-      +'<div class="fg" style="grid-column:span 2"><label>Descripción</label><input id="epr-des" type="text" value="'+p.descripcion+'"></div>'
+      +'<div class="fg"><label>Código</label><input id="epr-cod" type="text" value="'+(p.codigo||'').replace(/"/g,'&quot;')+'"></div>'
+      +'<div class="fg" style="grid-column:span 2"><label>Descripción</label><input id="epr-des" type="text" value="'+(p.descripcion||'').replace(/"/g,'&quot;')+'"></div>'
     +'</div>'
     +'<div class="fgrid fgrid3" style="margin-bottom:10px;">'
-      +'<div class="fg"><label>Bobina requerida</label><select id="epr-bob"><option value="">— sin bobina —</option>'+bobOpts+'</select></div>'
-      +'<div class="fg"><label>Metros por bolsa</label><input id="epr-mts" type="number" step="0.0001" value="'+(p.metros_por_bolsa||'')+'"></div>'
+      +'<div class="fg"><label>Bobina requerida</label><select id="epr-bob" onchange="calcEprPesoBolsa()"><option value="">— sin bobina —</option>'+bobOpts+'</select></div>'
+      +'<div class="fg"><label>Metros por bolsa</label><input id="epr-mts" type="number" step="0.0001" value="'+(p.metros_por_bolsa||'')+'" oninput="calcEprPesoBolsa()"></div>'
       +'<div class="fg"><label>% Merma default</label><input id="epr-merma" type="number" step="0.1" value="'+(p.merma_pct||5)+'"></div>'
     +'</div>'
     +'<div class="fgrid fgrid3" style="margin-bottom:10px;">'
+      +'<div class="fg"><label>Peso por bolsa (kg) <span style="font-size:10px;color:var(--text3)">autocalculado</span></label>'
+        +'<input id="epr-peso" type="number" step="0.000001" value="'+(p.peso_por_bolsa||'')+'" style="background:var(--bg3);">'
+        +'<div style="font-size:10px;color:var(--text3);margin-top:2px" id="epr-peso-info">kg/m bobina × m/bolsa. Editable.</div>'
+      +'</div>'
+      +'<div class="fg" style="grid-column:span 2;"><div style="font-size:11px;color:var(--text2);padding:8px 10px;background:var(--bg3);border-radius:var(--r);">💡 Cambiar bobina o metros recalcula el peso automáticamente.</div></div>'
+    +'</div>'
+    +'<div class="fgrid fgrid3" style="margin-bottom:10px;">'
       +'<div class="fg"><label>Empaque (fijo del producto)</label><select id="epr-emp" onchange="calcEprUniBolson()"><option value="">— sin empaque —</option>'+empOpts+'</select>'
-        +'<div style="font-size:10px;color:var(--text3);margin-top:2px" id="epr-emp-info">'+(C.emp.find(e=>e.id===p.empaque_id)?.unidades||''?C.emp.find(e=>e.id===p.empaque_id).unidades+' u/paq':'')+'</div>'
+        +'<div style="font-size:10px;color:var(--text3);margin-top:2px" id="epr-emp-info">'+(C.emp.find(e=>e.id===p.empaque_id)?.unidades?C.emp.find(e=>e.id===p.empaque_id).unidades+' u/paq':'')+'</div>'
       +'</div>'
       +'<div class="fg"><label>Paquetes por bolsón</label><input id="epr-paq-bolson" type="number" min="1" value="'+(p.paquetes_por_bolson||1)+'" oninput="calcEprUniBolson()"></div>'
       +'<div class="fg"><label>Unidades por bolsón</label><div class="computed" id="epr-uni-bolson" style="margin-top:0">—</div></div>'
@@ -12838,6 +13155,26 @@ function editarProducto(id){
     +'</div></div>'
   );
   calcEprUniBolson();
+  // Mostrar info inicial del peso (sin pisarlo)
+  const info=document.getElementById('epr-peso-info');
+  if(info){
+    const bob=C.bobinas.find(b=>b.id===p.bobina_id);
+    const kgM=bob?.kg_por_metro||0;
+    const pesoCalc=kgM&&p.metros_por_bolsa?r6(kgM*p.metros_por_bolsa):0;
+    if(pesoCalc&&p.peso_por_bolsa){
+      const dif=Math.abs(pesoCalc-p.peso_por_bolsa);
+      const difPct=p.peso_por_bolsa>0?(dif/p.peso_por_bolsa*100):0;
+      if(difPct>5){
+        info.innerHTML='<span style="color:var(--amber)">⚠ Actual: '+p.peso_por_bolsa+' kg · Calculado sería: '+pesoCalc+' kg (dif '+r1(difPct)+'%)</span>';
+      } else if(pesoCalc){
+        info.textContent='Actual: '+p.peso_por_bolsa+' kg · Calculado sería: '+pesoCalc+' kg';
+      }
+    } else if(pesoCalc&&!p.peso_por_bolsa){
+      info.innerHTML='<span style="color:var(--accent)">Sin peso cargado · Calculado: '+pesoCalc+' kg (cambiá bobina o metros para aplicar)</span>';
+    } else {
+      info.textContent='Cambiá bobina o metros para autocalcular.';
+    }
+  }
 }
 function calcEprUniBolson(){
   const empId=parseInt(document.getElementById('epr-emp')?.value)||0;
@@ -12858,6 +13195,7 @@ async function guardarEdicionProducto(id){
   const des=document.getElementById('epr-des')?.value.trim();
   const bId=parseInt(document.getElementById('epr-bob')?.value)||null;
   const mts=parseFloat(document.getElementById('epr-mts')?.value)||null;
+  const peso=parseFloat(document.getElementById('epr-peso')?.value)||null;
   const merma=parseFloat(document.getElementById('epr-merma')?.value)||5;
   const empId=parseInt(document.getElementById('epr-emp')?.value)||null;
   const paqBolson=parseInt(document.getElementById('epr-paq-bolson')?.value)||1;
@@ -12866,7 +13204,7 @@ async function guardarEdicionProducto(id){
   msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Guardando...</div>';
   const{error}=await sb.from('productos').update({
     codigo:cod,descripcion:des,bobina_id:bId,
-    metros_por_bolsa:mts,merma_pct:merma,
+    metros_por_bolsa:mts,peso_por_bolsa:peso,merma_pct:merma,
     empaque_id:empId,paquetes_por_bolson:paqBolson
   }).eq('id',id);
   if(error){msg.style.color='var(--red)';msg.textContent='Error: '+error.message;return;}
@@ -17157,6 +17495,179 @@ async function confirmarEditarOrdenExtrusion(id){
   setTimeout(()=>{
     document.getElementById('edit-oe-modal')?.remove();
     // Si el Gantt está visible, refrescarlo
+    if(typeof renderGantt==='function')renderGantt();
+    if(typeof renderGanttDiario==='function')renderGanttDiario();
+  },1000);
+}
+
+// ===== EDITAR ORDEN DE CORTE (protegida con admin) =====
+function abrirEditarOrdenCorte(id){
+  pedirAdminYEjecutar(()=>_abrirEditarOrdenCorte(id));
+}
+function _abrirEditarOrdenCorte(id){
+  const o=C.ord_corte.find(x=>x.id===id);if(!o)return;
+  const prod=o.productos||C.productos.find(p=>p.id===o.producto_id);
+  const empActual=o.empaque_id;
+  const maqActuales=(o.orden_corte_maquinas||[]).map(m=>m.maquina_id);
+  const oeAsoc=o.orden_extrusion_id?C.ordenes.find(x=>x.id===o.orden_extrusion_id):null;
+
+  document.getElementById('edit-oc-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="edit-oc-modal">'
+    +'<div class="modal-card" style="max-width:620px;max-height:92vh;overflow-y:auto;">'
+    +'<div class="modal-title">✏️ Editar orden de corte '+o.numero_orden+'</div>'
+
+    // Info de la orden
+    +'<div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;font-size:13px;">'
+      +'<div style="font-weight:700">'+(prod?.codigo?prod.codigo+' · ':'')+(prod?.descripcion||'(sin producto)')+'</div>'
+      +'<div style="color:var(--text2);font-size:12px;margin-top:3px;">'
+        +'Estado: <strong>'+o.estado+'</strong>'
+        +(o.cliente?' · Cliente: '+o.cliente:'')
+        +(oeAsoc?' · OE: '+oeAsoc.numero_orden:' · Sin OE')
+      +'</div>'
+    +'</div>'
+
+    // Bolsones / paq por bolson / merma
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;">'
+      +'<div class="fg" style="margin-bottom:0;"><label>Bolsones a producir</label>'
+        +'<input type="number" id="eoc-bolsones" value="'+(o.bolsones_a_producir||0)+'" min="1" step="1" oninput="recalcEditOC()" style="font-weight:700;font-size:15px;"></div>'
+      +'<div class="fg" style="margin-bottom:0;"><label>Paq por bolsón</label>'
+        +'<input type="number" id="eoc-paqbol" value="'+(o.paquetes_por_bolson||1)+'" min="1" step="1" oninput="recalcEditOC()"></div>'
+      +'<div class="fg" style="margin-bottom:0;"><label>% Merma</label>'
+        +'<input type="number" id="eoc-merma" value="'+(o.merma_pct||5)+'" min="0" max="30" step="0.5" oninput="recalcEditOC()"></div>'
+    +'</div>'
+
+    // Resumen calculado
+    +'<div id="eoc-calc" style="background:var(--accentbg);border-radius:var(--r);padding:8px 12px;margin-bottom:12px;font-size:12px;color:var(--accent);"></div>'
+
+    // Empaque y prioridad
+    +'<div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-bottom:12px;">'
+      +'<div class="fg" style="margin-bottom:0;"><label>Empaque</label>'
+        +'<select id="eoc-empaque" onchange="recalcEditOC()">'
+          +'<option value="">— sin empaque —</option>'
+          +C.emp.map(e=>'<option value="'+e.id+'" '+(e.id===empActual?'selected':'')+'>'+e.nombre+' ('+e.unidades+' u/paq)</option>').join('')
+        +'</select></div>'
+      +'<div class="fg" style="margin-bottom:0;"><label>Prioridad <span style="font-size:11px;color:var(--text3)">(1=urgente)</span></label>'
+        +'<input type="number" id="eoc-prioridad" value="'+(o.prioridad||1)+'" min="1" max="99"></div>'
+    +'</div>'
+
+    // Máquinas de corte
+    +'<div class="fg" style="margin-bottom:14px;">'
+      +'<label>Máquinas de corte asignadas</label>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;">'
+      +C.maq_corte.map(m=>'<label style="display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:var(--r);border:1.5px solid '+(maqActuales.includes(m.id)?'var(--accentbd)':'var(--border)')+';background:'+(maqActuales.includes(m.id)?'var(--accentbg)':'var(--bg3)')+';cursor:pointer;font-size:13px;">'
+        +'<input type="checkbox" id="eoc-maq-'+m.id+'" '+(maqActuales.includes(m.id)?'checked':'')+' style="width:14px;height:14px;" onchange="this.closest(\'label\').style.borderColor=this.checked?\'var(--accentbd)\':\' var(--border)\';this.closest(\'label\').style.background=this.checked?\'var(--accentbg)\':\' var(--bg3)\'">'
+        +'<strong>'+m.nombre+'</strong>'
+        +(m.bolsas_por_hora?'<span style="font-size:10px;color:var(--text3)">'+m.bolsas_por_hora+'b/h</span>':'')
+      +'</label>').join('')
+      +'</div>'
+      +'<div id="eoc-maq-warn" style="font-size:11px;color:var(--amber);margin-top:4px;display:none;">⚠ Seleccioná al menos una máquina</div>'
+    +'</div>'
+
+    // Observaciones
+    +'<div class="fg" style="margin-bottom:14px;">'
+      +'<label>Observaciones</label>'
+      +'<input type="text" id="eoc-obs" value="'+(o.observaciones||'').replace(/"/g,'&quot;')+'" placeholder="opcional">'
+    +'</div>'
+
+    +'<div style="background:var(--amberbg);border:1px solid var(--amberbd);border-radius:var(--r);padding:8px 12px;font-size:11px;color:var(--amber);margin-bottom:14px;">'
+      +'⚠ Editar cantidades recalcula automáticamente metros necesarios. Cambiar máquinas actualiza el Gantt.'
+    +'</div>'
+
+    +'<div class="btn-grp">'
+      +'<button class="btn btn-primary btn-sm" onclick="confirmarEditarOrdenCorte('+id+')">Guardar cambios</button>'
+      +'<button class="btn btn-sm" onclick="document.getElementById(\'edit-oc-modal\').remove()">Cancelar</button>'
+      +'<span id="eoc-msg" style="font-size:12px;margin-left:8px;"></span>'
+    +'</div>'
+    +'</div></div>'
+  );
+  recalcEditOC();
+}
+
+function recalcEditOC(){
+  const bolsones=parseInt(document.getElementById('eoc-bolsones')?.value)||0;
+  const paqBol=parseInt(document.getElementById('eoc-paqbol')?.value)||1;
+  const merma=parseFloat(document.getElementById('eoc-merma')?.value)||5;
+  const empId=parseInt(document.getElementById('eoc-empaque')?.value)||0;
+  const emp=C.emp.find(e=>e.id===empId);
+  const uniPorPaq=emp?.unidades||0;
+  const totalPaq=bolsones*paqBol;
+  const totalUni=totalPaq*uniPorPaq;
+  const modal=document.getElementById('edit-oc-modal');
+  if(!modal)return;
+  const btnGuardar=modal.querySelector('button[onclick*="confirmarEditarOrdenCorte"]');
+  const ocId=btnGuardar?parseInt(btnGuardar.getAttribute('onclick').match(/\d+/)?.[0]):0;
+  const oc=C.ord_corte.find(x=>x.id===ocId);
+  const prod=oc?.productos||(oc?.producto_id?C.productos.find(p=>p.id===oc.producto_id):null);
+  const mtsPorBolsa=prod?.metros_por_bolsa||0;
+  const mtsNecesarios=totalUni&&mtsPorBolsa?r2(totalUni*mtsPorBolsa*(1+merma/100)):0;
+  const div=document.getElementById('eoc-calc');
+  if(div){
+    div.innerHTML='<strong>'+bolsones.toLocaleString('es-AR')+'</strong> bolsones × '
+      +'<strong>'+paqBol+'</strong> paq/bolsón = '
+      +'<strong>'+totalPaq.toLocaleString('es-AR')+'</strong> paquetes'
+      +(uniPorPaq?' · <strong>'+totalUni.toLocaleString('es-AR')+'</strong> unidades':'')
+      +(mtsNecesarios?' · <strong>'+mtsNecesarios.toLocaleString('es-AR')+' m</strong> necesarios (con '+merma+'% merma)':'');
+  }
+}
+
+async function confirmarEditarOrdenCorte(id){
+  const bolsones=parseInt(document.getElementById('eoc-bolsones')?.value)||0;
+  const paqBol=parseInt(document.getElementById('eoc-paqbol')?.value)||1;
+  const merma=parseFloat(document.getElementById('eoc-merma')?.value)||5;
+  const empId=parseInt(document.getElementById('eoc-empaque')?.value)||null;
+  const prioridad=parseInt(document.getElementById('eoc-prioridad')?.value)||1;
+  const obs=document.getElementById('eoc-obs')?.value.trim();
+  const msg=document.getElementById('eoc-msg');
+  const warn=document.getElementById('eoc-maq-warn');
+
+  const maqIds=C.maq_corte.filter(m=>document.getElementById('eoc-maq-'+m.id)?.checked).map(m=>m.id);
+  if(!maqIds.length){
+    if(warn)warn.style.display='block';
+    return;
+  }
+  if(warn)warn.style.display='none';
+
+  if(bolsones<=0){msg.style.color='var(--red)';msg.textContent='Bolsones debe ser mayor a 0.';return;}
+
+  const totalPaq=bolsones*paqBol;
+  const emp=empId?C.emp.find(e=>e.id===empId):null;
+  const uniPorPaq=emp?.unidades||0;
+  const totalUni=totalPaq*uniPorPaq;
+  const oc=C.ord_corte.find(x=>x.id===id);
+  const prod=oc?.productos||(oc?.producto_id?C.productos.find(p=>p.id===oc.producto_id):null);
+  const mtsPorBolsa=prod?.metros_por_bolsa||0;
+  const mtsNecesarios=totalUni&&mtsPorBolsa?r2(totalUni*mtsPorBolsa*(1+merma/100)):oc?.metros_necesarios||0;
+
+  msg.innerHTML='<div class="loading" style="display:inline-flex;gap:4px;align-items:center"><div class="spinner" style="width:12px;height:12px"></div></div>';
+
+  // 1. Actualizar la OC
+  const{error:e1}=await sb.from('ordenes_corte').update({
+    bolsones_a_producir:bolsones,
+    paquetes_por_bolson:paqBol,
+    cantidad_paquetes:totalPaq,
+    unidades_a_producir:totalUni||oc?.unidades_a_producir,
+    metros_necesarios:mtsNecesarios,
+    merma_pct:merma,
+    empaque_id:empId,
+    prioridad,
+    observaciones:obs||null
+  }).eq('id',id);
+  if(e1){msg.style.color='var(--red)';msg.textContent='Error: '+e1.message;return;}
+
+  // 2. Reemplazar máquinas
+  const{error:e2}=await sb.from('orden_corte_maquinas').delete().eq('orden_corte_id',id);
+  if(e2){msg.style.color='var(--red)';msg.textContent='Error máquinas: '+e2.message;return;}
+  const{error:e3}=await sb.from('orden_corte_maquinas').insert(
+    maqIds.map(mId=>({orden_corte_id:id,maquina_id:mId}))
+  );
+  if(e3){msg.style.color='var(--red)';msg.textContent='Error asignación: '+e3.message;return;}
+
+  msg.style.color='var(--green)';msg.textContent='✓ Guardado';
+
+  await reload();
+  setTimeout(()=>{
+    document.getElementById('edit-oc-modal')?.remove();
     if(typeof renderGantt==='function')renderGantt();
     if(typeof renderGanttDiario==='function')renderGanttDiario();
   },1000);
