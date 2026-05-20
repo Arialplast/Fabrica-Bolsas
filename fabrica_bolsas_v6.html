@@ -16164,18 +16164,60 @@ function onTandaChange(lineaId,tandaId,campo,val){
   else if(campo==='nota')t.nota=val;
   // Actualización quirúrgica: refrescar SOLO los textos derivados, sin tocar inputs ni perder foco
   if(campo==='bolsones'){
-    // 1) Actualizar subtotal de esta tanda
+    // 1) Subtotal de esta tanda
     actualizarSubtotalTanda(lineaId,tandaId);
-    // 2) Actualizar resumen total de tandas de esta línea
+    // 2) Resumen total de tandas de esta línea (cartel verde/ámbar)
     actualizarResumenTandas(lineaId);
-    // 3) Sync con OC (totalPaq, totalUni del oExist se usan para guardar)
+    // 3) Sync con OC (totalPaq, totalUni, bolsones para guardar bien)
     syncOCDesdeTandas(lineaId);
+    // 4) Resumen general arriba ("Al guardar se generarán: X OCs · Y bolsones · ...")
+    actualizarResumenGeneral();
+    // 5) Footer v2 (bultos totales)
+    if(typeof refreshV2Footer==='function')refreshV2Footer();
   } else if(campo==='prioridad'){
     // Prioridad no afecta cálculos visibles — solo se guarda
-    // (en la columna izquierda hay un número con la tanda pero ese es idx+1, no la prioridad)
   } else {
-    // Nota — solo se guarda, no hay nada que actualizar visualmente
+    // Nota — solo se guarda
   }
+}
+
+// Actualiza el cartel "Al guardar se generarán: X OCs · Y bolsones · Z paq..."
+// (es el mismo que dibuja renderOrdenesNP pero refrescable independientemente)
+function actualizarResumenGeneral(){
+  const resumenDiv=document.getElementById('np-ordenes-resumen');
+  const v2Res=document.getElementById('v2-ordenes-resumen');
+  if(!resumenDiv&&!v2Res)return;
+  const ordenesConfirm=_pedOrdenes.filter(o=>o.confirmar);
+  const totalOC=ordenesConfirm.length;
+  const totalBolsones=ordenesConfirm.reduce((s,o)=>s+(o.bolsones||0),0);
+  const totalPaq=ordenesConfirm.reduce((s,o)=>s+(o.bolsones*(o.paqPorBolson||1)),0);
+  const totalUni=ordenesConfirm.reduce((s,o)=>{
+    const emp=C.emp.find(e=>e.id===o.empaque_id);
+    return s+(o.bolsones*(o.paqPorBolson||1)*(emp?.unidades||0));
+  },0);
+  const totalOE=ordenesConfirm.filter(o=>o.genOE).length;
+  const totalMts=ordenesConfirm.filter(o=>o.genOE).reduce((s,o)=>{
+    const mts=parseFloat(document.getElementById('oe-mts-'+o.linea_id)?.value)||0;
+    return s+mts;
+  },0);
+  const html='<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">'
+    +'<div style="font-size:13px;font-weight:700;color:var(--accent);">Al guardar se generarán:</div>'
+    +'<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:13px;">'
+      +'<span><strong style="font-size:18px;color:var(--accent);">'+totalOC+'</strong> orden'+(totalOC===1?'':'es')+' de corte</span>'
+      +'<span style="color:var(--text3);">|</span>'
+      +'<span><strong style="font-size:18px;color:var(--accent);">'+totalBolsones.toLocaleString('es-AR')+'</strong> bolsones</span>'
+      +'<span style="color:var(--text3);">|</span>'
+      +'<span><strong style="font-size:18px;color:var(--accent);">'+totalPaq.toLocaleString('es-AR')+'</strong> paquetes</span>'
+      +'<span style="color:var(--text3);">|</span>'
+      +'<span><strong style="font-size:18px;color:var(--accent);">'+totalUni.toLocaleString('es-AR')+'</strong> unidades</span>'
+      +(totalOE>0
+        ?'<span style="color:var(--text3);">|</span>'
+          +'<span style="color:var(--amber);"><strong style="font-size:18px;">'+totalOE+'</strong> OE · <strong>'+r1(totalMts).toLocaleString('es-AR')+' m</strong> a extruir</span>'
+        :'')
+    +'</div>'
+  +'</div>';
+  if(resumenDiv){resumenDiv.style.display='block';resumenDiv.innerHTML=html;}
+  if(v2Res){v2Res.style.display='block';v2Res.innerHTML=html;}
 }
 
 // Actualiza el subtotal "= X paq · Y u · Z m" de una tanda sin tocar inputs
@@ -16283,11 +16325,11 @@ function renderTandasUI(o,prod,emp,uniPorPaq,paqPedido,mtsTeoricos){
       +'</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr 2fr;gap:8px;align-items:start;">'
         +'<div class="fg" style="margin-bottom:0;"><label style="font-size:11px;font-weight:700">Bolsones</label>'
-          +'<input type="number" min="0" value="'+(t.bolsones||0)+'" style="font-weight:700;font-size:14px;" oninput="onTandaChange('+o.linea_id+','+t.id+',\'bolsones\',this.value)"></div>'
+          +'<input id="tanda-inp-bol-'+o.linea_id+'-'+t.id+'" type="number" min="0" value="'+(t.bolsones||0)+'" style="font-weight:700;font-size:14px;" oninput="onTandaChange('+o.linea_id+','+t.id+',\'bolsones\',this.value)"></div>'
         +'<div class="fg" style="margin-bottom:0;"><label style="font-size:11px">Prioridad (1=más urgente)</label>'
-          +'<input type="number" min="1" max="99" value="'+(t.prioridad||1)+'" oninput="onTandaChange('+o.linea_id+','+t.id+',\'prioridad\',this.value)"></div>'
+          +'<input id="tanda-inp-pri-'+o.linea_id+'-'+t.id+'" type="number" min="1" max="99" value="'+(t.prioridad||1)+'" oninput="onTandaChange('+o.linea_id+','+t.id+',\'prioridad\',this.value)"></div>'
         +'<div class="fg" style="margin-bottom:0;"><label style="font-size:11px">Nota (opcional)</label>'
-          +'<input type="text" value="'+(t.nota||'').replace(/"/g,'&quot;')+'" placeholder="ej: Esta semana / Sem 27/05" oninput="onTandaChange('+o.linea_id+','+t.id+',\'nota\',this.value)"></div>'
+          +'<input id="tanda-inp-nota-'+o.linea_id+'-'+t.id+'" type="text" value="'+(t.nota||'').replace(/"/g,'&quot;')+'" placeholder="ej: Esta semana / Sem 27/05" oninput="onTandaChange('+o.linea_id+','+t.id+',\'nota\',this.value)"></div>'
       +'</div>'
       +'<div class="tanda-subtotal" style="margin-top:8px;padding:6px 10px;background:var(--accentbg);border-radius:var(--r);font-size:12px;">'
         +'= <strong>'+paqTanda.toLocaleString('es-AR')+'</strong> paq · '
@@ -16324,7 +16366,43 @@ function renderTandasUI(o,prod,emp,uniPorPaq,paqPedido,mtsTeoricos){
   return html;
 }
 
+// ============================================================
+// PRESERVACIÓN DE FOCO en re-renders del panel de producción
+// Si veníamos editando un input de tanda (o cualquier input identificado por ID)
+// y el render lo destruye, lo creamos de nuevo y restauramos el cursor donde estaba.
+// ============================================================
+function _capturarFocoEnPanel(){
+  const el=document.activeElement;
+  if(!el||!el.id||el.tagName!=='INPUT')return null;
+  // Solo nos interesa preservar inputs del panel de producción
+  if(!el.id.startsWith('tanda-inp-')&&!el.id.startsWith('oe-')&&!el.id.startsWith('ord-'))return null;
+  return {
+    id:el.id,
+    selStart:el.selectionStart,
+    selEnd:el.selectionEnd
+  };
+}
+function _restaurarFocoEnPanel(saved){
+  if(!saved)return;
+  // Esperar al siguiente frame para asegurar que el render terminó
+  requestAnimationFrame(()=>{
+    const nuevo=document.getElementById(saved.id);
+    if(!nuevo)return;
+    nuevo.focus();
+    // Restaurar posición del cursor (en inputs number puede fallar, pero no hace daño)
+    try{
+      if(saved.selStart!=null&&typeof nuevo.setSelectionRange==='function'&&(nuevo.type==='text'||nuevo.type==='search'||nuevo.type==='tel'||nuevo.type==='url'||nuevo.type==='password')){
+        nuevo.setSelectionRange(saved.selStart,saved.selEnd);
+      }
+    }catch(e){/* algunos navegadores no permiten setSelectionRange en type=number */}
+  });
+}
+
+// Wrapper de renderOrdenesNP que preserva foco automáticamente
+const _renderOrdenesNP_original_marker='RENDER_ORDENES_NP_WRAPPED';
+
 function renderOrdenesNP(){
+  const _focoSaved=_capturarFocoEnPanel();
   const div=document.getElementById('np-ordenes-sugeridas');if(!div)return;
   const resumenDiv=document.getElementById('np-ordenes-resumen');
   if(!_pedOrdenes.length){
@@ -16544,6 +16622,8 @@ function renderOrdenesNP(){
   if(cP)cP.textContent=_pedOrdenes.filter(o=>o.confirmar).length;
   // Refrescar bultos del footer (usan getPaqBolsonAplicable, pueden cambiar si se destildan OCs)
   if(typeof refreshV2Footer==='function')refreshV2Footer();
+  // === Restaurar foco si veníamos editando un input del panel ===
+  _restaurarFocoEnPanel(_focoSaved);
 }
 function onNpOrdEmpChange(lineaId,empId){
   const o=_pedOrdenes.find(x=>x.linea_id===lineaId);if(!o)return;
