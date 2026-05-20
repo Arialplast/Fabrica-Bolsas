@@ -15107,7 +15107,21 @@ function initNuevoPedidoV2(){
   // Reset cabecera
   const radioBlanco=document.querySelector('input[name="v2-tv"][value="blanco"]');
   if(radioBlanco){radioBlanco.checked=true;onV2TipoVentaChange();}
-  const setVal=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v;};
+  // setVal ahora sincroniza con el input "viejo" equivalente (np-*) que guardarPedidoFinal lee del DOM
+  const v2ToOld={
+    'v2-obs':'np-obs-ped',
+    'v2-flex':'np-flex',
+    'v2-fecha':'np-fecha',
+    'v2-entrega':'np-entrega',
+    'v2-comp':'np-comp',
+    'v2-alicuota':'np-alicuota',
+    'v2-pct-blanco':'np-pct-blanco'
+  };
+  const setVal=(id,v)=>{
+    const el=document.getElementById(id);if(el)el.value=v;
+    const oldId=v2ToOld[id];
+    if(oldId){const oldEl=document.getElementById(oldId);if(oldEl)oldEl.value=v;}
+  };
   setVal('v2-obs','');
   setVal('v2-flex','');
   setVal('v2-fecha',localDate());
@@ -16084,13 +16098,82 @@ function onNpOrdMaqChange(lineaId,maqId,checked){
 }
 
 async function guardarPedido(){
+  // Sync defensivo: asegurar que los inputs viejos (np-*) tengan los valores actuales del v2,
+  // ya que guardarPedidoFinal lee del DOM viejo. Esto evita el bug "Completá fecha" cuando
+  // initNuevoPedidoV2 setea v2-fecha vía .value (que no dispara el listener 'input').
+  const v2ToOld={
+    'v2-cli':'np-cli',
+    'v2-obs':'np-obs-ped',
+    'v2-flex':'np-flex',
+    'v2-fecha':'np-fecha',
+    'v2-entrega':'np-entrega',
+    'v2-comp':'np-comp',
+    'v2-alicuota':'np-alicuota',
+    'v2-pct-blanco':'np-pct-blanco',
+    'v2-nro':'np-nro'
+  };
+  Object.entries(v2ToOld).forEach(([v2Id,oldId])=>{
+    const v2El=document.getElementById(v2Id);
+    const oldEl=document.getElementById(oldId);
+    if(v2El&&oldEl&&v2El.value){
+      oldEl.value=v2El.value;
+    }
+  });
+  // Sync radio tipo venta (v2 usa name="v2-tv", viejo usa name="tv")
+  const tipoV2=document.querySelector('input[name="v2-tv"]:checked')?.value;
+  if(tipoV2){
+    const oldRad=document.querySelector('input[name="tv"][value="'+tipoV2+'"]');
+    if(oldRad)oldRad.checked=true;
+  }
+
+  // Filtrar líneas vacías (sin producto o sin cantidad) ANTES de procesar
+  const lineasVacias=_pedLineas.filter(l=>!l.producto_id||!l.cantidad||l.cantidad<=0);
+  if(lineasVacias.length){
+    _pedLineas=_pedLineas.filter(l=>l.producto_id&&l.cantidad>0);
+    // Limpiar también _pedOrdenes asociadas
+    _pedOrdenes=_pedOrdenes.filter(o=>_pedLineas.find(l=>l.id===o.linea_id));
+    // Re-renderizar
+    if(typeof renderLineasV2==='function')renderLineasV2();
+    if(typeof renderLineasNP==='function')renderLineasNP();
+  }
+  // Validar líneas restantes
+  if(!_pedLineas.length){
+    _v2ShowMsg('Agregá al menos una línea con producto y cantidad.','err');
+    return;
+  }
+  // Validar que todas las líneas tengan precio
+  const sinPrecio=_pedLineas.filter(l=>!l.precio_paquete||l.precio_paquete<=0);
+  if(sinPrecio.length){
+    _v2ShowMsg('Hay '+sinPrecio.length+' línea'+(sinPrecio.length>1?'s':'')+' sin precio. Completalas o eliminalas antes de guardar.','err');
+    return;
+  }
   // Si hay líneas con tandas + OE habilitada, preguntar primero el modo OE
   const lineasTandasConOE=_pedOrdenes.filter(o=>o.confirmar&&o.dividir&&o.tandas?.length>1&&o.genOE);
   if(lineasTandasConOE.length&&lineasTandasConOE.some(o=>!o._oeModo)){
     abrirModalOEModo(lineasTandasConOE);
     return;
   }
-  await guardarPedidoFinal();
+  // Wrap en try/catch para capturar errores invisibles
+  try{
+    await guardarPedidoFinal();
+  }catch(err){
+    console.error('Error al guardar pedido:',err);
+    _v2ShowMsg('Error inesperado: '+(err.message||err),'err');
+  }
+}
+
+// Helper: mostrar mensaje tanto en el msg viejo como en el v2-msg
+function _v2ShowMsg(texto,tipo){
+  const colorMap={ok:'var(--green)',err:'var(--red)',warn:'var(--amber)',info:'var(--accent)'};
+  const color=colorMap[tipo]||'var(--text)';
+  ['msg-np','v2-msg'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){
+      el.style.color=color;
+      el.textContent=texto;
+      el.innerHTML=texto;
+    }
+  });
 }
 
 function abrirModalOEModo(lineasConTandas){
@@ -16151,7 +16234,28 @@ async function guardarPedidoFinal(){
   const alicuota=parseFloat(document.getElementById('np-alicuota')?.value)||21;
   const pctBlanco=tipo==='mixto'?parseInt(document.getElementById('np-pct-blanco')?.value)||50:tipo==='blanco'?100:0;
   const conIva=tipo!=='negro';
-  const msg=document.getElementById('msg-np');
+  // Proxy: cualquier escritura en msg se replica en v2-msg también
+  const msgEl=document.getElementById('msg-np');
+  const v2MsgEl=document.getElementById('v2-msg');
+  const msg=new Proxy({},{
+    set(_,prop,val){
+      if(msgEl){
+        if(prop==='style')return true;
+        msgEl[prop]=val;
+      }
+      if(v2MsgEl){
+        if(prop==='textContent'||prop==='innerHTML')v2MsgEl[prop]=val;
+      }
+      return true;
+    },
+    get(_,prop){
+      if(prop==='style')return {
+        set color(v){ if(msgEl)msgEl.style.color=v; if(v2MsgEl)v2MsgEl.style.color=v; },
+        get color(){ return msgEl?msgEl.style.color:''; }
+      };
+      return msgEl?msgEl[prop]:'';
+    }
+  });
   if(!fecha||_pedLineas.length===0){msg.style.color='var(--red)';msg.textContent='Completá fecha y al menos una línea.';return;}
   if(!nro){
     const{data}=await sb.from('pedidos').select('numero_pedido').order('numero_pedido',{ascending:false}).limit(1);
@@ -16486,9 +16590,6 @@ function imprimirPedido(pedId){
     const prod=C.productos.find(x=>x.id===l.producto_id);
     const emp=C.emp.find(e=>e.id===prod?.empaque_id);
     const uniPaq=emp?.unidades||0;
-    // Prioridad: 1) paq/bolsón de la OC ya generada (lo que realmente se produjo)
-    //            2) paq/bolsón especial del cliente (getPaqBolsonAplicable)
-    //            3) default del producto
     let paqPorBulto, esEspecial=false, paqDefecto=prod?.paquetes_por_bolson||1;
     if(ocPorProducto[l.producto_id]){
       paqPorBulto=ocPorProducto[l.producto_id];
@@ -16501,59 +16602,69 @@ function imprimirPedido(pedId){
     } else {
       paqPorBulto=paqDefecto;
     }
-    const totalPaq=l.cantidad||0;                          // cantidad ya es paquetes
+    const totalPaq=l.cantidad||0;
     const totalBultos=Math.ceil(totalPaq/paqPorBulto);
     const totalUni=uniPaq?totalPaq*uniPaq:0;
     return{l,prod,emp,uniPaq,paqPorBulto,paqDefecto,esEspecial,totalPaq,totalBultos,totalUni};
   });
 
   const totalBultosGlobal=lineasData.reduce((s,x)=>s+x.totalBultos,0);
-
-  // Construir sección por línea con grilla de bultos
-  const lineasHTML=lineasData.map(({l,prod,emp,uniPaq,paqPorBulto,paqDefecto,esEspecial,totalPaq,totalBultos,totalUni})=>{
-    // Grilla de bultos — igual que OC
-    const cols=totalBultos<=12?4:totalBultos<=24?6:totalBultos<=40?8:10;
-    let grid='';
-    for(let i=1;i<=totalBultos;i++){
-      grid+='<div style="border:1.5px solid '+(esEspecial?'#d97706':'#94a3b8')+';border-radius:3px;aspect-ratio:1.3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;'+(esEspecial?'background:#fffbeb;':'')+'">'
-        +'<div style="font-size:7pt;font-weight:700;color:'+(esEspecial?'#92400e':'#475569')+';">'+i+'</div>'
-        +'<div style="font-size:5.5pt;color:'+(esEspecial?'#b45309':'#94a3b8')+';font-weight:'+(esEspecial?'700':'400')+';">'+paqPorBulto+'paq</div>'
-        +'</div>';
-    }
-    return '<div style="border:'+(esEspecial?'2px solid #d97706':'1.5px solid #e2e8f0')+';border-radius:6px;padding:10px 12px;margin-bottom:10px;page-break-inside:avoid;'+(esEspecial?'background:#fffdf7;':'')+'">'
-      // Header línea
-      +'<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px;">'
-        +'<span style="font-family:Courier New,monospace;font-size:9pt;color:#64748b;font-weight:600;">'+(prod?.codigo||'—')+'</span>'
-        +'<span style="font-size:12pt;font-weight:700;">'+(prod?.descripcion||l.descripcion||'—')+'</span>'
-        +(esEspecial?'<span style="background:#d97706;color:#fff;font-size:8.5pt;font-weight:900;padding:2px 8px;border-radius:3px;letter-spacing:.04em;">⚠ BULTO ESPECIAL CLIENTE</span>':'')
-        +'<span style="margin-left:auto;font-size:9pt;color:#475569;">'+(emp?emp.nombre+' · '+uniPaq+'u/paq':'')+'</span>'
-      +'</div>'
-      // Datos clave
-      +'<div style="display:flex;gap:16px;margin-bottom:8px;font-size:9.5pt;">'
-        +'<div style="background:'+(esEspecial?'#d97706':'#1e293b')+';color:#fff;border-radius:5px;padding:4px 12px;font-weight:900;font-size:16pt;font-family:Courier New,monospace;">'+totalBultos+' bultos</div>'
-        +'<div style="display:flex;flex-direction:column;justify-content:center;gap:2px;">'
-          +'<div style="color:#475569;"><strong>'+totalPaq.toLocaleString('es-AR')+'</strong> paquetes · '
-            +(esEspecial
-              ?'<strong style="color:#b45309;font-size:11pt;">'+paqPorBulto+' paq/bulto</strong> <span style="color:#94a3b8;text-decoration:line-through;font-size:8.5pt;">'+paqDefecto+' default</span>'
-              :paqPorBulto+' paq/bulto')
-          +'</div>'
-          +(totalUni?'<div style="color:#64748b;">'+totalUni.toLocaleString('es-AR')+' unidades</div>':'')
-        +'</div>'
-        +'<div style="margin-left:auto;display:flex;align-items:center;gap:6px;font-size:9pt;color:#475569;">'
-          +'Armados: <div style="width:55px;border-bottom:1.5px solid #1e293b;"></div>'
-        +'</div>'
-      +'</div>'
-      // Grilla
-      +(totalBultos>0?'<div style="display:grid;grid-template-columns:repeat('+cols+',1fr);gap:3px;">'+grid+'</div>':'')
-      +'<div style="font-size:7pt;color:'+(esEspecial?'#92400e':'#94a3b8')+';margin-top:4px;'+(esEspecial?'font-weight:700;':'')+'">'
-        +(esEspecial
-          ?'⚠ ATENCIÓN: este cliente lleva '+paqPorBulto+' paquetes por bulto (no el default de '+paqDefecto+'). Tachá cada bulto al armarlo.'
-          :'Tachá cada bulto al armarlo. '+paqPorBulto+' paquetes por bulto.')
-      +'</div>'
-    +'</div>';
-  }).join('');
+  const totalPaqGlobal=lineasData.reduce((s,x)=>s+x.totalPaq,0);
+  const totalUniGlobal=lineasData.reduce((s,x)=>s+x.totalUni,0);
+  const hayEspecial=lineasData.some(x=>x.esEspecial);
 
   const ordsStr=ords.length?ords.map(o=>o.numero_orden).join(' · '):'—';
+
+  // Cliente — datos extra si tenemos
+  const cli=C.clientes?.find(c=>c.id===p.cliente_id);
+  const cliDir=cli?.direccion||cli?.localidad||'';
+
+  // FILAS DE LA TABLA
+  const filasHtml=lineasData.map(({l,prod,emp,uniPaq,paqPorBulto,paqDefecto,esEspecial,totalPaq,totalBultos,totalUni},idx)=>{
+    const rowBg=esEspecial?'background:#fef3c7;':'';
+    const codigo=prod?.codigo||'—';
+    const desc=prod?.descripcion||l.descripcion||'—';
+    return '<tr style="'+rowBg+'">'
+      // #
+      +'<td style="text-align:center;font-family:Courier New,monospace;font-weight:700;font-size:10pt;color:#64748b;border-right:1px solid #cbd5e1;">'+String(idx+1).padStart(2,'0')+'</td>'
+      // Código + descripción
+      +'<td style="border-right:1px solid #e2e8f0;">'
+        +'<div style="font-family:Courier New,monospace;font-size:9pt;color:#64748b;font-weight:600;line-height:1.2;">'+codigo+'</div>'
+        +'<div style="font-size:11pt;font-weight:700;line-height:1.25;margin-top:1px;">'+desc+'</div>'
+        +(emp?'<div style="font-size:8pt;color:#94a3b8;margin-top:1px;">'+emp.nombre+' · '+uniPaq+' u/paq</div>':'')
+      +'</td>'
+      // Paquetes (total a llevar)
+      +'<td style="text-align:right;font-family:Courier New,monospace;border-right:1px solid #e2e8f0;padding-right:8px;">'
+        +'<div style="font-size:14pt;font-weight:700;line-height:1;">'+totalPaq.toLocaleString('es-AR')+'</div>'
+        +'<div style="font-size:7.5pt;color:#94a3b8;margin-top:2px;text-transform:uppercase;letter-spacing:.04em;">paquetes</div>'
+      +'</td>'
+      // Paq/bulto (resaltado si especial)
+      +'<td style="text-align:center;border-right:1px solid #e2e8f0;'+(esEspecial?'background:#fde68a;':'')+'">'
+        +(esEspecial
+          ?'<div style="background:#d97706;color:#fff;font-size:8pt;font-weight:900;padding:1px 6px;border-radius:3px;display:inline-block;letter-spacing:.04em;margin-bottom:2px;">⚠ ESPECIAL</div>'
+            +'<div style="font-size:15pt;font-weight:900;color:#b45309;line-height:1;font-family:Courier New,monospace;">'+paqPorBulto+'</div>'
+            +'<div style="font-size:7.5pt;color:#92400e;margin-top:1px;">paq/bulto</div>'
+            +'<div style="font-size:7pt;color:#94a3b8;margin-top:1px;text-decoration:line-through;">default: '+paqDefecto+'</div>'
+          :'<div style="font-size:15pt;font-weight:700;color:#1e293b;line-height:1;font-family:Courier New,monospace;">'+paqPorBulto+'</div>'
+            +'<div style="font-size:7.5pt;color:#94a3b8;margin-top:1px;">paq/bulto</div>'
+        )
+      +'</td>'
+      // TOTAL BULTOS (la columna más importante)
+      +'<td style="text-align:center;'+(esEspecial?'background:#d97706;':'background:#1e293b;')+'color:#fff;border-right:2px solid #1e293b;padding:6px 4px;">'
+        +'<div style="font-size:7pt;text-transform:uppercase;letter-spacing:.06em;opacity:.8;line-height:1;">Armar</div>'
+        +'<div style="font-size:26pt;font-weight:900;font-family:Courier New,monospace;line-height:1;margin-top:2px;">'+totalBultos+'</div>'
+        +'<div style="font-size:7.5pt;opacity:.85;margin-top:1px;">bultos</div>'
+      +'</td>'
+      // Armados (casilla para escribir/tachar)
+      +'<td style="text-align:center;padding:0;border-right:1px solid #cbd5e1;">'
+        +'<div style="border:1.5px dashed #64748b;border-radius:4px;margin:6px;height:46px;display:flex;align-items:center;justify-content:center;font-size:8pt;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;">armados</div>'
+      +'</td>'
+      // Check final
+      +'<td style="text-align:center;padding:0;">'
+        +'<div style="border:2px solid #1e293b;border-radius:4px;margin:6px;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;font-size:14pt;color:#cbd5e1;">✓</div>'
+      +'</td>'
+    +'</tr>';
+  }).join('');
 
   const html='<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Pedido '+p.numero_pedido+'</title>'
     +'<style>'
@@ -16561,55 +16672,93 @@ function imprimirPedido(pedId){
     +'*{box-sizing:border-box;margin:0;padding:0;}'
     +'body{font-family:Arial,sans-serif;color:#1e293b;font-size:10pt;}'
     +'@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}'
+    +'table{width:100%;border-collapse:collapse;}'
+    +'thead{display:table-header-group;}'
+    +'tr{page-break-inside:avoid;}'
+    +'th{background:#1e293b;color:#fff;padding:6px 8px;font-size:8pt;text-align:left;text-transform:uppercase;letter-spacing:.04em;font-weight:700;}'
+    +'th.c{text-align:center;}'
+    +'th.r{text-align:right;}'
+    +'td{padding:6px 8px;border-bottom:1px solid #cbd5e1;vertical-align:middle;}'
     +'</style></head><body>'
 
     // HEADER
-    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1e293b;padding-bottom:7px;margin-bottom:10px;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1e293b;padding-bottom:8px;margin-bottom:10px;">'
       +'<div>'
         +'<div style="font-size:7.5pt;color:#64748b;text-transform:uppercase;letter-spacing:.07em;">Orden de preparación — Depósito</div>'
         +'<div style="font-size:24pt;font-weight:900;font-family:Courier New,monospace;line-height:1.1;">'+p.numero_pedido+'</div>'
-        +'<div style="font-size:13pt;font-weight:700;margin-top:2px;">'+(p.cliente||'—')+'</div>'
+        +'<div style="font-size:14pt;font-weight:700;margin-top:2px;">'+(p.cliente||'—')+'</div>'
+        +(cliDir?'<div style="font-size:9pt;color:#475569;margin-top:1px;">'+cliDir+'</div>':'')
       +'</div>'
       +'<div style="text-align:right;">'
         +'<div style="font-size:8pt;color:#64748b;">Impreso: '+fecha+' '+hora+'</div>'
-        +(p.fecha_entrega_est?'<div style="font-size:10pt;font-weight:700;color:#dc2626;margin-top:3px;">Entrega: '+p.fecha_entrega_est+'</div>':'')
+        +(p.fecha_entrega_est?'<div style="font-size:11pt;font-weight:700;color:#dc2626;margin-top:3px;">Entrega: '+p.fecha_entrega_est+'</div>':'')
         +'<div style="font-size:8.5pt;color:#475569;margin-top:3px;">OC: '+ordsStr+'</div>'
-        +'<div style="margin-top:6px;background:#f1f5f9;border-radius:4px;padding:4px 10px;font-size:9pt;">'
-          +'Total: <strong>'+totalBultosGlobal+' bultos</strong>'
+        +'<div style="margin-top:6px;background:#1e293b;color:#fff;border-radius:4px;padding:6px 14px;display:inline-block;">'
+          +'<div style="font-size:8pt;text-transform:uppercase;letter-spacing:.06em;opacity:.8;">Total a armar</div>'
+          +'<div style="font-size:22pt;font-weight:900;font-family:Courier New,monospace;line-height:1;">'+totalBultosGlobal+' bultos</div>'
         +'</div>'
       +'</div>'
     +'</div>'
 
-    +(p.observaciones?'<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:4px;padding:6px 10px;font-size:9pt;margin-bottom:10px;">'+p.observaciones+'</div>':'')
+    +(p.observaciones?'<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:4px;padding:6px 10px;font-size:9.5pt;margin-bottom:8px;"><strong>Obs:</strong> '+p.observaciones+'</div>':'')
 
     // AVISO GLOBAL: hay bultos especiales del cliente
-    +(lineasData.some(x=>x.esEspecial)
-      ?'<div style="background:#fef3c7;border:2px solid #d97706;border-radius:5px;padding:8px 14px;font-size:10pt;margin-bottom:10px;display:flex;align-items:center;gap:10px;">'
-        +'<span style="font-size:18pt;color:#d97706;">⚠</span>'
+    +(hayEspecial
+      ?'<div style="background:#fef3c7;border:2px solid #d97706;border-radius:5px;padding:8px 14px;font-size:10pt;margin-bottom:8px;display:flex;align-items:center;gap:10px;">'
+        +'<span style="font-size:20pt;color:#d97706;line-height:1;">⚠</span>'
         +'<div>'
-          +'<strong style="color:#92400e;font-size:11pt;">Este cliente tiene paquetes por bulto especiales</strong>'
-          +'<div style="color:#78350f;font-size:9pt;margin-top:1px;">Los productos resaltados en ámbar abajo NO usan el bulto estándar. Respetar la cantidad indicada en cada uno.</div>'
+          +'<strong style="color:#92400e;font-size:11pt;">Atención: este cliente tiene paquetes por bulto especiales</strong>'
+          +'<div style="color:#78350f;font-size:9pt;margin-top:1px;">Las filas resaltadas en ámbar NO usan el bulto estándar. Respetar la cantidad indicada en la columna "paq/bulto".</div>'
         +'</div>'
       +'</div>'
       :'')
 
-    // LÍNEAS CON GRILLA
-    +lineasHTML
+    // TABLA PRINCIPAL
+    +'<table>'
+      +'<thead><tr>'
+        +'<th class="c" style="width:30px;">#</th>'
+        +'<th>Producto</th>'
+        +'<th class="r" style="width:80px;">Paquetes</th>'
+        +'<th class="c" style="width:80px;">Paq / bulto</th>'
+        +'<th class="c" style="width:90px;">Bultos a armar</th>'
+        +'<th class="c" style="width:80px;">Armados</th>'
+        +'<th class="c" style="width:48px;">OK</th>'
+      +'</tr></thead>'
+      +'<tbody>'+filasHtml+'</tbody>'
+    +'</table>'
 
-    // FIRMA
-    +'<div style="display:flex;justify-content:space-between;margin-top:12px;padding-top:8px;border-top:1px solid #e2e8f0;">'
-      +'<div style="width:160px;border-top:1.5px solid #1e293b;padding-top:4px;text-align:center;font-size:8pt;color:#64748b;">Preparado por</div>'
-      +'<div style="width:160px;border-top:1.5px solid #1e293b;padding-top:4px;text-align:center;font-size:8pt;color:#64748b;">Revisado por</div>'
-      +'<div style="width:160px;border-top:1.5px solid #1e293b;padding-top:4px;text-align:center;font-size:8pt;color:#64748b;">Fecha y hora despacho</div>'
+    // TOTALES
+    +'<div style="margin-top:14px;display:flex;gap:14px;align-items:stretch;">'
+      +'<div style="flex:1;background:#f1f5f9;border-radius:5px;padding:8px 14px;">'
+        +'<div style="font-size:8pt;color:#64748b;text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Resumen del pedido</div>'
+        +'<div style="display:flex;gap:24px;margin-top:4px;">'
+          +'<div><div style="font-size:8.5pt;color:#64748b;">Líneas</div><div style="font-family:Courier New,monospace;font-weight:700;font-size:14pt;">'+lineasData.length+'</div></div>'
+          +'<div><div style="font-size:8.5pt;color:#64748b;">Paquetes</div><div style="font-family:Courier New,monospace;font-weight:700;font-size:14pt;">'+totalPaqGlobal.toLocaleString('es-AR')+'</div></div>'
+          +(totalUniGlobal?'<div><div style="font-size:8.5pt;color:#64748b;">Unidades</div><div style="font-family:Courier New,monospace;font-weight:700;font-size:14pt;">'+totalUniGlobal.toLocaleString('es-AR')+'</div></div>':'')
+          +'<div><div style="font-size:8.5pt;color:#64748b;">Bultos</div><div style="font-family:Courier New,monospace;font-weight:900;font-size:14pt;color:#1e293b;">'+totalBultosGlobal+'</div></div>'
+        +'</div>'
+      +'</div>'
+      +'<div style="background:#1e293b;color:#fff;border-radius:5px;padding:8px 18px;text-align:center;">'
+        +'<div style="font-size:8pt;opacity:.8;text-transform:uppercase;letter-spacing:.06em;">Bultos armados</div>'
+        +'<div style="border:2px dashed rgba(255,255,255,.4);border-radius:4px;margin-top:4px;width:100px;height:42px;display:flex;align-items:center;justify-content:center;font-size:7pt;color:rgba(255,255,255,.4);">total</div>'
+      +'</div>'
     +'</div>'
 
-    +'<scr'+'ipt>window.onload=()=>setTimeout(()=>window.print(),400);<\/script>'
+    // FIRMAS
+    +'<div style="display:flex;justify-content:space-between;margin-top:18px;padding-top:8px;gap:30px;">'
+      +'<div style="flex:1;border-top:1.5px solid #1e293b;padding-top:4px;text-align:center;font-size:8.5pt;color:#64748b;">Preparado por</div>'
+      +'<div style="flex:1;border-top:1.5px solid #1e293b;padding-top:4px;text-align:center;font-size:8.5pt;color:#64748b;">Revisado por</div>'
+      +'<div style="flex:1;border-top:1.5px solid #1e293b;padding-top:4px;text-align:center;font-size:8.5pt;color:#64748b;">Fecha y hora despacho</div>'
+    +'</div>'
+
+    +'<scr'+'ipt>window.onload=()=>setTimeout(()=>window.print(),400);<\\/script>'
     +'</body></html>';
 
-  const win=window.open('','_blank','width=800,height=1100');
+  const win=window.open('','_blank','width=900,height=1200');
   win.document.write(html);
   win.document.close();
 }
+
 
 // ===== IMPRIMIR PRESUPUESTO (A4, con precios, para enviar al cliente) =====
 function imprimirPresupuesto(pedId){
