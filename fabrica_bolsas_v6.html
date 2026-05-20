@@ -16164,16 +16164,18 @@ function onTandaChange(lineaId,tandaId,campo,val){
   else if(campo==='nota')t.nota=val;
   // Actualización quirúrgica: refrescar SOLO los textos derivados, sin tocar inputs ni perder foco
   if(campo==='bolsones'){
-    // 1) Subtotal de esta tanda
+    // 1) Subtotal de esta tanda (debajo de los inputs)
     actualizarSubtotalTanda(lineaId,tandaId);
     // 2) Resumen total de tandas de esta línea (cartel verde/ámbar)
     actualizarResumenTandas(lineaId);
-    // 3) Sync con OC (totalPaq, totalUni, bolsones para guardar bien)
+    // 3) Sync con OC (bolsones, totalPaq, totalUni — para guardar bien)
     syncOCDesdeTandas(lineaId);
     // 4) Resumen general arriba ("Al guardar se generarán: X OCs · Y bolsones · ...")
     actualizarResumenGeneral();
-    // 5) Footer v2 (bultos totales)
-    if(typeof refreshV2Footer==='function')refreshV2Footer();
+    // ⚠ NO llamar a refreshV2Footer aquí — dispara calcTotalesNP → generarOrdenesCorte →
+    // renderOrdenesNP que destruye los inputs de tandas y pierde el foco.
+    // Las tandas NO afectan totales del pedido (las líneas mantienen sus precios y cantidades),
+    // así que no hace falta refrescar el footer del v2.
   } else if(campo==='prioridad'){
     // Prioridad no afecta cálculos visibles — solo se guarda
   } else {
@@ -16325,9 +16327,9 @@ function renderTandasUI(o,prod,emp,uniPorPaq,paqPedido,mtsTeoricos){
       +'</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr 2fr;gap:8px;align-items:start;">'
         +'<div class="fg" style="margin-bottom:0;"><label style="font-size:11px;font-weight:700">Bolsones</label>'
-          +'<input id="tanda-inp-bol-'+o.linea_id+'-'+t.id+'" type="number" min="0" value="'+(t.bolsones||0)+'" style="font-weight:700;font-size:14px;" oninput="onTandaChange('+o.linea_id+','+t.id+',\'bolsones\',this.value)"></div>'
+          +'<input id="tanda-inp-bol-'+o.linea_id+'-'+t.id+'" type="text" inputmode="numeric" pattern="[0-9]*" value="'+(t.bolsones||0)+'" style="font-weight:700;font-size:14px;" oninput="onTandaChange('+o.linea_id+','+t.id+',\'bolsones\',this.value)"></div>'
         +'<div class="fg" style="margin-bottom:0;"><label style="font-size:11px">Prioridad (1=más urgente)</label>'
-          +'<input id="tanda-inp-pri-'+o.linea_id+'-'+t.id+'" type="number" min="1" max="99" value="'+(t.prioridad||1)+'" oninput="onTandaChange('+o.linea_id+','+t.id+',\'prioridad\',this.value)"></div>'
+          +'<input id="tanda-inp-pri-'+o.linea_id+'-'+t.id+'" type="text" inputmode="numeric" pattern="[0-9]*" value="'+(t.prioridad||1)+'" oninput="onTandaChange('+o.linea_id+','+t.id+',\'prioridad\',this.value)"></div>'
         +'<div class="fg" style="margin-bottom:0;"><label style="font-size:11px">Nota (opcional)</label>'
           +'<input id="tanda-inp-nota-'+o.linea_id+'-'+t.id+'" type="text" value="'+(t.nota||'').replace(/"/g,'&quot;')+'" placeholder="ej: Esta semana / Sem 27/05" oninput="onTandaChange('+o.linea_id+','+t.id+',\'nota\',this.value)"></div>'
       +'</div>'
@@ -16376,26 +16378,34 @@ function _capturarFocoEnPanel(){
   if(!el||!el.id||el.tagName!=='INPUT')return null;
   // Solo nos interesa preservar inputs del panel de producción
   if(!el.id.startsWith('tanda-inp-')&&!el.id.startsWith('oe-')&&!el.id.startsWith('ord-'))return null;
-  return {
-    id:el.id,
-    selStart:el.selectionStart,
-    selEnd:el.selectionEnd
-  };
+  // Para inputs de texto guardar posición de cursor; para number no aplica
+  let selStart=null, selEnd=null;
+  try{
+    if(el.type==='text'||el.type==='search'||el.type==='tel'||el.type==='url'||el.type==='password'){
+      selStart=el.selectionStart;
+      selEnd=el.selectionEnd;
+    }
+  }catch(e){}
+  return {id:el.id,selStart,selEnd,el};
 }
 function _restaurarFocoEnPanel(saved){
   if(!saved)return;
-  // Esperar al siguiente frame para asegurar que el render terminó
-  requestAnimationFrame(()=>{
-    const nuevo=document.getElementById(saved.id);
-    if(!nuevo)return;
-    nuevo.focus();
-    // Restaurar posición del cursor (en inputs number puede fallar, pero no hace daño)
-    try{
-      if(saved.selStart!=null&&typeof nuevo.setSelectionRange==='function'&&(nuevo.type==='text'||nuevo.type==='search'||nuevo.type==='tel'||nuevo.type==='url'||nuevo.type==='password')){
-        nuevo.setSelectionRange(saved.selStart,saved.selEnd);
-      }
-    }catch(e){/* algunos navegadores no permiten setSelectionRange en type=number */}
-  });
+  // Restauración SINCRÓNICA — el DOM ya está actualizado al llegar acá porque innerHTML es síncrono.
+  // Si el input que estaba enfocado SIGUE siendo el mismo elemento en el DOM, no hacemos nada
+  // (no fue destruido por el render, ni perdimos foco). Esto evita interferir cuando el usuario
+  // está tipeando rápido.
+  if(document.activeElement===saved.el)return;
+  // El elemento original fue removido o perdimos foco — buscar por ID y restaurar
+  const nuevo=document.getElementById(saved.id);
+  if(!nuevo)return;
+  if(document.activeElement===nuevo)return; // Ya tiene foco
+  nuevo.focus();
+  // Posicionar cursor donde estaba (solo en text inputs)
+  try{
+    if(saved.selStart!=null&&typeof nuevo.setSelectionRange==='function'&&(nuevo.type==='text'||nuevo.type==='search'||nuevo.type==='tel'||nuevo.type==='url'||nuevo.type==='password')){
+      nuevo.setSelectionRange(saved.selStart,saved.selEnd);
+    }
+  }catch(e){/* algunos navegadores no permiten setSelectionRange en type=number */}
 }
 
 // Wrapper de renderOrdenesNP que preserva foco automáticamente
@@ -16730,12 +16740,65 @@ async function guardarPedido(){
     abrirModalOEModo(lineasTandasConOE);
     return;
   }
+  // Calcular total de OCs que se van a crear (para mostrar progreso)
+  const totalOCsACrear=_pedOrdenes.filter(o=>o.confirmar&&o.numero_orden).reduce((s,o)=>{
+    return s+(o.dividir&&o.tandas?.length?o.tandas.filter(t=>(t.bolsones||0)>0).length:1);
+  },0);
+  // Mostrar overlay bloqueante
+  _mostrarOverlayGuardado(totalOCsACrear);
   // Wrap en try/catch para capturar errores invisibles
   try{
     await guardarPedidoFinal();
   }catch(err){
     console.error('Error al guardar pedido:',err);
     _v2ShowMsg('Error inesperado: '+(err.message||err),'err');
+    _ocultarOverlayGuardado();
+  }
+}
+
+// Overlay bloqueante mientras se guarda — evita que el usuario salga de la página
+function _mostrarOverlayGuardado(totalOCs){
+  let ov=document.getElementById('overlay-guardado');
+  if(!ov){
+    ov=document.createElement('div');
+    ov.id='overlay-guardado';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+    document.body.appendChild(ov);
+  }
+  const tiempoEst=Math.max(2,Math.ceil(totalOCs*1.5));
+  ov.innerHTML='<div style="background:var(--bg2);border:1.5px solid var(--accent);border-radius:14px;padding:30px 40px;text-align:center;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.5);">'
+    +'<div style="font-size:48px;margin-bottom:14px;animation:spin 1.2s linear infinite;display:inline-block;">⏳</div>'
+    +'<style>@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}</style>'
+    +'<div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:6px;">Guardando pedido…</div>'
+    +'<div style="font-size:13px;color:var(--text2);margin-bottom:14px;">Creando '+totalOCs+' orden'+(totalOCs===1?'':'es')+' de corte · ~'+tiempoEst+'s</div>'
+    +'<div style="background:var(--bg3);border-radius:99px;height:6px;overflow:hidden;margin-bottom:10px;">'
+      +'<div id="overlay-guardado-bar" style="height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0%;transition:width 0.4s ease;"></div>'
+    +'</div>'
+    +'<div style="font-size:11px;color:var(--text3);">No cierres ni recargues la página</div>'
+  +'</div>';
+  // Animar progreso indeterminado durante el guardado
+  let pct=0;
+  const t=setInterval(()=>{
+    pct=Math.min(90,pct+Math.random()*15);
+    const bar=document.getElementById('overlay-guardado-bar');
+    if(bar)bar.style.width=pct+'%';
+    if(!document.getElementById('overlay-guardado'))clearInterval(t);
+  },500);
+  // Prevenir cerrar la página accidentalmente
+  window._guardadoEnCurso=true;
+  window.addEventListener('beforeunload',_warnIfSaving);
+}
+function _ocultarOverlayGuardado(){
+  const ov=document.getElementById('overlay-guardado');
+  if(ov)ov.remove();
+  window._guardadoEnCurso=false;
+  window.removeEventListener('beforeunload',_warnIfSaving);
+}
+function _warnIfSaving(e){
+  if(window._guardadoEnCurso){
+    e.preventDefault();
+    e.returnValue='Hay un pedido guardándose. ¿Seguro que querés salir?';
+    return e.returnValue;
   }
 }
 
@@ -16833,7 +16896,7 @@ async function guardarPedidoFinal(){
       return msgEl?msgEl[prop]:'';
     }
   });
-  if(!fecha||_pedLineas.length===0){msg.style.color='var(--red)';msg.textContent='Completá fecha y al menos una línea.';return;}
+  if(!fecha||_pedLineas.length===0){msg.style.color='var(--red)';msg.textContent='Completá fecha y al menos una línea.';if(typeof _ocultarOverlayGuardado==='function')_ocultarOverlayGuardado();return;}
   if(!nro){
     const{data}=await sb.from('pedidos').select('numero_pedido').order('numero_pedido',{ascending:false}).limit(1);
     const lastNum=data?.length?parseInt(data[0].numero_pedido.replace(/\D/g,''))||0:0;
@@ -16852,7 +16915,7 @@ async function guardarPedidoFinal(){
     estado:'Pendiente',
     tipo_venta:tipo,pct_blanco:pctBlanco
   }).select().single();
-  if(e1){msg.style.color='var(--red)';msg.textContent='Error: '+e1.message;return;}
+  if(e1){msg.style.color='var(--red)';msg.textContent='Error: '+e1.message;if(typeof _ocultarOverlayGuardado==='function')_ocultarOverlayGuardado();return;}
   // Insertar líneas
   let lineasInsertadas=[];
   if(_pedLineas.length){
@@ -16865,7 +16928,7 @@ async function guardarPedidoFinal(){
       unidades_paquete:l.unidades_paquete||null,
       subtotal_linea:l.subtotal_linea
     }))).select();
-    if(eLi){msg.style.color='var(--red)';msg.textContent='Error guardando líneas: '+eLi.message;return;}
+    if(eLi){msg.style.color='var(--red)';msg.textContent='Error guardando líneas: '+eLi.message;if(typeof _ocultarOverlayGuardado==='function')_ocultarOverlayGuardado();return;}
     lineasInsertadas=li||[];
   }
   // Crear órdenes de corte confirmadas
@@ -17023,7 +17086,12 @@ async function guardarPedidoFinal(){
     +(ordsCreadas?' · '+ordsCreadas+' OC creada'+(ordsCreadas>1?'s':''):'')
     +(oeCreadas?' · '+oeCreadas+' OE creada'+(oeCreadas>1?'s':''):'')
     +(errores.length?' · ⚠ '+errores.join(' | '):'');
+  // Completar progreso al 100% antes de cerrar el overlay
+  const bar=document.getElementById('overlay-guardado-bar');
+  if(bar)bar.style.width='100%';
   await reload();
+  // Ocultar el overlay
+  if(typeof _ocultarOverlayGuardado==='function')_ocultarOverlayGuardado();
   // Solo redirigir si todo OK, y con más tiempo para leer el mensaje
   const delay=errores.length?6000:2000;
   setTimeout(()=>go('pedidos'),delay);
