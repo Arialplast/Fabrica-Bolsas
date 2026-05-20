@@ -16174,8 +16174,6 @@ function onTandaChange(lineaId,tandaId,campo,val){
     actualizarResumenGeneral();
     // ⚠ NO llamar a refreshV2Footer aquí — dispara calcTotalesNP → generarOrdenesCorte →
     // renderOrdenesNP que destruye los inputs de tandas y pierde el foco.
-    // Las tandas NO afectan totales del pedido (las líneas mantienen sus precios y cantidades),
-    // así que no hace falta refrescar el footer del v2.
   } else if(campo==='prioridad'){
     // Prioridad no afecta cálculos visibles — solo se guarda
   } else {
@@ -16309,9 +16307,9 @@ function renderTandasUI(o,prod,emp,uniPorPaq,paqPedido,mtsTeoricos){
         +C.emp.map(e=>'<option value="'+e.id+'" '+(e.id===o.empaque_id?'selected':'')+'>'+e.nombre+' ('+e.unidades+'u)</option>').join('')
       +'</select></div>'
     +'<div class="fg"><label style="font-size:11px">Paq/bolsón (común)</label>'
-      +'<input type="number" min="1" value="'+paqPorBolson+'" oninput="onNpOrdPaqBolsonChange('+o.linea_id+',this.value)"></div>'
+      +'<input id="oc-tandas-pb-'+o.linea_id+'" type="number" min="1" value="'+paqPorBolson+'" oninput="onNpOrdPaqBolsonChange('+o.linea_id+',this.value)"></div>'
     +'<div class="fg"><label style="font-size:11px">% Merma (común)</label>'
-      +'<input type="number" value="'+merma+'" min="0" max="30" step="0.5" oninput="_pedOrdenes.find(x=>x.linea_id==='+o.linea_id+').merma=parseFloat(this.value)||5;renderOrdenesNP()"></div>'
+      +'<input id="oc-tandas-mer-'+o.linea_id+'" type="number" value="'+merma+'" min="0" max="30" step="0.5" oninput="_pedOrdenes.find(x=>x.linea_id==='+o.linea_id+').merma=parseFloat(this.value)||5;renderOrdenesNP()"></div>'
   +'</div>';
 
   // Tandas
@@ -16327,9 +16325,9 @@ function renderTandasUI(o,prod,emp,uniPorPaq,paqPedido,mtsTeoricos){
       +'</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr 2fr;gap:8px;align-items:start;">'
         +'<div class="fg" style="margin-bottom:0;"><label style="font-size:11px;font-weight:700">Bolsones</label>'
-          +'<input id="tanda-inp-bol-'+o.linea_id+'-'+t.id+'" type="text" inputmode="numeric" pattern="[0-9]*" value="'+(t.bolsones||0)+'" style="font-weight:700;font-size:14px;" oninput="onTandaChange('+o.linea_id+','+t.id+',\'bolsones\',this.value)"></div>'
+          +'<input id="tanda-inp-bol-'+o.linea_id+'-'+t.id+'" type="number" min="0" value="'+(t.bolsones||0)+'" style="font-weight:700;font-size:14px;" oninput="onTandaChange('+o.linea_id+','+t.id+',\'bolsones\',this.value)" onfocus="this.select()"></div>'
         +'<div class="fg" style="margin-bottom:0;"><label style="font-size:11px">Prioridad (1=más urgente)</label>'
-          +'<input id="tanda-inp-pri-'+o.linea_id+'-'+t.id+'" type="text" inputmode="numeric" pattern="[0-9]*" value="'+(t.prioridad||1)+'" oninput="onTandaChange('+o.linea_id+','+t.id+',\'prioridad\',this.value)"></div>'
+          +'<input id="tanda-inp-pri-'+o.linea_id+'-'+t.id+'" type="number" min="1" max="99" value="'+(t.prioridad||1)+'" oninput="onTandaChange('+o.linea_id+','+t.id+',\'prioridad\',this.value)" onfocus="this.select()"></div>'
         +'<div class="fg" style="margin-bottom:0;"><label style="font-size:11px">Nota (opcional)</label>'
           +'<input id="tanda-inp-nota-'+o.linea_id+'-'+t.id+'" type="text" value="'+(t.nota||'').replace(/"/g,'&quot;')+'" placeholder="ej: Esta semana / Sem 27/05" oninput="onTandaChange('+o.linea_id+','+t.id+',\'nota\',this.value)"></div>'
       +'</div>'
@@ -16412,6 +16410,31 @@ function _restaurarFocoEnPanel(saved){
 const _renderOrdenesNP_original_marker='RENDER_ORDENES_NP_WRAPPED';
 
 function renderOrdenesNP(){
+  // === GUARDIA ANTI-DESTRUCCIÓN DE INPUTS ===
+  // Si el usuario está tipeando en un input del panel de producción, NO re-renderizar
+  // (destruiría el input y haría perder el foco/contenido).
+  // Las actualizaciones quirúrgicas mantienen los datos sincronizados.
+  // El re-render se difiere hasta que el usuario salga del input (blur).
+  try{
+    const activo=document.activeElement;
+    if(activo&&activo.id&&(
+      activo.id.startsWith('tanda-inp-')||      // inputs de tandas (bolsones, prioridad, nota)
+      activo.id.startsWith('oc-simple-')||      // inputs modo simple (bolsones, paq/bolsón, merma)
+      activo.id.startsWith('oc-tandas-')||      // inputs comunes en modo tandas (paq/bolsón, merma)
+      activo.id.startsWith('oe-')               // inputs de OE (metros, prioridad)
+    )){
+      if(!window._pendingRenderOrdenes){
+        window._pendingRenderOrdenes=true;
+        const onceBlur=()=>{
+          window._pendingRenderOrdenes=false;
+          activo.removeEventListener('blur',onceBlur);
+          setTimeout(()=>renderOrdenesNP(),50);
+        };
+        activo.addEventListener('blur',onceBlur,{once:true});
+      }
+      return;
+    }
+  }catch(e){}
   const _focoSaved=_capturarFocoEnPanel();
   const div=document.getElementById('np-ordenes-sugeridas');if(!div)return;
   const resumenDiv=document.getElementById('np-ordenes-resumen');
@@ -16540,15 +16563,15 @@ function renderOrdenesNP(){
                     +C.emp.map(e=>'<option value="'+e.id+'" '+(e.id===o.empaque_id?'selected':'')+'>'+e.nombre+' ('+e.unidades+'u)</option>').join('')
                   +'</select></div>'
                 +'<div class="fg"><label style="font-size:11px;font-weight:700">Bolsones</label>'
-                  +'<input type="number" min="1" value="'+(o.bolsones||'')+'" style="font-weight:700" oninput="onNpOrdBolsonesChange('+o.linea_id+',this.value)"></div>'
+                  +'<input id="oc-simple-bol-'+o.linea_id+'" type="number" min="1" value="'+(o.bolsones||'')+'" style="font-weight:700" oninput="onNpOrdBolsonesChange('+o.linea_id+',this.value)"></div>'
                 +'<div class="fg"><label style="font-size:11px">Paq/bolsón'+(o.paqPorBolsonEsEspecial?' <span style="color:var(--amber);font-size:9px;">⭐ ESPECIAL</span>':'')+'</label>'
-                  +'<input type="number" min="1" value="'+(o.paqPorBolson||1)+'" oninput="onNpOrdPaqBolsonChange('+o.linea_id+',this.value)"'+(o.paqPorBolsonEsEspecial?' style="background:rgba(245,158,11,.15);color:var(--amber);font-weight:700;border:1px solid var(--amber);" title="Paq/bolsón especial del cliente — default del producto: '+(o.paqPorBolsonDefecto||1)+'"':'')+'>'
+                  +'<input id="oc-simple-pb-'+o.linea_id+'" type="number" min="1" value="'+(o.paqPorBolson||1)+'" oninput="onNpOrdPaqBolsonChange('+o.linea_id+',this.value)"'+(o.paqPorBolsonEsEspecial?' style="background:rgba(245,158,11,.15);color:var(--amber);font-weight:700;border:1px solid var(--amber);" title="Paq/bolsón especial del cliente — default del producto: '+(o.paqPorBolsonDefecto||1)+'"':'')+'>'
                   +(o.paqPorBolsonEsEspecial?'<div style="font-size:10px;color:var(--amber);margin-top:3px;">Default producto: '+(o.paqPorBolsonDefecto||1)+'</div>':'')
                 +'</div>'
                 +'<div class="fg"><label style="font-size:11px">Total paquetes</label>'
                   +'<div class="computed" style="margin-top:0;font-weight:700;color:var(--teal)">'+totalPaq.toLocaleString('es-AR')+'</div></div>'
                 +'<div class="fg"><label style="font-size:11px">% Merma</label>'
-                  +'<input type="number" value="'+(o.merma||5)+'" min="0" max="30" step="0.5" oninput="_pedOrdenes.find(x=>x.linea_id==='+o.linea_id+').merma=parseFloat(this.value)||5;renderOrdenesNP()"></div>'
+                  +'<input id="oc-simple-mer-'+o.linea_id+'" type="number" value="'+(o.merma||5)+'" min="0" max="30" step="0.5" oninput="_pedOrdenes.find(x=>x.linea_id==='+o.linea_id+').merma=parseFloat(this.value)||5;renderOrdenesNP()"></div>'
               +'</div>'
               +'<div style="margin-top:10px;padding:8px 12px;background:var(--accentbg);border-radius:var(--r);font-size:12px;">'
                 +'<strong style="color:var(--accent)">Resultado:</strong> '
