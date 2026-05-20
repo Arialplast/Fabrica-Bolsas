@@ -15244,6 +15244,9 @@ function renderLineasV2(){
     const merma=prod?.merma_pct||5;
     const totalUni=uniPaq>0&&l.cantidad?l.cantidad*uniPaq:0;
     const mtsAprox=totalUni&&mtsPorBolsa?r1(totalUni*mtsPorBolsa*(1+merma/100)):0;
+    // Paq/bolsón aplicable y bultos para esta línea
+    const pbInfoRow=(typeof getPaqBolsonAplicable==='function'&&prod)?getPaqBolsonAplicable(prod.id,cliId):{paq:prod?.paquetes_por_bolson||1,esEspecial:false};
+    const bultosRow=l.cantidad&&pbInfoRow.paq?Math.ceil(l.cantidad/pbInfoRow.paq):0;
     const stockDisp=prod?C.stock_bolsas
       .filter(s=>s.producto_id===prod.id&&s.estado==='disponible')
       .reduce((s,x)=>s+(x.cantidad_paquetes||0),0):0;
@@ -15291,7 +15294,14 @@ function renderLineasV2(){
       // CANTIDAD
       +'<div>'
         +'<input type="number" min="1" class="cant-inp" value="'+(l.cantidad||'')+'" placeholder="0" oninput="onNpLineaChange('+l.id+',\'cantidad\',this.value);refreshV2Row('+l.id+');refreshV2Footer();">'
-        +'<div class="cant-sub">'+(l.cantidad&&uniPaq?(l.cantidad*uniPaq).toLocaleString('es-AR')+' u'+(mtsAprox?' · ≈'+mtsAprox.toLocaleString('es-AR')+'m':''):'paquetes')+'</div>'
+        +'<div class="cant-sub">'
+          +(l.cantidad&&uniPaq?(l.cantidad*uniPaq).toLocaleString('es-AR')+' u'+(mtsAprox?' · ≈'+mtsAprox.toLocaleString('es-AR')+'m':''):'paquetes')
+          +(bultosRow>0
+            ?'<br><strong style="color:var(--accent);">= '+bultosRow.toLocaleString('es-AR')+' bulto'+(bultosRow===1?'':'s')+'</strong>'
+              +(pbInfoRow.esEspecial?' <span style="color:var(--amber);font-weight:700;" title="Paq/bolsón especial del cliente">⭐</span>':'')
+              +' <span style="color:var(--text3);">('+pbInfoRow.paq+' paq/bulto)</span>'
+            :'')
+        +'</div>'
       +'</div>'
       // PRECIO
       +'<div>'
@@ -15314,17 +15324,95 @@ function renderLineasV2(){
 }
 
 function refreshV2Row(id){
-  // Sólo redibuja la fila completa (más simple que parchar cada celda)
-  // No es necesario en cada keystroke — usamos esto luego de cantidad/precio change
-  // El subtotal y stock cambian, así que mejor re-render selectivo:
-  const idx=_pedLineas.findIndex(x=>x.id===id);
-  if(idx<0)return;
-  const oldRow=document.getElementById('v2-row-'+id);
-  if(!oldRow)return;
-  // Como las celdas son simples, hacemos un re-render completo de líneas (es rápido):
-  renderLineasV2();
-  // Mantener foco en el input que estaba siendo editado:
-  // (opcional — por simplicidad lo dejamos sin restaurar foco, ya que el oninput se sigue disparando)
+  // Actualización quirúrgica — NO re-renderiza la fila para no perder el foco del input.
+  // Solo actualiza los textos derivados (subtotal, IVA, unidades, bultos, stock, badge fuente precio).
+  const l=_pedLineas.find(x=>x.id===id);
+  if(!l)return;
+  const row=document.getElementById('v2-row-'+id);
+  if(!row)return;
+  const prod=l.producto_id?C.productos.find(p=>p.id===l.producto_id):null;
+  const emp=prod?C.emp.find(e=>e.id===prod.empaque_id):null;
+  const uniPaq=emp?.unidades||0;
+  const mtsPorBolsa=prod?.metros_por_bolsa||0;
+  const merma=prod?.merma_pct||5;
+  const totalUni=uniPaq>0&&l.cantidad?l.cantidad*uniPaq:0;
+  const mtsAprox=totalUni&&mtsPorBolsa?r1(totalUni*mtsPorBolsa*(1+merma/100)):0;
+  // Paq/bolsón aplicable y bultos
+  const cliId=parseInt(document.getElementById('v2-cli')?.value)||0;
+  const pbInfo=(typeof getPaqBolsonAplicable==='function'&&prod)?getPaqBolsonAplicable(prod.id,cliId):{paq:prod?.paquetes_por_bolson||1,esEspecial:false};
+  const bultos=l.cantidad&&pbInfo.paq?Math.ceil(l.cantidad/pbInfo.paq):0;
+  // Actualizar borde según estado
+  const completo=l.producto_id&&l.cantidad>0&&l.precio_paquete>0;
+  row.classList.remove('ok','warn','empty');
+  row.classList.add(completo?'ok':(l.producto_id?'warn':'empty'));
+  const cells=row.children;
+  // [2] cantidad: actualizar el .cant-sub (unidades + bultos)
+  const cantSub=cells[2]?.querySelector('.cant-sub');
+  if(cantSub){
+    let txt='';
+    if(l.cantidad&&uniPaq){
+      txt=(l.cantidad*uniPaq).toLocaleString('es-AR')+' u';
+      if(mtsAprox)txt+=' · ≈'+mtsAprox.toLocaleString('es-AR')+'m';
+    } else {
+      txt='paquetes';
+    }
+    if(bultos>0){
+      const bultoEsp=pbInfo.esEspecial?' <span style="color:var(--amber);font-weight:700;" title="Paq/bolsón especial del cliente">⭐</span>':'';
+      txt+='<br><strong style="color:var(--accent);">= '+bultos.toLocaleString('es-AR')+' bulto'+(bultos===1?'':'s')+'</strong>'+bultoEsp+' <span style="color:var(--text3);">('+pbInfo.paq+' paq/bulto)</span>';
+    }
+    cantSub.innerHTML=txt;
+  }
+  // [3] precio: actualizar el .precio-src
+  const precSrc=cells[3]?.querySelector('.precio-src');
+  if(precSrc){
+    let srcClass='',srcText='';
+    if(l._precio_fuente==='especial'){srcClass='esp';srcText='⭐ Especial';}
+    else if(l._precio_fuente==='lista'){srcClass='lista';srcText='📋 Lista';}
+    else if(l.precio_paquete){srcClass='man';srcText='✏️ Manual';}
+    else if(l.producto_id){srcClass='';srcText='sin precio';}
+    precSrc.className='precio-src '+srcClass;
+    precSrc.textContent=srcText;
+    if(!srcClass)precSrc.style.color='var(--text3)';
+    else precSrc.style.color='';
+  }
+  // [4] stock: actualizar badge + stk-sub
+  if(prod){
+    const stockDisp=C.stock_bolsas
+      .filter(s=>s.producto_id===prod.id&&s.estado==='disponible')
+      .reduce((s,x)=>s+(x.cantidad_paquetes||0),0);
+    const stkBadge=cells[4]?.querySelector('.stk');
+    const stkSub=cells[4]?.querySelector('.stk-sub');
+    if(stkBadge){
+      stkBadge.className='stk';
+      if(stockDisp>0&&l.cantidad>0&&stockDisp>=l.cantidad){stkBadge.classList.add('ok');stkBadge.textContent='✓ '+stockDisp.toLocaleString('es-AR');}
+      else if(stockDisp>0&&l.cantidad>0){stkBadge.classList.add('warn');stkBadge.textContent='⚠ '+stockDisp.toLocaleString('es-AR');}
+      else if(stockDisp>0){stkBadge.classList.add('ok');stkBadge.textContent=stockDisp.toLocaleString('es-AR')+' paq';}
+      else{stkBadge.classList.add('no');stkBadge.textContent='— sin stock';}
+    }
+    if(stkSub){
+      if(stockDisp>0&&l.cantidad>0&&stockDisp>=l.cantidad)stkSub.textContent='cubre todo';
+      else if(stockDisp>0&&l.cantidad>0)stkSub.textContent='faltan '+(l.cantidad-stockDisp).toLocaleString('es-AR')+' paq';
+      else if(stockDisp>0)stkSub.textContent='disponibles';
+      else stkSub.textContent=l.cantidad>0?'producir '+l.cantidad.toLocaleString('es-AR')+' paq':'';
+    }
+  }
+  // [5] subtotal y subtotal-IVA
+  const alic=parseFloat(document.getElementById('v2-alicuota')?.value)||21;
+  const tipo=document.querySelector('input[name="v2-tv"]:checked')?.value||'blanco';
+  const pctBlanco=tipo==='mixto'?(parseInt(document.getElementById('v2-pct-blanco')?.value)||50):tipo==='blanco'?100:0;
+  const ivaLinea=l.subtotal_linea?r2(l.subtotal_linea*pctBlanco/100*alic/100):0;
+  const subDiv=cells[5]?.querySelector('.sub');
+  const subIvaDiv=cells[5]?.querySelector('.sub-iva');
+  if(subDiv)subDiv.textContent=(l.subtotal_linea?'$ '+r2(l.subtotal_linea).toLocaleString('es-AR'):'—');
+  if(subIvaDiv){
+    if(ivaLinea>0){subIvaDiv.style.display='';subIvaDiv.textContent='+ IVA $ '+ivaLinea.toLocaleString('es-AR');}
+    else subIvaDiv.style.display='none';
+  } else if(ivaLinea>0 && cells[5]){
+    const newDiv=document.createElement('div');
+    newDiv.className='sub-iva';
+    newDiv.textContent='+ IVA $ '+ivaLinea.toLocaleString('es-AR');
+    cells[5].appendChild(newDiv);
+  }
 }
 
 function eliminarLineaV2(id){
@@ -15337,7 +15425,12 @@ function eliminarLineaV2(id){
 function refreshV2Counters(){
   const cL=document.getElementById('v2-cnt-lineas');if(cL)cL.textContent=_pedLineas.filter(l=>l.producto_id).length;
   const cC=document.getElementById('v2-cnt-cobros');if(cC)cC.textContent=_pedCobros.length;
-  const cP=document.getElementById('v2-cnt-prod');if(cP)cP.textContent=_pedLineas.filter(l=>l.producto_id&&l.cantidad>0).length;
+  const cP=document.getElementById('v2-cnt-prod');
+  if(cP){
+    // Si ya hay OCs sugeridas, mostrar las confirmadas; si no, mostrar líneas válidas
+    const ocsConf=_pedOrdenes.filter(o=>o.confirmar).length;
+    cP.textContent=_pedOrdenes.length?ocsConf:_pedLineas.filter(l=>l.producto_id&&l.cantidad>0).length;
+  }
 }
 
 function refreshV2Footer(){
@@ -16047,6 +16140,20 @@ function renderOrdenesNP(){
       +'</div>';
   });
   div.innerHTML=html;
+  // === Sync con contenedores del v2 (para que el cartel y la lista se actualicen
+  // en vivo cuando se destilda/confirma una OC desde el v2) ===
+  const v2Sug=document.getElementById('v2-ordenes-sugeridas');
+  if(v2Sug)v2Sug.innerHTML=html;
+  const v2Res=document.getElementById('v2-ordenes-resumen');
+  if(v2Res && resumenDiv){
+    v2Res.innerHTML=resumenDiv.innerHTML;
+    v2Res.style.display=resumenDiv.style.display||'block';
+  }
+  // Actualizar contador del tab Producción
+  const cP=document.getElementById('v2-cnt-prod');
+  if(cP)cP.textContent=_pedOrdenes.filter(o=>o.confirmar).length;
+  // Refrescar bultos del footer (usan getPaqBolsonAplicable, pueden cambiar si se destildan OCs)
+  if(typeof refreshV2Footer==='function')refreshV2Footer();
 }
 function onNpOrdEmpChange(lineaId,empId){
   const o=_pedOrdenes.find(x=>x.linea_id===lineaId);if(!o)return;
@@ -16751,12 +16858,23 @@ function imprimirPedido(pedId){
       +'<div style="flex:1;border-top:1.5px solid #1e293b;padding-top:4px;text-align:center;font-size:8.5pt;color:#64748b;">Fecha y hora despacho</div>'
     +'</div>'
 
-    +'<scr'+'ipt>window.onload=()=>setTimeout(()=>window.print(),400);<\\/script>'
+    // Botón flotante de respaldo (se oculta al imprimir)
+    +'<button onclick="window.print()" style="position:fixed;top:14px;right:14px;background:#1e293b;color:#fff;border:none;padding:10px 18px;font-size:13px;font-weight:600;border-radius:6px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.2);font-family:Arial,sans-serif;" onmouseover="this.style.background=\'#334155\'" onmouseout="this.style.background=\'#1e293b\'" class="no-print">🖨️ Imprimir</button>'
+    +'<style>@media print{.no-print{display:none!important;}}</style>'
+
+    +'<scr'+'ipt>'
+      +'window.addEventListener("load",function(){setTimeout(function(){try{window.print();}catch(e){console.error("Print error:",e);}},500);});'
+    +'<\/scr'+'ipt>'
     +'</body></html>';
 
-  const win=window.open('','_blank','width=900,height=1200');
+  const win=window.open('','_blank');
+  if(!win){
+    alert('El navegador bloqueó la ventana de impresión.\n\nPermití pop-ups para este sitio y volvé a intentar:\n• Chrome: ícono de bloqueo en la barra de direcciones → permitir\n• Firefox: ícono al lado de la URL → opciones');
+    return;
+  }
   win.document.write(html);
   win.document.close();
+  win.focus();
 }
 
 
