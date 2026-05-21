@@ -392,6 +392,8 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
     <div class="nav-item" onclick="goAdmin('listas-precios')"><div class="nav-dot" style="background:var(--teal)"></div>Listas de precios 🔐</div>
     <div class="nav-item" onclick="go('clientes-precios')"><div class="nav-dot"></div>Precios por cliente</div>
     <div class="nav-item" onclick="go('stock-bolsas')"><div class="nav-dot" style="background:var(--green)"></div>Stock bolsas</div>
+    <div class="nav-item" onclick="goAdmin('audit-stock-bolsas')"><div class="nav-dot" style="background:var(--amber)"></div>Auditar stock bolsas 🔍</div>
+    <div class="nav-item" onclick="goAdmin('init-stock-fisico')"><div class="nav-dot" style="background:var(--amber)"></div>Inicializar stock físico 📐</div>
     <div class="nav-item" onclick="go('remitos')"><div class="nav-dot" style="background:var(--accent)"></div>Remitos</div>
     <div class="nav-item" onclick="go('facturacion')"><div class="nav-dot" style="background:var(--green)"></div>Facturación</div>
     <div class="nav-item" onclick="go('ventas-informales')"><div class="nav-dot" style="background:#9333ea"></div>Ventas informales</div>
@@ -2210,19 +2212,152 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
     <!-- STOCK DE BOLSAS TERMINADAS -->
     <div class="page" id="page-stock-bolsas">
       <div class="page-hdr">
-        <div><div class="page-title">Stock de bolsas terminadas</div><div class="page-sub">Disponible · reservado · entregado</div></div>
+        <div><div class="page-title">📦 Stock de bolsas terminadas</div><div class="page-sub">Paquetes · bultos · valorizado al precio promedio de venta</div></div>
         <div class="btn-grp">
-          <select class="st-sel" id="sb-filtro-prod" onchange="renderStockBolsas()"><option value="">Todos los productos</option></select>
-          <select class="st-sel" id="sb-filtro-est" onchange="renderStockBolsas()">
-            <option value="">Todos los estados</option>
-            <option value="disponible">Disponible</option>
-            <option value="reservado">Reservado</option>
-            <option value="entregado">Entregado</option>
-          </select>
+          <button class="btn btn-sm" onclick="renderStockBolsas()">🔄 Refrescar</button>
         </div>
       </div>
-      <div id="sb-kpis" style="margin-bottom:1rem;"></div>
-      <div class="tw"><div id="sb-tbl"><div class="loading"><div class="spinner"></div></div></div></div>
+
+      <!-- KPIs valorizados arriba -->
+      <div id="sb-kpis" style="margin-bottom:14px;"></div>
+
+      <!-- Filtros -->
+      <div style="background:var(--bg3);border-radius:var(--rl);padding:10px 14px;margin-bottom:14px;">
+        <div style="display:grid;grid-template-columns:2fr 1.5fr 1.5fr 1fr;gap:10px;align-items:end;">
+          <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">🔍 Buscar por código o descripción</label>
+            <input id="sb-search" type="text" placeholder="ej: bolsa camiseta 30x40 / B-001" oninput="renderStockBolsas()"></div>
+          <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">Tipo de bobina</label>
+            <select id="sb-filtro-bob" onchange="renderStockBolsas()"><option value="">Todas</option></select></div>
+          <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">Producto específico</label>
+            <select id="sb-filtro-prod" onchange="renderStockBolsas()"><option value="">Todos los productos</option></select></div>
+          <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">Estado</label>
+            <select id="sb-filtro-est" onchange="renderStockBolsas()">
+              <option value="">Todos</option>
+              <option value="disponible" selected>Disponible</option>
+              <option value="reservado">Reservado</option>
+              <option value="entregado">Entregado</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla -->
+      <div class="tw">
+        <div class="tw-bar">
+          <span class="tw-title">📋 Productos con stock</span>
+          <span id="sb-count" style="font-size:11px;color:var(--text3);font-weight:400;"></span>
+        </div>
+        <div id="sb-tbl" style="padding:8px 14px 14px;"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+
+    <!-- AUDITAR STOCK DE BOLSAS -->
+    <div class="page" id="page-audit-stock-bolsas">
+      <div class="page-hdr">
+        <div>
+          <div class="page-title">🔍 Auditar stock de bolsas</div>
+          <div class="page-sub">Comparar OCs completadas vs registros en stock_bolsas — detectar y corregir diferencias</div>
+        </div>
+        <div class="btn-grp">
+          <button class="btn btn-sm" onclick="renderAuditStockBolsas()">🔄 Refrescar</button>
+        </div>
+      </div>
+
+      <div class="alert alert-warn" style="font-size:12px;margin-bottom:14px;">
+        <strong>⚠ Acción crítica:</strong> Esta herramienta compara los <strong>paquetes reales producidos</strong> (de cada OC completada) contra lo que se cargó en <code>stock_bolsas</code>. Permite corregir caso por caso. <strong>Es reversible</strong> (cada corrección hace UPDATE de la cantidad).
+      </div>
+
+      <!-- KPIs -->
+      <div id="aud-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px;"></div>
+
+      <!-- Filtros -->
+      <div style="background:var(--bg3);border-radius:var(--rl);padding:10px 14px;margin-bottom:14px;">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px;align-items:end;">
+          <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">🔍 Buscar (OC, producto, cliente)</label>
+            <input id="aud-search" type="text" placeholder="ej: OC-100 / camiseta / Tito" oninput="renderAuditStockBolsas()"></div>
+          <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">Mostrar</label>
+            <select id="aud-filtro" onchange="renderAuditStockBolsas()">
+              <option value="dif">Con diferencia (problemáticas)</option>
+              <option value="ok">OK (coinciden)</option>
+              <option value="sin-stock">Sin registro en stock</option>
+              <option value="todas">Todas</option>
+            </select></div>
+          <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">Estado del stock</label>
+            <select id="aud-est" onchange="renderAuditStockBolsas()">
+              <option value="">Todos</option>
+              <option value="disponible">Solo disponible</option>
+              <option value="reservado">Solo reservado</option>
+              <option value="entregado">Solo entregado</option>
+            </select></div>
+          <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">Umbral diferencia</label>
+            <input id="aud-umbral" type="number" min="0" step="1" value="0" onchange="renderAuditStockBolsas()" title="Solo mostrar diferencias > este número de paquetes"></div>
+        </div>
+      </div>
+
+      <!-- Lista -->
+      <div class="tw">
+        <div class="tw-bar">
+          <span class="tw-title">📋 OCs completadas vs stock registrado</span>
+          <span id="aud-count" style="font-size:11px;color:var(--text3);font-weight:400;"></span>
+        </div>
+        <div id="aud-lista" style="padding:8px 14px 14px;"></div>
+      </div>
+    </div>
+
+    <!-- INICIALIZAR STOCK FÍSICO (admin) -->
+    <div class="page" id="page-init-stock-fisico">
+      <div class="page-hdr">
+        <div>
+          <div class="page-title">📐 Inicializar stock físico</div>
+          <div class="page-sub">Cargar el stock real medido en depósito · sobrescribe los registros del sistema</div>
+        </div>
+        <div class="btn-grp">
+          <button class="btn btn-sm" onclick="initStockFisico()">🔄 Refrescar lista</button>
+        </div>
+      </div>
+
+      <div class="alert alert-warn" style="font-size:12px;margin-bottom:14px;">
+        <strong>⚠ Acción crítica:</strong> Al guardar, los registros <strong>disponible/reservado</strong> de cada producto modificado se borran y se reemplazan por uno único con la cantidad real. Los <strong>entregados</strong> quedan intactos (histórico). Es <strong>ideal para el corte inicial</strong> antes de empezar facturación. Reversible solo manualmente.
+      </div>
+
+      <!-- KPIs -->
+      <div id="isf-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px;"></div>
+
+      <!-- Filtros -->
+      <div style="background:var(--bg3);border-radius:var(--rl);padding:10px 14px;margin-bottom:14px;">
+        <div style="display:grid;grid-template-columns:2fr 1.5fr 1fr;gap:10px;align-items:end;">
+          <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">🔍 Buscar producto</label>
+            <input id="isf-search" type="text" placeholder="código o descripción" oninput="renderInitStockFisico()"></div>
+          <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">Tipo de bobina</label>
+            <select id="isf-bob" onchange="renderInitStockFisico()"><option value="">Todas</option></select></div>
+          <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">Mostrar</label>
+            <select id="isf-filtro" onchange="renderInitStockFisico()">
+              <option value="todos">Todos</option>
+              <option value="modificados">Solo modificados</option>
+              <option value="pendientes">Pendientes de cargar</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Acciones -->
+      <div id="isf-acciones" style="background:linear-gradient(135deg,rgba(245,158,11,.08),var(--bg2));border:1.5px solid var(--amber);border-radius:var(--rl);padding:12px 16px;margin-bottom:14px;display:none;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <div style="font-weight:700;font-size:13px;color:var(--amber);"><span id="isf-mod-count">0</span> producto(s) modificado(s) · ajuste total: <span id="isf-mod-total">0</span> paq</div>
+          <button class="btn btn-sm btn-primary" onclick="guardarStockFisico()">💾 Guardar cambios</button>
+          <button class="btn btn-sm" onclick="cancelarStockFisico()">✕ Cancelar todos los cambios</button>
+          <span id="isf-msg" style="font-size:12px;margin-left:8px;"></span>
+        </div>
+      </div>
+
+      <!-- Lista -->
+      <div class="tw">
+        <div class="tw-bar">
+          <span class="tw-title">📋 Productos con stock en sistema</span>
+          <span id="isf-count" style="font-size:11px;color:var(--text3);font-weight:400;"></span>
+        </div>
+        <div id="isf-lista" style="padding:8px 14px 14px;"></div>
+      </div>
     </div>
 
     <!-- REMITOS -->
@@ -5324,6 +5459,8 @@ function go(name){
   if(name==='nuevo-pedido-v2')initNuevoPedidoV2();
   if(name==='flujo-caja')renderFlujoCaja();
   if(name==='stock-bolsas')renderStockBolsas();
+  if(name==='audit-stock-bolsas')renderAuditStockBolsas();
+  if(name==='init-stock-fisico')initStockFisico();
   if(name==='remitos')renderRemitos();
   if(name==='nuevo-remito')initNuevoRemito();
   if(name==='facturacion'){renderRemitosPendientes();renderFacturas();poblarFiltrosFactura();}
@@ -5718,70 +5855,190 @@ function renderInformeCorte(){
 
 // ===== STOCK DE BOLSAS TERMINADAS =====
 function renderStockBolsas(){
-  // Poblar filtro producto
+  // Poblar filtros (solo primera vez)
   const sProd=document.getElementById('sb-filtro-prod');
-  if(sProd){
-    const cur=sProd.value;
+  if(sProd&&!sProd.options.length>1){
+    const curP=sProd.value;
+    const idsConStock=[...new Set(C.stock_bolsas.filter(s=>s.estado!=='entregado').map(s=>s.producto_id).filter(Boolean))];
     sProd.innerHTML='<option value="">Todos los productos</option>'
-      +[...new Set(C.stock_bolsas.map(s=>s.producto_id).filter(Boolean))]
+      +idsConStock
         .map(id=>C.productos.find(p=>p.id===id))
         .filter(Boolean)
-        .map(p=>'<option value="'+p.id+'">'+p.codigo+' · '+p.descripcion+'</option>').join('');
-    sProd.value=cur;
+        .sort((a,b)=>(a.descripcion||'').localeCompare(b.descripcion||''))
+        .map(p=>'<option value="'+p.id+'">'+(p.codigo?p.codigo+' · ':'')+p.descripcion+'</option>').join('');
+    sProd.value=curP;
   }
-  const filtroEst=document.getElementById('sb-filtro-est')?.value||'';
+  const sBob=document.getElementById('sb-filtro-bob');
+  if(sBob&&sBob.options.length<=1){
+    const curB=sBob.value;
+    sBob.innerHTML='<option value="">Todas</option>'
+      +C.bobinas.map(b=>'<option value="'+b.id+'">'+b.nombre+(b.descripcion?' · '+b.descripcion:'')+'</option>').join('');
+    sBob.value=curB;
+  }
+
+  // Calcular precio promedio de venta POR PRODUCTO desde pedidos
+  const precioProm={};
+  C.pedidos
+    .filter(p=>p.estado!=='Cancelado'&&p.estado!=='Anulado')
+    .forEach(p=>{
+      (p.pedido_lineas||[]).forEach(l=>{
+        if(!l.producto_id||!l.precio_paquete||!l.cantidad)return;
+        if(!precioProm[l.producto_id])precioProm[l.producto_id]={sumaMonto:0,sumaCant:0,cantPedidos:0};
+        precioProm[l.producto_id].sumaMonto+=(l.cantidad*l.precio_paquete);
+        precioProm[l.producto_id].sumaCant+=l.cantidad;
+        precioProm[l.producto_id].cantPedidos++;
+      });
+    });
+  Object.keys(precioProm).forEach(id=>{
+    const x=precioProm[id];
+    x.precioPromPaq=x.sumaCant>0?r2(x.sumaMonto/x.sumaCant):0;
+  });
+
+  // Filtros activos
+  const q=(document.getElementById('sb-search')?.value||'').toLowerCase().trim();
+  const tipoBob=parseInt(document.getElementById('sb-filtro-bob')?.value)||0;
   const filtroProd=parseInt(document.getElementById('sb-filtro-prod')?.value)||0;
-  let lista=C.stock_bolsas;
-  if(filtroEst)lista=lista.filter(s=>s.estado===filtroEst);
-  if(filtroProd)lista=lista.filter(s=>s.producto_id===filtroProd);
+  const filtroEst=document.getElementById('sb-filtro-est')?.value||'';
 
-  // KPIs por producto
-  const kpis=document.getElementById('sb-kpis');
-  if(kpis){
-    const disp=C.stock_bolsas.filter(s=>s.estado==='disponible');
-    const res=C.stock_bolsas.filter(s=>s.estado==='reservado');
-    const totDispPaq=disp.reduce((s,x)=>s+(x.cantidad_paquetes||0),0);
-    const totResPaq=res.reduce((s,x)=>s+(x.cantidad_paquetes||0),0);
-    kpis.innerHTML='<div class="stats" style="margin-bottom:0">'
-      +'<div class="stat"><div class="stat-lbl">Disponible</div><div class="stat-val" style="color:var(--green)">'+totDispPaq.toLocaleString('es-AR')+' paq</div></div>'
-      +'<div class="stat"><div class="stat-lbl">Reservado</div><div class="stat-val" style="color:var(--amber)">'+totResPaq.toLocaleString('es-AR')+' paq</div></div>'
-      +'<div class="stat"><div class="stat-lbl">Tipos de producto</div><div class="stat-val">'+new Set(disp.map(s=>s.producto_id)).size+'</div></div>'
-      +'</div>';
-  }
-
-  // Agrupar por producto
+  // Agrupar TODO el stock por producto
   const porProd={};
-  C.stock_bolsas.filter(s=>s.estado!=='entregado').forEach(s=>{
-    const pid=s.producto_id;if(!pid)return;
-    if(!porProd[pid])porProd[pid]={prod:C.productos.find(p=>p.id===pid),disponible:0,reservado:0,lotes:[]};
+  C.stock_bolsas.forEach(s=>{
+    const pid=s.producto_id;
+    if(!pid)return;
+    const prod=C.productos.find(p=>p.id===pid);
+    if(!prod)return;
+    if(!porProd[pid])porProd[pid]={
+      prod,disponible:0,reservado:0,entregado:0,lotes:[]
+    };
     if(s.estado==='disponible')porProd[pid].disponible+=s.cantidad_paquetes||0;
     else if(s.estado==='reservado')porProd[pid].reservado+=s.cantidad_paquetes||0;
+    else if(s.estado==='entregado')porProd[pid].entregado+=s.cantidad_paquetes||0;
     porProd[pid].lotes.push(s);
   });
 
-  const tbl=document.getElementById('sb-tbl');if(!tbl)return;
-  if(!Object.keys(porProd).length){tbl.innerHTML='<div class="empty">Sin stock de bolsas terminadas.</div>';return;}
+  // Filtrar productos a mostrar
+  const productos=Object.values(porProd).filter(({prod,disponible,reservado,entregado})=>{
+    if(filtroProd&&prod.id!==filtroProd)return false;
+    if(tipoBob&&prod.bobina_id!==tipoBob)return false;
+    if(q){
+      const txt=((prod.codigo||'')+' '+(prod.descripcion||'')).toLowerCase();
+      if(!txt.includes(q))return false;
+    }
+    if(filtroEst){
+      if(filtroEst==='disponible'&&disponible<=0)return false;
+      if(filtroEst==='reservado'&&reservado<=0)return false;
+      if(filtroEst==='entregado'&&entregado<=0)return false;
+    } else {
+      if(disponible<=0&&reservado<=0)return false;
+    }
+    return true;
+  }).sort((a,b)=>(a.prod.descripcion||'').localeCompare(b.prod.descripcion||''));
 
-  let html='<div style="overflow-x:auto"><table><thead><tr>'
-    +'<th>Producto</th><th>Empaque</th><th>Disponible (paq)</th><th>Disponible (u)</th>'
-    +'<th>Reservado (paq)</th><th>Lotes / órdenes</th>'
-    +'</tr></thead><tbody>';
-  Object.values(porProd).forEach(({prod,disponible,reservado,lotes})=>{
-    if(!prod)return;
+  // KPIs valorizados
+  let totDispPaq=0,totDispBultos=0,totDispUni=0,totDispValor=0;
+  let totResPaq=0,totResValor=0;
+  let prodSinPrecio=0;
+  productos.forEach(({prod,disponible,reservado})=>{
+    const paqPorBolson=prod.paquetes_por_bolson||1;
     const emp=C.emp.find(e=>e.id===prod.empaque_id);
     const uniPaq=emp?.unidades||0;
-    const dispU=uniPaq>0?disponible*uniPaq:0;
-    html+='<tr>'
-      +'<td><span class="mono" style="color:var(--text3);font-size:11px">'+prod.codigo+'</span><br>'+prod.descripcion+'</td>'
-      +'<td style="font-size:11px;color:var(--text2)">'+(emp?emp.nombre+' '+emp.unidades+'u':'—')+'</td>'
-      +'<td class="mono" style="font-weight:700;color:var(--green)">'+disponible.toLocaleString('es-AR')+'</td>'
-      +'<td class="mono" style="color:var(--green)">'+(dispU?dispU.toLocaleString('es-AR'):'—')+'</td>'
-      +'<td class="mono" style="color:var(--amber)">'+(reservado?reservado.toLocaleString('es-AR'):'—')+'</td>'
-      +'<td style="font-size:11px;color:var(--text2)">'
-        +lotes.filter(l=>l.estado==='disponible').map(l=>'<div>'+(l.ordenes_corte?.numero_orden||'OC #'+l.orden_corte_id||'Manual')+' · '+l.cantidad_paquetes+' paq</div>').join('')
+    const precioP=precioProm[prod.id]?.precioPromPaq||0;
+    if(!precioP)prodSinPrecio++;
+    totDispPaq+=disponible;
+    totDispBultos+=Math.floor(disponible/paqPorBolson);
+    totDispUni+=disponible*uniPaq;
+    totDispValor+=disponible*precioP;
+    totResPaq+=reservado;
+    totResValor+=reservado*precioP;
+  });
+
+  const kpis=document.getElementById('sb-kpis');
+  if(kpis){
+    kpis.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">'
+      +'<div style="background:linear-gradient(135deg,rgba(34,197,94,.08),var(--bg2));border:1.5px solid var(--green);border-radius:var(--rl);padding:12px 16px;">'
+        +'<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Disponible (paq)</div>'
+        +'<div style="font-size:22px;font-weight:900;color:var(--green);">'+totDispPaq.toLocaleString('es-AR')+'</div>'
+        +'<div style="font-size:11px;color:var(--text3);margin-top:2px;">'+totDispBultos.toLocaleString('es-AR')+' bultos · '+totDispUni.toLocaleString('es-AR')+' u</div>'
+      +'</div>'
+      +'<div style="background:linear-gradient(135deg,rgba(34,197,94,.06),var(--bg2));border:1.5px solid var(--green);border-radius:var(--rl);padding:12px 16px;">'
+        +'<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">💰 Valorizado disponible</div>'
+        +'<div style="font-size:22px;font-weight:900;color:var(--green);">$'+r2(totDispValor).toLocaleString('es-AR')+'</div>'
+        +(prodSinPrecio?'<div style="font-size:11px;color:var(--amber);margin-top:2px;">⚠ '+prodSinPrecio+' producto'+(prodSinPrecio===1?'':'s')+' sin precio de venta</div>':'<div style="font-size:11px;color:var(--text3);margin-top:2px;">Al precio promedio de venta</div>')
+      +'</div>'
+      +'<div style="background:var(--bg2);border:1.5px solid var(--amberbd);border-radius:var(--rl);padding:12px 16px;">'
+        +'<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Reservado (paq)</div>'
+        +'<div style="font-size:22px;font-weight:900;color:var(--amber);">'+totResPaq.toLocaleString('es-AR')+'</div>'
+        +'<div style="font-size:11px;color:var(--text3);margin-top:2px;">$'+r2(totResValor).toLocaleString('es-AR')+'</div>'
+      +'</div>'
+      +'<div style="background:var(--bg2);border:1.5px solid var(--accentbd);border-radius:var(--rl);padding:12px 16px;">'
+        +'<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Tipos de producto</div>'
+        +'<div style="font-size:22px;font-weight:900;color:var(--accent);">'+productos.length+'</div>'
+        +'<div style="font-size:11px;color:var(--text3);margin-top:2px;">con stock visible</div>'
+      +'</div>'
+    +'</div>';
+  }
+
+  const countEl=document.getElementById('sb-count');
+  if(countEl)countEl.textContent=' — '+productos.length+' producto'+(productos.length===1?'':'s');
+
+  const tbl=document.getElementById('sb-tbl');if(!tbl)return;
+  if(!productos.length){
+    tbl.innerHTML='<div class="empty" style="padding:30px;text-align:center;color:var(--text3);">Sin stock de bolsas que coincida con los filtros.</div>';
+    return;
+  }
+
+  let html='<div style="overflow-x:auto"><table style="width:100%;font-size:12px;border-collapse:collapse;">'
+    +'<thead style="background:var(--bg3);"><tr>'
+      +'<th style="text-align:left;padding:8px;">Producto</th>'
+      +'<th style="text-align:left;padding:8px;">Bobina · Empaque</th>'
+      +'<th style="text-align:right;padding:8px;">Disp (paq)</th>'
+      +'<th style="text-align:right;padding:8px;">Disp (bultos)</th>'
+      +'<th style="text-align:right;padding:8px;">Disp (u)</th>'
+      +'<th style="text-align:right;padding:8px;">$/paq prom.</th>'
+      +'<th style="text-align:right;padding:8px;">💰 Valor disp.</th>'
+      +'<th style="text-align:right;padding:8px;">Reservado</th>'
+      +'<th style="text-align:left;padding:8px;">Detalle lotes</th>'
+    +'</tr></thead><tbody>';
+
+  productos.forEach(({prod,disponible,reservado,lotes})=>{
+    const paqPorBolson=prod.paquetes_por_bolson||1;
+    const emp=C.emp.find(e=>e.id===prod.empaque_id);
+    const bob=C.bobinas.find(b=>b.id===prod.bobina_id);
+    const uniPaq=emp?.unidades||0;
+    const dispBultos=Math.floor(disponible/paqPorBolson);
+    const dispPaqSueltos=disponible-(dispBultos*paqPorBolson);
+    const dispUni=disponible*uniPaq;
+    const precioP=precioProm[prod.id]?.precioPromPaq||0;
+    const cantPed=precioProm[prod.id]?.cantPedidos||0;
+    const valorDisp=disponible*precioP;
+    const lotesDisp=lotes.filter(l=>l.estado==='disponible');
+    html+='<tr style="border-bottom:1px solid var(--border);">'
+      +'<td style="padding:8px;"><div style="font-weight:700;">'+(prod.descripcion||'—')+'</div>'+(prod.codigo?'<div style="font-family:monospace;color:var(--text3);font-size:10px;">'+prod.codigo+'</div>':'')+'</td>'
+      +'<td style="padding:8px;font-size:11px;color:var(--text2);">'+(bob?.nombre||'—')+(emp?'<br><span style="color:var(--text3)">'+emp.nombre+' '+emp.unidades+'u</span>':'')+'</td>'
+      +'<td style="padding:8px;text-align:right;font-family:monospace;font-weight:700;color:var(--green);">'+disponible.toLocaleString('es-AR')+'</td>'
+      +'<td style="padding:8px;text-align:right;font-family:monospace;font-weight:700;">'+dispBultos.toLocaleString('es-AR')+(dispPaqSueltos>0?'<br><span style="font-size:10px;color:var(--text3);font-weight:400;">+'+dispPaqSueltos+' paq sueltos</span>':'')+'</td>'
+      +'<td style="padding:8px;text-align:right;font-family:monospace;color:var(--text2);">'+(dispUni?dispUni.toLocaleString('es-AR'):'—')+'</td>'
+      +'<td style="padding:8px;text-align:right;font-family:monospace;">'+(precioP?'$'+precioP.toLocaleString('es-AR')+'<br><span style="font-size:10px;color:var(--text3);font-weight:400;">'+cantPed+' pedido'+(cantPed===1?'':'s')+'</span>':'<span style="color:var(--text3);font-style:italic;">sin ventas</span>')+'</td>'
+      +'<td style="padding:8px;text-align:right;font-family:monospace;font-weight:800;color:var(--green);">'+(valorDisp?'$'+r2(valorDisp).toLocaleString('es-AR'):'—')+'</td>'
+      +'<td style="padding:8px;text-align:right;font-family:monospace;color:var(--amber);">'+(reservado?reservado.toLocaleString('es-AR'):'—')+'</td>'
+      +'<td style="padding:8px;font-size:10px;color:var(--text2);max-width:200px;">'
+        +lotesDisp.map(l=>'<div>'+(l.ordenes_corte?.numero_orden||(l.orden_corte_id?'OC #'+l.orden_corte_id:'Manual'))+' · '+l.cantidad_paquetes+' paq</div>').join('')
       +'</td>'
       +'</tr>';
   });
+
+  // Fila total al pie
+  html+='<tr style="background:linear-gradient(90deg,rgba(34,197,94,.06),transparent);font-weight:700;border-top:2px solid var(--green);">'
+    +'<td colspan="2" style="padding:10px 8px;font-weight:800;color:var(--green);">📊 TOTALES</td>'
+    +'<td style="padding:10px 8px;text-align:right;font-family:monospace;color:var(--green);">'+totDispPaq.toLocaleString('es-AR')+'</td>'
+    +'<td style="padding:10px 8px;text-align:right;font-family:monospace;">'+totDispBultos.toLocaleString('es-AR')+'</td>'
+    +'<td style="padding:10px 8px;text-align:right;font-family:monospace;color:var(--text2);">'+totDispUni.toLocaleString('es-AR')+'</td>'
+    +'<td style="padding:10px 8px;"></td>'
+    +'<td style="padding:10px 8px;text-align:right;font-family:monospace;font-weight:900;color:var(--green);font-size:13px;">$'+r2(totDispValor).toLocaleString('es-AR')+'</td>'
+    +'<td style="padding:10px 8px;text-align:right;font-family:monospace;color:var(--amber);">'+totResPaq.toLocaleString('es-AR')+'</td>'
+    +'<td></td>'
+  +'</tr>';
+
   html+='</tbody></table></div>';
   tbl.innerHTML=html;
 }
@@ -5791,10 +6048,30 @@ function renderStockBolsas(){
 //   hasta cubrir lo solicitado; el excedente queda 'disponible' (libre).
 async function acreditarStockDesdeOC(ocId){
   const o=C.ord_corte.find(x=>x.id===ocId);if(!o||!o.producto_id)return;
+  const prod=C.productos.find(p=>p.id===o.producto_id)||o.productos;
   const emp=C.emp.find(e=>e.id===o.empaque_id);
   const uniPaq=emp?.unidades||0;
-  const paqReales=o.cantidad_bultos_reales||o.cantidad_paquetes||0;
+  const paqPorBolson=o.paquetes_por_bolson||prod?.paquetes_por_bolson||1;
+  // ✓ Calcular paquetes REALES producidos (no lo planificado)
+  // bolsones_reales × paq_por_bolson + paquetes_sueltos_reales
+  let paqReales=(o.bolsones_reales||0)*paqPorBolson+(o.paquetes_sueltos_reales||0);
+  // Fallback solo si no hay valores reales (compatibilidad con datos viejos)
+  if(paqReales<=0)paqReales=o.cantidad_bultos_reales||0;
   if(!paqReales)return;
+
+  // ⚠ ENTREGAS PARCIALES: descontar lo ya cargado vía parciales (consulta stock_movimientos)
+  let yaCargadoParcial=0;
+  try{
+    const{data}=await sb.from('stock_movimientos')
+      .select('paquetes')
+      .eq('orden_corte_id',ocId)
+      .eq('motivo','entrega_parcial_oc');
+    if(data?.length)yaCargadoParcial=data.reduce((s,m)=>s+(m.paquetes||0),0);
+  }catch(e){/* tabla puede no tener esos campos, ignoramos silenciosamente */}
+  const paqRestantes=Math.max(0,paqReales-yaCargadoParcial);
+  if(paqRestantes<=0)return; // ya está todo cargado vía parciales
+  paqReales=paqRestantes; // reescribo para el resto de la función
+
   const uniReales=uniPaq>0?paqReales*uniPaq:o.unidades_reales||0;
 
   // Buscar pedido que originó esta OC
@@ -5850,6 +6127,298 @@ async function acreditarStockDesdeOC(ocId){
       cantidad_unidades:uniReales,
       orden_corte_id:ocId,estado:'disponible'
     });
+  }
+}
+
+// ===== CARGA PARCIAL DE OC (entrega antes de cerrar) =====
+async function abrirCargaParcialOC(ocId){
+  const o=C.ord_corte.find(x=>x.id===ocId);if(!o)return;
+  if(o.estado!=='En proceso'){toast('Solo OCs En Proceso pueden recibir carga parcial','red');return;}
+  const prod=C.productos.find(p=>p.id===o.producto_id)||o.productos;
+  if(!prod){toast('OC sin producto definido','red');return;}
+  const emp=C.emp.find(e=>e.id===o.empaque_id);
+  if(!emp){toast('OC sin empaque definido — no puedo calcular metros necesarios','red');return;}
+  const uniPaq=emp.unidades||0;
+  const paqPorBolson=o.paquetes_por_bolson||prod?.paquetes_por_bolson||1;
+  const mtsPorBolsa=prod.metros_por_bolsa||0;
+  const mermaPct=o.merma_pct||prod.merma_pct||5;
+
+  // Calcular ya cargado en parciales previos
+  let yaCargadoParcial=0;
+  try{
+    const{data}=await sb.from('stock_movimientos')
+      .select('paquetes')
+      .eq('orden_corte_id',ocId)
+      .eq('motivo','entrega_parcial_oc');
+    if(data?.length)yaCargadoParcial=data.reduce((s,m)=>s+(m.paquetes||0),0);
+  }catch(e){}
+
+  // Metros disponibles en bobinas asociadas
+  const mtsBobinas=(o.orden_corte_bobinas||[])
+    .reduce((s,b)=>s+(C.bobinas_prod.find(bp=>bp.id===b.bobina_producida_id)?.metros_reales||0),0);
+  // Metros teóricos ya "usados" por parciales (estimado conservador)
+  const mtsUsadosTeorico=r2(yaCargadoParcial*uniPaq*mtsPorBolsa*(1+mermaPct/100));
+  const mtsDisponibles=r2(mtsBobinas-mtsUsadosTeorico);
+
+  // Pedido vinculado
+  let pedidoVinc=null;
+  for(const p of (C.pedidos||[])){
+    if((p.pedido_ordenes_corte||[]).some(po=>po.orden_corte_id===ocId)){
+      pedidoVinc=p;break;
+    }
+  }
+  const totalPaqOC=o.cantidad_paquetes||(o.bolsones_a_producir||0)*paqPorBolson;
+
+  document.getElementById('parc-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="parc-modal">'
+    +'<div class="modal-card" style="max-width:620px;max-height:92vh;overflow-y:auto;">'
+    +'<div class="modal-title">📦 Carga parcial — '+o.numero_orden+'</div>'
+
+    // Info contextual
+    +'<div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;">'
+      +'<div style="font-weight:700;font-size:13px;">'+(prod.codigo?prod.codigo+' · ':'')+prod.descripcion+'</div>'
+      +(pedidoVinc?'<div style="color:var(--text2);margin-top:3px;">📋 Pedido: <strong>'+pedidoVinc.numero_pedido+'</strong> · '+pedidoVinc.cliente+'</div>':'<div style="color:var(--text3);margin-top:3px;">Producción libre (sin pedido)</div>')
+      +'<div style="color:var(--text2);font-size:11px;margin-top:6px;">'+emp.nombre+' · '+uniPaq+' u/paq · '+paqPorBolson+' paq/bolsón · '+mtsPorBolsa+' m/bolsa</div>'
+    +'</div>'
+
+    // Bobinas y disponibilidad
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">'
+      +'<div style="background:var(--bg2);border:1.5px solid var(--accentbd);border-radius:var(--r);padding:10px 12px;">'
+        +'<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Bobinas asociadas</div>'
+        +'<div style="font-size:18px;font-weight:800;color:var(--accent);">'+r1(mtsBobinas).toLocaleString('es-AR')+' m</div>'
+        +'<div style="font-size:10px;color:var(--text3);">'+(o.orden_corte_bobinas||[]).length+' bobinas</div>'
+      +'</div>'
+      +'<div style="background:var(--bg2);border:1.5px solid '+(mtsDisponibles>0?'var(--green)':'var(--red)')+';border-radius:var(--r);padding:10px 12px;">'
+        +'<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Disp. para parciales</div>'
+        +'<div style="font-size:18px;font-weight:800;color:'+(mtsDisponibles>0?'var(--green)':'var(--red)')+';">'+r1(mtsDisponibles).toLocaleString('es-AR')+' m</div>'
+        +(yaCargadoParcial>0?'<div style="font-size:10px;color:var(--text3);">descontando '+yaCargadoParcial+' paq ya parciales</div>':'<div style="font-size:10px;color:var(--text3);">teórico, con merma '+mermaPct+'%</div>')
+      +'</div>'
+    +'</div>'
+
+    +(yaCargadoParcial>0?'<div style="background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.3);border-radius:var(--r);padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--green);"><strong>📝 Ya cargado en parciales previos:</strong> '+yaCargadoParcial+' paq (de '+totalPaqOC.toLocaleString('es-AR')+' planificados)</div>':'')
+
+    // Selector de unidad
+    +'<div class="fg" style="margin-bottom:8px;">'
+      +'<label style="font-size:11px;">Carga esta entrega como:</label>'
+      +'<div style="display:flex;gap:6px;">'
+        +'<label style="flex:1;background:var(--accent);color:#fff;font-size:11px;padding:6px 10px;border-radius:var(--r);cursor:pointer;text-align:center;font-weight:700;" id="parc-lbl-paq">'
+          +'<input type="radio" name="parc-u" value="paq" checked onchange="cambiarUnidadParcial(\'paq\')" style="display:none;"> Paquetes'
+        +'</label>'
+        +'<label style="flex:1;background:var(--bg3);color:var(--text1);font-size:11px;padding:6px 10px;border-radius:var(--r);cursor:pointer;text-align:center;font-weight:700;" id="parc-lbl-bul">'
+          +'<input type="radio" name="parc-u" value="bultos" onchange="cambiarUnidadParcial(\'bultos\')" style="display:none;"> Bultos + sueltos'
+        +'</label>'
+      +'</div>'
+    +'</div>'
+
+    // Inputs - paquetes
+    +'<div id="parc-input-paq" class="fg" style="margin-bottom:12px;">'
+      +'<label>Paquetes producidos en esta entrega</label>'
+      +'<input type="number" id="parc-paq" min="1" step="1" placeholder="ej: 100" oninput="recalcParcial()" style="font-size:18px;font-weight:800;text-align:center;">'
+    +'</div>'
+
+    // Inputs - bultos
+    +'<div id="parc-input-bul" class="fg" style="margin-bottom:12px;display:none;">'
+      +'<label>Bultos completos + paquetes sueltos</label>'
+      +'<div style="display:flex;gap:8px;">'
+        +'<input type="number" id="parc-bul" min="0" step="1" placeholder="Bultos" oninput="recalcParcial()" style="flex:2;font-size:16px;font-weight:700;text-align:center;">'
+        +'<input type="number" id="parc-sueltos" min="0" step="1" placeholder="Paq sueltos" oninput="recalcParcial()" style="flex:1;text-align:center;">'
+      +'</div>'
+      +'<div style="font-size:11px;color:var(--text3);margin-top:4px;">'+paqPorBolson+' paquetes por bolsón</div>'
+    +'</div>'
+
+    // Resumen del cálculo
+    +'<div id="parc-resumen" style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;display:none;"></div>'
+
+    // Mensaje de error
+    +'<div id="parc-err" style="font-size:12px;color:var(--red);margin-bottom:10px;display:none;"></div>'
+
+    // Botones
+    +'<div class="btn-grp">'
+      +'<button class="btn btn-primary btn-sm" id="parc-btn-guardar" onclick="confirmarCargaParcial('+ocId+')">📦 Cargar parcial</button>'
+      +'<button class="btn btn-sm" onclick="document.getElementById(\'parc-modal\').remove()">Cancelar</button>'
+      +'<span id="parc-msg" style="font-size:12px;margin-left:8px;"></span>'
+    +'</div>'
+
+    // Guardamos contexto para reusar
+    +'<script>window._parcCtx='+JSON.stringify({
+      ocId,uniPaq,paqPorBolson,mtsPorBolsa,mermaPct,
+      mtsDisponibles:mtsDisponibles,yaCargadoParcial,totalPaqOC,
+      pedidoId:pedidoVinc?.id||null
+    })+'<\/script>'
+
+    +'</div></div>'
+  );
+}
+
+function cambiarUnidadParcial(u){
+  const lblP=document.getElementById('parc-lbl-paq');
+  const lblB=document.getElementById('parc-lbl-bul');
+  const inpP=document.getElementById('parc-input-paq');
+  const inpB=document.getElementById('parc-input-bul');
+  if(u==='paq'){
+    if(lblP){lblP.style.background='var(--accent)';lblP.style.color='#fff';}
+    if(lblB){lblB.style.background='var(--bg3)';lblB.style.color='var(--text1)';}
+    if(inpP)inpP.style.display='block';
+    if(inpB)inpB.style.display='none';
+  } else {
+    if(lblB){lblB.style.background='var(--accent)';lblB.style.color='#fff';}
+    if(lblP){lblP.style.background='var(--bg3)';lblP.style.color='var(--text1)';}
+    if(inpB)inpB.style.display='block';
+    if(inpP)inpP.style.display='none';
+  }
+  recalcParcial();
+}
+
+function recalcParcial(){
+  const ctx=window._parcCtx;if(!ctx)return;
+  const radio=document.querySelector('input[name="parc-u"]:checked');
+  const unidad=radio?.value||'paq';
+  let paqEsta=0;
+  if(unidad==='paq'){
+    paqEsta=parseInt(document.getElementById('parc-paq')?.value)||0;
+  } else {
+    const b=parseInt(document.getElementById('parc-bul')?.value)||0;
+    const s=parseInt(document.getElementById('parc-sueltos')?.value)||0;
+    paqEsta=b*ctx.paqPorBolson+s;
+  }
+  const uniEsta=paqEsta*ctx.uniPaq;
+  const mtsEsta=r2(uniEsta*ctx.mtsPorBolsa*(1+ctx.mermaPct/100));
+  const totalAcumulado=ctx.yaCargadoParcial+paqEsta;
+  const excedeMts=mtsEsta>ctx.mtsDisponibles;
+  const excedeTotal=totalAcumulado>ctx.totalPaqOC;
+
+  const res=document.getElementById('parc-resumen');
+  const err=document.getElementById('parc-err');
+  const btn=document.getElementById('parc-btn-guardar');
+
+  if(paqEsta<=0){
+    if(res)res.style.display='none';
+    if(err)err.style.display='none';
+    if(btn)btn.disabled=true;
+    return;
+  }
+  if(res){
+    res.style.display='block';
+    res.innerHTML='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">'
+      +'<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;font-weight:700;">Paq esta entrega</div><div style="font-size:16px;font-weight:800;color:var(--accent);">'+paqEsta.toLocaleString('es-AR')+'</div></div>'
+      +'<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;font-weight:700;">Unidades</div><div style="font-size:14px;font-weight:700;">'+uniEsta.toLocaleString('es-AR')+'</div></div>'
+      +'<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;font-weight:700;">Mts teóricos</div><div style="font-size:14px;font-weight:700;color:'+(excedeMts?'var(--red)':'var(--text1)')+';">'+mtsEsta.toLocaleString('es-AR')+' m</div></div>'
+    +'</div>'
+    +'<div style="margin-top:8px;font-size:11px;color:var(--text2);">Total acumulado parciales: <strong>'+totalAcumulado.toLocaleString('es-AR')+' paq</strong> de '+ctx.totalPaqOC.toLocaleString('es-AR')+' planificados</div>';
+  }
+
+  let problema='';
+  if(excedeMts)problema='⚠ Esta carga necesita '+mtsEsta+' m pero solo hay '+ctx.mtsDisponibles+' m disponibles en las bobinas asociadas. Asociá más bobinas a la OC antes de cargar.';
+  else if(excedeTotal)problema='⚠ El total acumulado ('+totalAcumulado+') excede lo planificado en la OC ('+ctx.totalPaqOC+'). Si efectivamente cortaste más, primero ajustá la OC.';
+
+  if(err){
+    if(problema){err.textContent=problema;err.style.display='block';}
+    else err.style.display='none';
+  }
+  if(btn)btn.disabled=!!problema;
+}
+
+async function confirmarCargaParcial(ocId){
+  const ctx=window._parcCtx;if(!ctx)return;
+  const msg=document.getElementById('parc-msg');
+  const radio=document.querySelector('input[name="parc-u"]:checked');
+  const unidad=radio?.value||'paq';
+  let paqEsta=0,bul=0,sueltos=0;
+  if(unidad==='paq'){
+    paqEsta=parseInt(document.getElementById('parc-paq')?.value)||0;
+  } else {
+    bul=parseInt(document.getElementById('parc-bul')?.value)||0;
+    sueltos=parseInt(document.getElementById('parc-sueltos')?.value)||0;
+    paqEsta=bul*ctx.paqPorBolson+sueltos;
+  }
+  if(paqEsta<=0){msg.style.color='var(--red)';msg.textContent='Ingresá cantidad > 0';return;}
+
+  msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Cargando...</div>';
+  msg.style.color='var(--text2)';
+
+  const o=C.ord_corte.find(x=>x.id===ocId);
+  const uniEsta=paqEsta*ctx.uniPaq;
+
+  try{
+    // 1) Registrar movimiento (fuente de verdad para evitar doble conteo al cerrar)
+    try{
+      await sb.from('stock_movimientos').insert({
+        tipo:'entrada',
+        motivo:'entrega_parcial_oc',
+        orden_corte_id:ocId,
+        producto_id:o.producto_id,
+        pedido_id:ctx.pedidoId||null,
+        paquetes:paqEsta,
+        unidades:uniEsta,
+        operario:'admin',
+        observaciones:'Carga parcial OC '+o.numero_orden+(unidad==='bultos'?' · '+bul+' bultos + '+sueltos+' paq sueltos':' · '+paqEsta+' paq')
+      });
+    }catch(e){
+      // Si stock_movimientos no tiene esos campos, no rompemos — solo logueamos
+      console.warn('No se pudo registrar en stock_movimientos:',e);
+    }
+
+    // 2) Determinar pedido y cuánto va a reservado vs disponible
+    let pedidoId=ctx.pedidoId;
+    let pedidoLineaId=null;
+    let paqPedidos=0,paqYaReservados=0;
+    if(pedidoId){
+      const p=C.pedidos.find(x=>x.id===pedidoId);
+      const poc=(p?.pedido_ordenes_corte||[]).find(x=>x.orden_corte_id===ocId);
+      pedidoLineaId=poc?.pedido_linea_id||null;
+      if(pedidoLineaId){
+        const li=(p.pedido_lineas||[]).find(l=>l.id===pedidoLineaId);
+        if(li)paqPedidos=parseFloat(li.cantidad_paquetes)||0;
+      } else {
+        const li=(p?.pedido_lineas||[]).find(l=>l.producto_id===o.producto_id);
+        if(li){paqPedidos=parseFloat(li.cantidad_paquetes)||0;pedidoLineaId=li.id;}
+      }
+      (C.stock_bolsas||[]).forEach(s=>{
+        if(s.pedido_id===pedidoId&&s.producto_id===o.producto_id&&s.estado==='reservado'){
+          paqYaReservados+=parseFloat(s.cantidad_paquetes)||0;
+        }
+      });
+    }
+
+    // 3) Crear registros en stock_bolsas
+    if(pedidoId&&paqPedidos>0){
+      const faltaReservar=Math.max(0,paqPedidos-paqYaReservados);
+      const reservar=Math.min(paqEsta,faltaReservar);
+      const excedente=paqEsta-reservar;
+      if(reservar>0){
+        await sb.from('stock_bolsas').insert({
+          producto_id:o.producto_id,cantidad_paquetes:reservar,
+          cantidad_unidades:reservar*ctx.uniPaq,
+          orden_corte_id:ocId,estado:'reservado',pedido_id:pedidoId
+        });
+      }
+      if(excedente>0){
+        await sb.from('stock_bolsas').insert({
+          producto_id:o.producto_id,cantidad_paquetes:excedente,
+          cantidad_unidades:excedente*ctx.uniPaq,
+          orden_corte_id:ocId,estado:'disponible'
+        });
+      }
+    } else {
+      await sb.from('stock_bolsas').insert({
+        producto_id:o.producto_id,cantidad_paquetes:paqEsta,
+        cantidad_unidades:uniEsta,
+        orden_corte_id:ocId,estado:'disponible'
+      });
+    }
+
+    msg.style.color='var(--green)';msg.textContent='✓ '+paqEsta+' paq cargados en stock';
+    await reload();
+    setTimeout(()=>{
+      document.getElementById('parc-modal')?.remove();
+      window._parcCtx=null;
+      toast('📦 Carga parcial registrada: '+paqEsta+' paq de '+o.numero_orden,'green');
+    },1000);
+  } catch(err){
+    console.error('Error carga parcial:',err);
+    msg.style.color='var(--red)';
+    msg.textContent='Error: '+(err.message||err);
   }
 }
 
@@ -11229,6 +11798,7 @@ function renderOrdenesCorte(){
           <button class="btn btn-sm" onclick="verLotesDeOC(${o.id})" title="Ver lotes MP consumidos">📦</button>
           ${(o.estado==='Pendiente'||o.estado==='Suspendida')?`<button class="btn btn-sm btn-primary" onclick="abrirEditarOrdenCorte(${o.id})" title="Editar orden (admin)">✏️</button>`:''}</td>
       <td>
+        ${o.estado==='En proceso'?`<button class="btn btn-sm" onclick="abrirCargaParcialOC(${o.id})" title="Cargar producción parcial sin cerrar la OC" style="background:rgba(34,197,94,.1);color:var(--green);border-color:rgba(34,197,94,.3);">📦 Parcial</button>`:''}
         ${o.estado==='En proceso'?`<button class="btn btn-sm btn-teal" onclick="abrirCierreOrdenCorte(${o.id})">Cerrar</button>`:''}
         ${o.estado==='Completada'?`<button class="btn btn-sm" onclick="verDetalleOrdenCorte(${o.id})">📊 Detalle</button>`:''}
         ${o.estado==='Suspendida'?`<button class="btn btn-sm" onclick="cambiarEstadoCorte(${o.id},'Pendiente')">Reactivar</button>`:''}
@@ -12346,6 +12916,501 @@ async function ejecutarRecalcPesos(){
       msg.style.color='var(--red)';
       msg.textContent='Error: '+(err.message||err);
     }
+  });
+}
+
+// ====== AUDITORÍA DE STOCK DE BOLSAS ======
+// Compara cada OC completada vs los registros en stock_bolsas
+function _calcPaqRealesOC(o){
+  const prod=C.productos.find(p=>p.id===o.producto_id)||o.productos;
+  const paqPorBolson=o.paquetes_por_bolson||prod?.paquetes_por_bolson||1;
+  // Lo realmente producido = bolsones_reales × paq/bolson + paq_sueltos_reales
+  const paq=(o.bolsones_reales||0)*paqPorBolson+(o.paquetes_sueltos_reales||0);
+  // Fallback compatibilidad
+  if(paq<=0)return o.cantidad_bultos_reales||0;
+  return paq;
+}
+
+function _resumenAuditoria(){
+  // Para cada OC completada, calcular paq reales + paq en stock_bolsas
+  const ocs=C.ord_corte.filter(o=>o.estado==='Completada'&&o.producto_id);
+  return ocs.map(o=>{
+    const paqReales=_calcPaqRealesOC(o);
+    // Sumar registros de stock asociados a esta OC
+    const lotes=C.stock_bolsas.filter(s=>s.orden_corte_id===o.id);
+    const paqStock=lotes.reduce((s,l)=>s+(l.cantidad_paquetes||0),0);
+    const paqDisp=lotes.filter(l=>l.estado==='disponible').reduce((s,l)=>s+(l.cantidad_paquetes||0),0);
+    const paqRes=lotes.filter(l=>l.estado==='reservado').reduce((s,l)=>s+(l.cantidad_paquetes||0),0);
+    const paqEnt=lotes.filter(l=>l.estado==='entregado').reduce((s,l)=>s+(l.cantidad_paquetes||0),0);
+    // Lo que "debería haber" = paqReales − entregado
+    const deberiaHaber=Math.max(0,paqReales-paqEnt);
+    const dif=(paqDisp+paqRes)-deberiaHaber;
+    // Cliente / pedido si aplica
+    const ped=lotes.find(l=>l.pedido_id)?C.pedidos.find(p=>p.id===lotes.find(l=>l.pedido_id).pedido_id):null;
+    const cli=o.cliente||ped?.cliente||'';
+    return {
+      oc:o,prod:C.productos.find(p=>p.id===o.producto_id)||o.productos,
+      paqReales,paqStock,paqDisp,paqRes,paqEnt,deberiaHaber,dif,
+      lotes,sinStock:lotes.length===0,
+      cliente:cli,fechaCierre:o.fecha_completada
+    };
+  });
+}
+
+function renderAuditStockBolsas(){
+  const q=(document.getElementById('aud-search')?.value||'').toLowerCase().trim();
+  const filtro=document.getElementById('aud-filtro')?.value||'dif';
+  const est=document.getElementById('aud-est')?.value||'';
+  const umbral=parseInt(document.getElementById('aud-umbral')?.value)||0;
+
+  let items=_resumenAuditoria();
+
+  // KPIs globales
+  const totalOCs=items.length;
+  const ocsConDif=items.filter(i=>Math.abs(i.dif)>0&&!i.sinStock).length;
+  const ocsSinStock=items.filter(i=>i.sinStock).length;
+  const ocsOK=items.filter(i=>i.dif===0&&!i.sinStock).length;
+  const paqExceso=items.filter(i=>i.dif>0).reduce((s,i)=>s+i.dif,0);
+  const paqFaltante=items.filter(i=>i.dif<0).reduce((s,i)=>s-i.dif,0);
+
+  const kpis=document.getElementById('aud-kpis');
+  if(kpis){
+    kpis.innerHTML=
+      '<div style="background:var(--bg2);border:1.5px solid var(--accentbd);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">OCs completadas</div><div style="font-size:22px;font-weight:900;color:var(--accent);">'+totalOCs+'</div></div>'
+      +'<div style="background:var(--bg2);border:1.5px solid var(--green);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">✓ OK (coinciden)</div><div style="font-size:22px;font-weight:900;color:var(--green);">'+ocsOK+'</div></div>'
+      +'<div style="background:var(--bg2);border:1.5px solid var(--amber);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">⚠ Con diferencia</div><div style="font-size:22px;font-weight:900;color:var(--amber);">'+ocsConDif+'</div></div>'
+      +'<div style="background:var(--bg2);border:1.5px solid var(--red);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Sin stock cargado</div><div style="font-size:22px;font-weight:900;color:var(--red);">'+ocsSinStock+'</div></div>'
+      +'<div style="background:var(--bg2);border:1.5px solid var(--amber);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Paq en exceso</div><div style="font-size:22px;font-weight:900;color:var(--amber);">+'+paqExceso.toLocaleString('es-AR')+'</div><div style="font-size:10px;color:var(--text3);">stock > reales</div></div>'
+      +'<div style="background:var(--bg2);border:1.5px solid var(--red);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Paq faltantes</div><div style="font-size:22px;font-weight:900;color:var(--red);">-'+paqFaltante.toLocaleString('es-AR')+'</div><div style="font-size:10px;color:var(--text3);">stock < reales</div></div>';
+  }
+
+  // Filtrar
+  if(filtro==='dif')items=items.filter(i=>Math.abs(i.dif)>umbral&&!i.sinStock);
+  else if(filtro==='ok')items=items.filter(i=>i.dif===0&&!i.sinStock);
+  else if(filtro==='sin-stock')items=items.filter(i=>i.sinStock);
+  // 'todas' = sin filtro
+
+  if(est){
+    items=items.filter(i=>i.lotes.some(l=>l.estado===est));
+  }
+
+  if(q){
+    items=items.filter(i=>{
+      const txt=((i.oc.numero_orden||'')+' '+(i.prod?.codigo||'')+' '+(i.prod?.descripcion||'')+' '+(i.cliente||'')).toLowerCase();
+      return txt.includes(q);
+    });
+  }
+
+  // Ordenar: primero las que tienen diferencias más grandes
+  items.sort((a,b)=>Math.abs(b.dif)-Math.abs(a.dif));
+
+  const countEl=document.getElementById('aud-count');
+  if(countEl)countEl.textContent=' — '+items.length+' OC'+(items.length===1?'':'s');
+
+  const cont=document.getElementById('aud-lista');
+  if(!cont)return;
+  if(!items.length){
+    cont.innerHTML='<div class="empty" style="padding:30px;text-align:center;color:var(--text3);">Sin OCs que coincidan. ✓ Probablemente todo está OK.</div>';
+    return;
+  }
+
+  let html='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">'
+    +'<thead><tr style="background:var(--bg3);">'
+      +'<th style="padding:6px 8px;text-align:left;">OC · Producto</th>'
+      +'<th style="padding:6px 8px;text-align:left;">Cliente · Cierre</th>'
+      +'<th style="padding:6px 8px;text-align:right;">Bolsones reales</th>'
+      +'<th style="padding:6px 8px;text-align:right;">Paq reales</th>'
+      +'<th style="padding:6px 8px;text-align:right;">Paq en stock</th>'
+      +'<th style="padding:6px 8px;text-align:left;">Desglose stock</th>'
+      +'<th style="padding:6px 8px;text-align:right;">Diferencia</th>'
+      +'<th style="padding:6px 8px;text-align:center;">Acción</th>'
+    +'</tr></thead><tbody>';
+  items.forEach(i=>{
+    const paqPorBolson=i.oc.paquetes_por_bolson||i.prod?.paquetes_por_bolson||1;
+    const difColor=i.dif===0?'var(--green)':i.sinStock?'var(--red)':i.dif>0?'var(--amber)':'var(--red)';
+    const rowBg=i.sinStock?'rgba(239,68,68,.04)':i.dif!==0?'rgba(245,158,11,.04)':'transparent';
+    const fechaCierreStr=i.fechaCierre?new Date(i.fechaCierre).toLocaleDateString('es-AR'):'—';
+    html+='<tr style="background:'+rowBg+';border-bottom:1px solid var(--border);">'
+      +'<td style="padding:8px;"><div style="font-family:monospace;font-weight:700;color:var(--accent);font-size:12px;">'+i.oc.numero_orden+'</div>'
+        +'<div style="font-size:11px;color:var(--text2);">'+(i.prod?.codigo?i.prod.codigo+' · ':'')+(i.prod?.descripcion||'—')+'</div></td>'
+      +'<td style="padding:8px;font-size:11px;">'+(i.cliente||'<span style="color:var(--text3);">—</span>')+'<br><span style="color:var(--text3);font-size:10px;">'+fechaCierreStr+'</span></td>'
+      +'<td style="padding:8px;text-align:right;font-family:monospace;">'+(i.oc.bolsones_reales||0)+'<br><span style="font-size:10px;color:var(--text3);font-weight:400;">+'+(i.oc.paquetes_sueltos_reales||0)+' sueltos</span></td>'
+      +'<td style="padding:8px;text-align:right;font-family:monospace;font-weight:700;color:var(--accent);">'+i.paqReales.toLocaleString('es-AR')+'<br><span style="font-size:10px;color:var(--text3);font-weight:400;">× '+paqPorBolson+' paq/bolsón</span></td>'
+      +'<td style="padding:8px;text-align:right;font-family:monospace;font-weight:700;">'+(i.sinStock?'<span style="color:var(--red);">SIN STOCK</span>':i.paqStock.toLocaleString('es-AR'))+'</td>'
+      +'<td style="padding:8px;font-size:10px;color:var(--text2);">'
+        +(i.paqDisp>0?'🟢 disp: '+i.paqDisp+'<br>':'')
+        +(i.paqRes>0?'🟡 res: '+i.paqRes+'<br>':'')
+        +(i.paqEnt>0?'⚪ ent: '+i.paqEnt:'')
+        +(i.sinStock?'<span style="color:var(--red);">ningún registro</span>':'')
+      +'</td>'
+      +'<td style="padding:8px;text-align:right;font-family:monospace;font-weight:800;color:'+difColor+';">'+(i.sinStock?'—':((i.dif>0?'+':'')+i.dif.toLocaleString('es-AR')))+'</td>'
+      +'<td style="padding:8px;text-align:center;">'
+        +(i.sinStock
+          ?'<button class="btn btn-sm btn-primary" onclick="recargarStockOC('+i.oc.id+')" title="Cargar stock desde cero">⚡ Cargar</button>'
+          :i.dif!==0
+            ?'<button class="btn btn-sm btn-primary" onclick="corregirStockOC('+i.oc.id+')" title="Ajustar stock a los paq reales">🔧 Corregir</button>'
+            :'<span style="color:var(--green);font-size:14px;">✓</span>')
+      +'</td>'
+    +'</tr>';
+  });
+  html+='</tbody></table></div>';
+  cont.innerHTML=html;
+}
+
+// Corregir una OC: ajustar cantidades en stock_bolsas a lo realmente producido
+async function corregirStockOC(ocId){
+  const o=C.ord_corte.find(x=>x.id===ocId);if(!o)return;
+  const prod=C.productos.find(p=>p.id===o.producto_id)||o.productos;
+  const paqPorBolson=o.paquetes_por_bolson||prod?.paquetes_por_bolson||1;
+  const paqReales=_calcPaqRealesOC(o);
+  const lotes=C.stock_bolsas.filter(s=>s.orden_corte_id===ocId);
+  const paqEntregados=lotes.filter(l=>l.estado==='entregado').reduce((s,l)=>s+(l.cantidad_paquetes||0),0);
+  const debeQuedar=Math.max(0,paqReales-paqEntregados);
+  const tieneAhora=lotes.filter(l=>l.estado!=='entregado').reduce((s,l)=>s+(l.cantidad_paquetes||0),0);
+  const dif=tieneAhora-debeQuedar;
+
+  let msg='OC '+o.numero_orden+'\n\n';
+  msg+='Producido real: '+paqReales+' paq\n';
+  msg+='Ya entregado: '+paqEntregados+' paq\n';
+  msg+='Debería haber en stock (disp+res): '+debeQuedar+' paq\n';
+  msg+='Tiene ahora: '+tieneAhora+' paq\n';
+  msg+='Ajuste: '+(dif>0?'-'+dif:'+'+Math.abs(dif))+' paq\n\n';
+  if(dif>0)msg+='⚠ Se va a RESTAR '+dif+' paq del registro disponible.\n';
+  else if(dif<0)msg+='⚠ Se va a SUMAR '+Math.abs(dif)+' paq al registro disponible.\n';
+  msg+='\n¿Confirmás?';
+  if(!confirm(msg))return;
+
+  pedirAdminYEjecutar(async()=>{
+    try{
+      // Estrategia: tomar el primer registro 'disponible' y ajustarlo
+      // Si no hay 'disponible', crear uno nuevo o ajustar 'reservado'
+      const lotesNoEnt=lotes.filter(l=>l.estado!=='entregado');
+      if(dif>0){
+        // Hay que restar: ir descontando de los disponibles primero
+        let restante=dif;
+        const ordenAjuste=[...lotesNoEnt.filter(l=>l.estado==='disponible'),...lotesNoEnt.filter(l=>l.estado==='reservado')];
+        for(const l of ordenAjuste){
+          if(restante<=0)break;
+          const aRestar=Math.min(l.cantidad_paquetes||0,restante);
+          const nuevo=(l.cantidad_paquetes||0)-aRestar;
+          if(nuevo<=0){
+            await sb.from('stock_bolsas').delete().eq('id',l.id);
+          } else {
+            await sb.from('stock_bolsas').update({cantidad_paquetes:nuevo}).eq('id',l.id);
+          }
+          restante-=aRestar;
+        }
+      } else if(dif<0){
+        // Hay que sumar
+        const aSumar=Math.abs(dif);
+        const dispExistente=lotesNoEnt.find(l=>l.estado==='disponible');
+        if(dispExistente){
+          await sb.from('stock_bolsas').update({cantidad_paquetes:(dispExistente.cantidad_paquetes||0)+aSumar}).eq('id',dispExistente.id);
+        } else {
+          // Crear nuevo registro disponible
+          const emp=C.emp.find(e=>e.id===o.empaque_id);
+          const uniPaq=emp?.unidades||0;
+          await sb.from('stock_bolsas').insert({
+            producto_id:o.producto_id,
+            cantidad_paquetes:aSumar,
+            cantidad_unidades:uniPaq>0?aSumar*uniPaq:0,
+            orden_corte_id:ocId,
+            estado:'disponible'
+          });
+        }
+      }
+      toast('✓ Stock corregido: '+o.numero_orden,'green');
+      await reload();
+      renderAuditStockBolsas();
+    } catch(err){
+      console.error('Error corrigiendo stock:',err);
+      toast('Error: '+(err.message||err),'red');
+    }
+  });
+}
+
+// Cargar stock desde cero para una OC sin registros
+async function recargarStockOC(ocId){
+  const o=C.ord_corte.find(x=>x.id===ocId);if(!o)return;
+  const paqReales=_calcPaqRealesOC(o);
+  if(!paqReales){toast('Esta OC no tiene paquetes reales registrados','red');return;}
+  if(!confirm('Vas a cargar '+paqReales+' paq disponibles de la OC '+o.numero_orden+'.\n\n¿Confirmás?'))return;
+  pedirAdminYEjecutar(async()=>{
+    try{
+      await acreditarStockDesdeOC(ocId);
+      toast('✓ Stock cargado: '+o.numero_orden+' · '+paqReales+' paq','green');
+      await reload();
+      renderAuditStockBolsas();
+    } catch(err){
+      console.error('Error cargando stock:',err);
+      toast('Error: '+(err.message||err),'red');
+    }
+  });
+}
+
+// ====== INICIALIZAR STOCK FÍSICO ======
+// Estructura: _isfData = { productoId: { unidad:'paq'|'bultos', paq, bultos, sueltos, sistemaActual } }
+let _isfData={};
+
+function initStockFisico(){
+  _isfData={};
+  // Poblar select bobinas
+  const selBob=document.getElementById('isf-bob');
+  if(selBob){
+    selBob.innerHTML='<option value="">Todas</option>'
+      +C.bobinas.map(b=>'<option value="'+b.id+'">'+b.nombre+(b.descripcion?' · '+b.descripcion:'')+'</option>').join('');
+  }
+  const inp=document.getElementById('isf-search');if(inp)inp.value='';
+  renderInitStockFisico();
+}
+
+function _getProductosConStock(){
+  // Agrupar por producto: cuánto tiene actualmente en sistema (disp + reservado, sin entregado)
+  const porProd={};
+  C.stock_bolsas.forEach(s=>{
+    if(s.estado==='entregado')return;
+    const pid=s.producto_id;
+    if(!pid)return;
+    if(!porProd[pid])porProd[pid]={disponible:0,reservado:0};
+    if(s.estado==='disponible')porProd[pid].disponible+=s.cantidad_paquetes||0;
+    else if(s.estado==='reservado')porProd[pid].reservado+=s.cantidad_paquetes||0;
+  });
+  return Object.entries(porProd)
+    .map(([pid,info])=>{
+      const prod=C.productos.find(p=>p.id===parseInt(pid));
+      if(!prod)return null;
+      return {prod,...info,total:info.disponible+info.reservado};
+    })
+    .filter(x=>x&&x.total>0)
+    .sort((a,b)=>(a.prod.descripcion||'').localeCompare(b.prod.descripcion||''));
+}
+
+function renderInitStockFisico(){
+  const q=(document.getElementById('isf-search')?.value||'').toLowerCase().trim();
+  const filtroBob=parseInt(document.getElementById('isf-bob')?.value)||0;
+  const filtro=document.getElementById('isf-filtro')?.value||'todos';
+
+  let productos=_getProductosConStock();
+  if(q)productos=productos.filter(p=>((p.prod.codigo||'')+' '+(p.prod.descripcion||'')).toLowerCase().includes(q));
+  if(filtroBob)productos=productos.filter(p=>p.prod.bobina_id===filtroBob);
+  if(filtro==='modificados')productos=productos.filter(p=>_isfData[p.prod.id]?._modificado);
+  else if(filtro==='pendientes')productos=productos.filter(p=>!_isfData[p.prod.id]?._modificado);
+
+  // KPIs
+  const totalProd=_getProductosConStock().length;
+  const modificados=Object.values(_isfData).filter(d=>d?._modificado).length;
+  const totalPaqSistema=_getProductosConStock().reduce((s,p)=>s+p.total,0);
+  let totalPaqFisico=0,ajusteTotal=0;
+  _getProductosConStock().forEach(p=>{
+    const d=_isfData[p.prod.id];
+    if(d?._modificado){
+      totalPaqFisico+=d._totalPaq||0;
+      ajusteTotal+=(d._totalPaq||0)-p.total;
+    } else {
+      totalPaqFisico+=p.total;
+    }
+  });
+
+  const kpis=document.getElementById('isf-kpis');
+  if(kpis){
+    kpis.innerHTML=
+      '<div style="background:var(--bg2);border:1.5px solid var(--accentbd);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Productos con stock</div><div style="font-size:22px;font-weight:900;color:var(--accent);">'+totalProd+'</div></div>'
+      +'<div style="background:var(--bg2);border:1.5px solid var(--text2);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Stock actual en sistema</div><div style="font-size:22px;font-weight:900;">'+totalPaqSistema.toLocaleString('es-AR')+'</div><div style="font-size:10px;color:var(--text3);">paquetes</div></div>'
+      +'<div style="background:var(--bg2);border:1.5px solid var(--green);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Stock físico cargado</div><div style="font-size:22px;font-weight:900;color:var(--green);">'+totalPaqFisico.toLocaleString('es-AR')+'</div><div style="font-size:10px;color:var(--text3);">paquetes</div></div>'
+      +'<div style="background:var(--bg2);border:1.5px solid '+(modificados?'var(--amber)':'var(--border)')+';border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">⚙️ Productos modificados</div><div style="font-size:22px;font-weight:900;color:'+(modificados?'var(--amber)':'var(--text3)')+';">'+modificados+'</div><div style="font-size:10px;color:var(--text3);">listos para guardar</div></div>'
+      +'<div style="background:var(--bg2);border:1.5px solid '+(ajusteTotal>0?'var(--green)':ajusteTotal<0?'var(--red)':'var(--border)')+';border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Ajuste neto</div><div style="font-size:22px;font-weight:900;color:'+(ajusteTotal>0?'var(--green)':ajusteTotal<0?'var(--red)':'var(--text3)')+';">'+(ajusteTotal>=0?'+':'')+ajusteTotal.toLocaleString('es-AR')+'</div><div style="font-size:10px;color:var(--text3);">paquetes</div></div>';
+  }
+
+  // Mostrar/ocultar panel de acciones
+  const accDiv=document.getElementById('isf-acciones');
+  if(accDiv)accDiv.style.display=modificados>0?'block':'none';
+  const modCountEl=document.getElementById('isf-mod-count');
+  if(modCountEl)modCountEl.textContent=modificados;
+  const modTotalEl=document.getElementById('isf-mod-total');
+  if(modTotalEl)modTotalEl.textContent=(ajusteTotal>=0?'+':'')+ajusteTotal.toLocaleString('es-AR');
+
+  const countEl=document.getElementById('isf-count');
+  if(countEl)countEl.textContent=' — '+productos.length+' producto'+(productos.length===1?'':'s');
+
+  const cont=document.getElementById('isf-lista');
+  if(!cont)return;
+  if(!productos.length){
+    cont.innerHTML='<div class="empty" style="padding:30px;text-align:center;color:var(--text3);">Sin productos que coincidan con los filtros.</div>';
+    return;
+  }
+
+  // Render como cards
+  let html='<div style="display:flex;flex-direction:column;gap:8px;">';
+  productos.forEach(({prod,disponible,reservado,total})=>{
+    const d=_isfData[prod.id]||{};
+    const unidad=d.unidad||'paq';
+    const modificado=d._modificado||false;
+    const totalFisico=d._totalPaq||0;
+    const dif=modificado?(totalFisico-total):0;
+    const paqPorBolson=prod.paquetes_por_bolson||1;
+    const emp=C.emp.find(e=>e.id===prod.empaque_id);
+    const bob=C.bobinas.find(b=>b.id===prod.bobina_id);
+
+    const borderColor=modificado?(dif===0?'var(--green)':dif>0?'var(--amber)':'var(--red)'):'var(--border)';
+    const bgColor=modificado?(dif===0?'rgba(34,197,94,.04)':dif>0?'rgba(245,158,11,.04)':'rgba(239,68,68,.04)'):'var(--bg2)';
+
+    html+='<div style="background:'+bgColor+';border:1.5px solid '+borderColor+';border-radius:var(--rl);padding:12px 16px;">'
+      +'<div style="display:grid;grid-template-columns:2fr 1fr 1.5fr 1fr;gap:12px;align-items:center;">'
+        // Producto
+        +'<div>'
+          +'<div style="font-weight:700;font-size:13px;">'+(prod.descripcion||'—')+'</div>'
+          +(prod.codigo?'<div style="font-family:monospace;color:var(--text3);font-size:10px;margin-top:2px;">'+prod.codigo+'</div>':'')
+          +'<div style="font-size:10px;color:var(--text2);margin-top:3px;">'+(bob?.nombre||'—')+' · '+(emp?emp.nombre+' '+emp.unidades+'u':'sin empaque')+' · '+paqPorBolson+' paq/bolsón</div>'
+        +'</div>'
+        // Stock actual sistema
+        +'<div style="text-align:center;background:var(--bg3);border-radius:var(--r);padding:6px 10px;">'
+          +'<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">En sistema</div>'
+          +'<div style="font-size:18px;font-weight:800;color:var(--text1);">'+total.toLocaleString('es-AR')+'</div>'
+          +'<div style="font-size:10px;color:var(--text3);">'+(disponible.toLocaleString('es-AR')+(reservado>0?' + '+reservado+' res':''))+'</div>'
+        +'</div>'
+        // Inputs físico
+        +'<div>'
+          +'<div style="display:flex;gap:6px;margin-bottom:6px;">'
+            +'<label style="flex:1;background:'+(unidad==='paq'?'var(--accent)':'var(--bg3)')+';color:'+(unidad==='paq'?'#fff':'var(--text1)')+';font-size:11px;padding:4px 8px;border-radius:var(--r);cursor:pointer;text-align:center;font-weight:600;">'
+              +'<input type="radio" name="isf-u-'+prod.id+'" value="paq" '+(unidad==='paq'?'checked':'')+' onchange="cambiarUnidadIsf('+prod.id+',\'paq\')" style="display:none;"> Paquetes'
+            +'</label>'
+            +'<label style="flex:1;background:'+(unidad==='bultos'?'var(--accent)':'var(--bg3)')+';color:'+(unidad==='bultos'?'#fff':'var(--text1)')+';font-size:11px;padding:4px 8px;border-radius:var(--r);cursor:pointer;text-align:center;font-weight:600;">'
+              +'<input type="radio" name="isf-u-'+prod.id+'" value="bultos" '+(unidad==='bultos'?'checked':'')+' onchange="cambiarUnidadIsf('+prod.id+',\'bultos\')" style="display:none;"> Bultos + sueltos'
+            +'</label>'
+          +'</div>'
+          +(unidad==='paq'
+            ?'<input type="number" min="0" step="1" placeholder="Paq físicos" value="'+(d.paq??'')+'" oninput="cambiarCantIsf('+prod.id+',\'paq\',this.value)" style="width:100%;font-weight:700;text-align:center;font-size:14px;">'
+            :'<div style="display:flex;gap:4px;">'
+              +'<input type="number" min="0" step="1" placeholder="Bultos" value="'+(d.bultos??'')+'" oninput="cambiarCantIsf('+prod.id+',\'bultos\',this.value)" style="flex:2;font-weight:700;text-align:center;font-size:13px;" title="Bultos enteros">'
+              +'<input type="number" min="0" step="1" placeholder="Paq sueltos" value="'+(d.sueltos??'')+'" oninput="cambiarCantIsf('+prod.id+',\'sueltos\',this.value)" style="flex:1;text-align:center;font-size:13px;" title="Paquetes sueltos">'
+            +'</div>')
+        +'</div>'
+        // Resultado
+        +'<div style="text-align:center;">'
+          +(modificado
+            ?'<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Físico total</div>'
+              +'<div style="font-size:20px;font-weight:900;color:'+borderColor+';">'+totalFisico.toLocaleString('es-AR')+'</div>'
+              +'<div style="font-size:11px;color:'+borderColor+';font-weight:700;margin-top:2px;">Ajuste: '+(dif>=0?'+':'')+dif.toLocaleString('es-AR')+'</div>'
+            +'</div>'
+            :'<div style="color:var(--text3);font-style:italic;font-size:12px;">Cargá la cantidad física</div>')
+        +'</div>'
+      +'</div>'
+    +'</div>';
+  });
+  html+='</div>';
+  cont.innerHTML=html;
+}
+
+function cambiarUnidadIsf(prodId,unidad){
+  if(!_isfData[prodId])_isfData[prodId]={};
+  _isfData[prodId].unidad=unidad;
+  _recalcIsf(prodId);
+  renderInitStockFisico();
+}
+
+function cambiarCantIsf(prodId,campo,valor){
+  if(!_isfData[prodId])_isfData[prodId]={};
+  _isfData[prodId][campo]=valor===''?null:parseInt(valor);
+  if(!_isfData[prodId].unidad)_isfData[prodId].unidad=campo==='paq'?'paq':'bultos';
+  _recalcIsf(prodId);
+  renderInitStockFisico();
+}
+
+function _recalcIsf(prodId){
+  const prod=C.productos.find(p=>p.id===prodId);
+  if(!prod){_isfData[prodId]._totalPaq=0;_isfData[prodId]._modificado=false;return;}
+  const paqPorBolson=prod.paquetes_por_bolson||1;
+  const d=_isfData[prodId];
+  let total=0;
+  let cargo=false;
+  if(d.unidad==='paq'){
+    if(d.paq!=null){
+      total=d.paq;
+      cargo=true;
+    }
+  } else {
+    // bultos
+    if(d.bultos!=null||d.sueltos!=null){
+      total=((d.bultos||0)*paqPorBolson)+(d.sueltos||0);
+      cargo=true;
+    }
+  }
+  d._totalPaq=total;
+  d._modificado=cargo;
+}
+
+function cancelarStockFisico(){
+  if(!confirm('¿Cancelar todos los cambios cargados? Se va a borrar lo que ingresaste pero NO se va a guardar nada.'))return;
+  _isfData={};
+  renderInitStockFisico();
+}
+
+async function guardarStockFisico(){
+  // Recopilar todos los productos modificados
+  const productosModif=Object.entries(_isfData).filter(([_,d])=>d._modificado);
+  if(!productosModif.length){toast('No hay cambios para guardar','red');return;}
+
+  const msg=document.getElementById('isf-msg');
+  // Confirmación
+  let detalle='Vas a actualizar el stock físico de '+productosModif.length+' producto(s):\n\n';
+  productosModif.slice(0,8).forEach(([pid,d])=>{
+    const prod=C.productos.find(p=>p.id===parseInt(pid));
+    detalle+='• '+(prod?.descripcion||'#'+pid)+': '+d._totalPaq+' paq\n';
+  });
+  if(productosModif.length>8)detalle+='... y '+(productosModif.length-8)+' más\n';
+  detalle+='\n⚠ Los registros disp/reservado existentes se eliminarán y se reemplazarán por uno único.\n\n¿Confirmás?';
+  if(!confirm(detalle))return;
+
+  pedirAdminYEjecutar(async()=>{
+    msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Aplicando a '+productosModif.length+' productos...</div>';
+    msg.style.color='var(--text2)';
+    let okCount=0,errCount=0;
+    for(const [pidStr,d] of productosModif){
+      const pid=parseInt(pidStr);
+      const prod=C.productos.find(p=>p.id===pid);
+      if(!prod){errCount++;continue;}
+      try{
+        // 1) Buscar todos los registros disp+reservado de este producto
+        const lotes=C.stock_bolsas.filter(s=>s.producto_id===pid&&(s.estado==='disponible'||s.estado==='reservado'));
+        const lotesIds=lotes.map(l=>l.id);
+        const paqAnterior=lotes.reduce((s,l)=>s+(l.cantidad_paquetes||0),0);
+        // 2) Borrar todos esos registros
+        if(lotesIds.length){
+          await sb.from('stock_bolsas').delete().in('id',lotesIds);
+        }
+        // 3) Crear un único registro nuevo con la cantidad física, estado disponible
+        if(d._totalPaq>0){
+          const emp=C.emp.find(e=>e.id===prod.empaque_id);
+          const uniPaq=emp?.unidades||0;
+          await sb.from('stock_bolsas').insert({
+            producto_id:pid,
+            cantidad_paquetes:d._totalPaq,
+            cantidad_unidades:uniPaq>0?d._totalPaq*uniPaq:0,
+            estado:'disponible',
+            orden_corte_id:null,
+            pedido_id:null
+          });
+        }
+        // 4) Registrar movimiento (informativo)
+        try{
+          await sb.from('stock_movimientos').insert({
+            tipo:'ajuste_inventario',
+            motivo:'inicializacion_stock_fisico',
+            observaciones:'Inicialización stock físico: '+prod.descripcion+' · Sistema antes: '+paqAnterior+' paq → Físico: '+d._totalPaq+' paq · Ajuste: '+(d._totalPaq-paqAnterior),
+            operario:'admin'
+          });
+        } catch(e){/* tabla puede no aceptar producto_id, lo ignoramos */}
+        okCount++;
+      } catch(err){
+        console.error('Error producto '+pid+':',err);
+        errCount++;
+      }
+    }
+    msg.style.color=errCount?'var(--amber)':'var(--green)';
+    msg.textContent='✓ '+okCount+' actualizado(s)'+(errCount?' · ⚠ '+errCount+' error(es)':'');
+    _isfData={};
+    await reload();
+    setTimeout(()=>{renderInitStockFisico();},800);
   });
 }
 
