@@ -1912,13 +1912,21 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
         .plan-card.dragging{opacity:.5;border-style:dashed;}
         .plan-card.drag-over{border-color:var(--accent);background:var(--accentbg);}
         .plan-card.proc{background:var(--bg3);opacity:.7;cursor:not-allowed;border-style:dashed;}
-        .plan-card.multi{border:2px solid var(--accent);background:linear-gradient(180deg,var(--accentbg) 0%,var(--bg2) 36px);}
+        .plan-card.multi{border:2.5px dashed var(--accent);background:linear-gradient(180deg,var(--accentbg) 0%,var(--bg2) 36px);position:relative;}
+        .plan-card.multi::before{content:'🔗';position:absolute;top:-8px;right:-6px;background:var(--accent);color:#fff;font-size:11px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.2);z-index:2;}
         .plan-handle{cursor:grab;color:var(--text3);font-size:14px;user-select:none;padding:2px 4px;align-self:center;}
         .plan-handle:active{cursor:grabbing;}
         .plan-pos{background:var(--accent);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;flex-shrink:0;margin-top:2px;}
         .plan-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
         /* Badge multi-máquina destacado arriba */
         .plan-multi-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;}
+        .plan-bob-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:5px;padding-top:5px;border-top:1px dashed var(--border);font-size:10px;}
+        .plan-bob-lbl{font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;}
+        .plan-bob-propias{color:var(--green);font-weight:700;background:rgba(34,197,94,.08);padding:1px 6px;border-radius:99px;}
+        .plan-bob-otras{color:var(--amber);font-weight:700;background:rgba(245,158,11,.08);padding:1px 6px;border-radius:99px;}
+        .plan-bob-total{font-weight:800;}
+        .plan-bob-falta{color:var(--red);font-weight:700;background:rgba(239,68,68,.08);padding:1px 6px;border-radius:99px;}
+        .plan-bob-ok{color:var(--green);font-weight:700;}
         .plan-multi-badge-big{font-size:10px;font-weight:800;color:#fff;background:var(--accent);padding:2px 8px;border-radius:99px;text-transform:uppercase;letter-spacing:.04em;}
         .plan-multi-maqs{font-size:10px;color:var(--accent);font-weight:600;}
         /* 3 líneas claras */
@@ -2277,10 +2285,10 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
             <input id="aud-search" type="text" placeholder="ej: OC-100 / camiseta / Tito" oninput="renderAuditStockBolsas()"></div>
           <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">Mostrar</label>
             <select id="aud-filtro" onchange="renderAuditStockBolsas()">
-              <option value="dif">Con diferencia (problemáticas)</option>
-              <option value="ok">OK (coinciden)</option>
-              <option value="sin-stock">Sin registro en stock</option>
-              <option value="todas">Todas</option>
+              <option value="todas">Todos los problemas</option>
+              <option value="vinc-cancelado">🔗 Vinc. a pedido cancelado</option>
+              <option value="dif">📊 Con diferencia de stock</option>
+              <option value="sin-stock">📦 Sin registro en stock</option>
             </select></div>
           <div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">Estado del stock</label>
             <select id="aud-est" onchange="renderAuditStockBolsas()">
@@ -6068,10 +6076,12 @@ async function acreditarStockDesdeOC(ocId){
 
   const uniReales=uniPaq>0?paqReales*uniPaq:o.unidades_reales||0;
 
-  // Buscar pedido que originó esta OC
+  // Buscar pedido que originó esta OC (ignorando pedidos cancelados)
   let pedidoId=null, pedidoLineaId=null;
   let paqPedidos=0, paqYaReservados=0;
   for(const p of (C.pedidos||[])){
+    // Ignorar pedidos cancelados/anulados — sus líneas pueden estar vacías o ser inconsistentes
+    if(p.estado==='Cancelado'||p.estado==='Anulado')continue;
     const poc=(p.pedido_ordenes_corte||[]).find(x=>x.orden_corte_id===ocId);
     if(poc){
       pedidoId=p.id;
@@ -6094,7 +6104,10 @@ async function acreditarStockDesdeOC(ocId){
           pedidoLineaId=li.id;
           console.log('  → matcheó por producto_id:',o.producto_id,'linea:',li.id,'cant:',paqPedidos);
         } else {
-          console.warn('  ⚠ no se encontró línea con producto_id',o.producto_id,'en el pedido',p.numero_pedido);
+          console.warn('  ⚠ no se encontró línea con producto_id',o.producto_id,'en el pedido',p.numero_pedido,'— se carga como disponible libre');
+          // Si el pedido NO tiene línea con este producto (datos inconsistentes),
+          // tratamos como si no hubiera pedido vinculado
+          pedidoId=null;
         }
       }
       break;
@@ -6231,15 +6244,10 @@ async function abrirCargaParcialOC(ocId){
   const mtsPorBolsa=prod.metros_por_bolsa||0;
   const mermaPct=o.merma_pct||prod.merma_pct||5;
 
-  // Calcular ya cargado en parciales previos
-  let yaCargadoParcial=0;
-  try{
-    const{data}=await sb.from('stock_movimientos')
-      .select('paquetes')
-      .eq('orden_corte_id',ocId)
-      .eq('motivo','entrega_parcial_oc');
-    if(data?.length)yaCargadoParcial=data.reduce((s,m)=>s+(m.paquetes||0),0);
-  }catch(e){}
+  // Calcular ya cargado en parciales previos (desde stock_bolsas, no stock_movimientos)
+  const yaCargadoParcial=(C.stock_bolsas||[])
+    .filter(s=>s.orden_corte_id===ocId&&s.estado!=='entregado')
+    .reduce((s,l)=>s+(parseFloat(l.cantidad_paquetes)||0),0);
 
   // Metros disponibles en bobinas asociadas
   const mtsBobinas=(o.orden_corte_bobinas||[])
@@ -6256,6 +6264,13 @@ async function abrirCargaParcialOC(ocId){
     }
   }
   const totalPaqOC=o.cantidad_paquetes||(o.bolsones_a_producir||0)*paqPorBolson;
+
+  // Guardar contexto ANTES de insertar el modal (los <script> dentro de insertAdjacentHTML NO se ejecutan)
+  window._parcCtx={
+    ocId,uniPaq,paqPorBolson,mtsPorBolsa,mermaPct,
+    mtsDisponibles:mtsDisponibles,yaCargadoParcial,totalPaqOC,
+    pedidoId:pedidoVinc?.id||null
+  };
 
   document.getElementById('parc-modal')?.remove();
   document.body.insertAdjacentHTML('beforeend',
@@ -6327,13 +6342,6 @@ async function abrirCargaParcialOC(ocId){
       +'<button class="btn btn-sm" onclick="document.getElementById(\'parc-modal\').remove()">Cancelar</button>'
       +'<span id="parc-msg" style="font-size:12px;margin-left:8px;"></span>'
     +'</div>'
-
-    // Guardamos contexto para reusar
-    +'<script>window._parcCtx='+JSON.stringify({
-      ocId,uniPaq,paqPorBolson,mtsPorBolsa,mermaPct,
-      mtsDisponibles:mtsDisponibles,yaCargadoParcial,totalPaqOC,
-      pedidoId:pedidoVinc?.id||null
-    })+'<\/script>'
 
     +'</div></div>'
   );
@@ -6408,8 +6416,13 @@ function recalcParcial(){
 }
 
 async function confirmarCargaParcial(ocId){
-  const ctx=window._parcCtx;if(!ctx)return;
+  const ctx=window._parcCtx;
   const msg=document.getElementById('parc-msg');
+  if(!ctx){
+    if(msg){msg.style.color='var(--red)';msg.textContent='⚠ Contexto perdido. Cerrá el modal y volvé a abrirlo.';}
+    console.error('confirmarCargaParcial: window._parcCtx es undefined');
+    return;
+  }
   const radio=document.querySelector('input[name="parc-u"]:checked');
   const unidad=radio?.value||'paq';
   let paqEsta=0,bul=0,sueltos=0;
@@ -6421,6 +6434,8 @@ async function confirmarCargaParcial(ocId){
     paqEsta=bul*ctx.paqPorBolson+sueltos;
   }
   if(paqEsta<=0){msg.style.color='var(--red)';msg.textContent='Ingresá cantidad > 0';return;}
+
+  console.log('confirmarCargaParcial · ocId:',ocId,'· unidad:',unidad,'· paq:',paqEsta,'· bultos:',bul,'· sueltos:',sueltos);
 
   msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Cargando...</div>';
   msg.style.color='var(--text2)';
@@ -6453,20 +6468,35 @@ async function confirmarCargaParcial(ocId){
     let paqPedidos=0,paqYaReservados=0;
     if(pedidoId){
       const p=C.pedidos.find(x=>x.id===pedidoId);
+      // Ignorar si el pedido está cancelado/anulado
+      if(p&&(p.estado==='Cancelado'||p.estado==='Anulado')){
+        console.warn('  ⚠ Pedido vinculado está '+p.estado+' — se carga como disponible libre');
+        pedidoId=null;
+      }
+    }
+    if(pedidoId){
+      const p=C.pedidos.find(x=>x.id===pedidoId);
       const poc=(p?.pedido_ordenes_corte||[]).find(x=>x.orden_corte_id===ocId);
       pedidoLineaId=poc?.pedido_linea_id||null;
       if(pedidoLineaId){
         const li=(p.pedido_lineas||[]).find(l=>l.id===pedidoLineaId);
         if(li)paqPedidos=parseFloat(li.cantidad)||0;
-      } else {
+      }
+      if(paqPedidos<=0){
         const li=(p?.pedido_lineas||[]).find(l=>l.producto_id===o.producto_id);
         if(li){paqPedidos=parseFloat(li.cantidad)||0;pedidoLineaId=li.id;}
       }
-      (C.stock_bolsas||[]).forEach(s=>{
-        if(s.pedido_id===pedidoId&&s.producto_id===o.producto_id&&s.estado==='reservado'){
-          paqYaReservados+=parseFloat(s.cantidad_paquetes)||0;
-        }
-      });
+      // Si no se encontró línea válida, tratar como sin pedido
+      if(paqPedidos<=0){
+        console.warn('  ⚠ Pedido no tiene línea con producto_id',o.producto_id,'— se carga como disponible libre');
+        pedidoId=null;
+      } else {
+        (C.stock_bolsas||[]).forEach(s=>{
+          if(s.pedido_id===pedidoId&&s.producto_id===o.producto_id&&s.estado==='reservado'){
+            paqYaReservados+=parseFloat(s.cantidad_paquetes)||0;
+          }
+        });
+      }
     }
 
     // 3) Crear registros en stock_bolsas
@@ -6474,26 +6504,31 @@ async function confirmarCargaParcial(ocId){
       const faltaReservar=Math.max(0,paqPedidos-paqYaReservados);
       const reservar=Math.min(paqEsta,faltaReservar);
       const excedente=paqEsta-reservar;
+      console.log('Parcial vinculado a pedido · paqPedidos:',paqPedidos,'· paqYaReservados:',paqYaReservados,'· reservar:',reservar,'· excedente:',excedente);
       if(reservar>0){
-        await sb.from('stock_bolsas').insert({
+        const{error:e1}=await sb.from('stock_bolsas').insert({
           producto_id:o.producto_id,cantidad_paquetes:reservar,
           cantidad_unidades:reservar*ctx.uniPaq,
           orden_corte_id:ocId,estado:'reservado',pedido_id:pedidoId
         });
+        if(e1){console.error('Error insert reservado:',e1);throw new Error('Reservado: '+e1.message);}
       }
       if(excedente>0){
-        await sb.from('stock_bolsas').insert({
+        const{error:e2}=await sb.from('stock_bolsas').insert({
           producto_id:o.producto_id,cantidad_paquetes:excedente,
           cantidad_unidades:excedente*ctx.uniPaq,
           orden_corte_id:ocId,estado:'disponible'
         });
+        if(e2){console.error('Error insert excedente:',e2);throw new Error('Excedente: '+e2.message);}
       }
     } else {
-      await sb.from('stock_bolsas').insert({
+      console.log('Parcial sin pedido vinculado, cargo todo como disponible');
+      const{error}=await sb.from('stock_bolsas').insert({
         producto_id:o.producto_id,cantidad_paquetes:paqEsta,
         cantidad_unidades:uniEsta,
         orden_corte_id:ocId,estado:'disponible'
       });
+      if(error){console.error('Error insert disponible:',error);throw new Error('Disponible: '+error.message);}
     }
 
     msg.style.color='var(--green)';msg.textContent='✓ '+paqEsta+' paq cargados en stock';
@@ -11853,11 +11888,21 @@ function renderOrdenesCorte(){
     const tieneParcial=paqYaCargados>0;
     const totalPaqOC=o.cantidad_paquetes||0;
     const pctParcial=totalPaqOC?Math.min(100,Math.round(paqYaCargados/totalPaqOC*100)):0;
-    const rowStyle=tieneParcial?'background:rgba(34,197,94,.06);':'';
+    // ¿Es para stock? = sin pedido activo vinculado (ignorando cancelados)
+    const pedActivo=C.pedidos.find(p=>
+      p.estado!=='Cancelado'&&p.estado!=='Anulado'&&
+      (p.pedido_ordenes_corte||[]).some(poc=>poc.orden_corte_id===o.id)
+    );
+    const esParaStock=!pedActivo&&o.estado!=='Cancelada';
+    // Colores: parcial > para stock > normal
+    let rowStyle='';
+    if(tieneParcial)rowStyle='background:rgba(34,197,94,.06);';
+    else if(esParaStock&&o.estado!=='Completada')rowStyle='background:rgba(99,102,241,.05);'; // violeta suave activas
+    else if(esParaStock&&o.estado==='Completada')rowStyle='background:rgba(99,102,241,.03);'; // violeta más suave completadas
     return`<tr style="${rowStyle}">
-      <td class="mono">${o.numero_orden}${tieneParcial?'<div style="margin-top:3px;"><span style="background:var(--green);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:99px;white-space:nowrap;">📦 Parcial '+paqYaCargados.toLocaleString('es-AR')+'/'+totalPaqOC.toLocaleString('es-AR')+' ('+pctParcial+'%)</span></div>':''}</td>
+      <td class="mono">${o.numero_orden}${tieneParcial?'<div style="margin-top:3px;"><span style="background:var(--green);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:99px;white-space:nowrap;">📦 Parcial '+paqYaCargados.toLocaleString('es-AR')+'/'+totalPaqOC.toLocaleString('es-AR')+' ('+pctParcial+'%)</span></div>':''}${esParaStock?'<div style="margin-top:3px;"><span style="background:#6366f1;color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:99px;white-space:nowrap;" title="Producción para stock — sin pedido activo vinculado">📦 Para stock</span></div>':''}</td>
       <td>${o.productos?.codigo||'—'} <span style="font-size:11px;color:var(--text2)">${o.productos?.descripcion||''}</span></td>
-      <td>${o.cliente||'—'}</td>
+      <td>${o.cliente||(esParaStock?'<span style="color:#6366f1;font-style:italic;font-weight:600;">📦 Stock</span>':'—')}</td>
       <td>
         <select class="st-sel" style="font-size:11px;padding:2px 4px;" onchange="cambiarEmpaqueCorte(${o.id},this.value)">
           <option value="">— empaque —</option>
@@ -11865,11 +11910,47 @@ function renderOrdenesCorte(){
         </select>
       </td>
       <td class="mono" style="font-size:11px">${o.orden_extrusion_id?('<span style="color:var(--accent)">'+(C.ordenes.find(x=>x.id===o.orden_extrusion_id)?.numero_orden||'#'+o.orden_extrusion_id)+'</span>'):'—'}</td>
-      <td class="mono" style="font-size:11px">${(()=>{const ped=C.pedidos.find(p=>p.pedido_ordenes_corte?.some(poc=>poc.orden_corte_id===o.id));return ped?'<span style="color:var(--teal)">'+ped.numero_pedido+'</span>':'—';})()}</td>
+      <td class="mono" style="font-size:11px">${(()=>{
+        // Buscar pedido activo primero
+        const pedAct=C.pedidos.find(p=>p.estado!=='Cancelado'&&p.estado!=='Anulado'&&p.pedido_ordenes_corte?.some(poc=>poc.orden_corte_id===o.id));
+        if(pedAct)return '<span style="color:var(--teal)">'+pedAct.numero_pedido+'</span>';
+        // Si no, buscar pedido cancelado (vínculo huérfano)
+        const pedCanc=C.pedidos.find(p=>(p.estado==='Cancelado'||p.estado==='Anulado')&&p.pedido_ordenes_corte?.some(poc=>poc.orden_corte_id===o.id));
+        if(pedCanc)return '<span style="color:var(--red);text-decoration:line-through;" title="Pedido '+pedCanc.estado+' — se recomienda desvincular desde Auditoría">⚠ '+pedCanc.numero_pedido+'</span>';
+        return '—';
+      })()}</td>
       <td class="mono" style="font-weight:700;color:var(--accent)">${o.bolsones_a_producir?o.bolsones_a_producir.toLocaleString('es-AR')+'<div style="font-size:10px;color:var(--text3);font-weight:400">×'+( o.paquetes_por_bolson||1)+' paq</div>':'—'}</td>
       <td class="mono">${o.unidades_a_producir?.toLocaleString('es-AR')||'—'}</td>
       <td class="mono">${o.cantidad_paquetes?.toLocaleString('es-AR')||'—'}</td>
-      <td class="mono">${o.metros_necesarios||'—'} m</td>
+      <td class="mono" style="min-width:160px;">${o.metros_necesarios||'—'} m${(()=>{
+        // Desglose de bobinas disponibles solo para Pendientes/En proceso
+        if(o.estado!=='Pendiente'&&o.estado!=='En proceso')return '';
+        const prod=o.productos;
+        const tipoBob=prod?.bobina_id||0;
+        if(!tipoBob)return '';
+        const oeId=o.orden_extrusion_id;
+        let mtsPropias=0,mtsOtras=0;
+        C.bobinas_prod.forEach(b=>{
+          if(b.bobina_tipo_id!==tipoBob)return;
+          if(!b.en_stock)return;
+          if(b.estado_calidad==='rechazada')return;
+          const mts=parseFloat(b.metros_reales)||0;
+          if(mts<=0)return;
+          if(oeId&&b.orden_id===oeId)mtsPropias+=mts;
+          else mtsOtras+=mts;
+        });
+        const totalDisp=mtsPropias+mtsOtras;
+        const mtsNec=o.metros_necesarios||0;
+        const faltan=Math.max(0,mtsNec-totalDisp);
+        const colorTotal=totalDisp>=mtsNec?'var(--green)':totalDisp>0?'var(--amber)':'var(--red)';
+        return '<div style="font-size:10px;font-weight:400;margin-top:3px;line-height:1.4;border-top:1px dashed var(--border);padding-top:3px;">'
+          +(oeId?'<div title="Bobinas producidas por la OE asociada">🟢 OE: <strong>'+r1(mtsPropias).toLocaleString('es-AR')+'m</strong></div>':'')
+          +'<div title="Bobinas del mismo tipo de otras OEs">🟡 otras: <strong>'+r1(mtsOtras).toLocaleString('es-AR')+'m</strong></div>'
+          +'<div style="color:'+colorTotal+';font-weight:700;">total: '+r1(totalDisp).toLocaleString('es-AR')+'m'
+          +(faltan>0?' · <span style="color:var(--red);">faltan '+r1(faltan).toLocaleString('es-AR')+'m</span>':' ✓')
+          +'</div>'
+        +'</div>';
+      })()}</td>
       <td style="font-size:11px">${maqsStr}</td>
       <td class="mono">${hs} hs</td>
       <td><input class="pri-in" type="number" min="1" value="${o.prioridad||1}" onchange="cambiarPriCorte(${o.id},this.value)"></td>
@@ -12074,14 +12155,38 @@ function renderPlanCardCompact(tipo,o,enProceso,maqId,globalIdx){
     const cli=o.cliente||ped?.cliente||'';
     lineaCliente=cli||'(producción para stock)';
     const tipoBob=prod?.bobina_id||0;
-    const stockBob=tipoBob
-      ?C.bobinas_prod.filter(b=>b.bobina_tipo_id===tipoBob&&(b.metros_reales||0)>0&&b.estado_calidad!=='rechazada'&&b.en_stock)
-        .reduce((s,b)=>s+(b.metros_reales||0),0):0;
+    // Desglosar bobinas disponibles: de la OE asociada vs de otras OEs (mismo tipo)
+    const oeId=o.orden_extrusion_id;
+    let mtsPropias=0,mtsOtras=0;
+    if(tipoBob){
+      C.bobinas_prod.forEach(b=>{
+        if(b.bobina_tipo_id!==tipoBob)return;
+        if(!b.en_stock)return;
+        if(b.estado_calidad==='rechazada')return;
+        const mts=parseFloat(b.metros_reales)||0;
+        if(mts<=0)return;
+        if(oeId&&b.orden_id===oeId)mtsPropias+=mts;
+        else mtsOtras+=mts;
+      });
+    }
     const mtsNec=o.metros_necesarios||0;
-    if(mtsNec===0)badge='<span class="plan-badge plan-badge-info">sin datos</span>';
-    else if(stockBob>=mtsNec)badge='<span class="plan-badge plan-badge-ok">✓ bobinas listas</span>';
-    else if(stockBob>0)badge='<span class="plan-badge plan-badge-warn">⏳ bobinas '+Math.round(stockBob/mtsNec*100)+'%</span>';
-    else badge='<span class="plan-badge plan-badge-err">⏳ esperar bobinas</span>';
+    // El badge PRINCIPAL refleja las bobinas PROPIAS (OE asociada)
+    // porque eso indica si podés arrancar a cortar ya o no
+    if(mtsNec===0){
+      badge='<span class="plan-badge plan-badge-info">sin datos</span>';
+    } else if(mtsPropias>=mtsNec){
+      badge='<span class="plan-badge plan-badge-ok">✓ propias listas</span>';
+    } else if(mtsPropias>0){
+      const pct=Math.round(mtsPropias/mtsNec*100);
+      badge='<span class="plan-badge plan-badge-warn">⏳ propias '+pct+'%</span>';
+    } else if(mtsOtras>=mtsNec){
+      // Sin propias pero alcanzan las otras → hay que reasignar
+      badge='<span class="plan-badge" style="background:rgba(249,115,22,.12);color:#ea580c;border:1px solid rgba(249,115,22,.3);">🔄 reasignar otras</span>';
+    } else {
+      badge='<span class="plan-badge plan-badge-err">⏳ esperar bobinas</span>';
+    }
+    // Guardamos el desglose para usarlo abajo
+    o._planBob={mtsPropias,mtsOtras,mtsNec,oeId};
   }
 
   if(enProceso){
@@ -12107,6 +12212,22 @@ function renderPlanCardCompact(tipo,o,enProceso,maqId,globalIdx){
     +'</div>'
     :'';
 
+  // Línea de bobinas (solo para OCs con datos calculados)
+  let lineaBobinas='';
+  if(tipo==='oc'&&o._planBob){
+    const{mtsPropias,mtsOtras,mtsNec,oeId}=o._planBob;
+    const totalDisp=mtsPropias+mtsOtras;
+    const faltan=Math.max(0,mtsNec-totalDisp);
+    const colorTotal=totalDisp>=mtsNec?'var(--green)':totalDisp>0?'var(--amber)':'var(--red)';
+    lineaBobinas='<div class="plan-bob-row">'
+      +'<span class="plan-bob-lbl">🧵 Bobinas:</span>'
+      +(oeId?'<span class="plan-bob-propias" title="Bobinas producidas por la OE asociada">🟢 OE asoc: '+r1(mtsPropias).toLocaleString('es-AR')+'m</span>':'')
+      +'<span class="plan-bob-otras" title="Bobinas del mismo tipo de otras OEs">🟡 otras: '+r1(mtsOtras).toLocaleString('es-AR')+'m</span>'
+      +'<span class="plan-bob-total" style="color:'+colorTotal+';">total: '+r1(totalDisp).toLocaleString('es-AR')+'m</span>'
+      +(faltan>0?'<span class="plan-bob-falta">faltan '+r1(faltan).toLocaleString('es-AR')+'m</span>':'<span class="plan-bob-ok">✓</span>')
+    +'</div>';
+  }
+
   return '<div class="plan-card'+(esMulti?' multi':'')+'" draggable="true" data-tipo="'+tipo+'" data-id="'+o.id+'" data-maq="'+(maqId||'')+'">'
     +'<div class="plan-handle" title="Arrastrar para reordenar">☰</div>'
     +'<div class="plan-pos" title="Prioridad global">'+pos+'</div>'
@@ -12115,6 +12236,7 @@ function renderPlanCardCompact(tipo,o,enProceso,maqId,globalIdx){
       +'<div class="plan-orden">'+lineaOrden+'</div>'
       +'<div class="plan-producto">'+lineaProducto+'</div>'
       +'<div class="plan-cliente">'+lineaCliente+' '+badge+'</div>'
+      +lineaBobinas
     +'</div>'
     +'<div class="plan-actions">'
       +'<button class="btn btn-sm" '+(globalIdx===0||globalIdx===null?'disabled':'')+' onclick="moverPlanGlobal(\''+tipo+'\','+o.id+',-1)" title="Subir prioridad">↑</button>'
@@ -13028,63 +13150,87 @@ function _calcPaqRealesOC(o){
 }
 
 function _resumenAuditoria(){
-  // Para cada OC completada, calcular paq reales + paq en stock_bolsas
-  const ocs=C.ord_corte.filter(o=>o.estado==='Completada'&&o.producto_id);
-  return ocs.map(o=>{
+  // Detectamos 2 tipos de problemas:
+  // A) OCs Completadas con diferencia entre paq reales y stock actual
+  // B) OCs (cualquier estado activo) vinculadas a un pedido Cancelado/Anulado
+  const resultado=[];
+
+  // Pre-armar índice: orden_corte_id → pedido cancelado vinculado
+  const ocPedCancelado={};
+  C.pedidos.filter(p=>p.estado==='Cancelado'||p.estado==='Anulado').forEach(p=>{
+    (p.pedido_ordenes_corte||[]).forEach(poc=>{
+      ocPedCancelado[poc.orden_corte_id]={pedido:p,linea_id:poc.pedido_linea_id};
+    });
+  });
+
+  // Para cada OC con producto, evaluamos si tiene problema
+  C.ord_corte.filter(o=>o.producto_id&&o.estado!=='Cancelada').forEach(o=>{
     const paqReales=_calcPaqRealesOC(o);
-    // Sumar registros de stock asociados a esta OC
     const lotes=C.stock_bolsas.filter(s=>s.orden_corte_id===o.id);
     const paqStock=lotes.reduce((s,l)=>s+(l.cantidad_paquetes||0),0);
     const paqDisp=lotes.filter(l=>l.estado==='disponible').reduce((s,l)=>s+(l.cantidad_paquetes||0),0);
     const paqRes=lotes.filter(l=>l.estado==='reservado').reduce((s,l)=>s+(l.cantidad_paquetes||0),0);
     const paqEnt=lotes.filter(l=>l.estado==='entregado').reduce((s,l)=>s+(l.cantidad_paquetes||0),0);
-    // Lo que "debería haber" = paqReales − entregado
     const deberiaHaber=Math.max(0,paqReales-paqEnt);
     const dif=(paqDisp+paqRes)-deberiaHaber;
-    // Cliente / pedido si aplica
-    const ped=lotes.find(l=>l.pedido_id)?C.pedidos.find(p=>p.id===lotes.find(l=>l.pedido_id).pedido_id):null;
-    const cli=o.cliente||ped?.cliente||'';
-    return {
+
+    const pedCancelado=ocPedCancelado[o.id]||null;
+    const tieneProblemaStock=o.estado==='Completada'&&(dif!==0||lotes.length===0);
+    const tieneProblemaVincCancelado=!!pedCancelado;
+
+    // Solo incluir si tiene algún problema
+    if(!tieneProblemaStock&&!tieneProblemaVincCancelado)return;
+
+    // Cliente/pedido si aplica (puede venir del pedido activo, del cancelado, o del campo cliente de OC)
+    let pedActivo=null;
+    if(!pedCancelado){
+      pedActivo=C.pedidos.find(p=>(p.pedido_ordenes_corte||[]).some(poc=>poc.orden_corte_id===o.id));
+    }
+    const cli=o.cliente||pedActivo?.cliente||pedCancelado?.pedido?.cliente||'';
+
+    resultado.push({
       oc:o,prod:C.productos.find(p=>p.id===o.producto_id)||o.productos,
       paqReales,paqStock,paqDisp,paqRes,paqEnt,deberiaHaber,dif,
       lotes,sinStock:lotes.length===0,
-      cliente:cli,fechaCierre:o.fecha_completada
-    };
+      cliente:cli,fechaCierre:o.fecha_completada,
+      pedCancelado,tieneProblemaStock,tieneProblemaVincCancelado
+    });
   });
+  return resultado;
 }
 
 function renderAuditStockBolsas(){
   const q=(document.getElementById('aud-search')?.value||'').toLowerCase().trim();
-  const filtro=document.getElementById('aud-filtro')?.value||'dif';
+  const filtro=document.getElementById('aud-filtro')?.value||'todas';
   const est=document.getElementById('aud-est')?.value||'';
   const umbral=parseInt(document.getElementById('aud-umbral')?.value)||0;
 
   let items=_resumenAuditoria();
 
   // KPIs globales
-  const totalOCs=items.length;
-  const ocsConDif=items.filter(i=>Math.abs(i.dif)>0&&!i.sinStock).length;
-  const ocsSinStock=items.filter(i=>i.sinStock).length;
-  const ocsOK=items.filter(i=>i.dif===0&&!i.sinStock).length;
-  const paqExceso=items.filter(i=>i.dif>0).reduce((s,i)=>s+i.dif,0);
-  const paqFaltante=items.filter(i=>i.dif<0).reduce((s,i)=>s-i.dif,0);
+  const totalProblematicas=items.length;
+  const ocsVincCanc=items.filter(i=>i.tieneProblemaVincCancelado).length;
+  const ocsConDif=items.filter(i=>i.tieneProblemaStock&&!i.sinStock&&i.dif!==0).length;
+  const ocsSinStock=items.filter(i=>i.sinStock&&i.oc.estado==='Completada').length;
+  const paqExceso=items.filter(i=>i.dif>0&&i.oc.estado==='Completada').reduce((s,i)=>s+i.dif,0);
+  const paqFaltante=items.filter(i=>i.dif<0&&i.oc.estado==='Completada').reduce((s,i)=>s-i.dif,0);
 
   const kpis=document.getElementById('aud-kpis');
   if(kpis){
     kpis.innerHTML=
-      '<div style="background:var(--bg2);border:1.5px solid var(--accentbd);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">OCs completadas</div><div style="font-size:22px;font-weight:900;color:var(--accent);">'+totalOCs+'</div></div>'
-      +'<div style="background:var(--bg2);border:1.5px solid var(--green);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">✓ OK (coinciden)</div><div style="font-size:22px;font-weight:900;color:var(--green);">'+ocsOK+'</div></div>'
-      +'<div style="background:var(--bg2);border:1.5px solid var(--amber);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">⚠ Con diferencia</div><div style="font-size:22px;font-weight:900;color:var(--amber);">'+ocsConDif+'</div></div>'
-      +'<div style="background:var(--bg2);border:1.5px solid var(--red);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Sin stock cargado</div><div style="font-size:22px;font-weight:900;color:var(--red);">'+ocsSinStock+'</div></div>'
-      +'<div style="background:var(--bg2);border:1.5px solid var(--amber);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Paq en exceso</div><div style="font-size:22px;font-weight:900;color:var(--amber);">+'+paqExceso.toLocaleString('es-AR')+'</div><div style="font-size:10px;color:var(--text3);">stock > reales</div></div>'
-      +'<div style="background:var(--bg2);border:1.5px solid var(--red);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Paq faltantes</div><div style="font-size:22px;font-weight:900;color:var(--red);">-'+paqFaltante.toLocaleString('es-AR')+'</div><div style="font-size:10px;color:var(--text3);">stock < reales</div></div>';
+      '<div style="background:var(--bg2);border:1.5px solid var(--accentbd);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Total problemáticas</div><div style="font-size:22px;font-weight:900;color:var(--accent);">'+totalProblematicas+'</div></div>'
+      +'<div style="background:var(--bg2);border:1.5px solid var(--red);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">🔗 Vinc. a pedido cancelado</div><div style="font-size:22px;font-weight:900;color:var(--red);">'+ocsVincCanc+'</div></div>'
+      +'<div style="background:var(--bg2);border:1.5px solid var(--amber);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">📊 Con diferencia stock</div><div style="font-size:22px;font-weight:900;color:var(--amber);">'+ocsConDif+'</div></div>'
+      +'<div style="background:var(--bg2);border:1.5px solid var(--red);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">📦 Sin stock cargado</div><div style="font-size:22px;font-weight:900;color:var(--red);">'+ocsSinStock+'</div></div>'
+      +'<div style="background:var(--bg2);border:1.5px solid var(--amber);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Paq en exceso</div><div style="font-size:22px;font-weight:900;color:var(--amber);">+'+paqExceso.toLocaleString('es-AR')+'</div></div>'
+      +'<div style="background:var(--bg2);border:1.5px solid var(--red);border-radius:var(--rl);padding:10px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Paq faltantes</div><div style="font-size:22px;font-weight:900;color:var(--red);">-'+paqFaltante.toLocaleString('es-AR')+'</div></div>';
   }
 
   // Filtrar
-  if(filtro==='dif')items=items.filter(i=>Math.abs(i.dif)>umbral&&!i.sinStock);
-  else if(filtro==='ok')items=items.filter(i=>i.dif===0&&!i.sinStock);
-  else if(filtro==='sin-stock')items=items.filter(i=>i.sinStock);
-  // 'todas' = sin filtro
+  if(filtro==='dif')items=items.filter(i=>i.tieneProblemaStock&&Math.abs(i.dif)>umbral&&!i.sinStock);
+  else if(filtro==='sin-stock')items=items.filter(i=>i.sinStock&&!i.tieneProblemaVincCancelado);
+  else if(filtro==='vinc-cancelado')items=items.filter(i=>i.tieneProblemaVincCancelado);
+  // 'todas' = sin filtro adicional (ya vienen filtradas por _resumenAuditoria)
 
   if(est){
     items=items.filter(i=>i.lotes.some(l=>l.estado===est));
@@ -13112,41 +13258,73 @@ function renderAuditStockBolsas(){
 
   let html='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">'
     +'<thead><tr style="background:var(--bg3);">'
-      +'<th style="padding:6px 8px;text-align:left;">OC · Producto</th>'
-      +'<th style="padding:6px 8px;text-align:left;">Cliente · Cierre</th>'
-      +'<th style="padding:6px 8px;text-align:right;">Bolsones reales</th>'
+      +'<th style="padding:6px 8px;text-align:left;">OC · Producto · Estado</th>'
+      +'<th style="padding:6px 8px;text-align:left;">Cliente · Vínculo</th>'
       +'<th style="padding:6px 8px;text-align:right;">Paq reales</th>'
       +'<th style="padding:6px 8px;text-align:right;">Paq en stock</th>'
-      +'<th style="padding:6px 8px;text-align:left;">Desglose stock</th>'
-      +'<th style="padding:6px 8px;text-align:right;">Diferencia</th>'
+      +'<th style="padding:6px 8px;text-align:left;">Desglose</th>'
+      +'<th style="padding:6px 8px;text-align:left;">Problema</th>'
       +'<th style="padding:6px 8px;text-align:center;">Acción</th>'
     +'</tr></thead><tbody>';
   items.forEach(i=>{
     const paqPorBolson=i.oc.paquetes_por_bolson||i.prod?.paquetes_por_bolson||1;
-    const difColor=i.dif===0?'var(--green)':i.sinStock?'var(--red)':i.dif>0?'var(--amber)':'var(--red)';
-    const rowBg=i.sinStock?'rgba(239,68,68,.04)':i.dif!==0?'rgba(245,158,11,.04)':'transparent';
     const fechaCierreStr=i.fechaCierre?new Date(i.fechaCierre).toLocaleDateString('es-AR'):'—';
+    // Color de fila según severidad del problema
+    let rowBg='transparent';
+    if(i.tieneProblemaVincCancelado)rowBg='rgba(239,68,68,.06)';
+    else if(i.sinStock)rowBg='rgba(239,68,68,.04)';
+    else if(i.dif!==0)rowBg='rgba(245,158,11,.04)';
+
+    // Construir descripción del/los problemas
+    let problemas=[];
+    if(i.tieneProblemaVincCancelado){
+      problemas.push('🔗 Vinculada a pedido <strong style="color:var(--red);">'+i.pedCancelado.pedido.numero_pedido+'</strong> ('+i.pedCancelado.pedido.estado+')');
+    }
+    if(i.sinStock&&i.oc.estado==='Completada'){
+      problemas.push('📦 Sin registro en stock_bolsas');
+    } else if(i.dif!==0&&i.oc.estado==='Completada'){
+      const tipo=i.dif>0?'+':'';
+      problemas.push('📊 Stock difiere: '+tipo+i.dif+' paq vs lo cortado');
+    }
+
+    // Construir botones según tipo de problema
+    let botones='';
+    const ocActiva=i.oc.estado!=='Completada';
+    if(i.tieneProblemaVincCancelado){
+      botones+='<button class="btn btn-sm btn-primary" onclick="desvincularOCdePedidoCancelado('+i.oc.id+')" title="Desvincular del pedido cancelado">🔓 Desvincular</button> ';
+      if(ocActiva){
+        botones+='<button class="btn btn-sm btn-del" onclick="cancelarOCDesdeAudit('+i.oc.id+')" title="Cancelar la OC también">⛔ Cancelar OC</button> ';
+      }
+    }
+    if(i.oc.estado==='Completada'){
+      if(i.sinStock){
+        botones+='<button class="btn btn-sm btn-primary" onclick="recargarStockOC('+i.oc.id+')" title="Cargar stock desde cero">⚡ Cargar stock</button>';
+      } else if(i.dif!==0){
+        botones+='<button class="btn btn-sm btn-primary" onclick="corregirStockOC('+i.oc.id+')" title="Ajustar stock">🔧 Corregir stock</button>';
+      }
+    }
+    if(!botones)botones='<span style="color:var(--green);font-size:14px;">✓</span>';
+
     html+='<tr style="background:'+rowBg+';border-bottom:1px solid var(--border);">'
-      +'<td style="padding:8px;"><div style="font-family:monospace;font-weight:700;color:var(--accent);font-size:12px;">'+i.oc.numero_orden+'</div>'
-        +'<div style="font-size:11px;color:var(--text2);">'+(i.prod?.codigo?i.prod.codigo+' · ':'')+(i.prod?.descripcion||'—')+'</div></td>'
-      +'<td style="padding:8px;font-size:11px;">'+(i.cliente||'<span style="color:var(--text3);">—</span>')+'<br><span style="color:var(--text3);font-size:10px;">'+fechaCierreStr+'</span></td>'
-      +'<td style="padding:8px;text-align:right;font-family:monospace;">'+(i.oc.bolsones_reales||0)+'<br><span style="font-size:10px;color:var(--text3);font-weight:400;">+'+(i.oc.paquetes_sueltos_reales||0)+' sueltos</span></td>'
-      +'<td style="padding:8px;text-align:right;font-family:monospace;font-weight:700;color:var(--accent);">'+i.paqReales.toLocaleString('es-AR')+'<br><span style="font-size:10px;color:var(--text3);font-weight:400;">× '+paqPorBolson+' paq/bolsón</span></td>'
-      +'<td style="padding:8px;text-align:right;font-family:monospace;font-weight:700;">'+(i.sinStock?'<span style="color:var(--red);">SIN STOCK</span>':i.paqStock.toLocaleString('es-AR'))+'</td>'
+      +'<td style="padding:8px;">'
+        +'<div style="font-family:monospace;font-weight:700;color:var(--accent);font-size:12px;">'+i.oc.numero_orden+'</div>'
+        +'<div style="font-size:11px;color:var(--text2);">'+(i.prod?.codigo?i.prod.codigo+' · ':'')+(i.prod?.descripcion||'—').substring(0,42)+'</div>'
+        +'<div style="margin-top:3px;"><span style="background:var(--bg3);font-size:10px;font-weight:600;padding:1px 6px;border-radius:99px;">'+i.oc.estado+'</span></div>'
+      +'</td>'
+      +'<td style="padding:8px;font-size:11px;">'+(i.cliente||'<span style="color:var(--text3);">—</span>')
+        +(i.pedCancelado?'<br><span style="color:var(--red);font-size:10px;">⚠ '+i.pedCancelado.pedido.numero_pedido+' '+i.pedCancelado.pedido.estado+'</span>':'')
+        +(fechaCierreStr!=='—'?'<br><span style="color:var(--text3);font-size:10px;">cerrada '+fechaCierreStr+'</span>':'')
+      +'</td>'
+      +'<td style="padding:8px;text-align:right;font-family:monospace;font-weight:700;color:var(--accent);">'+i.paqReales.toLocaleString('es-AR')+'<br><span style="font-size:10px;color:var(--text3);font-weight:400;">'+(i.oc.bolsones_reales||0)+' bols × '+paqPorBolson+'</span></td>'
+      +'<td style="padding:8px;text-align:right;font-family:monospace;font-weight:700;">'+(i.sinStock?'<span style="color:var(--red);">—</span>':i.paqStock.toLocaleString('es-AR'))+'</td>'
       +'<td style="padding:8px;font-size:10px;color:var(--text2);">'
         +(i.paqDisp>0?'🟢 disp: '+i.paqDisp+'<br>':'')
         +(i.paqRes>0?'🟡 res: '+i.paqRes+'<br>':'')
         +(i.paqEnt>0?'⚪ ent: '+i.paqEnt:'')
-        +(i.sinStock?'<span style="color:var(--red);">ningún registro</span>':'')
+        +(i.sinStock&&!i.tieneProblemaVincCancelado?'<span style="color:var(--red);">ningún registro</span>':'')
       +'</td>'
-      +'<td style="padding:8px;text-align:right;font-family:monospace;font-weight:800;color:'+difColor+';">'+(i.sinStock?'—':((i.dif>0?'+':'')+i.dif.toLocaleString('es-AR')))+'</td>'
-      +'<td style="padding:8px;text-align:center;">'
-        +(i.sinStock
-          ?'<button class="btn btn-sm btn-primary" onclick="recargarStockOC('+i.oc.id+')" title="Cargar stock desde cero">⚡ Cargar</button>'
-          :i.dif!==0
-            ?'<button class="btn btn-sm btn-primary" onclick="corregirStockOC('+i.oc.id+')" title="Ajustar stock a los paq reales">🔧 Corregir</button>'
-            :'<span style="color:var(--green);font-size:14px;">✓</span>')
-      +'</td>'
+      +'<td style="padding:8px;font-size:11px;">'+problemas.join('<br>')+'</td>'
+      +'<td style="padding:8px;text-align:center;white-space:nowrap;">'+botones+'</td>'
     +'</tr>';
   });
   html+='</tbody></table></div>';
@@ -13239,6 +13417,81 @@ async function recargarStockOC(ocId){
       renderAuditStockBolsas();
     } catch(err){
       console.error('Error cargando stock:',err);
+      toast('Error: '+(err.message||err),'red');
+    }
+  });
+}
+
+// Desvincular una OC de un pedido cancelado (y liberar reservas si hay)
+async function desvincularOCdePedidoCancelado(ocId){
+  const o=C.ord_corte.find(x=>x.id===ocId);if(!o)return;
+  // Buscar el pedido cancelado vinculado
+  let pedCanc=null;
+  for(const p of C.pedidos){
+    if((p.estado==='Cancelado'||p.estado==='Anulado')&&
+       (p.pedido_ordenes_corte||[]).some(poc=>poc.orden_corte_id===ocId)){
+      pedCanc=p;break;
+    }
+  }
+  if(!pedCanc){toast('Esta OC no está vinculada a un pedido cancelado','red');return;}
+
+  // Contar reservas a liberar
+  const reservas=(C.stock_bolsas||[]).filter(s=>s.orden_corte_id===ocId&&s.estado==='reservado'&&s.pedido_id===pedCanc.id);
+  const paqReservados=reservas.reduce((s,l)=>s+(parseFloat(l.cantidad_paquetes)||0),0);
+
+  let msg='Vas a desvincular '+o.numero_orden+' del pedido '+pedCanc.numero_pedido+' ('+pedCanc.estado+').\n\n';
+  if(paqReservados>0)msg+='Se van a liberar '+paqReservados+' paq reservados → pasan a disponible.\n\n';
+  msg+='La OC seguirá '+(o.estado==='Completada'?'completada':'en estado '+o.estado)+' pero sin vínculo al pedido cancelado.\n\n¿Confirmás?';
+  if(!confirm(msg))return;
+
+  pedirAdminYEjecutar(async()=>{
+    try{
+      // 1) Liberar reservas (pasar a disponible)
+      for(const r of reservas){
+        await sb.from('stock_bolsas').update({estado:'disponible',pedido_id:null}).eq('id',r.id);
+      }
+      // 2) Borrar el vínculo en pedido_ordenes_corte
+      await sb.from('pedido_ordenes_corte').delete().eq('pedido_id',pedCanc.id).eq('orden_corte_id',ocId);
+      toast('✓ '+o.numero_orden+' desvinculada de '+pedCanc.numero_pedido,'green');
+      await reload();
+      renderAuditStockBolsas();
+    } catch(err){
+      console.error('Error desvinculando OC:',err);
+      toast('Error: '+(err.message||err),'red');
+    }
+  });
+}
+
+// Cancelar una OC desde la auditoría (cuando está vinculada a pedido cancelado y no tiene sentido seguir)
+async function cancelarOCDesdeAudit(ocId){
+  const o=C.ord_corte.find(x=>x.id===ocId);if(!o)return;
+  if(o.estado==='Completada'){toast('No se puede cancelar una OC ya completada','red');return;}
+  if(o.estado==='Cancelada'){toast('La OC ya está cancelada','red');return;}
+  if(!confirm('¿Cancelar la OC '+o.numero_orden+'?\n\nLa OC se marca como Cancelada y se desvincula del pedido. Acción reversible solo desde Supabase.'))return;
+  pedirAdminYEjecutar(async()=>{
+    try{
+      // Buscar pedido cancelado vinculado para desvincular también
+      let pedCanc=null;
+      for(const p of C.pedidos){
+        if((p.estado==='Cancelado'||p.estado==='Anulado')&&
+           (p.pedido_ordenes_corte||[]).some(poc=>poc.orden_corte_id===ocId)){
+          pedCanc=p;break;
+        }
+      }
+      // 1) Cancelar la OC
+      await sb.from('ordenes_corte').update({
+        estado:'Cancelada',
+        observaciones:(o.observaciones||'')+' [Cancelada desde auditoría'+(pedCanc?' · pedido '+pedCanc.numero_pedido+' anulado':'')+']'
+      }).eq('id',ocId);
+      // 2) Desvincular del pedido cancelado si aplica
+      if(pedCanc){
+        await sb.from('pedido_ordenes_corte').delete().eq('pedido_id',pedCanc.id).eq('orden_corte_id',ocId);
+      }
+      toast('✓ '+o.numero_orden+' cancelada','green');
+      await reload();
+      renderAuditStockBolsas();
+    } catch(err){
+      console.error('Error cancelando OC:',err);
       toast('Error: '+(err.message||err),'red');
     }
   });
@@ -13806,9 +14059,24 @@ function abrirCierreOrdenCorte(id){
   const mtsNecesarios=o.metros_necesarios||r2(mtsTeoricosPlan*(1+merma/100));
   const nBobinas=o.orden_corte_bobinas?.length||0;
 
+  // Calcular paquetes ya cargados via parciales
+  const parcialesPaq=(C.stock_bolsas||[])
+    .filter(s=>s.orden_corte_id===id&&s.estado!=='entregado')
+    .reduce((s,l)=>s+(parseFloat(l.cantidad_paquetes)||0),0);
+  const parcialesBultos=Math.floor(parcialesPaq/paqPorBolson);
+  const parcialesSueltos=parcialesPaq-(parcialesBultos*paqPorBolson);
+
   const html='<div class="modal-overlay" id="cierre-modal">'
     +'<div class="modal-card" style="max-width:640px;max-height:92vh;overflow-y:auto;">'
     +'<div class="modal-title">📦 Cerrar orden '+o.numero_orden+'</div>'
+
+    // === ALERTA DE PARCIALES (si los hay) ===
+    +(parcialesPaq>0?'<div style="background:rgba(34,197,94,.08);border:1.5px solid var(--green);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;">'
+      +'<div style="font-weight:700;color:var(--green);margin-bottom:4px;">📦 Esta OC ya tiene cargas parciales</div>'
+      +'<div style="color:var(--text1);">Ya cargado en stock: <strong>'+parcialesPaq.toLocaleString('es-AR')+' paq</strong>'
+        +' (~'+parcialesBultos+' bultos'+(parcialesSueltos?' + '+parcialesSueltos+' paq sueltos':'')+')</div>'
+      +'<div style="color:var(--text2);margin-top:4px;font-size:11px;">⚠ Ingresá los <strong>bolsones TOTALES</strong> producidos (incluyendo lo que ya entregaste como parcial). El sistema descontará automáticamente lo ya cargado.</div>'
+    +'</div>':'')
 
     // === BLOQUE 1: PLANIFICACIÓN ===
     +'<div style="background:var(--bg3);border-radius:var(--r);padding:12px 14px;margin-bottom:12px;">'
@@ -14036,12 +14304,27 @@ async function cerrarOrdenCorte(id){
   const difScrap=r3(scrapCalcKg-scrapPesado);
   // TODO: cuando exista el rol "responsable_deposito", permitir también ese rol
   pedirAdminYEjecutar(async()=>{
-    await sb.from('ordenes_corte').update({
+    const{error:errUpd}=await sb.from('ordenes_corte').update({
       estado:'Completada',bolsones_reales:bolsones,paquetes_sueltos_reales:paqSueltos,
       cantidad_bultos_reales:totalPaq,unidades_reales:totalUni,
       peso_scrap_kg:scrapPesado,scrap_calculado_kg:scrapCalcKg,scrap_diferencia_kg:difScrap,
       fecha_completada:new Date().toISOString(),observaciones:obs||null
     }).eq('id',id);
+    if(errUpd){
+      console.error('Error update OC:',errUpd);
+      toast('⚠ Error guardando cierre: '+errUpd.message,'red');
+      return;
+    }
+    // Actualizar el objeto en memoria ANTES de acreditar
+    // (sin esto, acreditarStockDesdeOC lee bolsones_reales=null y no carga stock)
+    const ocMem=C.ord_corte.find(x=>x.id===id);
+    if(ocMem){
+      ocMem.estado='Completada';
+      ocMem.bolsones_reales=bolsones;
+      ocMem.paquetes_sueltos_reales=paqSueltos;
+      ocMem.cantidad_bultos_reales=totalPaq;
+      ocMem.unidades_reales=totalUni;
+    }
     // Acreditar stock de bolsas terminadas
     await acreditarStockDesdeOC(id);
     document.getElementById('cierre-modal')?.remove();
@@ -18282,27 +18565,117 @@ async function guardarPedidoFinal(){
 }
 
 async function anularPedido(id,nro){
+  const ped=C.pedidos.find(p=>p.id===id);
+  if(!ped){toast('Pedido no encontrado','red');return;}
+  // OCs vinculadas
+  const ocs=(ped.pedido_ordenes_corte||[])
+    .map(poc=>C.ord_corte.find(o=>o.id===poc.orden_corte_id))
+    .filter(o=>o);
+  const ocsActivas=ocs.filter(o=>o.estado!=='Cancelada'&&o.estado!=='Completada');
+  const ocsCompletadas=ocs.filter(o=>o.estado==='Completada');
+
   document.body.insertAdjacentHTML('beforeend',
     '<div class="modal-overlay" id="anular-modal">'
-    +'<div class="modal-card" style="max-width:420px">'
+    +'<div class="modal-card" style="max-width:640px;max-height:92vh;overflow-y:auto;">'
     +'<div class="modal-title" style="color:var(--red)">⚠ Anular pedido '+nro+'</div>'
-    +'<div style="font-size:13px;margin-bottom:12px;">Esta acción cancela el pedido. Las órdenes de corte asociadas <strong>no</strong> se cancelan automáticamente — podés cancelarlas manualmente si corresponde.</div>'
+    +'<div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:13px;">'
+      +'<div><strong>Cliente:</strong> '+(ped.cliente||'—')+'</div>'
+      +'<div><strong>Total:</strong> $'+(ped.total||0).toLocaleString('es-AR')+'</div>'
+      +'<div><strong>Estado actual:</strong> '+ped.estado+'</div>'
+    +'</div>'
+    +(ocs.length?
+      '<div style="background:rgba(245,158,11,.08);border:1.5px solid var(--amberbd);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;">'
+      +'<div style="font-weight:700;color:var(--amber);margin-bottom:6px;font-size:13px;">⚠ Este pedido tiene '+ocs.length+' OC'+(ocs.length===1?'':'s')+' vinculada'+(ocs.length===1?'':'s')+'</div>'
+      +'<div style="font-size:11px;color:var(--text2);">Definí qué hacer con cada una. Esto evita que queden OCs "huérfanas" vinculadas a un pedido cancelado, lo que rompe el matching de stock.</div>'
+      +'<div style="margin-top:10px;">'
+      +ocs.map(o=>{
+        const reservas=(C.stock_bolsas||[]).filter(s=>s.orden_corte_id===o.id&&s.estado==='reservado'&&s.pedido_id===id);
+        const reservaPaq=reservas.reduce((s,l)=>s+(parseFloat(l.cantidad_paquetes)||0),0);
+        const yaCompletada=o.estado==='Completada';
+        const yaCancelada=o.estado==='Cancelada';
+        return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;margin-bottom:6px;">'
+          +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;">'
+            +'<span style="font-family:monospace;font-weight:700;color:var(--accent);">'+o.numero_orden+'</span>'
+            +'<span style="font-size:11px;color:var(--text2);">'+(o.productos?.descripcion||'—').substring(0,40)+'</span>'
+            +'<span style="background:var(--bg3);font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;">'+o.estado+'</span>'
+            +(reservaPaq>0?'<span style="color:var(--amber);font-size:11px;">🔒 '+reservaPaq+' paq reservados</span>':'')
+          +'</div>'
+          +(yaCancelada||yaCompletada?
+            '<div style="font-size:11px;color:var(--text3);margin-top:6px;font-style:italic;">'
+              +(yaCancelada?'OC ya cancelada · ':'')
+              +(yaCompletada?'OC ya completada · sus reservas se liberan al cancelar el pedido':'')
+            +'</div>'
+            :'<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">'
+              +'<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;background:var(--bg3);padding:4px 8px;border-radius:var(--r);"><input type="radio" name="oc-accion-'+o.id+'" value="desvincular" checked style="width:13px;height:13px;"> 🔓 Desvincular (sigue produciendo, libre)</label>'
+              +'<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;background:var(--bg3);padding:4px 8px;border-radius:var(--r);"><input type="radio" name="oc-accion-'+o.id+'" value="cancelar" style="width:13px;height:13px;"> ⛔ Cancelar también</label>'
+            +'</div>'
+          )
+        +'</div>';
+      }).join('')
+      +'</div>'
+      +'</div>'
+      :'')
     +'<div class="fg"><label>Motivo de anulación</label><input id="anular-motivo" type="text" placeholder="ej: cliente canceló el pedido..." style="width:100%"></div>'
     +'<div class="btn-grp" style="margin-top:1rem;">'
       +'<button class="btn btn-sm btn-del" onclick="confirmarAnulacion('+id+')">Confirmar anulación</button>'
       +'<button class="btn btn-sm" onclick="document.getElementById(\'anular-modal\').remove()">Cancelar</button>'
+      +'<span id="anular-msg" style="font-size:11px;margin-left:8px;"></span>'
     +'</div></div></div>'
   );
 }
+
 async function confirmarAnulacion(id){
   const motivo=document.getElementById('anular-motivo')?.value.trim()||'Sin motivo';
-  document.getElementById('anular-modal')?.remove();
-  // Cancelar el pedido
-  await sb.from('pedidos').update({estado:'Cancelado',observaciones:motivo}).eq('id',id);
-  // Cancelar todos los cobros pendientes del pedido
-  await sb.from('pedido_cobros').delete().eq('pedido_id',id).eq('cobrado',false);
-  await reload();
-  renderPedidos();
+  const msg=document.getElementById('anular-msg');
+  const ped=C.pedidos.find(p=>p.id===id);
+  if(!ped){msg.style.color='var(--red)';msg.textContent='Pedido no encontrado';return;}
+
+  if(msg){msg.style.color='var(--text2)';msg.innerHTML='<span class="spinner" style="width:12px;height:12px;display:inline-block;"></span> Procesando...';}
+
+  try{
+    // 1) Procesar cada OC vinculada según la acción elegida
+    const ocs=(ped.pedido_ordenes_corte||[])
+      .map(poc=>C.ord_corte.find(o=>o.id===poc.orden_corte_id))
+      .filter(o=>o&&o.estado!=='Cancelada'&&o.estado!=='Completada');
+
+    for(const oc of ocs){
+      const radio=document.querySelector('input[name="oc-accion-'+oc.id+'"]:checked');
+      const accion=radio?.value||'desvincular';
+      if(accion==='cancelar'){
+        await sb.from('ordenes_corte').update({estado:'Cancelada',observaciones:(oc.observaciones||'')+' [Cancelada con pedido '+ped.numero_pedido+']'}).eq('id',oc.id);
+      }
+      // En cualquier caso, desvincular de la tabla puente (porque el pedido se cancela)
+      await sb.from('pedido_ordenes_corte').delete().eq('pedido_id',id).eq('orden_corte_id',oc.id);
+    }
+
+    // 2) Liberar stock reservado de OCs completadas (pasa a disponible)
+    const ocsCompletadas=(ped.pedido_ordenes_corte||[])
+      .map(poc=>C.ord_corte.find(o=>o.id===poc.orden_corte_id))
+      .filter(o=>o&&o.estado==='Completada');
+    for(const oc of ocsCompletadas){
+      const reservas=(C.stock_bolsas||[]).filter(s=>s.orden_corte_id===oc.id&&s.estado==='reservado'&&s.pedido_id===id);
+      for(const r of reservas){
+        await sb.from('stock_bolsas').update({estado:'disponible',pedido_id:null}).eq('id',r.id);
+      }
+      // Desvincular también
+      await sb.from('pedido_ordenes_corte').delete().eq('pedido_id',id).eq('orden_corte_id',oc.id);
+    }
+
+    // 3) Cancelar el pedido
+    await sb.from('pedidos').update({estado:'Cancelado',observaciones:motivo}).eq('id',id);
+    // 4) Cancelar cobros pendientes
+    await sb.from('pedido_cobros').delete().eq('pedido_id',id).eq('cobrado',false);
+
+    if(msg){msg.style.color='var(--green)';msg.textContent='✓ Pedido anulado correctamente';}
+    await reload();
+    setTimeout(()=>{
+      document.getElementById('anular-modal')?.remove();
+      renderPedidos();
+    },1000);
+  } catch(err){
+    console.error('Error anulando pedido:',err);
+    if(msg){msg.style.color='var(--red)';msg.textContent='Error: '+(err.message||err);}
+  }
 }
 
 
