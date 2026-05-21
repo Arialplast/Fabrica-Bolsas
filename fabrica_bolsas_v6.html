@@ -6047,30 +6047,24 @@ function renderStockBolsas(){
 // + RESERVA AL PEDIDO: si la OC viene de un pedido, marca el stock como 'reservado'
 //   hasta cubrir lo solicitado; el excedente queda 'disponible' (libre).
 async function acreditarStockDesdeOC(ocId){
-  const o=C.ord_corte.find(x=>x.id===ocId);if(!o||!o.producto_id)return;
+  const o=C.ord_corte.find(x=>x.id===ocId);if(!o||!o.producto_id){console.warn('acreditarStockDesdeOC: OC sin producto',ocId);return;}
   const prod=C.productos.find(p=>p.id===o.producto_id)||o.productos;
   const emp=C.emp.find(e=>e.id===o.empaque_id);
   const uniPaq=emp?.unidades||0;
   const paqPorBolson=o.paquetes_por_bolson||prod?.paquetes_por_bolson||1;
   // ✓ Calcular paquetes REALES producidos (no lo planificado)
-  // bolsones_reales × paq_por_bolson + paquetes_sueltos_reales
   let paqReales=(o.bolsones_reales||0)*paqPorBolson+(o.paquetes_sueltos_reales||0);
-  // Fallback solo si no hay valores reales (compatibilidad con datos viejos)
   if(paqReales<=0)paqReales=o.cantidad_bultos_reales||0;
-  if(!paqReales)return;
+  if(!paqReales){console.warn('acreditarStockDesdeOC: paqReales=0 para OC',o.numero_orden);return;}
 
-  // ⚠ ENTREGAS PARCIALES: descontar lo ya cargado vía parciales (consulta stock_movimientos)
-  let yaCargadoParcial=0;
-  try{
-    const{data}=await sb.from('stock_movimientos')
-      .select('paquetes')
-      .eq('orden_corte_id',ocId)
-      .eq('motivo','entrega_parcial_oc');
-    if(data?.length)yaCargadoParcial=data.reduce((s,m)=>s+(m.paquetes||0),0);
-  }catch(e){/* tabla puede no tener esos campos, ignoramos silenciosamente */}
+  // ⚠ ENTREGAS PARCIALES: descontar lo ya cargado (consulta stock_bolsas directamente)
+  // Buscar registros con esta orden_corte_id que NO sean entregados (esos son parciales previos)
+  const yaCargadoParcial=(C.stock_bolsas||[])
+    .filter(s=>s.orden_corte_id===ocId&&s.estado!=='entregado')
+    .reduce((s,l)=>s+(parseFloat(l.cantidad_paquetes)||0),0);
   const paqRestantes=Math.max(0,paqReales-yaCargadoParcial);
-  if(paqRestantes<=0)return; // ya está todo cargado vía parciales
-  paqReales=paqRestantes; // reescribo para el resto de la función
+  if(paqRestantes<=0){console.log('acreditarStockDesdeOC: ya cargado todo via parciales para',o.numero_orden);return;}
+  paqReales=paqRestantes;
 
   const uniReales=uniPaq>0?paqReales*uniPaq:o.unidades_reales||0;
 
@@ -6082,12 +6076,26 @@ async function acreditarStockDesdeOC(ocId){
     if(poc){
       pedidoId=p.id;
       pedidoLineaId=poc.pedido_linea_id||null;
+      // 1) Buscar por linea_id si la tabla puente lo tiene
       if(pedidoLineaId){
         const li=(p.pedido_lineas||[]).find(l=>l.id===pedidoLineaId);
-        if(li)paqPedidos=parseFloat(li.cantidad_paquetes)||0;
-      } else {
+        if(li){
+          paqPedidos=parseFloat(li.cantidad)||0;
+          console.log('  → matcheó por pedido_linea_id:',pedidoLineaId,'producto_id:',li.producto_id,'cant:',paqPedidos);
+        } else {
+          console.warn('  ⚠ pedido_linea_id',pedidoLineaId,'no se encontró en pedido_lineas');
+        }
+      }
+      // 2) Si no hubo match por linea_id O paqPedidos=0, buscar por producto_id
+      if(paqPedidos<=0){
         const li=(p.pedido_lineas||[]).find(l=>l.producto_id===o.producto_id);
-        if(li){paqPedidos=parseFloat(li.cantidad_paquetes)||0;pedidoLineaId=li.id;}
+        if(li){
+          paqPedidos=parseFloat(li.cantidad)||0;
+          pedidoLineaId=li.id;
+          console.log('  → matcheó por producto_id:',o.producto_id,'linea:',li.id,'cant:',paqPedidos);
+        } else {
+          console.warn('  ⚠ no se encontró línea con producto_id',o.producto_id,'en el pedido',p.numero_pedido);
+        }
       }
       break;
     }
@@ -6100,34 +6108,114 @@ async function acreditarStockDesdeOC(ocId){
     });
   }
 
+  console.log('acreditarStockDesdeOC',o.numero_orden,'· paqReales:',paqReales,'· pedidoId:',pedidoId,'· paqPedidos:',paqPedidos,'· paqYaReservados:',paqYaReservados);
+
   if(pedidoId && paqPedidos>0){
     const faltaReservar=Math.max(0, paqPedidos - paqYaReservados);
     const reservar=Math.min(paqReales, faltaReservar);
     const excedente=paqReales - reservar;
     if(reservar>0){
-      await sb.from('stock_bolsas').insert({
+      const{error:e1}=await sb.from('stock_bolsas').insert({
         producto_id:o.producto_id,
         cantidad_paquetes:reservar,
         cantidad_unidades: uniPaq>0?reservar*uniPaq:0,
         orden_corte_id:ocId,estado:'reservado',pedido_id:pedidoId
       });
+      if(e1){console.error('Error insert stock_bolsas reservado:',e1);toast('⚠ Error cargando stock reservado: '+e1.message,'red');}
     }
     if(excedente>0){
-      await sb.from('stock_bolsas').insert({
+      const{error:e2}=await sb.from('stock_bolsas').insert({
         producto_id:o.producto_id,
         cantidad_paquetes:excedente,
         cantidad_unidades: uniPaq>0?excedente*uniPaq:0,
         orden_corte_id:ocId,estado:'disponible'
       });
+      if(e2){console.error('Error insert stock_bolsas excedente:',e2);toast('⚠ Error cargando stock excedente: '+e2.message,'red');}
     }
   } else {
-    await sb.from('stock_bolsas').insert({
+    const{error}=await sb.from('stock_bolsas').insert({
       producto_id:o.producto_id,
       cantidad_paquetes:paqReales,
       cantidad_unidades:uniReales,
       orden_corte_id:ocId,estado:'disponible'
     });
+    if(error){
+      console.error('Error insert stock_bolsas disponible:',error);
+      toast('⚠ Error cargando stock: '+error.message,'red');
+    } else {
+      console.log('✓ Stock cargado:',paqReales,'paq como disponible para OC',o.numero_orden);
+    }
   }
+}
+
+// Helper: reasignar stock disponible de una OC a reservado del pedido correspondiente
+// Útil cuando el cierre cargó todo como disponible pero la OC tiene pedido vinculado
+async function reservarStockOCalPedido(ocId){
+  const o=C.ord_corte.find(x=>x.id===ocId);
+  if(!o){console.error('OC no encontrada');return;}
+  // Buscar pedido vinculado
+  let pedido=null,pedidoLineaId=null,paqPedidos=0;
+  for(const p of (C.pedidos||[])){
+    const poc=(p.pedido_ordenes_corte||[]).find(x=>x.orden_corte_id===ocId);
+    if(poc){
+      pedido=p;
+      pedidoLineaId=poc.pedido_linea_id||null;
+      if(pedidoLineaId){
+        const li=(p.pedido_lineas||[]).find(l=>l.id===pedidoLineaId);
+        if(li)paqPedidos=parseFloat(li.cantidad)||0;
+      }
+      if(paqPedidos<=0){
+        const li=(p.pedido_lineas||[]).find(l=>l.producto_id===o.producto_id);
+        if(li){paqPedidos=parseFloat(li.cantidad)||0;pedidoLineaId=li.id;}
+      }
+      break;
+    }
+  }
+  if(!pedido){console.warn('Esta OC no tiene pedido vinculado');return;}
+  console.log('OC',o.numero_orden,'· Pedido:',pedido.numero_pedido,'· Línea:',pedidoLineaId,'· Paq pedidos:',paqPedidos);
+
+  // Stock disponible actual de esta OC (lo que hay que reservar)
+  const lotesDisp=(C.stock_bolsas||[]).filter(s=>s.orden_corte_id===ocId&&s.estado==='disponible');
+  const paqDisp=lotesDisp.reduce((s,l)=>s+(parseFloat(l.cantidad_paquetes)||0),0);
+  if(!paqDisp){console.warn('No hay stock disponible para esta OC');return;}
+
+  // Lo que ya hay reservado al pedido para este producto
+  let paqYaReservados=0;
+  (C.stock_bolsas||[]).forEach(s=>{
+    if(s.pedido_id===pedido.id&&s.producto_id===o.producto_id&&s.estado==='reservado'){
+      paqYaReservados+=parseFloat(s.cantidad_paquetes)||0;
+    }
+  });
+  const faltaReservar=Math.max(0,paqPedidos-paqYaReservados);
+  const aReservar=Math.min(paqDisp,faltaReservar);
+  const aDejarDisp=paqDisp-aReservar;
+  console.log('Falta reservar:',faltaReservar,'· A reservar ahora:',aReservar,'· Quedará disp:',aDejarDisp);
+
+  if(aReservar<=0){console.log('No hace falta reservar más (pedido ya cubierto)');return;}
+
+  // Estrategia: borrar los lotes disponibles actuales y recrear según corresponda
+  const emp=C.emp.find(e=>e.id===o.empaque_id);
+  const uniPaq=emp?.unidades||0;
+  const idsBorrar=lotesDisp.map(l=>l.id);
+  await sb.from('stock_bolsas').delete().in('id',idsBorrar);
+  // Crear reservado
+  if(aReservar>0){
+    await sb.from('stock_bolsas').insert({
+      producto_id:o.producto_id,cantidad_paquetes:aReservar,
+      cantidad_unidades:uniPaq>0?aReservar*uniPaq:0,
+      orden_corte_id:ocId,estado:'reservado',pedido_id:pedido.id
+    });
+  }
+  // Crear disponible si quedó excedente
+  if(aDejarDisp>0){
+    await sb.from('stock_bolsas').insert({
+      producto_id:o.producto_id,cantidad_paquetes:aDejarDisp,
+      cantidad_unidades:uniPaq>0?aDejarDisp*uniPaq:0,
+      orden_corte_id:ocId,estado:'disponible'
+    });
+  }
+  await reload();
+  console.log('✓ Reasignación completa');
 }
 
 // ===== CARGA PARCIAL DE OC (entrega antes de cerrar) =====
@@ -6369,10 +6457,10 @@ async function confirmarCargaParcial(ocId){
       pedidoLineaId=poc?.pedido_linea_id||null;
       if(pedidoLineaId){
         const li=(p.pedido_lineas||[]).find(l=>l.id===pedidoLineaId);
-        if(li)paqPedidos=parseFloat(li.cantidad_paquetes)||0;
+        if(li)paqPedidos=parseFloat(li.cantidad)||0;
       } else {
         const li=(p?.pedido_lineas||[]).find(l=>l.producto_id===o.producto_id);
-        if(li){paqPedidos=parseFloat(li.cantidad_paquetes)||0;pedidoLineaId=li.id;}
+        if(li){paqPedidos=parseFloat(li.cantidad)||0;pedidoLineaId=li.id;}
       }
       (C.stock_bolsas||[]).forEach(s=>{
         if(s.pedido_id===pedidoId&&s.producto_id===o.producto_id&&s.estado==='reservado'){
