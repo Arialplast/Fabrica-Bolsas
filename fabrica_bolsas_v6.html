@@ -2083,6 +2083,9 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
       <!-- KPIS: cobertura de la próxima compra -->
       <div id="fmp-cobertura" style="margin-bottom:16px;"></div>
 
+      <!-- PLAN DE COMPRA: guardar / ver planes -->
+      <div id="fmp-plan" style="margin-bottom:16px;"></div>
+
       <!-- SALDOS INICIALES PENDIENTES -->
       <div id="fmp-saldos-iniciales" style="margin-bottom:16px;"></div>
 
@@ -2093,6 +2096,20 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
           <span id="fmp-totals" style="font-size:11px;color:var(--text3);font-weight:400;"></span>
         </div>
         <div id="fmp-desglose" style="padding:8px 14px 14px;"></div>
+      </div>
+    </div>
+
+    <!-- OVERLAY: detalle del plan de compra -->
+    <div id="plan-detalle-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto;">
+      <div style="background:var(--bg1);border:1.5px solid var(--accentbd);border-radius:var(--rl);padding:20px;max-width:680px;width:100%;">
+        <div id="plan-detalle-body"></div>
+      </div>
+    </div>
+
+    <!-- OVERLAY: selector de facturas para el plan -->
+    <div id="sel-facturas-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9100;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto;">
+      <div style="background:var(--bg1);border:1.5px solid var(--accentbd);border-radius:var(--rl);padding:20px;max-width:560px;width:100%;">
+        <div id="sel-facturas-body"></div>
       </div>
     </div>
 
@@ -3692,6 +3709,7 @@ async function reload(){
     sb.from('remitos_valorizados').select('*, rv_lineas(*), rv_remitos(remito_id), clientes(nombre,razon_social)').order('created_at',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
     sb.from('compensaciones').select('*, comp_aplicaciones(*), clientes(nombre,razon_social)').order('fecha',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
     sb.from('saldos_iniciales').select('*, clientes(nombre,razon_social)').order('fecha_estimada_cobro',{ascending:true,nullsFirst:false}).then(r=>r).catch(()=>({data:[]})),
+    sb.from('planes_compra').select('*').order('created_at',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
   ]);
   const d=r=>results[r].status==='fulfilled'?results[r].value.data||[]:[];
   C.bobinas=d(0);C.extrusoras=d(1);C.ordenes=d(2);
@@ -3719,6 +3737,7 @@ async function reload(){
   C.rvs=d(31)||[];
   C.compensaciones=d(32)||[];
   C.saldos_iniciales=d(33)||[];
+  C.planes_compra=d(34)||[];
   const rcfg=results[8].status==='fulfilled'?results[8].value:null;
   if(rcfg?.data){rcfg.data.forEach(r=>{
     if(r.clave==='clave_admin')cfg.clave_admin=r.valor;
@@ -14185,33 +14204,79 @@ function renderFlujoMP(){
     }
   });
 
-  // Render cobertura
+  // Render cobertura — con el NÚMERO REY: falta/sobra en pesos
   const coberturaDiv=document.getElementById('fmp-cobertura');
   if(coberturaDiv&&fechaComp&&totalCompra>0){
     const pctCubre=Math.round(cubreCompra/totalCompra*100);
+    const diferencia=cubreCompra-totalCompra;   // + sobra / − falta
+    const alcanza=diferencia>=0;
     const colorBarra=pctCubre>=100?'var(--green)':pctCubre>=70?'var(--accent)':pctCubre>=40?'var(--amber)':'var(--red)';
-    // Mensajes adaptados a la vista
     const esSim=_fmpVista==='simulacion';
-    const txtEstado=pctCubre>=100
-      ?(esSim?'✓ Si producís esta selección, alcanzás a cubrir la próxima compra':'✓ Tenés cobertura completa para la próxima compra')
-      :pctCubre>=70
-      ?(esSim?'⚠ Esta selección cubre parcialmente — falta un '+(100-pctCubre)+'%':'⚠ Cobertura parcial — falta un '+(100-pctCubre)+'% para cubrir la compra')
-      :(esSim?'⚠ Esta selección no alcanza — agregá más tandas o esperá otros cobros':'⚠ Cobertura insuficiente — necesitás otras fuentes o esperar más cobros');
     const lblCobros=esSim?'Cobros proyectados hasta esa fecha':'Cobros hasta esa fecha';
-    const lblTotalCobrar=esSim?'Total selección a cobrar':'Total a cobrar (todo)';
-    coberturaDiv.innerHTML='<div style="background:'+(pctCubre>=100?'rgba(34,197,94,.06)':'rgba(245,158,11,.06)')+';border:1.5px solid '+colorBarra+';border-radius:var(--rl);padding:14px 18px;">'
-      +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:10px;">'
-        +'<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Compra estimada</div><div style="font-size:20px;font-weight:900;color:#3b82f6;">$'+r2(totalCompra).toLocaleString('es-AR')+'</div><div style="font-size:11px;color:var(--text3);">Para el '+fechaComp.toLocaleDateString('es-AR')+'</div></div>'
-        +'<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">'+lblCobros+'</div><div style="font-size:20px;font-weight:900;color:'+colorBarra+';">$'+r2(cubreCompra).toLocaleString('es-AR')+'</div><div style="font-size:11px;color:var(--text3);">'+pctCubre+'% de la compra</div></div>'
-        +'<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">'+lblTotalCobrar+'</div><div style="font-size:18px;font-weight:800;color:var(--text1);">$'+r2(totalProy+totalReg).toLocaleString('es-AR')+'</div><div style="font-size:11px;color:var(--text3);">'+pedidos.length+' pedido'+(pedidos.length===1?'':'s')+'</div></div>'
+    // Número rey: el faltante/sobrante en pesos, protagonista
+    const colorRey=alcanza?'var(--green)':'var(--red)';
+    const txtRey=alcanza
+      ?'✅ Te alcanza — te sobran $'+r2(diferencia).toLocaleString('es-AR')
+      :'⚠️ Te faltan $'+r2(Math.abs(diferencia)).toLocaleString('es-AR')+' para esta compra';
+    coberturaDiv.innerHTML='<div style="background:'+(alcanza?'rgba(34,197,94,.06)':'rgba(239,68,68,.06)')+';border:2px solid '+colorRey+';border-radius:var(--rl);padding:16px 18px;">'
+      // NÚMERO REY
+      +'<div style="text-align:center;margin-bottom:14px;">'
+        +'<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">'+(alcanza?'Resultado':'Te falta para comprar')+'</div>'
+        +'<div style="font-size:30px;font-weight:900;color:'+colorRey+';line-height:1.2;">'+txtRey+'</div>'
       +'</div>'
-      +'<div style="background:var(--bg3);height:12px;border-radius:99px;overflow:hidden;margin-bottom:6px;">'
+      // Detalle de los 3 números
+      +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:10px;">'
+        +'<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">🛒 Compra de MP</div><div style="font-size:19px;font-weight:900;color:#3b82f6;">$'+r2(totalCompra).toLocaleString('es-AR')+'</div><div style="font-size:11px;color:var(--text3);">'+r1(kgComp).toLocaleString('es-AR')+' kg · '+fechaComp.toLocaleDateString('es-AR')+'</div></div>'
+        +'<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">💰 '+lblCobros+'</div><div style="font-size:19px;font-weight:900;color:'+colorBarra+';">$'+r2(cubreCompra).toLocaleString('es-AR')+'</div><div style="font-size:11px;color:var(--text3);">'+pctCubre+'% de la compra</div></div>'
+        +'<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">📊 Total a cobrar</div><div style="font-size:17px;font-weight:800;color:var(--text1);">$'+r2(totalProy+totalReg).toLocaleString('es-AR')+'</div><div style="font-size:11px;color:var(--text3);">'+pedidos.length+' pedido'+(pedidos.length===1?'':'s')+' (todos los plazos)</div></div>'
+      +'</div>'
+      +'<div style="background:var(--bg3);height:12px;border-radius:99px;overflow:hidden;">'
         +'<div style="width:'+Math.min(100,pctCubre)+'%;background:linear-gradient(90deg,var(--green),'+colorBarra+');height:100%;"></div>'
       +'</div>'
-      +'<div style="font-size:12px;color:var(--text1);text-align:center;font-weight:600;">'+txtEstado+'</div>'
     +'</div>';
+
+    // ── "DE DÓNDE SACAR LO QUE FALTA" ──
+    // Si no alcanza, mostramos los pedidos por cobrar que caen DESPUÉS de la fecha
+    // de compra: apurando alguno de esos cobros, podrías llegar.
+    if(!alcanza){
+      const faltante=Math.abs(diferencia);
+      // Cobros que NO entran a tiempo (fecha de cobro posterior a la compra)
+      const fuera=pedidos
+        .filter(p=>p._cobro.fechaCobro>fechaComp&&p._cobro.pendiente>0.01)
+        .map(p=>({...p,_dias:Math.ceil((p._cobro.fechaCobro-hoy)/(1000*60*60*24))}))
+        .sort((a,b)=>a._cobro.fechaCobro-b._cobro.fechaCobro);
+      let bloque='<div style="background:rgba(245,158,11,.05);border:1.5px solid var(--amber);border-radius:var(--rl);padding:14px 16px;margin-top:12px;">'
+        +'<div style="font-size:13px;font-weight:800;color:var(--amber);margin-bottom:4px;">🔍 De dónde sacar los $'+r2(faltante).toLocaleString('es-AR')+' que faltan</div>';
+      if(!fuera.length){
+        bloque+='<div style="font-size:12px;color:var(--text2);">No hay otros cobros pendientes por adelantar. Para cubrir la compra tendrías que esperar, comprar menos kg, o conseguir la diferencia por otra vía.</div>';
+      } else {
+        // ¿Cuántos pedidos apurando se cubre el faltante?
+        let acum=0,nNecesarios=0;
+        for(const p of fuera){acum+=p._cobro.pendiente;nNecesarios++;if(acum>=faltante)break;}
+        const seCubre=acum>=faltante;
+        bloque+='<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">'
+          +(seCubre
+            ?'Tenés <strong>$'+r2(fuera.reduce((s,p)=>s+p._cobro.pendiente,0)).toLocaleString('es-AR')+'</strong> en cobros que caen después de la compra. Apurando <strong>'+nNecesarios+' pedido'+(nNecesarios===1?'':'s')+'</strong> llegás a cubrir el faltante.'
+            :'Aunque apures todos los cobros pendientes ($'+r2(fuera.reduce((s,p)=>s+p._cobro.pendiente,0)).toLocaleString('es-AR')+'), no alcanzás a cubrir el faltante. Vas a tener que comprar menos o esperar.')
+        +'</div>';
+        bloque+='<div style="display:flex;flex-direction:column;gap:5px;">';
+        fuera.slice(0,8).forEach((p,i)=>{
+          const dentroDelPlan=i<nNecesarios&&seCubre;
+          bloque+='<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:'+(dentroDelPlan?'rgba(34,197,94,.08)':'var(--bg2)')+';border:1px solid '+(dentroDelPlan?'var(--green)':'var(--border)')+';border-radius:var(--r);font-size:11px;">'
+            +(dentroDelPlan?'<span style="color:var(--green);font-weight:800;">→ apurar</span>':'<span style="color:var(--text3);">·</span>')
+            +'<span style="flex:1;font-weight:600;">'+(p.numero_pedido||'PED')+' — '+(p._cobro.cliente||'—')+'</span>'
+            +'<span style="color:var(--text3);">cobra en '+p._dias+'d</span>'
+            +'<span style="font-weight:800;color:var(--accent);">$'+r2(p._cobro.pendiente).toLocaleString('es-AR')+'</span>'
+          +'</div>';
+        });
+        bloque+='</div>';
+        if(fuera.length>8)bloque+='<div style="font-size:10px;color:var(--text3);margin-top:6px;">+ '+(fuera.length-8)+' pedidos más</div>';
+      }
+      bloque+='</div>';
+      coberturaDiv.innerHTML+=bloque;
+    }
   } else if(coberturaDiv){
-    coberturaDiv.innerHTML='<div style="background:var(--bg3);border-radius:var(--rl);padding:14px 18px;text-align:center;font-size:13px;color:var(--text3);">Ingresá kg, precio y fecha de la próxima compra para ver cobertura.</div>';
+    coberturaDiv.innerHTML='<div style="background:var(--bg3);border-radius:var(--rl);padding:14px 18px;text-align:center;font-size:13px;color:var(--text3);">Ingresá kg, precio y fecha de la próxima compra para ver si te alcanza.</div>';
   }
 
   // Render totales
@@ -14267,6 +14332,431 @@ function renderFlujoMP(){
   });
 
   desgloseDiv.innerHTML=html;
+
+  // Bloque de plan de compra (guardar / ver planes)
+  renderFmpPlan(kgComp,precio,fechaCompStr,totalCompra);
+}
+
+// Guarda en módulo: datos de la última simulación de flujo para poder fijar el plan
+let _fmpUltimoCalculo=null;
+
+// Render del bloque "Plan de compra" dentro del Flujo de caja vs MP.
+function renderFmpPlan(kgComp,precio,fechaCompStr,totalCompra){
+  const div=document.getElementById('fmp-plan');
+  if(!div)return;
+  const planes=(C.planes_compra||[]);
+  const activos=planes.filter(p=>p.estado==='activo');
+
+  let html='<div style="background:var(--bg2);border:1.5px solid var(--accentbd);border-radius:var(--rl);padding:14px 16px;">'
+    +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:'+(activos.length?'10px':'0')+';">'
+      +'<span style="font-size:13px;font-weight:800;color:var(--accent);">📋 Plan de compra</span>'
+      +'<span style="font-size:11px;color:var(--text3);flex:1;">Fijá lo que ves arriba como un plan con pasos y seguimiento</span>';
+  // Botón guardar — solo si hay datos de compra cargados
+  if(kgComp>0&&precio>0&&fechaCompStr){
+    html+='<button class="btn btn-sm" style="background:var(--green);color:#fff;border:none;font-weight:700;" onclick="fijarPlanCompra()">💾 Fijar como plan de compra</button>';
+  } else {
+    html+='<span style="font-size:11px;color:var(--text3);font-style:italic;">Cargá kg, precio y fecha para poder fijar un plan</span>';
+  }
+  html+='</div>';
+
+  // Lista de planes activos
+  if(activos.length){
+    html+='<div style="display:flex;flex-direction:column;gap:6px;">';
+    activos.forEach(pl=>{
+      const pasos=pl.pasos||[];
+      const hechos=pasos.filter(s=>s.estado==='hecho').length;
+      const pct=pasos.length?Math.round(hechos/pasos.length*100):0;
+      const dias=pl.fecha_compra?Math.ceil((new Date(pl.fecha_compra+'T00:00:00')-new Date())/(1000*60*60*24)):null;
+      html+='<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);">'
+        +'<div style="flex:1;min-width:0;">'
+          +'<div style="font-size:12px;font-weight:700;color:var(--text1);">'+pl.nombre+'</div>'
+          +'<div style="font-size:10px;color:var(--text3);">'
+            +(pl.fecha_compra?'compra '+new Date(pl.fecha_compra+'T00:00:00').toLocaleDateString('es-AR'):'sin fecha')
+            +(dias!=null?(dias<0?' · vencido':dias===0?' · hoy':' · en '+dias+'d'):'')
+            +' · $'+r2(pl.total_compra||0).toLocaleString('es-AR')
+          +'</div>'
+        +'</div>'
+        +'<div style="text-align:right;">'
+          +'<div style="font-size:11px;font-weight:700;color:'+(pct>=100?'var(--green)':'var(--accent)')+';">'+hechos+'/'+pasos.length+' pasos</div>'
+          +'<div style="font-size:10px;color:var(--text3);">'+pct+'%</div>'
+        +'</div>'
+        +'<button class="btn btn-sm" style="font-size:11px;" onclick="abrirPlanCompra('+pl.id+')">Ver</button>'
+      +'</div>';
+    });
+    html+='</div>';
+  }
+  html+='</div>';
+  div.innerHTML=html;
+}
+
+// Fija el estado actual del Flujo de caja como un Plan de Compra nuevo.
+async function fijarPlanCompra(){
+  const kgComp=parseFloat(document.getElementById('fmp-kg')?.value)||0;
+  const precio=parseFloat(document.getElementById('fmp-precio')?.value)||0;
+  const fechaComp=document.getElementById('fmp-fecha')?.value||'';
+  if(!kgComp||!precio||!fechaComp){
+    toast('Cargá kg, precio y fecha de compra antes de fijar el plan','red');
+    return;
+  }
+  const totalCompra=kgComp*precio;
+  const nombreDef='Compra '+new Date(fechaComp+'T00:00:00').toLocaleDateString('es-AR');
+  const nombre=prompt('Nombre del plan de compra:',nombreDef);
+  if(nombre===null)return;
+
+  // Armar los pasos automáticos a partir de lo que se ve en el flujo de caja
+  const pasos=_generarPasosAutomaticos(kgComp,precio,fechaComp,totalCompra);
+
+  const datosPlan={
+    kg_comprar:kgComp,precio_kg:precio,fecha_compra:fechaComp,total_compra:totalCompra,
+    vista:_fmpVista,
+    generado:localDate()
+  };
+  const registro={
+    nombre:nombre||nombreDef,
+    fecha_compra:fechaComp,
+    kg_comprar:kgComp,
+    precio_kg:precio,
+    total_compra:totalCompra,
+    estado:'activo',
+    snapshot_original:{...datosPlan,pasos:JSON.parse(JSON.stringify(pasos))},
+    datos_plan:datosPlan,
+    pasos:pasos
+  };
+  try{
+    const {data,error}=await sb.from('planes_compra').insert(registro).select().single();
+    if(error)throw error;
+    toast('✓ Plan de compra fijado: '+registro.nombre,'green');
+    await reload();
+    renderFlujoMP();
+  }catch(e){
+    toast('Error al guardar el plan: '+(e.message||e),'red');
+  }
+}
+
+// Genera los pasos automáticos del plan a partir del flujo de caja actual.
+function _generarPasosAutomaticos(kgComp,precio,fechaComp,totalCompra){
+  const pasos=[];
+  let orden=1;
+  // Paso 1: la compra en sí
+  pasos.push({id:'p'+orden,orden:orden++,tipo:'compra',
+    texto:'Comprar '+r1(kgComp).toLocaleString('es-AR')+' kg de MP a $'+r2(precio).toLocaleString('es-AR')+'/kg ($'+r2(totalCompra).toLocaleString('es-AR')+')',
+    monto:totalCompra,estado:'pendiente',manual:false});
+  // Pasos de cobro
+  const hoy=new Date();hoy.setHours(0,0,0,0);
+  const fComp=new Date(fechaComp+'T00:00:00');
+  const estadosOk=['Pendiente','Confirmado','En producción','En proceso','Parcial','Cobrado parcial'];
+  let cobranAntes=0;
+  C.pedidos.filter(p=>estadosOk.includes(p.estado)&&!p.es_historico).forEach(p=>{
+    const cobro=_calcularCobroPedido(p);
+    if(cobro.pendiente<=0.01)return;
+    if(cobro.fechaCobro<=fComp){
+      // Cobro que entra a tiempo
+      pasos.push({id:'p'+orden,orden:orden++,tipo:'cobro',
+        texto:'Cobrar '+(p.numero_pedido||'pedido')+' — '+(cobro.cliente||'cliente'),
+        monto:cobro.pendiente,fecha:_fechaISO(cobro.fechaCobro),estado:'pendiente',manual:false,
+        ref_pedido:p.id});
+      cobranAntes+=cobro.pendiente;
+    }
+  });
+  // Pedidos A APURAR: solo los NECESARIOS para cubrir el faltante.
+  // Se acumulan en orden (el que cobra antes primero) y se corta al llegar al faltante.
+  const faltante=totalCompra-cobranAntes;
+  if(faltante>0){
+    const aApurar=C.pedidos.filter(p=>estadosOk.includes(p.estado)&&!p.es_historico)
+      .map(p=>({p,cobro:_calcularCobroPedido(p)}))
+      .filter(x=>x.cobro.pendiente>0.01&&x.cobro.fechaCobro>fComp)
+      .sort((a,b)=>a.cobro.fechaCobro-b.cobro.fechaCobro);
+    let acum=0;
+    for(const x of aApurar){
+      if(acum>=faltante)break;   // ya se cubre el faltante, no hace falta apurar más
+      pasos.push({id:'p'+orden,orden:orden++,tipo:'cobro',
+        texto:'⚡ APURAR '+(x.p.numero_pedido||'pedido')+' — '+(x.cobro.cliente||'cliente'),
+        monto:x.cobro.pendiente,fecha:_fechaISO(x.cobro.fechaCobro),estado:'pendiente',manual:false,
+        ref_pedido:x.p.id,apurar:true});
+      acum+=x.cobro.pendiente;
+    }
+  }
+  return pasos;
+}
+
+// Convierte un Date a string AAAA-MM-DD
+function _fechaISO(d){
+  if(!d)return '';
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+// ====== DETALLE DEL PLAN DE COMPRA ======
+let _planAbiertoId=null;
+
+function abrirPlanCompra(planId){
+  _planAbiertoId=planId;
+  renderDetallePlan();
+  const ov=document.getElementById('plan-detalle-overlay');
+  if(ov)ov.style.display='flex';
+}
+function cerrarPlanCompra(){
+  _planAbiertoId=null;
+  const ov=document.getElementById('plan-detalle-overlay');
+  if(ov)ov.style.display='none';
+}
+
+function renderDetallePlan(){
+  const cont=document.getElementById('plan-detalle-body');
+  if(!cont)return;
+  const pl=(C.planes_compra||[]).find(p=>p.id===_planAbiertoId);
+  if(!pl){cont.innerHTML='<div class="empty">Plan no encontrado</div>';return;}
+  const pasos=pl.pasos||[];
+
+  // Totales: ingresos (cobros + caja) hechos y pendientes vs la compra
+  let ingresoTotal=0,ingresoHecho=0;
+  pasos.forEach(s=>{
+    if(s.tipo==='compra')return;
+    ingresoTotal+=s.monto||0;
+    if(s.estado==='hecho')ingresoHecho+=s.monto||0;
+  });
+  const compra=pl.total_compra||0;
+  const dif=ingresoTotal-compra;
+  const alcanza=dif>=0;
+
+  let html='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">'
+    +'<div style="flex:1;min-width:0;"><div style="font-size:17px;font-weight:800;">'+pl.nombre+'</div>'
+      +'<div style="font-size:11px;color:var(--text3);">'+(pl.fecha_compra?'Compra: '+new Date(pl.fecha_compra+'T00:00:00').toLocaleDateString('es-AR'):'sin fecha')
+      +' · '+r1(pl.kg_comprar||0).toLocaleString('es-AR')+' kg · estado: '+pl.estado+'</div></div>'
+    +'<button class="btn btn-sm" onclick="cerrarPlanCompra()">✕ Cerrar</button>'
+  +'</div>';
+
+  // Número rey del plan
+  html+='<div style="background:'+(alcanza?'rgba(34,197,94,.06)':'rgba(239,68,68,.06)')+';border:2px solid '+(alcanza?'var(--green)':'var(--red)')+';border-radius:var(--rl);padding:14px;margin-bottom:14px;text-align:center;">'
+    +'<div style="font-size:11px;color:var(--text3);text-transform:uppercase;font-weight:700;">'+(alcanza?'Resultado del plan':'Te falta para la compra')+'</div>'
+    +'<div style="font-size:26px;font-weight:900;color:'+(alcanza?'var(--green)':'var(--red)')+';">'
+      +(alcanza?'✅ Alcanza — sobran $'+r2(dif).toLocaleString('es-AR'):'⚠️ Faltan $'+r2(Math.abs(dif)).toLocaleString('es-AR'))
+    +'</div>'
+    +'<div style="font-size:11px;color:var(--text3);margin-top:4px;">Compra $'+r2(compra).toLocaleString('es-AR')+' · Ingresos del plan $'+r2(ingresoTotal).toLocaleString('es-AR')+' (cobrado: $'+r2(ingresoHecho).toLocaleString('es-AR')+')</div>'
+  +'</div>';
+
+  // Lista de pasos
+  html+='<div style="font-size:13px;font-weight:800;color:var(--accent);margin-bottom:8px;">📋 Pasos del plan</div>';
+  html+='<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">';
+  if(!pasos.length){
+    html+='<div style="font-size:12px;color:var(--text3);font-style:italic;">Sin pasos.</div>';
+  }
+  pasos.slice().sort((a,b)=>(a.orden||0)-(b.orden||0)).forEach(s=>{
+    const esCompra=s.tipo==='compra';
+    const colEstado=s.estado==='hecho'?'var(--green)':s.estado==='fallo'?'var(--red)':'var(--text3)';
+    const iconoTipo=esCompra?'🛒':s.tipo==='cobro'?'💰':s.tipo==='caja'?'➕':'•';
+    const bordeApurar=s.apurar?'var(--amber)':(s.estado==='hecho'?'var(--green)':s.estado==='fallo'?'var(--redbd)':'var(--border)');
+    html+='<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:'+(s.apurar?'rgba(245,158,11,.06)':'var(--bg2)')+';border:1px solid '+bordeApurar+';border-radius:var(--r);">'
+      +'<span style="font-size:14px;">'+iconoTipo+'</span>'
+      +'<div style="flex:1;min-width:0;">'
+        +'<div style="font-size:12px;font-weight:600;color:var(--text1);">'+s.texto+(s.ajustado?' <span style="color:var(--accent);font-size:10px;">✎ ajustado</span>':'')+'</div>'
+        +(s.fecha?'<div style="font-size:10px;color:var(--text3);">fecha: '+s.fecha+(s.origen?' · '+s.origen:'')+'</div>':'')
+      +'</div>'
+      +(!esCompra?'<span style="font-weight:800;font-size:12px;color:var(--accent);">$'+r2(s.monto||0).toLocaleString('es-AR')+'</span>':'<span style="font-weight:800;font-size:12px;color:#3b82f6;">$'+r2(s.monto||0).toLocaleString('es-AR')+'</span>')
+      // Botones de estado
+      +'<div style="display:flex;gap:3px;">'
+        +'<button onclick="setPasoEstado(\''+s.id+'\',\'pendiente\')" title="Pendiente" style="width:24px;height:24px;border-radius:4px;border:1px solid var(--border);background:'+(s.estado==='pendiente'?'var(--text3)':'transparent')+';color:'+(s.estado==='pendiente'?'#fff':'var(--text3)')+';cursor:pointer;font-size:11px;">○</button>'
+        +'<button onclick="setPasoEstado(\''+s.id+'\',\'hecho\')" title="Hecho" style="width:24px;height:24px;border-radius:4px;border:1px solid var(--green);background:'+(s.estado==='hecho'?'var(--green)':'transparent')+';color:'+(s.estado==='hecho'?'#fff':'var(--green)')+';cursor:pointer;font-size:11px;">✓</button>'
+        +'<button onclick="setPasoEstado(\''+s.id+'\',\'fallo\')" title="Falló" style="width:24px;height:24px;border-radius:4px;border:1px solid var(--red);background:'+(s.estado==='fallo'?'var(--red)':'transparent')+';color:'+(s.estado==='fallo'?'#fff':'var(--red)')+';cursor:pointer;font-size:11px;">✕</button>'
+      +'</div>';
+    // Ajuste de monto/fecha para cobros
+    if(s.tipo==='cobro'||s.tipo==='caja'){
+      html+='<button onclick="editarPasoPlan(\''+s.id+'\')" title="Ajustar monto/fecha" style="width:24px;height:24px;border-radius:4px;border:1px solid var(--accentbd);background:transparent;color:var(--accent);cursor:pointer;font-size:11px;">✎</button>';
+    }
+    // Borrar: pasos manuales o pasos "a apurar" que no querés en el plan
+    if(s.manual||s.apurar){
+      html+='<button onclick="borrarPasoPlan(\''+s.id+'\')" title="Quitar del plan" style="width:24px;height:24px;border-radius:4px;border:1px solid var(--redbd);background:transparent;color:var(--red);cursor:pointer;font-size:11px;">🗑</button>';
+    }
+    html+='</div>';
+  });
+  html+='</div>';
+
+  // Botón agregar +caja
+  html+='<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+    +'<button class="btn btn-sm" style="background:var(--green);color:#fff;border:none;" onclick="agregarCajaPlan()">➕ Agregar ingreso (+caja)</button>'
+    +'<button class="btn btn-sm" onclick="agregarFacturasPendientesPlan()">📄 Sumar facturas pendientes</button>'
+  +'</div>';
+
+  cont.innerHTML=html;
+}
+
+// Cambia el estado de un paso (pendiente/hecho/fallo)
+async function setPasoEstado(pasoId,estado){
+  const pl=(C.planes_compra||[]).find(p=>p.id===_planAbiertoId);
+  if(!pl)return;
+  const pasos=pl.pasos||[];
+  const s=pasos.find(x=>x.id===pasoId);
+  if(!s)return;
+  s.estado=estado;
+  await _guardarPasosPlan(pl,pasos);
+}
+
+// Edita monto y fecha de un paso de cobro/caja (ajuste con criterio del usuario)
+async function editarPasoPlan(pasoId){
+  const pl=(C.planes_compra||[]).find(p=>p.id===_planAbiertoId);
+  if(!pl)return;
+  const pasos=pl.pasos||[];
+  const s=pasos.find(x=>x.id===pasoId);
+  if(!s)return;
+  const nuevoMonto=prompt('Monto que esperás cobrar (tu estimación):',s.monto||0);
+  if(nuevoMonto===null)return;
+  const m=parseFloat(nuevoMonto);
+  if(isNaN(m)||m<0){toast('Monto inválido','red');return;}
+  const nuevaFecha=prompt('Fecha estimada de cobro (AAAA-MM-DD):',s.fecha||'');
+  if(nuevaFecha===null)return;
+  s.monto=m;
+  s.fecha=nuevaFecha||s.fecha;
+  s.ajustado=true;  // marca que el usuario lo ajustó a mano
+  await _guardarPasosPlan(pl,pasos);
+}
+
+// Agrega una línea +caja (ingreso manual)
+async function agregarCajaPlan(){
+  const pl=(C.planes_compra||[]).find(p=>p.id===_planAbiertoId);
+  if(!pl)return;
+  const concepto=prompt('Concepto del ingreso (ej: "Adelanto socio", "Cheque GARCIA"):','');
+  if(concepto===null||!concepto.trim())return;
+  const montoStr=prompt('Monto del ingreso:','0');
+  if(montoStr===null)return;
+  const monto=parseFloat(montoStr);
+  if(isNaN(monto)||monto<=0){toast('Monto inválido','red');return;}
+  const fecha=prompt('Fecha estimada del ingreso (AAAA-MM-DD):',pl.fecha_compra||localDate());
+  if(fecha===null)return;
+  const origen=prompt('Origen — escribí: efectivo / transferencia / cheque / otro','transferencia');
+  if(origen===null)return;
+  const pasos=pl.pasos||[];
+  const maxOrden=pasos.reduce((m,s)=>Math.max(m,s.orden||0),0);
+  pasos.push({
+    id:'caja'+Date.now(),orden:maxOrden+1,tipo:'caja',
+    texto:'➕ '+concepto.trim(),monto:monto,fecha:fecha,
+    origen:(origen||'').trim().toLowerCase(),
+    estado:'pendiente',manual:true
+  });
+  await _guardarPasosPlan(pl,pasos);
+}
+
+// Abre el selector de facturas/RV pendientes para elegir cuáles entran al plan
+function agregarFacturasPendientesPlan(){
+  const pl=(C.planes_compra||[]).find(p=>p.id===_planAbiertoId);
+  if(!pl)return;
+  const pasos=pl.pasos||[];
+  // Facturas y RVs pendientes que NO estén ya en el plan
+  const items=[];
+  (C.facturas||[]).forEach(f=>{
+    if(f.estado==='anulada')return;
+    const saldo=parseFloat(f.saldo)||0;
+    if(saldo<=0.01)return;
+    if(pasos.some(s=>s.ref_factura===f.id))return;
+    const cli=C.clientes.find(c=>c.id===f.cliente_id);
+    items.push({tipo:'F',id:f.id,
+      label:'Factura '+(f.tipo||'')+' '+(f.numero||''),
+      cliente:(cli?.razon_social||cli?.nombre)||'cliente',
+      saldo:saldo,fecha:f.fecha||'',plano:'formal'});
+  });
+  (C.rvs||[]).forEach(rv=>{
+    if(rv.estado==='anulada')return;
+    const saldo=parseFloat(rv.saldo)||0;
+    if(saldo<=0.01)return;
+    if(pasos.some(s=>s.ref_rv===rv.id))return;
+    const cli=C.clientes.find(c=>c.id===rv.cliente_id);
+    items.push({tipo:'R',id:rv.id,
+      label:'RV '+(rv.numero||''),
+      cliente:((cli?.razon_social||cli?.nombre)||'cliente')+' (informal)',
+      saldo:saldo,fecha:rv.fecha||'',plano:'informal'});
+  });
+  if(!items.length){toast('No hay facturas/RV pendientes para sumar (o ya están en el plan)','accent');return;}
+  _selFacturasPlan=items;
+  _selFacturasMarcadas=new Set();
+  renderSelectorFacturas();
+  const ov=document.getElementById('sel-facturas-overlay');
+  if(ov)ov.style.display='flex';
+}
+
+let _selFacturasPlan=[];
+let _selFacturasMarcadas=new Set();
+
+function renderSelectorFacturas(){
+  const cont=document.getElementById('sel-facturas-body');
+  if(!cont)return;
+  let html='<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">'
+    +'<div style="flex:1;"><div style="font-size:15px;font-weight:800;">📄 Elegí qué facturas/RV sumar al plan</div>'
+    +'<div style="font-size:11px;color:var(--text3);">Marcá las que pensás cobrar para esta compra</div></div>'
+    +'<button class="btn btn-sm" onclick="cerrarSelectorFacturas()">✕</button>'
+  +'</div>';
+  html+='<div style="display:flex;flex-direction:column;gap:5px;max-height:340px;overflow-y:auto;margin-bottom:12px;">';
+  _selFacturasPlan.forEach((it,i)=>{
+    const key=it.tipo+it.id;
+    const marc=_selFacturasMarcadas.has(key);
+    html+='<div onclick="toggleSelFactura(\''+key+'\')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:'+(marc?'rgba(34,197,94,.08)':'var(--bg2)')+';border:1px solid '+(marc?'var(--green)':'var(--border)')+';border-radius:var(--r);cursor:pointer;">'
+      +'<input type="checkbox" '+(marc?'checked':'')+' onclick="event.stopPropagation();toggleSelFactura(\''+key+'\')" style="width:17px;height:17px;">'
+      +'<div style="flex:1;min-width:0;">'
+        +'<div style="font-size:12px;font-weight:600;">'+it.label+' — '+it.cliente+'</div>'
+        +'<div style="font-size:10px;color:var(--text3);">'+(it.fecha||'sin fecha')+(it.plano==='informal'?' · informal':'')+'</div>'
+      +'</div>'
+      +'<span style="font-weight:800;font-size:12px;color:var(--accent);">$'+r2(it.saldo).toLocaleString('es-AR')+'</span>'
+    +'</div>';
+  });
+  html+='</div>';
+  const totalMarc=_selFacturasPlan.filter(it=>_selFacturasMarcadas.has(it.tipo+it.id)).reduce((s,it)=>s+it.saldo,0);
+  html+='<div style="display:flex;align-items:center;gap:10px;">'
+    +'<span style="flex:1;font-size:12px;color:var(--text2);">'+_selFacturasMarcadas.size+' seleccionada(s) · $'+r2(totalMarc).toLocaleString('es-AR')+'</span>'
+    +'<button class="btn btn-sm" style="background:var(--green);color:#fff;border:none;font-weight:700;" onclick="confirmarSelectorFacturas()">✓ Sumar al plan</button>'
+  +'</div>';
+  cont.innerHTML=html;
+}
+function toggleSelFactura(key){
+  if(_selFacturasMarcadas.has(key))_selFacturasMarcadas.delete(key);
+  else _selFacturasMarcadas.add(key);
+  renderSelectorFacturas();
+}
+function cerrarSelectorFacturas(){
+  const ov=document.getElementById('sel-facturas-overlay');
+  if(ov)ov.style.display='none';
+}
+async function confirmarSelectorFacturas(){
+  const pl=(C.planes_compra||[]).find(p=>p.id===_planAbiertoId);
+  if(!pl){cerrarSelectorFacturas();return;}
+  if(!_selFacturasMarcadas.size){toast('No marcaste ninguna factura','red');return;}
+  const pasos=pl.pasos||[];
+  let agregadas=0;
+  _selFacturasPlan.forEach(it=>{
+    if(!_selFacturasMarcadas.has(it.tipo+it.id))return;
+    const maxOrden=pasos.reduce((m,s)=>Math.max(m,s.orden||0),0);
+    const paso={id:it.tipo.toLowerCase()+it.id,orden:maxOrden+1,tipo:'cobro',
+      texto:'Cobrar '+it.label+' — '+it.cliente,
+      monto:it.saldo,fecha:it.fecha,estado:'pendiente',manual:false,plano:it.plano};
+    if(it.tipo==='F')paso.ref_factura=it.id; else paso.ref_rv=it.id;
+    pasos.push(paso);
+    agregadas++;
+  });
+  cerrarSelectorFacturas();
+  await _guardarPasosPlan(pl,pasos);
+  toast('✓ '+agregadas+' cobro(s) agregado(s) al plan','green');
+}
+
+// Borra un paso manual del plan
+async function borrarPasoPlan(pasoId){
+  const pl=(C.planes_compra||[]).find(p=>p.id===_planAbiertoId);
+  if(!pl)return;
+  if(!confirm('¿Borrar este paso del plan?'))return;
+  const pasos=(pl.pasos||[]).filter(s=>s.id!==pasoId);
+  await _guardarPasosPlan(pl,pasos);
+}
+
+// Guarda los pasos del plan en Supabase y refresca
+async function _guardarPasosPlan(pl,pasos){
+  try{
+    const {error}=await sb.from('planes_compra').update({pasos:pasos,updated_at:new Date().toISOString()}).eq('id',pl.id);
+    if(error)throw error;
+    pl.pasos=pasos;  // actualizar en memoria
+    renderDetallePlan();
+    // refrescar la lista de planes leyendo los valores reales del formulario
+    const k=parseFloat(document.getElementById('fmp-kg')?.value)||0;
+    const pr=parseFloat(document.getElementById('fmp-precio')?.value)||0;
+    const fe=document.getElementById('fmp-fecha')?.value||'';
+    renderFmpPlan(k,pr,fe,k*pr);
+  }catch(e){
+    toast('Error al guardar: '+(e.message||e),'red');
+  }
 }
 
 // ====== RECALCULAR PESOS DE PRODUCTOS (masivo, admin) ======
