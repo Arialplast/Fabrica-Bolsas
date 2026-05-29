@@ -1498,6 +1498,16 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
             <option value="">Todos los tipos</option><option value="blanco">Blanco</option>
             <option value="negro">Negro</option><option value="mixto">Mixto</option>
           </select>
+          <select class="st-sel" id="filtro-ped-orden" onchange="renderPedidos()" title="Ordenar la lista">
+            <option value="entrega_asc">📅 Entrega más cercana primero</option>
+            <option value="numero_desc">🔢 N° pedido (más nuevo primero)</option>
+            <option value="numero_asc">🔢 N° pedido (más viejo primero)</option>
+            <option value="cliente">👤 Cliente (A-Z)</option>
+            <option value="total_desc">💰 Total (mayor primero)</option>
+          </select>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;color:var(--text2)" title="Por defecto se ocultan los pedidos que ya están entregados/cobrados completos">
+            <input type="checkbox" id="filtro-ped-cerrados" onchange="renderPedidos()"> Mostrar entregados/cobrados
+          </label>
           <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;color:var(--text2)">
             <input type="checkbox" id="filtro-ped-hist" onchange="renderPedidos()"> Mostrar históricos
           </label>
@@ -1531,6 +1541,21 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
         <div class="btn-grp" id="dp-acciones"></div>
       </div>
       <div id="dp-contenido"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+
+    <!-- DETALLE DEL PLAN DE COMPRA -->
+    <div class="page" id="page-detalle-plan">
+      <div class="page-hdr">
+        <div>
+          <button class="btn btn-sm" onclick="go('flujo-mp')" style="margin-bottom:6px;">← Volver al flujo de caja</button>
+          <div class="page-title">Plan de compra</div>
+          <div class="page-sub">Detalle del plan con pasos, ajustes y seguimiento</div>
+        </div>
+        <div class="btn-grp">
+          <button class="btn btn-sm" onclick="imprimirPlanCompra()" title="Imprimir el plan">🖨️ Imprimir</button>
+        </div>
+      </div>
+      <div id="plan-detalle-body"><div class="loading"><div class="spinner"></div></div></div>
     </div>
 
     <!-- NUEVO PEDIDO -->
@@ -2096,13 +2121,6 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
           <span id="fmp-totals" style="font-size:11px;color:var(--text3);font-weight:400;"></span>
         </div>
         <div id="fmp-desglose" style="padding:8px 14px 14px;"></div>
-      </div>
-    </div>
-
-    <!-- OVERLAY: detalle del plan de compra -->
-    <div id="plan-detalle-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9000;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto;">
-      <div style="background:var(--bg1);border:1.5px solid var(--accentbd);border-radius:var(--rl);padding:20px;max-width:680px;width:100%;">
-        <div id="plan-detalle-body"></div>
       </div>
     </div>
 
@@ -4252,10 +4270,11 @@ function renderOrdenes(){
         // La OC que apunta a esta OE vía orden_extrusion_id (vínculo principal),
         // o el campo legacy orden_corte_origen_id de la OE si existe.
         const ocV=C.ord_corte.find(x=>x.orden_extrusion_id===o.id);
-        if(ocV)return '<span style="color:var(--teal)">'+ocV.numero_orden+'</span>';
+        if(ocV)return '<a href="javascript:void(0)" onclick="event.stopPropagation();irAOC(\''+ocV.numero_orden+'\')" style="color:var(--teal);text-decoration:underline;cursor:pointer;" title="Ir a esta OC">'+ocV.numero_orden+'</a>';
         if(o.orden_corte_origen_id){
           const ocO=C.ord_corte.find(x=>x.id===o.orden_corte_origen_id);
-          return '<span style="color:var(--teal)">'+(ocO?.numero_orden||'#'+o.orden_corte_origen_id)+'</span>';
+          if(ocO)return '<a href="javascript:void(0)" onclick="event.stopPropagation();irAOC(\''+ocO.numero_orden+'\')" style="color:var(--teal);text-decoration:underline;cursor:pointer;" title="Ir a esta OC">'+ocO.numero_orden+'</a>';
+          return '<span style="color:var(--teal)">#'+o.orden_corte_origen_id+'</span>';
         }
         return '—';
       })()+'</td>'
@@ -12962,14 +12981,18 @@ function renderOrdenesCorte(){
           ${C.emp.map(e=>`<option value="${e.id}" ${e.id===o.empaque_id?'selected':''}>${e.nombre} (${e.unidades}u)</option>`).join('')}
         </select>
       </td>
-      <td class="mono" style="font-size:11px">${o.orden_extrusion_id?('<span style="color:var(--accent)">'+(C.ordenes.find(x=>x.id===o.orden_extrusion_id)?.numero_orden||'#'+o.orden_extrusion_id)+'</span>'):'—'}</td>
+      <td class="mono" style="font-size:11px">${o.orden_extrusion_id?(()=>{
+        const oe=C.ordenes.find(x=>x.id===o.orden_extrusion_id);
+        const txt=oe?.numero_orden||('#'+o.orden_extrusion_id);
+        return '<a href="javascript:void(0)" onclick="event.stopPropagation();irAOE(\''+txt+'\')" style="color:var(--accent);text-decoration:underline;cursor:pointer;" title="Ir a esta OE">'+txt+'</a>';
+      })():'—'}</td>
       <td class="mono" style="font-size:11px">${(()=>{
         // Buscar pedido activo primero
         const pedAct=C.pedidos.find(p=>p.estado!=='Cancelado'&&p.estado!=='Anulado'&&p.pedido_ordenes_corte?.some(poc=>poc.orden_corte_id===o.id));
-        if(pedAct)return '<span style="color:var(--teal)">'+pedAct.numero_pedido+'</span>';
+        if(pedAct)return '<a href="javascript:void(0)" onclick="event.stopPropagation();verDetallePedido('+pedAct.id+')" style="color:var(--teal);text-decoration:underline;cursor:pointer;" title="Ir al detalle del pedido">'+pedAct.numero_pedido+'</a>';
         // Si no, buscar pedido cancelado (vínculo huérfano)
         const pedCanc=C.pedidos.find(p=>(p.estado==='Cancelado'||p.estado==='Anulado')&&p.pedido_ordenes_corte?.some(poc=>poc.orden_corte_id===o.id));
-        if(pedCanc)return '<span style="color:var(--red);text-decoration:line-through;" title="Pedido '+pedCanc.estado+' — se recomienda desvincular desde Auditoría">⚠ '+pedCanc.numero_pedido+'</span>';
+        if(pedCanc)return '<a href="javascript:void(0)" onclick="event.stopPropagation();verDetallePedido('+pedCanc.id+')" style="color:var(--red);text-decoration:line-through;cursor:pointer;" title="Pedido '+pedCanc.estado+' — se recomienda desvincular desde Auditoría">⚠ '+pedCanc.numero_pedido+'</a>';
         return '—';
       })()}</td>
       <td class="mono" style="font-weight:700;color:var(--accent)">${o.bolsones_a_producir?o.bolsones_a_producir.toLocaleString('es-AR')+'<div style="font-size:10px;color:var(--text3);font-weight:400">×'+( o.paquetes_por_bolson||1)+' paq</div>':'—'}</td>
@@ -12982,26 +13005,50 @@ function renderOrdenesCorte(){
         const tipoBob=prod?.bobina_id||0;
         if(!tipoBob)return '';
         const oeId=o.orden_extrusion_id;
-        let mtsPropias=0,mtsOtras=0;
+        // Índice bobina_id → orden_corte_id que la tiene asociada (anidada en cada OC)
+        const idxAsoc={};
+        (C.ord_corte||[]).forEach(oo=>{
+          (oo.orden_corte_bobinas||[]).forEach(x=>{
+            if(x.bobina_producida_id!=null)idxAsoc[x.bobina_producida_id]=oo.id;
+          });
+        });
+        let mtsPropias=0,mtsOtras=0,mtsRobadas=0;
         C.bobinas_prod.forEach(b=>{
           if(b.bobina_tipo_id!==tipoBob)return;
-          if(!b.en_stock)return;
           if(b.estado_calidad==='rechazada')return;
           const mts=parseFloat(b.metros_reales)||0;
           if(mts<=0)return;
+          const ocAsocId=idxAsoc[b.id];
+          // Robadas: bobinas de la OE de esta OC pero asociadas a OTRA OC
+          if(oeId&&b.orden_id===oeId&&ocAsocId&&ocAsocId!==o.id){
+            mtsRobadas+=mts;return;
+          }
+          // Si está asociada a esta misma OC, no la sumo a "disponible" (ya está)
+          if(ocAsocId===o.id)return;
+          // Para que cuente como disponible debe estar en stock
+          if(!b.en_stock)return;
+          // Si está asociada a otra OC y no es de mi OE, tampoco
+          if(ocAsocId&&ocAsocId!==o.id)return;
           if(oeId&&b.orden_id===oeId)mtsPropias+=mts;
           else mtsOtras+=mts;
         });
         const totalDisp=mtsPropias+mtsOtras;
         const mtsNec=o.metros_necesarios||0;
         const faltan=Math.max(0,mtsNec-totalDisp);
+        const reponer=Math.min(mtsRobadas,faltan);
         const colorTotal=totalDisp>=mtsNec?'var(--green)':totalDisp>0?'var(--amber)':'var(--red)';
         return '<div style="font-size:10px;font-weight:400;margin-top:3px;line-height:1.4;border-top:1px dashed var(--border);padding-top:3px;">'
-          +(oeId?'<div title="Bobinas producidas por la OE asociada">🟢 OE: <strong>'+r1(mtsPropias).toLocaleString('es-AR')+'m</strong></div>':'')
+          +(oeId?'<div title="Bobinas producidas por la OE asociada disponibles">🟢 OE: <strong>'+r1(mtsPropias).toLocaleString('es-AR')+'m</strong></div>':'')
           +'<div title="Bobinas del mismo tipo de otras OEs">🟡 otras: <strong>'+r1(mtsOtras).toLocaleString('es-AR')+'m</strong></div>'
           +'<div style="color:'+colorTotal+';font-weight:700;">total: '+r1(totalDisp).toLocaleString('es-AR')+'m'
           +(faltan>0?' · <span style="color:var(--red);">faltan '+r1(faltan).toLocaleString('es-AR')+'m</span>':' ✓')
           +'</div>'
+          +(mtsRobadas>0
+            ?'<div style="color:var(--red);font-weight:700;margin-top:2px;" title="Bobinas de la OE de esta OC que ya fueron asociadas a otra OC">'
+              +'🚨 robadas: '+r1(mtsRobadas).toLocaleString('es-AR')+'m'
+              +(reponer>0?' · reponer '+r1(reponer).toLocaleString('es-AR')+'m':'')
+            +'</div>'
+            :'')
         +'</div>';
       })()}</td>
       <td style="font-size:11px">${maqsStr}</td>
@@ -13044,7 +13091,9 @@ function renderOrdenesCorte(){
               const icono=dep.estado==='oe_lista'?'✓':dep.puedeArrancar?'🟢':dep.estado==='en_curso'?'🏭':'⏳';
               const bgDep=dep.color==='var(--green)'?'rgba(34,197,94,.12)'
                 :dep.estado==='en_curso'?'rgba(99,179,237,.12)':'rgba(245,158,11,.12)';
-              return `<span style="font-size:12px;font-weight:600;color:${dep.color};white-space:nowrap;padding:3px 7px;border-radius:5px;background:${bgDep};display:inline-flex;align-items:center;gap:3px;" title="${dep.txt}">🔗 ${icono} ${dep.oe?.numero_orden||'OE'}</span>`;
+              const tipDep=dep.txt+(dep.avisoRobadas?'\n\n'+dep.avisoRobadas:'');
+              const icoExtra=dep.mtsPropiasRobadas>0?' 🚨':'';
+              return `<span style="font-size:12px;font-weight:600;color:${dep.color};white-space:nowrap;padding:3px 7px;border-radius:5px;background:${bgDep};display:inline-flex;align-items:center;gap:3px;" title="${tipDep}">🔗 ${icono} ${dep.oe?.numero_orden||'OE'}${icoExtra}</span>`;
             })()
             // Verificar si el pedido asociado ya generó OE
             :(()=>{
@@ -13330,6 +13379,17 @@ function renderPlanCardCompact(tipo,o,enProceso,maqId,globalIdx,posEnMaq){
         lineaDepOE+='<div style="font-size:11px;margin-top:4px;padding:4px 8px;border-radius:6px;'
           +'background:rgba(245,158,11,.12);color:var(--amber);font-weight:600;">'
           +'⏳ Todavía no: '+motivo+'</div>';
+      }
+      // Cartel de bobinas "robadas": propias de la OE pero asociadas a OTRA OC
+      if(dep.mtsPropiasRobadas>0){
+        const faltan=Math.max(0,(dep.mtsNec||0)-(dep.mtsPropias||0));
+        const reponer=Math.min(dep.mtsPropiasRobadas,faltan);
+        lineaDepOE+='<div style="font-size:11px;margin-top:4px;padding:6px 8px;border-radius:6px;'
+          +'background:rgba(239,68,68,.22);color:#ffd0d0;font-weight:600;line-height:1.4;border:1px solid rgba(239,68,68,.5);">'
+          +'🚨 Tomaste <strong style="color:#fff;">'+r1(dep.mtsPropiasRobadas).toLocaleString('es-AR')+' m</strong> de bobinas de esta OE para otra OC.<br>'
+          +'A esta OC le faltan <strong style="color:#fff;">'+r1(faltan).toLocaleString('es-AR')+' m</strong>'
+          +(reponer>0?' — si reponés <strong style="color:#fff;">'+r1(reponer).toLocaleString('es-AR')+' m</strong>, se cubre.':'.')
+          +'</div>';
       }
     }
   }
@@ -14385,6 +14445,43 @@ function renderFmpPlan(kgComp,precio,fechaCompStr,totalCompra){
     });
     html+='</div>';
   }
+
+  // ── Track Record: planes cerrados ──
+  const cerrados=planes.filter(p=>p.estado!=='activo');
+  if(cerrados.length){
+    const cumplidos=cerrados.filter(p=>p.estado==='cumplido').length;
+    const conCambios=cerrados.filter(p=>p.estado==='cumplido_con_cambios').length;
+    const noCump=cerrados.filter(p=>p.estado==='no_cumplido').length;
+    const cancel=cerrados.filter(p=>p.estado==='cancelado').length;
+    const tasaExito=cerrados.length?Math.round((cumplidos+conCambios)/cerrados.length*100):0;
+    html+='<div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border);">'
+      +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">'
+        +'<span style="font-size:12px;font-weight:800;color:var(--text2);">📊 Track record — '+cerrados.length+' plan'+(cerrados.length===1?'':'es')+' cerrado'+(cerrados.length===1?'':'s')+'</span>'
+        +'<span style="font-size:11px;color:var(--text3);">tasa de éxito: <strong style="color:'+(tasaExito>=70?'var(--green)':tasaExito>=40?'var(--amber)':'var(--red)')+';">'+tasaExito+'%</strong></span>'
+      +'</div>'
+      +'<div style="display:flex;gap:12px;font-size:11px;color:var(--text3);margin-bottom:8px;">'
+        +'<span>✅ '+cumplidos+' cumplido(s)</span>'
+        +'<span>☑ '+conCambios+' con cambios</span>'
+        +'<span>❌ '+noCump+' no cumplido(s)</span>'
+        +(cancel?'<span>⊘ '+cancel+' cancelado(s)</span>':'')
+      +'</div>'
+      +'<details><summary style="cursor:pointer;font-size:11px;color:var(--accent);font-weight:600;">Ver detalle</summary>'
+      +'<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;max-height:280px;overflow-y:auto;">';
+    cerrados.slice(0,30).forEach(pl=>{
+      const ico={cumplido:'✅',cumplido_con_cambios:'☑',no_cumplido:'❌',cancelado:'⊘'}[pl.estado]||'•';
+      const col={cumplido:'var(--green)',cumplido_con_cambios:'var(--accent)',no_cumplido:'var(--red)',cancelado:'var(--text3)'}[pl.estado]||'var(--text3)';
+      html+='<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--bg3);border-radius:var(--r);font-size:11px;">'
+        +'<span style="color:'+col+';font-weight:700;">'+ico+'</span>'
+        +'<span style="flex:1;min-width:0;">'+pl.nombre+'</span>'
+        +'<span style="color:var(--text3);font-size:10px;">'+(pl.cerrado_el?new Date(pl.cerrado_el).toLocaleDateString('es-AR'):'')+'</span>'
+        +'<span style="color:var(--text3);font-size:10px;">$'+r2(pl.total_compra||0).toLocaleString('es-AR')+'</span>'
+        +'<button class="btn btn-sm" style="font-size:10px;padding:2px 6px;" onclick="abrirPlanCompra('+pl.id+')">Ver</button>'
+      +'</div>';
+    });
+    if(cerrados.length>30)html+='<div style="font-size:10px;color:var(--text3);text-align:center;">… y '+(cerrados.length-30)+' más</div>';
+    html+='</div></details>'
+    +'</div>';
+  }
   html+='</div>';
   div.innerHTML=html;
 }
@@ -14490,14 +14587,13 @@ let _planAbiertoId=null;
 
 function abrirPlanCompra(planId){
   _planAbiertoId=planId;
+  go('detalle-plan');
   renderDetallePlan();
-  const ov=document.getElementById('plan-detalle-overlay');
-  if(ov)ov.style.display='flex';
 }
 function cerrarPlanCompra(){
+  // Botón "Cerrar" interno del header del detalle — vuelve al flujo de caja
   _planAbiertoId=null;
-  const ov=document.getElementById('plan-detalle-overlay');
-  if(ov)ov.style.display='none';
+  go('flujo-mp');
 }
 
 function renderDetallePlan(){
@@ -14518,11 +14614,10 @@ function renderDetallePlan(){
   const dif=ingresoTotal-compra;
   const alcanza=dif>=0;
 
-  let html='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">'
-    +'<div style="flex:1;min-width:0;"><div style="font-size:17px;font-weight:800;">'+pl.nombre+'</div>'
-      +'<div style="font-size:11px;color:var(--text3);">'+(pl.fecha_compra?'Compra: '+new Date(pl.fecha_compra+'T00:00:00').toLocaleDateString('es-AR'):'sin fecha')
-      +' · '+r1(pl.kg_comprar||0).toLocaleString('es-AR')+' kg · estado: '+pl.estado+'</div></div>'
-    +'<button class="btn btn-sm" onclick="cerrarPlanCompra()">✕ Cerrar</button>'
+  let html='<div style="margin-bottom:14px;">'
+    +'<div style="font-size:17px;font-weight:800;">'+pl.nombre+'</div>'
+    +'<div style="font-size:11px;color:var(--text3);">'+(pl.fecha_compra?'Compra: '+new Date(pl.fecha_compra+'T00:00:00').toLocaleDateString('es-AR'):'sin fecha')
+    +' · '+r1(pl.kg_comprar||0).toLocaleString('es-AR')+' kg · estado: '+pl.estado+'</div>'
   +'</div>';
 
   // Número rey del plan
@@ -14570,13 +14665,197 @@ function renderDetallePlan(){
   });
   html+='</div>';
 
-  // Botón agregar +caja
-  html+='<div style="display:flex;gap:8px;flex-wrap:wrap;">'
-    +'<button class="btn btn-sm" style="background:var(--green);color:#fff;border:none;" onclick="agregarCajaPlan()">➕ Agregar ingreso (+caja)</button>'
-    +'<button class="btn btn-sm" onclick="agregarFacturasPendientesPlan()">📄 Sumar facturas pendientes</button>'
-  +'</div>';
+  // Botones de acción (agregar ingreso / sumar facturas)
+  if(pl.estado==='activo'){
+    html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">'
+      +'<button class="btn btn-sm" style="background:var(--green);color:#fff;border:none;" onclick="agregarCajaPlan()">➕ Agregar ingreso (+caja)</button>'
+      +'<button class="btn btn-sm" onclick="agregarFacturasPendientesPlan()">📄 Sumar facturas pendientes</button>'
+    +'</div>';
+  }
+
+  // ── Comparación original vs actual (si hay snapshot) ──
+  const snap=pl.snapshot_original;
+  if(snap&&snap.pasos){
+    const pasosOrig=snap.pasos||[];
+    const cambios=_compararPlanConOriginal(pasosOrig,pasos);
+    if(cambios.cantidad>0){
+      html+='<div style="background:rgba(99,179,237,.08);border:1px solid var(--accentbd);border-radius:var(--rl);padding:10px 12px;margin-bottom:14px;">'
+        +'<div style="font-size:12px;font-weight:800;color:var(--accent);margin-bottom:5px;">📊 Cambios respecto al plan original</div>'
+        +'<div style="font-size:11px;color:var(--text2);line-height:1.5;">'+cambios.resumen+'</div>'
+      +'</div>';
+    }
+  }
+
+  // ── Cierre del plan ──
+  if(pl.estado==='activo'){
+    // Sugerencia automática de estado al cerrar
+    const totalPasos=pasos.filter(s=>s.tipo!=='compra').length;
+    const hechosPasos=pasos.filter(s=>s.tipo!=='compra'&&s.estado==='hecho').length;
+    const huboCambios=snap&&snap.pasos&&_compararPlanConOriginal(snap.pasos,pasos).cantidad>0;
+    const sugerido=hechosPasos===0?'no_cumplido'
+      :hechosPasos>=totalPasos&&!huboCambios?'cumplido'
+      :hechosPasos>=totalPasos&&huboCambios?'cumplido_con_cambios'
+      :'no_cumplido';
+    const sugTxt={cumplido:'✅ Cumplido',cumplido_con_cambios:'☑ Cumplido con cambios',no_cumplido:'❌ No cumplido',cancelado:'⊘ Cancelado'};
+    html+='<div style="background:var(--bg2);border:1.5px solid var(--accentbd);border-radius:var(--rl);padding:12px 14px;">'
+      +'<div style="font-size:12px;font-weight:800;color:var(--accent);margin-bottom:8px;">🏁 Cerrar el plan</div>'
+      +'<div style="font-size:11px;color:var(--text2);margin-bottom:8px;">Al cerrar, el plan queda en histórico para track record. Sugerido según el progreso: <strong>'+sugTxt[sugerido]+'</strong> ('+hechosPasos+'/'+totalPasos+' pasos hechos'+(huboCambios?', con ajustes':'')+').</div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+        +'<button class="btn btn-sm" style="background:var(--green);color:#fff;border:none;font-weight:700;" onclick="cerrarPlanCon(\'cumplido\')">✅ Cumplido</button>'
+        +'<button class="btn btn-sm" style="background:var(--accent);color:#fff;border:none;font-weight:700;" onclick="cerrarPlanCon(\'cumplido_con_cambios\')">☑ Cumplido con cambios</button>'
+        +'<button class="btn btn-sm" style="background:var(--red);color:#fff;border:none;font-weight:700;" onclick="cerrarPlanCon(\'no_cumplido\')">❌ No cumplido</button>'
+        +'<button class="btn btn-sm" onclick="cerrarPlanCon(\'cancelado\')">⊘ Cancelado</button>'
+      +'</div>'
+    +'</div>';
+  } else {
+    // Plan cerrado: mostrar el resultado
+    const estTxt={cumplido:'✅ Cumplido',cumplido_con_cambios:'☑ Cumplido con cambios',no_cumplido:'❌ No cumplido',cancelado:'⊘ Cancelado'};
+    const estCol={cumplido:'var(--green)',cumplido_con_cambios:'var(--accent)',no_cumplido:'var(--red)',cancelado:'var(--text3)'};
+    html+='<div style="background:'+estCol[pl.estado]+';color:#fff;border-radius:var(--rl);padding:12px 14px;text-align:center;">'
+      +'<div style="font-size:11px;font-weight:700;opacity:0.85;text-transform:uppercase;letter-spacing:.05em;">Plan cerrado</div>'
+      +'<div style="font-size:17px;font-weight:900;">'+(estTxt[pl.estado]||pl.estado)+'</div>'
+      +(pl.cerrado_el?'<div style="font-size:10px;opacity:0.85;margin-top:3px;">'+new Date(pl.cerrado_el).toLocaleDateString('es-AR')+'</div>':'')
+      +(pl.nota_cierre?'<div style="font-size:11px;margin-top:6px;font-style:italic;">"'+pl.nota_cierre+'"</div>':'')
+      +'<button class="btn btn-sm" style="margin-top:8px;background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.3);" onclick="reabrirPlan()">↻ Reabrir plan</button>'
+    +'</div>';
+  }
 
   cont.innerHTML=html;
+}
+
+// Compara los pasos originales vs los actuales y devuelve un resumen de los cambios
+function _compararPlanConOriginal(orig,actual){
+  const cambios=[];
+  // Pasos agregados (manual o que no estaban en el original)
+  const idsOrig=new Set(orig.map(s=>s.id));
+  actual.forEach(s=>{
+    if(!idsOrig.has(s.id)){
+      cambios.push('+ '+(s.tipo==='caja'?'caja':'cobro')+' '+(s.texto||'').slice(0,40));
+    }
+  });
+  // Pasos quitados
+  const idsAct=new Set(actual.map(s=>s.id));
+  orig.forEach(s=>{
+    if(!idsAct.has(s.id)){
+      cambios.push('− '+(s.texto||'').slice(0,40));
+    }
+  });
+  // Pasos ajustados (monto o fecha cambiado)
+  actual.forEach(s=>{
+    const o=orig.find(x=>x.id===s.id);
+    if(!o)return;
+    if(Math.abs((o.monto||0)-(s.monto||0))>0.01){
+      cambios.push('✎ '+(s.texto||'').slice(0,30)+' · monto $'+r2(o.monto).toLocaleString('es-AR')+' → $'+r2(s.monto).toLocaleString('es-AR'));
+    } else if((o.fecha||'')!==(s.fecha||'')&&s.fecha){
+      cambios.push('✎ '+(s.texto||'').slice(0,30)+' · fecha '+(o.fecha||'sin fecha')+' → '+s.fecha);
+    }
+  });
+  return {
+    cantidad:cambios.length,
+    resumen:cambios.length?cambios.slice(0,6).join('<br>')+(cambios.length>6?'<br>… y '+(cambios.length-6)+' más':''):'Sin cambios'
+  };
+}
+
+// Cierra el plan con un estado dado
+async function cerrarPlanCon(estado){
+  const pl=(C.planes_compra||[]).find(p=>p.id===_planAbiertoId);
+  if(!pl)return;
+  const nota=prompt('Nota de cierre (opcional — qué pasó, qué aprendiste):','')||'';
+  try{
+    const {error}=await sb.from('planes_compra').update({
+      estado,nota_cierre:nota,cerrado_el:new Date().toISOString()
+    }).eq('id',pl.id);
+    if(error)throw error;
+    toast('✓ Plan cerrado: '+estado,'green');
+    await reload();
+    renderDetallePlan();
+    const k=parseFloat(document.getElementById('fmp-kg')?.value)||0;
+    const pr=parseFloat(document.getElementById('fmp-precio')?.value)||0;
+    const fe=document.getElementById('fmp-fecha')?.value||'';
+    renderFmpPlan(k,pr,fe,k*pr);
+  }catch(e){
+    toast('Error al cerrar el plan: '+(e.message||e),'red');
+  }
+}
+
+// Reabre un plan cerrado (vuelve a activo)
+async function reabrirPlan(){
+  const pl=(C.planes_compra||[]).find(p=>p.id===_planAbiertoId);
+  if(!pl)return;
+  if(!confirm('¿Reabrir este plan? Vuelve a estado activo.'))return;
+  try{
+    const {error}=await sb.from('planes_compra').update({estado:'activo',cerrado_el:null}).eq('id',pl.id);
+    if(error)throw error;
+    toast('Plan reabierto','green');
+    await reload();
+    renderDetallePlan();
+  }catch(e){toast('Error: '+(e.message||e),'red');}
+}
+
+// Abre una ventana de impresión con el plan formateado limpio (A4)
+function imprimirPlanCompra(){
+  const pl=(C.planes_compra||[]).find(p=>p.id===_planAbiertoId);
+  if(!pl){toast('No hay plan abierto','red');return;}
+  const pasos=(pl.pasos||[]).slice().sort((a,b)=>(a.orden||0)-(b.orden||0));
+  // Totales
+  let ingresoTotal=0,ingresoHecho=0;
+  pasos.forEach(s=>{if(s.tipo!=='compra'){ingresoTotal+=s.monto||0;if(s.estado==='hecho')ingresoHecho+=s.monto||0;}});
+  const compra=pl.total_compra||0;
+  const dif=ingresoTotal-compra;
+  const alcanza=dif>=0;
+  const fechaTxt=pl.fecha_compra?new Date(pl.fecha_compra+'T00:00:00').toLocaleDateString('es-AR'):'sin fecha';
+  const estTxt={activo:'Activo',cumplido:'Cumplido',cumplido_con_cambios:'Cumplido con cambios',no_cumplido:'No cumplido',cancelado:'Cancelado'}[pl.estado]||pl.estado;
+
+  const filas=pasos.map(s=>{
+    const tipo=s.tipo==='compra'?'Compra':s.tipo==='caja'?'Caja':'Cobro';
+    const est=s.estado==='hecho'?'✓ Hecho':s.estado==='fallo'?'✕ Falló':'○ Pendiente';
+    const apurar=s.apurar?' ⚡':'';
+    const ajustado=s.ajustado?' ✎':'';
+    return '<tr>'
+      +'<td>'+tipo+apurar+ajustado+'</td>'
+      +'<td>'+(s.texto||'')+'</td>'
+      +'<td style="text-align:right;">'+(s.monto?'$'+s.monto.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}):'')+'</td>'
+      +'<td>'+(s.fecha||'')+'</td>'
+      +'<td>'+est+'</td>'
+    +'</tr>';
+  }).join('');
+
+  const html=`<!doctype html><html><head><meta charset="utf-8"><title>Plan de compra — ${pl.nombre}</title>
+<style>
+  body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#222;max-width:780px;margin:24px auto;padding:0 16px;font-size:13px;}
+  h1{margin:0 0 4px;font-size:22px;}
+  .sub{color:#666;font-size:12px;margin-bottom:14px;}
+  .resumen{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;padding:12px;background:#f5f7fa;border:1px solid #e0e4eb;border-radius:8px;}
+  .resumen .item .lbl{font-size:10px;text-transform:uppercase;color:#666;font-weight:700;}
+  .resumen .item .val{font-size:16px;font-weight:800;color:#222;}
+  .rey{padding:14px;border:2px solid ${alcanza?'#22c55e':'#ef4444'};border-radius:8px;text-align:center;margin-bottom:18px;background:${alcanza?'#f0fdf4':'#fef2f2'};}
+  .rey .val{font-size:22px;font-weight:900;color:${alcanza?'#16a34a':'#dc2626'};}
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  th,td{padding:7px 8px;border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top;}
+  th{background:#f3f4f6;font-size:11px;text-transform:uppercase;color:#555;}
+  .foot{margin-top:18px;font-size:11px;color:#666;border-top:1px solid #e5e7eb;padding-top:10px;}
+  @media print {body{margin:0;}}
+</style></head><body>
+  <h1>Plan de compra — ${pl.nombre}</h1>
+  <div class="sub">Compra: ${fechaTxt} · Estado: ${estTxt}${pl.cerrado_el?' (cerrado el '+new Date(pl.cerrado_el).toLocaleDateString('es-AR')+')':''}</div>
+  <div class="resumen">
+    <div class="item"><div class="lbl">Kg a comprar</div><div class="val">${(pl.kg_comprar||0).toLocaleString('es-AR')} kg</div></div>
+    <div class="item"><div class="lbl">Precio / kg</div><div class="val">$${(pl.precio_kg||0).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div>
+    <div class="item"><div class="lbl">Total compra</div><div class="val">$${compra.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div>
+    <div class="item"><div class="lbl">Ingresos plan</div><div class="val">$${ingresoTotal.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div>
+  </div>
+  <div class="rey"><div class="lbl">${alcanza?'Resultado':'Falta para la compra'}</div><div class="val">${alcanza?'Alcanza — sobran $'+dif.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}):'Faltan $'+Math.abs(dif).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div>
+  <table>
+    <thead><tr><th>Tipo</th><th>Paso</th><th style="text-align:right;">Monto</th><th>Fecha</th><th>Estado</th></tr></thead>
+    <tbody>${filas}</tbody>
+  </table>
+  <div class="foot">Generado el ${new Date().toLocaleString('es-AR')} · ⚡ apurar · ✎ ajustado</div>
+</body></html>`;
+  const w=window.open('','_blank','width=800,height=900');
+  if(!w){toast('Tu navegador bloqueó la ventana de impresión — habilitá pop-ups','red');return;}
+  w.document.write(html);
+  w.document.close();
+  setTimeout(()=>w.print(),300);
 }
 
 // Cambia el estado de un paso (pendiente/hecho/fallo)
@@ -17303,19 +17582,46 @@ function _dependenciaMaterialOC(oc){
   // La OE "le gana" a la OC si produce metros/hora >= a lo que la OC consume
   const velOK=velOEmh>0&&velOCmh>0&&velOEmh>=velOCmh;
 
-  // ── Metros propios ya producidos por la OE asociada (bobinas en stock de esa OE) ──
-  let mtsPropias=0;
+  // ── Metros propios producidos por la OE asociada ──
+  // IMPORTANTE: separar dos categorías.
+  // 1) Disponibles: en stock, sin asociar a ninguna OC, no rechazadas → "mtsPropias"
+  // 2) ROBADAS: ya asociadas a OTRA OC distinta de esta (típicamente en_stock=false
+  //    porque al asociar a la otra OC se sacaron del stock) → "mtsPropiasRobadas"
+  // Construir índice de bobinas asociadas: bobina_id → orden_corte_id
+  // (orden_corte_bobinas vive anidada dentro de cada OC, no como tabla suelta en C)
+  const idxAsoc={};
+  (C.ord_corte||[]).forEach(o=>{
+    (o.orden_corte_bobinas||[]).forEach(x=>{
+      if(x.bobina_producida_id!=null)idxAsoc[x.bobina_producida_id]=o.id;
+    });
+  });
+
+  let mtsPropias=0,mtsPropiasRobadas=0;
   C.bobinas_prod.forEach(b=>{
     if(b.orden_id!==oeId)return;
-    if(b.en_stock===false)return;
     if(b.estado_calidad==='rechazada')return;
+    const ocAsociadaId=idxAsoc[b.id];
+    if(ocAsociadaId){
+      if(ocAsociadaId===oc.id)return;       // asociada a ESTA OC → ya reservada acá
+      mtsPropiasRobadas+=parseFloat(b.metros_reales)||0;  // asociada a OTRA OC → robada
+      return;
+    }
+    if(b.en_stock===false)return;           // sin asociar pero fuera de stock
     mtsPropias+=parseFloat(b.metros_reales)||0;
   });
   const mtsNec=oc.metros_necesarios||0;
 
+  // Aviso de "bobinas robadas": propias que están asociadas a otras OC.
+  // En estos casos hace falta volver a asociar bobinas o buscar otra OE.
+  const avisoRobadas=mtsPropiasRobadas>0
+    ?'⚠ Esta OE tiene '+r1(mtsPropiasRobadas).toLocaleString('es-AR')+' m de bobinas que ya están asociadas a otra OC. Si las querés acá, hay que reasignarlas.'
+    :'';
+
   if(oe.estado==='Completada'){
-    return {tiene:true,oe,estado:'oe_lista',puedeArrancar:true,velOK,velOEmh,velOCmh,
-      mtsPropias,mtsNec,txt:'Material completo · '+oe.numero_orden,color:'var(--green)'};
+    return {tiene:true,oe,estado:'oe_lista',puedeArrancar:mtsPropias>=mtsNec,velOK,velOEmh,velOCmh,
+      mtsPropias,mtsPropiasRobadas,mtsNec,avisoRobadas,
+      txt:mtsPropias>=mtsNec?'Material completo · '+oe.numero_orden:'⚠ Material insuficiente · '+oe.numero_orden,
+      color:mtsPropias>=mtsNec?'var(--green)':'var(--red)'};
   }
 
   // ¿Ya puede arrancar a cortar con bobinas propias?
@@ -17330,7 +17636,7 @@ function _dependenciaMaterialOC(oc){
 
   if(oe.estado==='En proceso'){
     return {tiene:true,oe,estado:'en_curso',puedeArrancar,velOK,velOEmh,velOCmh,
-      mtsPropias,mtsNec,
+      mtsPropias,mtsPropiasRobadas,mtsNec,avisoRobadas,
       txt:puedeArrancar
         ?'Ya podés cortar · '+oe.numero_orden
         :'Material en producción · '+oe.numero_orden,
@@ -17338,7 +17644,7 @@ function _dependenciaMaterialOC(oc){
   }
   // OE Pendiente
   return {tiene:true,oe,estado:'esperando',puedeArrancar,velOK,velOEmh,velOCmh,
-    mtsPropias,mtsNec,
+    mtsPropias,mtsPropiasRobadas,mtsNec,avisoRobadas,
     txt:'Espera material de '+oe.numero_orden,color:'var(--amber)'};
 }
 
@@ -17396,9 +17702,16 @@ function calcScheduleCorteReal(){
     if(!o.orden_corte_maquinas)return;
     const capT=o.orden_corte_maquinas.reduce((s,om)=>s+(om.maquinas_corte?.bolsas_por_hora||0),0);
     if(capT===0)return;
+    // Una OC completada SIN fecha de inicio conocida ya ocurrió en el pasado:
+    // no debe empujar el cursor de la máquina hacia el futuro (si no, bloquea el día de hoy).
+    if(!o.fecha_inicio_ref)return;
     const hs=r2((o.unidades_a_producir||0)/capT);
-    const ref=o.fecha_inicio_ref?new Date(o.fecha_inicio_ref+'T00:00:00'):new Date();
+    const ref=new Date(o.fecha_inicio_ref+'T00:00:00');
     const fin=sumarHsLaborales(ajustarAJornada(ref,'corte'),hs,'corte');
+    // Además: si el fin calculado cae en el pasado, no tiene sentido que mueva
+    // el cursor (la máquina ya está libre). Solo cuenta si el fin es futuro.
+    const ahoraRef=new Date();
+    if(fin<ahoraRef)return;
     o.orden_corte_maquinas.forEach(om=>{if(!cursor[om.maquina_id]||fin>cursor[om.maquina_id])cursor[om.maquina_id]=new Date(fin);});
   });
 
@@ -19121,9 +19434,26 @@ function _estadoLineaCalculado(p,li){
         let avanceOE=0;
         if(oe.estado==='Completada')avanceOE=100;
         else if(bobOE.length)avanceOE=Math.round(bobProd/bobOE.length*100);
+        // Bobinas ROBADAS: propias de esta OE pero asociadas a OTRA OC
+        // Índice bobina_id → orden_corte_id que la tiene asociada
+        const idxAsoc={};
+        (C.ord_corte||[]).forEach(oo=>{
+          (oo.orden_corte_bobinas||[]).forEach(x=>{
+            if(x.bobina_producida_id!=null)idxAsoc[x.bobina_producida_id]=oo.id;
+          });
+        });
+        let mtsRobadas=0;
+        bobOE.forEach(b=>{
+          if(b.estado_calidad==='rechazada')return;
+          const ocAsoc=idxAsoc[b.id];
+          if(ocAsoc&&ocAsoc!==ocParaOE.id){
+            mtsRobadas+=parseFloat(b.metros_reales)||0;
+          }
+        });
         oeInfo={
           numero:oe.numero_orden,estado:oe.estado,
-          bobTotal:bobOE.length,bobProd,mtsOE,avanceOE
+          bobTotal:bobOE.length,bobProd,mtsOE,avanceOE,
+          mtsRobadas,mtsNec
         };
       }
     }
@@ -19698,7 +20028,9 @@ function renderPedidosLista(){
   const filtroCli=document.getElementById('filtro-ped-cli')?.value||'';
   const filtroEst=document.getElementById('filtro-ped-est')?.value||'';
   const filtroTipo=document.getElementById('filtro-ped-tipo')?.value||'';
+  const filtroOrden=document.getElementById('filtro-ped-orden')?.value||'entrega_asc';
   const mostrarHist=document.getElementById('filtro-ped-hist')?.checked||false;
+  const mostrarCerrados=document.getElementById('filtro-ped-cerrados')?.checked||false;
   const sCli=document.getElementById('filtro-ped-cli');
   if(sCli){
     const cur=sCli.value;
@@ -19714,11 +20046,38 @@ function renderPedidosLista(){
   if(filtroEst)lista=lista.filter(p=>_estadoOperativoPedido(p)===filtroEst);
   // Ocultar cancelados por defecto — solo se ven si se filtra explícitamente por "cancelado"
   if(filtroEst!=='cancelado')lista=lista.filter(p=>_estadoOperativoPedido(p)!=='cancelado');
+  // Ocultar pedidos ya cerrados (entregado_completo / cobrado / cobrado_parcial)
+  // a menos que el usuario los pida explícitamente o esté filtrando por uno de esos estados
+  if(!mostrarCerrados){
+    const estCerrados=['entregado_completo','cobrado','cobrado_parcial'];
+    if(!estCerrados.includes(filtroEst)){
+      lista=lista.filter(p=>!estCerrados.includes(_estadoOperativoPedido(p)));
+    }
+  }
   if(filtroTipo)lista=lista.filter(p=>(p.tipo_venta||'blanco')===filtroTipo);
   const tbl=document.getElementById('ped-tbl-lista');if(!tbl)return;
   if(!lista.length){tbl.innerHTML='<div class="empty" style="padding:30px;text-align:center;color:var(--text3);">Sin pedidos con esos filtros.</div>';return;}
 
+  // Ordenamiento según el selector
   lista=[...lista].sort((a,b)=>{
+    if(filtroOrden==='numero_desc'){
+      // N° pedido más nuevo primero — comparar numéricamente quitando prefijos
+      const na=parseInt(String(a.numero_pedido||'').replace(/\D/g,''))||0;
+      const nb=parseInt(String(b.numero_pedido||'').replace(/\D/g,''))||0;
+      return nb-na;
+    }
+    if(filtroOrden==='numero_asc'){
+      const na=parseInt(String(a.numero_pedido||'').replace(/\D/g,''))||0;
+      const nb=parseInt(String(b.numero_pedido||'').replace(/\D/g,''))||0;
+      return na-nb;
+    }
+    if(filtroOrden==='cliente'){
+      return (a.cliente||'').localeCompare(b.cliente||'','es');
+    }
+    if(filtroOrden==='total_desc'){
+      return (b.total||0)-(a.total||0);
+    }
+    // Default: entrega_asc (la más cercana arriba)
     const fa=a.fecha_entrega_est||a.fecha_pedido||a.created_at||'9999';
     const fb=b.fecha_entrega_est||b.fecha_pedido||b.created_at||'9999';
     return fa.localeCompare(fb);
@@ -23275,6 +23634,35 @@ function verDetallePedido(id){
   go("detalle-pedido");
 }
 
+// ====== HELPERS DE NAVEGACIÓN CRUZADA (OC ↔ OE ↔ Pedido) ======
+// Saltan al listado correspondiente y filtran por el número de orden/pedido.
+
+function irAOE(numero){
+  if(!numero)return;
+  go('ordenes');
+  // Esperar al render y aplicar el filtro
+  setTimeout(()=>{
+    const inp=document.getElementById('filtro-ord-nro');
+    if(inp){inp.value=numero;renderOrdenes();}
+  },120);
+}
+
+function irAOC(numero){
+  if(!numero)return;
+  go('ordenes-corte');
+  setTimeout(()=>{
+    const inp=document.getElementById('filtro-oc-nro');
+    if(inp){inp.value=numero;renderOrdenesCorte();}
+  },120);
+}
+
+function irAPedidoPorNumero(numero){
+  if(!numero)return;
+  const ped=C.pedidos.find(p=>p.numero_pedido===numero);
+  if(ped)verDetallePedido(ped.id);
+  else toast('No se encontró el pedido '+numero,'red');
+}
+
 // ===== PÁGINA COMPLETA DE DETALLE DE PEDIDO =====
 function renderDetallePedidoPagina(pedidoId){
   const p=C.pedidos.find(x=>x.id===pedidoId);
@@ -23564,7 +23952,8 @@ function _dpRenderLineas(p){
         const oe=eL.oeInfo;
         const oeEstadoTxt=oe.estado==='Completada'?'✓ extruida':oe.estado==='En proceso'?'🏭 extruyendo '+oe.avanceOE+'%':'⏸️ '+oe.estado;
         const oeColor=oe.estado==='Completada'?'var(--green)':oe.estado==='En proceso'?'#3b82f6':'var(--text2)';
-        lineaOE='<div style="font-size:10px;"><span style="color:var(--text3);">🔧 OE:</span> <span style="color:'+oeColor+';font-weight:600;">'+oe.numero+' · '+oeEstadoTxt+'</span></div>';
+        const oeLink='<a href="javascript:void(0)" onclick="event.stopPropagation();irAOE(\''+oe.numero+'\')" style="color:'+oeColor+';font-weight:600;text-decoration:underline;cursor:pointer;" title="Ir a esta OE">'+oe.numero+'</a>';
+        lineaOE='<div style="font-size:10px;"><span style="color:var(--text3);">🔧 OE:</span> '+oeLink+' <span style="color:'+oeColor+';font-weight:600;">· '+oeEstadoTxt+'</span></div>';
       } else lineaOE='<div style="font-size:10px;color:var(--text3);">🔧 OE: sin OE</div>';
       let lineaCorte='';
       if(eL.maquinaResumen)lineaCorte='<div style="font-size:10px;"><span style="color:var(--text3);">✂️ Corte:</span> <span style="color:var(--text1);font-weight:600;">'+eL.maquinaResumen+'</span></div>';
@@ -23574,7 +23963,28 @@ function _dpRenderLineas(p){
       }
       let lineaBob='';
       if(eL.bobinasEstado)lineaBob='<div style="font-size:10px;"><span style="color:var(--text3);">🧵 Bobinas:</span> <span style="color:'+eL.bobinasEstado.color+';font-weight:600;">'+eL.bobinasEstado.icono+' '+eL.bobinasEstado.txt+'</span></div>';
-      prodCol=lineaOE+lineaCorte+lineaBob+'<div style="font-size:9px;color:var(--text3);margin-top:2px;font-family:monospace;">'+eL.ocs.map(o=>o.numero_orden).join(', ')+'</div>';
+      // 🚨 AVISO de bobinas ROBADAS: la OE produjo bobinas pero ya están en otra OC
+      let lineaRobadas='';
+      if(eL.oeInfo&&eL.oeInfo.mtsRobadas>0){
+        const mtsNec=eL.oeInfo.mtsNec||0;
+        // Calcular cuánto falta a la OC (cubierto vs necesario)
+        let mtsAsoc=0;
+        eL.ocs.forEach(o=>{
+          (o.orden_corte_bobinas||[]).forEach(ocb=>{
+            const b=C.bobinas_prod.find(bp=>bp.id===ocb.bobina_producida_id);
+            if(b)mtsAsoc+=parseFloat(b.metros_reales)||0;
+          });
+        });
+        const faltan=Math.max(0,mtsNec-mtsAsoc);
+        const reponer=Math.min(eL.oeInfo.mtsRobadas,faltan);
+        lineaRobadas='<div style="font-size:10px;margin-top:4px;padding:5px 7px;border-radius:5px;background:rgba(239,68,68,.18);color:#ffd0d0;font-weight:600;line-height:1.35;border:1px solid rgba(239,68,68,.4);">'
+          +'🚨 Tomaste <strong style="color:#fff;">'+r1(eL.oeInfo.mtsRobadas).toLocaleString('es-AR')+'m</strong> de bobinas de esta OE para otra OC.'
+          +(faltan>0?' Faltan <strong style="color:#fff;">'+r1(faltan).toLocaleString('es-AR')+'m</strong>'+(reponer>0?' · reponer <strong style="color:#fff;">'+r1(reponer).toLocaleString('es-AR')+'m</strong>':''):'')
+        +'</div>';
+      }
+      // OCs clickeables
+      const ocsLinks=eL.ocs.map(o=>'<a href="javascript:void(0)" onclick="event.stopPropagation();irAOC(\''+o.numero_orden+'\')" style="color:var(--text2);text-decoration:underline;cursor:pointer;" title="Ir a esta OC">'+o.numero_orden+'</a>').join(', ');
+      prodCol=lineaOE+lineaCorte+lineaBob+lineaRobadas+'<div style="font-size:9px;color:var(--text3);margin-top:2px;font-family:monospace;">'+ocsLinks+'</div>';
     } else prodCol='<span style="color:var(--red);font-size:11px;">⚠ sin OC</span>';
     const warnOE=(!cancelada&&eL.oeAtrasada)?' <span title="Extrusión atrasada" style="color:var(--amber);">⚠</span>':'';
     html+='<tr style="border-bottom:1px solid var(--border);'+rowStyle+'">'
