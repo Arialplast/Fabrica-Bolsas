@@ -5032,6 +5032,11 @@ function toggleBobinaConf(id,checked){
     _confBobSel.add(id);
   } else {
     _confBobSel.delete(id);
+    // Si había un mensaje vencido en el lector (ej: "ya tenés 4 bobinas"), lo limpiamos
+    const pistolaMsg=document.getElementById('conf-pistola-msg');
+    if(pistolaMsg&&pistolaMsg.textContent.includes('máximo')){
+      pistolaMsg.textContent='';pistolaMsg.style.color='';
+    }
   }
   const ocId=parseInt(document.getElementById('conf-oc')?.value);
   const oc=C.ord_corte.find(x=>x.id===ocId);
@@ -5069,21 +5074,41 @@ function limpiarSeleccionBobinas(){
 // La pistola "tipea" el contenido del QR + Enter. Aceptamos:
 //   - URL completa: https://app.com/?consumir=BOB-2025-00123
 //   - Solo el número: BOB-2025-00123
+//   - URLs mal traducidas por teclado español (Ñ por :, ' por -, ? por /, ¿ por =)
 function extraerNumeroBobinaDeEscaneo(raw){
   if(!raw)return '';
-  const txt=raw.trim();
-  // Si trae "consumir=XXX" en cualquier parte
+  let txt=raw.trim();
+  // ── Normalización de caracteres mal traducidos por teclado español ──
+  // Cuando el lector "tipea" un QR con URL, y Windows está en layout ES,
+  // los símbolos de la URL salen como letras. Revertimos esa traducción.
+  // Ejemplo real: "httpsÑ--arialplast.github.io-fabrica?bolsas?v6.html_consumir¿BOB'01257"
+  // Solo aplicamos esto si detectamos los caracteres característicos del problema.
+  if(/[ÑñÇç¿¡]/.test(txt)||(txt.includes("'")&&txt.includes("?"))){
+    txt=txt
+      .replace(/Ñ/g,':').replace(/ñ/g,':')   // : ↔ Ñ
+      .replace(/¿/g,'=')                      // = ↔ ¿
+      .replace(/¡/g,'!')                      // ! ↔ ¡
+      .replace(/Ç/g,'}').replace(/ç/g,'}')   // } ↔ Ç (por si acaso)
+      .replace(/\?/g,'/')                     // / ↔ ?
+      .replace(/'/g,'-')                      // - ↔ '
+      .trim();
+  }
+  // ── Extraer el código ──
+  // 1) Si trae "consumir=XXX" en cualquier parte (URL bien o ya normalizada)
   const m=txt.match(/consumir=([^&\s]+)/i);
   if(m)return decodeURIComponent(m[1]).trim();
-  // Si trae una URL pero sin "consumir=", intentar el último segmento
-  if(txt.startsWith('http')){
+  // 2) Si trae una URL pero sin "consumir=", intentar parsearla
+  if(/^https?:\/\//i.test(txt)){
     try{
       const u=new URL(txt);
       const c=u.searchParams.get('consumir');
       if(c)return c.trim();
     }catch(e){}
   }
-  // Caso simple: el texto es el número de bobina directo
+  // 3) Si en el texto aparece algo tipo "BOB-NNNNN", extraerlo aunque haya basura alrededor
+  const bobMatch=txt.match(/BOB[-_ ]?\d+/i);
+  if(bobMatch)return bobMatch[0].replace(/[_ ]/g,'-').toUpperCase();
+  // 4) Caso simple: el texto es el número de bobina directo
   return txt;
 }
 
@@ -5268,6 +5293,9 @@ async function asociarBobinasOrdenCorte(){
     const txtOrigen=requiereConfirmacionOrigen?' (incluye '+bobinasNoAsoc.length+' bobina'+(bobinasNoAsoc.length>1?'s':'')+' de fuera de la OE asociada)':'';
     msg.textContent='✓ '+bobs.length+' bobina'+(bobs.length>1?'s':'')+' asociada'+(bobs.length>1?'s':'')+' a '+oc.numero_orden+' — '+r1(mtsNuevos).toLocaleString('es-AR')+' m'+txtOrigen;
     _confBobSel=new Set();
+    // Limpiar el mensaje del lector — quedan vencidos los warnings tipo "ya tenés 4 bobinas".
+    const pistolaMsg=document.getElementById('conf-pistola-msg');
+    if(pistolaMsg){pistolaMsg.textContent='';pistolaMsg.style.color='';}
     await reload();
     // Restaurar la orden seleccionada (reload repuebla el select y pierde el value)
     const sel=document.getElementById('conf-oc');
@@ -5527,8 +5555,13 @@ async function delExt(id){if(C.ordenes.some(o=>o.orden_extrusoras?.some(oe=>oe.e
 
 // ===== IMPRESIÓN TARJETA =====
 function imprimirTarjeta(b){
-  const appUrl=window.location.href.split('?')[0];
-  const qrData=`${appUrl}?consumir=${encodeURIComponent(b.numero_bobina)}`;
+  // El QR contiene solo el número de bobina (ej: "BOB-01257").
+  // Antes incluía la URL completa de la app, pero eso traía dos problemas:
+  // 1) Los lectores con teclado en español mal-traducen los símbolos de la URL
+  //    (: / - = aparecen como Ñ ? ' ¿), rompiendo la búsqueda
+  // 2) Los QR quedaban atados a la URL fija de la app, no portables
+  // Ahora el QR lleva solo el código y el lector lo busca directo.
+  const qrData=b.numero_bobina||'';
   const qrUrl=`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(qrData)}`;
   const errColor=b.estado_calidad==='OK'?'#16a34a':b.estado_calidad==='ADVERTENCIA'?'#d97706':'#dc2626';
   const bgColor=b.estado_calidad==='OK'?'#f0fdf4':b.estado_calidad==='ADVERTENCIA'?'#fffbeb':'#fef2f2';
@@ -19408,11 +19441,11 @@ function _estadoLineaCalculado(p,li){
     const tipoBob=prod?.bobina_id||0;
     const oeId=ocParaOE.orden_extrusion_id;
     const mtsNec=ocParaOE.metros_necesarios||0;
-    // Metros de bobinas asociadas a la OC
-    let mtsAsociadas=0;
+    // Metros y cantidad de bobinas asociadas a la OC
+    let mtsAsociadas=0, bobAsoc=0;
     (ocParaOE.orden_corte_bobinas||[]).forEach(ocb=>{
       const b=C.bobinas_prod.find(bp=>bp.id===ocb.bobina_producida_id);
-      if(b)mtsAsociadas+=parseFloat(b.metros_reales)||0;
+      if(b){mtsAsociadas+=parseFloat(b.metros_reales)||0; bobAsoc++;}
     });
     // Metros disponibles del mismo tipo
     let mtsDispTipo=0;
@@ -19462,11 +19495,22 @@ function _estadoLineaCalculado(p,li){
     if(mtsNec===0){
       bobinasEstado={txt:'sin datos',color:'var(--text3)',icono:'•'};
     } else if(mtsAsociadas>=mtsNec){
-      bobinasEstado={txt:'listas (asociadas)',color:'var(--green)',icono:'🟢'};
+      // Listas: tantas bobinas, tantos metros
+      bobinasEstado={
+        txt:'listas · '+bobAsoc+' bob · '+r1(mtsAsociadas).toLocaleString('es-AR')+'m / '+r1(mtsNec).toLocaleString('es-AR')+'m',
+        color:'var(--green)',icono:'🟢'
+      };
+    } else if(bobAsoc>0){
+      // Hay bobinas asociadas pero todavía no cubren todo lo necesario
+      const pctAsoc=Math.round(mtsAsociadas/mtsNec*100);
+      bobinasEstado={
+        txt:'parcialmente asociadas · '+bobAsoc+' bob · '+r1(mtsAsociadas).toLocaleString('es-AR')+'m / '+r1(mtsNec).toLocaleString('es-AR')+'m ('+pctAsoc+'%)',
+        color:'var(--accent)',icono:'🟡'
+      };
     } else if(mtsDispTipo>=mtsNec){
-      bobinasEstado={txt:'disponibles (sin asociar)',color:'#84cc16',icono:'🟡'};
+      bobinasEstado={txt:'disponibles (sin asociar) · '+r1(mtsDispTipo).toLocaleString('es-AR')+'m',color:'#84cc16',icono:'🟡'};
     } else if(mtsDispTipo>0){
-      bobinasEstado={txt:'parciales · '+Math.round(mtsDispTipo/mtsNec*100)+'%',color:'var(--amber)',icono:'🟡'};
+      bobinasEstado={txt:'parciales · '+Math.round(mtsDispTipo/mtsNec*100)+'% ('+r1(mtsDispTipo).toLocaleString('es-AR')+'m / '+r1(mtsNec).toLocaleString('es-AR')+'m)',color:'var(--amber)',icono:'🟡'};
     } else {
       bobinasEstado={txt:'esperando extrusión',color:'var(--red)',icono:'🔴'};
     }
