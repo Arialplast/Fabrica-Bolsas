@@ -23151,6 +23151,10 @@ async function guardarPedidoFinal(){
   const cliId=parseInt(document.getElementById('np-cli').value)||null;
   const cliNom=document.getElementById('np-cli')?.selectedOptions[0]?.textContent||'';
   const flex=document.getElementById('np-flex').value.trim();
+  // Observaciones: se sincronizaron desde v2-obs → np-obs-ped en guardarPedido(),
+  // pero acá faltaba leerlas y guardarlas — bug que hacía que al crear (no al editar)
+  // las obs no se persistieran.
+  const obs=document.getElementById('np-obs-ped')?.value.trim()||'';
   const fecha=document.getElementById('np-fecha').value;
   const entrega=document.getElementById('np-entrega').value;
   const tipo=document.querySelector('input[name="tv"]:checked')?.value||'blanco';
@@ -23196,7 +23200,8 @@ async function guardarPedidoFinal(){
     fecha_entrega_est:entrega||null,con_iva:conIva,
     porcentaje_iva:conIva?alicuota:0,subtotal:sub,total_iva:iva,total,
     estado:'Borrador',
-    tipo_venta:tipo,pct_blanco:pctBlanco
+    tipo_venta:tipo,pct_blanco:pctBlanco,
+    observaciones:obs||null
   }).select().single();
   if(e1){msg.style.color='var(--red)';msg.textContent='Error: '+e1.message;if(typeof _ocultarOverlayGuardado==='function')_ocultarOverlayGuardado();return;}
   // Insertar líneas
