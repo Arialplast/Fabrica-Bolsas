@@ -490,6 +490,15 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
           <button class="btn btn-primary btn-sm" onclick="go('nueva')">+ Nueva orden</button>
         </div>
       </div>
+      <!-- Resumen rápido: OE en proceso vs pendientes con sus kg, filtrado por tipo de MP -->
+      <div id="ord-resumen-oe" style="padding:8px 12px;margin:8px 0;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);font-size:11px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <span style="font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;font-size:10px;">🏭 Resumen</span>
+        <span style="color:var(--text3);">filtrar kg por MP:</span>
+        <select id="ord-resumen-tipo-mp" onchange="renderResumenOE()" style="font-size:11px;padding:3px 6px;background:var(--bg3);color:var(--text1);border:1px solid var(--border);border-radius:4px;">
+          <option value="">Todos los tipos</option>
+        </select>
+        <span id="ord-resumen-contenido" style="flex:1;"></span>
+      </div>
       <div class="tw"><div id="ord-tbl"><div class="loading"><div class="spinner"></div></div></div></div>
     </div>
 
@@ -701,7 +710,7 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
             <select id="conf-oc" onchange="onConfOCChange()"><option value="">— seleccionar orden —</option></select>
           </div>
           <div class="fg"><label>Operario</label>
-            <select id="conf-op-sel"><option value="">— seleccionar —</option></select>
+            <select id="conf-op-sel" onchange="setTimeout(()=>document.getElementById('conf-pistola-input')?.focus(),50)"><option value="">— seleccionar —</option></select>
           </div>
         </div>
         <!-- INFO ORDEN -->
@@ -723,8 +732,9 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
             <input id="conf-pistola-input" type="text" autocomplete="off"
               placeholder="Esperando escaneo..."
               onkeydown="onPistolaKey(event)"
+              onblur="reFocoPistola()"
               style="flex:1;min-width:220px;font-family:'Courier New',monospace;font-size:13px;background:var(--bg1);border:1.5px solid var(--accent);">
-            <button class="btn btn-sm" onclick="document.getElementById('conf-pistola-input').focus()">Foco</button>
+            <button class="btn btn-sm" onclick="document.getElementById('conf-pistola-input').focus()" title="Recuperar foco del lector">🎯 Foco</button>
           </div>
           <div id="conf-pistola-msg" style="font-size:11px;margin-top:6px;min-height:14px;"></div>
         </div>
@@ -1511,6 +1521,9 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
           <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;color:var(--text2)">
             <input type="checkbox" id="filtro-ped-hist" onchange="renderPedidos()"> Mostrar históricos
           </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;color:var(--accent);" title="Mostrar solo los pedidos incluidos en algún plan de compra activo">
+            <input type="checkbox" id="filtro-ped-soloplan" onchange="renderPedidos()"> 🎯 Solo del plan activo
+          </label>
         </div>
         <div class="tw"><div id="ped-tbl-lista"><div class="loading"><div class="spinner"></div></div></div></div>
       </div>
@@ -2022,9 +2035,15 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
           </div>
           <div class="fg" style="margin-bottom:0;">
             <label style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;">🏭 Kg comprometidos</label>
-            <input id="sim-kg-comprometidos" type="number" min="0" step="100" value="0" oninput="renderSimulador()"
+            <input id="sim-kg-comprometidos" type="number" min="0" step="100" value="0" oninput="renderSimulador()" readonly
               style="font-size:18px;font-weight:800;text-align:center;padding:8px;color:var(--amber);">
-            <div style="font-size:10px;color:var(--text3);margin-top:2px;">Lo que falta para terminar producción en curso (se descuenta)</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px;display:flex;align-items:center;gap:5px;">
+              <span id="sim-kg-comprometidos-fuente">auto · suma de OC pendientes del tipo elegido</span>
+              <label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;color:var(--accent);">
+                <input type="checkbox" id="sim-kg-comprometidos-manual" onchange="onToggleKgComprometidosManual()" style="margin:0;">
+                ajustar a mano
+              </label>
+            </div>
           </div>
           <div class="fg" style="margin-bottom:0;">
             <label style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;">Tipo de MP a considerar</label>
@@ -2128,6 +2147,20 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
     <div id="sel-facturas-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9100;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto;">
       <div style="background:var(--bg1);border:1.5px solid var(--accentbd);border-radius:var(--rl);padding:20px;max-width:560px;width:100%;">
         <div id="sel-facturas-body"></div>
+      </div>
+    </div>
+
+    <!-- OVERLAY: selector de pedidos para el plan -->
+    <div id="sel-pedidos-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9100;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto;">
+      <div style="background:var(--bg1);border:1.5px solid var(--accentbd);border-radius:var(--rl);padding:20px;max-width:620px;width:100%;">
+        <div id="sel-pedidos-body"></div>
+      </div>
+    </div>
+
+    <!-- OVERLAY: ¿Por qué falta? — detalle del faltante de un pedido del plan -->
+    <div id="porque-falta-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9150;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto;">
+      <div style="background:var(--bg1);border:1.5px solid var(--accentbd);border-radius:var(--rl);padding:20px;max-width:640px;width:100%;">
+        <div id="porque-falta-body"></div>
       </div>
     </div>
 
@@ -4193,6 +4226,59 @@ function renderDash(){
 }
 
 // ===== ÓRDENES =====
+// Renderiza el resumen de OE en la página de Órdenes:
+// muestra cuántas OE en proceso vs pendientes hay, con kg de MP que les falta consumir,
+// filtrado opcionalmente por tipo de MP.
+function renderResumenOE(){
+  const cont=document.getElementById('ord-resumen-contenido');
+  if(!cont)return;
+  // Poblar select de tipos de MP si está vacío
+  const sel=document.getElementById('ord-resumen-tipo-mp');
+  if(sel&&sel.options.length<=1&&C.tipos_mp.length){
+    C.tipos_mp.forEach(t=>{
+      const op=document.createElement('option');
+      op.value=t.id;op.textContent=t.nombre+(t.categoria?' · '+t.categoria:'');
+      sel.appendChild(op);
+    });
+  }
+  const tipoMP=parseInt(sel?.value)||0;
+  // Calcular OE en proceso vs pendientes con kg que faltan
+  let oesEnProceso=0,oesPendientes=0,kgEnProceso=0,kgPendientes=0;
+  C.ordenes.forEach(oe=>{
+    if(oe.estado==='Completada'||oe.estado==='Cancelada')return;
+    if(oe.estado!=='En proceso'&&oe.estado!=='Pendiente')return;
+    const kgTotal=parseFloat(oe.kg_totales)||0;
+    if(kgTotal<=0)return;
+    const bob=C.bobinas.find(b=>b.id===oe.bobina_id);
+    if(!bob)return;
+    const kgPorMetro=bob.kg_por_metro||(bob.gramaje?bob.gramaje/1000:0);
+    let kgYaProducidos=0;
+    C.bobinas_prod.filter(bp=>bp.orden_id===oe.id).forEach(bp=>{
+      kgYaProducidos+=(parseFloat(bp.metros_reales)||0)*kgPorMetro;
+    });
+    const kgFaltan=Math.max(0,kgTotal-kgYaProducidos);
+    if(kgFaltan<=0)return;
+    let kgEsteTipo=kgFaltan;
+    if(tipoMP){
+      const formula=C.formulas.filter(f=>f.bobina_id===oe.bobina_id);
+      const pctTipo=formula.filter(f=>f.tipo_mp_id===tipoMP).reduce((s,f)=>s+(parseFloat(f.porcentaje)||0),0);
+      kgEsteTipo=kgFaltan*pctTipo/100;
+    }
+    if(oe.estado==='En proceso'){oesEnProceso++;kgEnProceso+=kgEsteTipo;}
+    else {oesPendientes++;kgPendientes+=kgEsteTipo;}
+  });
+  kgEnProceso=r1(kgEnProceso);kgPendientes=r1(kgPendientes);
+  if(oesEnProceso===0&&oesPendientes===0){
+    cont.innerHTML='<span style="color:var(--text3);">Sin OE activas</span>';
+    return;
+  }
+  cont.innerHTML=
+    (oesEnProceso>0?'<span style="color:#3b82f6;font-weight:700;">'+oesEnProceso+' en proceso</span> <span style="color:var(--text3);">('+kgEnProceso.toLocaleString('es-AR')+' kg restantes)</span>':'')
+    +(oesEnProceso>0&&oesPendientes>0?' &nbsp;·&nbsp; ':'')
+    +(oesPendientes>0?'<span style="color:var(--amber);font-weight:700;">'+oesPendientes+' pendientes</span> <span style="color:var(--text3);">('+kgPendientes.toLocaleString('es-AR')+' kg a producir)</span>':'')
+    +' &nbsp;·&nbsp; <span style="color:var(--text2);">total: <strong>'+r1(kgEnProceso+kgPendientes).toLocaleString('es-AR')+' kg</strong></span>';
+}
+
 function renderOrdenes(){
   // Poblar selects de bobina y cliente — siempre actualizar
   const sBob=document.getElementById('filtro-ord-bobina');
@@ -4270,10 +4356,16 @@ function renderOrdenes(){
         // La OC que apunta a esta OE vía orden_extrusion_id (vínculo principal),
         // o el campo legacy orden_corte_origen_id de la OE si existe.
         const ocV=C.ord_corte.find(x=>x.orden_extrusion_id===o.id);
-        if(ocV)return '<a href="javascript:void(0)" onclick="event.stopPropagation();irAOC(\''+ocV.numero_orden+'\')" style="color:var(--teal);text-decoration:underline;cursor:pointer;" title="Ir a esta OC">'+ocV.numero_orden+'</a>';
+        if(ocV){
+          const link='<a href="javascript:void(0)" onclick="event.stopPropagation();irAOC(\''+ocV.numero_orden+'\')" style="color:var(--teal);text-decoration:underline;cursor:pointer;" title="Ir a esta OC">'+ocV.numero_orden+'</a>';
+          return link+_chipPlan(_planDeOC(ocV));
+        }
         if(o.orden_corte_origen_id){
           const ocO=C.ord_corte.find(x=>x.id===o.orden_corte_origen_id);
-          if(ocO)return '<a href="javascript:void(0)" onclick="event.stopPropagation();irAOC(\''+ocO.numero_orden+'\')" style="color:var(--teal);text-decoration:underline;cursor:pointer;" title="Ir a esta OC">'+ocO.numero_orden+'</a>';
+          if(ocO){
+            const link='<a href="javascript:void(0)" onclick="event.stopPropagation();irAOC(\''+ocO.numero_orden+'\')" style="color:var(--teal);text-decoration:underline;cursor:pointer;" title="Ir a esta OC">'+ocO.numero_orden+'</a>';
+            return link+_chipPlan(_planDeOC(ocO));
+          }
           return '<span style="color:var(--teal)">#'+o.orden_corte_origen_id+'</span>';
         }
         return '—';
@@ -4303,6 +4395,8 @@ function renderOrdenes(){
   });
   html+='</tbody></table></div>';
   w.innerHTML=html;
+  // Actualizar también el resumen de OE arriba
+  renderResumenOE();
 }
 
 async function cambiarPri(id,val){await sb.from('ordenes').update({prioridad:parseInt(val)||1}).eq('id',id);await reload();}
@@ -4868,10 +4962,9 @@ function onConfOCChange(){
     if(pistolaWrap)pistolaWrap.style.display='none';
     return;
   }
-  // Mostrar lector de pistola con foco automático
+  // Mostrar lector de pistola (el foco se aplica al final, después de los renders)
   if(pistolaWrap){
     pistolaWrap.style.display='block';
-    setTimeout(()=>document.getElementById('conf-pistola-input')?.focus(),100);
   }
 
   // Metros ya usados en esta orden
@@ -4927,6 +5020,12 @@ function onConfOCChange(){
         +'</tbody></table></div>';
     }
   }
+  // FOCO AL LECTOR — al final de toda la función, después de que se hayan terminado los renders
+  // y los re-pueblos de selects. Timeout generoso para ganarle a cualquier inicialización tardía.
+  setTimeout(()=>{
+    const inp=document.getElementById('conf-pistola-input');
+    if(inp)inp.focus();
+  },250);
 }
 
 function renderConfBobinasList(oc){
@@ -5143,6 +5242,33 @@ function onPistolaKey(ev){
   // Re-enfocar para el próximo escaneo
   setTimeout(()=>input.focus(),10);
   procesarEscaneoBobina(raw);
+}
+
+// Re-foco automático del input del lector cuando pierde el foco.
+// Si el usuario hizo click en otro campo de formulario, lo respetamos (no robamos foco).
+// Si el foco se fue "a la nada" (al body), lo recuperamos para que la pistola siga funcionando.
+function reFocoPistola(){
+  setTimeout(()=>{
+    const inp=document.getElementById('conf-pistola-input');
+    if(!inp)return;
+    // Si el panel del lector está oculto, no hacer nada
+    const wrap=document.getElementById('conf-pistola-wrap');
+    if(!wrap||wrap.style.display==='none')return;
+    // ¿Dónde está el foco ahora?
+    const act=document.activeElement;
+    // Si el foco está en otro campo de formulario interactivo, respetar al usuario
+    if(act&&act!==document.body&&act.tagName){
+      const tag=act.tagName.toUpperCase();
+      const tipo=(act.type||'').toLowerCase();
+      // Si está editando texto, en un select, o en un botón → no robar foco
+      if(tag==='SELECT'||tag==='TEXTAREA')return;
+      if(tag==='INPUT'&&['text','number','email','tel','search','password','date','time','datetime-local','url'].includes(tipo))return;
+      if(tag==='BUTTON')return;
+      // Checkboxes, radios y otros: recuperamos foco para que la pistola siga viva
+    }
+    // El foco está en el body o en un checkbox/elemento no-interactivo → recuperamos
+    inp.focus();
+  },150);
 }
 
 function procesarEscaneoBobina(raw){
@@ -5923,7 +6049,16 @@ function go(name){
   if(name==='capacidad')renderCap();
   if(name==='carga-bobinas'){poblarCargaSelects();initCarga();resetLocks();}
   if(name==='stock'){renderStock();poblarConfSelects();poblarFiltroOrden();}
-  if(name==='confeccion'){poblarConfSelects();renderConfHistorial();}
+  if(name==='confeccion'){
+    poblarConfSelects();
+    renderConfHistorial();
+    // Foco al input del lector si ya está visible (caso: re-entrar con OC seleccionada)
+    setTimeout(()=>{
+      const inp=document.getElementById('conf-pistola-input');
+      const wrap=document.getElementById('conf-pistola-wrap');
+      if(inp&&wrap&&wrap.style.display!=='none')inp.focus();
+    },200);
+  }
   if(name==='operarios')renderOperarios();
   if(name==='gantt-diario'){renderGanttDiario();startGdTimer();}
   if(name==='ordenes-corte')renderOrdenesCorte();
@@ -13022,7 +13157,10 @@ function renderOrdenesCorte(){
       <td class="mono" style="font-size:11px">${(()=>{
         // Buscar pedido activo primero
         const pedAct=C.pedidos.find(p=>p.estado!=='Cancelado'&&p.estado!=='Anulado'&&p.pedido_ordenes_corte?.some(poc=>poc.orden_corte_id===o.id));
-        if(pedAct)return '<a href="javascript:void(0)" onclick="event.stopPropagation();verDetallePedido('+pedAct.id+')" style="color:var(--teal);text-decoration:underline;cursor:pointer;" title="Ir al detalle del pedido">'+pedAct.numero_pedido+'</a>';
+        if(pedAct){
+          const link='<a href="javascript:void(0)" onclick="event.stopPropagation();verDetallePedido('+pedAct.id+')" style="color:var(--teal);text-decoration:underline;cursor:pointer;" title="Ir al detalle del pedido">'+pedAct.numero_pedido+'</a>';
+          return link+_chipPlan(_planDePedido(pedAct.id));
+        }
         // Si no, buscar pedido cancelado (vínculo huérfano)
         const pedCanc=C.pedidos.find(p=>(p.estado==='Cancelado'||p.estado==='Anulado')&&p.pedido_ordenes_corte?.some(poc=>poc.orden_corte_id===o.id));
         if(pedCanc)return '<a href="javascript:void(0)" onclick="event.stopPropagation();verDetallePedido('+pedCanc.id+')" style="color:var(--red);text-decoration:line-through;cursor:pointer;" title="Pedido '+pedCanc.estado+' — se recomienda desvincular desde Auditoría">⚠ '+pedCanc.numero_pedido+'</a>';
@@ -13427,6 +13565,14 @@ function renderPlanCardCompact(tipo,o,enProceso,maqId,globalIdx,posEnMaq){
     }
   }
 
+  // Chip del plan al que pertenece esta orden (si pertenece a algún plan activo)
+  let chipPlanOrden='';
+  if(tipo==='oc'){
+    chipPlanOrden=_chipPlan(_planDeOC(o));
+  } else {
+    chipPlanOrden=_chipPlan(_planDeOE(o));
+  }
+
   return '<div class="plan-card'+(esMulti?' multi':'')+'" draggable="true" data-tipo="'+tipo+'" data-id="'+o.id+'" data-maq="'+(maqId||'')+'">'
     +'<div class="plan-handle" title="Arrastrar para reordenar">☰</div>'
     +'<div class="plan-pos" title="Prioridad global">'+pos+'</div>'
@@ -13434,7 +13580,7 @@ function renderPlanCardCompact(tipo,o,enProceso,maqId,globalIdx,posEnMaq){
       +multiBadge
       +'<div class="plan-orden">'+lineaOrden+'</div>'
       +'<div class="plan-producto">'+lineaProducto+'</div>'
-      +'<div class="plan-cliente">'+lineaCliente+' '+badge+'</div>'
+      +'<div class="plan-cliente">'+lineaCliente+' '+badge+chipPlanOrden+'</div>'
       +lineaBobinas
       +lineaDepOE
     +'</div>'
@@ -13730,11 +13876,80 @@ function _calcularKgOC(oc){
   return {kgTotal,kgPorTipo};
 }
 
+function onToggleKgComprometidosManual(){
+  const cb=document.getElementById('sim-kg-comprometidos-manual');
+  const inp=document.getElementById('sim-kg-comprometidos');
+  if(!cb||!inp)return;
+  // En modo manual el input se vuelve editable; en automático queda readonly
+  if(cb.checked){
+    inp.removeAttribute('readonly');
+    inp.focus();
+    inp.select();
+  } else {
+    inp.setAttribute('readonly','');
+  }
+  renderSimulador();
+}
+
 function renderSimulador(){
   const kgDisp=parseFloat(document.getElementById('sim-kg')?.value)||0;
   const tipoMP=parseInt(document.getElementById('sim-tipo-mp')?.value)||0;
   const criterio=document.getElementById('sim-criterio')?.value||'combinado';
-  const kgComprometidos=parseFloat(document.getElementById('sim-kg-comprometidos')?.value)||0;
+  // Si el usuario tildó "ajustar a mano", usamos el valor del input.
+  // Si no, calculamos automáticamente sumando kg pendientes en cola del tipo de MP elegido.
+  const ajusteManual=document.getElementById('sim-kg-comprometidos-manual')?.checked||false;
+  let kgComprometidos=0,kgComprometidosAuto=0,oesEnProceso=0,oesPendientes=0,kgEnProceso=0,kgPendientes=0;
+  // Cálculo automático: suma de kg que FALTA producir en OE no completadas.
+  // Es la MP que va a consumirse de tu stock a futuro.
+  C.ordenes.forEach(oe=>{
+    if(oe.estado==='Completada'||oe.estado==='Cancelada')return;
+    const kgTotal=parseFloat(oe.kg_totales)||0;
+    if(kgTotal<=0)return;
+    const bob=C.bobinas.find(b=>b.id===oe.bobina_id);
+    if(!bob)return;
+    const kgPorMetro=bob.kg_por_metro||(bob.gramaje?bob.gramaje/1000:0);
+    let kgYaProducidos=0;
+    C.bobinas_prod.filter(bp=>bp.orden_id===oe.id).forEach(bp=>{
+      kgYaProducidos+=(parseFloat(bp.metros_reales)||0)*kgPorMetro;
+    });
+    const kgFaltan=Math.max(0,kgTotal-kgYaProducidos);
+    if(kgFaltan<=0)return;
+    // Filtrar por tipo de MP (si está elegido) usando la fórmula de la bobina
+    let kgEsteTipo=kgFaltan;
+    if(tipoMP){
+      const formula=C.formulas.filter(f=>f.bobina_id===oe.bobina_id);
+      const pctTipo=formula.filter(f=>f.tipo_mp_id===tipoMP).reduce((s,f)=>s+(parseFloat(f.porcentaje)||0),0);
+      kgEsteTipo=kgFaltan*pctTipo/100;
+    }
+    kgComprometidosAuto+=kgEsteTipo;
+    // Desglose por estado
+    if(oe.estado==='En proceso'){oesEnProceso++;kgEnProceso+=kgEsteTipo;}
+    else {oesPendientes++;kgPendientes+=kgEsteTipo;}
+  });
+  kgComprometidosAuto=r1(kgComprometidosAuto);
+  kgEnProceso=r1(kgEnProceso);
+  kgPendientes=r1(kgPendientes);
+  if(ajusteManual){
+    kgComprometidos=parseFloat(document.getElementById('sim-kg-comprometidos')?.value)||0;
+  } else {
+    kgComprometidos=kgComprometidosAuto;
+    const inp=document.getElementById('sim-kg-comprometidos');
+    if(inp&&parseFloat(inp.value||0)!==kgComprometidosAuto)inp.value=kgComprometidosAuto;
+  }
+  // Texto-fuente del campo según modo: desglose de OE en proceso vs pendientes con kg
+  const fuente=document.getElementById('sim-kg-comprometidos-fuente');
+  if(fuente){
+    if(ajusteManual){
+      fuente.textContent='✎ ajustado a mano (auto sería '+kgComprometidosAuto.toLocaleString('es-AR')+' kg)';
+    } else if(oesEnProceso===0&&oesPendientes===0){
+      fuente.textContent='auto · sin OE pendientes';
+    } else {
+      fuente.innerHTML='auto · '
+        +(oesEnProceso>0?'<span style="color:#3b82f6;">'+oesEnProceso+' OE en proceso ('+kgEnProceso.toLocaleString('es-AR')+' kg)</span>':'')
+        +(oesEnProceso>0&&oesPendientes>0?' · ':'')
+        +(oesPendientes>0?'<span style="color:var(--amber);">'+oesPendientes+' OE pendientes ('+kgPendientes.toLocaleString('es-AR')+' kg)</span>':'');
+    }
+  }
   // Kg realmente libres para los Borradores = disponibles − comprometidos en producción en curso
   const kgLibres=Math.max(0,kgDisp-kgComprometidos);
 
@@ -14458,7 +14673,17 @@ function renderFmpPlan(kgComp,precio,fechaCompStr,totalCompra){
     activos.forEach(pl=>{
       const pasos=pl.pasos||[];
       const hechos=pasos.filter(s=>s.estado==='hecho').length;
-      const pct=pasos.length?Math.round(hechos/pasos.length*100):0;
+      const parciales=pasos.filter(s=>s.estado==='parcial').length;
+      // Para el porcentaje contamos los parciales por el % real cobrado de cada uno
+      // (más justo que "medio paso" fijo)
+      let avanceFloat=hechos;
+      pasos.filter(s=>s.estado==='parcial'&&Array.isArray(s.parciales)).forEach(s=>{
+        const monto=parseFloat(s.monto)||0;
+        if(monto<=0)return;
+        const cobr=s.parciales.reduce((sum,p)=>sum+(parseFloat(p.monto)||0),0);
+        avanceFloat+=Math.min(1,cobr/monto);
+      });
+      const pct=pasos.length?Math.round(avanceFloat/pasos.length*100):0;
       const dias=pl.fecha_compra?Math.ceil((new Date(pl.fecha_compra+'T00:00:00')-new Date())/(1000*60*60*24)):null;
       html+='<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);">'
         +'<div style="flex:1;min-width:0;">'
@@ -14470,7 +14695,7 @@ function renderFmpPlan(kgComp,precio,fechaCompStr,totalCompra){
           +'</div>'
         +'</div>'
         +'<div style="text-align:right;">'
-          +'<div style="font-size:11px;font-weight:700;color:'+(pct>=100?'var(--green)':'var(--accent)')+';">'+hechos+'/'+pasos.length+' pasos</div>'
+          +'<div style="font-size:11px;font-weight:700;color:'+(pct>=100?'var(--green)':'var(--accent)')+';">'+hechos+'/'+pasos.length+' pasos'+(parciales>0?' · '+parciales+'½':'')+'</div>'
           +'<div style="font-size:10px;color:var(--text3);">'+pct+'%</div>'
         +'</div>'
         +'<button class="btn btn-sm" style="font-size:11px;" onclick="abrirPlanCompra('+pl.id+')">Ver</button>'
@@ -14629,6 +14854,341 @@ function cerrarPlanCompra(){
   go('flujo-mp');
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// Chequeo de viabilidad de los pedidos del plan de compra
+// ────────────────────────────────────────────────────────────────────────────
+// La regla: para que un pedido del plan sea VIABLE hay que poder producirlo
+// con la MP/bobinas que YA TENEMOS, porque hay que entregarlo ANTES de la
+// fecha de compra del plan (para juntar la plata para esa compra).
+//
+// El chequeo es POR METROS, no por kg teóricos. Para cada pedido:
+//
+//   1) Recorrer sus OC asociadas. Para cada OC, calcular "metros disponibles":
+//        - Bobinas YA ASOCIADAS a esta OC (incluye las robadas a otras) → garantizadas
+//        - Bobinas en STOCK del mismo tipo sin asociar → disponibles para todos
+//        - METROS QUE FALTAN PRODUCIR a la OE asociada de esta OC (si existe)
+//          (sólo si la OE NO está completada — los metros faltantes)
+//
+//   2) Si metros disponibles ≥ metros necesarios → OC viable.
+//      Si la OE asociada tiene metros faltantes, esos metros REQUIEREN MP:
+//      chequeamos que la MP CRÍTICA (% más alto en la fórmula — recuperado)
+//      alcance para esos metros.
+//
+//   3) Vamos descontando del stock (bobinas y MP) al avanzar pedidos del plan,
+//      para detectar cuando varios pedidos compiten por el mismo stock.
+//
+// Devuelve un Map paso.id → { ok, motivo, ... } para cada paso de cobro.
+function _verificarMPPlan(pasos){
+  const resultado=new Map();
+
+  // ── Stock inicial ──
+  // Stock de MP por tipo (kg)
+  const stockMP={};
+  (C.inventarios_mp||[]).forEach(inv=>{
+    if(!inv.tipo_mp_id)return;
+    stockMP[inv.tipo_mp_id]=(stockMP[inv.tipo_mp_id]||0)+(parseFloat(inv.kg_disponibles)||0);
+  });
+  // ── Stock de bobinas: distinguimos "reservadas" por OC vs "libres intercambiables" ──
+  //
+  // Una bobina puede estar:
+  // a) Asociada a una OC (vía orden_corte_bobinas) → es DE esa OC
+  // b) Suelta pero su OE tiene una OC origen activa → reservada PARA esa OC
+  //    (las bobinas "naturalmente esperan" para la OC que pidió esa producción)
+  // c) Suelta sin OC origen activa → stock libre intercambiable
+  //
+  // El "robo de bobinas" es una decisión del usuario que toma una bobina del grupo (b)
+  // para asignarla a otra OC. Mientras no haya robo, las bobinas son del OC origen.
+  const idxBobinaAOC={};
+  (C.ord_corte||[]).forEach(oo=>{
+    (oo.orden_corte_bobinas||[]).forEach(x=>{
+      if(x.bobina_producida_id!=null)idxBobinaAOC[x.bobina_producida_id]=oo.id;
+    });
+  });
+  // Índice OE → OC origen (la OC que pidió esta OE)
+  // Incluye dos formas: oc.orden_extrusion_id (nuevo) y oe.orden_corte_origen_id (legacy)
+  const idxOEaOC={};
+  (C.ord_corte||[]).forEach(oc=>{
+    if(oc.estado==='Completada'||oc.estado==='Cancelada')return;
+    if(oc.orden_extrusion_id)idxOEaOC[oc.orden_extrusion_id]=oc.id;
+  });
+  (C.ordenes||[]).forEach(oe=>{
+    if(!oe.orden_corte_origen_id)return;
+    const oc=C.ord_corte.find(o=>o.id===oe.orden_corte_origen_id);
+    if(!oc||oc.estado==='Completada'||oc.estado==='Cancelada')return;
+    if(!idxOEaOC[oe.id])idxOEaOC[oe.id]=oc.id;
+  });
+  // Stock por OC reservante: bobinas que están sueltas pero le pertenecen "naturalmente" a una OC.
+  // Este objeto se MANTIENE INMUTABLE durante el chequeo — refleja la situación física.
+  const stockBobReservadasPorOC={};  // ocId → { tipoBobina: metros disponibles físicamente }
+  const stockBobMtsLibres={};        // tipoBobina → metros (intercambiable)
+  (C.bobinas_prod||[]).forEach(b=>{
+    if(b.estado_calidad==='rechazada')return;
+    if(idxBobinaAOC[b.id])return;        // asociada explícitamente: ya cuenta como mtsAsoc
+    if(b.en_stock===false)return;
+    const mts=parseFloat(b.metros_reales)||0;
+    if(mts<=0)return;
+    // ¿La OE que la produjo tiene OC origen activa?
+    const ocOrigenId=b.orden_id?idxOEaOC[b.orden_id]:null;
+    if(ocOrigenId){
+      // Reservada para esa OC
+      if(!stockBobReservadasPorOC[ocOrigenId])stockBobReservadasPorOC[ocOrigenId]={};
+      stockBobReservadasPorOC[ocOrigenId][b.bobina_tipo_id]=(stockBobReservadasPorOC[ocOrigenId][b.bobina_tipo_id]||0)+mts;
+    } else {
+      // Libre intercambiable
+      stockBobMtsLibres[b.bobina_tipo_id]=(stockBobMtsLibres[b.bobina_tipo_id]||0)+mts;
+    }
+  });
+  // Contador separado de consumo virtual: cuánto de cada OC reservante ya consumimos en el chequeo.
+  // Por defecto: cada OC consume sus propias reservadas si las necesita.
+  // Si una OC del plan "roba" reservadas de otra, aquí se anota.
+  const reservadasConsumidas={};  // ocOrigenId → { tipo: metros consumidos }
+  function _reservadasDisp(ocOrigenId,tipo){
+    const total=(stockBobReservadasPorOC[ocOrigenId]||{})[tipo]||0;
+    const consumido=(reservadasConsumidas[ocOrigenId]||{})[tipo]||0;
+    return Math.max(0,total-consumido);
+  }
+  function _consumirReservadas(ocOrigenId,tipo,mts){
+    if(!reservadasConsumidas[ocOrigenId])reservadasConsumidas[ocOrigenId]={};
+    reservadasConsumidas[ocOrigenId][tipo]=(reservadasConsumidas[ocOrigenId][tipo]||0)+mts;
+  }
+
+  // ── Iterar pasos en orden, descontando lo que cada pedido consume ──
+  const pasosOrdenados=pasos.slice().sort((a,b)=>(a.orden||0)-(b.orden||0));
+  pasosOrdenados.forEach(s=>{
+    if(s.tipo!=='cobro'||!s.ref_pedido)return;
+    const ped=C.pedidos.find(p=>p.id===s.ref_pedido);
+    if(!ped){resultado.set(s.id,{ok:true,sinDatos:true});return;}
+
+    // OC asociadas a este pedido a través de pedido_ordenes_corte
+    const ocIds=new Set();
+    (ped.pedido_ordenes_corte||[]).forEach(poc=>{if(poc.orden_corte_id)ocIds.add(poc.orden_corte_id);});
+    if(ocIds.size===0){resultado.set(s.id,{ok:true,sinDatos:true});return;}
+
+    let faltaBobinasMts=0,faltaMpKg=0,tipoMpCritica=null,nomMpCritica='';
+    const detalleOCs=[];  // desglose por OC para mostrar al usuario
+
+    ocIds.forEach(ocId=>{
+      const oc=C.ord_corte.find(o=>o.id===ocId);
+      if(!oc)return;
+      if(oc.estado==='Completada'||oc.estado==='Cancelada')return;
+      const prod=C.productos.find(p=>p.id===oc.producto_id);
+      const bobTipo=prod?.bobina_id;
+      if(!bobTipo)return;
+      const mtsNec=parseFloat(oc.metros_necesarios)||0;
+      if(mtsNec<=0)return;
+
+      // (a) Metros ya asociados a esta OC (garantizados, incluyen robadas a otras)
+      let mtsAsoc=0;
+      (oc.orden_corte_bobinas||[]).forEach(ocb=>{
+        const b=C.bobinas_prod.find(bp=>bp.id===ocb.bobina_producida_id);
+        if(b&&b.estado_calidad!=='rechazada')mtsAsoc+=parseFloat(b.metros_reales)||0;
+      });
+
+      // (b1) Bobinas RESERVADAS para esta OC (sueltas en stock pero su OE tiene esta OC como origen)
+      const reservadasParaEstaOC=_reservadasDisp(oc.id,bobTipo);
+
+      // (b2) Stock LIBRE intercambiable del mismo tipo (no reservado para nadie)
+      const mtsLibreStock=stockBobMtsLibres[bobTipo]||0;
+
+      // (c) Metros que faltan producir a la OE asociada (si existe y no terminó)
+      let mtsOePendientes=0;
+      const oe=oc.orden_extrusion_id?C.ordenes.find(o=>o.id===oc.orden_extrusion_id):null;
+      if(oe&&oe.estado!=='Completada'&&oe.estado!=='Cancelada'){
+        const mtsObjetivo=parseFloat(oe.metros)||0;
+        let mtsYaProd=0;
+        C.bobinas_prod.filter(bp=>bp.orden_id===oe.id).forEach(bp=>{
+          mtsYaProd+=parseFloat(bp.metros_reales)||0;
+        });
+        mtsOePendientes=Math.max(0,mtsObjetivo-mtsYaProd);
+      }
+
+      // Metros disponibles PROPIOS: asociadas + reservadas para esta OC + OE pendiente
+      const mtsDispPropios=mtsAsoc+reservadasParaEstaOC+mtsOePendientes;
+      const faltaSinLibre=Math.max(0,mtsNec-mtsDispPropios);
+      // Si falta, intentamos cubrir con stock libre intercambiable
+      const usadoDelStockLibre=Math.min(mtsLibreStock,faltaSinLibre);
+      const mtsDisp=mtsDispPropios+usadoDelStockLibre;
+      const mtsQueFaltanOC=Math.max(0,mtsNec-mtsDisp);
+      if(mtsQueFaltanOC>0){
+        faltaBobinasMts+=mtsQueFaltanOC;
+      }
+
+      // Descontar lo que esta OC consumió de SUS PROPIAS reservadas
+      const usadoDeReservadas=Math.min(reservadasParaEstaOC,Math.max(0,mtsNec-mtsAsoc));
+      if(usadoDeReservadas>0)_consumirReservadas(oc.id,bobTipo,usadoDeReservadas);
+      stockBobMtsLibres[bobTipo]=mtsLibreStock-usadoDelStockLibre;
+
+      // Para los metros que vienen de la OE pendiente, hay que chequear MP
+      const mtsAExtruir=Math.min(mtsOePendientes,Math.max(0,mtsNec-mtsAsoc-reservadasParaEstaOC-usadoDelStockLibre));
+      let mpDetalle=null;  // info de MP para esta OC, para el desglose
+      if(mtsAExtruir>0&&oe){
+        const bob=C.bobinas.find(b=>b.id===bobTipo);
+        if(bob){
+          const kgPorMetro=bob.kg_por_metro||(bob.gramaje?bob.gramaje/1000:0);
+          const kgExtruir=mtsAExtruir*kgPorMetro;
+          // MP crítica de la fórmula (mayor %)
+          const formula=C.formulas.filter(f=>f.bobina_id===bobTipo);
+          if(formula.length){
+            const crit=formula.slice().sort((a,b)=>(parseFloat(b.porcentaje)||0)-(parseFloat(a.porcentaje)||0))[0];
+            const tipoCrit=crit.tipo_mp_id;
+            const nomCrit=C.tipos_mp.find(t=>t.id===tipoCrit)?.nombre||'MP crítica';
+            const kgCriticaNec=kgExtruir*(parseFloat(crit.porcentaje)||0)/100;
+            const kgCriticaDisp=stockMP[tipoCrit]||0;
+            if(kgCriticaNec<=kgCriticaDisp){
+              stockMP[tipoCrit]=kgCriticaDisp-kgCriticaNec;
+              mpDetalle={nec:kgCriticaNec,disp:kgCriticaDisp,falta:0,tipo:nomCrit};
+            } else {
+              const falta=kgCriticaNec-kgCriticaDisp;
+              stockMP[tipoCrit]=0;
+              faltaMpKg+=falta;
+              tipoMpCritica=tipoCrit;nomMpCritica=nomCrit;
+              mpDetalle={nec:kgCriticaNec,disp:kgCriticaDisp,falta,tipo:nomCrit};
+            }
+          }
+        }
+      }
+
+      // Cartel "podés robar bobinas" — se muestra cuando:
+      //   - faltan metros físicos para esta OC, O
+      //   - no faltan metros pero falta MP para extruir (robar evita extruir, pero hay que reponer)
+      // Solo se muestra si hay bobinas del mismo tipo reservadas para OTRAS OC.
+      // ORDEN: las OCs que NO están en el plan se muestran PRIMERO (más seguras de robar);
+      // las OCs que están en el plan se muestran al final (última opción — vos te comprometiste a entregarlas).
+      let robarDe=[];
+      const necesitaRobar=mtsQueFaltanOC>0||(mpDetalle&&mpDetalle.falta>0);
+      if(necesitaRobar){
+        // Pre-armar set de OCs del plan para clasificación rápida
+        const ocsDelPlan=new Set();
+        pasosOrdenados.forEach(sp=>{
+          if(sp.tipo!=='cobro'||!sp.ref_pedido)return;
+          const pedSp=C.pedidos.find(p=>p.id===sp.ref_pedido);
+          if(!pedSp)return;
+          (pedSp.pedido_ordenes_corte||[]).forEach(poc=>{if(poc.orden_corte_id)ocsDelPlan.add(poc.orden_corte_id);});
+        });
+        Object.keys(stockBobReservadasPorOC).forEach(otraOcId=>{
+          const otraOcIdNum=parseInt(otraOcId);
+          if(otraOcIdNum===oc.id)return;
+          // Mostramos lo FÍSICAMENTE disponible — no descontado por el chequeo virtual
+          // (porque "robar" es una decisión real que el usuario toma fuera del plan)
+          const mtsFisicas=(stockBobReservadasPorOC[otraOcId]||{})[bobTipo]||0;
+          if(mtsFisicas<=0)return;
+          const otraOc=C.ord_corte.find(o=>o.id===otraOcIdNum);
+          if(!otraOc)return;
+          // Cliente de la OC original
+          const pedOtra=C.pedidos.find(p=>p.pedido_ordenes_corte?.some(poc=>poc.orden_corte_id===otraOc.id));
+          robarDe.push({
+            ocNumero:otraOc.numero_orden||('#'+otraOc.id),
+            cliente:pedOtra?.cliente||'(sin cliente)',
+            metros:mtsFisicas,
+            enPlan:ocsDelPlan.has(otraOcIdNum)
+          });
+        });
+        // Ordenar: NO en plan primero (más seguras), luego las del plan
+        robarDe.sort((a,b)=>{
+          if(a.enPlan!==b.enPlan)return a.enPlan?1:-1;
+          return b.metros-a.metros;  // dentro de cada grupo, más metros primero
+        });
+      }
+
+      // Guardar el desglose de esta OC en el detalle
+      const nomBobina=C.bobinas.find(b=>b.id===bobTipo)?.nombre||'(sin nombre)';
+      const nomProd=prod?((prod.codigo?prod.codigo+' · ':'')+(prod.descripcion||prod.nombre||'(sin producto)')):'(sin producto)';
+      detalleOCs.push({
+        ocNumero:oc.numero_orden||('#'+oc.id),
+        ocEstado:oc.estado,
+        producto:nomProd,
+        bobina:nomBobina,
+        mtsNec,mtsAsoc,
+        mtsReservadas:reservadasParaEstaOC,
+        mtsStockLibre:usadoDelStockLibre,
+        mtsOePendientes:Math.min(mtsOePendientes,Math.max(0,mtsNec-mtsAsoc-reservadasParaEstaOC-usadoDelStockLibre)),
+        mtsDisp,
+        mtsFaltan:mtsQueFaltanOC,
+        oeNumero:oe?.numero_orden||null,
+        oeEstado:oe?.estado||null,
+        mpDetalle,
+        robarDe   // bobinas del mismo tipo reservadas para otras OC (podrías robarlas)
+      });
+    });
+
+    // Diagnóstico
+    if(faltaBobinasMts<=0.5&&faltaMpKg<=0.5){
+      resultado.set(s.id,{ok:true,detalleOCs});
+    } else {
+      resultado.set(s.id,{
+        ok:false,
+        faltaBobinasMts:Math.round(faltaBobinasMts),
+        faltaMpKg:Math.round(faltaMpKg),
+        nomMpCritica,
+        detalleOCs
+      });
+    }
+  });
+  return resultado;
+}
+
+// Para un pedido dado, devuelve el plan activo al que pertenece (si hay alguno)
+// más info: si el plan lo marcó como "apurar" o no.
+// Si pertenece a varios planes activos, devuelve el más reciente.
+function _planDePedido(pedidoId){
+  if(!pedidoId)return null;
+  const planes=(C.planes_compra||[]).filter(p=>p.estado==='activo');
+  if(!planes.length)return null;
+  // Ordenar por fecha de creación descendente (más reciente primero)
+  const ordenados=planes.slice().sort((a,b)=>{
+    const fa=a.created_at||a.fecha_compra||'';
+    const fb=b.created_at||b.fecha_compra||'';
+    return fb.localeCompare(fa);
+  });
+  for(const pl of ordenados){
+    const paso=(pl.pasos||[]).find(s=>s.tipo==='cobro'&&s.ref_pedido===pedidoId);
+    if(paso)return {plan:pl,apurar:!!paso.apurar};
+  }
+  return null;
+}
+
+// Para una OC, busca a qué pedido pertenece y devuelve el plan de ese pedido (si tiene)
+function _planDeOC(oc){
+  if(!oc)return null;
+  // Pedido activo asociado a la OC
+  const ped=C.pedidos.find(p=>p.estado!=='Cancelado'&&p.estado!=='Anulado'
+    &&p.pedido_ordenes_corte?.some(poc=>poc.orden_corte_id===oc.id));
+  if(!ped)return null;
+  return _planDePedido(ped.id);
+}
+
+// Para una OE, busca la OC que apunta a ella (orden_extrusion_id) y devuelve el plan de esa OC
+function _planDeOE(oe){
+  if(!oe)return null;
+  const oc=C.ord_corte.find(o=>o.orden_extrusion_id===oe.id);
+  if(!oc)return _planDeOELegacy(oe);
+  return _planDeOC(oc);
+}
+
+// Caso legacy: la OE referencia a la OC por orden_corte_origen_id (en vez de al revés)
+function _planDeOELegacy(oe){
+  if(!oe||!oe.orden_corte_origen_id)return null;
+  const oc=C.ord_corte.find(o=>o.id===oe.orden_corte_origen_id);
+  if(!oc)return null;
+  return _planDeOC(oc);
+}
+
+// Genera el HTML del chip de plan (azul normal o naranja "APURAR")
+// onClickHandler es opcional — si no se pasa, abre el plan al hacer clic
+function _chipPlan(info){
+  if(!info)return '';
+  const nom=info.plan.nombre||'Plan #'+info.plan.id;
+  const planId=info.plan.id;
+  if(info.apurar){
+    return '<span onclick="event.stopPropagation();abrirPlanCompra('+planId+')" '
+      +'style="display:inline-block;background:rgba(245,158,11,.18);color:var(--amber);border:1px solid var(--amber);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-left:4px;cursor:pointer;white-space:nowrap;" '
+      +'title="APURAR · Plan: '+nom+' — clic para abrir el plan">⚡ APURAR · '+nom+'</span>';
+  }
+  return '<span onclick="event.stopPropagation();abrirPlanCompra('+planId+')" '
+    +'style="display:inline-block;background:rgba(99,179,237,.15);color:var(--accent);border:1px solid var(--accentbd);font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-left:4px;cursor:pointer;white-space:nowrap;" '
+    +'title="Plan: '+nom+' — clic para abrir el plan">🎯 '+nom+'</span>';
+}
+
 function renderDetallePlan(){
   const cont=document.getElementById('plan-detalle-body');
   if(!cont)return;
@@ -14636,12 +15196,22 @@ function renderDetallePlan(){
   if(!pl){cont.innerHTML='<div class="empty">Plan no encontrado</div>';return;}
   const pasos=pl.pasos||[];
 
+  // Chequeo de viabilidad de MP: para cada paso de cobro asociado a un pedido,
+  // verificar si la MP crítica está disponible para producirlo (hay que entregarlo
+  // ANTES de la fecha de compra del plan, para juntar la plata).
+  const mpCheck=_verificarMPPlan(pasos);
+  const pasosNoViables=Array.from(mpCheck.values()).filter(v=>v&&!v.ok&&!v.sinDatos);
+
   // Totales: ingresos (cobros + caja) hechos y pendientes vs la compra
+  // Para "hecho" sumamos todo el monto; para "parcial" sumamos solo lo realmente cobrado.
   let ingresoTotal=0,ingresoHecho=0;
   pasos.forEach(s=>{
     if(s.tipo==='compra')return;
     ingresoTotal+=s.monto||0;
     if(s.estado==='hecho')ingresoHecho+=s.monto||0;
+    else if(s.estado==='parcial'&&Array.isArray(s.parciales)){
+      ingresoHecho+=s.parciales.reduce((sum,p)=>sum+(parseFloat(p.monto)||0),0);
+    }
   });
   const compra=pl.total_compra||0;
   const dif=ingresoTotal-compra;
@@ -14663,6 +15233,26 @@ function renderDetallePlan(){
   +'</div>';
 
   // Lista de pasos
+  // Cartel general de viabilidad
+  if(pasosNoViables.length>0){
+    // Resumen del problema más común
+    const totalFaltanMts=pasosNoViables.reduce((s,v)=>s+(v.faltaBobinasMts||0),0);
+    const totalFaltanMp=pasosNoViables.reduce((s,v)=>s+(v.faltaMpKg||0),0);
+    const mpQueFalta=pasosNoViables.find(v=>v.nomMpCritica)?.nomMpCritica||'MP';
+    html+='<div style="background:rgba(239,68,68,.12);border:1.5px solid var(--red);border-radius:var(--rl);padding:10px 12px;margin-bottom:14px;">'
+      +'<div style="font-size:12px;font-weight:800;color:#ffd0d0;margin-bottom:3px;">⚠ '+pasosNoViables.length+' pedido(s) del plan no son producibles con lo que tenés</div>'
+      +'<div style="font-size:11px;color:#ffd0d0;line-height:1.5;">'
+        +(totalFaltanMts>0?'Faltan <strong>'+totalFaltanMts.toLocaleString('es-AR')+' m</strong> de bobinas (no hay stock ni OE que las produzca). ':'')
+        +(totalFaltanMp>0?'Para producir lo que falta, se necesitarían <strong>'+totalFaltanMp.toLocaleString('es-AR')+' kg</strong> más de <strong>'+mpQueFalta+'</strong>. ':'')
+        +'Estos pedidos no se podrían entregar antes de la compra, lo que rompe la lógica del plan (cobrarlos para financiar la compra).'
+      +'</div>'
+    +'</div>';
+  } else if(pasos.some(s=>s.tipo==='cobro'&&s.ref_pedido)){
+    html+='<div style="background:rgba(34,197,94,.08);border:1px solid var(--green);border-radius:var(--rl);padding:8px 12px;margin-bottom:14px;">'
+      +'<div style="font-size:11px;font-weight:700;color:var(--green);">✓ Todos los cobros del plan son producibles con lo que tenés</div>'
+    +'</div>';
+  }
+
   html+='<div style="font-size:13px;font-weight:800;color:var(--accent);margin-bottom:8px;">📋 Pasos del plan</div>';
   html+='<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">';
   if(!pasos.length){
@@ -14670,19 +15260,55 @@ function renderDetallePlan(){
   }
   pasos.slice().sort((a,b)=>(a.orden||0)-(b.orden||0)).forEach(s=>{
     const esCompra=s.tipo==='compra';
-    const colEstado=s.estado==='hecho'?'var(--green)':s.estado==='fallo'?'var(--red)':'var(--text3)';
     const iconoTipo=esCompra?'🛒':s.tipo==='cobro'?'💰':s.tipo==='caja'?'➕':'•';
-    const bordeApurar=s.apurar?'var(--amber)':(s.estado==='hecho'?'var(--green)':s.estado==='fallo'?'var(--redbd)':'var(--border)');
-    html+='<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:'+(s.apurar?'rgba(245,158,11,.06)':'var(--bg2)')+';border:1px solid '+bordeApurar+';border-radius:var(--r);">'
+    // Cobrado parcial: suma de los pagos cargados a este paso
+    const parciales=Array.isArray(s.parciales)?s.parciales:[];
+    const cobradoParcial=parciales.reduce((sum,p)=>sum+(parseFloat(p.monto)||0),0);
+    const monto=parseFloat(s.monto)||0;
+    const pctParcial=monto>0?Math.min(100,Math.round(cobradoParcial/monto*100)):0;
+    // Borde y fondo según estado (con apurar como override visual)
+    const bordeApurar=s.apurar?'var(--amber)':
+      (s.estado==='hecho'?'var(--green)':
+       s.estado==='fallo'?'var(--redbd)':
+       s.estado==='parcial'?'#3b82f6':'var(--border)');
+    const fondoApurar=s.apurar?'rgba(245,158,11,.06)':
+      (s.estado==='parcial'?'rgba(59,130,246,.08)':'var(--bg2)');
+    html+='<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:'+fondoApurar+';border:1px solid '+bordeApurar+';border-radius:var(--r);">'
       +'<span style="font-size:14px;">'+iconoTipo+'</span>'
       +'<div style="flex:1;min-width:0;">'
-        +'<div style="font-size:12px;font-weight:600;color:var(--text1);">'+s.texto+(s.ajustado?' <span style="color:var(--accent);font-size:10px;">✎ ajustado</span>':'')+'</div>'
+        +'<div style="font-size:12px;font-weight:600;color:var(--text1);">'+s.texto+(s.ajustado?' <span style="color:var(--accent);font-size:10px;">✎ ajustado</span>':'')+(()=>{
+          const mp=mpCheck.get(s.id);
+          if(!mp||mp.sinDatos)return '';
+          if(mp.ok)return ' <span style="color:var(--green);font-size:10px;font-weight:700;" title="Producible con lo que hay">✓ producible</span>';
+          let partes=[];
+          if(mp.faltaBobinasMts>0)partes.push(mp.faltaBobinasMts.toLocaleString('es-AR')+' m');
+          if(mp.faltaMpKg>0)partes.push(mp.faltaMpKg.toLocaleString('es-AR')+' kg '+(mp.nomMpCritica||'MP'));
+          const tit='No producible · faltan '+partes.join(' y ');
+          const chipFalta=' <span style="color:#ffd0d0;background:rgba(239,68,68,.22);padding:1px 5px;border-radius:4px;font-size:10px;font-weight:700;" title="'+tit+'">⚠ falta '+partes.join(' / ')+'</span>';
+          const btnDetalle=' <button onclick="verPorQueFalta(\''+s.id+'\')" style="font-size:10px;padding:1px 6px;border-radius:4px;border:1px solid var(--accentbd);background:transparent;color:var(--accent);cursor:pointer;margin-left:3px;font-weight:600;" title="Ver el desglose del faltante">¿Por qué falta?</button>';
+          return chipFalta+btnDetalle;
+        })()+'</div>'
         +(s.fecha?'<div style="font-size:10px;color:var(--text3);">fecha: '+s.fecha+(s.origen?' · '+s.origen:'')+'</div>':'')
+        // Línea de parcial: cobrado / total + barra
+        +(s.estado==='parcial'||cobradoParcial>0
+          ?'<div style="margin-top:4px;font-size:10px;font-weight:600;color:#3b82f6;line-height:1.4;">'
+            +'🟦 Cobrado parcial: $'+r2(cobradoParcial).toLocaleString('es-AR')+' / $'+r2(monto).toLocaleString('es-AR')+' ('+pctParcial+'%)'
+            +' · falta $'+r2(Math.max(0,monto-cobradoParcial)).toLocaleString('es-AR')
+            +'<div style="background:var(--bg3);height:4px;border-radius:99px;overflow:hidden;margin-top:3px;">'
+              +'<div style="background:#3b82f6;height:100%;width:'+pctParcial+'%;"></div>'
+            +'</div>'
+          +'</div>'
+          :'')
       +'</div>'
-      +(!esCompra?'<span style="font-weight:800;font-size:12px;color:var(--accent);">$'+r2(s.monto||0).toLocaleString('es-AR')+'</span>':'<span style="font-weight:800;font-size:12px;color:#3b82f6;">$'+r2(s.monto||0).toLocaleString('es-AR')+'</span>')
-      // Botones de estado
+      +(!esCompra?'<span style="font-weight:800;font-size:12px;color:var(--accent);">$'+r2(monto).toLocaleString('es-AR')+'</span>':'<span style="font-weight:800;font-size:12px;color:#3b82f6;">$'+r2(monto).toLocaleString('es-AR')+'</span>')
+      // Botones de estado: pendiente / parcial / hecho / falló
       +'<div style="display:flex;gap:3px;">'
-        +'<button onclick="setPasoEstado(\''+s.id+'\',\'pendiente\')" title="Pendiente" style="width:24px;height:24px;border-radius:4px;border:1px solid var(--border);background:'+(s.estado==='pendiente'?'var(--text3)':'transparent')+';color:'+(s.estado==='pendiente'?'#fff':'var(--text3)')+';cursor:pointer;font-size:11px;">○</button>'
+        +'<button onclick="setPasoEstado(\''+s.id+'\',\'pendiente\')" title="Pendiente" style="width:24px;height:24px;border-radius:4px;border:1px solid var(--border);background:'+(s.estado==='pendiente'?'var(--text3)':'transparent')+';color:'+(s.estado==='pendiente'?'#fff':'var(--text3)')+';cursor:pointer;font-size:11px;">○</button>';
+    // Botón "parcial" solo para cobros y caja (no para la compra)
+    if(s.tipo==='cobro'||s.tipo==='caja'){
+      html+='<button onclick="cargarParcialPaso(\''+s.id+'\')" title="Marcar parcial — cargar cuánto cobré" style="width:24px;height:24px;border-radius:4px;border:1px solid #3b82f6;background:'+(s.estado==='parcial'?'#3b82f6':'transparent')+';color:'+(s.estado==='parcial'?'#fff':'#3b82f6')+';cursor:pointer;font-size:11px;font-weight:700;">½</button>';
+    }
+    html+=''
         +'<button onclick="setPasoEstado(\''+s.id+'\',\'hecho\')" title="Hecho" style="width:24px;height:24px;border-radius:4px;border:1px solid var(--green);background:'+(s.estado==='hecho'?'var(--green)':'transparent')+';color:'+(s.estado==='hecho'?'#fff':'var(--green)')+';cursor:pointer;font-size:11px;">✓</button>'
         +'<button onclick="setPasoEstado(\''+s.id+'\',\'fallo\')" title="Falló" style="width:24px;height:24px;border-radius:4px;border:1px solid var(--red);background:'+(s.estado==='fallo'?'var(--red)':'transparent')+';color:'+(s.estado==='fallo'?'#fff':'var(--red)')+';cursor:pointer;font-size:11px;">✕</button>'
       +'</div>';
@@ -14690,8 +15316,8 @@ function renderDetallePlan(){
     if(s.tipo==='cobro'||s.tipo==='caja'){
       html+='<button onclick="editarPasoPlan(\''+s.id+'\')" title="Ajustar monto/fecha" style="width:24px;height:24px;border-radius:4px;border:1px solid var(--accentbd);background:transparent;color:var(--accent);cursor:pointer;font-size:11px;">✎</button>';
     }
-    // Borrar: pasos manuales o pasos "a apurar" que no querés en el plan
-    if(s.manual||s.apurar){
+    // Borrar: cualquier paso de cobro o caja (no la compra)
+    if(s.tipo==='cobro'||s.tipo==='caja'){
       html+='<button onclick="borrarPasoPlan(\''+s.id+'\')" title="Quitar del plan" style="width:24px;height:24px;border-radius:4px;border:1px solid var(--redbd);background:transparent;color:var(--red);cursor:pointer;font-size:11px;">🗑</button>';
     }
     html+='</div>';
@@ -14703,6 +15329,7 @@ function renderDetallePlan(){
     html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">'
       +'<button class="btn btn-sm" style="background:var(--green);color:#fff;border:none;" onclick="agregarCajaPlan()">➕ Agregar ingreso (+caja)</button>'
       +'<button class="btn btn-sm" onclick="agregarFacturasPendientesPlan()">📄 Sumar facturas pendientes</button>'
+      +'<button class="btn btn-sm" onclick="agregarPedidoAlPlan()">📋 Sumar pedido</button>'
     +'</div>';
   }
 
@@ -14811,6 +15438,123 @@ async function cerrarPlanCon(estado){
   }
 }
 
+// Muestra el desglose detallado de un paso de cobro no producible:
+// qué OC tiene problemas, qué metros faltan, qué MP, etc.
+function verPorQueFalta(pasoId){
+  const pl=(C.planes_compra||[]).find(p=>p.id===_planAbiertoId);
+  if(!pl)return;
+  const pasos=pl.pasos||[];
+  const s=pasos.find(x=>x.id===pasoId);
+  if(!s)return;
+  const ped=C.pedidos.find(p=>p.id===s.ref_pedido);
+  if(!ped){toast('No encontré el pedido','red');return;}
+  // Recalcular el detalle (puede haber cambiado desde el último render)
+  const mpCheck=_verificarMPPlan(pasos);
+  const mp=mpCheck.get(pasoId);
+  if(!mp){toast('No hay datos','red');return;}
+
+  const cont=document.getElementById('porque-falta-body');
+  if(!cont)return;
+
+  let html='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">'
+    +'<div style="flex:1;">'
+      +'<div style="font-size:16px;font-weight:800;">¿Por qué falta este pedido?</div>'
+      +'<div style="font-size:11px;color:var(--text3);">'+(ped.numero_pedido||'')+' — '+(ped.cliente||'(sin cliente)')+'</div>'
+    +'</div>'
+    +'<button class="btn btn-sm" onclick="cerrarPorqueFalta()">✕</button>'
+  +'</div>';
+
+  // Resumen general del faltante
+  let partes=[];
+  if(mp.faltaBobinasMts>0)partes.push('<strong>'+mp.faltaBobinasMts.toLocaleString('es-AR')+' m</strong> de bobinas');
+  if(mp.faltaMpKg>0)partes.push('<strong>'+mp.faltaMpKg.toLocaleString('es-AR')+' kg</strong> de '+(mp.nomMpCritica||'MP crítica'));
+  if(partes.length){
+    html+='<div style="background:rgba(239,68,68,.10);border:1px solid var(--red);border-radius:var(--r);padding:10px 12px;margin-bottom:14px;color:#ffd0d0;font-size:12px;line-height:1.5;">'
+      +'⚠ Faltan '+partes.join(' y ')+'<br>'
+      +'<span style="font-size:10px;opacity:.85;">Para producir el pedido entero antes de la fecha de compra del plan.</span>'
+    +'</div>';
+  }
+
+  // Desglose por OC
+  const ocs=mp.detalleOCs||[];
+  if(!ocs.length){
+    html+='<div style="font-size:11px;color:var(--text3);font-style:italic;">No hay OC asociadas al pedido para analizar.</div>';
+  } else {
+    html+='<div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px;">📦 Detalle por orden de corte</div>';
+    html+='<div style="display:flex;flex-direction:column;gap:6px;">';
+    ocs.forEach(d=>{
+      const cierre=d.mtsFaltan>0;
+      const borde=cierre?'var(--red)':'var(--green)';
+      const fondo=cierre?'rgba(239,68,68,.06)':'rgba(34,197,94,.06)';
+      const mtsFaltanStr=r1(d.mtsFaltan).toLocaleString('es-AR');
+      const mtsNecStr=r1(d.mtsNec).toLocaleString('es-AR');
+      const mtsDispStr=r1(d.mtsDisp).toLocaleString('es-AR');
+      const mtsAsocStr=r1(d.mtsAsoc).toLocaleString('es-AR');
+      const mtsReservStr=r1(d.mtsReservadas||0).toLocaleString('es-AR');
+      const mtsStockStr=r1(d.mtsStockLibre).toLocaleString('es-AR');
+      const mtsOeStr=r1(d.mtsOePendientes).toLocaleString('es-AR');
+      html+='<div style="background:'+fondo+';border:1px solid '+borde+';border-radius:var(--r);padding:8px 10px;font-size:11px;line-height:1.55;">'
+        +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">'
+          +'<span style="font-weight:700;color:var(--text1);">'+d.ocNumero+' · '+d.ocEstado+'</span>'
+          +(cierre?'<span style="color:var(--red);font-weight:700;">⚠ falta '+mtsFaltanStr+' m</span>':'<span style="color:var(--green);font-weight:700;">✓ producible</span>')
+        +'</div>'
+        +'<div style="color:var(--text2);">Producto: <strong>'+d.producto+'</strong></div>'
+        +'<div style="color:var(--text2);">Bobina: '+d.bobina+'</div>'
+        +'<div style="color:var(--text3);margin-top:4px;font-size:10px;">'
+          +'Necesita: <strong style="color:var(--text1);">'+mtsNecStr+' m</strong>'
+          +' · disponible: <strong style="color:var(--text1);">'+mtsDispStr+' m</strong>'
+        +'</div>'
+        +'<div style="color:var(--text3);font-size:10px;">'
+          +'(<span title="Bobinas ya asociadas a esta OC">asociadas: '+mtsAsocStr+'m</span>'
+          +(d.mtsReservadas>0?' · <span title="Bobinas sueltas pero producidas por la OE de esta OC — son suyas por defecto" style="color:var(--accent);">reservadas: '+mtsReservStr+'m</span>':'')
+          +' · <span title="De stock libre del mismo tipo, sin OC origen">stock libre: '+mtsStockStr+'m</span>'
+          +' · <span title="A producir por la OE">OE pendiente: '+mtsOeStr+'m</span>)'
+        +'</div>'
+        +(d.oeNumero?'<div style="color:var(--text3);font-size:10px;">OE asociada: <strong>'+d.oeNumero+'</strong> · '+d.oeEstado+'</div>':'<div style="color:var(--amber);font-size:10px;">⚠ Sin OE asociada</div>')
+        +(d.mpDetalle&&d.mpDetalle.falta>0
+          ?'<div style="color:var(--red);font-size:10px;margin-top:3px;">⚠ Para extruir: necesita '+r1(d.mpDetalle.nec).toLocaleString('es-AR')+' kg de '+d.mpDetalle.tipo+' · disponible: '+r1(d.mpDetalle.disp).toLocaleString('es-AR')+' kg · faltan: <strong>'+r1(d.mpDetalle.falta).toLocaleString('es-AR')+' kg</strong></div>'
+          :(d.mpDetalle?'<div style="color:var(--green);font-size:10px;margin-top:3px;">✓ MP para extruir OK ('+r1(d.mpDetalle.nec).toLocaleString('es-AR')+' kg de '+d.mpDetalle.tipo+')</div>':''))
+        // Advertencia de "podés robar bobinas de otras OC"
+        // Aparece tanto cuando faltan metros físicos como cuando falta MP (robar evitaría extruir)
+        +(Array.isArray(d.robarDe)&&d.robarDe.length>0
+          ?'<div style="background:rgba(245,158,11,.10);border:1px solid var(--amber);border-radius:4px;padding:6px 8px;margin-top:6px;font-size:10px;color:#ffe2b3;line-height:1.55;">'
+            +'💡 <strong>Podrías robar bobinas</strong> del mismo tipo de otra OC:'
+            +'<ul style="margin:3px 0 0 16px;padding:0;">'
+            +d.robarDe.map(r=>{
+              const mtsStr=r1(r.metros).toLocaleString('es-AR');
+              if(r.enPlan){
+                return '<li style="color:#ff9b9b;"><strong>'+r.ocNumero+'</strong> — '+r.cliente+' ('+mtsStr+' m) <span style="font-size:9px;background:rgba(239,68,68,.18);padding:1px 4px;border-radius:3px;font-weight:700;">⚠ EN EL PLAN — última opción</span></li>';
+              }
+              return '<li>'+r.ocNumero+' — '+r.cliente+' ('+mtsStr+' m)</li>';
+            }).join('')
+            +'</ul>'
+            +'<div style="font-size:9px;color:var(--text2);margin-top:6px;background:rgba(245,158,11,.12);padding:5px 7px;border-radius:3px;line-height:1.5;">'
+              +'<strong>⚠ Importante:</strong> Robar bobinas <u>no es un ahorro real</u> — solo desplaza el problema. '
+              +'La OC original las va a necesitar igual, y van a tener que reponerse con una nueva extrusión más adelante.'
+            +'</div>'
+            +'<div style="font-size:9px;color:var(--text3);margin-top:4px;">Si decidís robarlas, hacelo desde el detalle de esta OC con el botón "bobinas disponibles".</div>'
+          +'</div>'
+          :'')
+      +'</div>';
+    });
+    html+='</div>';
+  }
+
+  // Botón para ir al detalle completo del pedido
+  html+='<div style="margin-top:14px;display:flex;justify-content:flex-end;">'
+    +'<button class="btn btn-sm" onclick="cerrarPorqueFalta();verDetallePedido('+ped.id+')" style="background:var(--accent);color:#fff;border:none;font-weight:700;">📋 Ir al detalle del pedido →</button>'
+  +'</div>';
+
+  cont.innerHTML=html;
+  const ov=document.getElementById('porque-falta-overlay');
+  if(ov)ov.style.display='flex';
+}
+
+function cerrarPorqueFalta(){
+  const ov=document.getElementById('porque-falta-overlay');
+  if(ov)ov.style.display='none';
+}
+
 // Reabre un plan cerrado (vuelve a activo)
 async function reabrirPlan(){
   const pl=(C.planes_compra||[]).find(p=>p.id===_planAbiertoId);
@@ -14832,7 +15576,14 @@ function imprimirPlanCompra(){
   const pasos=(pl.pasos||[]).slice().sort((a,b)=>(a.orden||0)-(b.orden||0));
   // Totales
   let ingresoTotal=0,ingresoHecho=0;
-  pasos.forEach(s=>{if(s.tipo!=='compra'){ingresoTotal+=s.monto||0;if(s.estado==='hecho')ingresoHecho+=s.monto||0;}});
+  pasos.forEach(s=>{
+    if(s.tipo==='compra')return;
+    ingresoTotal+=s.monto||0;
+    if(s.estado==='hecho')ingresoHecho+=s.monto||0;
+    else if(s.estado==='parcial'&&Array.isArray(s.parciales)){
+      ingresoHecho+=s.parciales.reduce((sum,p)=>sum+(parseFloat(p.monto)||0),0);
+    }
+  });
   const compra=pl.total_compra||0;
   const dif=ingresoTotal-compra;
   const alcanza=dif>=0;
@@ -14841,7 +15592,11 @@ function imprimirPlanCompra(){
 
   const filas=pasos.map(s=>{
     const tipo=s.tipo==='compra'?'Compra':s.tipo==='caja'?'Caja':'Cobro';
-    const est=s.estado==='hecho'?'✓ Hecho':s.estado==='fallo'?'✕ Falló':'○ Pendiente';
+    const cobradoP=Array.isArray(s.parciales)?s.parciales.reduce((sum,p)=>sum+(parseFloat(p.monto)||0),0):0;
+    const est=s.estado==='hecho'?'✓ Hecho'
+      :s.estado==='fallo'?'✕ Falló'
+      :s.estado==='parcial'?'½ Parcial · $'+cobradoP.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})+' cobrado'
+      :'○ Pendiente';
     const apurar=s.apurar?' ⚡':'';
     const ajustado=s.ajustado?' ✎':'';
     return '<tr>'
@@ -14898,7 +15653,56 @@ async function setPasoEstado(pasoId,estado){
   const pasos=pl.pasos||[];
   const s=pasos.find(x=>x.id===pasoId);
   if(!s)return;
+  // Si volvía de un estado parcial a 'pendiente', preguntar si descartar los parciales registrados.
+  // Para 'hecho' o 'fallo' los dejamos como histórico — no se pierden.
+  if(s.estado==='parcial'&&estado==='pendiente'&&Array.isArray(s.parciales)&&s.parciales.length){
+    if(!confirm('Este paso tiene '+s.parciales.length+' cobro(s) parcial(es) registrado(s). ¿Borrarlos al volver a pendiente?'))return;
+    s.parciales=[];
+  }
   s.estado=estado;
+  await _guardarPasosPlan(pl,pasos);
+}
+
+// Carga un cobro parcial sobre un paso (caso: cobré una parte, falta el resto).
+// El paso queda en estado 'parcial' y mantiene la suma de los pagos registrados.
+async function cargarParcialPaso(pasoId){
+  const pl=(C.planes_compra||[]).find(p=>p.id===_planAbiertoId);
+  if(!pl)return;
+  const pasos=pl.pasos||[];
+  const s=pasos.find(x=>x.id===pasoId);
+  if(!s)return;
+  const monto=parseFloat(s.monto)||0;
+  const parciales=Array.isArray(s.parciales)?s.parciales:[];
+  const yaCobrado=parciales.reduce((sum,p)=>sum+(parseFloat(p.monto)||0),0);
+  const falta=Math.max(0,monto-yaCobrado);
+  if(falta<=0.01){
+    toast('Este paso ya está totalmente cobrado. Si querés marcarlo como hecho, usá el botón ✓','accent');
+    return;
+  }
+  const txt='Cobrado hasta ahora: $'+r2(yaCobrado).toLocaleString('es-AR')+' / $'+r2(monto).toLocaleString('es-AR')+
+    '\nFalta: $'+r2(falta).toLocaleString('es-AR')+
+    '\n\n¿Cuánto cobraste ahora?';
+  const entrada=prompt(txt,r2(falta).toLocaleString('es-AR',{useGrouping:false}));
+  if(entrada===null)return;
+  const nuevo=parseFloat((entrada+'').replace(/\./g,'').replace(',','.'));
+  if(isNaN(nuevo)||nuevo<=0){toast('Monto inválido','red');return;}
+  if(nuevo>falta+0.01){
+    if(!confirm('Estás cargando $'+r2(nuevo).toLocaleString('es-AR')+' pero solo faltaba $'+r2(falta).toLocaleString('es-AR')+'.\n¿Lo cargo igual?'))return;
+  }
+  const fechaCobro=prompt('Fecha del cobro (AAAA-MM-DD):',localDate());
+  if(fechaCobro===null)return;
+  // Registrar el parcial
+  if(!Array.isArray(s.parciales))s.parciales=[];
+  s.parciales.push({fecha:fechaCobro||localDate(),monto:nuevo});
+  // Recalcular si ya se completó
+  const totalCobrado=s.parciales.reduce((sum,p)=>sum+(parseFloat(p.monto)||0),0);
+  if(totalCobrado>=monto-0.01){
+    s.estado='hecho';
+    toast('✓ Cobro completado — paso marcado como hecho','green');
+  } else {
+    s.estado='parcial';
+    toast('🟦 Parcial registrado · falta $'+r2(monto-totalCobrado).toLocaleString('es-AR'),'accent');
+  }
   await _guardarPasosPlan(pl,pasos);
 }
 
@@ -15045,7 +15849,113 @@ async function confirmarSelectorFacturas(){
   toast('✓ '+agregadas+' cobro(s) agregado(s) al plan','green');
 }
 
-// Borra un paso manual del plan
+// ───── SELECTOR DE PEDIDOS PARA SUMAR AL PLAN ─────
+// Filtra pedidos activos con saldo a cobrar que no estén ya en el plan.
+let _selPedPlan=[];
+let _selPedMarcados=new Set();
+
+function agregarPedidoAlPlan(){
+  const pl=(C.planes_compra||[]).find(p=>p.id===_planAbiertoId);
+  if(!pl)return;
+  const pasos=pl.pasos||[];
+  // Estados "activos" que pueden tener saldo a cobrar (NO Borrador, NO cancelado, NO cobrado completo)
+  const estadosOk=['Confirmado','En producción','En proceso','Listo parcial','Listo para entregar','Entrega parcial','Entregado','Cobrado parcial','Parcial'];
+  const items=[];
+  C.pedidos.forEach(p=>{
+    if(p.es_historico)return;
+    if(!estadosOk.includes(p.estado))return;
+    // No incluir los que ya están en el plan
+    if(pasos.some(s=>s.tipo==='cobro'&&s.ref_pedido===p.id))return;
+    const cobro=_calcularCobroPedido(p);
+    if(!cobro||cobro.pendiente<=0.01)return;
+    items.push({
+      id:p.id,
+      numero:p.numero_pedido||'(sin nº)',
+      cliente:cobro.cliente||p.cliente||'(sin cliente)',
+      estado:p.estado,
+      saldo:cobro.pendiente,
+      fechaCobro:cobro.fechaCobro
+    });
+  });
+  if(!items.length){toast('No hay pedidos activos con saldo para sumar al plan','accent');return;}
+  // Ordenar por fecha de cobro estimada (más próximos primero)
+  items.sort((a,b)=>{
+    const fa=a.fechaCobro instanceof Date?a.fechaCobro.getTime():9e15;
+    const fb=b.fechaCobro instanceof Date?b.fechaCobro.getTime():9e15;
+    return fa-fb;
+  });
+  _selPedPlan=items;
+  _selPedMarcados=new Set();
+  renderSelectorPedidos();
+  const ov=document.getElementById('sel-pedidos-overlay');
+  if(ov)ov.style.display='flex';
+}
+
+function renderSelectorPedidos(){
+  const cont=document.getElementById('sel-pedidos-body');
+  if(!cont)return;
+  let html='<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">'
+    +'<div style="flex:1;"><div style="font-size:15px;font-weight:800;">📋 Elegí qué pedidos sumar al plan</div>'
+    +'<div style="font-size:11px;color:var(--text3);">Pedidos activos con saldo a cobrar — marcá los que pensás cobrar para esta compra</div></div>'
+    +'<button class="btn btn-sm" onclick="cerrarSelectorPedidos()">✕</button>'
+  +'</div>';
+  html+='<div style="display:flex;flex-direction:column;gap:5px;max-height:380px;overflow-y:auto;margin-bottom:12px;">';
+  _selPedPlan.forEach(it=>{
+    const marc=_selPedMarcados.has(it.id);
+    const fechaTxt=it.fechaCobro instanceof Date?it.fechaCobro.toLocaleDateString('es-AR'):'sin fecha';
+    html+='<div onclick="toggleSelPedido('+it.id+')" style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:'+(marc?'rgba(34,197,94,.08)':'var(--bg2)')+';border:1px solid '+(marc?'var(--green)':'var(--border)')+';border-radius:var(--r);cursor:pointer;">'
+      +'<input type="checkbox" '+(marc?'checked':'')+' onclick="event.stopPropagation();toggleSelPedido('+it.id+')" style="width:17px;height:17px;">'
+      +'<div style="flex:1;min-width:0;">'
+        +'<div style="font-size:12px;font-weight:600;">'+it.numero+' — '+it.cliente+'</div>'
+        +'<div style="font-size:10px;color:var(--text3);">'+it.estado+' · cobro estimado: '+fechaTxt+'</div>'
+      +'</div>'
+      +'<span style="font-weight:800;font-size:12px;color:var(--accent);">$'+r2(it.saldo).toLocaleString('es-AR')+'</span>'
+    +'</div>';
+  });
+  html+='</div>';
+  const totalMarc=_selPedPlan.filter(it=>_selPedMarcados.has(it.id)).reduce((s,it)=>s+it.saldo,0);
+  html+='<div style="display:flex;align-items:center;gap:10px;">'
+    +'<span style="flex:1;font-size:12px;color:var(--text2);">'+_selPedMarcados.size+' pedido(s) seleccionado(s) · $'+r2(totalMarc).toLocaleString('es-AR')+'</span>'
+    +'<button class="btn btn-sm" style="background:var(--green);color:#fff;border:none;font-weight:700;" onclick="confirmarSelectorPedidos()">✓ Sumar al plan</button>'
+  +'</div>';
+  cont.innerHTML=html;
+}
+
+function toggleSelPedido(id){
+  if(_selPedMarcados.has(id))_selPedMarcados.delete(id);
+  else _selPedMarcados.add(id);
+  renderSelectorPedidos();
+}
+
+function cerrarSelectorPedidos(){
+  const ov=document.getElementById('sel-pedidos-overlay');
+  if(ov)ov.style.display='none';
+}
+
+async function confirmarSelectorPedidos(){
+  const pl=(C.planes_compra||[]).find(p=>p.id===_planAbiertoId);
+  if(!pl){cerrarSelectorPedidos();return;}
+  if(!_selPedMarcados.size){toast('No marcaste ningún pedido','red');return;}
+  const pasos=pl.pasos||[];
+  let agregados=0;
+  _selPedPlan.forEach(it=>{
+    if(!_selPedMarcados.has(it.id))return;
+    const maxOrden=pasos.reduce((m,s)=>Math.max(m,s.orden||0),0);
+    const fechaISO=it.fechaCobro instanceof Date?_fechaISO(it.fechaCobro):'';
+    pasos.push({
+      id:'ped'+it.id+'-'+Date.now(),orden:maxOrden+1,tipo:'cobro',
+      texto:'Cobrar '+it.numero+' — '+it.cliente,
+      monto:it.saldo,fecha:fechaISO,estado:'pendiente',manual:false,
+      ref_pedido:it.id
+    });
+    agregados++;
+  });
+  cerrarSelectorPedidos();
+  await _guardarPasosPlan(pl,pasos);
+  toast('✓ '+agregados+' pedido(s) agregado(s) al plan','green');
+}
+
+// Borra un paso del plan
 async function borrarPasoPlan(pasoId){
   const pl=(C.planes_compra||[]).find(p=>p.id===_planAbiertoId);
   if(!pl)return;
@@ -20075,6 +20985,7 @@ function renderPedidosLista(){
   const filtroOrden=document.getElementById('filtro-ped-orden')?.value||'entrega_asc';
   const mostrarHist=document.getElementById('filtro-ped-hist')?.checked||false;
   const mostrarCerrados=document.getElementById('filtro-ped-cerrados')?.checked||false;
+  const soloDelPlan=document.getElementById('filtro-ped-soloplan')?.checked||false;
   const sCli=document.getElementById('filtro-ped-cli');
   if(sCli){
     const cur=sCli.value;
@@ -20099,6 +21010,7 @@ function renderPedidosLista(){
     }
   }
   if(filtroTipo)lista=lista.filter(p=>(p.tipo_venta||'blanco')===filtroTipo);
+  if(soloDelPlan)lista=lista.filter(p=>!!_planDePedido(p.id));
   const tbl=document.getElementById('ped-tbl-lista');if(!tbl)return;
   if(!lista.length){tbl.innerHTML='<div class="empty" style="padding:30px;text-align:center;color:var(--text3);">Sin pedidos con esos filtros.</div>';return;}
 
@@ -20285,7 +21197,7 @@ function renderPedidosLista(){
         +(p.numero_comprobante?'<div style="font-size:10px;color:var(--green);margin-top:2px;">'+p.tipo_comprobante+' '+p.numero_comprobante+'</div>':'')
         +(reasignado?'<div style="font-size:9px;color:#a855f7;font-weight:700;margin-top:2px;">⚠ STOCK REASIGNADO</div>':'')
       +'</td>'
-      +'<td style="padding:8px;vertical-align:top;">'+(p.cliente||'—')+' '+tipoBadge+' '+badgeCobro+'</td>'
+      +'<td style="padding:8px;vertical-align:top;">'+(p.cliente||'—')+' '+tipoBadge+' '+badgeCobro+_chipPlan(_planDePedido(p.id))+'</td>'
       +'<td style="padding:8px;vertical-align:top;"><span style="background:'+estInfo.bg+';color:'+estInfo.color+';font-weight:700;font-size:11px;padding:3px 8px;border-radius:99px;white-space:nowrap;">'+estInfo.icono+' '+estInfo.label+'</span></td>'
       +'<td style="padding:8px;vertical-align:top;">'+barra+'</td>'
       +'<td style="padding:8px;vertical-align:top;">'+prodHTML+'</td>'
@@ -23982,10 +24894,53 @@ function _dpRenderLineas(p){
     const eL=_estadoLineaCalculado(p,l);
     const cancelada=eL.estado==='cancelada';
     const rowStyle=cancelada?'opacity:.5;':'';
-    const barraColor=eL.avance>=100?'var(--green)':eL.avance>=66?'#84cc16':eL.avance>=33?'#f59e0b':eL.avance>0?'#ef4444':'var(--bg3)';
-    const barra=cancelada?'':'<div style="background:var(--bg3);height:6px;border-radius:99px;overflow:hidden;margin:3px 0;">'
-      +'<div style="background:'+barraColor+';height:100%;width:'+eL.avance+'%;"></div></div>'
-      +'<div style="font-size:10px;color:var(--text3);">'+eL.avance+'% · prod '+eL.paqProducido.toLocaleString('es-AR')+' · entr '+eL.paqEntregado.toLocaleString('es-AR')+'</div>';
+    // Avance: dos métricas separadas para distinguir producción de entrega.
+    // 1) Producido = lo que ya está armado y disponible (en stock + entregado)
+    // 2) Entregado = lo que el cliente efectivamente retiró
+    // Una línea verde en "producido" NO significa "terminada" si entregado no llegó al 100%.
+    const pctProd=cantPaq?Math.min(100,Math.round(eL.paqProducido/cantPaq*100)):0;
+    const pctEntr=cantPaq?Math.min(100,Math.round(eL.paqEntregado/cantPaq*100)):0;
+    const colorProd=pctProd>=100?'var(--green)':pctProd>=66?'#84cc16':pctProd>=33?'#f59e0b':pctProd>0?'#ef4444':'var(--bg3)';
+    // Para el azul de entrega usamos un color distinto al verde de producido —
+    // así "verde" sigue significando "armado", y el azul/teal significa "retirado".
+    const colorEntr=pctEntr>=100?'var(--green)':pctEntr>=66?'#3b82f6':pctEntr>=33?'#3b82f6':pctEntr>0?'#3b82f6':'var(--bg3)';
+    const paqPendienteEntrega=Math.max(0,eL.paqProducido-eL.paqEntregado);
+    const paqPorProducir=Math.max(0,cantPaq-eL.paqProducido);
+
+    let barra='';
+    if(!cancelada){
+      barra=''
+        // Línea 1: Producido
+        +'<div style="margin-bottom:5px;">'
+          +'<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text2);font-weight:600;margin-bottom:2px;">'
+            +'<span>🏭 Producido</span>'
+            +'<span style="color:var(--text1);">'+eL.paqProducido.toLocaleString('es-AR')+' / '+cantPaq.toLocaleString('es-AR')+' paq · '+pctProd+'%</span>'
+          +'</div>'
+          +'<div style="background:var(--bg3);height:6px;border-radius:99px;overflow:hidden;">'
+            +'<div style="background:'+colorProd+';height:100%;width:'+pctProd+'%;"></div>'
+          +'</div>'
+        +'</div>'
+        // Línea 2: Entregado
+        +'<div>'
+          +'<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text2);font-weight:600;margin-bottom:2px;">'
+            +'<span>🚚 Entregado</span>'
+            +'<span style="color:var(--text1);">'+eL.paqEntregado.toLocaleString('es-AR')+' / '+cantPaq.toLocaleString('es-AR')+' paq · '+pctEntr+'%</span>'
+          +'</div>'
+          +'<div style="background:var(--bg3);height:6px;border-radius:99px;overflow:hidden;">'
+            +'<div style="background:'+colorEntr+';height:100%;width:'+pctEntr+'%;"></div>'
+          +'</div>'
+        +'</div>'
+        // Resumen visible: qué hay listo para retirar + qué falta producir
+        +(paqPendienteEntrega>0||paqPorProducir>0
+          ?'<div style="font-size:11px;font-weight:600;margin-top:5px;color:var(--text1);line-height:1.4;">'
+            +(paqPendienteEntrega>0?'<span style="color:#3b82f6;">📦 Listo para retirar: <strong>'+paqPendienteEntrega.toLocaleString('es-AR')+' paq</strong></span>':'')
+            +(paqPendienteEntrega>0&&paqPorProducir>0?' · ':'')
+            +(paqPorProducir>0?'<span style="color:var(--amber);">⏳ Falta producir: <strong>'+paqPorProducir.toLocaleString('es-AR')+' paq</strong></span>':'')
+          +'</div>'
+          :(pctProd>=100&&pctEntr>=100
+            ?'<div style="font-size:11px;font-weight:700;margin-top:5px;color:var(--green);">✓ Línea cerrada (producida y entregada en su totalidad)</div>'
+            :''));
+    }
     // Producción 3 líneas
     let prodCol='';
     if(cancelada){
