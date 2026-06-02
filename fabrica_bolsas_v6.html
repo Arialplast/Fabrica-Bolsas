@@ -727,7 +727,7 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
             <div style="font-size:18px;">🔫</div>
             <div style="flex:1;min-width:200px;">
               <div style="font-size:12px;font-weight:600;color:var(--accent);">Lector de pistola USB</div>
-              <div style="font-size:11px;color:var(--text2);">Apoyá la pistola sobre el QR de cada bobina. Se marca automáticamente en la lista (máx 4).</div>
+              <div style="font-size:11px;color:var(--text2);">Escaneá el QR de la <strong>OC</strong> para iniciarla, o el QR de una <strong>bobina</strong> para asociarla a la OC activa.</div>
             </div>
             <input id="conf-pistola-input" type="text" autocomplete="off"
               placeholder="Esperando escaneo..."
@@ -4959,10 +4959,11 @@ function onConfOCChange(){
     if(info)info.style.display='none';
     if(prog)prog.style.display='none';
     if(wrap)wrap.style.display='none';
-    if(pistolaWrap)pistolaWrap.style.display='none';
+    // El lector se MANTIENE visible aunque no haya OC seleccionada,
+    // para que el operario pueda escanear el QR de la OC y arrancarla.
     return;
   }
-  // Mostrar lector de pistola (el foco se aplica al final, después de los renders)
+  // Mostrar lector de pistola (asegurar que esté visible cuando hay OC)
   if(pistolaWrap){
     pistolaWrap.style.display='block';
   }
@@ -5178,11 +5179,21 @@ function extraerNumeroBobinaDeEscaneo(raw){
   if(!raw)return '';
   let txt=raw.trim();
   // ── Normalización de caracteres mal traducidos por teclado español ──
-  // Cuando el lector "tipea" un QR con URL, y Windows está en layout ES,
-  // los símbolos de la URL salen como letras. Revertimos esa traducción.
-  // Ejemplo real: "httpsÑ--arialplast.github.io-fabrica?bolsas?v6.html_consumir¿BOB'01257"
-  // Solo aplicamos esto si detectamos los caracteres característicos del problema.
-  if(/[ÑñÇç¿¡]/.test(txt)||(txt.includes("'")&&txt.includes("?"))){
+  // El lector pistola "tipea" el contenido del QR como si fuera teclado USB.
+  // Si Windows tiene layout ES y el QR tiene símbolos ASCII (-, /, :, =, !),
+  // estos se traducen mal a caracteres acentuados.
+  //
+  // Casos detectados:
+  // - Carácter "-" sale como "'" (apóstrofo). Es el caso TÍPICO de los QR que solo
+  //   llevan "BOB-NNNNN" — ej: el lector recibe "BOB'01263" en vez de "BOB-01263"
+  // - Carácter "/" sale como "?"
+  // - Carácter ":" sale como "Ñ"  (esto pasa con QR de URL completa)
+  // - Carácter "=" sale como "¿"
+  // - Carácter "!" sale como "¡"
+  //
+  // Hacemos la conversión siempre que aparezca cualquiera de estos caracteres,
+  // no solo cuando hay URL. Antes la condición exigía URL → fallaba en QR simples.
+  if(/[ÑñÇç¿¡']/.test(txt)){
     txt=txt
       .replace(/Ñ/g,':').replace(/ñ/g,':')   // : ↔ Ñ
       .replace(/¿/g,'=')                      // = ↔ ¿
@@ -5204,9 +5215,10 @@ function extraerNumeroBobinaDeEscaneo(raw){
       if(c)return c.trim();
     }catch(e){}
   }
-  // 3) Si en el texto aparece algo tipo "BOB-NNNNN", extraerlo aunque haya basura alrededor
-  const bobMatch=txt.match(/BOB[-_ ]?\d+/i);
-  if(bobMatch)return bobMatch[0].replace(/[_ ]/g,'-').toUpperCase();
+  // 3) Si en el texto aparece algo tipo "BOB-NNNNN", extraerlo aunque haya basura alrededor.
+  //    Aceptamos -, _, ', espacio o nada como separador (cubre el caso del teclado ES).
+  const bobMatch=txt.match(/BOB[-_ ']?\d+/i);
+  if(bobMatch)return bobMatch[0].replace(/[_ ']/g,'-').toUpperCase();
   // 4) Caso simple: el texto es el número de bobina directo
   return txt;
 }
@@ -5271,12 +5283,131 @@ function reFocoPistola(){
   },150);
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// Escaneo del QR de una Orden de Corte
+// ────────────────────────────────────────────────────────────────────────────
+// El QR de OC contiene una URL como "https://...?oc=OC-1052213".
+// Cuando el lector pistola "tipea" con teclado ES, queda así:
+//   "httpsÑ--arialplast.github.io-fabrica?bolsas?v6.html?oc¿OC'1052213"
+// Esta función lo normaliza (igual que para bobinas) y extrae el código OC.
+function extraerNumeroOCdeEscaneo(raw){
+  if(!raw)return '';
+  let txt=raw.trim();
+  // Reutilizamos la misma lógica de normalización de caracteres del teclado ES
+  if(/[ÑñÇç¿¡']/.test(txt)){
+    txt=txt
+      .replace(/Ñ/g,':').replace(/ñ/g,':')
+      .replace(/¿/g,'=')
+      .replace(/¡/g,'!')
+      .replace(/Ç/g,'}').replace(/ç/g,'}')
+      .replace(/\?/g,'/')
+      .replace(/'/g,'-')
+      .trim();
+  }
+  // 1) Si trae "oc=XXX" como query param
+  const m=txt.match(/[?&]oc=([^&\s#]+)/i);
+  if(m){
+    try{return decodeURIComponent(m[1]).trim().toUpperCase();}
+    catch(e){return m[1].trim().toUpperCase();}
+  }
+  // 2) Si trae una URL parseable
+  if(/^https?:\/\//i.test(txt)){
+    try{
+      const u=new URL(txt);
+      const c=u.searchParams.get('oc');
+      if(c)return c.trim().toUpperCase();
+    }catch(e){}
+  }
+  // 3) Si aparece "OC-NNNNNNN" en el texto (cubre teclado ES con apóstrofo)
+  const ocMatch=txt.match(/OC[-_ ']?\d+/i);
+  if(ocMatch)return ocMatch[0].replace(/[_ ']/g,'-').toUpperCase();
+  return '';
+}
+
+// Decide si un escaneo es de una OC. Hay que tener cuidado de no confundirlo
+// con un BOB, que también puede tener un patrón parecido si está mal escaneado.
+function esEscaneoDeOC(raw){
+  if(!raw)return false;
+  const txt=raw.trim();
+  // Si tiene BOB en alguna forma, es bobina (no OC)
+  if(/BOB[-_ ']?\d+/i.test(txt))return false;
+  // Si tiene patrón de URL con oc=, es OC
+  if(/[?&]oc=/i.test(txt))return true;
+  // Si en el texto aparece "OC-NNNNNNN" directamente (puede ser teclado ES con apóstrofo)
+  if(/OC[-_ ']?\d{4,}/i.test(txt))return true;
+  return false;
+}
+
+// Procesa el escaneo de un QR de OC: arranca la OC y la selecciona en el dropdown.
+// Reglas (acordadas con el usuario):
+//   - Operario debe estar elegido (si no, avisa y no hace nada)
+//   - Si la OC está Pendiente → la pasa a En proceso y la selecciona
+//   - Si ya está En proceso → la selecciona sin tocar el estado (caso retomar)
+//   - Si está Completada/Suspendida/Cancelada → avisa y no hace nada
+async function procesarEscaneoOC(raw){
+  const codigoOC=extraerNumeroOCdeEscaneo(raw);
+  if(!codigoOC){pistolaFeedback('No pude leer el código de OC del QR.','var(--red)','error');return;}
+  // Buscar la OC por número
+  const oc=C.ord_corte.find(x=>(x.numero_orden||'').toUpperCase()===codigoOC);
+  if(!oc){pistolaFeedback('✕ OC '+codigoOC+' no encontrada.','var(--red)','error');return;}
+  // Verificar operario elegido (el value del select es el nombre, no un id)
+  const opSel=document.getElementById('conf-op-sel');
+  const opNom=(opSel?.value||'').trim();
+  if(!opNom){pistolaFeedback('⚠ Elegí primero el operario antes de iniciar la OC.','var(--amber)','error');return;}
+  // Manejar según estado
+  const estado=oc.estado;
+  if(estado==='Completada'){
+    pistolaFeedback('✕ OC '+codigoOC+' ya está Completada.','var(--red)','error');return;
+  }
+  if(estado==='Suspendida'){
+    pistolaFeedback('✕ OC '+codigoOC+' está Suspendida — reactivarla manualmente desde la lista.','var(--red)','error');return;
+  }
+  if(estado==='Cancelada'){
+    pistolaFeedback('✕ OC '+codigoOC+' está Cancelada.','var(--red)','error');return;
+  }
+  // Si está Pendiente, arrancarla
+  if(estado==='Pendiente'){
+    try{
+      await sb.from('ordenes_corte').update({estado:'En proceso'}).eq('id',oc.id);
+      if(typeof congelarBaselineCorte==='function')await congelarBaselineCorte(oc.id);
+      await reload();
+      pistolaFeedback('▶ OC '+codigoOC+' iniciada — En proceso','var(--green)','ok');
+    }catch(e){
+      pistolaFeedback('✕ Error iniciando la OC: '+e.message,'var(--red)','error');
+      return;
+    }
+  } else {
+    // Ya estaba En proceso → solo seleccionarla y avisar
+    pistolaFeedback('▶ OC '+codigoOC+' ya estaba En proceso — continuando','var(--accent)','ok');
+  }
+  // Seleccionarla en el dropdown y disparar el onChange para que se renderice
+  const selOC=document.getElementById('conf-oc');
+  if(selOC){
+    // Si la opción no está en el select (por estado anterior), la reagrego luego del reload
+    let opt=Array.from(selOC.options).find(o=>parseInt(o.value)===oc.id);
+    if(!opt){
+      // Construir opción manualmente con los datos actuales
+      opt=document.createElement('option');
+      opt.value=oc.id;
+      opt.textContent=oc.numero_orden+' · '+(oc.productos?.descripcion||'—');
+      selOC.appendChild(opt);
+    }
+    selOC.value=oc.id;
+    if(typeof onConfOCChange==='function')onConfOCChange();
+  }
+}
+
 function procesarEscaneoBobina(raw){
+  // Antes de procesar como bobina, detectar si es un escaneo de QR de OC
+  if(esEscaneoDeOC(raw)){
+    procesarEscaneoOC(raw);
+    return;
+  }
   const nro=extraerNumeroBobinaDeEscaneo(raw);
   if(!nro){pistolaFeedback('Escaneo vacío.','var(--red)','error');return;}
   const ocId=parseInt(document.getElementById('conf-oc')?.value);
   const oc=C.ord_corte.find(x=>x.id===ocId);
-  if(!oc){pistolaFeedback('Elegí primero una orden de corte.','var(--red)','error');return;}
+  if(!oc){pistolaFeedback('Para asociar bobinas, primero escaneá el QR de una OC para iniciarla.','var(--amber)','error');return;}
   // Buscar bobina por número
   const b=C.bobinas_prod.find(x=>x.numero_bobina===nro);
   if(!b){pistolaFeedback('✕ Bobina '+nro+' no encontrada.','var(--red)','error');return;}
@@ -5687,14 +5818,19 @@ function imprimirTarjeta(b){
   //    (: / - = aparecen como Ñ ? ' ¿), rompiendo la búsqueda
   // 2) Los QR quedaban atados a la URL fija de la app, no portables
   // Ahora el QR lleva solo el código y el lector lo busca directo.
+  // QR con el número de bobina. Se genera LOCALMENTE en la ventana de impresión
+  // usando la librería qrcode-generator (cdnjs). Si falla, cae a un servicio externo.
+  // El QR contiene solo el código (no URL): el lector lo busca directo, y los teclados
+  // en español no mal-traducen caracteres como : / - = → Ñ ? ' ¿.
   const qrData=b.numero_bobina||'';
-  const qrUrl=`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(qrData)}`;
+  const qrUrlFallback=`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(qrData)}`;
   const errColor=b.estado_calidad==='OK'?'#16a34a':b.estado_calidad==='ADVERTENCIA'?'#d97706':'#dc2626';
   const bgColor=b.estado_calidad==='OK'?'#f0fdf4':b.estado_calidad==='ADVERTENCIA'?'#fffbeb':'#fef2f2';
   const errIcon=b.estado_calidad==='OK'?'✓':b.estado_calidad==='ADVERTENCIA'?'⚠':'✕';
   const win=window.open('','_blank','width=900,height=700');
   win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
   <title>Bobina ${b.numero_bobina}</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"><\/script>
   <style>
     @page { size: A4; margin: 0; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -5826,7 +5962,7 @@ function imprimirTarjeta(b){
         <div class="calidad-err">${b.error_pct>0?'+':''}${b.error_pct}%</div>
       </div>
       <div class="qr-box">
-        <img src="${qrUrl}" alt="QR" style="width:26mm;height:26mm;">
+        <div id="qr-target" style="width:26mm;height:26mm;display:flex;align-items:center;justify-content:center;"></div>
         <div class="qr-lbl">Escanear para<br>confección</div>
       </div>
     </div>
@@ -5837,6 +5973,31 @@ function imprimirTarjeta(b){
       <span style="font-family:'Courier New',monospace">${b.numero_bobina}</span>
     </div>
   </div>
+  <script>
+    // Dibujar QR localmente con qrcode-generator. Si la librería no cargó,
+    // usar el servicio externo como fallback.
+    (function(){
+      var target=document.getElementById('qr-target');
+      var data=${JSON.stringify(qrData)};
+      try{
+        if(typeof qrcode==='function'){
+          // type 0 = auto, error correction 'M' (15%) — adecuado para impresión
+          var qr=qrcode(0,'M');
+          qr.addData(data);
+          qr.make();
+          // createImgTag(cellSize, margin) → string con <img> embebida (data: URL)
+          target.innerHTML=qr.createImgTag(4,2);
+          var img=target.querySelector('img');
+          if(img){img.style.width='26mm';img.style.height='26mm';img.alt='QR';}
+        } else {
+          throw new Error('lib no disponible');
+        }
+      } catch(e){
+        // Fallback al servicio externo
+        target.innerHTML='<img src="${qrUrlFallback}" alt="QR" style="width:26mm;height:26mm;">';
+      }
+    })();
+  <\/script>
    </body></html>`
    +'<scr'+'ipt>window.onload=()=>{setTimeout(()=>{window.print();},400);}<\/script>');
   win.document.close();
@@ -6052,11 +6213,15 @@ function go(name){
   if(name==='confeccion'){
     poblarConfSelects();
     renderConfHistorial();
-    // Foco al input del lector si ya está visible (caso: re-entrar con OC seleccionada)
+    // El lector se muestra SIEMPRE al entrar a Confección — así el operario
+    // puede escanear el QR de la OC para iniciarla sin tener que elegirla manualmente.
+    // (Antes solo aparecía después de elegir una OC, lo que era un círculo vicioso.)
+    const wrap=document.getElementById('conf-pistola-wrap');
+    if(wrap)wrap.style.display='block';
+    // Foco al input del lector
     setTimeout(()=>{
       const inp=document.getElementById('conf-pistola-input');
-      const wrap=document.getElementById('conf-pistola-wrap');
-      if(inp&&wrap&&wrap.style.display!=='none')inp.focus();
+      if(inp)inp.focus();
     },200);
   }
   if(name==='operarios')renderOperarios();
@@ -13245,6 +13410,7 @@ function renderOrdenesCorte(){
       </td>
       <td><button class="btn btn-sm" onclick="imprimirQROrdenCorte(${o.id})" title="QR de la orden">📋</button>
           <button class="btn btn-sm" onclick="imprimirOrden(${o.id},'corte')" title="Imprimir orden">🖨️</button>
+          <button class="btn btn-sm" onclick="imprimirEtiquetasBulto(${o.id})" title="Etiquetas de bulto para Argox (una por bolsón)" style="background:rgba(99,179,237,.08);color:var(--accent);border-color:var(--accentbd);">🏷️</button>
           <button class="btn btn-sm" onclick="imprimirBobinasOC(${o.id})" title="Imprimir bobinas asociadas (guía para cortador)" style="background:rgba(15,118,110,.08);color:#0f766e;border-color:rgba(15,118,110,.3);">🧵</button>
           <button class="btn btn-sm" onclick="verLotesDeOC(${o.id})" title="Ver lotes MP consumidos">📦</button>
           ${o.estado==='En proceso'?`<button class="btn btn-sm" onclick="recongelarBaselineCorte(${o.id})" title="Recongelar baseline: fija una nueva fecha comprometida de fin">🎯</button>`:''}
@@ -17770,12 +17936,13 @@ async function recongelarBaselineCorte(ordenId){
 
 function imprimirQROrdenCorte(id){
   const o=C.ord_corte.find(x=>x.id===id);if(!o)return;
-  const appUrl=window.location.href.split('?')[0];
-  const qrData=appUrl+'?oc='+encodeURIComponent(o.numero_orden);
-  const qrUrl='https://api.qrserver.com/v1/create-qr-code/?size=300x300&data='+encodeURIComponent(qrData);
+  // QR solo con el código (no URL): más simple, módulos más grandes, mejor lectura.
+  const qrData=o.numero_orden;
+  const qrUrlFallback='https://api.qrserver.com/v1/create-qr-code/?size=300x300&data='+encodeURIComponent(qrData);
   const emp=C.emp.find(e=>e.id===o.empaque_id)||C.emp.find(e=>e.id===o.productos?.empaque_id);
   const win=window.open('','_blank','width=400,height=520');
   win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>QR '+o.numero_orden+'</title>'
+    +'<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"><\/script>'
     +'<style>'
     +'@page{size:A5;margin:12mm}'
     +'*{box-sizing:border-box;margin:0;padding:0}'
@@ -17785,12 +17952,27 @@ function imprimirQROrdenCorte(id){
     +'<div style="font-size:28pt;font-weight:900;font-family:Courier New,monospace;margin-bottom:3mm">'+o.numero_orden+'</div>'
     +'<div style="font-size:12pt;font-weight:600;margin-bottom:2mm">'+(o.productos?.descripcion||'—')+'</div>'
     +'<div style="font-size:9pt;color:#64748b;margin-bottom:5mm">'+(o.cliente||'')+(emp?' · '+emp.nombre+' '+emp.unidades+'u/paq':'')+'</div>'
-    +'<img src="'+qrUrl+'" style="width:60mm;height:60mm;margin:0 auto 4mm;display:block;">'
+    +'<div id="qr-target" style="width:60mm;height:60mm;margin:0 auto 4mm;display:flex;align-items:center;justify-content:center;"></div>'
     +'<div style="font-size:8pt;color:#94a3b8;margin-bottom:4mm">Escanear para asociar bobinas en el sistema</div>'
     +'<div style="border-top:1px solid #e2e8f0;padding-top:4mm;font-size:10pt;">'
       +'<strong>'+( o.bolsones_a_producir||'—')+'</strong> bolsones · <strong>'+(o.cantidad_paquetes||'—')+'</strong> paquetes'
     +'</div>'
-    +'<script>window.onload=()=>setTimeout(()=>window.print(),400);<\/script>'
+    +'<script>'
+    +'(function(){'
+      +'var t=document.getElementById("qr-target");'
+      +'var d='+JSON.stringify(qrData)+';'
+      +'try{'
+        +'if(typeof qrcode==="function"){'
+          +'var qr=qrcode(0,"M");qr.addData(d);qr.make();'
+          +'t.innerHTML=qr.createImgTag(8,2);'
+          +'var img=t.querySelector("img");if(img){img.style.width="60mm";img.style.height="60mm";}'
+        +'} else { throw new Error("no lib"); }'
+      +'} catch(e){'
+        +'t.innerHTML="<img src=\\""+'+JSON.stringify(qrUrlFallback)+'+"\\" style=\\"width:60mm;height:60mm;\\">";'
+      +'}'
+    +'})();'
+    +'window.onload=()=>setTimeout(()=>window.print(),600);'
+    +'<\/script>'
     +'</body></html>');
   win.document.close();
 }
@@ -19150,6 +19332,14 @@ function imprimirOrden(id, tipo){
     const bobinas=o.orden_corte_bobinas||[];
     const oeNro=C.ordenes.find(x=>x.id===o.orden_extrusion_id)?.numero_orden||'—';
     const pedNro=C.pedidos.find(p=>p.pedido_ordenes_corte?.some(x=>x.orden_corte_id===o.id))?.numero_pedido||'—';
+    // QR para iniciar la OC desde la Confección con el lector pistola.
+    // SOLO lleva el código de OC (ej "OC-1052244"), NO una URL completa.
+    // Razones: (1) el QR tiene mucho menos data → módulos más grandes y legibles
+    // para lectores baratos; (2) el lector "tipea" en teclado ES, y una URL
+    // tiene muchos caracteres mal-traducidos (: / ? = → Ñ ? ¿).
+    // El sistema reconoce el código y dispara procesarEscaneoOC.
+    const qrDataOC=o.numero_orden;
+    const qrUrlFallbackOC='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(qrDataOC);
 
     // Grilla de bolsones numerada
     const cols=bolsones<=12?4:bolsones<=24?6:bolsones<=40?8:10;
@@ -19161,9 +19351,14 @@ function imprimirOrden(id, tipo){
         +'</div>';
     }
 
-    const CSS='@page{size:A4;margin:10mm 12mm 10mm 12mm;}'
+    // Margen "dibujado" dentro del HTML con padding del body, porque cuando el usuario
+    // elige "Márgenes: Ninguno" en Chrome (necesario para la térmica Argox), Chrome
+    // IGNORA el @page margin del CSS. El padding del body sí lo respeta siempre.
+    // Más a la izquierda (18mm) que a la derecha (12mm) porque muchas impresoras
+    // hogareñas cortan ~5mm de ese lado.
+    const CSS='@page{size:A4;margin:0;}'
       +'*{box-sizing:border-box;margin:0;padding:0;}'
-      +'body{font-family:Arial,sans-serif;font-size:9.5pt;color:#1e293b;}'
+      +'body{font-family:Arial,sans-serif;font-size:9.5pt;color:#1e293b;padding:10mm 12mm 10mm 18mm;}'
       +'.hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1e293b;padding-bottom:5px;margin-bottom:8px;}'
       +'.nro{font-size:22pt;font-weight:900;font-family:Courier New,monospace;color:#1e293b;}'
       +'.tip{font-size:7.5pt;color:#64748b;text-transform:uppercase;letter-spacing:.07em;}'
@@ -19197,18 +19392,25 @@ function imprimirOrden(id, tipo){
       :'';
 
     html='<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>OC '+o.numero_orden+'</title>'
+      +'<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"><\/script>'
       +'<style>'+CSS+'</style></head><body>'
       +'<div class="hdr">'
-        +'<div>'
+        +'<div style="flex:1;min-width:0">'
           +'<div class="tip">Orden de corte / confeccion</div>'
           +'<div class="nro">'+o.numero_orden+'</div>'
           +'<div style="font-size:11pt;font-weight:600;margin-top:2px">'+(o.productos?.descripcion||'—')+'</div>'
           +(o.cliente?'<div style="font-size:9pt;color:#475569">'+o.cliente+'</div>':'')
         +'</div>'
-        +'<div style="text-align:right">'
-          +'<div style="font-size:8pt;color:#64748b">Impreso: '+new Date().toLocaleString('es-AR')+'</div>'
-          +(o.fecha_inicio_ref?'<div style="font-size:8.5pt;color:#475569;margin-top:2px">Inicio: '+o.fecha_inicio_ref+'</div>':'')
-          +'<div style="font-size:9pt;font-weight:700;margin-top:2px">Prioridad: '+(o.prioridad||'—')+'</div>'
+        +'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0">'
+          +'<div style="text-align:right">'
+            +'<div style="font-size:8pt;color:#64748b">Impreso: '+new Date().toLocaleString('es-AR')+'</div>'
+            +(o.fecha_inicio_ref?'<div style="font-size:8.5pt;color:#475569;margin-top:1px">Inicio: '+o.fecha_inicio_ref+'</div>':'')
+            +'<div style="font-size:9pt;font-weight:700;margin-top:1px">Prioridad: '+(o.prioridad||'—')+'</div>'
+          +'</div>'
+          +'<div style="display:flex;flex-direction:column;align-items:center;gap:1px;margin-top:2px">'
+            +'<div id="qr-init-target" style="width:25mm;height:25mm;background:#fff;display:flex;align-items:center;justify-content:center"></div>'
+            +'<div style="font-size:6.5pt;color:#475569;font-weight:700;text-align:center;line-height:1;max-width:27mm">Escaneá para iniciar la OC</div>'
+          +'</div>'
         +'</div>'
       +'</div>'
       +'<div class="hero">'
@@ -19247,7 +19449,25 @@ function imprimirOrden(id, tipo){
         +'<span>'+o.numero_orden+(o.ref_flexxus?' · Ref: '+o.ref_flexxus:'')+'</span>'
         +'<span>Fabrica de Bolsas</span>'
       +'</div>'
-      +'<scr'+'ipt>window.onload=()=>setTimeout(()=>window.print(),400);<\/script>'
+      +'<scr'+'ipt>'
+      +'(function(){'
+        +'var t=document.getElementById("qr-init-target");'
+        +'var d='+JSON.stringify(qrDataOC)+';'
+        +'try{'
+          +'if(typeof qrcode==="function"){'
+            // L = error correction baja (7%) → menos módulos, más grandes y más legibles para lectores baratos.
+            // cellSize 5 con margin 2 da un QR claro a 25mm. Sin image-rendering:pixelated porque
+            // en algunos navegadores hace que las impresoras lo manden raster bajo y se pixela mal.
+            +'var qr=qrcode(0,"L");qr.addData(d);qr.make();'
+            +'t.innerHTML=qr.createImgTag(5,2);'
+            +'var img=t.querySelector("img");if(img){img.style.width="100%";img.style.height="100%";}'
+          +'} else { throw new Error("no lib"); }'
+        +'} catch(e){'
+          +'t.innerHTML="<img src=\\""+'+JSON.stringify(qrUrlFallbackOC)+'+"\\" style=\\"width:100%;height:100%\\">";'
+        +'}'
+      +'})();'
+      +'window.onload=()=>setTimeout(()=>window.print(),600);'
+      +'<\/script>'
       +'</body></html>';
   } // end else corte
   win.document.write(html);
@@ -19256,6 +19476,133 @@ function imprimirOrden(id, tipo){
 
 
 // ===== IMPRIMIR LISTADO DE BOBINAS ASOCIADAS A UNA OC (guía para cortador) =====
+// ─── ETIQUETAS DE BULTO PARA IMPRESORA TÉRMICA ARGOX ───
+// Genera N etiquetas (N = bolsones de la OC) de 52.5×45mm HORIZONTAL
+// (52.5mm ancho × 45mm alto — papel apaisado, más ancho que alto).
+// La ventana se abre con un panel de instrucciones porque la driver Argox
+// y el navegador necesitan que el usuario tilde ciertas opciones antes de imprimir.
+function imprimirEtiquetasBulto(ocId){
+  const oc=C.ord_corte.find(x=>x.id===ocId);
+  if(!oc){alert('OC no encontrada');return;}
+  const prod=oc.productos||C.productos.find(p=>p.id===oc.producto_id);
+  if(!prod){alert('Esta OC no tiene producto cargado');return;}
+  const emp=C.emp.find(e=>e.id===oc.empaque_id)||C.emp.find(e=>e.id===prod.empaque_id);
+  const uniPorPaq=emp?.unidades||0;
+  const paqPorBolson=oc.paquetes_por_bolson||1;
+  const bolsones=oc.bolsones_a_producir||0;
+  if(bolsones<=0){alert('Esta OC no tiene bolsones a producir');return;}
+  if(bolsones>20){
+    if(!confirm('Se van a imprimir '+bolsones+' etiquetas (una por bolsón). ¿Continuar?'))return;
+  }
+
+  const tituloProd=(prod.descripcion||prod.codigo||'(sin descripción)').toUpperCase();
+  const lineaCantidad=paqPorBolson+' PAQUETES x '+uniPorPaq+' UN';
+
+  // Auto-shrink del título según largo
+  let tamProd='9mm';
+  if(tituloProd.length<=14)tamProd='9mm';
+  else if(tituloProd.length<=22)tamProd='7mm';
+  else if(tituloProd.length<=32)tamProd='5.5mm';
+  else tamProd='4.5mm';
+
+  // CSS — todo en mm. Forzamos el tamaño físico en cada etiqueta y usamos
+  // page-break-after para que cada una vaya en página separada.
+  // El panel "instrucciones" se oculta al imprimir vía @media print.
+  //
+  // DISEÑO: empresa arriba (texto negro normal), banda negra al centro con el
+  // producto en BLANCO (lo que resalta a distancia), cantidad abajo en negro.
+  // La banda negra ocupa solo el área central, no toda la etiqueta — gasta
+  // menos cinta y la térmica imprime más rápido que con fondo negro total.
+  const CSS=''
+    +'@page{size:52.5mm 45mm;margin:0;}'
+    +'*{box-sizing:border-box;margin:0;padding:0;}'
+    +'html,body{margin:0;padding:0;background:#e2e8f0;}'
+    +'body{font-family:Arial,Helvetica,sans-serif;color:#000;}'
+    +'.instr{'
+      +'background:#fff;border:2px solid #f59e0b;border-radius:8px;'
+      +'padding:14px 18px;margin:14px auto;max-width:560px;'
+      +'font-size:13px;line-height:1.55;color:#1e293b;'
+    +'}'
+    +'.instr h2{font-size:15px;color:#d97706;margin-bottom:8px;}'
+    +'.instr ol{margin-left:22px;}'
+    +'.instr li{margin-bottom:5px;}'
+    +'.instr strong{color:#0f172a;}'
+    +'.instr .btn-print{'
+      +'display:inline-block;margin-top:10px;padding:8px 16px;'
+      +'background:#6c8ef5;color:#fff;border:none;border-radius:6px;'
+      +'font-weight:700;cursor:pointer;font-size:14px;'
+    +'}'
+    +'.etiquetas-wrap{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 0 30px;}'
+    +'.etiq{'
+      +'width:52.5mm;height:45mm;'
+      +'padding:1.5mm 2mm;'
+      +'display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;'
+      +'text-align:center;'
+      +'page-break-after:always;break-after:page;'
+      +'overflow:hidden;background:#fff;'
+      +'border:1px dashed #94a3b8;'  // solo en preview, NO en print
+    +'}'
+    +'.etiq:last-child{page-break-after:auto;break-after:auto;}'
+    +'.empresa{font-size:3.5mm;font-weight:900;letter-spacing:.3mm;line-height:1;}'
+    +'.producto-box{'
+      +'background:#000;color:#fff;'
+      +'padding:2mm 1.5mm;border-radius:1.5mm;'
+      +'display:flex;align-items:center;justify-content:center;'
+      +'flex:1;margin:1.5mm 0;'
+    +'}'
+    +'.producto{font-size:'+tamProd+';font-weight:900;line-height:1.05;'
+      +'word-wrap:break-word;max-width:100%;color:#fff;}'
+    +'.cantidad{font-size:3mm;font-weight:700;line-height:1.1;}'
+    +'@media print{'
+      +'html,body{margin:0;padding:0;background:#fff;width:52.5mm;}'
+      +'.instr{display:none !important;}'
+      +'.etiquetas-wrap{display:block;padding:0;gap:0;}'
+      +'.etiq{border:none !important;margin:0 !important;}'
+      // Forzar que la térmica respete los fondos negros: clave para que la banda salga oscura
+      +'*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important;}'
+      +'.producto-box{background:#000 !important;color:#fff !important;}'
+      +'.producto{color:#fff !important;}'
+    +'}';
+
+  let etiquetas='';
+  for(let i=0;i<bolsones;i++){
+    etiquetas+='<div class="etiq">'
+      +'<div class="empresa">ARIALPLAST SA</div>'
+      +'<div class="producto-box"><div class="producto">'+tituloProd+'</div></div>'
+      +'<div class="cantidad">'+lineaCantidad+'</div>'
+    +'</div>';
+  }
+
+  // Panel de instrucciones grandes — visible solo en pantalla, oculto al imprimir
+  const instr=''
+    +'<div class="instr">'
+      +'<h2>⚠ Antes de imprimir — leé esto</h2>'
+      +'<ol>'
+        +'<li>Apretá el botón <strong>Imprimir</strong> de abajo (o usá Ctrl+P).</li>'
+        +'<li><strong>Destino:</strong> Argox OS-2140 PPLA</li>'
+        +'<li><strong>Más opciones de configuración:</strong></li>'
+        +'<ul style="margin-left:22px;">'
+          +'<li><strong>Tamaño del papel:</strong> elegí "USER" (52.5×45mm)</li>'
+          +'<li><strong>Márgenes:</strong> "Ninguno"</li>'
+          +'<li><strong>Escala:</strong> 100% (NO "Ajustar a página")</li>'
+          +'<li><strong>Encabezados y pies de página:</strong> destildá esa opción</li>'
+        +'</ul>'
+        +'<li>Si en la driver Argox la orientación está como <strong>Vertical</strong>, dejala así — el sistema ya envía la etiqueta con la orientación correcta.</li>'
+        +'<li>Probá primero con <strong>1 sola etiqueta</strong> antes de imprimir las '+bolsones+' completas (cancelá después de la primera).</li>'
+      +'</ol>'
+      +'<button class="btn-print" onclick="window.print()">🖨️ Imprimir '+bolsones+' etiquetas</button>'
+    +'</div>';
+
+  const win=window.open('','_blank','width=620,height=720');
+  win.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">'
+    +'<title>Etiquetas '+oc.numero_orden+' ('+bolsones+')</title>'
+    +'<style>'+CSS+'</style></head><body>'
+    +instr
+    +'<div class="etiquetas-wrap">'+etiquetas+'</div>'
+    +'</body></html>');
+  win.document.close();
+}
+
 function imprimirBobinasOC(ocId){
   const oc=C.ord_corte.find(x=>x.id===ocId);
   if(!oc){alert('OC no encontrada');return;}
@@ -27820,10 +28167,13 @@ async function renderInvHist(){
 // Imprimir etiqueta big bag con QR
 function imprimirEtiquetaLote(id){
   const l=C.lotes_mp.find(x=>x.id===id);if(!l)return;
-  const qrData=JSON.stringify({lote:l.numero_lote,bb:l.numero_bigbag||'',kg:l.kg_ingresados,tipo:l.tipos_mp?.nombre||''});
-  const qrUrl='https://api.qrserver.com/v1/create-qr-code/?size=150x150&data='+encodeURIComponent(l.numero_lote);
+  // El QR lleva solo el número de lote — los lectores con teclado en español
+  // pueden mal-traducir JSON con caracteres como : / " {} → no usamos JSON.
+  const qrData=l.numero_lote;
+  const qrUrlFallback='https://api.qrserver.com/v1/create-qr-code/?size=150x150&data='+encodeURIComponent(qrData);
   const win=window.open('','_blank','width=400,height:500');
   win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Etiqueta '+l.numero_lote+'</title>'
+    +'<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"><\/script>'
     +'<style>@page{size:A6;margin:8mm;}body{font-family:Arial,sans-serif;text-align:center;padding:1rem;}'
     +'.nro{font-size:20pt;font-weight:800;font-family:"Courier New",monospace;color:#1e293b;margin-bottom:8px;}'
     +'.dato{font-size:11pt;margin:4px 0;}.kg{font-size:18pt;font-weight:700;color:#6c8ef5;margin:8px 0;}'
@@ -27832,9 +28182,24 @@ function imprimirEtiquetaLote(id){
     +(l.numero_bigbag?'<div class="dato">Big Bag: <strong>'+l.numero_bigbag+'</strong></div>':'')
     +'<div class="dato">'+( l.tipos_mp?.nombre||'Material')+'</div>'
     +'<div class="kg">'+l.kg_ingresados.toLocaleString('es-AR')+' kg</div>'
-    +'<img src="'+qrUrl+'" style="width:120px;height:120px;margin:8px auto;display:block;">'
+    +'<div id="qr-target" style="width:120px;height:120px;margin:8px auto;display:flex;align-items:center;justify-content:center;"></div>'
     +'<div class="dato" style="font-size:9pt;color:#64748b">'+l.fecha_ingreso+' · '+(l.proveedores?.nombre||'—')+'</div>'
-    +'<script>window.onload=()=>setTimeout(()=>window.print(),400);<\/script>'
+    +'<script>'
+    +'(function(){'
+      +'var t=document.getElementById("qr-target");'
+      +'var d='+JSON.stringify(qrData)+';'
+      +'try{'
+        +'if(typeof qrcode==="function"){'
+          +'var qr=qrcode(0,"M");qr.addData(d);qr.make();'
+          +'t.innerHTML=qr.createImgTag(4,2);'
+          +'var img=t.querySelector("img");if(img){img.style.width="120px";img.style.height="120px";}'
+        +'} else { throw new Error("no lib"); }'
+      +'} catch(e){'
+        +'t.innerHTML="<img src=\\""+'+JSON.stringify(qrUrlFallback)+'+"\\" style=\\"width:120px;height:120px;\\">";'
+      +'}'
+    +'})();'
+    +'window.onload=()=>setTimeout(()=>window.print(),600);'
+    +'<\/script>'
     +'</body></html>');
   win.document.close();
 }
