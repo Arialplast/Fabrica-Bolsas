@@ -888,6 +888,7 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
         <div class="stats" style="margin-bottom:1.5rem;">
           <div class="stat"><div class="stat-lbl">Operarios activos</div><div class="stat-val" id="adm-op-cnt">—</div></div>
           <div class="stat"><div class="stat-lbl">Clave admin</div><div class="stat-val" id="adm-key-show" style="font-size:16px;font-family:'DM Mono',monospace;">••••</div></div>
+          <div class="stat"><div class="stat-lbl">Clave producción</div><div class="stat-val" id="adm-prodkey-show" style="font-size:16px;font-family:'DM Mono',monospace;">••••</div></div>
           <div class="stat"><div class="stat-lbl">Bobinas en stock</div><div class="stat-val" id="adm-stk">—</div></div>
           <div class="stat"><div class="stat-lbl">Pendientes Flexxus</div><div class="stat-val" id="adm-fl">—</div></div>
         </div>
@@ -898,6 +899,15 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
             <div class="fg"><label>Confirmar clave</label><input id="adm-new-key2" type="password" placeholder="Repetir clave"></div>
           </div>
           <div class="btn-grp"><button class="btn btn-primary btn-sm" onclick="cambiarClaveAdmin()">Cambiar clave</button><span id="msg-adm-key" style="font-size:12px;"></span></div>
+        </div>
+        <div class="fp">
+          <div class="fp-t">Cambiar clave de producción</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Esta clave la pueden tener los operarios. Sirve para reimprimir tarjetas de bobina, autorizar dos OC en la misma máquina (queda registrado quién autorizó), y otras acciones operativas.</div>
+          <div class="fgrid">
+            <div class="fg"><label>Nueva clave producción</label><input id="adm-new-prodkey" type="password" placeholder="Nueva clave"></div>
+            <div class="fg"><label>Confirmar clave</label><input id="adm-new-prodkey2" type="password" placeholder="Repetir clave"></div>
+          </div>
+          <div class="btn-grp"><button class="btn btn-primary btn-sm" onclick="cambiarClaveProduccion()">Cambiar clave</button><span id="msg-adm-prodkey" style="font-size:12px;"></span></div>
         </div>
         <div class="fp">
           <div class="fp-t">🧾 Datos fiscales de la empresa</div>
@@ -3679,6 +3689,7 @@ let xlsBobData=null,xlsBobCols=[];
 let xlsCliData=null,xlsCliCols=[];
 let cfg={
   clave_admin:'1234',
+  clave_produccion:'5678',
   tolerancia_pesada_pct:10,
   tolerancia_liviana_pct:15,
   tolerancia_advertencia_pesada_pct:2,
@@ -3792,6 +3803,7 @@ async function reload(){
   const rcfg=results[8].status==='fulfilled'?results[8].value:null;
   if(rcfg?.data){rcfg.data.forEach(r=>{
     if(r.clave==='clave_admin')cfg.clave_admin=r.valor;
+    if(r.clave==='clave_produccion')cfg.clave_produccion=r.valor;
     if(r.clave==='tolerancia_pesada_pct')cfg.tolerancia_pesada_pct=parseFloat(r.valor);
     if(r.clave==='tolerancia_liviana_pct')cfg.tolerancia_liviana_pct=parseFloat(r.valor);
     if(r.clave==='tolerancia_advertencia_pesada_pct')cfg.tolerancia_advertencia_pesada_pct=parseFloat(r.valor);
@@ -4442,13 +4454,14 @@ async function cambiarEstado(id,estado){
               <strong>${nros}</strong><br><br>
               No se recomienda tener dos órdenes en proceso en la misma extrusora al mismo tiempo.
             </div>
-            <div class="fg"><label>Motivo de autorización (admin)</label>
+            <div class="fg"><label>Motivo de autorización (queda registrado)</label>
               <input id="conflict-motivo" type="text" placeholder="ej: arrancando extrusora en paralelo...">
             </div>
             <div class="btn-grp" style="margin-top:1rem;">
-              <button class="btn btn-primary btn-sm" onclick="confirmarConflictoAdmin(${id})">Autorizar con clave admin</button>
+              <button class="btn btn-primary btn-sm" onclick="confirmarConflictoAdmin(${id})">Autorizar con clave producción</button>
               <button class="btn btn-sm" onclick="document.getElementById('conflict-modal').remove();location.reload()">Cancelar</button>
             </div>
+            <div style="font-size:11px;color:var(--text3);margin-top:8px;">Acepta clave de producción o admin.</div>
           </div>
         </div>`);
         return;
@@ -4496,14 +4509,29 @@ async function recongelarBaseline(ordenId){
 
 async function confirmarConflictoAdmin(id){
   const motivo=document.getElementById('conflict-motivo')?.value.trim();
-  pedirAdminYEjecutar(async()=>{
+  if(!motivo){
+    const card=document.querySelector('#conflict-modal .modal-card');
+    if(card&&!card.querySelector('.motivo-err')){
+      const div=document.createElement('div');
+      div.className='motivo-err';
+      div.style.cssText='color:var(--red);font-size:11px;margin-top:4px;';
+      div.textContent='El motivo es obligatorio.';
+      card.querySelector('.fg').appendChild(div);
+    }
+    return;
+  }
+  pedirClaveProduccionYEjecutar(async({autorizadoPor})=>{
     document.getElementById('conflict-modal')?.remove();
+    // Registrar quién autorizó (producción/admin) en motivo_atraso para auditoría
+    const ahora=new Date().toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const logTxt='[CONFLICTO EXTRUSORA '+ahora+' '+autorizadoPor+'] '+motivo;
     await sb.from('ordenes').update({
       estado:'En proceso',
-      motivo_atraso:motivo?'Autorizado admin: '+motivo:null
+      motivo_atraso:logTxt
     }).eq('id',id);
     await congelarBaselineExtrusion(id);
     await reload();
+    toast('✓ OE iniciada (conflicto autorizado por '+autorizadoPor+')','amber');
   });
 }
 
@@ -4536,6 +4564,46 @@ function verificarAdmin(){
   }else{
     document.getElementById('adm-err').textContent='Clave incorrecta.';
     setTimeout(()=>{const e=document.getElementById('adm-err');if(e)e.textContent='';},2000);
+  }
+}
+
+// Pide la clave de PRODUCCIÓN para ejecutar una acción. Acepta también la
+// clave de admin (jerarquía: admin > producción). Útil para acciones que un
+// operario debe poder hacer pero requieren control mínimo: reimprimir bobinas,
+// autorizar excepciones operativas, etc.
+// El callback recibe como parámetro un objeto {autorizadoPor:'admin'|'produccion'}
+// para que la acción pueda dejar trazado quién autorizó (para auditoría).
+function pedirClaveProduccionYEjecutar(fn){
+  window._prodFn=fn;
+  const html=`<div class="modal-overlay" id="prod-modal">
+    <div class="modal-card">
+      <div class="modal-title" style="color:var(--accent)">🔒 Acción de producción</div>
+      <div class="modal-admin-lock">Esta acción requiere clave de producción (o admin).</div>
+      <div class="fg" style="margin-bottom:1rem;"><label>Clave</label>
+        <input id="prod-key" type="password" placeholder="••••" onkeydown="if(event.key==='Enter')verificarClaveProduccion()">
+      </div>
+      <div class="btn-grp">
+        <button class="btn btn-primary btn-sm" onclick="verificarClaveProduccion()">Confirmar</button>
+        <button class="btn btn-sm" onclick="document.getElementById('prod-modal').remove()">Cancelar</button>
+      </div>
+      <div id="prod-err" style="color:var(--red);font-size:12px;margin-top:8px;"></div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend',html);
+  setTimeout(()=>{const k=document.getElementById('prod-key');if(k)k.focus();},100);
+}
+function verificarClaveProduccion(){
+  const key=document.getElementById('prod-key').value;
+  let autorizadoPor=null;
+  if(key===cfg.clave_admin)autorizadoPor='admin';
+  else if(key===cfg.clave_produccion)autorizadoPor='produccion';
+  if(autorizadoPor){
+    document.getElementById('prod-modal').remove();
+    if(window._prodFn){window._prodFn({autorizadoPor});}
+    window._prodFn=null;
+  }else{
+    document.getElementById('prod-err').textContent='Clave incorrecta.';
+    setTimeout(()=>{const e=document.getElementById('prod-err');if(e)e.textContent='';},2000);
   }
 }
 
@@ -6004,7 +6072,10 @@ function imprimirTarjeta(b){
 }
 
 function reimprimirTarjeta(id){
-  pedirAdminYEjecutar(()=>{
+  // Usa clave de producción (más liviana que admin) — los operarios pueden
+  // reimprimir tarjetas si se manchan/rompen sin llamar al admin.
+  // La clave admin también funciona (jerarquía).
+  pedirClaveProduccionYEjecutar(()=>{
     const b=C.bobinas_prod.find(x=>x.id===id);
     if(b)imprimirTarjeta(b);
   });
@@ -6161,6 +6232,8 @@ function verificarAdminPage(){
     document.getElementById('admin-key-input').value='';
     // Poblar datos
     document.getElementById('adm-key-show').textContent=cfg.clave_admin;
+    const ps=document.getElementById('adm-prodkey-show');
+    if(ps)ps.textContent=cfg.clave_produccion||'(no configurada)';
     document.getElementById('adm-op-cnt').textContent=C.operarios.length;
     document.getElementById('adm-stk').textContent=C.bobinas_prod.filter(b=>b.en_stock).length;
     document.getElementById('adm-fl').textContent=C.bobinas_prod.filter(b=>b.flexxus==='No pasada'&&b.en_stock).length;
@@ -6465,6 +6538,196 @@ function onAdmBobChange(){
     document.getElementById('adm-bob-hora').value=b.hora_produccion?.slice(0,5)||'';
   }
 }
+// Cambiar el tipo de una bobina ya producida (corrección de error de carga).
+// Requiere admin. Solo se puede hacer si la bobina está DISPONIBLE:
+//   - en_stock = true (no consumida)
+//   - sin asociar a ninguna OC (no tiene fila en orden_corte_bobinas)
+// Cambia bobina_tipo_id. NO toca metros ni kg reales (esos son medidos físicamente).
+// Si después del cambio la bobina queda fuera de tolerancia para el tipo nuevo,
+// recalcula error_kg, error_pct y estado_calidad.
+// Registra la auditoría en el campo "observaciones" de la bobina.
+// Cambiar el tipo de una bobina ya producida (corrección de error de carga).
+// Requiere CLAVE ADMIN — es una acción delicada que afecta cálculos de calidad
+// y costos. Queda registrado quién, cuándo, de qué a qué, y motivo.
+// Solo se puede hacer si la bobina está DISPONIBLE:
+//   - en_stock = true (no consumida)
+//   - sin asociar a ninguna OC
+// NO toca metros ni kg reales (esos son medidos físicamente).
+// SÍ recalcula error_kg/error_pct/estado_calidad con el kg_por_metro del tipo nuevo.
+// Muestra el historial de cambios/observaciones de una bobina en un overlay.
+// Las observaciones se guardan como log acumulativo en bobinas_producidas.observaciones,
+// cada línea con el formato "[ACCIÓN fecha autor] detalles".
+function verHistorialBobina(id){
+  const b=C.bobinas_prod.find(x=>x.id===id);
+  if(!b){alert('Bobina no encontrada');return;}
+  const obs=(b.observaciones||'').trim();
+  let ov=document.getElementById('hist-bob-overlay');
+  if(!ov){
+    ov=document.createElement('div');
+    ov.id='hist-bob-overlay';
+    ov.style.cssText='display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9100;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto;';
+    ov.innerHTML='<div style="background:var(--bg1);border:1.5px solid var(--accentbd);border-radius:var(--rl);padding:20px;max-width:680px;width:100%;">'
+      +'<div id="hist-bob-body"></div>'
+    +'</div>';
+    document.body.appendChild(ov);
+  }
+  // Construir contenido: parsear líneas y mostrar cada una como una tarjeta
+  let entradasHtml='';
+  if(!obs){
+    entradasHtml='<div style="text-align:center;color:var(--text3);padding:20px;font-size:13px;">Sin historial de cambios.</div>';
+  } else {
+    const lineas=obs.split(/\r?\n/).filter(l=>l.trim());
+    // Mostrar más reciente primero
+    lineas.reverse().forEach(linea=>{
+      // Parsear "[TIPO fecha autor] resto"
+      const m=linea.match(/^\[(.+?)\]\s*(.*)$/);
+      let header='',cuerpo=linea,color='var(--text2)';
+      if(m){
+        header=m[1];
+        cuerpo=m[2];
+        // Color según tipo de acción
+        if(/CAMBIO TIPO/i.test(header))color='var(--amber)';
+        else if(/CONFLICTO/i.test(header))color='var(--red)';
+        else if(/REASIG/i.test(header))color='var(--accent)';
+      }
+      entradasHtml+='<div style="background:var(--bg2);border-left:3px solid '+color+';border-radius:var(--r);padding:10px 14px;margin-bottom:8px;">'
+        +(header?'<div style="font-size:10.5px;font-weight:700;color:'+color+';letter-spacing:.04em;margin-bottom:4px;text-transform:uppercase;">'+header+'</div>':'')
+        +'<div style="font-size:12.5px;color:var(--text1);line-height:1.5;word-wrap:break-word;">'+cuerpo+'</div>'
+      +'</div>';
+    });
+  }
+  // Render
+  const tipoActual=b.bobinas?.nombre||'(sin tipo)';
+  document.getElementById('hist-bob-body').innerHTML=''
+    +'<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:16px;">'
+      +'<div style="flex:1;">'
+        +'<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">📋 Historial de cambios</div>'
+        +'<div style="font-size:17px;font-weight:800;margin-top:3px;" class="mono">'+b.numero_bobina+'</div>'
+        +'<div style="font-size:12px;color:var(--text2);margin-top:2px;">'+tipoActual+' · '+(b.metros_reales||0)+' m · '+(b.kg_reales||0)+' kg</div>'
+      +'</div>'
+      +'<button class="btn btn-sm" onclick="document.getElementById(\'hist-bob-overlay\').style.display=\'none\'">✕</button>'
+    +'</div>'
+    +entradasHtml;
+  ov.style.display='flex';
+}
+
+function cambiarTipoBobinaAdmin(id){
+  const b=C.bobinas_prod.find(x=>x.id===id);
+  if(!b){alert('Bobina no encontrada');return;}
+  // Pre-validaciones ANTES de pedir admin (evita molestar con admin si no se puede igual)
+  if(b.en_stock===false){
+    alert('No se puede cambiar el tipo: la bobina ya está CONSUMIDA (cortada).\n\nPara casos así, el flujo correcto es manejar el ajuste desde la producción cortada, no desde la bobina.');
+    return;
+  }
+  const ocAsoc=C.ord_corte.find(oc=>(oc.orden_corte_bobinas||[]).some(x=>x.bobina_producida_id===id));
+  if(ocAsoc){
+    alert('No se puede cambiar el tipo: la bobina está asociada a la OC '+ocAsoc.numero_orden+'.\n\nDesasociala primero desde la OC y después cambiá el tipo.');
+    return;
+  }
+  // PEDIR ADMIN AHORA — antes de mostrar el formulario.
+  // Es una acción crítica, no operativa: requiere admin (no producción).
+  pedirAdminYEjecutar(()=>_abrirOverlayCambioTipoBobina(b));
+}
+
+// Abre el overlay de cambio de tipo (solo se llama después de validar admin).
+function _abrirOverlayCambioTipoBobina(b){
+  let ov=document.getElementById('cambio-tipo-bob-overlay');
+  if(!ov){
+    ov=document.createElement('div');
+    ov.id='cambio-tipo-bob-overlay';
+    ov.style.cssText='display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9100;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto;';
+    ov.innerHTML='<div style="background:var(--bg1);border:1.5px solid var(--accentbd);border-radius:var(--rl);padding:20px;max-width:520px;width:100%;">'
+      +'<div id="cambio-tipo-bob-body"></div>'
+    +'</div>';
+    document.body.appendChild(ov);
+  }
+  const tipoActual=b.bobinas?.nombre||'(sin tipo)';
+  const opciones=C.bobinas
+    .filter(t=>t.id!==b.bobina_tipo_id)
+    .sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''))
+    .map(t=>'<option value="'+t.id+'">'+(t.nombre||'(sin nombre)')+(t.descripcion?' — '+t.descripcion:'')+'</option>')
+    .join('');
+  document.getElementById('cambio-tipo-bob-body').innerHTML=''
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">'
+      +'<div style="flex:1;">'
+        +'<div style="font-size:15px;font-weight:800;">✎ Cambiar tipo de bobina</div>'
+        +'<div style="font-size:11px;color:var(--text3);">Bobina <span class="mono" style="color:var(--text1);font-weight:600;">'+b.numero_bobina+'</span></div>'
+      +'</div>'
+      +'<button class="btn btn-sm" onclick="_cerrarOverlayCambioTipoBobina()">✕</button>'
+    +'</div>'
+    +'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:14px;font-size:12px;line-height:1.5;">'
+      +'<div style="color:var(--text2)">Tipo actual:</div>'
+      +'<div style="font-weight:700;color:var(--text1);font-size:13px;">'+tipoActual+'</div>'
+      +'<div style="font-size:11px;color:var(--text3);margin-top:4px;">'+(b.metros_reales||0)+' m · '+(b.kg_reales||0)+' kg</div>'
+    +'</div>'
+    +'<div style="margin-bottom:12px;">'
+      +'<label style="display:block;font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;">Tipo nuevo</label>'
+      +'<select id="cambio-tipo-bob-sel" style="width:100%;padding:8px;font-size:13px;background:var(--bg3);color:var(--text1);border:1px solid var(--border);border-radius:var(--r);">'
+        +'<option value="">— elegí el tipo nuevo —</option>'
+        +opciones
+      +'</select>'
+    +'</div>'
+    +'<div style="margin-bottom:14px;">'
+      +'<label style="display:block;font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;">Motivo del cambio <span style="color:var(--red)">*</span></label>'
+      +'<textarea id="cambio-tipo-bob-motivo" rows="3" placeholder="Ej: operario cortó la bobina equivocada, reasignación fuera de rango errónea, etc." style="width:100%;padding:8px;font-size:13px;background:var(--bg3);color:var(--text1);border:1px solid var(--border);border-radius:var(--r);resize:vertical;"></textarea>'
+      +'<div style="font-size:10px;color:var(--text3);margin-top:4px;">Queda registrado en la traza de la bobina.</div>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end;">'
+      +'<button class="btn btn-sm" onclick="_cerrarOverlayCambioTipoBobina()">Cancelar</button>'
+      +'<button class="btn btn-sm" style="background:var(--amber);color:#000;border:none;font-weight:700;" onclick="_confirmarCambioTipoBobina('+b.id+')">✓ Confirmar cambio</button>'
+    +'</div>';
+  ov.style.display='flex';
+}
+
+function _cerrarOverlayCambioTipoBobina(){
+  const ov=document.getElementById('cambio-tipo-bob-overlay');
+  if(ov)ov.style.display='none';
+}
+
+async function _confirmarCambioTipoBobina(id){
+  const b=C.bobinas_prod.find(x=>x.id===id);
+  if(!b){_cerrarOverlayCambioTipoBobina();return;}
+  const idNuevo=parseInt(document.getElementById('cambio-tipo-bob-sel')?.value)||0;
+  const motivo=(document.getElementById('cambio-tipo-bob-motivo')?.value||'').trim();
+  if(!idNuevo){alert('Elegí el tipo nuevo');return;}
+  if(idNuevo===b.bobina_tipo_id){alert('Ese ya es el tipo actual');return;}
+  if(!motivo){alert('El motivo es obligatorio (queda registrado)');return;}
+  const tipoNuevo=C.bobinas.find(t=>t.id===idNuevo);
+  if(!tipoNuevo){alert('Tipo no encontrado');return;}
+  const tipoActual=b.bobinas?.nombre||'(sin tipo)';
+  // Recalcular calidad con el tipo nuevo
+  const mts=parseFloat(b.metros_reales)||0;
+  const kg=parseFloat(b.kg_reales)||0;
+  const kgPorMetroNuevo=tipoNuevo.kg_por_metro||(tipoNuevo.gramaje?tipoNuevo.gramaje/1000:0);
+  const kgTeoricoNuevo=r2(mts*kgPorMetroNuevo);
+  let upd={bobina_tipo_id:idNuevo,editado_admin:true};
+  if(kgTeoricoNuevo>0){
+    const errKgRaw=r2(kg-kgTeoricoNuevo);
+    const esPesada=errKgRaw>0;
+    const absE=Math.abs(r2((errKgRaw/kgTeoricoNuevo)*100));
+    const errKg=esPesada?-Math.abs(errKgRaw):Math.abs(errKgRaw);
+    const errPct=esPesada?-absE:absE;
+    const tolMax=esPesada?cfg.tolerancia_pesada_pct:cfg.tolerancia_liviana_pct;
+    const tolAdv=esPesada?cfg.tolerancia_advertencia_pesada_pct:cfg.tolerancia_advertencia_liviana_pct;
+    const calidad=absE>tolMax?'RECHAZO':absE>tolAdv?'ADVERTENCIA':'OK';
+    upd.kg_teoricos=kgTeoricoNuevo;
+    upd.error_kg=errKg;
+    upd.error_pct=errPct;
+    upd.estado_calidad=calidad;
+  }
+  // Auditoría
+  const ahora=new Date().toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+  const logEntry='[CAMBIO TIPO '+ahora+' admin] DE "'+tipoActual+'" A "'+tipoNuevo.nombre+'" — motivo: '+motivo;
+  const obsPrev=(b.observaciones||'').trim();
+  upd.observaciones=obsPrev?(obsPrev+'\n'+logEntry):logEntry;
+  const{error}=await sb.from('bobinas_producidas').update(upd).eq('id',id);
+  if(error){alert('Error al actualizar: '+error.message);return;}
+  _cerrarOverlayCambioTipoBobina();
+  const calidadMsg=upd.estado_calidad?(' · Nueva calidad: '+upd.estado_calidad):'';
+  toast('✓ Tipo cambiado: '+tipoActual+' → '+tipoNuevo.nombre+calidadMsg,'green');
+  await reload();
+}
+
 async function editarBobinaAdmin(){
   const id=parseInt(document.getElementById('adm-bob-sel').value);
   const mts=parseFloat(document.getElementById('adm-bob-mts').value);
@@ -6505,6 +6768,18 @@ async function cambiarClaveAdmin(){
   document.getElementById('adm-key-show').textContent=k1;
   msg.style.color='var(--green)';msg.textContent='✓ Clave cambiada.';
   document.getElementById('adm-new-key').value='';document.getElementById('adm-new-key2').value='';
+}
+async function cambiarClaveProduccion(){
+  const k1=document.getElementById('adm-new-prodkey').value;
+  const k2=document.getElementById('adm-new-prodkey2').value;
+  const msg=document.getElementById('msg-adm-prodkey');
+  if(!k1||k1!==k2){msg.style.color='var(--red)';msg.textContent='Las claves no coinciden.';return;}
+  if(k1===cfg.clave_admin){msg.style.color='var(--red)';msg.textContent='No puede ser igual a la clave admin.';return;}
+  await sb.from('configuracion').upsert({clave:'clave_produccion',valor:k1},{onConflict:'clave'});
+  cfg.clave_produccion=k1;
+  document.getElementById('adm-prodkey-show').textContent=k1;
+  msg.style.color='var(--green)';msg.textContent='✓ Clave de producción cambiada.';
+  document.getElementById('adm-new-prodkey').value='';document.getElementById('adm-new-prodkey2').value='';
 }
 async function guardarTolerancias(){
   const p=parseFloat(document.getElementById('adm-tol-p').value);
@@ -12277,8 +12552,14 @@ function renderStock(){
     +'</tr></thead><tbody>'
     +lista.map(b=>{
       const qcls=b.estado_calidad==='OK'?'q-ok':b.estado_calidad==='ADVERTENCIA'?'q-warn':'q-bad';
+      // Indicador de historial: si la bobina tiene observaciones, mostrar 📋 clickeable
+      const tieneHist=!!(b.observaciones&&b.observaciones.trim());
+      const histIcon=tieneHist
+        ? ' <span onclick="verHistorialBobina('+b.id+')" title="Ver historial de cambios" '
+          +'style="cursor:pointer;font-size:14px;margin-left:4px;color:var(--amber);">📋</span>'
+        : '';
       return '<tr>'
-        +'<td class="mono" style="font-weight:500">'+b.numero_bobina+'</td>'
+        +'<td class="mono" style="font-weight:500">'+b.numero_bobina+histIcon+'</td>'
         +'<td class="mono">'+(b.ordenes?.numero_orden||'—')+'</td>'
         +'<td>'
           +'<div style="font-weight:500;font-size:12px">'+(b.bobinas?.nombre||'—')+'</div>'
@@ -12297,7 +12578,9 @@ function renderStock(){
         +'<td style="font-size:12px">'+(b.operario||b.operarios?.nombre||'—')+'</td>'
         +'<td class="mono" style="font-size:11px">'+(b.fecha_produccion||'—')+'</td>'
         +'<td>'+(b.en_stock?'<span class="badge b-stock">En stock</span>':'<span style="color:var(--text3);font-size:11px">Consumida</span>')+'</td>'
-        +'<td><button class="btn btn-sm" onclick="reimprimirTarjeta('+b.id+')" title="Reimprimir tarjeta">🖨️</button> <button class="btn btn-sm" onclick="verLotesDeBobina('+b.id+')" title="Ver lotes MP consumidos">📦</button></td>'
+        +'<td><button class="btn btn-sm" onclick="reimprimirTarjeta('+b.id+')" title="Reimprimir tarjeta">🖨️</button> <button class="btn btn-sm" onclick="verLotesDeBobina('+b.id+')" title="Ver lotes MP consumidos">📦</button>'
+          +(tieneHist?' <button class="btn btn-sm" onclick="verHistorialBobina('+b.id+')" title="Ver historial de cambios" style="background:rgba(245,158,11,.08);color:var(--amber);border-color:var(--amber)">📋</button>':'')
+          +' <button class="btn btn-sm" onclick="cambiarTipoBobinaAdmin('+b.id+')" title="Cambiar tipo de bobina (admin)" style="background:rgba(245,158,11,.08);color:var(--amber);border-color:var(--amber)">✎ Tipo</button></td>'
         +'</tr>';
     }).join('')
     +'</tbody></table></div>';
@@ -13968,11 +14251,15 @@ function _calcularKgBorrador(pedido){
     // Fórmula de la bobina (porcentajes por tipo de MP)
     const formula=C.formulas.filter(f=>f.bobina_id===prod.bobina_id);
     // Tandas de esta orden (o una sola "tanda" si no está dividida)
+    // FILTRO IMPORTANTE: si una tanda ya fue confirmada (_confirmada:true), la
+    // omitimos del cálculo. El simulador y el plan deben mostrar SOLO lo que
+    // queda pendiente del borrador.
     const segmentos=o.dividir&&o.tandas?.length
-      ? o.tandas.map((t,idx)=>({bolsones:t.bolsones||0,nota:t.nota||'',idx:idx+1,total:o.tandas.length}))
-      : [{bolsones:o.bolsones||1,nota:'',idx:0,total:0}];
+      ? o.tandas.map((t,idx)=>({bolsones:t.bolsones||0,nota:t.nota||'',idx:idx+1,total:o.tandas.length,_confirmada:!!t._confirmada}))
+      : [{bolsones:o.bolsones||1,nota:'',idx:0,total:0,_confirmada:!!o._confirmada}];
     for(const seg of segmentos){
       if(seg.bolsones<=0)continue;
+      if(seg._confirmada)continue;   // ya generada en OC/OE — no la cuento en kg pendientes
       const totalPaq=seg.bolsones*paqPorBolson;
       const unidades=uniPorPaq>0?totalPaq*uniPorPaq:cantLinea;
       const mts=unidades*(prod.metros_por_bolsa||0)*(1+(o.merma||5)/100);
@@ -14275,34 +14562,81 @@ function renderSimulador(){
         +'<span style="font-size:12px;color:var(--accent);font-weight:800;">💵 $'+r2(p._monto).toLocaleString('es-AR')+'</span>'
         +(esMulti?'<button class="btn btn-sm" style="margin-left:auto;font-size:11px;" onclick="toggleTodasTandasSim('+p.id+')">'+(ocsSel===p._ocs.length?'✕ Quitar todas':'✓ Seleccionar todas')+'</button>':'')
       +'</div>'
-      // Cuerpo: si hay 1 OC, mostrarlo inline; si hay varias, una fila por cada una
+      // Cuerpo: agrupar tandas por LÍNEA (producto). Si un pedido tiene 2 productos
+      // con tandas cada uno, se ven dos subgrupos con header por producto.
       +'<div style="padding:8px 12px;">';
 
-    p._ocs.forEach((oc,ocIdx)=>{
-      const sel=_simSelOC.has(oc._tandaId);
-      const acumOver=oc._acumGlobal>kgLibres;
-      const tandaTxt=oc._esTanda?'Tanda '+oc._tandaIdx+'/'+oc._tandaTotal:'';
-      html+='<div style="display:flex;align-items:flex-start;gap:10px;padding:8px;background:'+(sel?'rgba(34,197,94,.08)':'transparent')+';border:1px solid '+(sel?'var(--green)':'transparent')+';border-radius:var(--r);margin-bottom:'+(ocIdx<p._ocs.length-1?'6px':'0')+';">'
-        +'<input type="checkbox" '+(sel?'checked':'')+' onchange="toggleSimOC(\''+oc._tandaId+'\',this.checked)" style="width:18px;height:18px;flex-shrink:0;margin-top:2px;">'
-        +'<div style="flex:1;min-width:0;">'
-          +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;">'
-            +(oc._prodCodigo?'<span style="font-family:monospace;font-weight:700;font-size:11px;color:var(--teal);">'+oc._prodCodigo+'</span>':'')
-            +(tandaTxt?'<span style="background:var(--accentbg);color:var(--accent);font-size:10px;font-weight:600;padding:1px 6px;border-radius:99px;">'+tandaTxt+'</span>':'')
-            +(oc._nota?'<span style="color:var(--text3);font-size:11px;font-style:italic;">— '+oc._nota+'</span>':'')
-          +'</div>'
-          +'<div style="font-weight:600;font-size:12px;color:var(--text1);margin-bottom:4px;">'+oc._producto+'</div>'
-          +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(95px,1fr));gap:8px;font-size:11px;">'
-            +'<div><span style="color:var(--text3)">MP necesaria</span><br><strong style="color:var(--amber);font-size:12px;">'+r1(oc._kgRelevantes).toLocaleString('es-AR')+' kg</strong></div>'
-            +'<div><span style="color:var(--text3)">Monto</span><br><strong style="color:var(--accent);font-size:12px;">$'+r2(oc._monto).toLocaleString('es-AR')+'</strong></div>'
-            +'<div><span style="color:var(--text3)">Bolsones</span><br><strong style="font-size:11px;">'+(oc._bolsones||0).toLocaleString('es-AR')+'</strong></div>'
-            +'<div><span style="color:var(--text3)">Paquetes</span><br><strong style="font-size:11px;">'+(oc._paquetes||0).toLocaleString('es-AR')+'</strong></div>'
-            +'<div><span style="color:var(--text3)">Unidades</span><br><strong style="font-size:11px;">'+(oc._unidades||0).toLocaleString('es-AR')+'</strong></div>'
-            +'<div><span style="color:var(--text3)">$/kg</span><br><strong style="font-size:11px;">$'+(oc._kgRelevantes?r2(oc._monto/oc._kgRelevantes).toLocaleString('es-AR'):'—')+'</strong></div>'
-            +'<div><span style="color:var(--text3)">Acum kg</span><br><strong style="color:'+(acumOver?'var(--red)':'var(--text2)')+';font-size:11px;">'+r1(oc._acumGlobal).toLocaleString('es-AR')+(acumOver?' ⚠ fuera':'')+'</strong></div>'
-          +'</div>'
-        +'</div>'
-      +'</div>';
+    // Agrupar tandas por _producto + _prodCodigo (cada combo = una línea)
+    const gruposLinea=new Map();
+    p._ocs.forEach((oc)=>{
+      const key=(oc._prodCodigo||'')+'|'+(oc._producto||'');
+      if(!gruposLinea.has(key))gruposLinea.set(key,{prodCodigo:oc._prodCodigo,producto:oc._producto,tandas:[]});
+      gruposLinea.get(key).tandas.push(oc);
     });
+    const lineas=Array.from(gruposLinea.values());
+    const hayMasDeUnaLinea=lineas.length>1;
+
+    lineas.forEach((linea,lineaIdx)=>{
+      const tandasDeLinea=linea.tandas;
+      const tandasSelDeLinea=tandasDeLinea.filter(oc=>_simSelOC.has(oc._tandaId)).length;
+      // Header de la línea (solo si hay más de una línea — si hay una sola, no agregar header redundante)
+      if(hayMasDeUnaLinea){
+        const lineaTieneVariasTandas=tandasDeLinea.length>1;
+        if(lineaTieneVariasTandas){
+          // Header completo: cuando la línea tiene varias tandas, mostrar resumen (kg, $, # tandas) + botón "Todas"
+          const totalKgLinea=tandasDeLinea.reduce((s,oc)=>s+oc._kgRelevantes,0);
+          const totalMontoLinea=tandasDeLinea.reduce((s,oc)=>s+oc._monto,0);
+          const todasSelLinea=tandasSelDeLinea===tandasDeLinea.length;
+          html+='<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;margin:'+(lineaIdx>0?'10px':'0')+' 0 4px;border-bottom:1px dashed var(--border);">'
+            +'<span style="font-size:13px;">📦</span>'
+            +(linea.prodCodigo?'<span style="font-family:monospace;font-weight:700;font-size:11px;color:var(--teal);">'+linea.prodCodigo+'</span>':'')
+            +'<span style="font-weight:700;font-size:12px;color:var(--text1);flex:1;">'+linea.producto+'</span>'
+            +'<span style="font-size:10px;color:var(--text3);">'+tandasDeLinea.length+' tandas</span>'
+            +'<span style="font-size:10px;color:var(--amber);font-weight:700;">'+r1(totalKgLinea).toLocaleString('es-AR')+' kg</span>'
+            +'<span style="font-size:10px;color:var(--accent);font-weight:700;">$'+r2(totalMontoLinea).toLocaleString('es-AR')+'</span>'
+            +'<button class="btn btn-sm" style="font-size:10px;padding:2px 6px;" onclick="toggleTandasDeLineaSim('+p.id+',\''+(linea.prodCodigo||'').replace(/'/g,"\\'")+'\',\''+(linea.producto||'').replace(/'/g,"\\'")+'\')">'+(todasSelLinea?'✕ Quitar':'✓ Todas')+'</button>'
+          +'</div>';
+        } else {
+          // Header MINIMO: cuando la línea tiene una sola tanda, mostrar solo código + nombre.
+          // Los kg/monto/etc están en la fila de la tanda misma — no duplicar.
+          html+='<div style="display:flex;align-items:center;gap:8px;padding:4px 4px 2px;margin:'+(lineaIdx>0?'10px':'0')+' 0 2px;">'
+            +'<span style="font-size:12px;">📦</span>'
+            +(linea.prodCodigo?'<span style="font-family:monospace;font-weight:700;font-size:11px;color:var(--teal);">'+linea.prodCodigo+'</span>':'')
+            +'<span style="font-weight:600;font-size:12px;color:var(--text2);">'+linea.producto+'</span>'
+          +'</div>';
+        }
+      }
+      // Tandas de esta línea
+      tandasDeLinea.forEach((oc,ocIdx)=>{
+        const sel=_simSelOC.has(oc._tandaId);
+        const acumOver=oc._acumGlobal>kgLibres;
+        const tandaTxt=oc._esTanda?'Tanda '+oc._tandaIdx+'/'+oc._tandaTotal:'';
+        const esUltima=ocIdx===tandasDeLinea.length-1;
+        html+='<div style="display:flex;align-items:flex-start;gap:10px;padding:8px;background:'+(sel?'rgba(34,197,94,.08)':'transparent')+';border:1px solid '+(sel?'var(--green)':'transparent')+';border-radius:var(--r);margin-bottom:'+(esUltima?'0':'6px')+';">'
+          +'<input type="checkbox" '+(sel?'checked':'')+' onchange="toggleSimOC(\''+oc._tandaId+'\',this.checked)" style="width:18px;height:18px;flex-shrink:0;margin-top:2px;">'
+          +'<div style="flex:1;min-width:0;">'
+            +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;">'
+              // Si NO hay subhead de línea, mostrar código de producto en la tanda;
+              // si SÍ hay (porque el pedido tiene varios productos), no duplicarlo.
+              +(!hayMasDeUnaLinea&&oc._prodCodigo?'<span style="font-family:monospace;font-weight:700;font-size:11px;color:var(--teal);">'+oc._prodCodigo+'</span>':'')
+              +(tandaTxt?'<span style="background:var(--accentbg);color:var(--accent);font-size:10px;font-weight:600;padding:1px 6px;border-radius:99px;">'+tandaTxt+'</span>':'')
+              +(oc._nota?'<span style="color:var(--text3);font-size:11px;font-style:italic;">— '+oc._nota+'</span>':'')
+            +'</div>'
+            // Si hay subhead de línea, no repetir el nombre del producto en cada tanda
+            +(!hayMasDeUnaLinea?'<div style="font-weight:600;font-size:12px;color:var(--text1);margin-bottom:4px;">'+oc._producto+'</div>':'')
+            +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(95px,1fr));gap:8px;font-size:11px;">'
+              +'<div><span style="color:var(--text3)">MP necesaria</span><br><strong style="color:var(--amber);font-size:12px;">'+r1(oc._kgRelevantes).toLocaleString('es-AR')+' kg</strong></div>'
+              +'<div><span style="color:var(--text3)">Monto</span><br><strong style="color:var(--accent);font-size:12px;">$'+r2(oc._monto).toLocaleString('es-AR')+'</strong></div>'
+              +'<div><span style="color:var(--text3)">Bolsones</span><br><strong style="font-size:11px;">'+(oc._bolsones||0).toLocaleString('es-AR')+'</strong></div>'
+              +'<div><span style="color:var(--text3)">Paquetes</span><br><strong style="font-size:11px;">'+(oc._paquetes||0).toLocaleString('es-AR')+'</strong></div>'
+              +'<div><span style="color:var(--text3)">Unidades</span><br><strong style="font-size:11px;">'+(oc._unidades||0).toLocaleString('es-AR')+'</strong></div>'
+              +'<div><span style="color:var(--text3)">$/kg</span><br><strong style="font-size:11px;">$'+(oc._kgRelevantes?r2(oc._monto/oc._kgRelevantes).toLocaleString('es-AR'):'—')+'</strong></div>'
+              +'<div><span style="color:var(--text3)">Acum kg</span><br><strong style="color:'+(acumOver?'var(--red)':'var(--text2)')+';font-size:11px;">'+r1(oc._acumGlobal).toLocaleString('es-AR')+(acumOver?' ⚠ fuera':'')+'</strong></div>'
+            +'</div>'
+          +'</div>'
+        +'</div>';
+      });
+    }); // fin lineas.forEach
 
     html+='</div></div>';
     return html;
@@ -14326,6 +14660,27 @@ function toggleTodasTandasSim(pedidoId){
   // Las tandas del Borrador — sus _tandaId son pedidoId+'-'+indice
   const kgInfo=_calcularKgBorrador(p);
   const tandaIds=kgInfo.tandas.map((t,i)=>p.id+'-'+i);
+  const todasSel=tandaIds.every(id=>_simSelOC.has(id));
+  if(todasSel)tandaIds.forEach(id=>_simSelOC.delete(id));
+  else tandaIds.forEach(id=>_simSelOC.add(id));
+  const sel=document.getElementById('sim-criterio');
+  if(sel&&sel.value!=='manual')sel.value='manual';
+  renderSimulador();
+}
+
+// Toggle de todas las tandas de UNA línea específica dentro de un pedido.
+// Útil cuando un pedido tiene varios productos y querés marcar/desmarcar todas
+// las tandas de un producto de una sola vez (sin afectar las demás líneas).
+function toggleTandasDeLineaSim(pedidoId,prodCodigo,producto){
+  const p=C.pedidos.find(x=>x.id===pedidoId);
+  if(!p)return;
+  const kgInfo=_calcularKgBorrador(p);
+  // Filtrar tandas que pertenezcan a esta línea exacta (mismo producto+código)
+  const tandaIds=kgInfo.tandas
+    .map((t,i)=>({tandaId:p.id+'-'+i,prodCodigo:t.productoCodigo||'',producto:t.producto||''}))
+    .filter(x=>x.prodCodigo===prodCodigo&&x.producto===producto)
+    .map(x=>x.tandaId);
+  if(!tandaIds.length)return;
   const todasSel=tandaIds.every(id=>_simSelOC.has(id));
   if(todasSel)tandaIds.forEach(id=>_simSelOC.delete(id));
   else tandaIds.forEach(id=>_simSelOC.add(id));
@@ -14426,19 +14781,13 @@ async function _confirmarPedidoLote(pedidoId){
   return confirmarPedido(pedidoId,null,true);
 }
 
-// Confirma en lote los Borradores que tienen tandas seleccionadas en el simulador.
-// Por ahora confirma el pedido ENTERO si tiene al menos una tanda marcada
-// (el Camino B — confirmar tandas sueltas — queda para más adelante).
-// Respeta el orden del simulador: lo que está más arriba se confirma primero
-// (queda con prioridad más alta en la cola).
+// Confirma desde el simulador SOLO las tandas marcadas. Es el "Camino B" real:
+// cada tanda elegida genera su OC + OE, las no elegidas quedan en el borrador.
+// Si TODAS las tandas de un pedido fueron elegidas → ese pedido pasa a Confirmado.
+// Si solo algunas → ese pedido sigue como Borrador con las tandas restantes pendientes.
 async function confirmarSeleccionSimulador(){
-  // Pedidos (Borradores) que tienen alguna tanda seleccionada, en orden del simulador
-  const pedidosEnOrden=[];
-  const vistos=new Set();
-  // _simSelOC tiene _tandaId = pedidoId+'-'+indice. Recorremos los Borradores
-  // en el MISMO orden en que el simulador los mostró.
   const borradores=C.pedidos.filter(p=>p.estado==='Borrador'&&!p.es_historico);
-  // Reconstruir el orden: igual criterio que renderSimulador
+  // Orden del simulador (igual criterio que renderSimulador)
   const criterio=document.getElementById('sim-criterio')?.value||'combinado';
   borradores.forEach(p=>{
     const cli=C.clientes.find(c=>c.razon_social===p.cliente||c.nombre===p.cliente);
@@ -14450,17 +14799,23 @@ async function confirmarSeleccionSimulador(){
       const fa=a.fecha_entrega_est||'9999',fb=b.fecha_entrega_est||'9999';
       return fa.localeCompare(fb);
     }
-    return 0;  // combinado/margen/manual: respeta el orden de C.pedidos
+    return 0;
   });
+
+  // Para cada borrador, juntar los _tandaId marcados
+  const pedidosEnOrden=[];
   borradores.forEach(p=>{
-    const kgInfo=_calcularKgBorrador(p);
-    const tieneSel=kgInfo.tandas.some((t,i)=>_simSelOC.has(p.id+'-'+i));
-    const todasSel=kgInfo.tandas.length>0&&kgInfo.tandas.every((t,i)=>_simSelOC.has(p.id+'-'+i));
-    if(tieneSel&&!vistos.has(p.id)){
-      vistos.add(p.id);
-      pedidosEnOrden.push({pedido:p,todasSel,nTandas:kgInfo.tandas.length,
-        nSel:kgInfo.tandas.filter((t,i)=>_simSelOC.has(p.id+'-'+i)).length});
-    }
+    const kgInfo=_calcularKgBorrador(p);   // ya excluye tandas _confirmada
+    if(!kgInfo.tandas.length)return;
+    const tandaIdsMarcados=kgInfo.tandas.map((t,i)=>p.id+'-'+i).filter(id=>_simSelOC.has(id));
+    if(!tandaIdsMarcados.length)return;
+    pedidosEnOrden.push({
+      pedido:p,
+      tandaIdsMarcados,
+      nMarcadas:tandaIdsMarcados.length,
+      nTotal:kgInfo.tandas.length,
+      todasMarcadas:tandaIdsMarcados.length===kgInfo.tandas.length
+    });
   });
 
   if(!pedidosEnOrden.length){
@@ -14468,44 +14823,52 @@ async function confirmarSeleccionSimulador(){
     return;
   }
 
-  // Aviso: los que tienen selección parcial se confirman ENTEROS (por ahora)
-  const parciales=pedidosEnOrden.filter(x=>!x.todasSel);
-  let msg='Vas a confirmar '+pedidosEnOrden.length+' pedido'+(pedidosEnOrden.length===1?'':'s')+':\n\n';
+  // Confirmación
+  let msg='Vas a confirmar tandas de '+pedidosEnOrden.length+' pedido'+(pedidosEnOrden.length===1?'':'s')+':\n\n';
   pedidosEnOrden.forEach(x=>{
-    msg+='• '+x.pedido.numero_pedido+' ('+x.pedido.cliente+')'
-      +(x.todasSel?'':' — ⚠ seleccionaste '+x.nSel+'/'+x.nTandas+' tandas, se confirma ENTERO')
+    msg+='• '+x.pedido.numero_pedido+' ('+x.pedido.cliente+'): '+x.nMarcadas+'/'+x.nTotal+' tanda'+(x.nTotal===1?'':'s')
+      +(x.todasMarcadas?' ✓ TODAS — pasa a Confirmado':' (parcial — sigue Borrador)')
       +'\n';
   });
-  if(parciales.length){
-    msg+='\n⚠ '+parciales.length+' pedido'+(parciales.length===1?'':'s')+' con selección parcial se confirmará'+(parciales.length===1?'':'n')+' completo'+(parciales.length===1?'':'s')+'.\n';
-  }
-  msg+='\nSe generarán las OC y OE. ¿Confirmás?';
+  msg+='\nSe va a generar 1 OC + 1 OE por cada tanda marcada.\n\n¿Confirmás?';
   if(!confirm(msg))return;
 
-  // Confirmar uno por uno, en orden. Las OC/OE nuevas van a la cola al final:
-  // calculamos la prioridad máxima que ya existe y encolamos a partir de ahí.
+  // Cursor de prioridad: arranca después de la última prioridad existente
   let priMax=0;
   C.ord_corte.forEach(o=>{if((o.prioridad||0)>priMax)priMax=o.prioridad;});
   C.ordenes.forEach(o=>{if((o.prioridad||0)>priMax)priMax=o.prioridad;});
-  let priCursor=priMax;  // las nuevas arrancan después de la última existente
-  let ok=0,errores=[];
+  let priCursor=priMax+1;
+
+  let ok=0,parciales=0,totalOC=0,totalOE=0;
+  const erroresGlobales=[];
   for(const x of pedidosEnOrden){
     try{
-      // Reservamos un rango de prioridades para este pedido (una por tanda)
-      const nT=Math.max(1,x.nTandas);
-      await confirmarPedido(x.pedido.id,null,true,priCursor+1);
-      priCursor+=nT;
-      ok++;
-    }catch(e){
-      errores.push(x.pedido.numero_pedido+': '+(e.message||e));
+      const res=await confirmarTandasParcial(x.pedido.id,x.tandaIdsMarcados,priCursor);
+      if(res.ok){
+        ok++;
+        totalOC+=res.ordsCreadas;
+        totalOE+=res.oeCreadas;
+        if(res.quedanPendientes)parciales++;
+        if(res.priCursor)priCursor=res.priCursor;
+        if(res.errores&&res.errores.length)erroresGlobales.push(...res.errores);
+      } else {
+        erroresGlobales.push(x.pedido.numero_pedido+': '+res.err);
+      }
+    } catch(e){
+      erroresGlobales.push(x.pedido.numero_pedido+': '+(e.message||e));
     }
   }
+  // Limpiar selección
+  _simSelOC=new Set();
   await reload();
   renderSimulador();
-  if(errores.length){
-    toast('Confirmados '+ok+'/'+pedidosEnOrden.length+'. Errores: '+errores.join(' · '),'red');
+  let resumen='✓ '+ok+'/'+pedidosEnOrden.length+' pedido'+(pedidosEnOrden.length===1?'':'s')+' procesado'+(ok===1?'':'s')
+    +' — '+totalOC+' OC + '+totalOE+' OE generadas';
+  if(parciales>0)resumen+=' · '+parciales+' siguen Borrador (parcial)';
+  if(erroresGlobales.length){
+    toast(resumen+' · Avisos: '+erroresGlobales.slice(0,3).join(' | '),'amber');
   } else {
-    toast('✓ '+ok+' pedido'+(ok===1?'':'s')+' confirmado'+(ok===1?'':'s')+' — órdenes generadas','green');
+    toast(resumen,'green');
   }
 }
 
@@ -15355,6 +15718,108 @@ function _chipPlan(info){
     +'title="Plan: '+nom+' — clic para abrir el plan">🎯 '+nom+'</span>';
 }
 
+// ─── APURAR Parte 2: acción real sobre prioridades ───
+// Cuando un paso del plan tiene apurar:true (es un pedido cuyo cobro se necesita
+// urgente para financiar la compra de MP), el usuario puede APLICAR esa urgencia:
+// se bajan a prioridad 1 las OE y OC asociadas al pedido, así el motor del Gantt
+// las ordena primero. NO toca el motor del Gantt — solo cambia los inputs (prioridad).
+// El operario puede después reordenar manualmente desde Planificar producción.
+async function aplicarApurarAPedido(pasoId,pedidoId){
+  const ped=C.pedidos.find(p=>p.id===pedidoId);
+  if(!ped){alert('Pedido no encontrado');return;}
+  // OCs del pedido que estén en estado Pendiente o En proceso
+  const ocsDelPedido=(ped.pedido_ordenes_corte||[])
+    .map(poc=>C.ord_corte.find(o=>o.id===poc.orden_corte_id))
+    .filter(oc=>oc&&(oc.estado==='Pendiente'||oc.estado==='En proceso'));
+  if(!ocsDelPedido.length){
+    alert('El pedido no tiene OC en Pendiente o En proceso para apurar.');
+    return;
+  }
+  // OEs asociadas a esas OCs (vía orden_extrusion_id o legacy orden_corte_origen_id)
+  const idsOC=new Set(ocsDelPedido.map(o=>o.id));
+  const oesAsoc=C.ordenes.filter(oe=>{
+    if(oe.estado!=='Pendiente'&&oe.estado!=='En proceso')return false;
+    if(oe.orden_corte_origen_id&&idsOC.has(oe.orden_corte_origen_id))return true;
+    return ocsDelPedido.some(oc=>oc.orden_extrusion_id===oe.id);
+  });
+  const cantOC=ocsDelPedido.length;
+  const cantOE=oesAsoc.length;
+  if(!confirm('¿Aplicar urgencia al pedido '+(ped.numero_pedido||'')+'?\n\n'
+    +'Se va a bajar a prioridad 1:\n'
+    +'  - '+cantOC+' OC en producción\n'
+    +'  - '+cantOE+' OE en producción\n\n'
+    +'Las prioridades quedarán registradas. El Gantt se recalcula automáticamente.\n'
+    +'Después podés reordenar manualmente desde Planificar producción si querés.'
+  ))return;
+  const ahora=new Date().toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+  const pl=(C.planes_compra||[]).find(p=>(p.pasos||[]).some(s=>s.id===pasoId));
+  const nomPlan=pl?.nombre||'Plan';
+  // Guardar prioridades viejas para poder revertir, en el paso del plan
+  const restore={ocs:[],oes:[]};
+  try{
+    for(const oc of ocsDelPedido){
+      restore.ocs.push({id:oc.id,prioridad:oc.prioridad||null});
+      const obsNueva=((oc.observaciones||'').trim()+'\n[APURADO POR PLAN '+ahora+'] Prioridad bajada a 1 — Plan: '+nomPlan).trim();
+      await sb.from('ordenes_corte').update({prioridad:1,observaciones:obsNueva}).eq('id',oc.id);
+    }
+    for(const oe of oesAsoc){
+      restore.oes.push({id:oe.id,prioridad:oe.prioridad||null});
+      const obsNueva=((oe.observaciones||'').trim()+'\n[APURADO POR PLAN '+ahora+'] Prioridad bajada a 1 — Plan: '+nomPlan).trim();
+      await sb.from('ordenes').update({prioridad:1,observaciones:obsNueva}).eq('id',oe.id);
+    }
+    if(pl){
+      const pasos=pl.pasos||[];
+      const paso=pasos.find(s=>s.id===pasoId);
+      if(paso){
+        paso.apurar_aplicado=true;
+        paso.apurar_aplicado_at=new Date().toISOString();
+        paso.apurar_restore=restore;
+        await sb.from('planes_compra').update({pasos}).eq('id',pl.id);
+      }
+    }
+    toast('⚡ Urgencia aplicada: '+cantOC+' OC + '+cantOE+' OE a prioridad 1','green');
+    await reload();
+    if(typeof renderDetallePlan==='function')renderDetallePlan();
+  } catch(e){
+    alert('Error al aplicar urgencia: '+e.message);
+  }
+}
+
+// Restaura las prioridades anteriores a la aplicación de urgencia.
+async function quitarApurarDePedido(pasoId,pedidoId){
+  const pl=(C.planes_compra||[]).find(p=>(p.pasos||[]).some(s=>s.id===pasoId));
+  if(!pl){alert('Plan no encontrado');return;}
+  const paso=(pl.pasos||[]).find(s=>s.id===pasoId);
+  if(!paso?.apurar_restore){
+    alert('No hay datos de restauración guardados — no se puede revertir automáticamente.\n\nPodés ajustar las prioridades manualmente desde Planificar producción.');
+    return;
+  }
+  if(!confirm('¿Quitar la urgencia y restaurar las prioridades anteriores?'))return;
+  const ahora=new Date().toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+  try{
+    const restore=paso.apurar_restore;
+    for(const r of (restore.ocs||[])){
+      const oc=C.ord_corte.find(o=>o.id===r.id);
+      const obsNueva=((oc?.observaciones||'').trim()+'\n[URGENCIA QUITADA '+ahora+'] Prioridad restaurada a '+(r.prioridad||1)).trim();
+      await sb.from('ordenes_corte').update({prioridad:r.prioridad||1,observaciones:obsNueva}).eq('id',r.id);
+    }
+    for(const r of (restore.oes||[])){
+      const oe=C.ordenes.find(o=>o.id===r.id);
+      const obsNueva=((oe?.observaciones||'').trim()+'\n[URGENCIA QUITADA '+ahora+'] Prioridad restaurada a '+(r.prioridad||1)).trim();
+      await sb.from('ordenes').update({prioridad:r.prioridad||1,observaciones:obsNueva}).eq('id',r.id);
+    }
+    paso.apurar_aplicado=false;
+    delete paso.apurar_aplicado_at;
+    delete paso.apurar_restore;
+    await sb.from('planes_compra').update({pasos:pl.pasos}).eq('id',pl.id);
+    toast('Urgencia quitada · prioridades restauradas','green');
+    await reload();
+    if(typeof renderDetallePlan==='function')renderDetallePlan();
+  } catch(e){
+    alert('Error al quitar urgencia: '+e.message);
+  }
+}
+
 function renderDetallePlan(){
   const cont=document.getElementById('plan-detalle-body');
   if(!cont)return;
@@ -15473,6 +15938,15 @@ function renderDetallePlan(){
     // Botón "parcial" solo para cobros y caja (no para la compra)
     if(s.tipo==='cobro'||s.tipo==='caja'){
       html+='<button onclick="cargarParcialPaso(\''+s.id+'\')" title="Marcar parcial — cargar cuánto cobré" style="width:24px;height:24px;border-radius:4px;border:1px solid #3b82f6;background:'+(s.estado==='parcial'?'#3b82f6':'transparent')+';color:'+(s.estado==='parcial'?'#fff':'#3b82f6')+';cursor:pointer;font-size:11px;font-weight:700;">½</button>';
+    }
+    // Botón APURAR Parte 2: aplicar urgencia (bajar prioridad de OE/OC del pedido a 1)
+    // Solo aparece en pasos de cobro marcados con apurar:true.
+    if(s.tipo==='cobro'&&s.apurar&&s.ref_pedido){
+      if(s.apurar_aplicado){
+        html+='<button onclick="quitarApurarDePedido(\''+s.id+'\','+s.ref_pedido+')" title="Quitar urgencia (restaurar prioridades)" style="height:24px;padding:0 8px;border-radius:4px;border:1px solid var(--green);background:rgba(34,197,94,.18);color:var(--green);cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">⚡ Aplicada</button>';
+      } else {
+        html+='<button onclick="aplicarApurarAPedido(\''+s.id+'\','+s.ref_pedido+')" title="Aplicar urgencia: bajar prioridad de OE/OC del pedido a 1" style="height:24px;padding:0 8px;border-radius:4px;border:1px solid var(--amber);background:rgba(245,158,11,.15);color:var(--amber);cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;">⚡ Aplicar</button>';
+      }
     }
     html+=''
         +'<button onclick="setPasoEstado(\''+s.id+'\',\'hecho\')" title="Hecho" style="width:24px;height:24px;border-radius:4px;border:1px solid var(--green);background:'+(s.estado==='hecho'?'var(--green)':'transparent')+';color:'+(s.estado==='hecho'?'#fff':'var(--green)')+';cursor:pointer;font-size:11px;">✓</button>'
@@ -17900,10 +18374,83 @@ async function cambiarPriCorte(id,val){await sb.from('ordenes_corte').update({pr
 
 async function cambiarEstadoCorte(id,estado){
   if(estado==='Completada'){pedirAdminYEjecutar(async()=>{await sb.from('ordenes_corte').update({estado}).eq('id',id);await reload();});return;}
+  // Si quiere poner En proceso, verificar conflicto: dos OC en la misma máquina de corte.
+  // Si hay conflicto, pedir clave de producción (con motivo obligatorio) y registrar
+  // en observaciones quién autorizó (admin o producción) para que quede trazable.
+  if(estado==='En proceso'){
+    const oc=C.ord_corte.find(o=>o.id===id);
+    if(oc?.orden_corte_maquinas?.length){
+      const maqIds=oc.orden_corte_maquinas.map(om=>om.maquina_corte_id);
+      const conflictos=C.ord_corte.filter(o=>
+        o.id!==id &&
+        o.estado==='En proceso' &&
+        o.orden_corte_maquinas?.some(om=>maqIds.includes(om.maquina_corte_id))
+      );
+      if(conflictos.length){
+        const nros=conflictos.map(o=>o.numero_orden).join(', ');
+        const maqsConflicto=oc.orden_corte_maquinas
+          .filter(om=>conflictos.some(c=>c.orden_corte_maquinas?.some(x=>x.maquina_corte_id===om.maquina_corte_id)))
+          .map(om=>C.maq_corte.find(m=>m.id===om.maquina_corte_id)?.nombre||'?').join(', ');
+        document.body.insertAdjacentHTML('beforeend',`<div class="modal-overlay" id="conflict-corte-modal">
+          <div class="modal-card" style="max-width:480px">
+            <div class="modal-title" style="color:var(--amber)">⚠ Conflicto de máquina de corte</div>
+            <div style="font-size:13px;margin-bottom:1rem;">
+              La máquina <strong>${maqsConflicto}</strong> ya tiene una OC En proceso:<br>
+              <strong>${nros}</strong><br><br>
+              No se recomienda tener dos OC en proceso en la misma máquina de corte al mismo tiempo.
+            </div>
+            <div class="fg"><label>Motivo de autorización (queda registrado)</label>
+              <input id="conflict-corte-motivo" type="text" placeholder="ej: cambio rápido, urgencia, etc.">
+            </div>
+            <div class="btn-grp" style="margin-top:1rem;">
+              <button class="btn btn-primary btn-sm" onclick="confirmarConflictoCorteProd(${id})">Autorizar con clave producción</button>
+              <button class="btn btn-sm" onclick="document.getElementById('conflict-corte-modal').remove();location.reload()">Cancelar</button>
+            </div>
+            <div style="font-size:11px;color:var(--text3);margin-top:8px;">Acepta clave de producción o admin.</div>
+          </div>
+        </div>`);
+        return;
+      }
+    }
+  }
   await sb.from('ordenes_corte').update({estado}).eq('id',id);
   // Al pasar a "En proceso", congelar el baseline (fin teórico comprometido)
   if(estado==='En proceso')await congelarBaselineCorte(id);
   await reload();
+}
+
+// Autoriza el conflicto de máquina de corte con clave de producción (o admin).
+// Registra en observaciones de la OC quién autorizó y el motivo, para que el
+// admin pueda revisar todos los conflictos autorizados después.
+async function confirmarConflictoCorteProd(id){
+  const motivo=document.getElementById('conflict-corte-motivo')?.value.trim();
+  if(!motivo){
+    const err=document.querySelector('#conflict-corte-modal .modal-card');
+    if(err&&!err.querySelector('.motivo-err')){
+      const div=document.createElement('div');
+      div.className='motivo-err';
+      div.style.cssText='color:var(--red);font-size:11px;margin-top:4px;';
+      div.textContent='El motivo es obligatorio.';
+      err.querySelector('.fg').appendChild(div);
+    }
+    return;
+  }
+  pedirClaveProduccionYEjecutar(async({autorizadoPor})=>{
+    document.getElementById('conflict-corte-modal')?.remove();
+    // Registrar la autorización en observaciones de la OC
+    const oc=C.ord_corte.find(o=>o.id===id);
+    const ahora=new Date().toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const logEntry='[CONFLICTO MÁQUINA '+ahora+' '+autorizadoPor+'] Autorizado a iniciar pese a otra OC en misma máquina — motivo: '+motivo;
+    const obsPrev=(oc?.observaciones||'').trim();
+    const obsNueva=obsPrev?(obsPrev+'\n'+logEntry):logEntry;
+    await sb.from('ordenes_corte').update({
+      estado:'En proceso',
+      observaciones:obsNueva
+    }).eq('id',id);
+    await congelarBaselineCorte(id);
+    await reload();
+    toast('✓ OC iniciada (conflicto autorizado por '+autorizadoPor+')','amber');
+  });
 }
 
 // Congela fin_baseline de una OC = su fin teórico actual (plan real de corte).
@@ -20644,7 +21191,11 @@ function setFlujoPeriodo(p){
 // Calcula el estado y la info de producción de UNA línea de pedido (dinámico)
 // Devuelve {estado, label, color, icono, bg, paqPedido, paqProducido, paqEntregado, avance, ocs, maquinaResumen}
 function _estadoLineaCalculado(p,li){
-  const paqPedido=parseFloat(li.cantidad)||0;
+  const paqPedidoOriginal=parseFloat(li.cantidad)||0;
+  const paqCancelado=parseFloat(li.cantidad_cancelada)||0;
+  // El "paqPedido efectivo" es lo que realmente hay que cumplir.
+  // Si parte se canceló al cerrar parcialmente, no contamos esa porción.
+  const paqPedido=Math.max(0,paqPedidoOriginal-paqCancelado);
   // Cancelada (acción explícita)
   if(_lineaCancelada(li)){
     return {estado:'cancelada',label:'Cancelada',color:'#64748b',icono:'⛔',bg:'rgba(100,116,139,.1)',
@@ -20829,10 +21380,15 @@ function _estadoOperativoPedido(p){
     .filter(o=>o&&o.estado!=='Cancelada');
 
   // Totales pedidos vs paquetes ya cargados en stock + entregados
+  // cantidad_cancelada = paquetes que NO se van a entregar (cierre parcial).
+  // No cuentan como pedido pendiente — se restan del total pedido.
   let paqPedidos=0,paqEnStock=0,paqEntregados=0;
   lineas.forEach(li=>{
     if(_lineaCancelada(li))return;
-    paqPedidos+=parseFloat(li.cantidad)||0;
+    const cantTotal=parseFloat(li.cantidad)||0;
+    const cantCancelada=parseFloat(li.cantidad_cancelada)||0;
+    // Lo "pedido efectivo" descuenta lo cancelado del cierre parcial
+    paqPedidos+=Math.max(0,cantTotal-cantCancelada);
     // Considerar varios nombres de campo legacy (pedidos históricos)
     const entregadoLinea=parseFloat(li.entregado)||parseFloat(li.remitido)||parseFloat(li.facturado)||0;
     paqEntregados+=entregadoLinea;
@@ -21436,6 +21992,27 @@ function renderPedidosLista(){
     const estadoOp=_estadoOperativoPedido(p);
     const estInfo=_labelEstadoOp(estadoOp);
 
+    // Detección de "pedido híbrido" — Borrador con tandas ya confirmadas
+    // (camino B / tandas sueltas del simulador). Lo marcamos visualmente
+    // así en la lista de pedidos se ve que parte del pedido ya está en producción.
+    let nTandasConfirmadas=0,nTandasTotal=0,esHibrido=false;
+    if(p.estado==='Borrador'&&p.plan_ordenes?.ordenes){
+      p.plan_ordenes.ordenes.forEach(o=>{
+        if(!o.confirmar)return;
+        if(o.dividir&&o.tandas?.length){
+          o.tandas.forEach(t=>{
+            if((t.bolsones||0)<=0)return;
+            nTandasTotal++;
+            if(t._confirmada)nTandasConfirmadas++;
+          });
+        } else {
+          nTandasTotal++;
+          if(o._confirmada)nTandasConfirmadas++;
+        }
+      });
+      esHibrido=nTandasConfirmadas>0&&nTandasConfirmadas<nTandasTotal;
+    }
+
     // Info producción
     const info=_pedidoInfoProduccion(p);
     const avance=info?.avance||0;
@@ -21545,7 +22122,9 @@ function renderPedidosLista(){
         +(reasignado?'<div style="font-size:9px;color:#a855f7;font-weight:700;margin-top:2px;">⚠ STOCK REASIGNADO</div>':'')
       +'</td>'
       +'<td style="padding:8px;vertical-align:top;">'+(p.cliente||'—')+' '+tipoBadge+' '+badgeCobro+_chipPlan(_planDePedido(p.id))+'</td>'
-      +'<td style="padding:8px;vertical-align:top;"><span style="background:'+estInfo.bg+';color:'+estInfo.color+';font-weight:700;font-size:11px;padding:3px 8px;border-radius:99px;white-space:nowrap;">'+estInfo.icono+' '+estInfo.label+'</span></td>'
+      +'<td style="padding:8px;vertical-align:top;"><span style="background:'+estInfo.bg+';color:'+estInfo.color+';font-weight:700;font-size:11px;padding:3px 8px;border-radius:99px;white-space:nowrap;">'+estInfo.icono+' '+estInfo.label+'</span>'
+        +(esHibrido?'<div style="margin-top:4px;"><span style="background:rgba(245,158,11,.15);color:var(--amber);border:1px solid var(--amber);font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;white-space:nowrap;" title="Pedido híbrido: '+nTandasConfirmadas+' tandas en producción, '+(nTandasTotal-nTandasConfirmadas)+' pendientes de confirmar">🔀 Híbrido '+nTandasConfirmadas+'/'+nTandasTotal+'</span></div>':'')
+      +'</td>'
       +'<td style="padding:8px;vertical-align:top;">'+barra+'</td>'
       +'<td style="padding:8px;vertical-align:top;">'+prodHTML+'</td>'
       +'<td style="padding:8px;font-family:monospace;font-size:11px;text-align:right;vertical-align:top;">'+kgMPstr+'</td>'
@@ -23698,6 +24277,227 @@ function _continuarConfirmConModo(pedidoId){
 
 // Toma un pedido en BORRADOR, lee su plan_ordenes (planificación serializada)
 // y genera las OC + OE reales. El pedido pasa a estado "Confirmado".
+// ─── Camino B: confirmar solo algunas tandas de un borrador ───
+// Recibe el pedido y una lista de _tandaId (formato pedidoId-idx, donde idx es el
+// orden de la tanda como sale en _calcularKgBorrador). Genera 1 OC por cada
+// tanda elegida. Si una línea con genOE tiene tandas elegidas, fuerza modo
+// "por_tanda" (1 OE por tanda) para que cada OE quede vinculada a su OC y
+// los kg sean correctos.
+// Si después de la confirmación parcial QUEDAN tandas pendientes → el pedido
+// sigue como Borrador. Si TODAS las tandas del plan quedan confirmadas →
+// el pedido pasa a Confirmado (igual que confirmarPedido normal).
+// Confirmar UNA tanda individual desde el detalle del pedido (botón inline).
+// Recibe el índice de la orden en plan_ordenes.ordenes y el índice de la tanda
+// dentro de esa orden (-1 si la orden no está dividida en tandas).
+// Reutiliza confirmarTandasParcial: convierte el idx local a _tandaId global.
+async function confirmarTandaIndividual(pedidoId,idxOE,idxTanda){
+  const p=C.pedidos.find(x=>x.id===pedidoId);
+  if(!p){toast('Pedido no encontrado','red');return;}
+  if(p.estado!=='Borrador'){toast('Solo se pueden confirmar tandas de borradores','red');return;}
+  const plan=p.plan_ordenes;
+  if(!plan?.ordenes){toast('Sin planificación','red');return;}
+  // Recorrer las tandas "planas" (igual que _calcularKgBorrador) hasta encontrar
+  // la combinación (idxOE, idxTanda) y devolver el índice global.
+  let globalIdx=-1,cur=0;
+  for(let i=0;i<plan.ordenes.length;i++){
+    const o=plan.ordenes[i];
+    if(!o.confirmar)continue;
+    if(o.dividir&&o.tandas?.length){
+      for(let j=0;j<o.tandas.length;j++){
+        if((o.tandas[j].bolsones||0)<=0)continue;
+        if(o.tandas[j]._confirmada){cur++;continue;}
+        if(i===idxOE&&j===idxTanda){globalIdx=cur;break;}
+        cur++;
+      }
+    } else {
+      if(o._confirmada){cur++;continue;}
+      if(i===idxOE&&idxTanda===-1){globalIdx=cur;break;}
+      cur++;
+    }
+    if(globalIdx!==-1)break;
+  }
+  if(globalIdx===-1){toast('Tanda ya confirmada o no encontrada — refrescá la página','red');return;}
+  const tandaId=pedidoId+'-'+globalIdx;
+  if(!confirm('¿Confirmar esta tanda y generar su OC + OE?'))return;
+  const res=await confirmarTandasParcial(pedidoId,[tandaId]);
+  if(res.ok){
+    let msg='✓ Tanda confirmada · '+res.ordsCreadas+' OC + '+res.oeCreadas+' OE generadas';
+    if(!res.quedanPendientes)msg+=' · Pedido pasa a Confirmado';
+    toast(msg,'green');
+    await reload();
+    renderDetallePedidoPagina(pedidoId);
+  } else {
+    toast('Error: '+(res.err||'desconocido'),'red');
+  }
+}
+
+// ─── Camino B: confirmar solo algunas tandas de un borrador ───
+async function confirmarTandasParcial(pedidoId,tandaIdsElegidos,prioridadBase){
+  const ped=C.pedidos.find(p=>p.id===pedidoId);
+  if(!ped)return {ok:false,err:'Pedido no encontrado'};
+  if(ped.estado!=='Borrador')return {ok:false,err:'Solo se pueden confirmar pedidos en Borrador'};
+  const plan=ped.plan_ordenes;
+  if(!plan||!plan.ordenes||!plan.ordenes.length)return {ok:false,err:'Sin planificación'};
+
+  // Reconstruyo el mapeo: cada _tandaId del simulador se corresponde con
+  // una tupla (orden, índice-de-tanda-en-esa-orden). El _tandaId se generó
+  // recorriendo plan.ordenes.filter(confirmar) en orden y sus tandas en orden.
+  const idxSet=new Set();
+  tandaIdsElegidos.forEach(tid=>{
+    const parts=tid.split('-');
+    const idx=parseInt(parts[parts.length-1]);
+    if(!isNaN(idx))idxSet.add(idx);
+  });
+  if(!idxSet.size)return {ok:false,err:'Sin tandas elegidas'};
+
+  // Recorrer las "tandas planas" igual que _calcularKgBorrador: producir
+  // la lista [{orden, idxTandaEnOrden, segData}] en el orden global.
+  const planas=[];
+  for(const o of plan.ordenes.filter(x=>x.confirmar)){
+    if(o.dividir&&o.tandas?.length){
+      o.tandas.forEach((t,idxT)=>{
+        planas.push({orden:o,idxTandaEnOrden:idxT,seg:t,esTanda:true});
+      });
+    } else {
+      planas.push({orden:o,idxTandaEnOrden:-1,seg:null,esTanda:false});
+    }
+  }
+
+  // Recolectar las tandas elegidas, agrupándolas por línea (orden) para luego
+  // decidir cuántas OC/OE crear por orden.
+  const elegidasPorOrden=new Map();  // o (referencia) → [idxTandaEnOrden, ...] (o [-1] si no era dividida)
+  planas.forEach((p,globalIdx)=>{
+    if(!idxSet.has(globalIdx))return;
+    if(p.seg&&p.seg._confirmada)return;   // por si quedó algún resto, no re-procesar
+    const arr=elegidasPorOrden.get(p.orden)||[];
+    arr.push(p.idxTandaEnOrden);
+    elegidasPorOrden.set(p.orden,arr);
+  });
+  if(!elegidasPorOrden.size)return {ok:false,err:'Las tandas elegidas ya estaban confirmadas'};
+
+  _mostrarOverlayConfirmar();
+  const cliNom=plan.meta?.cliNom||ped.cliente||null;
+  const nro=ped.numero_pedido;
+  const lineasBD=C.pedido_lineas?C.pedido_lineas.filter(l=>l.pedido_id===pedidoId):[];
+  let ordsCreadas=0,oeCreadas=0;
+  const errores=[];
+  // OCs creadas por orden (para vincular OE→OCs después). Una entrada por OC.
+  const ocsCreadasPorOrden=new Map();   // o → [{id,mts,bolsones,prioridad,nota,idxTandaEnOrden}]
+
+  // Calcular prioridad cursor: si no se pasó base, encolamos al final de la cola
+  let priCursor;
+  if(prioridadBase){priCursor=prioridadBase;}
+  else {
+    let pmax=0;
+    C.ord_corte.forEach(o=>{if((o.prioridad||0)>pmax)pmax=o.prioridad;});
+    C.ordenes.forEach(o=>{if((o.prioridad||0)>pmax)pmax=o.prioridad;});
+    priCursor=pmax+1;
+  }
+
+  // ── Crear las OC para las tandas elegidas ──
+  for(const [o,idxs] of elegidasPorOrden){
+    const prod=C.productos.find(p=>p.id===o.producto_id);
+    if(!prod){errores.push((o.numero_orden||'?')+': sin producto');continue;}
+    const emp=C.emp.find(e=>e.id===o.empaque_id);
+    const uniPorPaq=emp?.unidades||0;
+    const paqPorBolson=o.paqPorBolson||1;
+    const cantLinea=plan.meta?.lineas?.find(l=>l.tmpId===o.linea_id)?.cantidad||o.cantidad||0;
+    const totalTandasOrden=o.dividir?o.tandas?.length:0;
+    const arrOCs=[];
+    for(const idxT of idxs){
+      const seg=idxT===-1?null:o.tandas[idxT];
+      const bolsones=seg?(seg.bolsones||0):(o.bolsones||1);
+      if(bolsones<=0)continue;
+      const totalPaq=bolsones*paqPorBolson;
+      const unidades=uniPorPaq>0?totalPaq*uniPorPaq:cantLinea;
+      const mts=r2(unidades*(prod.metros_por_bolsa||0)*(1+(o.merma||5)/100));
+      const nroFinal=await generarNroOC();
+      const nota=seg?.nota||'';
+      const obsTanda=totalTandasOrden>0
+        ?'Generada desde pedido '+nro+' · Tanda '+(idxT+1)+'/'+totalTandasOrden+(nota?' — '+nota:'')+' (parcial)'
+        :'Generada desde pedido '+nro+' (parcial)';
+      const{data:ocRow,error:eOC}=await sb.from('ordenes_corte').insert({
+        numero_orden:nroFinal,cliente:cliNom,
+        producto_id:o.producto_id,empaque_id:o.empaque_id||null,
+        bolsones_a_producir:bolsones,paquetes_por_bolson:paqPorBolson,
+        cantidad_paquetes:totalPaq,unidades_a_producir:unidades,
+        metros_necesarios:mts,merma_pct:o.merma||5,
+        prioridad:priCursor++,estado:'Pendiente',observaciones:obsTanda
+      }).select().single();
+      if(eOC){errores.push(nroFinal+': '+eOC.message);continue;}
+      if(o.maquinas?.length){
+        await sb.from('orden_corte_maquinas').insert(o.maquinas.map(m=>({orden_corte_id:ocRow.id,maquina_id:m})));
+      }
+      const liBD=lineasBD.find(li=>li.producto_id===o.producto_id);
+      await sb.from('pedido_ordenes_corte').insert({
+        pedido_id:pedidoId,orden_corte_id:ocRow.id,pedido_linea_id:liBD?.id||null
+      });
+      arrOCs.push({id:ocRow.id,mts,bolsones,prioridad:priCursor-1,nota,idxTandaEnOrden:idxT});
+      ordsCreadas++;
+    }
+    if(arrOCs.length)ocsCreadasPorOrden.set(o,arrOCs);
+  }
+
+  // ── Crear las OE — siempre modo "por_tanda" en el camino parcial ──
+  // Razón: si confirmás solo algunas tandas, no se puede consolidar en una OE
+  // que cubra "la línea entera" porque solo parte va a producirse ahora.
+  for(const [o,ocsArr] of ocsCreadasPorOrden){
+    if(!o.genOE)continue;
+    const prod=C.productos.find(p=>p.id===o.producto_id);
+    if(!prod?.bobina_id){errores.push('OE línea '+o.numero_orden+': el producto no tiene bobina');continue;}
+    const extIds=o.extrusoras||[];
+    if(!extIds.length){errores.push('OE línea '+o.numero_orden+': sin extrusoras asignadas');continue;}
+    const bobina=C.bobinas.find(b=>b.id===prod.bobina_id);
+    const kgPorMt=bobina?.kg_por_metro||(bobina?.gramaje?bobina.gramaje/1000:0);
+    // Una OE por cada OC (modo por_tanda forzado en el camino parcial)
+    for(const ocInfo of ocsArr){
+      const kgEst=kgPorMt>0?r2(ocInfo.mts*kgPorMt):null;
+      const nroOrd=await generarNroORD();
+      const tandaTxt=ocInfo.nota?' · '+ocInfo.nota:'';
+      const{data:oe,error:eOE}=await sb.from('ordenes').insert({
+        numero_orden:nroOrd,bobina_id:prod.bobina_id,metros:ocInfo.mts,
+        kg_totales:kgEst,cliente:cliNom,estado:'Pendiente',prioridad:ocInfo.prioridad,
+        pedido_ref_id:pedidoId,
+        observaciones:'Pedido '+nro+(cliNom?' · '+cliNom:'')+tandaTxt+(kgEst?' · '+kgEst+' kg est.':'')+' (parcial)'
+      }).select().single();
+      if(eOE){errores.push('OE '+nroOrd+': '+eOE.message);continue;}
+      if(oe){
+        await sb.from('orden_extrusoras').insert(extIds.map(eId=>({orden_id:oe.id,extrusora_id:eId})));
+        await sb.from('ordenes_corte').update({orden_extrusion_id:oe.id}).eq('id',ocInfo.id);
+        oeCreadas++;
+      }
+    }
+  }
+
+  // ── Marcar tandas confirmadas en plan_ordenes ──
+  // Mutamos el JSON local del plan y lo guardamos. Las tandas marcadas no van
+  // a aparecer más en _calcularKgBorrador.
+  for(const [o,idxs] of elegidasPorOrden){
+    if(o.dividir&&o.tandas?.length){
+      idxs.forEach(idxT=>{if(o.tandas[idxT])o.tandas[idxT]._confirmada=true;});
+    } else {
+      o._confirmada=true;
+    }
+  }
+
+  // ── ¿Quedan tandas sin confirmar? Si SÍ → sigue Borrador. Si NO → Confirmado. ──
+  let quedanPendientes=false;
+  for(const o of plan.ordenes.filter(x=>x.confirmar)){
+    if(o.dividir&&o.tandas?.length){
+      if(o.tandas.some(t=>!t._confirmada&&(t.bolsones||0)>0)){quedanPendientes=true;break;}
+    } else {
+      if(!o._confirmada){quedanPendientes=true;break;}
+    }
+  }
+  const nuevoEstado=quedanPendientes?'Borrador':'Confirmado';
+  await sb.from('pedidos').update({
+    estado:nuevoEstado,
+    plan_ordenes:plan
+  }).eq('id',pedidoId);
+  _ocultarOverlayConfirmar();
+  return {ok:true,ordsCreadas,oeCreadas,quedanPendientes,errores,priCursor};
+}
+
 async function confirmarPedido(pedidoId,oeModoElegido,sinConfirmar,prioridadBase){
   const ped=C.pedidos.find(p=>p.id===pedidoId);
   if(!ped){toast('Pedido no encontrado','red');return;}
@@ -24726,7 +25526,33 @@ async function confirmarCerrarPedidoParcial(pedidoId){
         nuevoTotal=r2((p.total||0)*factor);
       }
 
-      // 4) Marcar pedido como Entregado con motivo
+      // 4) Marcar cantidad_cancelada en cada línea: lo que NO se entregó pasa a "cancelado".
+      //    Si una línea pidió 1000 y se entregaron 300 → cantidad_cancelada = 700.
+      //    Si no se entregó nada → cantidad_cancelada = cantidad entera.
+      //    Esto hace que el cálculo de estado del pedido lo trate como "entregado completo".
+      //    Lo entregado queda intacto, así no se pierde la historia.
+      for(const li of (p.pedido_lineas||[])){
+        if(_lineaCancelada(li))continue; // ya estaba cancelada antes, no la toco
+        const cantTotal=parseFloat(li.cantidad)||0;
+        const entregadoLinea=parseFloat(li.entregado)||parseFloat(li.remitido)||parseFloat(li.facturado)||0;
+        // Sumar también lo entregado vía stock_bolsas para este producto y pedido
+        let entregadoStock=0;
+        (C.stock_bolsas||[]).forEach(s=>{
+          if(s.producto_id===li.producto_id&&s.pedido_id===pedidoId&&s.estado==='entregado'){
+            entregadoStock+=parseFloat(s.cantidad_paquetes)||0;
+          }
+        });
+        const entregadoEfectivo=entregadoLinea+entregadoStock;
+        const aCancelar=Math.max(0,cantTotal-entregadoEfectivo);
+        if(aCancelar>0){
+          const{error:eLi}=await sb.from('pedido_lineas')
+            .update({cantidad_cancelada:aCancelar})
+            .eq('id',li.id);
+          if(eLi)console.warn('No pude marcar cantidad_cancelada en línea',li.id,eLi.message);
+        }
+      }
+
+      // 5) Marcar pedido como Entregado con motivo
       const obsPed=(p.observaciones||'')+' [Cerrado con entrega parcial: '+motivo+']';
       await sb.from('pedidos').update({
         estado:'Entregado',
@@ -25058,6 +25884,38 @@ function renderDetallePedidoPagina(pedidoId){
     +'</div>'
   +'</div>';
 
+  // ── Banner de pedido HÍBRIDO ──
+  // Si el pedido sigue en estado Borrador pero ya tiene alguna tanda confirmada
+  // (camino B del simulador), avisamos arriba con un banner. Es info crítica:
+  // parte del pedido ya está en producción, parte sigue pendiente de confirmar.
+  if(p.estado==='Borrador'&&p.plan_ordenes?.ordenes){
+    let nTandasConfirmadas=0,nTandasTotal=0;
+    p.plan_ordenes.ordenes.forEach(o=>{
+      if(!o.confirmar)return;
+      if(o.dividir&&o.tandas?.length){
+        o.tandas.forEach(t=>{
+          if((t.bolsones||0)<=0)return;
+          nTandasTotal++;
+          if(t._confirmada)nTandasConfirmadas++;
+        });
+      } else {
+        nTandasTotal++;
+        if(o._confirmada)nTandasConfirmadas++;
+      }
+    });
+    if(nTandasConfirmadas>0&&nTandasConfirmadas<nTandasTotal){
+      const pendientes=nTandasTotal-nTandasConfirmadas;
+      html+='<div style="background:linear-gradient(135deg,rgba(245,158,11,.10),rgba(245,158,11,.04));border:1.5px solid var(--amber);border-left-width:4px;border-radius:var(--rl);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">'
+        +'<div style="font-size:22px;">⚠</div>'
+        +'<div style="flex:1;min-width:200px;">'
+          +'<div style="font-size:13px;font-weight:800;color:var(--amber);margin-bottom:2px;">Pedido parcialmente confirmado</div>'
+          +'<div style="font-size:12px;color:var(--text2);"><strong style="color:var(--green);">'+nTandasConfirmadas+'</strong> tanda'+(nTandasConfirmadas===1?'':'s')+' en producción · <strong style="color:var(--amber);">'+pendientes+'</strong> pendiente'+(pendientes===1?'':'s')+' de confirmar</div>'
+        +'</div>'
+        +'<button class="btn btn-sm" style="background:var(--accent);color:#fff;border:none;font-weight:700;" onclick="go(\'simulador\')">📊 Ir al simulador</button>'
+      +'</div>';
+    }
+  }
+
   // Observaciones y notas
   if(p.observaciones){
     html+='<div style="font-size:12px;margin-bottom:10px;padding:8px 14px;background:rgba(245,158,11,.06);border-left:3px solid var(--amber);border-radius:4px;"><strong>📝 Observaciones:</strong> '+p.observaciones+'</div>';
@@ -25340,7 +26198,11 @@ function _dpRenderLineas(p){
     const warnOE=(!cancelada&&eL.oeAtrasada)?' <span title="Extrusión atrasada" style="color:var(--amber);">⚠</span>':'';
     html+='<tr style="border-bottom:1px solid var(--border);'+rowStyle+'">'
       +'<td style="padding:8px;">'+(l.productos?.codigo?'<span class="mono" style="font-size:10px;color:var(--text3)">'+l.productos.codigo+'</span> ':'')+(l.productos?.descripcion||l.descripcion||'—')+'</td>'
-      +'<td style="padding:8px;text-align:right;font-weight:600;">'+cantPaq.toLocaleString('es-AR')+' paq<br><span style="font-size:10px;color:var(--text3);font-weight:400;">'+cantUni.toLocaleString('es-AR')+' u</span></td>'
+      +'<td style="padding:8px;text-align:right;font-weight:600;">'+cantPaq.toLocaleString('es-AR')+' paq<br><span style="font-size:10px;color:var(--text3);font-weight:400;">'+cantUni.toLocaleString('es-AR')+' u</span>'
+        +((parseFloat(l.cantidad_cancelada)||0)>0
+          ?'<br><span style="font-size:10px;color:var(--amber);font-weight:600;" title="Paquetes cancelados al cerrar el pedido con entrega parcial">⊘ '+(parseFloat(l.cantidad_cancelada)||0).toLocaleString('es-AR')+' canc.</span>'
+          :'')
+      +'</td>'
       +'<td style="padding:8px;text-align:right">$'+r2(l.precio_paquete||0).toLocaleString('es-AR')+'</td>'
       +'<td style="padding:8px;text-align:right;font-weight:600">$'+r2(l.subtotal_linea||0).toLocaleString('es-AR')+'</td>'
       +'<td style="padding:8px;"><span style="background:'+eL.bg+';color:'+eL.color+';font-weight:700;font-size:10px;padding:2px 7px;border-radius:99px;white-space:nowrap;">'+eL.icono+' '+eL.label+'</span>'+warnOE+barra+'</td>'
@@ -25351,6 +26213,70 @@ function _dpRenderLineas(p){
           :'<span style="color:var(--text3);font-size:10px;">—</span>')
       +'</td>'
     +'</tr>';
+
+    // ── Tandas pendientes de esta línea (camino B / tandas sueltas) ──
+    // Si el pedido tiene plan_ordenes con tandas no _confirmada para este producto,
+    // mostrarlas como filas anidadas para que el usuario vea qué falta confirmar.
+    if(p.estado==='Borrador'&&p.plan_ordenes?.ordenes&&!cancelada){
+      const ordenesDelProd=p.plan_ordenes.ordenes.filter(o=>o.confirmar&&o.producto_id===l.producto_id);
+      ordenesDelProd.forEach(o=>{
+        const idxOEglobal=p.plan_ordenes.ordenes.indexOf(o);
+        if(o.dividir&&o.tandas?.length){
+          o.tandas.forEach((t,idxT)=>{
+            if((t.bolsones||0)<=0)return;
+            const confirmada=!!t._confirmada;
+            const bolsones=t.bolsones||0;
+            const emp=C.emp.find(e=>e.id===o.empaque_id);
+            const paqPorBolson=o.paqPorBolson||1;
+            const totalPaq=bolsones*paqPorBolson;
+            const tandaTxt='Tanda '+(idxT+1)+'/'+o.tandas.length;
+            html+='<tr style="background:'+(confirmada?'rgba(34,197,94,.04)':'rgba(245,158,11,.04)')+';border-bottom:1px dashed var(--border);">'
+              +'<td colspan="7" style="padding:6px 8px 6px 24px;">'
+                +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:11px;">'
+                  +(confirmada
+                    ?'<span style="color:var(--green);font-weight:700;">✓</span>'
+                    :'<span style="color:var(--amber);">⏳</span>'
+                  )
+                  +'<span style="color:var(--text2);">'+tandaTxt+'</span>'
+                  +(t.nota?'<span style="color:var(--text3);font-style:italic;">— '+t.nota+'</span>':'')
+                  +'<span style="color:var(--text3);">·</span>'
+                  +'<span style="font-weight:600;color:var(--text1);">'+bolsones+' bolsón'+(bolsones===1?'':'es')+' = '+totalPaq.toLocaleString('es-AR')+' paq</span>'
+                  +(confirmada
+                    ?'<span style="margin-left:auto;color:var(--green);font-size:10px;font-weight:700;">EN PRODUCCIÓN</span>'
+                    :'<span style="margin-left:auto;color:var(--amber);font-size:10px;font-weight:700;">SIN CONFIRMAR</span>'
+                    +' <button class="btn btn-sm" style="background:var(--accent);color:#fff;border:none;font-size:10px;padding:2px 8px;font-weight:600;" onclick="confirmarTandaIndividual('+p.id+','+idxOEglobal+','+idxT+')" title="Confirmar esta tanda y generar su OC + OE">✓ Confirmar</button>'
+                  )
+                +'</div>'
+              +'</td>'
+            +'</tr>';
+          });
+        } else {
+          // Orden sin división en tandas
+          const confirmada=!!o._confirmada;
+          const bolsones=o.bolsones||1;
+          const paqPorBolson=o.paqPorBolson||1;
+          const totalPaq=bolsones*paqPorBolson;
+          html+='<tr style="background:'+(confirmada?'rgba(34,197,94,.04)':'rgba(245,158,11,.04)')+';border-bottom:1px dashed var(--border);">'
+            +'<td colspan="7" style="padding:6px 8px 6px 24px;">'
+              +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:11px;">'
+                +(confirmada
+                  ?'<span style="color:var(--green);font-weight:700;">✓</span>'
+                  :'<span style="color:var(--amber);">⏳</span>'
+                )
+                +'<span style="color:var(--text2);">Línea completa</span>'
+                +'<span style="color:var(--text3);">·</span>'
+                +'<span style="font-weight:600;color:var(--text1);">'+bolsones+' bolsón'+(bolsones===1?'':'es')+' = '+totalPaq.toLocaleString('es-AR')+' paq</span>'
+                +(confirmada
+                  ?'<span style="margin-left:auto;color:var(--green);font-size:10px;font-weight:700;">EN PRODUCCIÓN</span>'
+                  :'<span style="margin-left:auto;color:var(--amber);font-size:10px;font-weight:700;">SIN CONFIRMAR</span>'
+                  +' <button class="btn btn-sm" style="background:var(--accent);color:#fff;border:none;font-size:10px;padding:2px 8px;font-weight:600;" onclick="confirmarTandaIndividual('+p.id+','+idxOEglobal+',-1)" title="Confirmar y generar su OC + OE">✓ Confirmar</button>'
+                )
+              +'</div>'
+            +'</td>'
+          +'</tr>';
+        }
+      });
+    }
   });
   html+='</tbody></table></div></div>';
   cont.innerHTML=html;
@@ -28132,10 +29058,21 @@ async function renderInvHist(){
     .select('*, inventario_detalle(*, lotes_mp(numero_lote,numero_bigbag,tipos_mp(nombre)))')
     .order('created_at',{ascending:false}).limit(20);
   if(!invs?.length){tbl.innerHTML='<div class="empty">Sin inventarios registrados.</div>';return;}
+  // El primer registro (más reciente) es el único que se puede deshacer.
+  // Para ese también verificamos si hubo consumos de MP después del inventario.
+  // Si los hubo, el botón aparece deshabilitado con tooltip explicativo.
+  const ultimoInv=invs[0];
+  let huboConsumosDespues=false;
+  if(ultimoInv){
+    const{count}=await sb.from('consumos_mp_bobina')
+      .select('id',{count:'exact',head:true})
+      .gt('created_at',ultimoInv.created_at);
+    huboConsumosDespues=(count||0)>0;
+  }
   let html='<div style="overflow-x:auto"><table><thead><tr>'
-    +'<th>Fecha</th><th>Realizado por</th><th>Lotes</th><th>Diferencia total</th><th>Impacto $</th><th>Tipo</th>'
+    +'<th>Fecha</th><th>Realizado por</th><th>Lotes</th><th>Diferencia total</th><th>Impacto $</th><th>Tipo</th><th>Acciones</th>'
     +'</tr></thead><tbody>';
-  invs.forEach(inv=>{
+  invs.forEach((inv,idx)=>{
     const det=inv.inventario_detalle||[];
     const difTotal=r3(det.reduce((s,d)=>s+(d.diferencia_kg||0),0));
     const esAjSist=inv.ajuste_sistema||det.some(d=>d.es_ajuste_sistema);
@@ -28148,6 +29085,18 @@ async function renderInvHist(){
         +(per>0?(gan>0?' / ':'')+'<span style="color:var(--red)">−$'+per.toLocaleString('es-AR')+'</span>':'');
       if(!gan&&!per)impactoStr='<span style="color:var(--green)">Sin diferencia</span>';
     }
+    // Botón "Deshacer" solo en el último, y deshabilitado si hubo consumos después
+    let accionStr='—';
+    if(idx===0){
+      if(huboConsumosDespues){
+        accionStr='<button class="btn btn-sm" disabled style="opacity:.4;cursor:not-allowed" '
+          +'title="No se puede deshacer porque ya hubo consumos de MP posteriores al inventario">🔄 Deshacer</button>';
+      } else {
+        accionStr='<button class="btn btn-sm" onclick="deshacerInventario('+inv.id+')" '
+          +'style="background:rgba(239,68,68,.08);color:var(--red);border-color:var(--redbd)" '
+          +'title="Deshacer este inventario (requiere admin). Restaura los kg de los lotes a como estaban antes.">🔄 Deshacer</button>';
+      }
+    }
     html+='<tr>'
       +'<td class="mono" style="font-size:12px">'+inv.fecha+' '+(inv.hora?.slice(0,5)||'')+'</td>'
       +'<td>'+(inv.realizado_por||'—')+'</td>'
@@ -28158,10 +29107,69 @@ async function renderInvHist(){
         ?'<span style="color:var(--amber);font-size:11px;font-weight:600">⚙ Ajuste sistema</span>'
         :'<span style="color:var(--green);font-size:11px">✓ Normal</span>')
       +'</td>'
+      +'<td>'+accionStr+'</td>'
       +'</tr>';
   });
   html+='</tbody></table></div>';
   tbl.innerHTML=html;
+}
+
+// Deshacer el último inventario registrado.
+// Restaura kg_disponibles de cada lote al valor "kg_sistema" guardado en el detalle
+// (que es el valor que tenía ANTES del inventario). Borra registros y restaura
+// la fecha del último inventario al anterior. Requiere admin.
+async function deshacerInventario(invId){
+  pedirAdminYEjecutar(async()=>{
+    // Volver a verificar que sea el último y que no hubo consumos posteriores —
+    // por si algo cambió entre el render y el click.
+    const{data:ultInvs}=await sb.from('inventarios_mp')
+      .select('id,created_at').order('created_at',{ascending:false}).limit(2);
+    if(!ultInvs?.length||ultInvs[0].id!==invId){
+      alert('Solo se puede deshacer el inventario más reciente. Refrescá la lista.');
+      return;
+    }
+    const ultimo=ultInvs[0];
+    const anterior=ultInvs[1]||null;
+    const{count}=await sb.from('consumos_mp_bobina')
+      .select('id',{count:'exact',head:true})
+      .gt('created_at',ultimo.created_at);
+    if((count||0)>0){
+      alert('No se puede deshacer: ya hubo '+count+' consumo(s) de MP posterior(es) al inventario.');
+      return;
+    }
+    // Traer el detalle para restaurar
+    const{data:det,error:eDet}=await sb.from('inventario_detalle')
+      .select('*').eq('inventario_id',invId);
+    if(eDet){alert('Error trayendo detalle: '+eDet.message);return;}
+    if(!confirm('¿Confirmás deshacer este inventario?\n\nSe van a restaurar los kg de '+(det?.length||0)+' lotes al valor que tenían ANTES del inventario.\n\nEsta acción no se puede revertir desde el sistema.'))return;
+    // Restaurar cada lote a su kg_sistema (el valor previo al inventario)
+    for(const d of (det||[])){
+      if(d.lote_id==null||d.kg_sistema==null)continue;
+      const{error}=await sb.from('lotes_mp')
+        .update({kg_disponibles:d.kg_sistema}).eq('id',d.lote_id);
+      if(error){alert('Error restaurando lote '+d.lote_id+': '+error.message);return;}
+    }
+    // Borrar detalle y cabecera
+    await sb.from('inventario_detalle').delete().eq('inventario_id',invId);
+    await sb.from('inventarios_mp').delete().eq('id',invId);
+    // Restaurar fecha de último inventario en config: si hay anterior, esa; si no, null
+    if(anterior){
+      // Necesitamos la fecha completa del anterior — la traemos
+      const{data:antFull}=await sb.from('inventarios_mp')
+        .select('created_at').eq('id',anterior.id).single();
+      const fechaAnt=antFull?.created_at||null;
+      await sb.from('configuracion').upsert({clave:'ultimo_inventario',valor:fechaAnt},{onConflict:'clave'});
+      cfg.ultimo_inventario=fechaAnt;
+    } else {
+      await sb.from('configuracion').upsert({clave:'ultimo_inventario',valor:null},{onConflict:'clave'});
+      cfg.ultimo_inventario=null;
+    }
+    const msg=document.getElementById('msg-inv');
+    if(msg){msg.style.color='var(--green)';msg.textContent='✓ Inventario deshecho. Stock restaurado al valor anterior.';}
+    await reload();
+    renderInvAlerta();
+    renderInvHist();
+  });
 }
 
 // Imprimir etiqueta big bag con QR
