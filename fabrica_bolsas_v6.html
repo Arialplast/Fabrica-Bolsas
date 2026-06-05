@@ -382,6 +382,7 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
     <div class="nav-item" onclick="go('gantt-corte')"><div class="nav-dot"></div>Gantt corte semanal</div>
     <div class="nav-item" onclick="goAdmin('gantt-corte-diario')"><div class="nav-dot"></div>Gantt corte diario 🔐</div>
     <div class="nav-item" onclick="go('bobinas-fuera-rango')"><div class="nav-dot" style="background:var(--red)"></div>Fuera de rango</div>
+    <div class="nav-item" onclick="go('balance-bobinas')"><div class="nav-dot" style="background:var(--amber)"></div>⚖ Balance de bobinas</div>
     <div class="nav-sec">Pedidos y Cobranzas</div>
     <div class="nav-item" onclick="go('pedidos')"><div class="nav-dot" style="background:var(--teal)"></div>Pedidos</div>
     <div class="nav-item" onclick="go('nuevo-pedido')"><div class="nav-dot"></div>Nuevo pedido</div>
@@ -409,6 +410,7 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
     <div class="nav-item" onclick="go('mp-formulas')"><div class="nav-dot"></div>Fórmulas</div>
     <div class="nav-item" onclick="goAdmin('costos')"><div class="nav-dot" style="background:var(--purple)"></div>Costos 🔐</div>
     <div class="nav-item" onclick="goAdmin('rentabilidad')"><div class="nav-dot" style="background:var(--green)"></div>Rentabilidad 🔐</div>
+    <div class="nav-item" onclick="go('informe-lote')"><div class="nav-dot" style="background:var(--accent)"></div>📊 Informe de lote MP</div>
     <div class="nav-sec">Configuración</div>
     <div class="nav-item" onclick="go('bobinas')"><div class="nav-dot"></div>Bobinas</div>
     <div class="nav-item" onclick="go('extrusoras')"><div class="nav-dot"></div>Extrusoras</div>
@@ -1152,6 +1154,24 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
       <div class="page-hdr"><div><div class="page-title">Bobinas fuera de rango</div><div class="page-sub">No cuentan en su orden original · pendientes de reasignación admin</div></div></div>
       <div class="alert alert-warn" style="font-size:12px;">Estas bobinas superaron el límite de error tolerable. No se sumaron a los metros de su orden. Solo el administrador puede reasignarlas a otro producto.</div>
       <div id="fuera-rango-wrap"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+
+    <div class="page" id="page-balance-bobinas">
+      <div class="page-hdr">
+        <div>
+          <div class="page-title">⚖ Balance de bobinas</div>
+          <div class="page-sub">OCs con faltante de material · sugerencias para cubrirlas</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;">
+            <input type="checkbox" id="bal-mostrar-todas" onchange="renderBalance()" style="width:16px;height:16px;">
+            Mostrar todas (incluye OK 🟢)
+          </label>
+          <button class="btn btn-sm" onclick="renderBalance()" title="Recalcular">🔄 Refrescar</button>
+        </div>
+      </div>
+      <div id="balance-resumen" style="margin-bottom:16px;"></div>
+      <div id="balance-wrap"><div class="loading"><div class="spinner"></div></div></div>
     </div>
 
     <div class="page" id="page-ordenes-corte">
@@ -3457,6 +3477,30 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
       <div class="tw"><div id="mp-stock-tbl"><div class="loading"><div class="spinner"></div></div></div></div>
     </div>
 
+    <!-- INFORME DE LOTE MP -->
+    <div class="page" id="page-informe-lote">
+      <div class="page-hdr">
+        <div>
+          <div class="page-title">📊 Informe de lote de MP</div>
+          <div class="page-sub">Trazabilidad económica · de la compra al cobro · respeta principios marginal/c-GG del documento de arquitectura</div>
+        </div>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);cursor:pointer;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:6px 10px;">
+          <input type="checkbox" id="infl-aditivos" onchange="renderInformeLote()" style="margin:0;cursor:pointer;">
+          <span>⚙ Incluir aditivos en costos</span>
+        </label>
+        <select class="st-sel" id="infl-cat" onchange="renderInformeLote()" style="min-width:140px;">
+          <option value="base" selected>Solo material base</option>
+          <option value="">Todos los tipos</option>
+        </select>
+        <select class="st-sel" id="infl-lote" onchange="renderInformeLote()" style="min-width:280px;">
+          <option value="">— Seleccioná un lote —</option>
+        </select>
+      </div>
+      </div>
+      <div id="infl-wrap"><div class="empty" style="padding:40px;text-align:center;color:var(--text3);">Elegí un lote del desplegable arriba para ver su informe.</div></div>
+    </div>
+
     <!-- INGRESO DE LOTES -->
     <div class="page" id="page-mp-ingreso">
       <div class="page-hdr"><div><div class="page-title">Ingreso de lotes de MP</div><div class="page-sub">1 compra = 1 lote · descuento FIFO automático al producir bobinas</div></div></div>
@@ -3735,14 +3779,51 @@ window.addEventListener('load',()=>{
   if(k)document.getElementById('cfg-key').value=k;
 });
 
+// Trae bobinas en chunks de 1000 para sortear el límite duro de Supabase.
+// Filtra: en stock O producidas en los últimos 60 días. Excluye fuera de rango.
+// Devuelve {data: [...]} en el mismo formato que sb.from(...).select(...) para que
+// el reload() siga funcionando igual.
+async function _traerBobinasRecientes(){
+  const hace60d=new Date(Date.now()-60*24*3600*1000);
+  const isoDate=hace60d.getFullYear()+'-'+String(hace60d.getMonth()+1).padStart(2,'0')+'-'+String(hace60d.getDate()).padStart(2,'0');
+  const todas=[];
+  const tope=20000;       // techo de seguridad
+  const chunk=1000;       // tamaño de página (límite de Supabase)
+  let desde=0;
+  while(desde<tope){
+    const{data,error}=await sb.from('bobinas_producidas')
+      .select('*, ordenes(numero_orden,metros), bobinas(*), extrusoras(nombre), operarios(nombre)')
+      .eq('fuera_de_rango',false)
+      .or('en_stock.eq.true,fecha_produccion.gte.'+isoDate)
+      .order('created_at',{ascending:false})
+      .range(desde,desde+chunk-1);
+    if(error)return {data:todas,error};
+    if(!data||!data.length)break;
+    todas.push(...data);
+    if(data.length<chunk)break;   // última página
+    desde+=chunk;
+  }
+  return {data:todas,error:null};
+}
+
 async function reload(){
+  // El flag _historicasCargadas indica si el usuario pidió ver las bobinas viejas.
+  // Cada reload trae solo las recientes (en stock + últimos 60 días), así que
+  // reseteamos el flag — si el usuario quiere ver las viejas, tiene que volver
+  // a apretar "Cargar todas las históricas".
+  if(typeof C!=='undefined')C._historicasCargadas=false;
   const results=await Promise.allSettled([
     sb.from('bobinas').select('*').order('nombre'),
     sb.from('extrusoras').select('*').order('nombre'),
     sb.from('ordenes').select('*, bobinas(*), orden_extrusoras(*, extrusoras(*))').order('prioridad').order('created_at'),
     sb.from('capacidad_semanal').select('*, extrusoras(*)'),
     sb.from('clientes').select('*').order('razon_social'),
-    sb.from('bobinas_producidas').select('*, ordenes(numero_orden,metros), bobinas(*), extrusoras(nombre), operarios(nombre)').eq('fuera_de_rango',false).order('created_at',{ascending:false}),
+    // Bobinas: por defecto traemos las EN STOCK + las CONSUMIDAS recientes (últimos 60 días).
+    // Con producción de ~2000 bobinas/mes, esto es ~5000 registros máximo.
+    // IMPORTANTE: Supabase tiene un límite duro de 1000 filas por request. Paginamos
+    // en chunks de 1000 con range() hasta agotar.
+    // Filtramos por fecha_produccion (fecha real), NO por created_at.
+    _traerBobinasRecientes(),
     sb.from('stock_movimientos').select('*, bobinas_producidas(numero_bobina)').order('fecha',{ascending:false}).limit(100),
     sb.from('bobinas_producidas').select('*, ordenes(numero_orden), bobinas(nombre), extrusoras(nombre)').order('created_at',{ascending:false}).limit(50),
     sb.from('configuracion').select('*'),
@@ -4222,7 +4303,7 @@ function renderDash(){
       const col=pct>=100?'var(--green)':pct>60?'var(--accent)':'var(--amber)';
       const fin=s&&ext0?fmtDt(s[ext0.extrusora_id]?.fin):'—';
       return '<tr>'
-        +'<td class="mono">'+o.numero_orden+'</td>'
+        +'<td class="mono">'+o.numero_orden+(o.origen==='balance'?' <span style="background:rgba(245,158,11,.18);color:var(--amber);font-size:9px;font-weight:700;padding:2px 6px;border-radius:99px;border:1px solid var(--amber);white-space:nowrap;margin-left:4px;" title="OE complementaria — generada desde Balance de bobinas para cubrir un faltante de material">➕ COMPLEMENTARIA</span>':'')+'</td>'
         +'<td>'+(o.cliente||'—')+'</td>'
         +'<td>'+(o.bobinas?.nombre||'—')+'</td>'
         +'<td class="mono">'+(o.kg_totales?.toLocaleString('es-AR')||'—')+' kg</td>'
@@ -4358,7 +4439,7 @@ function renderOrdenes(){
       ?'<span style="font-size:10px;color:var(--red);max-width:100px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+o.motivo_atraso+'">⚠ '+o.motivo_atraso+'</span>'
       :'<button class="btn btn-sm" style="font-size:11px" onclick="mostrarMotivo('+o.id+')">+ Motivo</button>';
     html+='<tr style="'+(esSusp?'opacity:0.6':esCanc?'opacity:0.4':'')+'">'
-      +'<td class="mono">'+o.numero_orden+'</td>'
+      +'<td class="mono">'+o.numero_orden+(o.origen==='balance'?' <span style="background:rgba(245,158,11,.18);color:var(--amber);font-size:9px;font-weight:700;padding:2px 6px;border-radius:99px;border:1px solid var(--amber);white-space:nowrap;margin-left:4px;" title="OE complementaria — generada desde Balance de bobinas para cubrir un faltante de material">➕ COMPLEMENTARIA</span>':'')+'</td>'
       +'<td class="mono" style="color:var(--text2)">'+(o.ref_flexxus||'—')+'</td>'
       +'<td>'+(o.cliente||'—')+'</td>'
       +'<td><div style="font-weight:500;font-size:12px">'+(o.bobinas?.nombre||'—')+'</div>'
@@ -5605,9 +5686,10 @@ async function asociarBobinasOrdenCorte(){
     }));
     const{error:e1}=await sb.from('orden_corte_bobinas').insert(rows);
     if(e1){msg.style.color='var(--red)';msg.textContent='Error: '+e1.message;return;}
-    // Sacar todas del stock
+    // Sacar todas del stock y limpiar reserva si la tenían
+    // (reservada_oc_id era una reserva opcional desde el Balance; al cortar, ya no aplica)
     const ids=bobs.map(b=>b.id);
-    await sb.from('bobinas_producidas').update({en_stock:false}).in('id',ids);
+    await sb.from('bobinas_producidas').update({en_stock:false,reservada_oc_id:null}).in('id',ids);
     // Registrar movimientos
     const movs=bobs.map(b=>({
       bobina_producida_id:b.id,tipo:'salida',motivo:'corte_confeccion',
@@ -6346,6 +6428,8 @@ function go(name){
   if(name==='historial-ordenes')renderHistorial();
   if(name==='suspension-maquinas'){renderSuspMaquinas();renderSuspHistorial();}
   if(name==='bobinas-fuera-rango')renderFueraDeRango();
+  if(name==='balance-bobinas')renderBalance();
+  if(name==='informe-lote')renderInformeLote();
   if(name==='admin'){
     // Reset lock when entering admin page
     if(!_adminPageUnlocked){
@@ -6609,6 +6693,48 @@ function verHistorialBobina(id){
     +'</div>'
     +entradasHtml;
   ov.style.display='flex';
+}
+
+// Libera la reserva de una bobina (reservada_oc_id → null).
+// La bobina vuelve a quedar como stock libre, disponible para que cualquier OC
+// del mismo tipo la use desde el Balance o desde Confección.
+// Requiere admin porque puede generar conflictos si la OC que reservaba está
+// esperando exactamente esa bobina para completar su material.
+function liberarReservaBobina(id){
+  const b=C.bobinas_prod.find(x=>x.id===id);
+  if(!b){alert('Bobina no encontrada');return;}
+  if(!b.reservada_oc_id){alert('Esta bobina no tiene reserva activa');return;}
+  if(!b.en_stock){alert('Esta bobina ya fue consumida — no se puede liberar');return;}
+  const ocRes=(C.ord_corte||[]).find(o=>o.id===b.reservada_oc_id);
+  const nro=ocRes?.numero_orden||'OC #'+b.reservada_oc_id;
+  const cli=ocRes?.cliente||'';
+  if(!confirm('¿Liberar la reserva de la bobina '+b.numero_bobina+'?\n\n'
+    +'Estaba reservada para: '+nro+(cli?' ('+cli+')':'')+'\n\n'
+    +'La bobina va a quedar como stock libre, disponible para cualquier OC del mismo tipo. '+nro+' va a perder este material de su reserva.\n\n'
+    +'Requiere clave admin.'
+  ))return;
+  pedirAdminYEjecutar(async()=>{
+    const ahora=new Date().toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+    try{
+      // 1) Limpiar reserva en la bobina
+      const{error:e1}=await sb.from('bobinas_producidas').update({reservada_oc_id:null}).eq('id',id);
+      if(e1)throw e1;
+      // 2) Auditoría en la OC que pierde la reserva
+      if(ocRes){
+        const log='[BALANCE '+ahora+' admin] Reserva liberada: bobina '+b.numero_bobina+' ('+(b.metros_reales||0)+' m) volvió a stock libre';
+        const obsNueva=((ocRes.observaciones||'').trim()+'\n'+log).trim();
+        await sb.from('ordenes_corte').update({observaciones:obsNueva}).eq('id',ocRes.id);
+      }
+      // 3) Auditoría en la bobina (observaciones de la bobina)
+      const logBob='[LIBERACIÓN '+ahora+' admin] Reserva quitada (estaba reservada para '+nro+')';
+      const obsBobNueva=((b.observaciones||'').trim()+'\n'+logBob).trim();
+      await sb.from('bobinas_producidas').update({observaciones:obsBobNueva}).eq('id',id);
+      toast('✓ Bobina '+b.numero_bobina+' liberada · vuelve a stock libre','green');
+      await reload();
+    } catch(e){
+      alert('Error al liberar: '+(e.message||e));
+    }
+  });
 }
 
 function cambiarTipoBobinaAdmin(id){
@@ -8368,18 +8494,41 @@ async function _ejecutarGuardarRemito(nro,pedId,cliId,fecha,obs,modo,ped,cli,lin
     const{data:cnt}=await sb.from('contadores').select('valor').eq('nombre','numero_remito').maybeSingle();
     await sb.from('contadores').upsert({nombre:'numero_remito',valor:(cnt?.valor||0)+1},{onConflict:'nombre'});
 
-    // Actualizar estado del pedido (solo si es modo pedido)
+    // Actualizar estado del pedido (solo si es modo pedido).
+    // EXCEPCIÓN: si el pedido es Borrador con tandas pendientes (Borrador híbrido),
+    // NO tocar el estado. Tiene que seguir siendo Borrador hasta que se confirmen
+    // todas las tandas, sino las tandas no confirmadas quedan huérfanas (sin OC/OE
+    // y sin manera de generarlas porque el pedido ya no aparece en el simulador).
     if(pedId){
-      const lineas=(ped.pedido_lineas||[]).filter(l=>!_lineaCancelada(l));
-      let totalPedido=0,totalEntregado=0;
-      lineas.forEach(l=>{totalPedido+=parseFloat(l.cantidad)||0;});
-      lineas.forEach(l=>{
-        const prev=(C.stock_bolsas||[]).filter(s=>s.producto_id===l.producto_id&&s.pedido_id===pedId&&s.estado==='entregado').reduce((s,x)=>s+(parseFloat(x.cantidad_paquetes)||0),0)+(parseFloat(l.entregado)||0);
-        totalEntregado+=prev;
-      });
-      lineasRemito.forEach(rl=>{totalEntregado+=rl.cantidad_paquetes;});
-      const nuevoEstado=totalEntregado>=totalPedido?'Entregado':'Entregado parcial';
-      await sb.from('pedidos').update({estado:nuevoEstado}).eq('id',pedId);
+      // Detectar Borrador híbrido: estado Borrador + plan_ordenes con tandas no _confirmada
+      let esHibridoConPendientes=false;
+      if(ped.estado==='Borrador'&&ped.plan_ordenes?.ordenes){
+        for(const o of ped.plan_ordenes.ordenes){
+          if(!o.confirmar)continue;
+          if(o.dividir&&o.tandas?.length){
+            if(o.tandas.some(t=>!t._confirmada&&(t.bolsones||0)>0)){esHibridoConPendientes=true;break;}
+          } else {
+            if(!o._confirmada){esHibridoConPendientes=true;break;}
+          }
+        }
+      }
+      if(esHibridoConPendientes){
+        // No cambiar estado — el pedido sigue Borrador con tandas pendientes.
+        // El remito queda registrado igual; cuando se confirmen y produzcan las
+        // tandas restantes, el flujo normal va a actualizar el estado.
+        console.log('[remito] Pedido '+ped.numero_pedido+' es Borrador híbrido con tandas pendientes — estado no se modifica');
+      } else {
+        const lineas=(ped.pedido_lineas||[]).filter(l=>!_lineaCancelada(l));
+        let totalPedido=0,totalEntregado=0;
+        lineas.forEach(l=>{totalPedido+=parseFloat(l.cantidad)||0;});
+        lineas.forEach(l=>{
+          const prev=(C.stock_bolsas||[]).filter(s=>s.producto_id===l.producto_id&&s.pedido_id===pedId&&s.estado==='entregado').reduce((s,x)=>s+(parseFloat(x.cantidad_paquetes)||0),0)+(parseFloat(l.entregado)||0);
+          totalEntregado+=prev;
+        });
+        lineasRemito.forEach(rl=>{totalEntregado+=rl.cantidad_paquetes;});
+        const nuevoEstado=totalEntregado>=totalPedido?'Entregado':'Entregado parcial';
+        await sb.from('pedidos').update({estado:nuevoEstado}).eq('id',pedId);
+      }
     }
 
     const reasignTxt=reasignaciones.length?' · ⚠ se reasignó stock de '+Object.keys(pedidosAfectados).length+' pedido(s)':'';
@@ -12577,13 +12726,89 @@ function renderStock(){
         +'</td>'
         +'<td style="font-size:12px">'+(b.operario||b.operarios?.nombre||'—')+'</td>'
         +'<td class="mono" style="font-size:11px">'+(b.fecha_produccion||'—')+'</td>'
-        +'<td>'+(b.en_stock?'<span class="badge b-stock">En stock</span>':'<span style="color:var(--text3);font-size:11px">Consumida</span>')+'</td>'
+        +'<td>'+(b.en_stock?'<span class="badge b-stock">En stock</span>':'<span style="color:var(--text3);font-size:11px">Consumida</span>')
+          // Si la bobina está reservada para una OC (vía reservada_oc_id), mostrar
+          // chip ámbar con el nro y cliente. Solo aplica si todavía está en stock.
+          +(b.en_stock&&b.reservada_oc_id?(()=>{
+            const ocRes=(C.ord_corte||[]).find(o=>o.id===b.reservada_oc_id);
+            const nro=ocRes?.numero_orden||'OC #'+b.reservada_oc_id;
+            const cli=ocRes?.cliente||'';
+            return '<br><span style="display:inline-block;margin-top:3px;background:rgba(245,158,11,.15);color:var(--amber);font-size:9px;font-weight:700;padding:2px 6px;border-radius:99px;border:1px solid var(--amber);" title="Esta bobina está reservada para esta OC. Se va a cortar para ella desde Confección.">📦 Reservada → '+nro+(cli?' · '+cli:'')+'</span>';
+          })():'')
+        +'</td>'
         +'<td><button class="btn btn-sm" onclick="reimprimirTarjeta('+b.id+')" title="Reimprimir tarjeta">🖨️</button> <button class="btn btn-sm" onclick="verLotesDeBobina('+b.id+')" title="Ver lotes MP consumidos">📦</button>'
           +(tieneHist?' <button class="btn btn-sm" onclick="verHistorialBobina('+b.id+')" title="Ver historial de cambios" style="background:rgba(245,158,11,.08);color:var(--amber);border-color:var(--amber)">📋</button>':'')
+          +(b.en_stock&&b.reservada_oc_id?' <button class="btn btn-sm" onclick="liberarReservaBobina('+b.id+')" title="Liberar la reserva — la bobina vuelve a ser stock libre (requiere admin)" style="background:rgba(245,158,11,.08);color:var(--amber);border-color:var(--amber)">🔓 Liberar</button>':'')
           +' <button class="btn btn-sm" onclick="cambiarTipoBobinaAdmin('+b.id+')" title="Cambiar tipo de bobina (admin)" style="background:rgba(245,158,11,.08);color:var(--amber);border-color:var(--amber)">✎ Tipo</button></td>'
         +'</tr>';
     }).join('')
     +'</tbody></table></div>';
+
+  // Footer: avisar de bobinas históricas no cargadas + botón para traerlas.
+  // C._historicasCargadas es flag que setea cargarBobinasHistoricas() cuando ya
+  // descargó el resto. Si no está seteado, todavía hay bobinas viejas en la BD
+  // que no se trajeron (porque la query inicial filtra "en_stock o consumidas <60d").
+  if(!C._historicasCargadas){
+    w.innerHTML+='<div style="margin-top:14px;padding:12px 16px;background:var(--bg2);border:1px dashed var(--border);border-radius:var(--r);display:flex;align-items:center;gap:14px;flex-wrap:wrap;">'
+      +'<div style="font-size:18px;">📜</div>'
+      +'<div style="flex:1;min-width:200px;font-size:12px;color:var(--text2);">'
+        +'<strong style="color:var(--text1);">Mostrando bobinas recientes</strong> (en stock + consumidas en los últimos 60 días).'
+        +'<br>Si necesitás ver bobinas más viejas para auditoría, cargá el histórico completo.'
+      +'</div>'
+      +'<button class="btn btn-sm" id="btn-cargar-historicas" onclick="cargarBobinasHistoricas()" style="background:var(--accent);color:#fff;border:none;font-weight:700;">📜 Cargar todas las históricas</button>'
+    +'</div>';
+  } else {
+    w.innerHTML+='<div style="margin-top:14px;padding:10px 16px;background:rgba(34,197,94,.05);border:1px solid rgba(34,197,94,.3);border-radius:var(--r);font-size:11px;color:var(--text2);">'
+      +'<span style="color:var(--green);font-weight:700;">✓ Histórico completo cargado</span> · Todas las bobinas producidas (recientes e históricas) están disponibles'
+    +'</div>';
+  }
+}
+
+// Trae las bobinas históricas que la carga inicial no incluyó (consumidas con
+// más de 60 días). Las añade a C.bobinas_prod evitando duplicados por id.
+// Después rerinde la página de stock con todo el catálogo completo.
+async function cargarBobinasHistoricas(){
+  const btn=document.getElementById('btn-cargar-historicas');
+  if(btn){btn.disabled=true;btn.textContent='⏳ Cargando históricas...';}
+  try{
+    const hace60d=new Date(Date.now()-60*24*3600*1000);
+    const isoDate=hace60d.getFullYear()+'-'+String(hace60d.getMonth()+1).padStart(2,'0')+'-'+String(hace60d.getDate()).padStart(2,'0');
+    console.log('[Históricas] Buscando bobinas consumidas con fecha_produccion < '+isoDate);
+    // Paginar (Supabase tope 1000 por request)
+    const todas=[];
+    const chunk=1000;
+    let desde=0;
+    const tope=50000;
+    while(desde<tope){
+      const{data,error}=await sb.from('bobinas_producidas')
+        .select('*, ordenes(numero_orden,metros), bobinas(*), extrusoras(nombre), operarios(nombre)')
+        .eq('en_stock',false)
+        .lt('fecha_produccion',isoDate)
+        .order('fecha_produccion',{ascending:false})
+        .range(desde,desde+chunk-1);
+      if(error)throw error;
+      if(!data||!data.length)break;
+      todas.push(...data);
+      if(data.length<chunk)break;
+      desde+=chunk;
+    }
+    console.log('[Históricas] Resultado total: '+todas.length+' bobinas');
+    if(todas.length){
+      const idsExistentes=new Set(C.bobinas_prod.map(b=>b.id));
+      const nuevas=todas.filter(b=>!idsExistentes.has(b.id));
+      console.log('[Históricas] Nuevas (no duplicadas): '+nuevas.length);
+      C.bobinas_prod=[...C.bobinas_prod,...nuevas];
+      toast('✓ '+nuevas.length+' bobinas históricas cargadas','green');
+    } else {
+      toast('No había bobinas históricas adicionales','amber');
+    }
+    C._historicasCargadas=true;
+    renderStock();
+  } catch(e){
+    if(btn){btn.disabled=false;btn.textContent='📜 Cargar todas las históricas';}
+    console.error('[Históricas] Error:',e);
+    alert('Error al cargar históricas: '+(e.message||e));
+  }
 }
 
 // ===== GANTT DIARIO =====
@@ -13032,6 +13257,2187 @@ function calcRecomendaciones(bob){
     });
   });
   return recomendaciones.sort((a,b)=>b.score-a.score);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// ⚖ BALANCE DE BOBINAS — vista de lectura
+// ═══════════════════════════════════════════════════════════════════════
+// Para cada OC en producción (Pendiente / En proceso) calcula si tiene
+// suficiente material asignado (cortado + lo que su OE va a producir) para
+// cumplir sus metros necesarios. Si NO, muestra:
+//   - Bobinas asignadas actualmente
+//   - Bobinas que produjo SU OE pero que se "fueron" a otras OCs (robo)
+//   - 7 sugerencias priorizadas para cubrir el faltante
+// NO escribe en la BD. Solo lectura.
+
+function renderBalance(){
+  const w=document.getElementById('balance-wrap');
+  const resumen=document.getElementById('balance-resumen');
+  if(!w)return;
+  const mostrarTodas=document.getElementById('bal-mostrar-todas')?.checked||false;
+
+  // Calcular el balance de cada OC activa
+  const balances=(C.ord_corte||[])
+    .filter(oc=>oc.estado==='Pendiente'||oc.estado==='En proceso')
+    .map(oc=>_calcularBalanceOC(oc))
+    .sort((a,b)=>{
+      // Ordenar por urgencia: rojo > amarillo > azul > verde
+      const peso={'rojo':0,'amarillo':1,'azul':2,'verde':3};
+      return (peso[a.semaforo]||9)-(peso[b.semaforo]||9)
+        || (a.oc.prioridad||999)-(b.oc.prioridad||999);
+    });
+
+  // Resumen global arriba — 5 KPIs (total + 4 semáforos)
+  const total=balances.length;
+  const criticas=balances.filter(b=>b.semaforo==='rojo').length;
+  const conProblema=balances.filter(b=>b.semaforo==='amarillo').length;
+  const enProduccion=balances.filter(b=>b.semaforo==='azul').length;
+  const ok=balances.filter(b=>b.semaforo==='verde').length;
+  resumen.innerHTML='<div style="display:flex;gap:12px;flex-wrap:wrap;">'
+    +_balKpi('OCs en producción',total,'var(--text1)','')
+    +_balKpi('Críticas',criticas,criticas>0?'var(--red)':'var(--text3)','🔴')
+    +_balKpi('Con problema',conProblema,conProblema>0?'var(--amber)':'var(--text3)','🟡')
+    +_balKpi('En producción (esperando OE)',enProduccion,enProduccion>0?'var(--accent)':'var(--text3)','🔵')
+    +_balKpi('OK',ok,'var(--green)','🟢')
+  +'</div>';
+
+  // Lista de OCs según filtro: por defecto solo las que tienen FALTANTE REAL
+  // (amarilla o roja). Las azules son "espera normal" — no necesitan atención.
+  // Si el usuario marca "Mostrar todas", se ven todas (incluyendo azules y verdes).
+  const aMostrar=mostrarTodas?balances:balances.filter(b=>b.semaforo==='amarillo'||b.semaforo==='rojo');
+  if(!aMostrar.length){
+    w.innerHTML='<div class="empty" style="color:var(--green);padding:40px;text-align:center;font-size:14px;">'
+      +'✓ '+(mostrarTodas?'No hay OCs en producción.':'No hay OCs con faltante real de material. Las que están esperando que su OE termine (🔵) podés verlas marcando "Mostrar todas".')
+    +'</div>';
+    return;
+  }
+  w.innerHTML=aMostrar.map(b=>_balRenderTarjeta(b)).join('');
+}
+
+function _balKpi(label,val,color,icon){
+  return '<div style="flex:1;min-width:140px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;">'
+    +'<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">'+label+'</div>'
+    +'<div style="font-size:22px;font-weight:800;color:'+color+';margin-top:4px;">'+(icon?icon+' ':'')+val+'</div>'
+  +'</div>';
+}
+
+// Calcula el balance completo de una OC.
+// Devuelve: {oc, semaforo, mtsNecesarios, mtsCortados, mtsReservado, mtsEnCurso, mtsFalta,
+//   bobinasAsignadas, bobinasReservadas, bobinasRobadas, sugerencias, motivo}
+//
+// Conceptos clave del sistema híbrido:
+//   - mtsCortados: bobinas formalmente vinculadas (orden_corte_bobinas), ya consumidas
+//   - mtsReservado: bobinas que produjo la OE asociada, EN STOCK, NO asignadas todavía.
+//                   En el sistema híbrido, son "naturalmente suyas" hasta que alguien las
+//                   tome. Cuentan como material disponible para esta OC.
+//   - mtsEnCurso: lo que la OE asociada todavía va a producir
+//   - mtsRobadas: bobinas que produjo su OE pero terminaron en otras OCs
+//
+// Lo "cubierto" = mtsCortados + mtsReservado + mtsEnCurso (todo lo que ya tiene o tendrá)
+function _calcularBalanceOC(oc){
+  const prod=C.productos.find(p=>p.id===oc.producto_id);
+  const tipoBobinaId=prod?.bobina_id||null;
+  const tipoBobina=C.bobinas.find(b=>b.id===tipoBobinaId);
+  const mtsNecesarios=parseFloat(oc.metros_necesarios)||0;
+
+  // Bobinas formalmente vinculadas (ya consumidas en esta OC)
+  const bobinasAsignadas=(oc.orden_corte_bobinas||[])
+    .map(x=>C.bobinas_prod.find(b=>b.id===x.bobina_producida_id))
+    .filter(b=>b);
+  const mtsCortados=bobinasAsignadas.reduce((s,b)=>s+(parseFloat(b.metros_reales)||0),0);
+
+  // OE asociada (la "propia")
+  const oeAsociada=_balOEdeOC(oc);
+
+  // Set global de bobinas que ya están asignadas a alguna OC (cualquiera)
+  const idsAsignadasGlobal=new Set();
+  (C.ord_corte||[]).forEach(o=>{(o.orden_corte_bobinas||[]).forEach(x=>idsAsignadasGlobal.add(x.bobina_producida_id));});
+
+  // Bobinas RESERVADAS para esta OC. Dos fuentes:
+  //   1) Naturalmente reservadas: producidas por su OE asociada, en stock, sin asignar
+  //   2) Explícitamente reservadas vía Balance: campo reservada_oc_id apunta a esta OC
+  const bobinasReservadas=[];
+  // Bobinas ROBADAS: producidas por su OE pero asignadas a OTRA OC.
+  const bobinasRobadas=[];
+  if(oeAsociada){
+    (C.bobinas_prod||[]).forEach(b=>{
+      if(b.orden_id!==oeAsociada.id)return;
+      // ¿Está asignada a alguna OC?
+      let ocLadronaId=null;
+      (C.ord_corte||[]).forEach(otra=>{
+        if((otra.orden_corte_bobinas||[]).some(x=>x.bobina_producida_id===b.id)){
+          if(otra.id!==oc.id)ocLadronaId=otra.id;
+        }
+      });
+      if(ocLadronaId){
+        const ocLadrona=C.ord_corte.find(o=>o.id===ocLadronaId);
+        bobinasRobadas.push({bobina:b,ocLadrona,clienteLadron:ocLadrona?.cliente||'—'});
+      } else if(b.en_stock&&!idsAsignadasGlobal.has(b.id)){
+        // En stock + sin asignar formalmente.
+        // Si está reservada a otra OC vía reservada_oc_id, NO es nuestra.
+        if(b.reservada_oc_id&&b.reservada_oc_id!==oc.id)return;
+        bobinasReservadas.push(b);
+      }
+    });
+  }
+  // Bobinas reservadas EXPLÍCITAMENTE a esta OC vía reservada_oc_id
+  // (pueden ser de otra OE, no necesariamente de la propia)
+  (C.bobinas_prod||[]).forEach(b=>{
+    if(b.reservada_oc_id!==oc.id)return;
+    if(!b.en_stock)return;
+    if(idsAsignadasGlobal.has(b.id))return;
+    // Evitar duplicados (si ya está en bobinasReservadas por ser de la OE propia)
+    if(bobinasReservadas.some(r=>r.id===b.id))return;
+    bobinasReservadas.push(b);
+  });
+  const mtsReservado=bobinasReservadas.reduce((s,b)=>s+(parseFloat(b.metros_reales)||0),0);
+
+  // Lo que la OE todavía va a producir
+  let mtsEnCurso=0;
+  let oeActiva=false;
+  if(oeAsociada&&(oeAsociada.estado==='Pendiente'||oeAsociada.estado==='En proceso')){
+    oeActiva=true;
+    const mtsTotalesOE=parseFloat(oeAsociada.metros)||0;
+    const mtsYaProducidos=(C.bobinas_prod||[])
+      .filter(b=>b.orden_id===oeAsociada.id)
+      .reduce((s,b)=>s+(parseFloat(b.metros_reales)||0),0);
+    mtsEnCurso=Math.max(0,mtsTotalesOE-mtsYaProducidos);
+  }
+
+  const mtsCubierto=mtsCortados+mtsReservado+mtsEnCurso;
+  const mtsFalta=Math.max(0,r2(mtsNecesarios-mtsCubierto));
+
+  // Sugerencias solo si hay faltante real (después de contar lo reservado)
+  const sugerencias=mtsFalta>0?_balCalcularSugerencias(oc,tipoBobinaId,mtsFalta,oeAsociada):[];
+
+  // Semáforo refinado:
+  //   🟢 verde — cubierto totalmente
+  //   🔵 azul — falta pero la OE asociada todavía está produciendo (espera normal)
+  //   🟡 amarillo — falta real (OE terminó o no hay) PERO hay sugerencias que cubren todo
+  //   🔴 rojo — falta real y no hay opción salvo crear OE nueva
+  let semaforo='verde',motivo='Material completo';
+  const sinOE=!oeAsociada;
+  if(mtsFalta>0){
+    if(oeActiva){
+      // OE todavía produciendo — es espera normal
+      semaforo='azul';
+      motivo='Su OE asociada está produciendo (esperar)';
+    } else {
+      // OE terminada / no hay OE — problema real
+      const cubreTodo=sugerencias.some(s=>s.cubreCompleto&&s.tipo!=='crear_oe');
+      if(cubreTodo){
+        semaforo='amarillo';
+        if(sinOE){
+          motivo='Sin OE asociada · pero hay stock libre que la cubre';
+        } else {
+          motivo=bobinasRobadas.length
+            ?'Su OE terminó · '+bobinasRobadas.length+' bobina(s) se fueron a otras OCs'
+            :'Su OE no cubre los metros necesarios';
+        }
+      } else {
+        semaforo='rojo';
+        motivo=sinOE?'Sin OE asociada · necesita una OE':'Sin opciones · hay que producir más';
+      }
+    }
+  }
+
+  return {
+    oc,prod,tipoBobina,
+    semaforo,motivo,sinOE,
+    mtsNecesarios,mtsCortados,mtsReservado,mtsEnCurso,mtsFalta,
+    bobinasAsignadas,bobinasReservadas,bobinasRobadas,
+    oeAsociada,oeActiva,
+    sugerencias
+  };
+}
+
+// Encuentra la OE asociada a una OC (vía orden_extrusion_id nuevo o legacy)
+function _balOEdeOC(oc){
+  if(oc.orden_extrusion_id){
+    return C.ordenes.find(o=>o.id===oc.orden_extrusion_id);
+  }
+  return C.ordenes.find(o=>o.orden_corte_origen_id===oc.id);
+}
+
+// Calcula sugerencias en orden de prioridad. Devuelve array de {tipo, color, texto, cubreCompleto, mts}
+function _balCalcularSugerencias(oc,tipoBobinaId,mtsFalta,oeAsociada){
+  const sugerencias=[];
+  if(!tipoBobinaId)return sugerencias;
+
+  // Índice global de bobinas asignadas formalmente
+  const idsAsignadasGlobal=new Set();
+  (C.ord_corte||[]).forEach(o=>{(o.orden_corte_bobinas||[]).forEach(x=>idsAsignadasGlobal.add(x.bobina_producida_id));});
+
+  // Índice de OCs ACTIVAS (Pendiente/En proceso) por OE asociada.
+  // Lo usamos para saber si una bobina "en stock sin asignar" en realidad está
+  // RESERVADA para una OC activa (porque su OE de origen tiene esa OC asociada).
+  // Solo si la OE de origen NO tiene OC asociada ACTIVA, la bobina es "realmente libre".
+  const oesConOCactiva=new Set();
+  (C.ord_corte||[]).forEach(o=>{
+    if(o.estado!=='Pendiente'&&o.estado!=='En proceso')return;
+    const oeId=o.orden_extrusion_id;
+    if(oeId)oesConOCactiva.add(oeId);
+    // Legacy: OE con orden_corte_origen_id apuntando a esta OC
+    (C.ordenes||[]).forEach(oe=>{
+      if(oe.orden_corte_origen_id===o.id)oesConOCactiva.add(oe.id);
+    });
+  });
+
+  // === 1ª — Devolución directa entre OCs ===
+  // OCs que se llevaron bobinas de nuestra OE asociada Y que tienen OE propia con
+  // bobinas del mismo tipo sin asignar (esas bobinas son devolución directa).
+  if(oeAsociada){
+    const ladronasMap=new Map();
+    (C.bobinas_prod||[]).forEach(b=>{
+      if(b.orden_id!==oeAsociada.id)return;
+      (C.ord_corte||[]).forEach(otra=>{
+        if(otra.id===oc.id)return;
+        if((otra.orden_corte_bobinas||[]).some(x=>x.bobina_producida_id===b.id)){
+          if(!ladronasMap.has(otra.id))ladronasMap.set(otra.id,{oc:otra,bobsRobadas:[]});
+          ladronasMap.get(otra.id).bobsRobadas.push(b);
+        }
+      });
+    });
+    ladronasMap.forEach(({oc:ocLadrona,bobsRobadas})=>{
+      const oeLadrona=_balOEdeOC(ocLadrona);
+      if(!oeLadrona)return;
+      const bobsLibresDeOELadrona=(C.bobinas_prod||[])
+        .filter(b=>b.orden_id===oeLadrona.id&&b.en_stock&&!idsAsignadasGlobal.has(b.id)&&b.bobina_tipo_id===tipoBobinaId);
+      const mtsDisponiblesEnOELadrona=bobsLibresDeOELadrona.reduce((s,b)=>s+(parseFloat(b.metros_reales)||0),0);
+      const mtsRobadosTotal=bobsRobadas.reduce((s,b)=>s+(parseFloat(b.metros_reales)||0),0);
+
+      // Devolución directa: SOLO si la OE-ladrona tiene bobinas sin asignar.
+      // Si ya las cortó/asignó todas, no hay devolución posible — la solución será
+      // crear OE para esta OC (no para la ladrona, que no tiene sentido).
+      if(mtsDisponiblesEnOELadrona>0){
+        const cubre=Math.min(mtsFalta,mtsRobadosTotal,mtsDisponiblesEnOELadrona);
+        sugerencias.push({
+          tipo:'devolucion_directa',
+          color:'verde',
+          texto:'<strong>'+ocLadrona.numero_orden+'</strong> ('+(ocLadrona.cliente||'—')+') te tomó '+bobsRobadas.length+' bobina(s). Su OE '+oeLadrona.numero_orden+' tiene '+bobsLibresDeOELadrona.length+' bobina(s) sin asignar del tipo necesario ('+r2(mtsDisponiblesEnOELadrona).toLocaleString('es-AR')+' m) — podés pedirle que te devuelva.',
+          cubreCompleto:cubre>=mtsFalta,
+          mts:cubre,
+          // Datos para la acción inline (botón "Recuperar"):
+          ocLadronaId:ocLadrona.id,
+          oeLadronaId:oeLadrona.id,
+          bobinasDisponibles:bobsLibresDeOELadrona,
+          bobinasRobadasIds:bobsRobadas.map(b=>b.id)
+        });
+      }
+    });
+  }
+
+  // === 2ª — Stock REALMENTE libre del mismo tipo ===
+  // Bobina libre = del tipo, en stock, NO asignada formalmente Y su OE de origen
+  // NO tiene OC asociada activa Y NO está reservada a ninguna OC vía reservada_oc_id.
+  const bobsLibres=(C.bobinas_prod||[]).filter(b=>{
+    if(b.bobina_tipo_id!==tipoBobinaId)return false;
+    if(!b.en_stock)return false;
+    if(idsAsignadasGlobal.has(b.id))return false;
+    if(b.reservada_oc_id)return false;   // ya reservada (a esta o a otra OC)
+    if(oeAsociada&&b.orden_id===oeAsociada.id)return false;   // las propias ya están en mtsReservado
+    // Si la bobina pertenece a una OE que tiene OC activa, está RESERVADA → no es libre
+    if(b.orden_id&&oesConOCactiva.has(b.orden_id))return false;
+    return true;
+  });
+  if(bobsLibres.length){
+    const mtsLibres=bobsLibres.reduce((s,b)=>s+(parseFloat(b.metros_reales)||0),0);
+    const cubre=Math.min(mtsFalta,mtsLibres);
+    sugerencias.push({
+      tipo:'stock_libre',
+      color:'verde',
+      texto:'<strong>'+bobsLibres.length+' bobina(s)</strong> en stock libre del tipo necesario ('+r2(mtsLibres).toLocaleString('es-AR')+' m disponibles, sin OC asignada).',
+      cubreCompleto:cubre>=mtsFalta,
+      mts:cubre,
+      bobinas:bobsLibres
+    });
+  }
+
+  // === 3ª/4ª — OEs en proceso o pendientes del mismo tipo (no propias) ===
+  const oesActivasOtras=(C.ordenes||[]).filter(o=>{
+    if(o.id===oeAsociada?.id)return false;
+    if(o.estado!=='Pendiente'&&o.estado!=='En proceso')return false;
+    return o.bobina_id===tipoBobinaId;
+  });
+  oesActivasOtras.forEach(oe=>{
+    const mtsTotalesOE=parseFloat(oe.metros)||0;
+    const mtsYaProd=(C.bobinas_prod||[]).filter(b=>b.orden_id===oe.id).reduce((s,b)=>s+(parseFloat(b.metros_reales)||0),0);
+    const mtsRestantes=Math.max(0,mtsTotalesOE-mtsYaProd);
+    if(mtsRestantes<=0)return;
+    const ocAsocOE=_balOCdeOE(oe);
+    const compromiso=ocAsocOE?' (asociada a '+ocAsocOE.numero_orden+' '+(ocAsocOE.cliente||'')+')':'';
+    const cubre=Math.min(mtsFalta,mtsRestantes);
+    sugerencias.push({
+      tipo:oe.estado==='En proceso'?'oe_en_proceso':'oe_en_cola',
+      color:'amarillo',
+      texto:'OE <strong>'+oe.numero_orden+'</strong> ('+oe.estado+') va a producir '+r2(mtsRestantes).toLocaleString('es-AR')+' m más del tipo necesario'+compromiso+'.'
+        +(ocAsocOE?' <span style="color:var(--text3);font-size:11px;">⚠ Tomar de aquí afectaría a esa OC.</span>':''),
+      cubreCompleto:cubre>=mtsFalta&&!ocAsocOE,
+      mts:cubre
+    });
+  });
+
+  // === Última — Crear OE nueva ===
+  sugerencias.push({
+    tipo:'crear_oe',
+    color:'rojo',
+    texto:'Si lo anterior no alcanza, <strong>creá una OE nueva</strong> de ≥'+r2(mtsFalta).toLocaleString('es-AR')+' m del tipo necesario'+(!oeAsociada?' (esta OC <strong>no tiene OE asociada</strong>, conviene vincularla)':'')+'.',
+    cubreCompleto:true,
+    mts:mtsFalta
+  });
+
+  return sugerencias;
+}
+
+// Encuentra la OC asociada a una OE (la "dueña" original)
+function _balOCdeOE(oe){
+  // Por orden_extrusion_id nuevo
+  const ocViaNueva=(C.ord_corte||[]).find(oc=>oc.orden_extrusion_id===oe.id);
+  if(ocViaNueva)return ocViaNueva;
+  // Por orden_corte_origen_id legacy
+  if(oe.orden_corte_origen_id){
+    return (C.ord_corte||[]).find(oc=>oc.id===oe.orden_corte_origen_id);
+  }
+  return null;
+}
+
+function _balRenderTarjeta(b){
+  const oc=b.oc;
+  // Colores por semáforo
+  let colorBorde,colorBg,icono,chipTime,chipColor;
+  if(b.semaforo==='rojo'){colorBorde='var(--red)';colorBg='rgba(239,68,68,.05)';icono='🔴';}
+  else if(b.semaforo==='amarillo'){colorBorde='var(--amber)';colorBg='rgba(245,158,11,.05)';icono='🟡';}
+  else if(b.semaforo==='azul'){colorBorde='var(--accent)';colorBg='rgba(59,130,246,.05)';icono='🔵';}
+  else{colorBorde='var(--green)';colorBg='rgba(34,197,94,.05)';icono='🟢';}
+
+  // Días al vencimiento
+  let chipVto='';
+  if(oc.fecha_compromiso){
+    const hoy=new Date();hoy.setHours(0,0,0,0);
+    const fv=new Date(oc.fecha_compromiso);fv.setHours(0,0,0,0);
+    const dias=Math.round((fv-hoy)/86400000);
+    const colorV=dias<0?'var(--red)':dias<=2?'var(--amber)':dias<=7?'var(--accent)':'var(--text3)';
+    chipVto='<span style="background:'+colorV+';color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;white-space:nowrap;">'+(dias<0?Math.abs(dias)+'d atrasada':dias===0?'vence hoy':dias+'d')+'</span>';
+  }
+
+  // Header del producto (código + descripción)
+  const prodCodigo=b.prod?.codigo||'';
+  const prodDesc=b.prod?.descripcion||b.tipoBobina?.nombre||'—';
+
+  let html='<div style="background:'+colorBg+';border:1.5px solid '+colorBorde+';border-left-width:5px;border-radius:var(--rl);padding:14px 18px;margin-bottom:14px;">'
+    // Header
+    +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">'
+      +'<span style="font-size:18px;">'+icono+'</span>'
+      +'<a href="javascript:void(0)" onclick="go(\'ordenes-corte\')" title="Ir a Órdenes de corte" style="font-family:monospace;font-size:14px;font-weight:800;color:var(--text1);text-decoration:none;">'+oc.numero_orden+'</a>'
+      +'<span style="color:var(--text3);">·</span>'
+      +'<span style="color:var(--text1);font-weight:600;">'+(oc.cliente||'—')+'</span>'
+      +(oc.prioridad?'<span style="background:var(--bg3);color:var(--text2);font-size:10px;padding:2px 8px;border-radius:99px;border:1px solid var(--border);">Prio '+oc.prioridad+'</span>':'')
+      +(b.sinOE?'<span style="background:rgba(239,68,68,.15);color:var(--red);font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;border:1px solid var(--red);white-space:nowrap;" title="Esta OC no tiene OE asociada — conviene vincularla a una OE para que produzca el material">⚠ Sin OE</span>':'')
+      +chipVto
+      +'<span style="margin-left:auto;font-size:11px;color:var(--text3);">'+(oc.estado||'')+'</span>'
+    +'</div>'
+    // Producto: código + descripción
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;font-size:13px;">'
+      +(prodCodigo?'<span class="mono" style="font-weight:700;color:var(--teal);background:var(--bg3);padding:2px 8px;border-radius:6px;font-size:11px;">'+prodCodigo+'</span>':'')
+      +'<span style="color:var(--text1);font-weight:600;">'+prodDesc+'</span>'
+    +'</div>'
+    // Motivo (resumen del semáforo)
+    +'<div style="font-size:11px;color:var(--text3);margin-bottom:10px;font-style:italic;">'+b.motivo+'</div>'
+    // Stats de metros (Necesita / Cortado / Reservado / En curso / Falta)
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-bottom:12px;font-size:11px;">'
+      +_balStat('Necesita',r2(b.mtsNecesarios).toLocaleString('es-AR')+' m','var(--text1)')
+      +_balStat('Cortado',r2(b.mtsCortados).toLocaleString('es-AR')+' m','var(--accent)')
+      +_balStat('Reservado (OE propia)',r2(b.mtsReservado).toLocaleString('es-AR')+' m','var(--green)')
+      +_balStat('En curso (OE)',r2(b.mtsEnCurso).toLocaleString('es-AR')+' m','var(--teal)')
+      +_balStat('Falta',r2(b.mtsFalta).toLocaleString('es-AR')+' m',b.mtsFalta>0?'var(--amber)':'var(--green)')
+    +'</div>';
+
+  // Bobinas formalmente asignadas (cortadas/vinculadas)
+  if(b.bobinasAsignadas.length){
+    html+='<div style="margin-bottom:10px;font-size:11px;">'
+      +'<div style="color:var(--text3);font-weight:700;margin-bottom:4px;">✓ Bobinas asignadas ('+b.bobinasAsignadas.length+'):</div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:6px;">'
+      +b.bobinasAsignadas.map(bb=>'<span class="mono" style="background:var(--bg3);padding:2px 8px;border-radius:99px;border:1px solid var(--border);color:var(--text2);">'+bb.numero_bobina+' · '+r2(bb.metros_reales||0).toLocaleString('es-AR')+'m</span>').join('')
+      +'</div>'
+    +'</div>';
+  }
+
+  // Bobinas RESERVADAS (su OE las produjo, están en stock, sin asignar)
+  if(b.bobinasReservadas.length){
+    html+='<div style="margin-bottom:10px;font-size:11px;background:rgba(34,197,94,.06);border-left:3px solid var(--green);padding:8px 12px;border-radius:6px;">'
+      +'<div style="color:var(--green);font-weight:700;margin-bottom:4px;">📦 Bobinas reservadas en stock (producidas por su OE, listas para cortar) ('+b.bobinasReservadas.length+'):</div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:6px;">'
+      +b.bobinasReservadas.map(bb=>'<span class="mono" style="background:var(--bg3);padding:2px 8px;border-radius:99px;border:1px solid var(--green);color:var(--text1);">'+bb.numero_bobina+' · '+r2(bb.metros_reales||0).toLocaleString('es-AR')+'m</span>').join('')
+      +'</div>'
+    +'</div>';
+  }
+
+  // Bobinas "robadas" (su OE las hizo pero terminaron en otras OCs)
+  if(b.bobinasRobadas.length){
+    html+='<div style="margin-bottom:10px;font-size:11px;background:rgba(245,158,11,.06);border-left:3px solid var(--amber);padding:8px 12px;border-radius:6px;">'
+      +'<div style="color:var(--amber);font-weight:700;margin-bottom:4px;">↗ Bobinas de su OE asociada que se fueron a otras OCs ('+b.bobinasRobadas.length+'):</div>'
+      +'<div style="display:flex;flex-direction:column;gap:4px;">'
+      +b.bobinasRobadas.map(r=>'<div style="font-size:11px;">'
+        +'<span class="mono" style="font-weight:600;color:var(--text1);">'+r.bobina.numero_bobina+'</span>'
+        +'<span style="color:var(--text3);"> ('+r2(r.bobina.metros_reales||0).toLocaleString('es-AR')+'m)</span>'
+        +'<span style="color:var(--text3);"> → </span>'
+        +'<a href="javascript:void(0)" onclick="go(\'ordenes-corte\')" title="Ir a Órdenes de corte" style="color:var(--accent);text-decoration:none;font-weight:600;">'+(r.ocLadrona?.numero_orden||'?')+'</a>'
+        +'<span style="color:var(--text3);"> · cliente: </span>'
+        +'<span style="color:var(--text1);font-weight:600;">'+r.clienteLadron+'</span>'
+      +'</div>').join('')
+      +'</div>'
+    +'</div>';
+  }
+
+  // Sugerencias (solo si hay faltante real)
+  if(b.mtsFalta>0&&b.sugerencias.length){
+    html+='<div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--border);">'
+      +'<div style="font-size:11px;color:var(--text3);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;">💡 Sugerencias para cubrir el faltante</div>'
+      +'<div style="display:flex;flex-direction:column;gap:6px;">'
+      +b.sugerencias.map((s,i)=>{
+        const dotColor=s.color==='verde'?'var(--green)':s.color==='amarillo'?'var(--amber)':'var(--red)';
+        const chipTime=s.color==='verde'?'🟢 Inmediato':s.color==='amarillo'?'🟡 Hay que esperar':'🔴 Producción nueva';
+        // Botón de acción según el tipo de sugerencia
+        let btnAccion='';
+        if(s.tipo==='stock_libre'&&s.bobinas&&s.bobinas.length){
+          btnAccion='<button class="btn btn-sm" style="background:var(--green);color:#fff;border:none;font-weight:700;font-size:10px;padding:4px 10px;white-space:nowrap;" onclick="abrirAsignarStockLibre('+b.oc.id+')">📦 Reservar</button>';
+        } else if(s.tipo==='devolucion_directa'&&s.ocLadronaId){
+          btnAccion='<button class="btn btn-sm" style="background:var(--green);color:#fff;border:none;font-weight:700;font-size:10px;padding:4px 10px;white-space:nowrap;" onclick="abrirDevolucionDirecta('+b.oc.id+','+s.ocLadronaId+')">🔄 Recuperar</button>';
+        } else if(s.tipo==='crear_oe'){
+          btnAccion='<button class="btn btn-sm" style="background:var(--red);color:#fff;border:none;font-weight:700;font-size:10px;padding:4px 10px;white-space:nowrap;" onclick="abrirCrearOEdesdeBalance('+b.oc.id+')">🏭 Crear OE</button>';
+        }
+        return '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 12px;background:var(--bg2);border-radius:6px;border-left:3px solid '+dotColor+';">'
+          +'<div style="font-size:11px;color:var(--text3);font-weight:700;min-width:18px;">'+(i+1)+'ª</div>'
+          +'<div style="flex:1;font-size:12px;color:var(--text1);line-height:1.4;">'+s.texto+'</div>'
+          +'<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">'
+            +'<div style="font-size:10px;font-weight:700;color:'+dotColor+';white-space:nowrap;">'+chipTime+(s.cubreCompleto?' · ✓ cubre':' · parcial')+'</div>'
+            +btnAccion
+          +'</div>'
+        +'</div>';
+      }).join('')
+      +'</div>'
+    +'</div>';
+  }
+
+  html+='</div>';
+  return html;
+}
+
+function _balStat(label,val,color){
+  return '<div style="background:var(--bg3);border-radius:6px;padding:6px 10px;">'
+    +'<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;font-weight:700;">'+label+'</div>'
+    +'<div style="font-size:14px;font-weight:800;color:'+color+';margin-top:2px;">'+val+'</div>'
+  +'</div>';
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// ACCIÓN: Asignar stock libre a una OC (desde el Balance)
+// ═════════════════════════════════════════════════════════════════════
+// Abre un overlay con la lista de bobinas REALMENTE libres del tipo necesario.
+// El usuario selecciona cuáles quiere asignar (por defecto se preseleccionan las
+// que cubren el faltante exacto). Al confirmar:
+//   - Inserta filas en orden_corte_bobinas (vínculo formal)
+//   - Marca las bobinas como consumidas (en_stock = false)
+//   - Crea movimientos en stock_movimientos
+//   - Audita en observaciones de la OC: [BALANCE fecha admin] asignadas N bobinas
+let _balOverlaySel=new Set();
+
+function abrirAsignarStockLibre(ocId){
+  const oc=C.ord_corte.find(o=>o.id===ocId);
+  if(!oc){toast('OC no encontrada','red');return;}
+  // Recalcular el balance de esta OC en este momento (la lista podría haber cambiado)
+  const bal=_calcularBalanceOC(oc);
+  const sugStock=bal.sugerencias.find(s=>s.tipo==='stock_libre');
+  if(!sugStock||!sugStock.bobinas||!sugStock.bobinas.length){
+    toast('No hay bobinas libres del tipo necesario','amber');
+    return;
+  }
+  // Preselección automática: tomar las primeras hasta cubrir el faltante
+  _balOverlaySel=new Set();
+  let acum=0;
+  for(const b of sugStock.bobinas){
+    if(acum>=bal.mtsFalta)break;
+    _balOverlaySel.add(b.id);
+    acum+=parseFloat(b.metros_reales)||0;
+  }
+  // Crear overlay
+  let ov=document.getElementById('bal-asig-overlay');
+  if(!ov){
+    ov=document.createElement('div');
+    ov.id='bal-asig-overlay';
+    ov.style.cssText='display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9100;align-items:flex-start;justify-content:center;padding:30px 20px;overflow-y:auto;';
+    ov.innerHTML='<div style="background:var(--bg1);border:1.5px solid var(--accentbd);border-radius:var(--rl);padding:20px;max-width:760px;width:100%;">'
+      +'<div id="bal-asig-body"></div>'
+    +'</div>';
+    document.body.appendChild(ov);
+  }
+  _balRenderAsignarOverlay(oc,bal,sugStock.bobinas);
+  ov.style.display='flex';
+}
+
+function _balRenderAsignarOverlay(oc,bal,bobinas){
+  const body=document.getElementById('bal-asig-body');
+  if(!body)return;
+  const mtsSel=bobinas.filter(b=>_balOverlaySel.has(b.id)).reduce((s,b)=>s+(parseFloat(b.metros_reales)||0),0);
+  const cubreFalta=mtsSel>=bal.mtsFalta;
+  const prodCodigo=bal.prod?.codigo||'';
+  const prodDesc=bal.prod?.descripcion||bal.tipoBobina?.nombre||'—';
+  body.innerHTML=''
+    +'<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;">'
+      +'<div style="flex:1;">'
+        +'<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">📦 Reservar stock libre</div>'
+        +'<div style="font-size:16px;font-weight:800;margin-top:3px;">'+oc.numero_orden+' · '+(oc.cliente||'—')+'</div>'
+        +'<div style="font-size:12px;color:var(--text2);margin-top:2px;">'
+          +(prodCodigo?'<span class="mono" style="font-weight:700;color:var(--teal);">'+prodCodigo+'</span> ':'')
+          +prodDesc
+        +'</div>'
+        +'<div style="font-size:10px;color:var(--text3);margin-top:6px;font-style:italic;">Las bobinas quedan reservadas para esta OC pero siguen en stock — el operario las corta normal desde Confección.</div>'
+      +'</div>'
+      +'<button class="btn btn-sm" onclick="_balCerrarOverlay()">✕</button>'
+    +'</div>'
+    // Stats arriba
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:14px;">'
+      +_balStat('Falta',r2(bal.mtsFalta).toLocaleString('es-AR')+' m','var(--amber)')
+      +_balStat('Seleccionado',r2(mtsSel).toLocaleString('es-AR')+' m',cubreFalta?'var(--green)':'var(--amber)')
+      +_balStat('Diferencia',r2(mtsSel-bal.mtsFalta).toLocaleString('es-AR')+' m',cubreFalta?'var(--green)':'var(--red)')
+      +_balStat('Bobinas elegidas',_balOverlaySel.size,'var(--accent)')
+    +'</div>'
+    // Aviso
+    +(cubreFalta
+      ?'<div style="background:rgba(34,197,94,.08);border:1px solid var(--green);border-radius:var(--r);padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--green);">✓ La selección cubre el faltante. Podés confirmar.</div>'
+      :'<div style="background:rgba(245,158,11,.08);border:1px solid var(--amber);border-radius:var(--r);padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--amber);">⚠ La selección NO cubre todo el faltante. Podés confirmar igual (asignación parcial) o sumar más bobinas.</div>'
+    )
+    // Tabla de bobinas
+    +'<div style="max-height:380px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r);">'
+      +'<table style="width:100%;font-size:11px;">'
+        +'<thead><tr style="background:var(--bg3);position:sticky;top:0;">'
+          +'<th style="padding:6px 8px;text-align:center;width:32px;"><input type="checkbox" id="bal-asig-all" '+(bobinas.every(b=>_balOverlaySel.has(b.id))?'checked':'')+' onchange="_balToggleTodas('+oc.id+',this.checked)"></th>'
+          +'<th style="padding:6px 8px;text-align:left;">N° Bobina</th>'
+          +'<th style="padding:6px 8px;text-align:right;">Metros</th>'
+          +'<th style="padding:6px 8px;text-align:right;">Kg</th>'
+          +'<th style="padding:6px 8px;text-align:left;">OE origen</th>'
+          +'<th style="padding:6px 8px;text-align:left;">Fecha</th>'
+        +'</tr></thead><tbody>'
+        +bobinas.map(bb=>{
+          const sel=_balOverlaySel.has(bb.id);
+          const oeOrigen=C.ordenes.find(o=>o.id===bb.orden_id);
+          return '<tr style="border-bottom:1px solid var(--border);background:'+(sel?'rgba(34,197,94,.06)':'transparent')+';">'
+            +'<td style="padding:6px 8px;text-align:center;"><input type="checkbox" '+(sel?'checked':'')+' onchange="_balToggleBob('+oc.id+','+bb.id+',this.checked)"></td>'
+            +'<td style="padding:6px 8px;" class="mono">'+bb.numero_bobina+'</td>'
+            +'<td style="padding:6px 8px;text-align:right;font-weight:600;">'+r2(bb.metros_reales||0).toLocaleString('es-AR')+'</td>'
+            +'<td style="padding:6px 8px;text-align:right;color:var(--text3);">'+r2(bb.kg_reales||0).toLocaleString('es-AR')+'</td>'
+            +'<td style="padding:6px 8px;color:var(--text3);" class="mono">'+(oeOrigen?.numero_orden||'—')+'</td>'
+            +'<td style="padding:6px 8px;color:var(--text3);">'+(bb.fecha_produccion||'—')+'</td>'
+          +'</tr>';
+        }).join('')
+      +'</tbody></table>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">'
+      +'<button class="btn btn-sm" onclick="_balCerrarOverlay()">Cancelar</button>'
+      +'<button class="btn btn-sm" style="background:var(--green);color:#fff;border:none;font-weight:700;" onclick="_balConfirmarAsignacion('+oc.id+')" '+(_balOverlaySel.size===0?'disabled':'')+'>📦 Reservar '+_balOverlaySel.size+' bobina(s)</button>'
+    +'</div>';
+}
+
+function _balToggleBob(ocId,bobId,checked){
+  if(checked)_balOverlaySel.add(bobId);
+  else _balOverlaySel.delete(bobId);
+  const oc=C.ord_corte.find(o=>o.id===ocId);
+  if(!oc)return;
+  const bal=_calcularBalanceOC(oc);
+  const sugStock=bal.sugerencias.find(s=>s.tipo==='stock_libre');
+  _balRenderAsignarOverlay(oc,bal,sugStock?.bobinas||[]);
+}
+
+function _balToggleTodas(ocId,checked){
+  const oc=C.ord_corte.find(o=>o.id===ocId);
+  if(!oc)return;
+  const bal=_calcularBalanceOC(oc);
+  const sugStock=bal.sugerencias.find(s=>s.tipo==='stock_libre');
+  if(!sugStock)return;
+  if(checked)sugStock.bobinas.forEach(b=>_balOverlaySel.add(b.id));
+  else _balOverlaySel=new Set();
+  _balRenderAsignarOverlay(oc,bal,sugStock.bobinas);
+}
+
+function _balCerrarOverlay(){
+  const ov=document.getElementById('bal-asig-overlay');
+  if(ov)ov.style.display='none';
+  _balOverlaySel=new Set();
+}
+
+async function _balConfirmarAsignacion(ocId){
+  const oc=C.ord_corte.find(o=>o.id===ocId);
+  if(!oc){toast('OC no encontrada','red');return;}
+  if(_balOverlaySel.size===0){toast('No hay bobinas seleccionadas','amber');return;}
+  const ids=[..._balOverlaySel];
+  const bobinas=ids.map(id=>C.bobinas_prod.find(b=>b.id===id)).filter(b=>b);
+  if(!bobinas.length){toast('Bobinas no encontradas','red');return;}
+  const mtsTotal=bobinas.reduce((s,b)=>s+(parseFloat(b.metros_reales)||0),0);
+  if(!confirm('¿Reservar '+bobinas.length+' bobina(s) ('+r2(mtsTotal).toLocaleString('es-AR')+' m) para '+oc.numero_orden+'?\n\nLas bobinas siguen en stock — el operario las corta normalmente desde Confección cuando arme la OC.'))return;
+  try{
+    // RESERVAR (no consumir): solo marcar reservada_oc_id = ocId
+    // La bobina sigue en_stock=true. Al cortarla en Confección, ese flujo se encarga
+    // de pasarla a en_stock=false e insertar en orden_corte_bobinas (y limpiar la reserva).
+    const{error:e1}=await sb.from('bobinas_producidas')
+      .update({reservada_oc_id:ocId})
+      .in('id',ids);
+    if(e1)throw e1;
+    // Auditoría en observaciones de la OC
+    const ahora=new Date().toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const nrosBob=bobinas.map(b=>b.numero_bobina).join(', ');
+    const obsLog='[BALANCE '+ahora+'] Reservadas '+bobinas.length+' bobina(s) del stock libre: '+nrosBob+' ('+r2(mtsTotal).toLocaleString('es-AR')+' m)';
+    const obsNueva=((oc.observaciones||'').trim()+'\n'+obsLog).trim();
+    await sb.from('ordenes_corte').update({observaciones:obsNueva}).eq('id',ocId);
+    toast('✓ '+bobinas.length+' bobina(s) reservada(s) para '+oc.numero_orden+' — siguen en stock para cortar','green');
+    _balCerrarOverlay();
+    await reload();
+    renderBalance();
+  } catch(e){
+    alert('Error al reservar: '+(e.message||e));
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// ACCIÓN: Crear OE nueva vinculada a la OC (desde el Balance)
+// ═════════════════════════════════════════════════════════════════════
+// Crea una OE del tipo de bobina correcto, con cliente = el de la OC, vinculada
+// a la OC vía orden_extrusion_id. Útil cuando:
+//   - La OC no tiene OE asociada (caso "Sin OE")
+//   - La OE asociada terminó y falta material
+//   - Se necesita producción extra para cubrir robos
+let _balCrearOEsel=new Set();   // ids de extrusoras seleccionadas
+
+function abrirCrearOEdesdeBalance(ocId){
+  const oc=C.ord_corte.find(o=>o.id===ocId);
+  if(!oc){toast('OC no encontrada','red');return;}
+  const bal=_calcularBalanceOC(oc);
+  if(!bal.tipoBobina){toast('La OC no tiene tipo de bobina asociado','red');return;}
+  // Preseleccionar extrusoras: si la OC tiene OE asociada, usar las mismas extrusoras
+  _balCrearOEsel=new Set();
+  if(bal.oeAsociada){
+    (bal.oeAsociada.orden_extrusoras||[]).forEach(oe=>_balCrearOEsel.add(oe.extrusora_id));
+  }
+  // Crear/abrir overlay
+  let ov=document.getElementById('bal-crear-oe-overlay');
+  if(!ov){
+    ov=document.createElement('div');
+    ov.id='bal-crear-oe-overlay';
+    ov.style.cssText='display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9100;align-items:flex-start;justify-content:center;padding:30px 20px;overflow-y:auto;';
+    ov.innerHTML='<div style="background:var(--bg1);border:1.5px solid var(--accentbd);border-radius:var(--rl);padding:20px;max-width:640px;width:100%;">'
+      +'<div id="bal-crear-oe-body"></div>'
+    +'</div>';
+    document.body.appendChild(ov);
+  }
+  _balRenderCrearOE(oc,bal);
+  ov.style.display='flex';
+}
+
+function _balRenderCrearOE(oc,bal){
+  const body=document.getElementById('bal-crear-oe-body');
+  if(!body)return;
+  const prodCodigo=bal.prod?.codigo||'';
+  const prodDesc=bal.prod?.descripcion||bal.tipoBobina?.nombre||'—';
+  const mtsSugeridos=Math.ceil(bal.mtsFalta);
+  const kgPorMt=bal.tipoBobina?.kg_por_metro||(bal.tipoBobina?.gramaje?bal.tipoBobina.gramaje/1000:0);
+  const kgEst=kgPorMt>0?r2(mtsSugeridos*kgPorMt):0;
+  // Prioridad sugerida: 1 más que el máximo actual (encolar al final)
+  let priMax=0;
+  C.ordenes.forEach(o=>{if((o.prioridad||0)>priMax)priMax=o.prioridad;});
+  const priSugerida=priMax+1;
+  const extrusoras=C.extrusoras||[];
+  // Aviso si la OC ya tiene OE asociada
+  const yaTieneOE=bal.oeAsociada;
+  body.innerHTML=''
+    +'<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;">'
+      +'<div style="flex:1;">'
+        +'<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">🏭 Crear OE nueva</div>'
+        +'<div style="font-size:16px;font-weight:800;margin-top:3px;">vinculada a '+oc.numero_orden+'</div>'
+        +'<div style="font-size:12px;color:var(--text2);margin-top:2px;">Cliente: <strong style="color:var(--text1);">'+(oc.cliente||'—')+'</strong></div>'
+        +'<div style="font-size:12px;color:var(--text2);margin-top:2px;">'
+          +(prodCodigo?'<span class="mono" style="font-weight:700;color:var(--teal);">'+prodCodigo+'</span> ':'')
+          +prodDesc
+        +'</div>'
+      +'</div>'
+      +'<button class="btn btn-sm" onclick="_balCerrarOverlayCrearOE()">✕</button>'
+    +'</div>'
+    // Aviso si ya tiene OE
+    +(yaTieneOE
+      ?'<div style="background:rgba(245,158,11,.08);border:1px solid var(--amber);border-radius:var(--r);padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--amber);">⚠ Esta OC ya tiene OE asociada: <strong>'+yaTieneOE.numero_orden+'</strong> ('+yaTieneOE.estado+'). La nueva OE NO va a reemplazar a esa — va a producir <strong>en paralelo</strong> para cubrir el faltante. La OC va a tener dos OEs.</div>'
+      :'<div style="background:rgba(59,130,246,.08);border:1px solid var(--accent);border-radius:var(--r);padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--accent);">ℹ Esta OC no tiene OE asociada. Al crear la nueva, queda vinculada a la OC.</div>'
+    )
+    // Stats: faltante
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:14px;">'
+      +_balStat('Falta',r2(bal.mtsFalta).toLocaleString('es-AR')+' m','var(--amber)')
+      +_balStat('Tipo bobina',bal.tipoBobina?.nombre||'—','var(--text2)')
+      +_balStat('Kg/m',r2(kgPorMt).toLocaleString('es-AR'),'var(--text3)')
+    +'</div>'
+    // Form
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">'
+      +'<div>'
+        +'<label style="font-size:10px;color:var(--text3);text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Metros a producir <span style="color:var(--red)">*</span></label>'
+        +'<input type="number" id="bal-oe-mts" value="'+mtsSugeridos+'" min="1" step="1" style="width:100%;padding:8px;background:var(--bg3);color:var(--text1);border:1px solid var(--border);border-radius:var(--r);font-size:13px;font-weight:600;" oninput="_balRecalcKg('+kgPorMt+')">'
+        +'<div style="font-size:10px;color:var(--text3);margin-top:3px;">Sugerencia: '+mtsSugeridos+' m (cubre el faltante)</div>'
+      +'</div>'
+      +'<div>'
+        +'<label style="font-size:10px;color:var(--text3);text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Kg estimados</label>'
+        +'<input type="text" id="bal-oe-kg" value="'+kgEst.toLocaleString('es-AR')+' kg" readonly style="width:100%;padding:8px;background:var(--bg2);color:var(--text2);border:1px solid var(--border);border-radius:var(--r);font-size:13px;">'
+        +'<div style="font-size:10px;color:var(--text3);margin-top:3px;">Calculado automáticamente</div>'
+      +'</div>'
+    +'</div>'
+    +'<div style="margin-bottom:10px;">'
+      +'<label style="font-size:10px;color:var(--text3);text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Prioridad</label>'
+      +'<input type="number" id="bal-oe-pri" value="'+priSugerida+'" min="1" step="1" style="width:120px;padding:8px;background:var(--bg3);color:var(--text1);border:1px solid var(--border);border-radius:var(--r);font-size:13px;font-weight:600;">'
+      +'<span style="font-size:10px;color:var(--text3);margin-left:8px;">Default: '+priSugerida+' (final de la cola). Bajá el número para urgente.</span>'
+    +'</div>'
+    +'<div style="margin-bottom:14px;">'
+      +'<label style="font-size:10px;color:var(--text3);text-transform:uppercase;font-weight:700;display:block;margin-bottom:6px;">Extrusoras <span style="color:var(--red)">*</span></label>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:6px;">'
+      +extrusoras.map(e=>{
+        const sel=_balCrearOEsel.has(e.id);
+        return '<label style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:'+(sel?'rgba(34,197,94,.10)':'var(--bg2)')+';border:1px solid '+(sel?'var(--green)':'var(--border)')+';border-radius:99px;cursor:pointer;font-size:12px;">'
+          +'<input type="checkbox" '+(sel?'checked':'')+' onchange="_balToggleExt('+oc.id+','+e.id+',this.checked)" style="width:14px;height:14px;">'
+          +'<span style="font-weight:'+(sel?'700':'500')+';color:'+(sel?'var(--green)':'var(--text2)')+';">'+e.nombre+'</span>'
+        +'</label>';
+      }).join('')
+      +'</div>'
+      +(yaTieneOE
+        ?'<div style="font-size:10px;color:var(--text3);margin-top:6px;">Preseleccionadas: las mismas de '+yaTieneOE.numero_orden+'</div>'
+        :'<div style="font-size:10px;color:var(--text3);margin-top:6px;">Elegí en qué extrusora(s) se va a producir</div>')
+    +'</div>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end;">'
+      +'<button class="btn btn-sm" onclick="_balCerrarOverlayCrearOE()">Cancelar</button>'
+      +'<button class="btn btn-sm" style="background:var(--red);color:#fff;border:none;font-weight:700;" onclick="_balConfirmarCrearOE('+oc.id+')">🏭 Crear OE</button>'
+    +'</div>';
+}
+
+function _balRecalcKg(kgPorMt){
+  const mts=parseFloat(document.getElementById('bal-oe-mts')?.value)||0;
+  const kg=mts*kgPorMt;
+  const kgInp=document.getElementById('bal-oe-kg');
+  if(kgInp)kgInp.value=r2(kg).toLocaleString('es-AR')+' kg';
+}
+
+function _balToggleExt(ocId,extId,checked){
+  if(checked)_balCrearOEsel.add(extId);
+  else _balCrearOEsel.delete(extId);
+  const oc=C.ord_corte.find(o=>o.id===ocId);
+  if(!oc)return;
+  const bal=_calcularBalanceOC(oc);
+  _balRenderCrearOE(oc,bal);
+}
+
+function _balCerrarOverlayCrearOE(){
+  const ov=document.getElementById('bal-crear-oe-overlay');
+  if(ov)ov.style.display='none';
+  _balCrearOEsel=new Set();
+}
+
+async function _balConfirmarCrearOE(ocId){
+  const oc=C.ord_corte.find(o=>o.id===ocId);
+  if(!oc){toast('OC no encontrada','red');return;}
+  const bal=_calcularBalanceOC(oc);
+  if(!bal.tipoBobina){toast('La OC no tiene tipo de bobina','red');return;}
+  const mts=parseFloat(document.getElementById('bal-oe-mts')?.value)||0;
+  const pri=parseInt(document.getElementById('bal-oe-pri')?.value)||999;
+  if(mts<=0){alert('Los metros deben ser mayores a 0');return;}
+  if(_balCrearOEsel.size===0){alert('Elegí al menos una extrusora');return;}
+  const kgPorMt=bal.tipoBobina.kg_por_metro||(bal.tipoBobina.gramaje?bal.tipoBobina.gramaje/1000:0);
+  const kgEst=kgPorMt>0?r2(mts*kgPorMt):null;
+  const extIds=[..._balCrearOEsel];
+  const yaTieneOE=!!bal.oeAsociada;
+  // Confirm
+  const nomExt=extIds.map(id=>C.extrusoras.find(e=>e.id===id)?.nombre||'?').join(', ');
+  let confirmMsg='¿Crear OE nueva?\n\n';
+  confirmMsg+='Cliente: '+(oc.cliente||'—')+'\n';
+  confirmMsg+='Tipo: '+bal.tipoBobina.nombre+'\n';
+  confirmMsg+='Metros: '+r2(mts).toLocaleString('es-AR')+' m'+(kgEst?' ('+kgEst+' kg est.)':'')+'\n';
+  confirmMsg+='Prioridad: '+pri+'\n';
+  confirmMsg+='Extrusora(s): '+nomExt+'\n';
+  confirmMsg+='Vinculada a: '+oc.numero_orden+'\n';
+  if(yaTieneOE){
+    confirmMsg+='\n⚠ Esta OC YA TIENE OE ('+bal.oeAsociada.numero_orden+'). La nueva va a quedar como segunda OE de esta OC.';
+  }
+  if(!confirm(confirmMsg))return;
+  try{
+    // 1) Crear la OE
+    const nroOrd=await generarNroORD();
+    const ahora=new Date().toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const obsOE='Generada desde Balance ['+ahora+'] · Vinculada a '+oc.numero_orden+' ('+(oc.cliente||'—')+')'+(yaTieneOE?' · OE secundaria (ya hay '+bal.oeAsociada.numero_orden+')':'');
+    const{data:oe,error:eOE}=await sb.from('ordenes').insert({
+      numero_orden:nroOrd,
+      bobina_id:bal.tipoBobina.id,
+      metros:mts,
+      kg_totales:kgEst,
+      cliente:oc.cliente||null,
+      estado:'Pendiente',
+      prioridad:pri,
+      origen:'balance',
+      observaciones:obsOE
+    }).select().single();
+    if(eOE)throw eOE;
+    // 2) Vincular extrusoras
+    await sb.from('orden_extrusoras').insert(extIds.map(eId=>({orden_id:oe.id,extrusora_id:eId})));
+    // 3) Vincular la OE a la OC (vía orden_extrusion_id)
+    // Si la OC YA tiene una OE asociada, NO la sobreescribimos — solo actualizamos
+    // el campo si está vacío. La nueva queda "asociada" lógicamente vía cliente y observaciones.
+    if(!yaTieneOE){
+      await sb.from('ordenes_corte').update({orden_extrusion_id:oe.id}).eq('id',ocId);
+    }
+    // 4) Auditoría en observaciones de la OC
+    const obsLog='[BALANCE '+ahora+'] OE creada: '+nroOrd+' · '+r2(mts).toLocaleString('es-AR')+' m · '+nomExt+(yaTieneOE?' (OE secundaria)':' (vinculación principal)');
+    const obsOC=((oc.observaciones||'').trim()+'\n'+obsLog).trim();
+    await sb.from('ordenes_corte').update({observaciones:obsOC}).eq('id',ocId);
+    toast('✓ OE '+nroOrd+' creada · '+r2(mts).toLocaleString('es-AR')+' m vinculada a '+oc.numero_orden,'green');
+    _balCerrarOverlayCrearOE();
+    await reload();
+    renderBalance();
+  } catch(e){
+    alert('Error al crear OE: '+(e.message||e));
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// ACCIÓN: Devolución directa entre OCs (desde el Balance)
+// ═════════════════════════════════════════════════════════════════════
+// Caso: OC-A le tomó bobinas a OC-B (la actual). OC-A tiene su propia OE-A que
+// produjo bobinas SIN ASIGNAR del mismo tipo. Sugerencia: que OC-A "ceda" esas
+// bobinas a OC-B (vía reservada_oc_id), así OC-B recupera material y OC-A se
+// queda con las que tenía robadas (que en realidad ya estaban en orden_corte_bobinas).
+let _balDevolucionSel=new Set();
+let _balDevolucionCtx=null;
+
+function abrirDevolucionDirecta(ocReceptoraId,ocLadronaId){
+  const ocReceptora=C.ord_corte.find(o=>o.id===ocReceptoraId);
+  const ocLadrona=C.ord_corte.find(o=>o.id===ocLadronaId);
+  if(!ocReceptora||!ocLadrona){toast('OC no encontrada','red');return;}
+  // Recalcular balance receptora para tener mtsFalta actualizado y sugerencias
+  const balReceptora=_calcularBalanceOC(ocReceptora);
+  const sugDevol=balReceptora.sugerencias.find(s=>s.tipo==='devolucion_directa'&&s.ocLadronaId===ocLadronaId);
+  if(!sugDevol||!sugDevol.bobinasDisponibles?.length){
+    toast('Ya no hay bobinas disponibles para la devolución','amber');
+    return;
+  }
+  _balDevolucionCtx={ocReceptora,ocLadrona,balReceptora,bobinasDisponibles:sugDevol.bobinasDisponibles};
+  // Preseleccionar las primeras hasta cubrir el faltante
+  _balDevolucionSel=new Set();
+  let acum=0;
+  for(const b of sugDevol.bobinasDisponibles){
+    if(acum>=balReceptora.mtsFalta)break;
+    _balDevolucionSel.add(b.id);
+    acum+=parseFloat(b.metros_reales)||0;
+  }
+  // Crear/abrir overlay
+  let ov=document.getElementById('bal-devol-overlay');
+  if(!ov){
+    ov=document.createElement('div');
+    ov.id='bal-devol-overlay';
+    ov.style.cssText='display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9100;align-items:flex-start;justify-content:center;padding:30px 20px;overflow-y:auto;';
+    ov.innerHTML='<div style="background:var(--bg1);border:1.5px solid var(--accentbd);border-radius:var(--rl);padding:20px;max-width:760px;width:100%;">'
+      +'<div id="bal-devol-body"></div>'
+    +'</div>';
+    document.body.appendChild(ov);
+  }
+  _balRenderDevolucion();
+  ov.style.display='flex';
+}
+
+function _balRenderDevolucion(){
+  const body=document.getElementById('bal-devol-body');
+  if(!body||!_balDevolucionCtx)return;
+  const{ocReceptora,ocLadrona,balReceptora,bobinasDisponibles}=_balDevolucionCtx;
+  const mtsSel=bobinasDisponibles.filter(b=>_balDevolucionSel.has(b.id)).reduce((s,b)=>s+(parseFloat(b.metros_reales)||0),0);
+  const cubre=mtsSel>=balReceptora.mtsFalta;
+  const oeLadrona=_balOEdeOC(ocLadrona);
+  body.innerHTML=''
+    +'<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;">'
+      +'<div style="flex:1;">'
+        +'<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">🔄 Devolución directa entre OCs</div>'
+        +'<div style="font-size:15px;font-weight:800;margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+          +'<span style="background:var(--bg3);padding:2px 8px;border-radius:6px;font-family:monospace;">'+ocLadrona.numero_orden+'</span>'
+          +'<span style="color:var(--text3);">→</span>'
+          +'<span style="background:var(--bg3);padding:2px 8px;border-radius:6px;font-family:monospace;color:var(--green);">'+ocReceptora.numero_orden+'</span>'
+        +'</div>'
+        +'<div style="font-size:11px;color:var(--text2);margin-top:4px;">'
+          +'De: <strong>'+(ocLadrona.cliente||'—')+'</strong> · Hacia: <strong>'+(ocReceptora.cliente||'—')+'</strong>'
+        +'</div>'
+      +'</div>'
+      +'<button class="btn btn-sm" onclick="_balCerrarOverlayDevol()">✕</button>'
+    +'</div>'
+    // Explicación contextual
+    +'<div style="background:rgba(59,130,246,.06);border:1px solid var(--accent);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:11px;color:var(--text2);line-height:1.5;">'
+      +'<strong style="color:var(--accent);">¿Qué hace esta acción?</strong><br>'
+      +ocLadrona.numero_orden+' le tomó bobinas a la OE de '+ocReceptora.numero_orden+'. Para compensar, '+ocLadrona.numero_orden+' va a CEDER bobinas de SU PROPIA OE ('+(oeLadrona?.numero_orden||'—')+') que todavía tenía sin asignar.<br>'
+      +'<strong>'+ocLadrona.numero_orden+' NO pierde nada</strong> (se queda con las bobinas que ya tenía). <strong>'+ocReceptora.numero_orden+' recupera material</strong> del mismo tipo.<br>'
+      +'Las bobinas elegidas quedan <strong>reservadas para '+ocReceptora.numero_orden+'</strong> y siguen en stock — el operario las corta normalmente.'
+    +'</div>'
+    // Stats
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:14px;">'
+      +_balStat('Falta '+ocReceptora.numero_orden,r2(balReceptora.mtsFalta).toLocaleString('es-AR')+' m','var(--amber)')
+      +_balStat('Seleccionado',r2(mtsSel).toLocaleString('es-AR')+' m',cubre?'var(--green)':'var(--amber)')
+      +_balStat('Diferencia',r2(mtsSel-balReceptora.mtsFalta).toLocaleString('es-AR')+' m',cubre?'var(--green)':'var(--red)')
+      +_balStat('Bobinas elegidas',_balDevolucionSel.size,'var(--accent)')
+    +'</div>'
+    // Aviso de cobertura
+    +(cubre
+      ?'<div style="background:rgba(34,197,94,.08);border:1px solid var(--green);border-radius:var(--r);padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--green);">✓ La selección cubre el faltante de '+ocReceptora.numero_orden+'. Podés confirmar.</div>'
+      :'<div style="background:rgba(245,158,11,.08);border:1px solid var(--amber);border-radius:var(--r);padding:8px 12px;margin-bottom:12px;font-size:11px;color:var(--amber);">⚠ La selección NO cubre todo. Podés confirmar igual (recuperación parcial) o sumar más.</div>'
+    )
+    // Tabla de bobinas disponibles de OE-ladrona
+    +'<div style="font-size:11px;color:var(--text3);font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;">Bobinas disponibles de '+(oeLadrona?.numero_orden||'OE ladrona')+':</div>'
+    +'<div style="max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r);">'
+      +'<table style="width:100%;font-size:11px;">'
+        +'<thead><tr style="background:var(--bg3);position:sticky;top:0;">'
+          +'<th style="padding:6px 8px;text-align:center;width:32px;"><input type="checkbox" id="bal-devol-all" '+(bobinasDisponibles.every(b=>_balDevolucionSel.has(b.id))?'checked':'')+' onchange="_balDevolToggleTodas(this.checked)"></th>'
+          +'<th style="padding:6px 8px;text-align:left;">N° Bobina</th>'
+          +'<th style="padding:6px 8px;text-align:right;">Metros</th>'
+          +'<th style="padding:6px 8px;text-align:right;">Kg</th>'
+          +'<th style="padding:6px 8px;text-align:left;">Fecha</th>'
+        +'</tr></thead><tbody>'
+        +bobinasDisponibles.map(bb=>{
+          const sel=_balDevolucionSel.has(bb.id);
+          return '<tr style="border-bottom:1px solid var(--border);background:'+(sel?'rgba(34,197,94,.06)':'transparent')+';">'
+            +'<td style="padding:6px 8px;text-align:center;"><input type="checkbox" '+(sel?'checked':'')+' onchange="_balDevolToggleBob('+bb.id+',this.checked)"></td>'
+            +'<td style="padding:6px 8px;" class="mono">'+bb.numero_bobina+'</td>'
+            +'<td style="padding:6px 8px;text-align:right;font-weight:600;">'+r2(bb.metros_reales||0).toLocaleString('es-AR')+'</td>'
+            +'<td style="padding:6px 8px;text-align:right;color:var(--text3);">'+r2(bb.kg_reales||0).toLocaleString('es-AR')+'</td>'
+            +'<td style="padding:6px 8px;color:var(--text3);">'+(bb.fecha_produccion||'—')+'</td>'
+          +'</tr>';
+        }).join('')
+      +'</tbody></table>'
+    +'</div>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">'
+      +'<button class="btn btn-sm" onclick="_balCerrarOverlayDevol()">Cancelar</button>'
+      +'<button class="btn btn-sm" style="background:var(--green);color:#fff;border:none;font-weight:700;" onclick="_balConfirmarDevolucion()" '+(_balDevolucionSel.size===0?'disabled':'')+'>🔄 Recuperar '+_balDevolucionSel.size+' bobina(s)</button>'
+    +'</div>';
+}
+
+function _balDevolToggleBob(bobId,checked){
+  if(checked)_balDevolucionSel.add(bobId);
+  else _balDevolucionSel.delete(bobId);
+  _balRenderDevolucion();
+}
+
+function _balDevolToggleTodas(checked){
+  if(!_balDevolucionCtx)return;
+  if(checked)_balDevolucionCtx.bobinasDisponibles.forEach(b=>_balDevolucionSel.add(b.id));
+  else _balDevolucionSel=new Set();
+  _balRenderDevolucion();
+}
+
+function _balCerrarOverlayDevol(){
+  const ov=document.getElementById('bal-devol-overlay');
+  if(ov)ov.style.display='none';
+  _balDevolucionSel=new Set();
+  _balDevolucionCtx=null;
+}
+
+async function _balConfirmarDevolucion(){
+  if(!_balDevolucionCtx){toast('Contexto perdido','red');return;}
+  if(_balDevolucionSel.size===0){toast('No hay bobinas seleccionadas','amber');return;}
+  const{ocReceptora,ocLadrona,bobinasDisponibles}=_balDevolucionCtx;
+  const ids=[..._balDevolucionSel];
+  const bobinas=bobinasDisponibles.filter(b=>ids.includes(b.id));
+  const mtsTotal=bobinas.reduce((s,b)=>s+(parseFloat(b.metros_reales)||0),0);
+  const nrosBob=bobinas.map(b=>b.numero_bobina).join(', ');
+  if(!confirm('¿Confirmar devolución?\n\n'
+    +'Desde: '+ocLadrona.numero_orden+' ('+(ocLadrona.cliente||'—')+')\n'
+    +'Hacia: '+ocReceptora.numero_orden+' ('+(ocReceptora.cliente||'—')+')\n\n'
+    +'Bobinas: '+bobinas.length+' ('+r2(mtsTotal).toLocaleString('es-AR')+' m)\n'
+    +nrosBob+'\n\n'
+    +'Las bobinas quedan reservadas a '+ocReceptora.numero_orden+'. Siguen en stock para cortar.'
+  ))return;
+  try{
+    // 1) Setear reservada_oc_id = ocReceptora.id en las bobinas elegidas
+    const{error:e1}=await sb.from('bobinas_producidas')
+      .update({reservada_oc_id:ocReceptora.id})
+      .in('id',ids);
+    if(e1)throw e1;
+    // 2) Auditoría en OC receptora (recibe)
+    const ahora=new Date().toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const obsReceptora='[BALANCE '+ahora+'] Recuperadas '+bobinas.length+' bobina(s) vía devolución desde '+ocLadrona.numero_orden+': '+nrosBob+' ('+r2(mtsTotal).toLocaleString('es-AR')+' m)';
+    const obsRecNueva=((ocReceptora.observaciones||'').trim()+'\n'+obsReceptora).trim();
+    await sb.from('ordenes_corte').update({observaciones:obsRecNueva}).eq('id',ocReceptora.id);
+    // 3) Auditoría en OC ladrona (cede)
+    const obsLadrona='[BALANCE '+ahora+'] Cedidas '+bobinas.length+' bobina(s) a '+ocReceptora.numero_orden+' (devolución por bobinas que se habían tomado de su OE): '+nrosBob+' ('+r2(mtsTotal).toLocaleString('es-AR')+' m)';
+    const obsLadNueva=((ocLadrona.observaciones||'').trim()+'\n'+obsLadrona).trim();
+    await sb.from('ordenes_corte').update({observaciones:obsLadNueva}).eq('id',ocLadrona.id);
+    toast('✓ '+bobinas.length+' bobina(s) reservada(s) para '+ocReceptora.numero_orden+' (vía '+ocLadrona.numero_orden+')','green');
+    _balCerrarOverlayDevol();
+    await reload();
+    renderBalance();
+  } catch(e){
+    alert('Error en la devolución: '+(e.message||e));
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 📊 INFORME DE LOTE DE MP — trazabilidad económica
+// ═══════════════════════════════════════════════════════════════════════
+// Para un lote dado:
+//   - Cuánto se compró, cuánto se usó, cuánto queda
+//   - Qué bobinas se hicieron con él, qué OCs, qué clientes
+//   - Rentabilidad real: facturado − costo (marginal sin GG / con GG)
+//
+// Principio del documento de arquitectura: el lote es Documento, los consumos
+// son Movimientos, el saldo es Balance. Solo lectura — no escribe en BD.
+//
+// Lógica de imputación: para cada bobina que usó este lote, calculamos qué %
+// del peso de la bobina vino de este lote. Ese mismo % aplicamos al precio
+// de venta y al costo total del producto cortado, para imputar al lote.
+
+async function renderInformeLote(){
+  const sel=document.getElementById('infl-lote');
+  const cat=document.getElementById('infl-cat')?.value||'base';
+  if(!sel)return;
+  // Poblar selector de lotes (filtrado por categoría)
+  const lotes=(C.lotes_mp||[])
+    .filter(l=>!cat||l.tipos_mp?.categoria===cat)
+    .slice()
+    .sort((a,b)=>new Date(b.fecha_ingreso||0)-new Date(a.fecha_ingreso||0));
+  const cur=sel.value;
+  sel.innerHTML='<option value="">— Seleccioná un lote —</option>'
+    +lotes.map(l=>{
+      const dispKg=parseFloat(l.kg_disponibles)||0;
+      const compKg=parseFloat(l.kg_compra)||parseFloat(l.kg_disponibles)||0;
+      const estado=dispKg<=0?' (AGOTADO)':dispKg/compKg<0.1?' (CASI AGOTADO)':'';
+      return '<option value="'+l.id+'">'
+        +(l.codigo||'L-'+l.id)+' · '+(l.tipos_mp?.nombre||'?')+' · '+(l.fecha_ingreso||'')+' · '+(l.proveedores?.nombre||'?')+estado
+      +'</option>';
+    }).join('');
+  if(cur&&lotes.some(l=>String(l.id)===cur))sel.value=cur;
+  // Si no hay lote elegido, dejar el mensaje
+  const w=document.getElementById('infl-wrap');
+  if(!w)return;
+  if(!sel.value){
+    w.innerHTML='<div class="empty" style="padding:40px;text-align:center;color:var(--text3);">Elegí un lote del desplegable arriba para ver su informe.</div>';
+    return;
+  }
+  const loteId=parseInt(sel.value);
+  const lote=C.lotes_mp.find(l=>l.id===loteId);
+  if(!lote){w.innerHTML='<div class="empty" style="color:var(--red);">Lote no encontrado</div>';return;}
+  // Cargar consumos del lote
+  w.innerHTML='<div class="loading" style="padding:40px;text-align:center;"><div class="spinner"></div><div style="margin-top:10px;color:var(--text3);">Calculando rentabilidad del lote...</div></div>';
+  const{data:consumos,error:eC}=await sb.from('consumos_mp_bobina')
+    .select('*')
+    .eq('lote_id',loteId);
+  if(eC){w.innerHTML='<div class="empty" style="color:var(--red);">Error: '+eC.message+'</div>';return;}
+  // === ADITIVOS ===
+  // Para cada bobina que consumió el lote base, traer TODOS los otros consumos
+  // (de OTROS lotes que tocaron la misma bobina). Eso son los aditivos.
+  let aditivos=[];
+  const bobinasDelLote=[...new Set((consumos||[]).map(c=>c.bobina_producida_id))];
+  if(bobinasDelLote.length){
+    // Paginar en chunks de 200 para no romper la query
+    const chunkSize=200;
+    for(let i=0;i<bobinasDelLote.length;i+=chunkSize){
+      const chunk=bobinasDelLote.slice(i,i+chunkSize);
+      const{data:cAdit,error:eA}=await sb.from('consumos_mp_bobina')
+        .select('*')
+        .in('bobina_producida_id',chunk)
+        .neq('lote_id',loteId);
+      if(eA){w.innerHTML='<div class="empty" style="color:var(--red);">Error al cargar aditivos: '+eA.message+'</div>';return;}
+      if(cAdit)aditivos=aditivos.concat(cAdit);
+    }
+  }
+  // Calcular el informe (pasando lote base + sus aditivos asociados)
+  const informe=_calcularInformeLote(lote,consumos||[],aditivos);
+  w.innerHTML=_renderInformeLoteHTML(informe);
+}
+
+// Calcula el informe del lote — versión integrada.
+// Para cada bobina que tocó el lote, calculamos dos vistas:
+//   IDEAL (fórmula): cuántos paquetes saldrían si la bobina rinde como la fórmula
+//   REAL (con rendimiento medido): cuántos paquetes saldrían con kg/m real de esa bobina
+// La diferencia entre ambos es el "desvío por rendimiento" (bobinas pesadas o livianas).
+function _calcularInformeLote(lote,consumos,aditivos){
+  aditivos=aditivos||[];
+  const kgIngresados=parseFloat(lote.kg_ingresados)||0;
+  const kgDisponibles=parseFloat(lote.kg_disponibles)||0;
+  const kgConsumidos=consumos.reduce((s,c)=>s+(parseFloat(c.kg_consumidos)||0),0);
+  const precioKg=parseFloat(lote.precio_kg)||0;
+  const costoLote=kgIngresados*precioKg;
+  const costoMPconsumido=kgConsumidos*precioKg;
+
+  // Indexar aditivos por bobina para acceso rápido.
+  // IMPORTANTE: los "aditivos" son los OTROS lotes que tocaron la misma bobina,
+  // EXCLUYENDO otros lotes del mismo tipo de material base (porque esos son
+  // continuación del consumo base, no aditivos reales).
+  const baseTipoMpId=lote.tipo_mp_id;
+  const aditivosFiltrados=aditivos.filter(a=>{
+    // Sacar los del mismo tipo de MP que el lote base (son otros lotes "base" o del mismo material)
+    if(a.tipo_mp_id===baseTipoMpId)return false;
+    // Sacar los que tienen categoría 'base' (por si están mal cargados)
+    const tipo=(C.tipos_mp||[]).find(t=>t.id===a.tipo_mp_id);
+    if(tipo?.categoria==='base')return false;
+    return true;
+  });
+  const aditivosPorBobina=new Map();
+  for(const a of aditivosFiltrados){
+    const bid=a.bobina_producida_id;
+    if(!aditivosPorBobina.has(bid))aditivosPorBobina.set(bid,[]);
+    aditivosPorBobina.get(bid).push(a);
+  }
+
+  // Agregar aditivos por tipo de MP (para solapa 🧪 Aditivos)
+  const aditivosPorTipo=new Map();
+  for(const a of aditivosFiltrados){
+    const tipoMpId=a.tipo_mp_id;
+    const tipo=(C.tipos_mp||[]).find(t=>t.id===tipoMpId);
+    const tipoNom=tipo?.nombre||'(tipo '+tipoMpId+')';
+    const tipoCat=tipo?.categoria||'';
+    if(!aditivosPorTipo.has(tipoMpId)){
+      aditivosPorTipo.set(tipoMpId,{
+        tipoId:tipoMpId,
+        nombre:tipoNom,
+        categoria:tipoCat,
+        kgTotal:0,
+        costoTotal:0,
+        lotes:new Set(),
+        bobinas:new Set()
+      });
+    }
+    const e=aditivosPorTipo.get(tipoMpId);
+    const kg=parseFloat(a.kg_consumidos)||0;
+    const costo=parseFloat(a.costo_parcial)||(kg*(parseFloat(a.precio_kg)||0));
+    e.kgTotal+=kg;
+    e.costoTotal+=costo;
+    if(a.lote_id)e.lotes.add(a.lote_id);
+    if(a.bobina_producida_id)e.bobinas.add(a.bobina_producida_id);
+  }
+  // Totales aditivos
+  const costoAditivosTotal=[...aditivosPorTipo.values()].reduce((s,e)=>s+e.costoTotal,0);
+  const kgAditivosTotal=[...aditivosPorTipo.values()].reduce((s,e)=>s+e.kgTotal,0);
+
+  // Helper: precio_paquete según lista del cliente (mismo método que toda la app)
+  function getPrecioPaqueteOC(oc){
+    if(typeof getPrecioVenta==='function'&&oc.producto_id){
+      const cli=(C.clientes||[]).find(c=>c.razon_social===oc.cliente||c.nombre===oc.cliente);
+      if(cli){
+        try{
+          const pv=getPrecioVenta(oc.producto_id,cli.id);
+          if(pv&&pv.precio_paquete>0)return parseFloat(pv.precio_paquete);
+        }catch(e){}
+      }
+    }
+    if(parseFloat(oc.precio_paquete)>0)return parseFloat(oc.precio_paquete);
+    if(parseFloat(oc.precio_bolsa)>0){
+      const prod=C.productos.find(p=>p.id===oc.producto_id);
+      const emp=C.emp?.find(e=>e.id===(prod?.empaque_id||oc.empaque_id));
+      const uniPaq=parseFloat(emp?.unidades)||1;
+      return parseFloat(oc.precio_bolsa)*uniPaq;
+    }
+    const pedOC=(C.pedidos||[]).find(p=>(p.pedido_ordenes_corte||[]).some(x=>x.orden_corte_id===oc.id));
+    if(pedOC){
+      const linea=(pedOC.pedido_lineas||[]).find(l=>l.producto_id===oc.producto_id);
+      if(linea?.precio_unitario)return parseFloat(linea.precio_unitario);
+    }
+    return 0;
+  }
+  // Helper: paquetes que saldrían de X metros según fórmula del producto
+  function paqDeMts(producto,mts){
+    if(!producto)return 0;
+    const mtsPorBolsa=parseFloat(producto.metros_por_bolsa)||0;
+    if(mtsPorBolsa<=0)return 0;
+    const merma=parseFloat(producto.merma_pct)||0;
+    const emp=C.emp?.find(e=>e.id===producto.empaque_id);
+    const uniPorPaq=parseFloat(emp?.unidades)||1;
+    const bolsas=(mts/mtsPorBolsa)*(1-merma/100);
+    return bolsas/uniPorPaq;
+  }
+  // Helper: kg/m teórico de un producto = peso_por_bolsa / metros_por_bolsa
+  function kgPorMtTeoricoDelProducto(producto){
+    if(!producto)return 0;
+    const mpb=parseFloat(producto.metros_por_bolsa)||0;
+    const ppb=parseFloat(producto.peso_por_bolsa)||0;
+    return mpb>0?ppb/mpb:0;
+  }
+
+  let bobinasUnicasIds=new Set();
+  let oesUnicasIds=new Set();
+  let ocsUnicasIds=new Set();
+  let pedidosUnicosIds=new Set();
+  let clientesUnicos=new Set();
+  let bobinasCortadasIds=new Set();
+  let bobinasSinCortarIds=new Set();
+  const porCliente=new Map();
+  const porProducto=new Map();
+  const porOCsinCortar=new Map();   // agrupado por OC asociada (no por OE)
+  const porOCcortadas=new Map();    // agrupado por OC real (no por OE)
+
+  // Totales del lote — VISTA UNIFICADA (cortadas + sin cortar)
+  let totalPaqIdeal=0,totalVentaIdeal=0;       // si todo rinde como la fórmula
+  let totalPaqReal=0,totalVentaReal=0;          // con rendimiento real medido
+  let totalKgImputado=0;                         // kg lote efectivamente trackeados
+  let totalCostoAditivosImputado=0;              // costo aditivos imputado al lote base
+  let totalKgAditivosImputado=0;                 // kg aditivos imputados
+
+  // Filas para tablas
+  const filasBobinas=[];   // detalle por bobina (para solapa Rendimiento)
+  const filasCortadas=[];  // detalle bobinas cortadas (para tabla detalle)
+  const filasSinCortar=[]; // detalle bobinas sin cortar
+
+  for(const c of consumos){
+    const bobina=C.bobinas_prod.find(b=>b.id===c.bobina_producida_id);
+    if(!bobina)continue;
+    bobinasUnicasIds.add(bobina.id);
+    if(bobina.orden_id)oesUnicasIds.add(bobina.orden_id);
+    const kgConsumidoEsteLote=parseFloat(c.kg_consumidos)||0;
+    if(kgConsumidoEsteLote<=0)continue;
+    const mtsTotalBobina=parseFloat(bobina.metros_reales)||0;
+    const kgRealesBobina=parseFloat(bobina.kg_reales)||0;
+    const propLoteEnBobina=kgRealesBobina>0?kgConsumidoEsteLote/kgRealesBobina:0;
+
+    // Aditivos de esta bobina (los otros lotes que la tocaron).
+    // Imputamos al lote base la PROPORCIÓN del costo de aditivos correspondiente
+    // al lote base en esa bobina. Si el lote base aportó 80% de la bobina, le
+    // tocan 80% del costo de aditivos.
+    const aditivosDeBobina=aditivosPorBobina.get(bobina.id)||[];
+    let costoAditivosBobinaTotal=0;
+    let kgAditivosBobinaTotal=0;
+    for(const a of aditivosDeBobina){
+      const kgA=parseFloat(a.kg_consumidos)||0;
+      const costoA=parseFloat(a.costo_parcial)||(kgA*(parseFloat(a.precio_kg)||0));
+      costoAditivosBobinaTotal+=costoA;
+      kgAditivosBobinaTotal+=kgA;
+    }
+    const costoAditivosImputado=costoAditivosBobinaTotal*propLoteEnBobina;
+    const kgAditivosImputado=kgAditivosBobinaTotal*propLoteEnBobina;
+
+    // Si la bobina YA está cortada, iteramos POR CADA OC que la usó
+    // (una bobina puede dividirse entre varias OCs). Cada (bobina,OC) genera
+    // una imputación al lote, prorrateada por metros_usados / metros_reales.
+    //
+    // Si NO está cortada, buscamos la OC asociada de su OE (proyectado).
+    const ocsQueUsanArr=(C.ord_corte||[]).filter(oc=>(oc.orden_corte_bobinas||[]).some(x=>x.bobina_producida_id===bobina.id));
+    let destinos=[];
+    if(ocsQueUsanArr.length>0){
+      // CORTADA — destinos reales con su prop de bobina
+      destinos=ocsQueUsanArr.map(oc=>{
+        const ocb=(oc.orden_corte_bobinas||[]).find(x=>x.bobina_producida_id===bobina.id);
+        const mtsUsados=parseFloat(ocb?.metros_usados)||0;
+        const propBobinaEnOC=mtsTotalBobina>0?Math.min(1,mtsUsados/mtsTotalBobina):0;
+        return{oc,propBobinaEnOC,mtsUsados,yaCortada:true};
+      }).filter(d=>d.propBobinaEnOC>0);
+      // Normalizar por si suman >1 (no debería pasar pero por seguridad)
+      const sumaProp=destinos.reduce((s,d)=>s+d.propBobinaEnOC,0);
+      if(sumaProp>1.001){
+        destinos.forEach(d=>d.propBobinaEnOC=d.propBobinaEnOC/sumaProp);
+      }
+    } else {
+      // NO CORTADA — destino proyectado (OC asociada de la OE)
+      const oe=C.ordenes.find(o=>o.id===bobina.orden_id);
+      let ocAsoc=null;
+      if(oe){
+        ocAsoc=(C.ord_corte||[]).find(oc=>oc.orden_extrusion_id===oe.id);
+        if(!ocAsoc&&oe.orden_corte_origen_id){
+          ocAsoc=(C.ord_corte||[]).find(oc=>oc.id===oe.orden_corte_origen_id);
+        }
+      }
+      destinos=[{oc:ocAsoc,propBobinaEnOC:1,mtsUsados:mtsTotalBobina,yaCortada:false}];
+    }
+
+    // KPI de bobina (para solapa Rendimiento) — info única por bobina, no por destino
+    const yaCortada=ocsQueUsanArr.length>0;
+    if(yaCortada)bobinasCortadasIds.add(bobina.id);
+    else bobinasSinCortarIds.add(bobina.id);
+
+    // Para mostrar info de bobina (cliente/producto principal): el destino con más prop
+    const destPrinc=destinos.reduce((a,b)=>(a&&a.propBobinaEnOC>=b.propBobinaEnOC)?a:b,null);
+    const prodPrincBob=destPrinc?.oc?C.productos.find(p=>p.id===destPrinc.oc.producto_id):null;
+    const clientePrincBob=destPrinc?.oc?(destPrinc.oc.cliente||'(sin cliente)'):'(sin asignar)';
+    const kgPorMtTeoBob=kgPorMtTeoricoDelProducto(prodPrincBob);
+    const kgPorMtRealBob=mtsTotalBobina>0?kgRealesBobina/mtsTotalBobina:0;
+    let ventaIdealBobAcum=0,ventaRealBobAcum=0,paqIdealBobAcum=0,paqRealBobAcum=0;
+
+    // Iterar por cada destino y prorratear
+    for(const dest of destinos){
+      const ocDestino=dest.oc;
+      const propBobinaEnOC=dest.propBobinaEnOC;
+      if(propBobinaEnOC<=0)continue;
+
+      const prodDestino=ocDestino?C.productos.find(p=>p.id===ocDestino.producto_id):null;
+      const precioPaqDestino=ocDestino?getPrecioPaqueteOC(ocDestino):0;
+      const clienteDestino=ocDestino?(ocDestino.cliente||'(sin cliente)'):'(sin asignar)';
+      const kgPorMtTeoDest=kgPorMtTeoricoDelProducto(prodDestino);
+
+      // kg lote imputado a este destino
+      const kgLoteAlDestino=kgConsumidoEsteLote*propBobinaEnOC;
+
+      // PROYECCIÓN IDEAL: cuántos paq darían los kg del lote SI rindiera la fórmula
+      const mtsIdealLote=kgPorMtTeoDest>0?kgLoteAlDestino/kgPorMtTeoDest:0;
+      const paqIdealDest=prodDestino?paqDeMts(prodDestino,mtsIdealLote):0;
+      const ventaIdealDest=paqIdealDest*precioPaqDestino;
+
+      // PROYECCIÓN REAL: con kg/m real medido
+      // Los kg del lote en este destino ocuparon propLote × propBobinaEnOC de los metros
+      const mtsRealLote=mtsTotalBobina*propLoteEnBobina*propBobinaEnOC;
+      const paqRealDest=prodDestino?paqDeMts(prodDestino,mtsRealLote):0;
+      const ventaRealDest=paqRealDest*precioPaqDestino;
+
+      // Acumular en totales globales
+      totalPaqIdeal+=paqIdealDest;
+      totalPaqReal+=paqRealDest;
+      totalVentaIdeal+=ventaIdealDest;
+      totalVentaReal+=ventaRealDest;
+
+      // Acumular en bobina (para solapa Rendimiento)
+      paqIdealBobAcum+=paqIdealDest;
+      paqRealBobAcum+=paqRealDest;
+      ventaIdealBobAcum+=ventaIdealDest;
+      ventaRealBobAcum+=ventaRealDest;
+
+      // Costo aditivos: imputar al destino proporcional
+      const costoAditAlDestino=costoAditivosImputado*propBobinaEnOC;
+
+      // Cliente / pedidos
+      if(ocDestino&&dest.yaCortada){
+        const pedidosDeOC=(C.pedidos||[]).filter(p=>(p.pedido_ordenes_corte||[]).some(poc=>poc.orden_corte_id===ocDestino.id));
+        const ped=pedidosDeOC[0]||null;
+        if(ped){
+          pedidosUnicosIds.add(ped.id);
+          if(ped.cliente)clientesUnicos.add(ped.cliente);
+        }
+        ocsUnicasIds.add(ocDestino.id);
+      }
+
+      // Por cliente
+      if(!porCliente.has(clienteDestino))porCliente.set(clienteDestino,{cliente:clienteDestino,kgLote:0,paqIdeal:0,paqReal:0,ventaIdeal:0,ventaReal:0,costoAditivos:0,bobinas:new Set(),ocs:new Set()});
+      const cli=porCliente.get(clienteDestino);
+      cli.kgLote+=kgLoteAlDestino;
+      cli.paqIdeal+=paqIdealDest;
+      cli.paqReal+=paqRealDest;
+      cli.ventaIdeal+=ventaIdealDest;
+      cli.ventaReal+=ventaRealDest;
+      cli.costoAditivos+=costoAditAlDestino;
+      cli.bobinas.add(bobina.id);
+      if(ocDestino)cli.ocs.add(ocDestino.id);
+
+      // Por producto
+      if(prodDestino){
+        const prodKey=(prodDestino.codigo||'?')+'|'+(prodDestino.descripcion||'(sin producto)');
+        if(!porProducto.has(prodKey))porProducto.set(prodKey,{codigo:prodDestino.codigo,descripcion:prodDestino.descripcion,kgLote:0,paqIdeal:0,paqReal:0,ventaIdeal:0,ventaReal:0,costoAditivos:0,bobinas:new Set(),ocs:new Set()});
+        const pr=porProducto.get(prodKey);
+        pr.kgLote+=kgLoteAlDestino;
+        pr.paqIdeal+=paqIdealDest;
+        pr.paqReal+=paqRealDest;
+        pr.ventaIdeal+=ventaIdealDest;
+        pr.ventaReal+=ventaRealDest;
+        pr.costoAditivos+=costoAditAlDestino;
+        pr.bobinas.add(bobina.id);
+        if(ocDestino)pr.ocs.add(ocDestino.id);
+      }
+
+      // Agrupar por OC (en lugar de por OE)
+      if(dest.yaCortada){
+        const ocKey=ocDestino?ocDestino.id:'sin_oc';
+        if(!porOCcortadas.has(ocKey)){
+          porOCcortadas.set(ocKey,{
+            ocNum:ocDestino?.numero_orden||'(sin OC)',
+            cliente:clienteDestino,
+            producto:prodDestino?((prodDestino.codigo||'?')+' '+(prodDestino.descripcion||'')):'?',
+            codigoProd:prodDestino?.codigo||'?',
+            descProd:prodDestino?.descripcion||'',
+            kgLote:0,
+            kgReales:0,
+            mtsReales:0,
+            bobinas:new Set(),
+            paqIdeal:0,
+            paqReal:0,
+            ventaIdeal:0,
+            ventaReal:0,
+            kgPorMtTeo:kgPorMtTeoDest
+          });
+        }
+        const eC=porOCcortadas.get(ocKey);
+        eC.kgLote+=kgLoteAlDestino;
+        eC.kgReales+=kgRealesBobina*propBobinaEnOC;
+        eC.mtsReales+=mtsTotalBobina*propBobinaEnOC;
+        eC.bobinas.add(bobina.id);
+        eC.paqIdeal+=paqIdealDest;
+        eC.paqReal+=paqRealDest;
+        eC.ventaIdeal+=ventaIdealDest;
+        eC.ventaReal+=ventaRealDest;
+
+        // Detalle por bobina (cortadas)
+        filasCortadas.push({
+          numero:bobina.numero_bobina,
+          oc:ocDestino?.numero_orden,
+          cliente:clienteDestino,
+          producto:prodDestino?((prodDestino.codigo||'?')+' '+(prodDestino.descripcion||'')):'?',
+          codigoProd:prodDestino?.codigo||'?',
+          descProd:prodDestino?.descripcion||'',
+          kgLote:kgLoteAlDestino,
+          paqIdeal:paqIdealDest,
+          paqReal:paqRealDest,
+          ventaIdeal:ventaIdealDest,
+          ventaReal:ventaRealDest
+        });
+      } else {
+        // SIN CORTAR — agrupar por OC asociada (en lugar de OE)
+        const ocKey=ocDestino?ocDestino.id:'sin_oc_'+(bobina.orden_id||'0');
+        if(!porOCsinCortar.has(ocKey)){
+          porOCsinCortar.set(ocKey,{
+            ocAsocNum:ocDestino?.numero_orden||null,
+            clienteProbable:clienteDestino,
+            producto:prodDestino?((prodDestino.codigo||'?')+' '+(prodDestino.descripcion||'')):'?',
+            codigoProd:prodDestino?.codigo||'?',
+            descProd:prodDestino?.descripcion||'',
+            kgLote:0,
+            kgReales:0,
+            mtsReales:0,
+            bobinas:new Set(),
+            paqIdeal:0,
+            paqReal:0,
+            ventaIdeal:0,
+            ventaReal:0,
+            kgPorMtTeo:kgPorMtTeoDest
+          });
+        }
+        const eS=porOCsinCortar.get(ocKey);
+        eS.kgLote+=kgLoteAlDestino;
+        eS.kgReales+=kgRealesBobina*propBobinaEnOC;
+        eS.mtsReales+=mtsTotalBobina*propBobinaEnOC;
+        eS.bobinas.add(bobina.id);
+        eS.paqIdeal+=paqIdealDest;
+        eS.paqReal+=paqRealDest;
+        eS.ventaIdeal+=ventaIdealDest;
+        eS.ventaReal+=ventaRealDest;
+
+        filasSinCortar.push({
+          numero:bobina.numero_bobina,
+          oeNum:(C.ordenes.find(o=>o.id===bobina.orden_id)?.numero_orden)||'(sin OE)',
+          ocDestino:ocDestino?.numero_orden||null,
+          cliente:clienteDestino,
+          producto:prodDestino?((prodDestino.codigo||'?')+' '+(prodDestino.descripcion||'')):'?',
+          codigoProd:prodDestino?.codigo||'?',
+          descProd:prodDestino?.descripcion||'',
+          kgLote:kgLoteAlDestino,
+          paqIdeal:paqIdealDest,
+          paqReal:paqRealDest,
+          ventaIdeal:ventaIdealDest,
+          ventaReal:ventaRealDest
+        });
+      }
+    } // fin loop destinos
+
+    // Acumular kg/aditivos a totales (una vez por bobina, no por destino)
+    totalKgImputado+=kgConsumidoEsteLote;
+    totalCostoAditivosImputado+=costoAditivosImputado;
+    totalKgAditivosImputado+=kgAditivosImputado;
+
+    // Fila bobina (para solapa Rendimiento) — info ponderada por kg
+    filasBobinas.push({
+      numero:bobina.numero_bobina,
+      yaCortada,
+      ocDestino:destPrinc?.oc?.numero_orden||'—',
+      cliente:clientePrincBob,
+      producto:prodPrincBob?((prodPrincBob.codigo||'?')+' '+(prodPrincBob.descripcion||'')):'(sin producto)',
+      kgLote:kgConsumidoEsteLote,
+      kgReales:kgRealesBobina,
+      mtsReales:mtsTotalBobina,
+      kgPorMtTeo:kgPorMtTeoBob,
+      kgPorMtReal:kgPorMtRealBob,
+      desvioPct:kgPorMtTeoBob>0?((kgPorMtRealBob-kgPorMtTeoBob)/kgPorMtTeoBob*100):0,
+      paqIdeal:paqIdealBobAcum,
+      paqReal:paqRealBobAcum,
+      ventaIdeal:ventaIdealBobAcum,
+      ventaReal:ventaRealBobAcum,
+      diffVenta:ventaRealBobAcum-ventaIdealBobAcum,
+      costoAditivos:costoAditivosImputado,
+      kgAditivos:kgAditivosImputado
+    });
+  }
+
+  // Tablas finales
+  const tablaCliente=[...porCliente.values()].map(c=>({...c,bobinasCount:c.bobinas.size,ocsCount:c.ocs.size,diffVenta:c.ventaReal-c.ventaIdeal})).sort((a,b)=>b.kgLote-a.kgLote);
+  const tablaProducto=[...porProducto.values()].map(p=>({...p,bobinasCount:p.bobinas.size,ocsCount:p.ocs.size,diffVenta:p.ventaReal-p.ventaIdeal})).sort((a,b)=>b.kgLote-a.kgLote);
+  // Tablas por OC con kg/m real promedio ponderado y desvío
+  const tablaSinCortar=[...porOCsinCortar.values()].map(e=>{
+    const kgPorMtReal=e.mtsReales>0?e.kgReales/e.mtsReales:0;
+    const desvioPct=e.kgPorMtTeo>0?((kgPorMtReal-e.kgPorMtTeo)/e.kgPorMtTeo*100):0;
+    return{...e,bobinasCount:e.bobinas.size,diffVenta:e.ventaReal-e.ventaIdeal,kgPorMtReal,desvioPct};
+  }).sort((a,b)=>b.kgLote-a.kgLote);
+  const tablaCortadas=[...porOCcortadas.values()].map(e=>{
+    const kgPorMtReal=e.mtsReales>0?e.kgReales/e.mtsReales:0;
+    const desvioPct=e.kgPorMtTeo>0?((kgPorMtReal-e.kgPorMtTeo)/e.kgPorMtTeo*100):0;
+    return{...e,bobinasCount:e.bobinas.size,diffVenta:e.ventaReal-e.ventaIdeal,kgPorMtReal,desvioPct};
+  }).sort((a,b)=>b.kgLote-a.kgLote);
+  filasBobinas.sort((a,b)=>b.kgLote-a.kgLote);
+  filasCortadas.sort((a,b)=>b.kgLote-a.kgLote);
+  filasSinCortar.sort((a,b)=>b.kgLote-a.kgLote);
+
+  // Tabla por tipo MP de aditivos (para solapa 🧪)
+  const tablaAditivos=[...aditivosPorTipo.values()].map(e=>({
+    ...e,
+    lotesCount:e.lotes.size,
+    bobinasCount:e.bobinas.size,
+    precioPromedio:e.kgTotal>0?e.costoTotal/e.kgTotal:0
+  })).sort((a,b)=>b.costoTotal-a.costoTotal);
+
+  // Indicadores $/kg promedio
+  const ventaPorKgIdeal=totalKgImputado>0?totalVentaIdeal/totalKgImputado:0;
+  const ventaPorKgReal=totalKgImputado>0?totalVentaReal/totalKgImputado:0;
+  // Versión con aditivos
+  const costoMPconsumidoConAdit=costoMPconsumido+totalCostoAditivosImputado;
+  const margenIdeal=totalVentaIdeal-costoMPconsumido;
+  const margenReal=totalVentaReal-costoMPconsumido;
+  const margenIdealConAdit=totalVentaIdeal-costoMPconsumidoConAdit;
+  const margenRealConAdit=totalVentaReal-costoMPconsumidoConAdit;
+  const desvio=totalVentaReal-totalVentaIdeal;
+  const pctMargenIdeal=totalVentaIdeal>0?margenIdeal/totalVentaIdeal*100:0;
+  const pctMargenReal=totalVentaReal>0?margenReal/totalVentaReal*100:0;
+  const pctMargenIdealConAdit=totalVentaIdeal>0?margenIdealConAdit/totalVentaIdeal*100:0;
+  const pctMargenRealConAdit=totalVentaReal>0?margenRealConAdit/totalVentaReal*100:0;
+  const pctAditivosSobreTotal=costoMPconsumidoConAdit>0?totalCostoAditivosImputado/costoMPconsumidoConAdit*100:0;
+
+  return {
+    lote,kgIngresados,kgDisponibles,kgConsumidos,precioKg,costoLote,costoMPconsumido,
+    bobinasCount:bobinasUnicasIds.size,
+    bobinasCortadasCount:bobinasCortadasIds.size,
+    bobinasSinCortarCount:bobinasSinCortarIds.size,
+    oesCount:oesUnicasIds.size,
+    ocsCount:ocsUnicasIds.size,
+    pedidosCount:pedidosUnicosIds.size,
+    clientesCount:clientesUnicos.size,
+    // Totales unificados (cortadas + sin cortar)
+    totalPaqIdeal,totalPaqReal,
+    totalVentaIdeal,totalVentaReal,
+    margenIdeal,margenReal,desvio,
+    pctMargenIdeal,pctMargenReal,
+    ventaPorKgIdeal,ventaPorKgReal,
+    totalKgImputado,
+    // Aditivos
+    totalCostoAditivosImputado,totalKgAditivosImputado,
+    costoMPconsumidoConAdit,
+    margenIdealConAdit,margenRealConAdit,
+    pctMargenIdealConAdit,pctMargenRealConAdit,
+    pctAditivosSobreTotal,
+    tablaAditivos,
+    // Tablas
+    tablaCliente,tablaProducto,tablaSinCortar,tablaCortadas,
+    filasBobinas,filasCortadas,filasSinCortar
+  };
+}
+
+// Variable global para recordar la solapa activa entre renders
+let _inflTab='resumen';
+function _inflSetTab(t){_inflTab=t;renderInformeLote();}
+
+function _renderInformeLoteHTML(inf){
+  const lote=inf.lote;
+  const pctUsado=inf.kgIngresados>0?(inf.kgConsumidos/inf.kgIngresados*100):0;
+  const kgEnClientes=inf.tablaCliente.reduce((s,c)=>s+c.kgLote,0);
+  const kgSinImputar=Math.max(0,inf.kgConsumidos-kgEnClientes);
+  let html='';
+
+  // === HEADER DEL LOTE (siempre visible) ===
+  html+='<div style="background:linear-gradient(135deg,rgba(59,130,246,.10),rgba(59,130,246,.02));border:1.5px solid var(--accent);border-left-width:5px;border-radius:var(--rl);padding:16px 20px;margin-bottom:12px;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">'
+      +'<div>'
+        +'<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Lote</div>'
+        +'<div style="font-size:20px;font-weight:800;color:var(--text1);">'+(lote.numero_lote||'L-'+lote.id)+'</div>'
+        +'<div style="font-size:13px;color:var(--text2);margin-top:4px;">'
+          +'<strong>'+(lote.tipos_mp?.nombre||'?')+'</strong>'
+          +(lote.tipos_mp?.categoria?' <span style="background:var(--bg3);color:var(--text2);font-size:10px;padding:2px 8px;border-radius:99px;margin-left:6px;">'+lote.tipos_mp.categoria+'</span>':'')
+        +'</div>'
+        +'<div style="font-size:12px;color:var(--text3);margin-top:6px;">Proveedor: <strong style="color:var(--text2);">'+(lote.proveedores?.nombre||'—')+'</strong> · Ingresó el <strong style="color:var(--text2);">'+(lote.fecha_ingreso||'—')+'</strong></div>'
+      +'</div>'
+      +'<div style="text-align:right;">'
+        +'<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Precio</div>'
+        +'<div style="font-size:22px;font-weight:800;color:var(--accent);">$'+r2(inf.precioKg).toLocaleString('es-AR')+'</div>'
+        +'<div style="font-size:11px;color:var(--text3);">por kg</div>'
+      +'</div>'
+    +'</div>'
+  +'</div>';
+
+  // === KPIs FÍSICOS DEL LOTE (siempre visibles, arriba de las solapas) ===
+  const totalBob=inf.bobinasCount||0;
+  const cortadas=inf.bobinasCortadasCount||0;
+  const sinCortar=inf.bobinasSinCortarCount||0;
+  const pctCorte=totalBob>0?(cortadas/totalBob*100):0;
+  html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:8px;margin-bottom:8px;">'
+    +_inflKpi('Comprado',r2(inf.kgIngresados).toLocaleString('es-AR')+' kg','var(--text1)')
+    +_inflKpi('Consumido',r2(inf.kgConsumidos).toLocaleString('es-AR')+' kg','var(--accent)','('+pctUsado.toFixed(1)+'%)')
+    +_inflKpi('En stock',r2(inf.kgDisponibles).toLocaleString('es-AR')+' kg',inf.kgDisponibles<=0?'var(--red)':'var(--green)')
+    +_inflKpi('Bobinas',totalBob,'var(--teal)',cortadas+' cortadas · '+sinCortar+' sin cortar')
+    +_inflKpi('OEs',inf.oesCount||0,'var(--teal)','que consumieron MP')
+    +_inflKpi('OCs',inf.ocsCount,'var(--text2)')
+    +_inflKpi('Pedidos',inf.pedidosCount,'var(--text2)')
+    +_inflKpi('Clientes',inf.clientesCount,'var(--text2)')
+  +'</div>';
+  // Barras: consumo del lote + avance de corte
+  html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">'
+    // Consumo del lote
+    +'<div style="background:var(--bg2);border-radius:var(--r);padding:8px 14px;">'
+      +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:5px;">'
+        +'<span style="color:var(--text3);">Consumo del lote (MP)</span>'
+        +'<span style="color:var(--text1);font-weight:700;">'+pctUsado.toFixed(1)+'%</span>'
+      +'</div>'
+      +'<div style="height:6px;background:var(--bg3);border-radius:99px;overflow:hidden;">'
+        +'<div style="height:100%;background:'+(pctUsado>=100?'var(--green)':'var(--accent)')+';width:'+Math.min(100,pctUsado)+'%;"></div>'
+      +'</div>'
+    +'</div>'
+    // Avance de corte
+    +'<div style="background:var(--bg2);border-radius:var(--r);padding:8px 14px;">'
+      +'<div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:5px;">'
+        +'<span style="color:var(--text3);">Avance de corte (bobinas)</span>'
+        +'<span style="color:var(--text1);font-weight:700;">'+pctCorte.toFixed(1)+'%</span>'
+      +'</div>'
+      +'<div style="height:6px;background:var(--bg3);border-radius:99px;overflow:hidden;">'
+        +'<div style="height:100%;background:'+(pctCorte>=100?'var(--green)':'var(--teal)')+';width:'+Math.min(100,pctCorte)+'%;"></div>'
+      +'</div>'
+    +'</div>'
+  +'</div>';
+
+  // === SOLAPAS ===
+  const tabs=[
+    {id:'resumen',label:'📈 Resumen ejecutivo'},
+    {id:'trazabilidad',label:'🔍 Trazabilidad'},
+    {id:'rendimiento',label:'⚙ Rendimiento por bobina'},
+    {id:'cortadas',label:'✂ Bobinas cortadas'},
+    {id:'sincortar',label:'🎯 Bobinas sin cortar'},
+    {id:'aditivos',label:'🧪 Aditivos'}
+  ];
+  html+='<div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:14px;flex-wrap:wrap;">'
+    +tabs.map(t=>{
+      const act=_inflTab===t.id;
+      return '<button onclick="_inflSetTab(\''+t.id+'\')" style="background:'+(act?'var(--bg2)':'transparent')+';color:'+(act?'var(--accent)':'var(--text2)')+';border:none;border-bottom:3px solid '+(act?'var(--accent)':'transparent')+';padding:10px 16px;font-size:12px;font-weight:'+(act?'700':'500')+';cursor:pointer;margin-bottom:-2px;">'+t.label+'</button>';
+    }).join('')
+  +'</div>';
+
+  // === Contenido de cada solapa ===
+  if(_inflTab==='resumen')html+=_renderTabResumen(inf,kgSinImputar);
+  else if(_inflTab==='trazabilidad')html+=_renderTabTrazabilidad(inf,kgSinImputar);
+  else if(_inflTab==='rendimiento')html+=_renderTabRendimiento(inf);
+  else if(_inflTab==='cortadas')html+=_renderTabCortadas(inf);
+  else if(_inflTab==='sincortar')html+=_renderTabSinCortar(inf);
+  else if(_inflTab==='aditivos')html+=_renderTabAditivos(inf);
+
+  return html;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Solapa: 📈 Resumen ejecutivo
+// ─────────────────────────────────────────────────────────────────────
+function _renderTabResumen(inf,kgSinImputar){
+  // Detectar si el toggle de aditivos está activo
+  const conAdit=document.getElementById('infl-aditivos')?.checked||false;
+  // Costos y márgenes según toggle
+  const costoMPusado=conAdit?inf.costoMPconsumidoConAdit:inf.costoMPconsumido;
+  const margenIdealU=conAdit?inf.margenIdealConAdit:inf.margenIdeal;
+  const margenRealU=conAdit?inf.margenRealConAdit:inf.margenReal;
+  const pctMargenIdealU=conAdit?inf.pctMargenIdealConAdit:inf.pctMargenIdeal;
+  const pctMargenRealU=conAdit?inf.pctMargenRealConAdit:inf.pctMargenReal;
+  const desvio=inf.desvio;
+  const desvioColor=desvio<0?'var(--red)':(desvio>0?'var(--green)':'var(--text2)');
+  const pctDesvio=inf.totalVentaIdeal>0?(desvio/inf.totalVentaIdeal*100):0;
+  const margenIdealColor=margenIdealU>=0?'var(--green)':'var(--red)';
+  const margenRealColor=margenRealU>=0?'var(--green)':'var(--red)';
+  const labelCosto=conAdit?'Costo MP + aditivos':'Costo MP lote base';
+
+  let h='';
+  // Chip de aviso si hay aditivos
+  if(conAdit&&inf.totalCostoAditivosImputado>0){
+    h+='<div style="background:rgba(245,158,11,.08);border:1px solid var(--amber);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">'
+      +'<div style="font-size:12px;color:var(--amber);"><strong>⚙ Incluyendo aditivos en costos</strong> · imputados al lote base proporcionalmente</div>'
+      +'<div style="font-size:11px;color:var(--text2);">Aditivos: <span class="mono" style="font-weight:700;color:var(--amber);">+$'+r2(inf.totalCostoAditivosImputado).toLocaleString('es-AR')+'</span> ('+inf.pctAditivosSobreTotal.toFixed(1)+'% del costo MP total)</div>'
+    +'</div>';
+  } else if(!conAdit&&inf.totalCostoAditivosImputado>0){
+    h+='<div style="background:var(--bg2);border:1px dashed var(--border);border-radius:var(--r);padding:8px 14px;margin-bottom:14px;font-size:11px;color:var(--text3);">'
+      +'ℹ Este lote tiene aditivos por <strong style="color:var(--text2);">$'+r2(inf.totalCostoAditivosImputado).toLocaleString('es-AR')+'</strong> ('+inf.pctAditivosSobreTotal.toFixed(1)+'% del costo MP total). Activá el toggle arriba para verlos.'
+    +'</div>';
+  }
+
+  // Caja de doble lectura: IDEAL vs REAL
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">'
+    // CARD IDEAL
+    +'<div style="background:linear-gradient(135deg,rgba(34,197,94,.08),rgba(34,197,94,.02));border:1.5px solid var(--green);border-radius:var(--rl);padding:14px 18px;">'
+      +'<div style="font-size:11px;color:var(--green);text-transform:uppercase;font-weight:700;letter-spacing:.05em;">🟢 Si todo rinde como la fórmula</div>'
+      +'<div style="font-size:10px;color:var(--text3);margin-top:2px;margin-bottom:10px;">(potencial teórico — sin pérdidas por rendimiento)</div>'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:6px;">'
+        +'<span style="font-size:11px;color:var(--text3);">Paquetes potenciales</span>'
+        +'<span class="mono" style="font-size:13px;font-weight:700;">'+Math.round(inf.totalPaqIdeal).toLocaleString('es-AR')+'</span>'
+      +'</div>'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:6px;">'
+        +'<span style="font-size:11px;color:var(--text3);">Venta potencial</span>'
+        +'<span class="mono" style="font-size:14px;font-weight:800;color:var(--accent);">$'+r2(inf.totalVentaIdeal).toLocaleString('es-AR')+'</span>'
+      +'</div>'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:6px;">'
+        +'<span style="font-size:11px;color:var(--text3);">'+labelCosto+'</span>'
+        +'<span class="mono" style="font-size:13px;color:var(--amber);">−$'+r2(costoMPusado).toLocaleString('es-AR')+'</span>'
+      +'</div>'
+      +'<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:6px;display:flex;justify-content:space-between;">'
+        +'<span style="font-size:12px;color:var(--text1);font-weight:700;">Margen marginal</span>'
+        +'<span class="mono" style="font-size:16px;font-weight:800;color:'+margenIdealColor+';">$'+r2(margenIdealU).toLocaleString('es-AR')+' <span style="font-size:11px;font-weight:600;">('+pctMargenIdealU.toFixed(1)+'%)</span></span>'
+      +'</div>'
+    +'</div>'
+    // CARD REAL
+    +'<div style="background:linear-gradient(135deg,rgba(245,158,11,.06),rgba(245,158,11,.02));border:1.5px solid var(--amber);border-radius:var(--rl);padding:14px 18px;">'
+      +'<div style="font-size:11px;color:var(--amber);text-transform:uppercase;font-weight:700;letter-spacing:.05em;">🟧 Con rendimiento real medido</div>'
+      +'<div style="font-size:10px;color:var(--text3);margin-top:2px;margin-bottom:10px;">(usando kg/m real de cada bobina)</div>'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:6px;">'
+        +'<span style="font-size:11px;color:var(--text3);">Paquetes potenciales</span>'
+        +'<span class="mono" style="font-size:13px;font-weight:700;">'+Math.round(inf.totalPaqReal).toLocaleString('es-AR')+'</span>'
+      +'</div>'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:6px;">'
+        +'<span style="font-size:11px;color:var(--text3);">Venta potencial</span>'
+        +'<span class="mono" style="font-size:14px;font-weight:800;color:var(--accent);">$'+r2(inf.totalVentaReal).toLocaleString('es-AR')+'</span>'
+      +'</div>'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:6px;">'
+        +'<span style="font-size:11px;color:var(--text3);">'+labelCosto+'</span>'
+        +'<span class="mono" style="font-size:13px;color:var(--amber);">−$'+r2(costoMPusado).toLocaleString('es-AR')+'</span>'
+      +'</div>'
+      +'<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:6px;display:flex;justify-content:space-between;">'
+        +'<span style="font-size:12px;color:var(--text1);font-weight:700;">Margen marginal</span>'
+        +'<span class="mono" style="font-size:16px;font-weight:800;color:'+margenRealColor+';">$'+r2(margenRealU).toLocaleString('es-AR')+' <span style="font-size:11px;font-weight:600;">('+pctMargenRealU.toFixed(1)+'%)</span></span>'
+      +'</div>'
+    +'</div>'
+  +'</div>';
+
+  // Desvío por rendimiento
+  h+='<div style="background:'+(desvio<0?'rgba(239,68,68,.06)':'rgba(34,197,94,.06)')+';border:1.5px solid '+desvioColor+';border-radius:var(--rl);padding:12px 18px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">'
+    +'<div>'
+      +'<div style="font-size:11px;color:'+desvioColor+';text-transform:uppercase;font-weight:700;letter-spacing:.05em;">📐 Desvío por rendimiento real</div>'
+      +'<div style="font-size:11px;color:var(--text3);margin-top:3px;">'+(desvio<0?'Las bobinas están más pesadas que la fórmula → menos metros por kg → menos paquetes':'Las bobinas están más livianas o iguales que la fórmula → todo bien o mejor')+'</div>'
+    +'</div>'
+    +'<div style="text-align:right;">'
+      +'<div class="mono" style="font-size:20px;font-weight:800;color:'+desvioColor+';">'+(desvio>=0?'+':'')+'$'+r2(desvio).toLocaleString('es-AR')+'</div>'
+      +'<div style="font-size:11px;color:var(--text3);">'+(pctDesvio>=0?'+':'')+pctDesvio.toFixed(1)+'% vs ideal</div>'
+    +'</div>'
+  +'</div>';
+
+  // Indicadores $/kg
+  const costoPorKgUsado=conAdit?(inf.totalKgImputado>0?costoMPusado/inf.totalKgImputado:inf.precioKg):inf.precioKg;
+  h+='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:14px 18px;margin-bottom:16px;">'
+    +'<div style="font-size:11px;color:var(--text3);text-transform:uppercase;font-weight:700;letter-spacing:.05em;margin-bottom:12px;">💰 Indicadores por kg del lote</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;">'
+      +_inflStatGrande('Venta $/kg (ideal)','$'+r2(inf.ventaPorKgIdeal).toLocaleString('es-AR')+'/kg','var(--green)','con fórmula perfecta')
+      +_inflStatGrande('Venta $/kg (real)','$'+r2(inf.ventaPorKgReal).toLocaleString('es-AR')+'/kg','var(--amber)','con rendimiento medido')
+      +_inflStatGrande('Costo $/kg'+(conAdit?' (+ adit.)':''),'$'+r2(costoPorKgUsado).toLocaleString('es-AR')+'/kg','var(--text2)',conAdit?'MP + aditivos imputados':'precio compra MP')
+      +_inflStatGrande('Margen $/kg (real)','$'+r2(inf.ventaPorKgReal-costoPorKgUsado).toLocaleString('es-AR')+'/kg',(inf.ventaPorKgReal-costoPorKgUsado)>=0?'var(--green)':'var(--red)','venta − costo')
+    +'</div>'
+  +'</div>';
+
+  // Nota aclaratoria
+  h+='<div style="font-size:11px;color:var(--text3);line-height:1.5;padding:10px 14px;background:var(--bg2);border-radius:var(--r);border-left:3px solid var(--accent);">'
+    +'⚠ Esto NO mira remitos ni facturas. Es una <strong>proyección del potencial del lote</strong> calculada así: '
+    +'cada kg consumido se proyecta a metros (vía kg/m real medido o teórico de fórmula), de los metros se obtienen paquetes (vía fórmula del producto), y los paquetes se valoran al precio de lista del cliente de la OC asociada. '
+    +'Mide el potencial de venta del material — la realización efectiva depende del cierre de las OCs.'
+  +'</div>';
+
+  return h;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Solapa: 🔍 Trazabilidad
+// ─────────────────────────────────────────────────────────────────────
+function _renderTabTrazabilidad(inf,kgSinImputar){
+  const conAdit=document.getElementById('infl-aditivos')?.checked||false;
+  const labelCosto=conAdit?'Costo MP+adit.':'Costo MP';
+  let h='';
+  // Tabla por CLIENTE
+  if(inf.tablaCliente.length){
+    h+='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:14px 18px;margin-bottom:16px;overflow-x:auto;">'
+      +'<div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:10px;">👥 Material del lote por cliente</div>'
+      +'<table style="width:100%;font-size:11px;">'
+        +'<thead><tr style="background:var(--bg3);">'
+          +'<th style="padding:6px 8px;text-align:left;">Cliente</th>'
+          +'<th style="padding:6px 8px;text-align:right;">Bobinas</th>'
+          +'<th style="padding:6px 8px;text-align:right;">OCs</th>'
+          +'<th style="padding:6px 8px;text-align:right;">Kg del lote</th>'
+          +'<th style="padding:6px 8px;text-align:right;">% consumo</th>'
+          +'<th style="padding:6px 8px;text-align:right;">'+labelCosto+'</th>'
+          +'<th style="padding:6px 8px;text-align:right;">Venta ideal</th>'
+          +'<th style="padding:6px 8px;text-align:right;">Venta real</th>'
+          +'<th style="padding:6px 8px;text-align:right;">Δ rend.</th>'
+        +'</tr></thead><tbody>'
+        +inf.tablaCliente.map(c=>{
+          const pct=inf.kgConsumidos>0?(c.kgLote/inf.kgConsumidos*100):0;
+          const costoMP=c.kgLote*inf.precioKg+(conAdit?(c.costoAditivos||0):0);
+          const colDiff=c.diffVenta>=0?'var(--green)':'var(--red)';
+          return '<tr style="border-bottom:1px solid var(--border);">'
+            +'<td style="padding:6px 8px;font-weight:600;">'+c.cliente+'</td>'
+            +'<td style="padding:6px 8px;text-align:right;color:var(--text3);">'+c.bobinasCount+'</td>'
+            +'<td style="padding:6px 8px;text-align:right;color:var(--text3);">'+c.ocsCount+'</td>'
+            +'<td style="padding:6px 8px;text-align:right;font-weight:700;color:var(--accent);" class="mono">'+r2(c.kgLote).toLocaleString('es-AR')+'</td>'
+            +'<td style="padding:6px 8px;text-align:right;color:var(--text2);">'+pct.toFixed(1)+'%</td>'
+            +'<td style="padding:6px 8px;text-align:right;color:var(--amber);" class="mono">$'+r2(costoMP).toLocaleString('es-AR')+'</td>'
+            +'<td style="padding:6px 8px;text-align:right;color:var(--text3);" class="mono">$'+r2(c.ventaIdeal).toLocaleString('es-AR')+'</td>'
+            +'<td style="padding:6px 8px;text-align:right;color:var(--accent);font-weight:600;" class="mono">$'+r2(c.ventaReal).toLocaleString('es-AR')+'</td>'
+            +'<td style="padding:6px 8px;text-align:right;color:'+colDiff+';font-weight:700;" class="mono">'+(c.diffVenta>=0?'+':'')+'$'+r2(c.diffVenta).toLocaleString('es-AR')+'</td>'
+          +'</tr>';
+        }).join('')
+      +'</tbody></table>'
+    +'</div>';
+  }
+  // Tabla por PRODUCTO
+  if(inf.tablaProducto.length){
+    h+='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:14px 18px;overflow-x:auto;">'
+      +'<div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:10px;">📦 Material del lote por producto</div>'
+      +'<table style="width:100%;font-size:11px;">'
+        +'<thead><tr style="background:var(--bg3);">'
+          +'<th style="padding:6px 8px;text-align:left;">Producto</th>'
+          +'<th style="padding:6px 8px;text-align:right;">Bobinas</th>'
+          +'<th style="padding:6px 8px;text-align:right;">OCs</th>'
+          +'<th style="padding:6px 8px;text-align:right;">Kg del lote</th>'
+          +'<th style="padding:6px 8px;text-align:right;">% consumo</th>'
+          +'<th style="padding:6px 8px;text-align:right;">'+labelCosto+'</th>'
+          +'<th style="padding:6px 8px;text-align:right;">Venta ideal</th>'
+          +'<th style="padding:6px 8px;text-align:right;">Venta real</th>'
+          +'<th style="padding:6px 8px;text-align:right;">Δ rend.</th>'
+        +'</tr></thead><tbody>'
+        +inf.tablaProducto.map(p=>{
+          const pct=inf.kgConsumidos>0?(p.kgLote/inf.kgConsumidos*100):0;
+          const costoMP=p.kgLote*inf.precioKg+(conAdit?(p.costoAditivos||0):0);
+          const colDiff=p.diffVenta>=0?'var(--green)':'var(--red)';
+          return '<tr style="border-bottom:1px solid var(--border);">'
+            +'<td style="padding:6px 8px;">'
+              +(p.codigo?'<span class="mono" style="font-weight:700;color:var(--teal);">'+p.codigo+'</span> ':'')
+              +(p.descripcion||'?')
+            +'</td>'
+            +'<td style="padding:6px 8px;text-align:right;color:var(--text3);">'+p.bobinasCount+'</td>'
+            +'<td style="padding:6px 8px;text-align:right;color:var(--text3);">'+p.ocsCount+'</td>'
+            +'<td style="padding:6px 8px;text-align:right;font-weight:700;color:var(--accent);" class="mono">'+r2(p.kgLote).toLocaleString('es-AR')+'</td>'
+            +'<td style="padding:6px 8px;text-align:right;color:var(--text2);">'+pct.toFixed(1)+'%</td>'
+            +'<td style="padding:6px 8px;text-align:right;color:var(--amber);" class="mono">$'+r2(costoMP).toLocaleString('es-AR')+'</td>'
+            +'<td style="padding:6px 8px;text-align:right;color:var(--text3);" class="mono">$'+r2(p.ventaIdeal).toLocaleString('es-AR')+'</td>'
+            +'<td style="padding:6px 8px;text-align:right;color:var(--accent);font-weight:600;" class="mono">$'+r2(p.ventaReal).toLocaleString('es-AR')+'</td>'
+            +'<td style="padding:6px 8px;text-align:right;color:'+colDiff+';font-weight:700;" class="mono">'+(p.diffVenta>=0?'+':'')+'$'+r2(p.diffVenta).toLocaleString('es-AR')+'</td>'
+          +'</tr>';
+        }).join('')
+      +'</tbody></table>'
+    +'</div>';
+  }
+  return h;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Solapa: ⚙ Rendimiento por bobina
+// ─────────────────────────────────────────────────────────────────────
+function _renderTabRendimiento(inf){
+  if(!inf.filasBobinas?.length)return '<div class="empty">Sin bobinas para mostrar.</div>';
+  // KPIs promedios
+  const promTeo=inf.filasBobinas.reduce((s,b)=>s+b.kgPorMtTeo*b.kgLote,0)/Math.max(1,inf.totalKgImputado);
+  const promReal=inf.filasBobinas.reduce((s,b)=>s+b.kgPorMtReal*b.kgLote,0)/Math.max(1,inf.totalKgImputado);
+  const pctDesvio=promTeo>0?((promReal-promTeo)/promTeo*100):0;
+  let h='';
+  h+='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:14px 18px;margin-bottom:16px;">'
+    +'<div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:12px;">📐 Rendimiento promedio del lote (kg/m)</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;">'
+      +_inflStatGrande('Kg/m teórico (fórmula)',promTeo.toFixed(4)+' kg/m','var(--green)','según producto')
+      +_inflStatGrande('Kg/m real medido',promReal.toFixed(4)+' kg/m','var(--amber)','promedio ponderado')
+      +_inflStatGrande('Desvío',(pctDesvio>=0?'+':'')+pctDesvio.toFixed(2)+'%',pctDesvio>0?'var(--red)':'var(--green)',pctDesvio>0?'bobinas más pesadas':'bobinas más livianas')
+    +'</div>'
+  +'</div>';
+  // Tabla detalle por bobina
+  h+='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:14px 18px;overflow-x:auto;">'
+    +'<div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:10px;">Detalle por bobina ('+inf.filasBobinas.length+' bobinas)</div>'
+    +'<table style="width:100%;font-size:11px;">'
+      +'<thead><tr style="background:var(--bg3);">'
+        +'<th style="padding:6px 8px;text-align:left;">Bobina</th>'
+        +'<th style="padding:6px 8px;text-align:left;">Estado</th>'
+        +'<th style="padding:6px 8px;text-align:left;">Cliente</th>'
+        +'<th style="padding:6px 8px;text-align:left;">Producto</th>'
+        +'<th style="padding:6px 8px;text-align:right;">Kg lote</th>'
+        +'<th style="padding:6px 8px;text-align:right;">Kg total bob.</th>'
+        +'<th style="padding:6px 8px;text-align:right;">Mts reales</th>'
+        +'<th style="padding:6px 8px;text-align:right;">kg/m teórico</th>'
+        +'<th style="padding:6px 8px;text-align:right;">kg/m real</th>'
+        +'<th style="padding:6px 8px;text-align:right;">Desvío</th>'
+        +'<th style="padding:6px 8px;text-align:right;">Δ venta</th>'
+      +'</tr></thead><tbody>'
+      +inf.filasBobinas.map(b=>{
+        const colDesv=b.desvioPct>0.5?'var(--red)':(b.desvioPct<-0.5?'var(--green)':'var(--text2)');
+        const colDV=b.diffVenta>=0?'var(--green)':'var(--red)';
+        // Separar código y descripción del producto
+        const prodPartes=(b.producto||'').split(' ');
+        const codProd=prodPartes[0]||'?';
+        const descProd=prodPartes.slice(1).join(' ')||'';
+        return '<tr style="border-bottom:1px solid var(--border);">'
+          +'<td style="padding:5px 8px;" class="mono">'+b.numero+'</td>'
+          +'<td style="padding:5px 8px;font-size:10px;">'+(b.yaCortada?'<span style="color:var(--accent);font-weight:600;">cortada</span>':'<span style="color:var(--amber);">sin cortar</span>')+'</td>'
+          +'<td style="padding:5px 8px;font-weight:600;">'+b.cliente+'</td>'
+          +'<td style="padding:5px 8px;font-size:10px;"><span class="mono" style="font-weight:700;color:var(--teal);">'+codProd+'</span> <span style="color:var(--text3);">'+descProd+'</span></td>'
+          +'<td style="padding:5px 8px;text-align:right;color:var(--accent);" class="mono">'+r2(b.kgLote).toLocaleString('es-AR')+'</td>'
+          +'<td style="padding:5px 8px;text-align:right;color:var(--text3);" class="mono">'+r2(b.kgReales).toLocaleString('es-AR')+'</td>'
+          +'<td style="padding:5px 8px;text-align:right;color:var(--text3);" class="mono">'+r2(b.mtsReales).toLocaleString('es-AR')+'</td>'
+          +'<td style="padding:5px 8px;text-align:right;" class="mono">'+b.kgPorMtTeo.toFixed(4)+'</td>'
+          +'<td style="padding:5px 8px;text-align:right;" class="mono">'+b.kgPorMtReal.toFixed(4)+'</td>'
+          +'<td style="padding:5px 8px;text-align:right;color:'+colDesv+';font-weight:700;">'+(b.desvioPct>=0?'+':'')+b.desvioPct.toFixed(2)+'%</td>'
+          +'<td style="padding:5px 8px;text-align:right;color:'+colDV+';font-weight:700;" class="mono">'+(b.diffVenta>=0?'+':'')+'$'+r2(b.diffVenta).toLocaleString('es-AR')+'</td>'
+        +'</tr>';
+      }).join('')
+    +'</tbody></table>'
+  +'</div>';
+  return h;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Solapa: 🧪 Aditivos asociados al lote base
+// ─────────────────────────────────────────────────────────────────────
+function _renderTabAditivos(inf){
+  if(!inf.tablaAditivos?.length){
+    return '<div class="empty" style="padding:30px;text-align:center;color:var(--text3);">Este lote no tiene aditivos asociados (las bobinas se hicieron con MP de un solo tipo).</div>';
+  }
+  let h='';
+  // KPIs aditivos
+  h+='<div style="background:linear-gradient(135deg,rgba(245,158,11,.08),rgba(245,158,11,.02));border:1.5px solid var(--amber);border-radius:var(--rl);padding:14px 18px;margin-bottom:16px;">'
+    +'<div style="font-size:12px;color:var(--amber);text-transform:uppercase;font-weight:700;letter-spacing:.05em;margin-bottom:10px;">🧪 Aditivos consumidos por las bobinas del lote base</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;">'
+      +_inflStatGrande('Tipos de MP',inf.tablaAditivos.length,'var(--text2)','distintos aditivos')
+      +_inflStatGrande('Kg aditivos',r2(inf.totalKgAditivosImputado).toLocaleString('es-AR')+' kg','var(--amber)','imputados al lote base')
+      +_inflStatGrande('Costo aditivos','$'+r2(inf.totalCostoAditivosImputado).toLocaleString('es-AR'),'var(--amber)','suma proporcional')
+      +_inflStatGrande('% sobre costo MP',inf.pctAditivosSobreTotal.toFixed(1)+'%','var(--amber)','del costo MP total')
+    +'</div>'
+    +'<div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--border);font-size:11px;color:var(--text3);line-height:1.5;">'
+      +'<strong>Cómo se calculan estos números:</strong> para cada bobina hecha con el lote base, se identifican TODOS los otros lotes de MP que la tocaron (los aditivos). Se imputa al lote base la <em>proporción del costo de aditivos correspondiente al porcentaje que el lote base aportó a esa bobina</em>. Si el lote base representó el 80% de la bobina, le tocan el 80% de los aditivos de esa bobina.'
+    +'</div>'
+  +'</div>';
+  // Tabla por tipo de MP
+  h+='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:14px 18px;overflow-x:auto;">'
+    +'<div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:10px;">Desglose por tipo de MP</div>'
+    +'<table style="width:100%;font-size:11px;">'
+      +'<thead><tr style="background:var(--bg3);">'
+        +'<th style="padding:6px 8px;text-align:left;">Tipo MP</th>'
+        +'<th style="padding:6px 8px;text-align:left;">Categoría</th>'
+        +'<th style="padding:6px 8px;text-align:right;">Lotes</th>'
+        +'<th style="padding:6px 8px;text-align:right;">Bobinas</th>'
+        +'<th style="padding:6px 8px;text-align:right;">Kg total</th>'
+        +'<th style="padding:6px 8px;text-align:right;">$/kg prom.</th>'
+        +'<th style="padding:6px 8px;text-align:right;">Costo total</th>'
+        +'<th style="padding:6px 8px;text-align:right;">% del mix</th>'
+      +'</tr></thead><tbody>'
+      +inf.tablaAditivos.map(t=>{
+        const pct=inf.totalCostoAditivosImputado>0?(t.costoTotal/(inf.totalCostoAditivosImputado/Math.max(0.0001,inf.totalCostoAditivosImputado/(inf.tablaAditivos.reduce((s,e)=>s+e.costoTotal,0))))*100):0;
+        // Mejor: % sobre el total del mix de aditivos (sin imputar)
+        const totalMix=inf.tablaAditivos.reduce((s,e)=>s+e.costoTotal,0);
+        const pctMix=totalMix>0?(t.costoTotal/totalMix*100):0;
+        return '<tr style="border-bottom:1px solid var(--border);">'
+          +'<td style="padding:5px 8px;font-weight:600;">'+t.nombre+'</td>'
+          +'<td style="padding:5px 8px;color:var(--text3);font-size:10px;">'+(t.categoria||'—')+'</td>'
+          +'<td style="padding:5px 8px;text-align:right;color:var(--text3);">'+t.lotesCount+'</td>'
+          +'<td style="padding:5px 8px;text-align:right;color:var(--text3);">'+t.bobinasCount+'</td>'
+          +'<td style="padding:5px 8px;text-align:right;color:var(--amber);" class="mono">'+r2(t.kgTotal).toLocaleString('es-AR')+'</td>'
+          +'<td style="padding:5px 8px;text-align:right;" class="mono">$'+r2(t.precioPromedio).toLocaleString('es-AR')+'</td>'
+          +'<td style="padding:5px 8px;text-align:right;color:var(--amber);font-weight:600;" class="mono">$'+r2(t.costoTotal).toLocaleString('es-AR')+'</td>'
+          +'<td style="padding:5px 8px;text-align:right;color:var(--text2);font-weight:600;">'+pctMix.toFixed(1)+'%</td>'
+        +'</tr>';
+      }).join('')
+    +'</tbody></table>'
+    +'<div style="margin-top:10px;font-size:11px;color:var(--text3);font-style:italic;">'
+      +'ℹ Los aditivos pueden haberse compartido con bobinas de otros lotes base. Acá se muestran los <strong>totales del mix</strong> que tocó las bobinas del lote elegido. El valor imputado proporcionalmente al lote base es <strong style="color:var(--amber);">$'+r2(inf.totalCostoAditivosImputado).toLocaleString('es-AR')+'</strong>.'
+    +'</div>'
+  +'</div>';
+  return h;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Solapa: ✂ Bobinas cortadas (potencial efectivamente producido)
+// ─────────────────────────────────────────────────────────────────────
+function _renderTabCortadas(inf){
+  if(!inf.tablaCortadas?.length)return '<div class="empty" style="padding:30px;text-align:center;color:var(--text3);">Todavía no hay bobinas cortadas de este lote.</div>';
+  const kgCortadas=inf.tablaCortadas.reduce((s,e)=>s+e.kgLote,0);
+  const paqProy=inf.tablaCortadas.reduce((s,e)=>s+e.paqReal,0);
+  const ventaProy=inf.tablaCortadas.reduce((s,e)=>s+e.ventaReal,0);
+  const costoProy=kgCortadas*inf.precioKg;
+  const margenProy=ventaProy-costoProy;
+  const ventaPorKg=kgCortadas>0?ventaProy/kgCortadas:0;
+  const margenPorKg=kgCortadas>0?margenProy/kgCortadas:0;
+  let h='';
+  h+='<div style="background:linear-gradient(135deg,rgba(168,85,247,.08),rgba(168,85,247,.02));border:1.5px solid #a855f7;border-radius:var(--rl);padding:14px 18px;margin-bottom:16px;">'
+    +'<div style="font-size:12px;color:#a855f7;text-transform:uppercase;font-weight:700;letter-spacing:.05em;margin-bottom:10px;">✂ Potencial de las bobinas ya cortadas</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;">'
+      +_inflStatGrande('Kg cortados',r2(kgCortadas).toLocaleString('es-AR')+' kg','#a855f7','del lote')
+      +_inflStatGrande('Paq. proyectados',Math.round(paqProy).toLocaleString('es-AR'),'var(--text2)','con kg/m real')
+      +_inflStatGrande('Venta proyectada','$'+r2(ventaProy).toLocaleString('es-AR'),'var(--accent)','×precio cliente')
+      +_inflStatGrande('Venta $/kg','$'+r2(ventaPorKg).toLocaleString('es-AR')+'/kg','var(--accent)','vs costo $'+r2(inf.precioKg).toLocaleString('es-AR')+'/kg')
+      +_inflStatGrande('Margen marginal proy.','$'+r2(margenProy).toLocaleString('es-AR'),margenProy>=0?'var(--green)':'var(--red)',(ventaProy>0?(margenProy/ventaProy*100).toFixed(1):'0')+'% · '+r2(margenPorKg).toLocaleString('es-AR')+' $/kg')
+    +'</div>'
+  +'</div>';
+  // Tabla por OC
+  h+='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:14px 18px;overflow-x:auto;">'
+    +'<div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:10px;">Desglose por OC</div>'
+    +'<table style="width:100%;font-size:11px;">'
+      +'<thead><tr style="background:var(--bg3);">'
+        +'<th style="padding:6px 8px;text-align:left;">OC</th>'
+        +'<th style="padding:6px 8px;text-align:right;">Bobinas</th>'
+        +'<th style="padding:6px 8px;text-align:left;">Cliente</th>'
+        +'<th style="padding:6px 8px;text-align:left;">Producto</th>'
+        +'<th style="padding:6px 8px;text-align:right;">Kg del lote</th>'
+        +'<th style="padding:6px 8px;text-align:right;">Paq. proy.</th>'
+        +'<th style="padding:6px 8px;text-align:right;">Venta proy.</th>'
+        +'<th style="padding:6px 8px;text-align:right;">Venta $/kg</th>'
+        +'<th style="padding:6px 8px;text-align:right;">kg/m teo</th>'
+        +'<th style="padding:6px 8px;text-align:right;">kg/m real</th>'
+        +'<th style="padding:6px 8px;text-align:right;">Desvío</th>'
+      +'</tr></thead><tbody>'
+      +inf.tablaCortadas.map(e=>{
+        const vKg=e.kgLote>0?e.ventaReal/e.kgLote:0;
+        const colDesv=e.desvioPct>0.5?'var(--red)':(e.desvioPct<-0.5?'var(--green)':'var(--text2)');
+        const etiquetaDesv=e.desvioPct>0.5?'pesadas':(e.desvioPct<-0.5?'livianas':'OK');
+        return '<tr style="border-bottom:1px solid var(--border);">'
+        +'<td style="padding:5px 8px;" class="mono">'+e.ocNum+'</td>'
+        +'<td style="padding:5px 8px;text-align:right;color:var(--text3);">'+e.bobinasCount+'</td>'
+        +'<td style="padding:5px 8px;font-weight:600;">'+e.cliente+'</td>'
+        +'<td style="padding:5px 8px;font-size:10px;"><span class="mono" style="font-weight:700;color:var(--teal);">'+(e.codigoProd||'?')+'</span> <span style="color:var(--text3);">'+(e.descProd||'')+'</span></td>'
+        +'<td style="padding:5px 8px;text-align:right;color:#a855f7;" class="mono">'+r2(e.kgLote).toLocaleString('es-AR')+'</td>'
+        +'<td style="padding:5px 8px;text-align:right;" class="mono">'+Math.round(e.paqReal).toLocaleString('es-AR')+'</td>'
+        +'<td style="padding:5px 8px;text-align:right;color:var(--accent);font-weight:600;" class="mono">$'+r2(e.ventaReal).toLocaleString('es-AR')+'</td>'
+        +'<td style="padding:5px 8px;text-align:right;color:var(--accent);" class="mono">$'+r2(vKg).toLocaleString('es-AR')+'</td>'
+        +'<td style="padding:5px 8px;text-align:right;" class="mono">'+e.kgPorMtTeo.toFixed(4)+'</td>'
+        +'<td style="padding:5px 8px;text-align:right;" class="mono">'+e.kgPorMtReal.toFixed(4)+'</td>'
+        +'<td style="padding:5px 8px;text-align:right;color:'+colDesv+';font-weight:700;font-size:10px;">'+(e.desvioPct>=0?'+':'')+e.desvioPct.toFixed(2)+'% '+etiquetaDesv+'</td>'
+      +'</tr>';
+      }).join('')
+    +'</tbody></table>'
+  +'</div>';
+  // Tabla detalle por bobina
+  if(inf.filasCortadas?.length){
+    h+='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:14px 18px;margin-top:14px;overflow-x:auto;">'
+      +'<div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:10px;">Detalle por bobina ('+inf.filasCortadas.length+' bobinas)</div>'
+      +'<table style="width:100%;font-size:11px;">'
+        +'<thead><tr style="background:var(--bg3);">'
+          +'<th style="padding:6px 8px;text-align:left;">Bobina</th>'
+          +'<th style="padding:6px 8px;text-align:left;">OC</th>'
+          +'<th style="padding:6px 8px;text-align:left;">Cliente</th>'
+          +'<th style="padding:6px 8px;text-align:left;">Producto</th>'
+          +'<th style="padding:6px 8px;text-align:right;">Kg lote</th>'
+          +'<th style="padding:6px 8px;text-align:right;">Paq. proy.</th>'
+          +'<th style="padding:6px 8px;text-align:right;">Venta proy.</th>'
+          +'<th style="padding:6px 8px;text-align:right;">Venta $/kg</th>'
+        +'</tr></thead><tbody>'
+        +inf.filasCortadas.map(b=>{
+          const vKg=b.kgLote>0?b.ventaReal/b.kgLote:0;
+          return '<tr style="border-bottom:1px solid var(--border);">'
+            +'<td style="padding:5px 8px;" class="mono">'+b.numero+'</td>'
+            +'<td style="padding:5px 8px;" class="mono">'+(b.oc||'—')+'</td>'
+            +'<td style="padding:5px 8px;font-weight:600;">'+b.cliente+'</td>'
+            +'<td style="padding:5px 8px;font-size:10px;"><span class="mono" style="font-weight:700;color:var(--teal);">'+(b.codigoProd||'?')+'</span> <span style="color:var(--text3);">'+(b.descProd||'')+'</span></td>'
+            +'<td style="padding:5px 8px;text-align:right;color:#a855f7;" class="mono">'+r2(b.kgLote).toLocaleString('es-AR')+'</td>'
+            +'<td style="padding:5px 8px;text-align:right;" class="mono">'+Math.round(b.paqReal).toLocaleString('es-AR')+'</td>'
+            +'<td style="padding:5px 8px;text-align:right;color:var(--accent);font-weight:600;" class="mono">$'+r2(b.ventaReal).toLocaleString('es-AR')+'</td>'
+            +'<td style="padding:5px 8px;text-align:right;color:var(--accent);" class="mono">$'+r2(vKg).toLocaleString('es-AR')+'</td>'
+          +'</tr>';
+        }).join('')
+      +'</tbody></table>'
+    +'</div>';
+  }
+  return h;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Solapa: 🎯 Bobinas sin cortar (potencial pendiente)
+// ─────────────────────────────────────────────────────────────────────
+function _renderTabSinCortar(inf){
+  if(!inf.tablaSinCortar?.length)return '<div class="empty" style="padding:30px;text-align:center;color:var(--text3);">✓ Todas las bobinas del lote ya fueron cortadas.</div>';
+  // KPIs proyectados
+  const kgSinCortar=inf.tablaSinCortar.reduce((s,e)=>s+e.kgLote,0);
+  const paqProy=inf.tablaSinCortar.reduce((s,e)=>s+e.paqReal,0);
+  const ventaProy=inf.tablaSinCortar.reduce((s,e)=>s+e.ventaReal,0);
+  const costoProy=kgSinCortar*inf.precioKg;
+  const margenProy=ventaProy-costoProy;
+  const ventaPorKg=kgSinCortar>0?ventaProy/kgSinCortar:0;
+  const margenPorKg=kgSinCortar>0?margenProy/kgSinCortar:0;
+  let h='';
+  h+='<div style="background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(59,130,246,.02));border:1.5px solid var(--accent);border-radius:var(--rl);padding:14px 18px;margin-bottom:16px;">'
+    +'<div style="font-size:12px;color:var(--accent);text-transform:uppercase;font-weight:700;letter-spacing:.05em;margin-bottom:10px;">🎯 Potencial de las bobinas sin cortar</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;">'
+      +_inflStatGrande('Kg sin cortar',r2(kgSinCortar).toLocaleString('es-AR')+' kg','var(--amber)','del lote')
+      +_inflStatGrande('Paq. proyectados',Math.round(paqProy).toLocaleString('es-AR'),'var(--text2)','con kg/m real')
+      +_inflStatGrande('Venta proyectada','$'+r2(ventaProy).toLocaleString('es-AR'),'var(--accent)','×precio cliente')
+      +_inflStatGrande('Venta $/kg','$'+r2(ventaPorKg).toLocaleString('es-AR')+'/kg','var(--accent)','vs costo $'+r2(inf.precioKg).toLocaleString('es-AR')+'/kg')
+      +_inflStatGrande('Margen marginal proy.','$'+r2(margenProy).toLocaleString('es-AR'),margenProy>=0?'var(--green)':'var(--red)',(ventaProy>0?(margenProy/ventaProy*100).toFixed(1):'0')+'% · '+r2(margenPorKg).toLocaleString('es-AR')+' $/kg')
+    +'</div>'
+  +'</div>';
+  // Tabla por OC asociada
+  h+='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:14px 18px;overflow-x:auto;">'
+    +'<div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:10px;">Desglose por OC asociada</div>'
+    +'<table style="width:100%;font-size:11px;">'
+      +'<thead><tr style="background:var(--bg3);">'
+        +'<th style="padding:6px 8px;text-align:left;">→ OC asoc.</th>'
+        +'<th style="padding:6px 8px;text-align:right;">Bobinas</th>'
+        +'<th style="padding:6px 8px;text-align:left;">Cliente probable</th>'
+        +'<th style="padding:6px 8px;text-align:left;">Producto</th>'
+        +'<th style="padding:6px 8px;text-align:right;">Kg del lote</th>'
+        +'<th style="padding:6px 8px;text-align:right;">Paq. proy.</th>'
+        +'<th style="padding:6px 8px;text-align:right;">Venta proy.</th>'
+        +'<th style="padding:6px 8px;text-align:right;">Venta $/kg</th>'
+        +'<th style="padding:6px 8px;text-align:right;">kg/m teo</th>'
+        +'<th style="padding:6px 8px;text-align:right;">kg/m real</th>'
+        +'<th style="padding:6px 8px;text-align:right;">Desvío</th>'
+      +'</tr></thead><tbody>'
+      +inf.tablaSinCortar.map(e=>{
+        const vKg=e.kgLote>0?e.ventaReal/e.kgLote:0;
+        const colDesv=e.desvioPct>0.5?'var(--red)':(e.desvioPct<-0.5?'var(--green)':'var(--text2)');
+        const etiquetaDesv=e.desvioPct>0.5?'pesadas':(e.desvioPct<-0.5?'livianas':'OK');
+        return '<tr style="border-bottom:1px solid var(--border);">'
+        +'<td style="padding:5px 8px;" class="mono">'+(e.ocAsocNum||'<span style="color:var(--text3);font-style:italic;">sin OC</span>')+'</td>'
+        +'<td style="padding:5px 8px;text-align:right;color:var(--text3);">'+e.bobinasCount+'</td>'
+        +'<td style="padding:5px 8px;font-weight:600;">'+e.clienteProbable+'</td>'
+        +'<td style="padding:5px 8px;font-size:10px;"><span class="mono" style="font-weight:700;color:var(--teal);">'+(e.codigoProd||'?')+'</span> <span style="color:var(--text3);">'+(e.descProd||'')+'</span></td>'
+        +'<td style="padding:5px 8px;text-align:right;color:var(--amber);" class="mono">'+r2(e.kgLote).toLocaleString('es-AR')+'</td>'
+        +'<td style="padding:5px 8px;text-align:right;" class="mono">'+Math.round(e.paqReal).toLocaleString('es-AR')+'</td>'
+        +'<td style="padding:5px 8px;text-align:right;color:var(--accent);font-weight:600;" class="mono">$'+r2(e.ventaReal).toLocaleString('es-AR')+'</td>'
+        +'<td style="padding:5px 8px;text-align:right;color:var(--accent);" class="mono">$'+r2(vKg).toLocaleString('es-AR')+'</td>'
+        +'<td style="padding:5px 8px;text-align:right;" class="mono">'+e.kgPorMtTeo.toFixed(4)+'</td>'
+        +'<td style="padding:5px 8px;text-align:right;" class="mono">'+e.kgPorMtReal.toFixed(4)+'</td>'
+        +'<td style="padding:5px 8px;text-align:right;color:'+colDesv+';font-weight:700;font-size:10px;">'+(e.desvioPct>=0?'+':'')+e.desvioPct.toFixed(2)+'% '+etiquetaDesv+'</td>'
+      +'</tr>';
+      }).join('')
+    +'</tbody></table>'
+    +'<div style="font-size:10px;color:var(--text3);margin-top:6px;font-style:italic;">'
+      +'⚠ Es una estimación: en el sistema híbrido una bobina puede terminar cortándose para otra OC del mismo tipo.'
+    +'</div>'
+  +'</div>';
+  // Tabla detalle por bobina
+  if(inf.filasSinCortar?.length){
+    h+='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:14px 18px;margin-top:14px;overflow-x:auto;">'
+      +'<div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:10px;">Detalle por bobina ('+inf.filasSinCortar.length+' bobinas)</div>'
+      +'<table style="width:100%;font-size:11px;">'
+        +'<thead><tr style="background:var(--bg3);">'
+          +'<th style="padding:6px 8px;text-align:left;">Bobina</th>'
+          +'<th style="padding:6px 8px;text-align:left;">OE</th>'
+          +'<th style="padding:6px 8px;text-align:left;">→ OC asoc.</th>'
+          +'<th style="padding:6px 8px;text-align:left;">Cliente probable</th>'
+          +'<th style="padding:6px 8px;text-align:left;">Producto</th>'
+          +'<th style="padding:6px 8px;text-align:right;">Kg lote</th>'
+          +'<th style="padding:6px 8px;text-align:right;">Paq. proy.</th>'
+          +'<th style="padding:6px 8px;text-align:right;">Venta proy.</th>'
+          +'<th style="padding:6px 8px;text-align:right;">Venta $/kg</th>'
+        +'</tr></thead><tbody>'
+        +inf.filasSinCortar.map(b=>{
+          const vKg=b.kgLote>0?b.ventaReal/b.kgLote:0;
+          return '<tr style="border-bottom:1px solid var(--border);">'
+            +'<td style="padding:5px 8px;" class="mono">'+b.numero+'</td>'
+            +'<td style="padding:5px 8px;" class="mono">'+b.oeNum+'</td>'
+            +'<td style="padding:5px 8px;" class="mono">'+(b.ocDestino||'<span style="color:var(--text3);font-style:italic;">sin OC</span>')+'</td>'
+            +'<td style="padding:5px 8px;font-weight:600;">'+b.cliente+'</td>'
+            +'<td style="padding:5px 8px;font-size:10px;"><span class="mono" style="font-weight:700;color:var(--teal);">'+(b.codigoProd||'?')+'</span> <span style="color:var(--text3);">'+(b.descProd||'')+'</span></td>'
+            +'<td style="padding:5px 8px;text-align:right;color:var(--amber);" class="mono">'+r2(b.kgLote).toLocaleString('es-AR')+'</td>'
+            +'<td style="padding:5px 8px;text-align:right;" class="mono">'+Math.round(b.paqReal).toLocaleString('es-AR')+'</td>'
+            +'<td style="padding:5px 8px;text-align:right;color:var(--accent);font-weight:600;" class="mono">$'+r2(b.ventaReal).toLocaleString('es-AR')+'</td>'
+            +'<td style="padding:5px 8px;text-align:right;color:var(--accent);" class="mono">$'+r2(vKg).toLocaleString('es-AR')+'</td>'
+          +'</tr>';
+        }).join('')
+      +'</tbody></table>'
+    +'</div>';
+  }
+  return h;
+}
+function _inflKpi(label,val,color,sub){
+  return '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;">'
+    +'<div style="font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;font-weight:700;">'+label+'</div>'
+    +'<div style="font-size:18px;font-weight:800;color:'+color+';margin-top:3px;">'+val+'</div>'
+    +(sub?'<div style="font-size:10px;color:var(--text3);margin-top:2px;">'+sub+'</div>':'')
+  +'</div>';
+}
+
+function _inflStatGrande(label,val,color,sub){
+  return '<div>'
+    +'<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;font-weight:700;">'+label+'</div>'
+    +'<div style="font-size:20px;font-weight:800;color:'+color+';margin-top:4px;">'+val+'</div>'
+    +(sub?'<div style="font-size:10px;color:var(--text3);margin-top:2px;font-style:italic;">'+sub+'</div>':'')
+  +'</div>';
 }
 
 function renderFueraDeRango(){
@@ -17762,6 +20168,24 @@ async function desvincularOCdePedidoCancelado(ocId){
 }
 
 // Cancelar una OC desde la auditoría (cuando está vinculada a pedido cancelado y no tiene sentido seguir)
+// Helper: libera todas las reservas de bobinas (reservada_oc_id) cuando se cancela
+// una OC. Esto es necesario porque el FK con ON DELETE SET NULL solo dispara si la
+// fila se borra físicamente, no si solo cambia el estado. Sin esto, las bobinas
+// que estaban reservadas seguirían apareciendo como reservadas a una OC cancelada
+// y nunca volverían a stock libre.
+// Devuelve la cantidad de bobinas liberadas (para auditoría).
+async function _liberarReservasDeOCcancelada(ocId){
+  // Buscar todas las bobinas reservadas a esta OC
+  const bobs=(C.bobinas_prod||[]).filter(b=>b.reservada_oc_id===ocId);
+  if(!bobs.length)return 0;
+  const ids=bobs.map(b=>b.id);
+  const{error}=await sb.from('bobinas_producidas')
+    .update({reservada_oc_id:null})
+    .in('id',ids);
+  if(error){console.error('Error liberando reservas:',error);return -1;}
+  return bobs.length;
+}
+
 async function cancelarOCDesdeAudit(ocId){
   const o=C.ord_corte.find(x=>x.id===ocId);if(!o)return;
   if(o.estado==='Completada'){toast('No se puede cancelar una OC ya completada','red');return;}
@@ -17782,6 +20206,9 @@ async function cancelarOCDesdeAudit(ocId){
         estado:'Cancelada',
         observaciones:(o.observaciones||'')+' [Cancelada desde auditoría'+(pedCanc?' · pedido '+pedCanc.numero_pedido+' anulado':'')+']'
       }).eq('id',ocId);
+      // 1.b) Liberar reservas de bobinas (vuelven a stock libre)
+      const liberadas=await _liberarReservasDeOCcancelada(ocId);
+      if(liberadas>0){console.log('[Cancelación OC] Liberadas '+liberadas+' bobinas reservadas');}
       // 2) Desvincular del pedido cancelado si aplica
       if(pedCanc){
         await sb.from('pedido_ordenes_corte').delete().eq('pedido_id',pedCanc.id).eq('orden_corte_id',ocId);
@@ -18416,6 +20843,13 @@ async function cambiarEstadoCorte(id,estado){
   await sb.from('ordenes_corte').update({estado}).eq('id',id);
   // Al pasar a "En proceso", congelar el baseline (fin teórico comprometido)
   if(estado==='En proceso')await congelarBaselineCorte(id);
+  // Si se cancela la OC, liberar bobinas reservadas (vuelven a stock libre).
+  // Esto es necesario porque cambiar el estado a "Cancelada" no dispara el
+  // ON DELETE SET NULL del FK (que solo aplica al borrar físicamente).
+  if(estado==='Cancelada'){
+    const lib=await _liberarReservasDeOCcancelada(id);
+    if(lib>0)toast(lib+' bobina(s) reservada(s) liberada(s) (vuelven a stock libre)','amber');
+  }
   await reload();
 }
 
@@ -25395,6 +27829,64 @@ async function confirmarCancelarLinea(pedidoId,lineaId){
 }
 
 // ===== CERRAR PEDIDO CON ENTREGA PARCIAL ACEPTADA =====
+// Recupera a Borrador un pedido que cambió de estado por el bug viejo donde
+// al remitir un Borrador híbrido se pisaba el estado y las tandas no confirmadas
+// quedaban huérfanas (sin OC/OE y sin manera de generarlas porque el pedido ya
+// no aparecía en el simulador).
+// Acción de remediación: requiere admin. Mantiene remitos y entregas hechas;
+// solo cambia el estado del pedido y registra auditoría.
+function recuperarPedidoABorrador(pedidoId){
+  const p=C.pedidos.find(x=>x.id===pedidoId);
+  if(!p){alert('Pedido no encontrado');return;}
+  if(p.estado==='Borrador'){alert('Ya es Borrador');return;}
+  if(!p.plan_ordenes?.ordenes){alert('Este pedido no tiene plan_ordenes — no se puede recuperar');return;}
+  // Contar tandas huérfanas
+  let huerfanas=0,confirmadas=0;
+  p.plan_ordenes.ordenes.forEach(o=>{
+    if(!o.confirmar)return;
+    if(o.dividir&&o.tandas?.length){
+      o.tandas.forEach(t=>{
+        if((t.bolsones||0)<=0)return;
+        if(t._confirmada)confirmadas++;else huerfanas++;
+      });
+    } else if(o._confirmada)confirmadas++;else huerfanas++;
+  });
+  if(huerfanas===0){alert('No hay tandas pendientes que recuperar');return;}
+  const remitos=(C.remitos||[]).filter(r=>r.pedido_id===p.id);
+  const paqEntregados=remitos.reduce((s,r)=>{
+    const lineas=r.remito_lineas||[];
+    return s+lineas.reduce((sl,l)=>sl+(parseFloat(l.cantidad_paquetes)||0),0);
+  },0);
+  let msg='Pedido '+p.numero_pedido+' — '+(p.cliente||'')+'\n\n';
+  msg+='Estado actual: '+p.estado+'\n';
+  msg+='Tandas confirmadas (en producción/entregadas): '+confirmadas+'\n';
+  msg+='Tandas pendientes de confirmar (huérfanas): '+huerfanas+'\n';
+  if(remitos.length){
+    msg+='Remitos asociados: '+remitos.length+' ('+paqEntregados.toLocaleString('es-AR')+' paq entregados)\n';
+  }
+  msg+='\nVas a:\n';
+  msg+='  1. Volver el pedido a estado BORRADOR\n';
+  msg+='  2. Las '+huerfanas+' tanda(s) pendientes van a volver a aparecer en el simulador MP\n';
+  msg+='  3. Los remitos y lo entregado SE MANTIENEN\n\n';
+  msg+='¿Continuar? (requiere clave admin)';
+  if(!confirm(msg))return;
+  pedirAdminYEjecutar(async()=>{
+    const ahora=new Date().toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const obsLog='[RECUPERADO A BORRADOR '+ahora+' admin] '+huerfanas+' tanda(s) huérfanas recuperadas — estado anterior: '+p.estado;
+    const obsNueva=(p.observaciones||'').trim()
+      ? (p.observaciones+' · '+obsLog)
+      : obsLog;
+    const{error}=await sb.from('pedidos').update({
+      estado:'Borrador',
+      observaciones:obsNueva
+    }).eq('id',pedidoId);
+    if(error){alert('Error al recuperar: '+error.message);return;}
+    toast('✓ Pedido recuperado a Borrador — '+huerfanas+' tanda(s) disponibles en el simulador','green');
+    await reload();
+    if(typeof renderDetallePedidoPagina==='function')renderDetallePedidoPagina(pedidoId);
+  });
+}
+
 function abrirCerrarPedidoParcial(pedidoId){
   const p=C.pedidos.find(x=>x.id===pedidoId);if(!p){toast('Pedido no encontrado','red');return;}
   const info=_pedidoInfoProduccion(p);
@@ -25838,6 +28330,22 @@ function renderDetallePedidoPagina(pedidoId){
       if(tieneEntregas&&estadosCierre.includes(estadoOp)){
         acc+='<button class="btn btn-sm" style="background:rgba(34,197,94,.1);color:var(--green);border-color:rgba(34,197,94,.3);" onclick="abrirCerrarPedidoParcial('+p.id+')">✅ Cerrar parcial</button>';
       }
+      // Botón "Recuperar a Borrador": aparece SOLO si el pedido tiene tandas huérfanas
+      // en plan_ordenes (caso del bug viejo donde al remitir un Borrador híbrido se
+      // perdía el estado Borrador y las tandas no confirmadas quedaban sin generar OC/OE).
+      // Detección: pedido ya no es Borrador + plan_ordenes con tandas no _confirmada.
+      if(p.estado!=='Borrador'&&p.estado!=='Cancelado'&&p.plan_ordenes?.ordenes){
+        let tandasHuerfanas=0;
+        p.plan_ordenes.ordenes.forEach(o=>{
+          if(!o.confirmar)return;
+          if(o.dividir&&o.tandas?.length){
+            o.tandas.forEach(t=>{if(!t._confirmada&&(t.bolsones||0)>0)tandasHuerfanas++;});
+          } else if(!o._confirmada){tandasHuerfanas++;}
+        });
+        if(tandasHuerfanas>0){
+          acc+='<button class="btn btn-sm" style="background:rgba(245,158,11,.12);color:var(--amber);border:1px solid var(--amber);font-weight:700;" onclick="recuperarPedidoABorrador('+p.id+')" title="Este pedido tiene '+tandasHuerfanas+' tanda(s) sin OC/OE generada(s) por un bug anterior. Click para volverlo a Borrador y poder confirmar las tandas pendientes.">⚠ Recuperar a Borrador ('+tandasHuerfanas+')</button>';
+        }
+      }
       acc+='<button class="btn btn-sm" style="background:rgba(99,102,241,.1);color:#6366f1;border-color:rgba(99,102,241,.3);" onclick="abrirCargaHistorica('+p.id+')">📋 Carga histórica</button>';
       acc+='<button class="btn btn-sm btn-del" onclick="anularPedido('+p.id+',\''+p.numero_pedido+'\')">⛔ Anular</button>';
     }
@@ -25906,11 +28414,17 @@ function renderDetallePedidoPagina(pedidoId){
     });
     if(nTandasConfirmadas>0&&nTandasConfirmadas<nTandasTotal){
       const pendientes=nTandasTotal-nTandasConfirmadas;
+      // Si ya hubo entrega parcial (remito asociado), avisar también — es un caso
+      // delicado: el pedido es Borrador pero ya entregaste parte al cliente.
+      const remitosDelPed=(C.remitos||[]).filter(r=>r.pedido_id===p.id);
+      const hayEntregaParcial=remitosDelPed.length>0;
       html+='<div style="background:linear-gradient(135deg,rgba(245,158,11,.10),rgba(245,158,11,.04));border:1.5px solid var(--amber);border-left-width:4px;border-radius:var(--rl);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">'
         +'<div style="font-size:22px;">⚠</div>'
         +'<div style="flex:1;min-width:200px;">'
-          +'<div style="font-size:13px;font-weight:800;color:var(--amber);margin-bottom:2px;">Pedido parcialmente confirmado</div>'
-          +'<div style="font-size:12px;color:var(--text2);"><strong style="color:var(--green);">'+nTandasConfirmadas+'</strong> tanda'+(nTandasConfirmadas===1?'':'s')+' en producción · <strong style="color:var(--amber);">'+pendientes+'</strong> pendiente'+(pendientes===1?'':'s')+' de confirmar</div>'
+          +'<div style="font-size:13px;font-weight:800;color:var(--amber);margin-bottom:2px;">Pedido parcialmente confirmado'+(hayEntregaParcial?' · con entrega parcial':'')+'</div>'
+          +'<div style="font-size:12px;color:var(--text2);"><strong style="color:var(--green);">'+nTandasConfirmadas+'</strong> tanda'+(nTandasConfirmadas===1?'':'s')+' en producción · <strong style="color:var(--amber);">'+pendientes+'</strong> pendiente'+(pendientes===1?'':'s')+' de confirmar'
+            +(hayEntregaParcial?' · <strong style="color:var(--accent);">'+remitosDelPed.length+' remito'+(remitosDelPed.length===1?'':'s')+'</strong> ya entregado'+(remitosDelPed.length===1?'':'s'):'')
+          +'</div>'
         +'</div>'
         +'<button class="btn btn-sm" style="background:var(--accent);color:#fff;border:none;font-weight:700;" onclick="go(\'simulador\')">📊 Ir al simulador</button>'
       +'</div>';
