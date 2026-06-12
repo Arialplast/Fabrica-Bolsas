@@ -380,11 +380,13 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
     <div class="nav-item" onclick="go('ordenes-corte')"><div class="nav-dot"></div>Órdenes de corte</div>
     <div class="nav-item" onclick="go('nueva-corte')"><div class="nav-dot"></div>Nueva orden corte</div>
     <div class="nav-item" onclick="go('gantt-corte')"><div class="nav-dot"></div>Gantt corte semanal</div>
+    <div class="nav-item" onclick="go('gantt-combinado')"><div class="nav-dot" style="background:var(--purple)"></div>🔗 Gantt combinado</div>
     <div class="nav-item" onclick="goAdmin('gantt-corte-diario')"><div class="nav-dot"></div>Gantt corte diario 🔐</div>
     <div class="nav-item" onclick="go('bobinas-fuera-rango')"><div class="nav-dot" style="background:var(--red)"></div>Fuera de rango</div>
     <div class="nav-item" onclick="go('balance-bobinas')"><div class="nav-dot" style="background:var(--amber)"></div>⚖ Balance de bobinas</div>
     <div class="nav-sec">Pedidos y Cobranzas</div>
     <div class="nav-item" onclick="go('pedidos')"><div class="nav-dot" style="background:var(--teal)"></div>Pedidos</div>
+    <div class="nav-item" onclick="go('torre-entregas')"><div class="nav-dot" style="background:var(--red)"></div>🗼 Torre de entregas</div>
     <div class="nav-item" onclick="go('nuevo-pedido')"><div class="nav-dot"></div>Nuevo pedido</div>
     <div class="nav-item" onclick="go('nuevo-pedido-v2')"><div class="nav-dot" style="background:var(--purple)"></div>Nuevo pedido v2 ✨</div>
     <div class="nav-item" onclick="goAdmin('flujo-caja')"><div class="nav-dot" style="background:var(--green)"></div>Flujo de caja 🔐</div>
@@ -398,6 +400,7 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
     <div class="nav-item" onclick="goAdmin('audit-stock-bolsas')"><div class="nav-dot" style="background:var(--amber)"></div>Auditar stock bolsas 🔍</div>
     <div class="nav-item" onclick="goAdmin('init-stock-fisico')"><div class="nav-dot" style="background:var(--amber)"></div>Inicializar stock físico 📐</div>
     <div class="nav-item" onclick="go('remitos')"><div class="nav-dot" style="background:var(--accent)"></div>Remitos</div>
+    <div class="nav-item" onclick="go('despacho')"><div class="nav-dot" style="background:var(--green)"></div>Despacho 📦</div>
     <div class="nav-item" onclick="go('facturacion')"><div class="nav-dot" style="background:var(--green)"></div>Facturación</div>
     <div class="nav-item" onclick="go('ventas-informales')"><div class="nav-dot" style="background:#9333ea"></div>Ventas informales</div>
     <div class="nav-item" onclick="go('cuenta-corriente')"><div class="nav-dot" style="background:var(--amber)"></div>Cuenta corriente</div>
@@ -1478,6 +1481,76 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
       </div>
     </div>
 
+    <!-- TORRE DE CONTROL DE ENTREGAS -->
+    <div class="page" id="page-torre-entregas">
+      <div class="page-hdr">
+        <div><div class="page-title">🗼 Torre de Control de Entregas</div><div class="page-sub">¿Voy a entregar los pedidos a tiempo? · Cada pedido con su diagnóstico: qué lo frena y cuánto atrasa</div></div>
+        <div class="btn-grp">
+          <select id="tce-cliente" onchange="renderTorreEntregas()" style="font-size:12px;max-width:180px;">
+            <option value="">Todos los clientes</option>
+          </select>
+          <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap;">
+            <input type="checkbox" id="tce-problemas" onchange="renderTorreEntregas()"> Solo con problemas
+          </label>
+          <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap;">
+            <input type="checkbox" id="tce-hist" onchange="renderTorreEntregas()"> Mostrar históricos
+          </label>
+        </div>
+      </div>
+      <div id="tce-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px;"></div>
+      <div style="overflow-x:auto;">
+        <div id="tce-container"><div class="loading"><div class="spinner"></div>Cargando...</div></div>
+      </div>
+      <div id="tce-borradores" style="margin-top:14px;"></div>
+    </div>
+
+    <!-- GANTT COMBINADO EXTRUSIÓN + CORTE -->
+    <div class="page" id="page-gantt-combinado">
+      <div class="page-hdr">
+        <div><div class="page-title">🔗 Gantt combinado — Extrusión + Corte</div><div class="page-sub">Cada cadena OE → OC en la misma línea de tiempo · cuándo lanzar cada corte sin quedarte sin bobinas</div></div>
+        <div class="btn-grp">
+          <button class="wk-btn" onclick="gcbPrev()">‹</button>
+          <div class="wk-lbl" id="gcb-lbl" style="font-size:13px;font-weight:500;min-width:170px;text-align:center;">...</div>
+          <button class="wk-btn" onclick="gcbNext()">›</button>
+          <button class="btn btn-sm" onclick="gcbHoy()">Hoy</button>
+          <select id="gcb-modo" onchange="renderGanttCombinado()" style="font-size:12px;">
+            <option value="cadena" selected>Por cadena OE→OC</option>
+            <option value="maquina">Por máquina</option>
+          </select>
+          <select id="gcb-dias" onchange="renderGanttCombinado()" style="font-size:12px;">
+            <option value="1" selected>Día (por horas)</option>
+            <option value="7">7 días</option>
+            <option value="10">10 días</option>
+            <option value="14">14 días</option>
+            <option value="21">21 días</option>
+          </select>
+          <select id="gcb-cliente" onchange="renderGanttCombinado()" style="font-size:12px;max-width:180px;">
+            <option value="">Todos los clientes</option>
+          </select>
+          <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap;">
+            <input type="checkbox" id="gcb-riesgo" onchange="renderGanttCombinado()"> Solo en riesgo
+          </label>
+        </div>
+      </div>
+      <div style="display:flex;gap:14px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">
+        <div class="leg-i"><div class="leg-dot" style="background:rgba(99,179,237,.25);border:1.5px solid var(--accent)"></div>Extrusión (OE)</div>
+        <div class="leg-i"><div class="leg-dot" style="background:rgba(168,85,247,.25);border:1.5px solid var(--purple)"></div>Corte (OC)</div>
+        <div class="leg-i"><span style="font-size:13px;">🟢</span>&nbsp;Lanzable ya</div>
+        <div class="leg-i"><span style="font-size:13px;">🟠</span>&nbsp;Frenada por material</div>
+        <div class="leg-i"><span style="font-size:13px;">🔵</span>&nbsp;Espera máquina libre</div>
+        <div class="leg-i"><div style="width:2px;height:14px;background:var(--amber);display:inline-block;"></div>&nbsp;Ahora</div>
+        <div class="leg-i"><div style="width:18px;height:0;border-top:2px solid var(--amber);display:inline-block;"></div>&nbsp;Conector OE→OC (material define el inicio)</div>
+        <div class="leg-i"><span style="font-size:12px;font-weight:700;">⧉</span>&nbsp;Máquinas combinadas (misma barra en cada carril, franja de color = misma orden)</div>
+        <div style="margin-left:auto;" id="gcb-resumen"></div>
+      </div>
+      <div id="gcb-sugerencias"></div>
+      <div id="gcb-cadena-panel"></div>
+      <div style="overflow-x:auto;">
+        <div id="gcb-container"><div class="loading"><div class="spinner"></div>Cargando...</div></div>
+      </div>
+      <div id="gcb-sin-oc" style="margin-top:14px;"></div>
+    </div>
+
     <!-- PEDIDOS / VENTAS -->
     <div class="page" id="page-pedidos">
       <!-- Tabs estilo dark -->
@@ -1642,9 +1715,13 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
         </div>
         <div>
           <div style="font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:4px;">Entrega estimada</div>
-          <input id="np-entrega" type="date" style="font-size:13px;">
+          <div style="display:flex;gap:6px;align-items:center;">
+            <input id="np-entrega" type="date" style="font-size:13px;">
+            <button class="btn btn-sm" onclick="npSugerirPromesa('np')" title="Calcular cuándo podrías entregar con la cola de producción de hoy">📅 Sugerir</button>
+          </div>
         </div>
       </div>
+      <div id="np-promesa-panel"></div>
 
       <!-- TIPO DE VENTA + IVA — compacto en una fila -->
       <div style="display:flex;align-items:center;gap:1rem;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:14px 20px;margin-bottom:1rem;flex-wrap:wrap;">
@@ -1849,13 +1926,17 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
             </div>
             <div>
               <label class="v2-lbl">Entrega estimada</label>
-              <input id="v2-entrega" class="v2-inp" type="date">
+              <div style="display:flex;gap:5px;align-items:center;">
+                <input id="v2-entrega" class="v2-inp" type="date">
+                <button class="v2-tb-btn" style="padding:5px 8px;flex-shrink:0;" onclick="npSugerirPromesa('v2')" title="Calcular cuándo podrías entregar con la cola de producción de hoy">📅</button>
+              </div>
             </div>
             <div>
               <label class="v2-lbl">Ref. interna</label>
               <input id="v2-flex" class="v2-inp" type="text" placeholder="—">
             </div>
           </div>
+          <div id="v2-promesa-panel"></div>
           <div class="v2-hdr-row2">
             <span class="v2-sep">Tipo</span>
             <label class="v2-rad on" id="v2-rad-blanco"><input type="radio" name="v2-tv" value="blanco" checked onchange="onV2TipoVentaChange()">⚪ Blanco</label>
@@ -2611,6 +2692,24 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
         </div>
       </div>
       <div class="tw"><div id="rem-tbl"><div class="loading"><div class="spinner"></div></div></div></div>
+    </div>
+
+    <!-- DESPACHO: qué hay listo para entregar, por pedido y por línea -->
+    <div class="page" id="page-despacho">
+      <div class="page-hdr">
+        <div><div class="page-title">Despacho 📦</div><div class="page-sub">Qué se puede entregar HOY · pendiente = pedido − entregado, derivado de los remitos</div></div>
+        <div class="btn-grp">
+          <select class="st-sel" id="dsp-cliente" onchange="renderDespacho()"><option value="">Todos los clientes</option></select>
+          <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;white-space:nowrap;">
+            <input type="checkbox" id="dsp-solo-listo" checked onchange="renderDespacho()"> Solo con algo para entregar
+          </label>
+          <button class="btn btn-sm" onclick="renderDespacho()">↻</button>
+        </div>
+      </div>
+      <div id="dsp-kpis" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;"></div>
+      <div id="dsp-deudas" style="margin-bottom:12px;"></div>
+      <div id="dsp-container"><div class="loading"><div class="spinner"></div>Cargando...</div></div>
+      <div id="dsp-stock-libre" style="margin-top:16px;"></div>
     </div>
 
     <!-- NUEVO REMITO -->
@@ -3951,6 +4050,7 @@ async function reload(){
     sb.from('cuentas_caja').select('*').order('orden').then(r=>r).catch(()=>({data:[]})),
     sb.from('movimientos_caja').select('*').order('fecha',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
     sb.from('notas_debito').select('*').order('fecha',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
+    sb.from('prestamos_bolsas').select('*').order('created_at',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
   ]);
   const d=r=>results[r].status==='fulfilled'?results[r].value.data||[]:[];
   C.bobinas=d(0);C.extrusoras=d(1);C.ordenes=d(2);
@@ -3987,6 +4087,7 @@ async function reload(){
   C.cuentas_caja=d(40)||[];
   C.movimientos_caja=d(41)||[];
   C.notas_debito=d(42)||[];
+  C.prestamos=d(43)||[];
   const rcfg=results[8].status==='fulfilled'?results[8].value:null;
   if(rcfg?.data){rcfg.data.forEach(r=>{
     if(r.clave==='clave_admin')cfg.clave_admin=r.valor;
@@ -4153,6 +4254,29 @@ function sumarDiasHabiles(fecha,nDias,dias){
     if(esDiaHabil(c,dias))restantes--;
   }
   return c;
+}
+
+// Inverso de sumarHsLaborales: retrocede N horas LABORALES desde un instante,
+// respetando jornada y días hábiles. Usado por el motor de corte para calcular
+// el inicio más temprano que permite terminar justo cuando la OE libera material.
+function restarHsLaborales(fecha,hs,tipo){
+  const{hIni,hFin,dias}=getJornada(tipo||'extrusion');
+  let cur=new Date(fecha),rest=hs,guard=0;
+  while(rest>0&&guard++<2000){
+    const d0=new Date(cur);d0.setHours(hIni,0,0,0);
+    const dF=new Date(cur);dF.setHours(hFin,0,0,0);
+    if(!esDiaHabil(cur,dias)||cur<=d0){
+      // Saltar al fin de jornada del día hábil anterior
+      cur=new Date(cur);cur.setDate(cur.getDate()-1);cur.setHours(hFin,0,0,0);
+      while(!esDiaHabil(cur,dias)&&guard++<2000){cur.setDate(cur.getDate()-1);}
+      continue;
+    }
+    if(cur>dF)cur=new Date(dF);
+    const dispHs=(cur-d0)/3600000;
+    if(dispHs>=rest){cur=new Date(cur.getTime()-rest*3600000);rest=0;}
+    else{rest-=dispHs;cur=new Date(d0);}
+  }
+  return cur;
 }
 
 // Cuenta las HORAS DE TRABAJO efectivas entre dos instantes (desde→hasta),
@@ -6494,6 +6618,8 @@ function go(name){
   if(name==='recalc-pesos')initRecalcPesos();
   if(name==='nueva-corte'){poblarSelectsCorte();limpiarFormCorte();}
   if(name==='gantt-corte')renderGanttCorte();
+  if(name==='gantt-combinado')renderGanttCombinado();
+  if(name==='torre-entregas')renderTorreEntregas();
   if(name==='analytics')renderAnalytics();
   if(name==='gantt-corte-diario'){renderGanttCorteDiario();startGcdTimer();}
   if(name==='maquinas-corte')renderMaqCorte();
@@ -6516,6 +6642,7 @@ function go(name){
   if(name==='audit-stock-bolsas')renderAuditStockBolsas();
   if(name==='init-stock-fisico')initStockFisico();
   if(name==='remitos')renderRemitos();
+  if(name==='despacho')renderDespacho();
   if(name==='nuevo-remito')initNuevoRemito();
   if(name==='facturacion'){renderRemitosPendientes();renderFacturas();poblarFiltrosFactura();}
   if(name==='nueva-factura')initNuevaFactura();
@@ -8550,25 +8677,62 @@ async function _ejecutarGuardarRemito(nro,pedId,cliId,fecha,obs,modo,ped,cli,lin
           if(!lotesConsumir.find(x=>x.id===lote.id))lotesConsumir.push(lote);
         });
       });
-      // Insertar línea del remito
-      await sb.from('remito_lineas').insert({
+      // ── PLAN DE CONSUMO: calcular cuánto sale de cada lote ANTES de tocar nada ──
+      let restantePlan=rl.cantidad_paquetes;
+      const plan=[];
+      for(const s of lotesConsumir){
+        if(restantePlan<=0)break;
+        const usar=Math.min(restantePlan,parseFloat(s.cantidad_paquetes)||0);
+        if(usar>0)plan.push({s,usar});
+        restantePlan-=usar;
+      }
+      // ── PRÉSTAMOS: todo lote reservado a OTRO pedido genera deuda de reposición ──
+      // (Documento → Movimiento → Saldo: el desvío queda registrado, no en una nota)
+      const porDonante={};
+      plan.forEach(x=>{
+        if(x.s.estado==='reservado'&&x.s.pedido_id&&x.s.pedido_id!==(pedId||-1)){
+          porDonante[x.s.pedido_id]=(porDonante[x.s.pedido_id]||0)+x.usar;
+        }
+      });
+      let primerPrestamoId=null;
+      const uniRatio=rl.cantidad_paquetes>0?(rl.cantidad_unidades||0)/rl.cantidad_paquetes:0;
+      for(const pidOStr of Object.keys(porDonante)){
+        const pidO=parseInt(pidOStr),paqP=porDonante[pidOStr];
+        const pOri=C.pedidos.find(x=>x.id===pidO);
+        const{data:pr,error:ePr}=await sb.from('prestamos_bolsas').insert({
+          fecha:localDate(),producto_id:rl.producto_id,
+          cantidad_paquetes:paqP,cantidad_unidades:Math.round(paqP*uniRatio),
+          pedido_origen_id:pidO,pedido_destino_id:pedId||null,
+          cliente_destino:cli?.nombre||null,remito_id:rem.id,
+          es_sustitucion:false,estado:'pendiente_reposicion',
+          notas:'Remito '+nro+(pOri?' — tomado de '+(pOri.numero_pedido||('#'+pidO)):'')
+        }).select().single();
+        if(ePr){console.error('No se pudo registrar el préstamo (¿falta correr la migración SQL?):',ePr);}
+        else if(pr&&!primerPrestamoId)primerPrestamoId=pr.id;
+      }
+      // Insertar línea del remito (con vínculo al préstamo; fallback si falta la columna)
+      const lineaIns={
         remito_id:rem.id,pedido_linea_id:rl.pedido_linea_id,
-        producto_id:rl.producto_id,stock_bolsa_id:lotesConsumir[0]?.id||null,
+        producto_id:rl.producto_id,stock_bolsa_id:plan[0]?.s.id||null,
         cantidad_paquetes:rl.cantidad_paquetes,cantidad_unidades:rl.cantidad_unidades,
         precio_paquete:rl.precio_paquete,subtotal:rl.subtotal
-      });
-      // Descontar stock de los lotes (propios primero, después reasignados)
-      let restante=rl.cantidad_paquetes;
-      for(const s of lotesConsumir){
-        if(restante<=0)break;
-        const usar=Math.min(restante,parseFloat(s.cantidad_paquetes)||0);
-        const nuevo=(parseFloat(s.cantidad_paquetes)||0)-usar;
+      };
+      if(primerPrestamoId)lineaIns.origen_prestamo_id=primerPrestamoId;
+      let{error:eLin}=await sb.from('remito_lineas').insert(lineaIns);
+      if(eLin&&(eLin.message||'').includes('origen_prestamo_id')){
+        delete lineaIns.origen_prestamo_id;
+        const r2=await sb.from('remito_lineas').insert(lineaIns);eLin=r2.error;
+      }
+      if(eLin)throw eLin;
+      // Descontar stock según el plan (propios primero, después reasignados)
+      for(const x of plan){
+        const s=x.s;
+        const nuevo=(parseFloat(s.cantidad_paquetes)||0)-x.usar;
         const ratioUni=(s.cantidad_unidades&&s.cantidad_paquetes)?s.cantidad_unidades/s.cantidad_paquetes:0;
         await sb.from('stock_bolsas').update({
           cantidad_paquetes:nuevo,
           cantidad_unidades:Math.round(nuevo*ratioUni)
         }).eq('id',s.id);
-        restante-=usar;
       }
       // Crear el registro 'entregado' con la cantidad exacta del remito
       await sb.from('stock_bolsas').insert({
@@ -8653,6 +8817,228 @@ async function _ejecutarGuardarRemito(nro,pedId,cliId,fecha,obs,modo,ped,cli,lin
   }
 }
 
+
+
+// ════════════════════════════════════════════════════════════════
+// DESPACHO: qué se puede entregar HOY, por pedido y por línea.
+// Principio: el PENDIENTE nunca se guarda — se deriva de los
+// documentos (pedido_lineas − remito_lineas no anuladas).
+// ════════════════════════════════════════════════════════════════
+
+// ── Deudas de reposición (préstamos pendientes entre pedidos) ──
+function renderDeudasReposicion(){
+  const div=document.getElementById('dsp-deudas');
+  if(!div)return;
+  const pend=(C.prestamos||[]).filter(x=>x.estado==='pendiente_reposicion');
+  if(!pend.length){div.innerHTML='';return;}
+  const filas=pend.map(pr=>{
+    const prod=C.productos.find(x=>x.id===pr.producto_id);
+    const pOri=C.pedidos.find(x=>x.id===pr.pedido_origen_id);
+    const pDes=C.pedidos.find(x=>x.id===pr.pedido_destino_id);
+    const fch=pr.fecha?new Date(pr.fecha+'T00:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}):'—';
+    return'<tr>'
+      +'<td>'+fch+'</td>'
+      +'<td style="font-weight:600;">'+escapeHtml(pOri?(pOri.numero_pedido||('#'+pr.pedido_origen_id)):'#'+pr.pedido_origen_id)
+        +(pOri?' <span style="color:var(--text3);font-weight:400;">'+escapeHtml(pOri.cliente||'')+'</span>':'')+'</td>'
+      +'<td style="text-align:right;font-weight:800;color:var(--amber);">'+(parseFloat(pr.cantidad_paquetes)||0).toLocaleString('es-AR')+' paq</td>'
+      +'<td style="max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="'+escapeHtml(prod?.descripcion||'')+'">'+escapeHtml(prod?(prod.descripcion||prod.codigo||''):('#'+pr.producto_id))+'</td>'
+      +'<td>'+escapeHtml(pDes?(pDes.numero_pedido||('#'+pr.pedido_destino_id)):(pr.cliente_destino||'—'))
+        +(pDes&&pr.cliente_destino?' <span style="color:var(--text3);">'+escapeHtml(pr.cliente_destino)+'</span>':'')+'</td>'
+      +'<td style="white-space:nowrap;">'
+        +'<button class="btn btn-sm" style="padding:2px 8px;font-size:11px;color:var(--green);border-color:var(--green);" onclick="prestamoMarcarRepuesto('+pr.id+')" title="Ya se repuso la mercadería al pedido origen">✓ Repuesto</button> '
+        +'<button class="btn btn-sm" style="padding:2px 8px;font-size:11px;color:var(--text3);" onclick="prestamoCondonar('+pr.id+')" title="Dar por perdida la deuda (requiere clave admin)">✗ Condonar</button>'
+      +'</td>'
+    +'</tr>';
+  }).join('');
+  const totPaq=pend.reduce((s,x)=>s+(parseFloat(x.cantidad_paquetes)||0),0);
+  div.innerHTML='<div style="background:rgba(245,158,11,.05);border:1.5px solid var(--amber);border-radius:var(--rl);padding:10px 14px;">'
+    +'<div style="font-weight:800;color:var(--amber);margin-bottom:6px;">🟠 Deudas de reposición — '+pend.length+' préstamo'+(pend.length===1?'':'s')+' pendiente'+(pend.length===1?'':'s')+' · '+totPaq.toLocaleString('es-AR')+' paq</div>'
+    +'<div style="font-size:11px;color:var(--text2);margin-bottom:8px;">Mercadería que se sacó de un pedido para entregarla a otro destino. Cuando la produzcas y reserves de nuevo, marcala como repuesta.</div>'
+    +'<table class="tbl" style="font-size:12px;"><thead><tr>'
+      +'<th>Fecha</th><th>Se le debe a</th><th style="text-align:right;">Cuánto</th><th>Producto</th><th>Se entregó a</th><th></th>'
+    +'</tr></thead><tbody>'+filas+'</tbody></table>'
+  +'</div>';
+}
+
+async function prestamoMarcarRepuesto(id){
+  const pr=(C.prestamos||[]).find(x=>x.id===id);
+  if(!pr)return;
+  const pOri=C.pedidos.find(x=>x.id===pr.pedido_origen_id);
+  if(!confirm('¿Confirmás que la mercadería ya fue repuesta a '+(pOri?(pOri.numero_pedido||'#'+pr.pedido_origen_id):'el pedido origen')+'?\n\n'+(parseFloat(pr.cantidad_paquetes)||0)+' paq'))return;
+  const{error}=await sb.from('prestamos_bolsas').update({estado:'repuesto',fecha_reposicion:localDate()}).eq('id',id);
+  if(error){alert('Error: '+error.message);return;}
+  await reload();renderDespacho();
+}
+
+function prestamoCondonar(id){
+  pedirAdminYEjecutar(async()=>{
+    const{error}=await sb.from('prestamos_bolsas').update({estado:'condonado',fecha_reposicion:localDate()}).eq('id',id);
+    if(error){alert('Error: '+error.message);return;}
+    await reload();renderDespacho();
+  });
+}
+
+// Saldos de un pedido para despacho. Devuelve null si no tiene líneas.
+function _despachoSaldos(p){
+  const lineas=(p.pedido_lineas||[]);
+  if(!lineas.length)return null;
+  // Entregado por línea: remitos del pedido, no anulados
+  const remsPed=(C.remitos||[]).filter(r=>r.pedido_id===p.id&&r.estado!=='anulado');
+  const out=lineas.map(l=>{
+    let entregado=0;
+    remsPed.forEach(r=>(r.remito_lineas||[]).forEach(rl=>{
+      if(rl.pedido_linea_id===l.id)entregado+=(rl.cantidad_paquetes||0);
+      else if(!rl.pedido_linea_id&&rl.producto_id===l.producto_id)entregado+=(rl.cantidad_paquetes||0);
+    }));
+    const pedido=l.cantidad||0;  // SIEMPRE en paquetes
+    const pendiente=Math.max(0,pedido-entregado);
+    // Stock por origen para este producto
+    let resPropio=0,disponible=0,resOtros=0;const otrosDet={};
+    (C.stock_bolsas||[]).forEach(s=>{
+      if(s.producto_id!==l.producto_id||s.estado==='entregado')return;
+      const paq=s.cantidad_paquetes||0;
+      if(s.estado==='reservado'&&s.pedido_id===p.id)resPropio+=paq;
+      else if(s.estado==='disponible')disponible+=paq;
+      else if(s.estado==='reservado'&&s.pedido_id&&s.pedido_id!==p.id){
+        resOtros+=paq;
+        const op=C.pedidos.find(x=>x.id===s.pedido_id);
+        const k=op?(op.numero_pedido||('#'+op.id)):('#'+s.pedido_id);
+        otrosDet[k]=(otrosDet[k]||0)+paq;
+      }
+    });
+    const remitibleYa=Math.min(pendiente,resPropio+disponible);
+    const prod=l.productos||C.productos.find(pr=>pr.id===l.producto_id);
+    return{linea:l,prod,pedido,entregado,pendiente,resPropio,disponible,resOtros,otrosDet,remitibleYa};
+  });
+  return out;
+}
+
+function renderDespacho(){
+  const cont=document.getElementById('dsp-container');
+  if(!cont)return;
+  renderDeudasReposicion();
+  const fCliente=document.getElementById('dsp-cliente')?.value||'';
+  const soloListo=document.getElementById('dsp-solo-listo')?.checked??true;
+
+  // Mismos estados "abiertos" que la Torre + borradores híbridos (con OCs activas)
+  const ABIERTOS=new Set(['pendiente_oc','pendiente_producir','esperando_bobinas','en_produccion','listo_parcial','listo_entregar','entregado_parcial']);
+  const tarjetas=[];const erroresProc=[];let nAbiertos=0,nSinListo=0;
+  (C.pedidos||[]).forEach(p=>{
+    try{
+      if(p.es_historico)return;
+      const eOp=_estadoOperativoPedido(p);
+      let esHibrido=false;
+      if(eOp==='borrador'){
+        esHibrido=(p.pedido_ordenes_corte||[]).some(x=>{
+          const oc=C.ord_corte.find(o=>o.id===x.orden_corte_id);
+          return oc&&oc.estado!=='Cancelada';
+        });
+        if(!esHibrido)return;
+      } else if(!ABIERTOS.has(eOp))return;
+      const saldos=_despachoSaldos(p);
+      if(!saldos)return;
+      nAbiertos++;
+      const listoPaq=saldos.reduce((s,x)=>s+x.remitibleYa,0);
+      const pendPaq=saldos.reduce((s,x)=>s+x.pendiente,0);
+      if(pendPaq<=0)return;  // nada pendiente: ya entregado completo
+      if(listoPaq<=0)nSinListo++;
+      tarjetas.push({p,eOp,esHibrido,saldos,listoPaq,pendPaq,cliente:p.cliente||''});
+    }catch(e){erroresProc.push({p,e});console.error('Despacho: error en pedido '+(p.numero_pedido||p.id),e);}
+  });
+
+  // Filtro de cliente (y poblar el select)
+  const sel=document.getElementById('dsp-cliente');
+  if(sel&&sel.options.length<=1){
+    [...new Set(tarjetas.map(t=>t.cliente).filter(Boolean))].sort().forEach(c=>{
+      const o=document.createElement('option');o.value=c;o.textContent=c;sel.appendChild(o);
+    });
+  }
+  let lista=tarjetas;
+  if(fCliente)lista=lista.filter(t=>t.cliente===fCliente);
+  if(soloListo)lista=lista.filter(t=>t.listoPaq>0);
+  // Más "listo" primero; empate: más pendiente primero
+  lista.sort((a,b)=>b.listoPaq-a.listoPaq||b.pendPaq-a.pendPaq);
+
+  // KPIs
+  const kp=document.getElementById('dsp-kpis');
+  const conListo=tarjetas.filter(t=>t.listoPaq>0);
+  const totListo=conListo.reduce((s,t)=>s+t.listoPaq,0);
+  if(kp)kp.innerHTML=[
+    ['🟢 Pedidos con algo para entregar',conListo.length,'var(--green)'],
+    ['📦 Paquetes listos para remitir',totListo.toLocaleString('es-AR'),'var(--green)'],
+    ['⏳ Pedidos abiertos sin nada listo',nSinListo,'var(--text3)'],
+  ].map(x=>'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:8px 14px;">'
+    +'<div style="font-size:11px;color:var(--text3);">'+x[0]+'</div>'
+    +'<div style="font-size:20px;font-weight:800;color:'+x[2]+';">'+x[1]+'</div></div>').join('');
+
+  if(!lista.length){
+    cont.innerHTML='<div class="empty">'+(soloListo?'Ningún pedido tiene mercadería lista para entregar ahora.':'Sin pedidos abiertos con pendiente de entrega.')+'</div>';
+  } else {
+    cont.innerHTML=lista.map(t=>{
+      const p=t.p;
+      const chipH=t.esHibrido?' <span style="background:rgba(245,158,11,.10);color:var(--amber);border:1px solid var(--amber);border-radius:10px;padding:1px 8px;font-size:10.5px;font-weight:700;">📄⚙ Híbrido</span>':'';
+      const prom=p.fecha_entrega_est?new Date(p.fecha_entrega_est+'T00:00:00').toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}):'—';
+      const filas=t.saldos.map(x=>{
+        if(x.pendiente<=0&&x.pedido>0)return'';  // línea completa: no ensuciar
+        const desc=x.prod?(x.prod.descripcion||x.prod.codigo||''):('#'+x.linea.producto_id);
+        const otrosTip=Object.entries(x.otrosDet).map(([k,v])=>k+': '+v+' paq').join('\n');
+        const sem=x.remitibleYa>=x.pendiente&&x.pendiente>0?'🟢':(x.remitibleYa>0?'🟡':'⚪');
+        return'<tr>'
+          +'<td style="max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="'+escapeHtml(desc)+'">'+escapeHtml(desc)+'</td>'
+          +'<td style="text-align:right;">'+x.pedido.toLocaleString('es-AR')+'</td>'
+          +'<td style="text-align:right;color:var(--text3);">'+x.entregado.toLocaleString('es-AR')+'</td>'
+          +'<td style="text-align:right;font-weight:700;">'+x.pendiente.toLocaleString('es-AR')+'</td>'
+          +'<td style="text-align:right;color:var(--green);">'+(x.resPropio||'')+'</td>'
+          +'<td style="text-align:right;color:var(--accent);">'+(x.disponible||'')+'</td>'
+          +'<td style="text-align:right;color:var(--amber);" title="'+escapeHtml(otrosTip)+'">'+(x.resOtros?x.resOtros+' ⓘ':'')+'</td>'
+          +'<td style="text-align:right;font-weight:800;">'+sem+' '+(x.remitibleYa?x.remitibleYa.toLocaleString('es-AR'):'—')+'</td>'
+        +'</tr>';
+      }).join('');
+      const prestoPaq=(C.prestamos||[]).filter(x=>x.pedido_origen_id===p.id&&x.estado==='pendiente_reposicion').reduce((s,x)=>s+(parseFloat(x.cantidad_paquetes)||0),0);
+      const notaPresto=prestoPaq>0?'<div style="font-size:11px;color:var(--amber);margin-bottom:4px;">🟠 Este pedido prestó '+prestoPaq.toLocaleString('es-AR')+' paq a otro destino — pendiente de reposición</div>':'';
+      return'<div style="background:var(--bg2);border:1px solid '+(t.listoPaq>0?'var(--green)':'var(--border)')+';border-radius:var(--rl);padding:10px 14px;margin-bottom:10px;">'+notaPresto
+        +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">'
+          +'<span style="font-weight:800;color:var(--text1);">📋 '+escapeHtml(p.numero_pedido||('#'+p.id))+'</span>'
+          +'<span style="color:var(--text2);">'+escapeHtml(t.cliente)+'</span>'+chipH
+          +'<span style="font-size:11px;color:var(--text3);">Promesa: '+prom+'</span>'
+          +'<span style="margin-left:auto;font-size:12px;font-weight:700;color:'+(t.listoPaq>0?'var(--green)':'var(--text3)')+';">'
+            +(t.listoPaq>0?'✓ '+t.listoPaq.toLocaleString('es-AR')+' paq listos':'sin stock listo')+'</span>'
+          +'<button class="btn btn-primary btn-sm" style="padding:3px 12px;" onclick="generarRemitoDesdePedido('+p.id+')">📦 Armar remito</button>'
+        +'</div>'
+        +'<table class="tbl" style="font-size:12px;"><thead><tr>'
+          +'<th>Producto</th><th style="text-align:right;">Pedido</th><th style="text-align:right;">Entregado</th><th style="text-align:right;">Pendiente</th>'
+          +'<th style="text-align:right;" title="Stock reservado a ESTE pedido">🟢 Propio</th>'
+          +'<th style="text-align:right;" title="Stock disponible (excedentes / producción a stock)">🔵 Disp.</th>'
+          +'<th style="text-align:right;" title="Stock reservado a OTROS pedidos — usarlo es un préstamo">🟠 De otros</th>'
+          +'<th style="text-align:right;">Remitible YA</th>'
+        +'</tr></thead><tbody>'+filas+'</tbody></table>'
+      +'</div>';
+    }).join('');
+  }
+
+  // Transparencia + errores
+  let pie='<div style="font-size:11px;color:var(--text3);padding:6px 2px;">Mostrando <strong>'+lista.length+'</strong> de <strong>'+tarjetas.length+'</strong> pedido'+(tarjetas.length===1?'':'s')+' con pendiente de entrega'
+    +(soloListo&&(tarjetas.length-lista.length)>0?' · '+(tarjetas.filter(t=>t.listoPaq<=0).length)+' sin stock listo (destildá el filtro para verlos)':'')
+    +'</div>';
+  if(erroresProc.length)pie+='<div style="font-size:12px;color:var(--red);padding:8px 10px;background:rgba(239,68,68,.06);border:1px solid var(--red);border-radius:var(--r);">⚠ '+erroresProc.length+' pedido(s) con error: '+erroresProc.map(x=>escapeHtml(x.p.numero_pedido||('#'+x.p.id))).join(' · ')+' (consola F12)</div>';
+  cont.innerHTML+=pie;
+
+  // Stock libre (excedentes + producción a stock), agrupado por producto
+  const libre={};
+  (C.stock_bolsas||[]).forEach(s=>{
+    if(s.estado!=='disponible')return;
+    libre[s.producto_id]=(libre[s.producto_id]||0)+(s.cantidad_paquetes||0);
+  });
+  const divL=document.getElementById('dsp-stock-libre');
+  const items=Object.entries(libre).filter(([,v])=>v>0)
+    .map(([pid,v])=>{const pr=C.productos.find(x=>x.id===parseInt(pid));return{desc:pr?(pr.descripcion||pr.codigo||''):('#'+pid),v};})
+    .sort((a,b)=>b.v-a.v);
+  if(divL)divL.innerHTML=items.length
+    ?'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:10px 14px;">'
+      +'<div style="font-weight:700;color:var(--accent);margin-bottom:6px;">🔵 Stock libre (excedentes y producción a stock) — '+items.reduce((s,x)=>s+x.v,0).toLocaleString('es-AR')+' paq</div>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;">'+items.map(x=>'<span style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:3px 10px;font-size:11.5px;color:var(--text2);">'+escapeHtml(x.desc)+' · <strong>'+x.v.toLocaleString('es-AR')+'</strong></span>').join('')+'</div>'
+    +'</div>':'';
+}
 
 function renderRemitos(){
   const filtroCli=document.getElementById('rem-filtro-cli')?.value||'';
@@ -15152,10 +15538,17 @@ function dfSaldoDeuda(d){
   return r2((d.cuotas||[]).filter(c=>c.estado!=='pagada').reduce((s,c)=>s+(parseFloat(c.monto)||0),0));
 }
 function dfPagadoDeuda(d){
-  return r2((d.cuotas||[]).filter(c=>c.estado==='pagada').reduce((s,c)=>s+(parseFloat(c.monto)||0),0));
+  return r2((d.cuotas||[]).filter(c=>c.estado==='pagada').reduce((s,c)=>s+(parseFloat(c.monto_pagado!=null?c.monto_pagado:c.monto)||0),0));
 }
 function dfTotalDeuda(d){
   return r2((d.cuotas||[]).reduce((s,c)=>s+(parseFloat(c.monto)||0),0));
+}
+function dfCapitalPend(d){
+  return r2((d.cuotas||[]).filter(c=>c.estado!=='pagada').reduce((s,c)=>s+(parseFloat(c.capital)||0),0));
+}
+function dfInteresPend(d){
+  // interés + cualquier otro cargo (IVA): todo lo que NO es capital y te ahorrarías al cancelar
+  return r2(dfSaldoDeuda(d)-dfCapitalPend(d));
 }
 function dfProxCuota(d){
   return dfCuotasOrd(d).find(c=>c.estado!=='pagada')||null;
@@ -15167,12 +15560,19 @@ function deudaGastoDelMes(iniStr,finStr){
     if(d.estado==='cancelado')return;
     (d.cuotas||[]).forEach(c=>{
       const v=String(c.vencimiento||'');
-      if(!v||v<iniStr||v>finStr)return;
-      let g;
-      if(d.tipo==='prestamo')g=parseFloat(c.interes)||0;
-      else g=d.capital_ya_gastado?(parseFloat(c.interes)||0):(parseFloat(c.monto)||0);
-      g=r2(g);
-      if(g>0){total+=g;docs.push({deuda:d,cuota:c,gasto:g});}
+      if(v&&v>=iniStr&&v<=finStr){
+        let g;
+        if(d.tipo==='prestamo')g=parseFloat(c.interes)||0;
+        else g=d.capital_ya_gastado?(parseFloat(c.interes)||0):(parseFloat(c.monto)||0);
+        g=r2(g);
+        if(g>0){total+=g;docs.push({deuda:d,cuota:c,gasto:g});}
+      }
+      // interés resarcitorio (pago tardío) = costo financiero en el mes que se pagó
+      const fp=String(c.fecha_pago||'');
+      if(c.estado==='pagada'&&c.monto_pagado!=null&&fp>=iniStr&&fp<=finStr){
+        const res=r2((parseFloat(c.monto_pagado)||0)-(parseFloat(c.monto)||0));
+        if(res>0.01){total+=res;docs.push({deuda:d,cuota:c,gasto:res,resarcitorio:true});}
+      }
     });
   });
   return {total:r2(total),docs};
@@ -15189,6 +15589,8 @@ function renderDeudas(){
 
   // KPIs
   const totalVivo=r2(deudas.filter(d=>d.estado!=='cancelado').reduce((s,d)=>s+dfSaldoDeuda(d),0));
+  const totalCapVivo=r2(deudas.filter(d=>d.estado!=='cancelado').reduce((s,d)=>s+dfCapitalPend(d),0));
+  const totalIntVivo=r2(totalVivo-totalCapVivo);
   let venceMes=0,vencidasImpagas=0,nVencidas=0;
   deudas.forEach(d=>{
     if(d.estado==='cancelado')return;
@@ -15202,7 +15604,9 @@ function renderDeudas(){
   const gMes=deudaGastoDelMes(iniMes,finMes).total;
 
   let html='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:1.2rem;">'
-    +'<div class="kpi-card"><div class="kpi-lbl">Deuda viva total</div><div class="kpi-val" style="font-size:20px;color:var(--red);">'+fmtMoney(totalVivo)+'</div><div style="font-size:11px;color:var(--text3);">capital+interés pendiente</div></div>'
+    +'<div class="kpi-card"><div class="kpi-lbl">Deuda viva total</div><div class="kpi-val" style="font-size:20px;color:var(--red);">'+fmtMoney(totalVivo)+'</div><div style="font-size:11px;color:var(--text3);">Capital <b class="mono">'+fmtMoney(totalCapVivo)+'</b> + Interés/cargos <b class="mono">'+fmtMoney(totalIntVivo)+'</b></div></div>'
+    +'<div class="kpi-card"><div class="kpi-lbl">Capital pendiente</div><div class="kpi-val" style="font-size:20px;color:var(--text1);">'+fmtMoney(totalCapVivo)+'</div><div style="font-size:11px;color:var(--text3);">lo que pagarías para cancelar todo</div></div>'
+    +'<div class="kpi-card"><div class="kpi-lbl">Interés/cargos a pagar</div><div class="kpi-val" style="font-size:20px;color:var(--amber);">'+fmtMoney(totalIntVivo)+'</div><div style="font-size:11px;color:var(--text3);">lo que te ahorrarías cancelando todo hoy (pagando $'+fmtMoney(totalCapVivo)+' de capital)</div></div>'
     +'<div class="kpi-card"><div class="kpi-lbl">Vence este mes</div><div class="kpi-val" style="font-size:20px;color:var(--amber);">'+fmtMoney(r2(venceMes))+'</div><div style="font-size:11px;color:var(--text3);">cuotas con vto en '+ym+'</div></div>'
     +'<div class="kpi-card"><div class="kpi-lbl">Vencidas impagas</div><div class="kpi-val" style="font-size:20px;color:'+(nVencidas?'var(--red)':'var(--green)')+';">'+fmtMoney(r2(vencidasImpagas))+'</div><div style="font-size:11px;color:var(--text3);">'+nVencidas+' cuota'+(nVencidas===1?'':'s')+' atrasada'+(nVencidas===1?'':'s')+'</div></div>'
     +'<div class="kpi-card"><div class="kpi-lbl">Gasto del mes</div><div class="kpi-val" style="font-size:20px;color:#f97316;">'+fmtMoney(gMes)+'</div><div style="font-size:11px;color:var(--text3);">ARCA completo + interés de préstamos</div></div>'
@@ -15220,10 +15624,11 @@ function renderDeudas(){
     const prox=dfProxCuota(d);
     const cancel=d.estado==='cancelado';
     const pct=total>0?Math.round(pagado/total*100):0;
-    html+='<div style="border:1.5px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:14px;'+(cancel?'opacity:.55;':'')+'">'
+    const capPend=dfCapitalPend(d), intPend=dfInteresPend(d);
+    html+='<div style="border:1px solid var(--border);border-left:5px solid '+(cancel?'var(--text3)':(d.tipo==='plan_arca'?'#a855f7':'var(--accent)'))+';border-radius:var(--r);padding:16px 18px;margin-bottom:24px;background:var(--bg2);box-shadow:0 2px 8px rgba(0,0,0,.25);'+(cancel?'opacity:.55;':'')+'">'
       +'<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">'
-        +'<div><div style="font-size:15px;font-weight:800;">'+dfTipoIc(d.tipo)+' '+(d.acreedor||'—')+(d.plano==='negro'?' ⚫':' ⚪')+(cancel?' <span style="font-size:11px;color:var(--text3);">(cancelada)</span>':'')+'</div>'
-          +'<div style="font-size:12px;color:var(--text3);">'+dfTipoLabel(d.tipo)+(d.descripcion?' · '+d.descripcion:'')+(d.tipo==='plan_arca'&&!d.capital_ya_gastado?' · cuota completa = gasto':'')+(d.tipo==='prestamo'?' · solo interés = gasto':'')+'</div></div>'
+        +'<div><div style="font-size:15px;font-weight:800;color:#fff;">'+dfTipoIc(d.tipo)+' '+(d.acreedor||'—')+(d.plano==='negro'?' ⚫':' ⚪')+(cancel?' <span style="font-size:11px;color:var(--text3);">(cancelada)</span>':'')+'</div>'
+          +'<div style="font-size:12px;color:var(--text2);">'+dfTipoLabel(d.tipo)+(d.descripcion?' · '+d.descripcion:'')+(d.tipo==='plan_arca'&&!d.capital_ya_gastado?' · cuota completa = gasto':'')+(d.tipo==='prestamo'?' · solo interés = gasto':'')+'</div></div>'
         +'<div style="text-align:right;"><div style="font-size:11px;color:var(--text3);">Saldo</div><div class="mono" style="font-size:18px;font-weight:800;color:'+(saldo>0?'var(--red)':'var(--green)')+';">'+fmtMoney(saldo)+'</div></div>'
       +'</div>'
       +'<div style="height:6px;background:var(--bg3);border-radius:4px;margin:10px 0;overflow:hidden;"><div style="height:100%;width:'+pct+'%;background:var(--green);"></div></div>'
@@ -15233,6 +15638,11 @@ function renderDeudas(){
         +'<span>Total: <b class="mono">'+fmtMoney(total)+'</b></span>'
         +(prox?'<span>Próxima: <b>cuota '+(prox.nro||'?')+'</b> vto <b>'+(prox.vencimiento||'?')+'</b> · <b class="mono">'+fmtMoney(parseFloat(prox.monto)||0)+'</b></span>':'<span style="color:var(--green);">✓ Totalmente pagada</span>')
       +'</div>'
+      +(!cancel&&saldo>0?'<div style="font-size:12px;color:var(--text2);display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);">'
+        +'<span>Capital pendiente: <b class="mono">'+fmtMoney(capPend)+'</b></span>'
+        +'<span>Interés/cargos pendiente: <b class="mono" style="color:var(--amber);">'+fmtMoney(intPend)+'</b></span>'
+        +'<span style="color:var(--text3);">💡 Si la cancelás hoy pagás <b class="mono">'+fmtMoney(capPend)+'</b> y te ahorrás <b class="mono" style="color:var(--green);">'+fmtMoney(intPend)+'</b></span>'
+      +'</div>':'')
       +'<div class="btn-grp" style="margin-top:10px;">'
         +'<button class="btn btn-sm" onclick="dfToggleCuotas('+d.id+')" id="df-tg-'+d.id+'">📋 Ver cuotas</button>'
         +'<button class="btn btn-sm" onclick="dfEditarDeuda('+d.id+')">✏️ Editar datos 🔐</button>'
@@ -15261,18 +15671,32 @@ function dfCuotasTabla(deudaId){
     const pag=c.estado==='pagada';
     const venc=!pag&&c.vencimiento&&String(c.vencimiento)<hoy;
     const estCol=pag?'var(--green)':(venc?'var(--red)':'var(--text2)');
-    const estTxt=pag?('✓ pagada'+(c.fecha_pago?' '+c.fecha_pago:'')):(venc?'⚠ vencida':'pendiente');
+    const realPag=c.monto_pagado!=null?(parseFloat(c.monto_pagado)||0):null;
+    const difPag=realPag!=null?r2(realPag-(parseFloat(c.monto)||0)):0;
+    const estTxt=pag?('✓ pagada'+(c.fecha_pago?' '+c.fecha_pago:'')+(realPag!=null&&Math.abs(difPag)>=0.01?' · debitó '+fmtMoney(realPag)+(difPag>0?' (+'+fmtMoney(difPag)+' resarc.)':''):'')):(venc?'⚠ vencida':'pendiente');
     h+='<tr style="border-top:1px solid var(--border);">'
       +'<td style="padding:6px 5px;">'+(c.nro||'')+'</td>'
       +'<td>'+(c.vencimiento||'—')+'</td>'
       +'<td style="text-align:right;" class="mono">'+(c.capital!=null?fmtMoney(c.capital):'—')+'</td>'
       +'<td style="text-align:right;" class="mono">'+(c.interes!=null?fmtMoney(c.interes):'—')+'</td>'
       +'<td style="text-align:right;font-weight:700;" class="mono">'+fmtMoney(parseFloat(c.monto)||0)+'</td>'
-      +'<td style="font-size:11px;color:'+estCol+';">'+estTxt+(pag&&c.medio_pago?' · '+c.medio_pago:'')+'</td>'
+      +'<td style="font-size:11px;color:'+estCol+';">'+estTxt+(pag&&c.cuenta_id?' · '+ccCuentaNombre(c.cuenta_id):'')+'</td>'
       +'<td style="text-align:right;white-space:nowrap;">'
         +(pag?'<button class="btn btn-sm" onclick="dfDesmarcar('+d.id+','+(c.nro||0)+')" title="Marcar como impaga">↩</button>':'<button class="btn btn-sm" onclick="dfMarcarPagada('+d.id+','+(c.nro||0)+')">💵 Pagar</button>')
       +'</td></tr>';
   });
+  const pend=dfCuotasOrd(d).filter(c=>c.estado!=='pagada');
+  if(pend.length){
+    const sCap=r2(pend.reduce((s,c)=>s+(parseFloat(c.capital)||0),0));
+    const sInt=r2(pend.reduce((s,c)=>s+(parseFloat(c.interes)||0),0));
+    const sMon=r2(pend.reduce((s,c)=>s+(parseFloat(c.monto)||0),0));
+    h+='<tr style="border-top:2px solid var(--border);font-weight:800;background:var(--bg3);">'
+      +'<td style="padding:7px 5px;" colspan="2">Pendiente ('+pend.length+' cuota'+(pend.length===1?'':'s')+')</td>'
+      +'<td style="text-align:right;" class="mono">'+fmtMoney(sCap)+'</td>'
+      +'<td style="text-align:right;" class="mono">'+fmtMoney(sInt)+'</td>'
+      +'<td style="text-align:right;" class="mono">'+fmtMoney(sMon)+'</td>'
+      +'<td colspan="2"></td></tr>';
+  }
   h+='</table>';
   return h;
 }
@@ -15281,28 +15705,39 @@ function dfCuotasTabla(deudaId){
 function dfMarcarPagada(deudaId,nro){
   const d=(C.deudas_financieras||[]).find(x=>x.id===deudaId);if(!d)return;
   const c=(d.cuotas||[]).find(x=>(x.nro||0)===nro);if(!c)return;
+  const ctas=(C.cuentas_caja||[]).filter(x=>x.activa!==false);
+  const defP=ctas.find(x=>x.default_pagos)?.id;
+  const optsCtas=ctas.map(x=>'<option value="'+x.id+'"'+(x.id===(c.cuenta_id||defP)?' selected':'')+'>'+(x.nombre||'cuenta')+' · '+(x.tipo||'')+(x.plano==='negro'?' ⚫':' ⚪')+'</option>').join('');
   document.getElementById('df-pago-modal')?.remove();
   document.body.insertAdjacentHTML('beforeend',
     '<div class="modal-overlay" id="df-pago-modal"><div class="modal-card" style="max-width:420px;">'
     +'<div class="modal-title">💵 Pagar cuota '+(c.nro||'')+'</div>'
     +'<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">'+dfTipoIc(d.tipo)+' '+(d.acreedor||'')+' · vto '+(c.vencimiento||'—')+' · <b class="mono">'+fmtMoney(parseFloat(c.monto)||0)+'</b></div>'
+    +'<div class="fg" style="margin-bottom:10px;"><label>Monto realmente pagado (lo que debitó el banco)</label><input type="number" step="0.01" id="dfpg-monto" value="'+(parseFloat(c.monto)||0)+'" style="width:100%"><div style="font-size:11px;color:var(--text3);margin-top:3px;">Cuota 1° vto: $'+fmtMoney(parseFloat(c.monto)||0)+'. Si el débito salió en el 2° vencimiento, poné el importe con el interés resarcitorio incluido.</div></div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
       +'<div class="fg"><label>Fecha de pago</label><input type="date" id="dfpg-fecha" value="'+localDate()+'" style="width:100%"></div>'
-      +'<div class="fg"><label>Medio</label><input type="text" id="dfpg-medio" placeholder="transf / cheque / débito" style="width:100%"></div>'
+      +'<div class="fg"><label>Pagada desde (cuenta)</label>'+(ctas.length?'<select id="dfpg-cuenta" style="width:100%">'+optsCtas+'</select>':'<div style="font-size:11px;color:var(--amber);padding-top:6px;">No hay cuentas en el Libro de caja. Cargá una para que el pago genere el movimiento y cierre la conciliación.</div>')+'</div>'
     +'</div>'
     +'<div class="btn-grp" style="margin-top:1rem;"><button class="btn btn-sm" onclick="dfPagoGuardar('+d.id+','+nro+')">💾 Confirmar</button><button class="btn btn-sm" onclick="document.getElementById(\'df-pago-modal\').remove()">Cancelar</button></div>'
     +'</div></div>');
 }
 function dfPagoGuardar(deudaId,nro){
   const fecha=document.getElementById('dfpg-fecha')?.value||localDate();
-  const medio=document.getElementById('dfpg-medio')?.value.trim()||null;
+  const selCta=document.getElementById('dfpg-cuenta')?.value;
+  const cuenta_id=selCta?(isNaN(+selCta)?selCta:+selCta):null;
   const d=(C.deudas_financieras||[]).find(x=>x.id===deudaId);if(!d)return;
-  const cuotas=(d.cuotas||[]).map(c=>(c.nro||0)===nro?{...c,estado:'pagada',fecha_pago:fecha,medio_pago:medio}:c);
+  const cBase=(d.cuotas||[]).find(x=>(x.nro||0)===nro);
+  const planeado=parseFloat(cBase?cBase.monto:0)||0;
+  let pagado=parseFloat(document.getElementById('dfpg-monto')?.value);
+  if(!(pagado>0))pagado=planeado;
+  pagado=r2(pagado);
+  const dif=r2(pagado-planeado);
+  const cuotas=(d.cuotas||[]).map(c=>(c.nro||0)===nro?{...c,estado:'pagada',fecha_pago:fecha,monto_pagado:pagado,cuenta_id:cuenta_id}:c);
   (async()=>{
     const{error}=await sb.from('deudas_financieras').update({cuotas}).eq('id',deudaId);
     if(error){toast('Error: '+error.message,'red');return;}
     document.getElementById('df-pago-modal')?.remove();
-    toast('✓ Cuota '+nro+' pagada','green');
+    toast('✓ Cuota '+nro+' pagada'+(Math.abs(dif)>=0.01?' · debitó '+fmtMoney(pagado)+(dif>0?' (+'+fmtMoney(dif)+' resarcitorio)':''):''),'green');
     await reload();renderDeudas();
     const box=document.getElementById('df-cuotas-'+deudaId);if(box&&box.style.display!=='none')box.innerHTML=dfCuotasTabla(deudaId);
   })();
@@ -15638,25 +16073,38 @@ async function renderResultadoMes(){
   html+='</div>';
 
   // Cobertura de fijos + punto de equilibrio
-  const margenPostOpA=r2(A.margen-gastosOpA);
-  const cobertura=fijosA>0?Math.max(0,Math.min(100,r2(margenPostOpA/fijosA*100))):null;
-  const ventaEq=(fijosA>0&&margenPctA>0)?r2(fijosA/(margenPctA/100)):null;
+  // Punto de equilibrio sobre GASTOS TOTALES a cubrir (fijos + operativos + deudas), no solo fijos
+  const gastosTotalesA=r2(fijosA+gastosOpA+deudaA);
+  const cobertura=gastosTotalesA>0?Math.max(0,Math.min(100,r2(A.margen/gastosTotalesA*100))):null;
+  const ventaEq=(gastosTotalesA>0&&margenPctA>0)?r2(gastosTotalesA/(margenPctA/100)):null;
   const margenPorPaq=A.paquetes>0?A.margen/A.paquetes:0;
-  const paqEq=(fijosA>0&&margenPorPaq>0)?Math.ceil(fijosA/margenPorPaq):null;
+  const paqEq=(gastosTotalesA>0&&margenPorPaq>0)?Math.ceil(gastosTotalesA/margenPorPaq):null;
   html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:1.4rem;max-width:760px;">';
   if(cobertura!==null){
     const colCob=cobertura>=100?'var(--green)':cobertura>=70?'var(--amber)':'var(--red)';
-    html+='<div class="kpi-card"><div class="kpi-lbl">Cobertura de gastos fijos</div>'
+    html+='<div class="kpi-card"><div class="kpi-lbl">Cobertura de gastos totales</div>'
       +'<div class="kpi-val" style="font-size:22px;color:'+colCob+';">'+cobertura+'%</div>'
       +'<div style="background:var(--bg3);border-radius:99px;height:8px;margin-top:6px;overflow:hidden;"><div style="width:'+cobertura+'%;height:100%;background:'+colCob+';border-radius:99px;"></div></div>'
-      +'<div style="font-size:11px;color:var(--text3);margin-top:4px;">'+(cobertura>=100?'Fijos cubiertos — de acá en adelante es ganancia':'el margen del mes todavía no cubre los fijos')+'</div></div>';
+      +'<div style="font-size:11px;color:var(--text3);margin-top:4px;">'+(cobertura>=100?'Gastos cubiertos — de acá en adelante es ganancia':'el margen todavía no cubre los gastos (fijos + operativos + deudas)')+'</div></div>';
   }
-  if(ventaEq!==null)html+='<div class="kpi-card"><div class="kpi-lbl">Punto de equilibrio en venta</div><div class="kpi-val" style="font-size:20px;">$'+ventaEq.toLocaleString('es-AR')+'</div><div style="font-size:11px;color:var(--text3);">facturación necesaria al margen actual ('+margenPctA+'%) para cubrir los fijos</div></div>';
-  if(paqEq!==null)html+='<div class="kpi-card"><div class="kpi-lbl">Punto de equilibrio en paquetes</div><div class="kpi-val" style="font-size:20px;">'+paqEq.toLocaleString('es-AR')+' paq</div><div style="font-size:11px;color:var(--text3);">al margen promedio actual de $'+r2(margenPorPaq).toLocaleString('es-AR')+'/paq · este mes: '+A.paquetes.toLocaleString('es-AR')+' paq</div></div>';
+  if(ventaEq!==null){
+    const faltaV=r2(ventaEq-A.venta);
+    const msgV=faltaV>0?'Todavía te falta facturar <b style="color:var(--amber);">$'+faltaV.toLocaleString('es-AR')+'</b> para llegar':'✓ Ya superaste el equilibrio por $'+Math.abs(faltaV).toLocaleString('es-AR');
+    html+='<div class="kpi-card"><div class="kpi-lbl">Punto de equilibrio en venta</div><div class="kpi-val" style="font-size:20px;">$'+ventaEq.toLocaleString('es-AR')+'</div><div style="font-size:11px;color:var(--text3);">facturación total necesaria al margen '+margenPctA+'% para cubrir los gastos totales del mes<br>'+msgV+'</div></div>';
+  }
+  if(paqEq!==null){
+    const faltaP=paqEq-A.paquetes;
+    const msgP=faltaP>0?'Todavía te faltan <b style="color:var(--amber);">'+faltaP.toLocaleString('es-AR')+' paq</b> para llegar':'✓ Ya superaste el equilibrio por '+Math.abs(faltaP).toLocaleString('es-AR')+' paq';
+    html+='<div class="kpi-card"><div class="kpi-lbl">Punto de equilibrio en paquetes</div><div class="kpi-val" style="font-size:20px;">'+paqEq.toLocaleString('es-AR')+' paq</div><div style="font-size:11px;color:var(--text3);">al margen de $'+r2(margenPorPaq).toLocaleString('es-AR')+'/paq para cubrir los gastos totales del mes<br>'+msgP+'</div></div>';
+  }
   const margenPorKg=A.kg>0?A.margen/A.kg:0;
   const ventaPorKg=A.kg>0?A.venta/A.kg:0;
-  const kgEq=(fijosA>0&&margenPorKg>0)?Math.ceil(fijosA/margenPorKg):null;
-  if(kgEq!==null)html+='<div class="kpi-card" style="border-top:3px solid var(--accent);"><div class="kpi-lbl">Punto de equilibrio en kg a producir</div><div class="kpi-val" style="font-size:20px;">'+kgEq.toLocaleString('es-AR')+' kg</div><div style="font-size:11px;color:var(--text3);">margen $'+r2(margenPorKg).toLocaleString('es-AR')+'/kg · venta promedio $'+r2(ventaPorKg).toLocaleString('es-AR')+'/kg · este mes: '+A.kg.toLocaleString('es-AR')+' kg vendidos</div></div>';
+  const kgEq=(gastosTotalesA>0&&margenPorKg>0)?Math.ceil(gastosTotalesA/margenPorKg):null;
+  if(kgEq!==null){
+    const faltaK=kgEq-A.kg;
+    const msgK=faltaK>0?'Todavía te faltan <b style="color:var(--amber);">'+Math.ceil(faltaK).toLocaleString('es-AR')+' kg</b> para llegar':'✓ Ya superaste el equilibrio por '+Math.round(Math.abs(faltaK)).toLocaleString('es-AR')+' kg';
+    html+='<div class="kpi-card" style="border-top:3px solid var(--accent);"><div class="kpi-lbl">Punto de equilibrio en kg a producir</div><div class="kpi-val" style="font-size:20px;">'+kgEq.toLocaleString('es-AR')+' kg</div><div style="font-size:11px;color:var(--text3);">margen $'+r2(margenPorKg).toLocaleString('es-AR')+'/kg · venta prom. $'+r2(ventaPorKg).toLocaleString('es-AR')+'/kg<br>'+msgK+'</div></div>';
+  }
   html+='</div>';
 
   // Desglose por plano y fijos por categoría
@@ -17538,8 +17986,8 @@ function renderOrdenesCorte(){
         ${o.estado==='Completada'?`<button class="btn btn-sm" onclick="verDetalleOrdenCorte(${o.id})">📊 Detalle</button>`:''}
         ${o.estado==='Suspendida'?`<button class="btn btn-sm" onclick="cambiarEstadoCorte(${o.id},'Pendiente')">Reactivar</button>`:''}
         ${(o.estado==='Pendiente'||o.estado==='En proceso')?
-          (o.orden_extrusion_id
-            // Ya tiene OE vinculada — mostrar el estado de la dependencia de material
+          (_balOEdeOC(o)
+            // Ya tiene OE vinculada (nuevo o legacy) — mostrar el estado de la dependencia de material
             ?(()=>{
               const dep=_dependenciaMaterialOC(o);
               const icono=dep.estado==='oe_lista'?'✓':dep.puedeArrancar?'🟢':dep.estado==='en_curso'?'🏭':'⏳';
@@ -17836,7 +18284,7 @@ function renderPlanCardCompact(tipo,o,enProceso,maqId,globalIdx,posEnMaq){
       }
       // Cartel de bobinas "robadas": propias de la OE pero asociadas a OTRA OC
       if(dep.mtsPropiasRobadas>0){
-        const faltan=Math.max(0,(dep.mtsNec||0)-(dep.mtsPropias||0));
+        const faltan=Math.max(0,(dep.mtsNec||0)-(dep.mtsDisponibles!=null?dep.mtsDisponibles:(dep.mtsPropias||0)));
         const reponer=Math.min(dep.mtsPropiasRobadas,faltan);
         lineaDepOE+='<div style="font-size:11px;margin-top:4px;padding:6px 8px;border-radius:6px;'
           +'background:rgba(239,68,68,.22);color:#ffd0d0;font-weight:600;line-height:1.4;border:1px solid rgba(239,68,68,.5);">'
@@ -18918,6 +19366,17 @@ function _calcularCobroPedido(p){
   return {fechaEntrega,fechaCobro,plazo,totalPed,cobrosRegistrados,pendiente,cliente:p.cliente||'—',esHibrido};
 }
 
+// Selección manual de pedidos que financian la compra (el sistema sugiere, vos decidís)
+let _fmpSel=new Set();let _fmpSelKey=null;
+function _fmpToggleSel(id){
+  id=parseInt(id);
+  if(!_fmpSel.has(id)){
+    const otro=_pedidoEnOtroPlan(id,null);
+    if(otro){ if(!confirm('⚠ ATENCIÓN\n\nEl pedido ya está en otro plan activo ("'+(otro.nombre||'otro plan')+'").\n\nSi lo contás también acá, podrías contar el cobro DOS VECES y planificar una compra con plata que no vas a tener.\n\n¿Marcarlo igual?')) return; }
+    _fmpSel.add(id);
+  } else _fmpSel.delete(id);
+  renderFlujoMP();
+}
 function renderFlujoMP(){
   // Render bloque saldos iniciales pendientes (toggle blanco/negro/consolidado)
   renderFmpSaldosIniciales();
@@ -19021,11 +19480,17 @@ function renderFlujoMP(){
     g.totalReg+=p._cobro.cobrosRegistrados;
     totalProy+=p._cobro.pendiente;
     totalReg+=p._cobro.cobrosRegistrados;
-    // ¿Este cobro alcanza a financiar la compra?
-    if(fechaComp&&p._cobro.fechaCobro<=fechaComp){
-      cubreCompra+=p._cobro.pendiente+p._cobro.cobrosRegistrados;
-    }
+    // (la cobertura se calcula por selección manual, más abajo)
   });
+
+  // Selección manual: el sistema sugiere los que entran en la fecha de compra,
+  // pero la cobertura la define lo que vos tildás (de cualquier fecha).
+  const _selKey=_fmpVista+'|'+kgComp+'|'+precio+'|'+(fechaCompStr||'');
+  if(_selKey!==_fmpSelKey){
+    _fmpSelKey=_selKey;_fmpSel=new Set();
+    if(fechaComp)pedidos.forEach(p=>{if(p._cobro.fechaCobro<=fechaComp&&(p._cobro.pendiente>0||p._cobro.cobrosRegistrados>0))_fmpSel.add(p.id);});
+  }
+  cubreCompra=pedidos.filter(p=>_fmpSel.has(p.id)).reduce((s,p)=>s+p._cobro.pendiente+p._cobro.cobrosRegistrados,0);
 
   // Render cobertura — con el NÚMERO REY: falta/sobra en pesos
   const coberturaDiv=document.getElementById('fmp-cobertura');
@@ -19035,7 +19500,7 @@ function renderFlujoMP(){
     const alcanza=diferencia>=0;
     const colorBarra=pctCubre>=100?'var(--green)':pctCubre>=70?'var(--accent)':pctCubre>=40?'var(--amber)':'var(--red)';
     const esSim=_fmpVista==='simulacion';
-    const lblCobros=esSim?'Cobros proyectados hasta esa fecha':'Cobros hasta esa fecha';
+    const lblCobros=esSim?'Cobros seleccionados (proy.)':'Cobros seleccionados';
     // Número rey: el faltante/sobrante en pesos, protagonista
     const colorRey=alcanza?'var(--green)':'var(--red)';
     const txtRey=alcanza
@@ -19056,6 +19521,7 @@ function renderFlujoMP(){
       +'<div style="background:var(--bg3);height:12px;border-radius:99px;overflow:hidden;">'
         +'<div style="width:'+Math.min(100,pctCubre)+'%;background:linear-gradient(90deg,var(--green),'+colorBarra+');height:100%;"></div>'
       +'</div>'
+      +'<div style="font-size:11px;color:var(--text3);margin-top:8px;text-align:center;">El sistema marcó los pedidos que entran en la fecha. Marcá o desmarcá abajo los que quieras —de cualquier fecha—: vos decidís cuáles vas a cobrar para esta compra.</div>'
     +'</div>';
 
     // ── "DE DÓNDE SACAR LO QUE FALTA" ──
@@ -19085,12 +19551,12 @@ function renderFlujoMP(){
         +'</div>';
         bloque+='<div style="display:flex;flex-direction:column;gap:5px;max-height:280px;overflow-y:auto;" id="fmp-apurar-list">';
         fuera.forEach((p,i)=>{
-          const preMarcado=seCubre&&i<nNecesarios;
+          const preMarcado=_fmpSel.has(p.id);
           const esHibrAp=_esBorradorHibrido(p);
           const otroPlanAp=_pedidoEnOtroPlan(p.id,null);
           const checkId='fmpap_'+p.id;
           bloque+='<label for="'+checkId+'" style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:'+(preMarcado?'rgba(34,197,94,.08)':(otroPlanAp?'rgba(168,85,247,.06)':'var(--bg2)'))+';border:1px solid '+(preMarcado?'var(--green)':(otroPlanAp?'#a855f7':'var(--border)'))+';border-radius:var(--r);font-size:11px;cursor:pointer;">'
-            +'<input type="checkbox" id="'+checkId+'" data-ped="'+p.id+'" data-monto="'+(p._cobro.pendiente||0)+'"'+(otroPlanAp?' data-otroplan="'+(otroPlanAp.nombre||'otro plan').replace(/"/g,'&quot;')+'"':'')+' '+(preMarcado?'checked':'')+' onchange="_fmpActualizarApurarTotal(event)" style="width:15px;height:15px;cursor:pointer;">'
+            +'<input type="checkbox" id="'+checkId+'" '+(_fmpSel.has(p.id)?'checked':'')+' onchange="_fmpToggleSel('+p.id+')" style="width:15px;height:15px;cursor:pointer;">'
             +'<span style="flex:1;font-weight:600;">'+(p.numero_pedido||'PED')+' — '+(p._cobro.cliente||'—')
               +(esHibrAp?' <span style="background:rgba(245,158,11,.15);color:var(--amber);border:1px solid var(--amber);font-size:9px;font-weight:700;padding:1px 5px;border-radius:99px;margin-left:4px;">🔀 Híbrido</span>':'')
               +(otroPlanAp?' <span style="background:rgba(168,85,247,.15);color:#a855f7;border:1px solid #a855f7;font-size:9px;font-weight:700;padding:1px 5px;border-radius:99px;margin-left:4px;" title="Ya está en '+(otroPlanAp.nombre||'otro plan')+'">📋 En '+(otroPlanAp.nombre||'otro plan')+'</span>':'')
@@ -19101,7 +19567,7 @@ function renderFlujoMP(){
         });
         bloque+='</div>';
         // Total inicial pre-calculado
-        const montoInicial=seCubre?fuera.slice(0,nNecesarios).reduce((s,p)=>s+p._cobro.pendiente,0):0;
+        const montoInicial=fuera.filter(p=>_fmpSel.has(p.id)).reduce((s,p)=>s+p._cobro.pendiente,0);
         const restanteInicial=Math.max(0,faltante-montoInicial);
         bloque+='<div id="fmp-apurar-totales" style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--text2);">'
           +'<span>Seleccionados a apurar: <strong id="fmp-apurar-monto" style="color:var(--accent);">$'+r2(montoInicial).toLocaleString('es-AR')+'</strong> · '
@@ -19160,8 +19626,8 @@ function renderFlujoMP(){
       const esHibrFila=p._cobro.esHibrido||_esBorradorHibrido(p);
       const otroPlan=_pedidoEnOtroPlan(p.id,null);
       const checkId='fmpdes_'+p.id;
-      html+='<label for="'+checkId+'" style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:'+(otroPlan?'rgba(168,85,247,.06)':'var(--bg3)')+';border-radius:var(--r);font-size:12px;flex-wrap:wrap;cursor:pointer;'+(otroPlan?'border:1px solid #a855f7;':'')+'">'
-        +'<input type="checkbox" id="'+checkId+'" data-ped="'+p.id+'" data-monto="'+(p._cobro.pendiente||0)+'"'+(otroPlan?' data-otroplan="'+(otroPlan.nombre||'otro plan').replace(/"/g,'&quot;')+'"':'')+' onchange="_fmpActualizarApurarTotal(event)" style="width:15px;height:15px;cursor:pointer;">'
+      html+='<label for="'+checkId+'" style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:'+(_fmpSel.has(p.id)?'rgba(34,197,94,.10)':(otroPlan?'rgba(168,85,247,.06)':'var(--bg3)'))+';border-radius:var(--r);font-size:12px;flex-wrap:wrap;cursor:pointer;'+(otroPlan?'border:1px solid #a855f7;':'')+'">'
+        +'<input type="checkbox" id="'+checkId+'" '+(_fmpSel.has(p.id)?'checked':'')+' onchange="_fmpToggleSel('+p.id+')" style="width:15px;height:15px;cursor:pointer;">'
         +'<span style="font-family:monospace;font-weight:700;color:var(--accent);min-width:90px;">'+p.numero_pedido+'</span>'
         +'<span style="font-weight:600;flex:1;min-width:120px;">'+p._cobro.cliente
           +(esHibrFila?' <span style="background:rgba(245,158,11,.15);color:var(--amber);border:1px solid var(--amber);font-size:9px;font-weight:700;padding:1px 5px;border-radius:99px;margin-left:4px;">🔀 Híbrido</span>':'')
@@ -19334,41 +19800,20 @@ function _generarPasosAutomaticos(kgComp,precio,fechaComp,totalCompra){
   pasos.push({id:'p'+orden,orden:orden++,tipo:'compra',
     texto:'Comprar '+r1(kgComp).toLocaleString('es-AR')+' kg de MP a $'+r2(precio).toLocaleString('es-AR')+'/kg ($'+r2(totalCompra).toLocaleString('es-AR')+')',
     monto:totalCompra,estado:'pendiente',manual:false});
-  // Pasos de cobro
-  const hoy=new Date();hoy.setHours(0,0,0,0);
+  // Pasos de cobro = los pedidos que vos seleccionaste (de cualquier fecha)
   const fComp=new Date(fechaComp+'T00:00:00');
   const estadosOk=['Pendiente','Confirmado','En producción','En proceso','Parcial','Cobrado parcial'];
-  let cobranAntes=0;
-  C.pedidos.filter(p=>estadosOk.includes(p.estado)&&!p.es_historico).forEach(p=>{
-    const cobro=_calcularCobroPedido(p);
-    if(cobro.pendiente<=0.01)return;
-    if(cobro.fechaCobro<=fComp){
-      // Cobro que entra a tiempo
+  C.pedidos.filter(p=>!p.es_historico&&(estadosOk.includes(p.estado)||(p.estado==='Borrador'&&_esBorradorHibrido(p)))&&_fmpSel.has(p.id))
+    .map(p=>({p,cobro:_calcularCobroPedido(p)}))
+    .filter(x=>x.cobro.pendiente>0.01)
+    .sort((a,b)=>a.cobro.fechaCobro-b.cobro.fechaCobro)
+    .forEach(({p,cobro})=>{
+      const apura=cobro.fechaCobro>fComp; // lo cobrás después de la compra: lo estás apurando
       pasos.push({id:'p'+orden,orden:orden++,tipo:'cobro',
-        texto:'Cobrar '+(p.numero_pedido||'pedido')+' — '+(cobro.cliente||'cliente'),
+        texto:(apura?'⚡ APURAR ':'Cobrar ')+(p.numero_pedido||'pedido')+' — '+(cobro.cliente||'cliente'),
         monto:cobro.pendiente,fecha:_fechaISO(cobro.fechaCobro),estado:'pendiente',manual:false,
-        ref_pedido:p.id});
-      cobranAntes+=cobro.pendiente;
-    }
-  });
-  // Pedidos A APURAR: solo los NECESARIOS para cubrir el faltante.
-  // Se acumulan en orden (el que cobra antes primero) y se corta al llegar al faltante.
-  const faltante=totalCompra-cobranAntes;
-  if(faltante>0){
-    const aApurar=C.pedidos.filter(p=>estadosOk.includes(p.estado)&&!p.es_historico)
-      .map(p=>({p,cobro:_calcularCobroPedido(p)}))
-      .filter(x=>x.cobro.pendiente>0.01&&x.cobro.fechaCobro>fComp)
-      .sort((a,b)=>a.cobro.fechaCobro-b.cobro.fechaCobro);
-    let acum=0;
-    for(const x of aApurar){
-      if(acum>=faltante)break;   // ya se cubre el faltante, no hace falta apurar más
-      pasos.push({id:'p'+orden,orden:orden++,tipo:'cobro',
-        texto:'⚡ APURAR '+(x.p.numero_pedido||'pedido')+' — '+(x.cobro.cliente||'cliente'),
-        monto:x.cobro.pendiente,fecha:_fechaISO(x.cobro.fechaCobro),estado:'pendiente',manual:false,
-        ref_pedido:x.p.id,apurar:true});
-      acum+=x.cobro.pendiente;
-    }
-  }
+        ref_pedido:p.id,apurar:apura});
+    });
   return pasos;
 }
 
@@ -23464,10 +23909,11 @@ function gcdNext(){gcdDate=addDays(gcdDate,1);renderGanttCorteDiario();}
 // puedeArrancar: true si la OC ya puede empezar a cortar sin riesgo de quedarse sin material.
 function _dependenciaMaterialOC(oc){
   if(!oc)return {tiene:false};
-  const oeId=oc.orden_extrusion_id;
-  if(!oeId)return {tiene:false,estado:'sin_oe',txt:'Sin OE asignada',color:'var(--text3)'};
-  const oe=C.ordenes.find(x=>x.id===oeId);
-  if(!oe)return {tiene:false,estado:'sin_oe',txt:'OE no encontrada',color:'var(--text3)'};
+  // Vínculo unificado OE↔OC: orden_extrusion_id (nuevo) o oe.orden_corte_origen_id (legacy).
+  // Antes solo se miraba el campo nuevo → las OC legacy quedaban sin restricción de material.
+  const oe=_balOEdeOC(oc);
+  if(!oe)return {tiene:false,estado:'sin_oe',txt:'Sin OE asignada',color:'var(--text3)'};
+  const oeId=oe.id;
 
   // ── Análisis de velocidad: ¿la OE produce igual o más rápido que lo que la OC consume? ──
   // Velocidad OE en metros/hora: (suma kg/h de sus extrusoras) / (kg por metro de la bobina)
@@ -23497,20 +23943,36 @@ function _dependenciaMaterialOC(oc){
     });
   });
 
-  let mtsPropias=0,mtsPropiasRobadas=0;
+  let mtsPropias=0,mtsPropiasRobadas=0,mtsReservadas=0;
   C.bobinas_prod.forEach(b=>{
-    if(b.orden_id!==oeId)return;
     if(b.estado_calidad==='rechazada')return;
+    const mts=parseFloat(b.metros_reales)||0;
     const ocAsociadaId=idxAsoc[b.id];
-    if(ocAsociadaId){
-      if(ocAsociadaId===oc.id)return;       // asociada a ESTA OC → ya reservada acá
-      mtsPropiasRobadas+=parseFloat(b.metros_reales)||0;  // asociada a OTRA OC → robada
-      return;
+    if(b.orden_id===oeId){
+      // ── Bobina producida por LA OE de esta OC ──
+      if(ocAsociadaId){
+        if(ocAsociadaId===oc.id)return;     // ya consumida por ESTA OC → es avance, no disponible
+        mtsPropiasRobadas+=mts;             // consumida por OTRA OC → robada
+        return;
+      }
+      // Reservada (sin consumir) a OTRA OC vía reservada_oc_id → comprometida afuera, también "robada"
+      if(b.reservada_oc_id&&b.reservada_oc_id!==oc.id){
+        mtsPropiasRobadas+=mts;
+        return;
+      }
+      if(b.en_stock===false)return;         // sin asociar pero fuera de stock
+      mtsPropias+=mts;                      // libre, o reservada a esta misma OC
+    } else {
+      // ── Bobina de OTRA OE reservada explícitamente a esta OC (vía Balance) ──
+      if(b.reservada_oc_id!==oc.id)return;
+      if(ocAsociadaId)return;               // ya consumida
+      if(b.en_stock===false)return;
+      mtsReservadas+=mts;
     }
-    if(b.en_stock===false)return;           // sin asociar pero fuera de stock
-    mtsPropias+=parseFloat(b.metros_reales)||0;
   });
   const mtsNec=oc.metros_necesarios||0;
+  // Material total disponible HOY para esta OC = propias de su OE + reservadas desde otras OEs
+  const mtsDisponibles=mtsPropias+mtsReservadas;
 
   // Aviso de "bobinas robadas": propias que están asociadas a otras OC.
   // En estos casos hace falta volver a asociar bobinas o buscar otra OE.
@@ -23519,25 +23981,25 @@ function _dependenciaMaterialOC(oc){
     :'';
 
   if(oe.estado==='Completada'){
-    return {tiene:true,oe,estado:'oe_lista',puedeArrancar:mtsPropias>=mtsNec,velOK,velOEmh,velOCmh,
-      mtsPropias,mtsPropiasRobadas,mtsNec,avisoRobadas,
-      txt:mtsPropias>=mtsNec?'Material completo · '+oe.numero_orden:'⚠ Material insuficiente · '+oe.numero_orden,
-      color:mtsPropias>=mtsNec?'var(--green)':'var(--red)'};
+    return {tiene:true,oe,estado:'oe_lista',puedeArrancar:mtsDisponibles>=mtsNec,velOK,velOEmh,velOCmh,
+      mtsPropias,mtsPropiasRobadas,mtsReservadas,mtsDisponibles,mtsNec,avisoRobadas,
+      txt:mtsDisponibles>=mtsNec?'Material completo · '+oe.numero_orden:'⚠ Material insuficiente · '+oe.numero_orden,
+      color:mtsDisponibles>=mtsNec?'var(--green)':'var(--red)'};
   }
 
-  // ¿Ya puede arrancar a cortar con bobinas propias?
+  // ¿Ya puede arrancar a cortar con el material disponible (propio + reservado)?
   // Caso A: la OE le gana en velocidad → apenas tenga algo de adelanto, puede arrancar.
-  // Caso B: la OE es más lenta → necesita haber producido ya todo lo que la OC necesita.
+  // Caso B: la OE es más lenta → necesita tener ya disponible todo lo que la OC necesita.
   let puedeArrancar=false;
   if(velOK){
-    puedeArrancar=mtsPropias>0;            // OE más rápida: con cualquier adelanto alcanza
+    puedeArrancar=mtsDisponibles>0;        // OE más rápida: con cualquier adelanto alcanza
   } else {
-    puedeArrancar=mtsNec>0&&mtsPropias>=mtsNec;  // OE más lenta: necesita el material completo
+    puedeArrancar=mtsNec>0&&mtsDisponibles>=mtsNec;  // OE más lenta: necesita el material completo
   }
 
   if(oe.estado==='En proceso'){
     return {tiene:true,oe,estado:'en_curso',puedeArrancar,velOK,velOEmh,velOCmh,
-      mtsPropias,mtsPropiasRobadas,mtsNec,avisoRobadas,
+      mtsPropias,mtsPropiasRobadas,mtsReservadas,mtsDisponibles,mtsNec,avisoRobadas,
       txt:puedeArrancar
         ?'Ya podés cortar · '+oe.numero_orden
         :'Material en producción · '+oe.numero_orden,
@@ -23545,7 +24007,7 @@ function _dependenciaMaterialOC(oc){
   }
   // OE Pendiente
   return {tiene:true,oe,estado:'esperando',puedeArrancar,velOK,velOEmh,velOCmh,
-    mtsPropias,mtsPropiasRobadas,mtsNec,avisoRobadas,
+    mtsPropias,mtsPropiasRobadas,mtsReservadas,mtsDisponibles,mtsNec,avisoRobadas,
     txt:'Espera material de '+oe.numero_orden,color:'var(--amber)'};
 }
 
@@ -23589,14 +24051,59 @@ function fechaEntregaPedido(pedidoId,schedCorte){
   return {tandas,fechaEntregaFinal};
 }
 
+// Metros de bobina disponibles HOY para una OC (sin contar lo ya consumido por ella):
+// propias de su OE (libres o reservadas a esta OC) + reservadas desde otras OEs vía Balance.
+// Mismas reglas de material que _dependenciaMaterialOC — si cambiás una, cambiá la otra.
+// idxAsoc: índice bobina_producida_id → oc_id armado desde orden_corte_bobinas (consumos).
+function _mtsDisponiblesParaOC(oc,oe,idxAsoc){
+  const oeId=oe?oe.id:null;
+  let disp=0;
+  (C.bobinas_prod||[]).forEach(b=>{
+    if(b.estado_calidad==='rechazada')return;
+    if(idxAsoc[b.id])return;                          // ya consumida por alguna OC
+    if(b.en_stock===false)return;
+    if(b.reservada_oc_id&&b.reservada_oc_id!==oc.id)return;  // comprometida a otra OC
+    const esPropia=oeId&&b.orden_id===oeId;
+    const reservadaAca=b.reservada_oc_id===oc.id;
+    if(esPropia||reservadaAca)disp+=parseFloat(b.metros_reales)||0;
+  });
+  return disp;
+}
+
+// Busca el primer instante ≥ E donde TODAS las máquinas indicadas tienen un hueco
+// contiguo de `hs` horas laborales de corte. Es el corazón del BACKFILLING:
+// las OCs ya no esperan "detrás de" las anteriores — aprovechan los huecos que
+// dejan las órdenes frenadas por material, maximizando la capacidad de corte.
+function _slotComunCorte(maqIds,E,hs,busy){
+  let t=ajustarAJornada(new Date(E),'corte');
+  let guard=0;
+  while(guard++<500){
+    const fin=sumarHsLaborales(t,r2(hs),'corte');
+    let choque=null;
+    maqIds.forEach(id=>{
+      (busy[id]||[]).forEach(iv=>{
+        if(iv.fin>t&&iv.ini<fin){if(!choque||iv.fin>choque)choque=iv.fin;}
+      });
+    });
+    if(!choque)return t;
+    t=ajustarAJornada(new Date(choque),'corte');
+  }
+  return t;
+}
+function _insertarIntervalo(lista,iv){
+  lista.push(iv);
+  lista.sort((a,b)=>a.ini-b.ini);
+}
+
 function calcScheduleCorteReal(){
   const ahora=new Date();
   // El schedule real de extrusión nos dice cuándo termina realmente cada OE (con sus atrasos)
   const schedOEReal=(typeof calcScheduleReal==='function')?calcScheduleReal():{};
 
-  const cursor={};C.maq_corte.forEach(m=>{cursor[m.id]=null;});
+  // busy[maquina_id] = intervalos {ini,fin} realmente ocupados (no un cursor secuencial)
+  const busy={};C.maq_corte.forEach(m=>{busy[m.id]=[];});
 
-  // Paso 1: cursor por máquina = fin real de las OC completadas
+  // Paso 1: las OC completadas con fin proyectado a futuro ocupan su tramo de máquina
   const completadas=C.ord_corte.filter(o=>o.estado==='Completada')
     .sort(ordenCola);
   completadas.forEach(o=>{
@@ -23604,21 +24111,30 @@ function calcScheduleCorteReal(){
     const capT=o.orden_corte_maquinas.reduce((s,om)=>s+(om.maquinas_corte?.bolsas_por_hora||0),0);
     if(capT===0)return;
     // Una OC completada SIN fecha de inicio conocida ya ocurrió en el pasado:
-    // no debe empujar el cursor de la máquina hacia el futuro (si no, bloquea el día de hoy).
+    // no debe ocupar la máquina hacia el futuro (si no, bloquea el día de hoy).
     if(!o.fecha_inicio_ref)return;
     const hs=r2((o.unidades_a_producir||0)/capT);
     const ref=new Date(o.fecha_inicio_ref+'T00:00:00');
     const fin=sumarHsLaborales(ajustarAJornada(ref,'corte'),hs,'corte');
-    // Además: si el fin calculado cae en el pasado, no tiene sentido que mueva
-    // el cursor (la máquina ya está libre). Solo cuenta si el fin es futuro.
+    // Si el fin calculado cae en el pasado, la máquina ya está libre.
     const ahoraRef=new Date();
     if(fin<ahoraRef)return;
-    o.orden_corte_maquinas.forEach(om=>{if(!cursor[om.maquina_id]||fin>cursor[om.maquina_id])cursor[om.maquina_id]=new Date(fin);});
+    o.orden_corte_maquinas.forEach(om=>{
+      if(busy[om.maquina_id])_insertarIntervalo(busy[om.maquina_id],{ini:new Date(ahoraRef),fin:new Date(fin)});
+    });
   });
 
   // Paso 2: programar órdenes activas usando cursores reales + avance real por bobinas consumidas
   const activas=C.ord_corte.filter(o=>o.estado!=='Completada'&&o.estado!=='Suspendida'&&o.estado!=='Cancelada')
     .sort(ordenCola);
+
+  // Índice global de consumos: bobina_producida_id → oc_id (se arma UNA vez, lo usan todas las OCs)
+  const idxAsoc={};
+  (C.ord_corte||[]).forEach(o=>{
+    (o.orden_corte_bobinas||[]).forEach(x=>{
+      if(x.bobina_producida_id!=null)idxAsoc[x.bobina_producida_id]=o.id;
+    });
+  });
 
   const sched={};
   activas.forEach(o=>{
@@ -23641,47 +24157,42 @@ function calcScheduleCorteReal(){
     const unidadesRestantes=Math.max(0,uniTotal-unidadesHechas);
     const hsRestantes=unidadesRestantes/capT;
 
-    // ── Inicio: máximo cursor entre las máquinas asignadas ──
-    let iniMax=null;
-    o.orden_corte_maquinas.forEach(om=>{
-      let cur=cursor[om.maquina_id];
-      if(!cur){
-        const ref=o.fecha_inicio_ref?new Date(o.fecha_inicio_ref+'T00:00:00'):ahora;
-        cur=ajustarAJornada(ref<ahora?(o.estado==='En proceso'?ahora:ahora):ref,'corte');
-      }
-      if(!iniMax||cur>iniMax)iniMax=new Date(cur);
-    });
-    let ini=iniMax||ajustarAJornada(ahora,'corte');
+    // ── Inicio: primer HUECO común en sus máquinas (backfilling) ──
+    const maqIds=o.orden_corte_maquinas.map(om=>om.maquina_id);
+    const ref=o.fecha_inicio_ref?new Date(o.fecha_inicio_ref+'T00:00:00'):null;
+    const E0=ajustarAJornada(ref&&ref>ahora?ref:ahora,'corte');
+    // iniLibre: cuándo arrancaría según disponibilidad de máquina, SIN mirar material
+    const iniLibre=_slotComunCorte(maqIds,E0,hsRestantes,busy);
+    let ini=new Date(iniLibre);
 
-    // ── Restricción de material: la OC no puede terminar antes que su OE asociada ──
-    // Usa el schedule REAL de extrusión, así los atrasos de la OE se propagan a la OC.
-    // El cálculo se hace en HORAS LABORALES (no calendario): se proyecta el fin de
-    // la OC con su duración laboral; si ese fin caería antes del fin de la OE,
-    // se atrasa el inicio lo necesario para que termine justo cuando la OE libera material.
-    const oeId=o.orden_extrusion_id;
-    if(oeId){
-      const oe=C.ordenes.find(x=>x.id===oeId);
-      if(oe&&oe.estado!=='Completada'){
-        const segOE=schedOEReal[oeId];
+    // ── Restricción de material como COTA INFERIOR del inicio ──
+    // Vínculo unificado (orden_extrusion_id nuevo o orden_corte_origen_id legacy).
+    // Si el material que falta no está disponible, la OC no puede terminar antes
+    // que su OE: eso equivale a ini ≥ finOE − hsRestantes (en horas laborales).
+    // Con esa cota se busca OTRO hueco — y el hueco que esta OC deja libre
+    // queda disponible para las siguientes (eso es el backfilling).
+    const oeVinc=_balOEdeOC(o);
+    let frenoMaterial=false,mtsDispAhora=null,mtsRestantes=null;
+    if(oeVinc&&oeVinc.estado!=='Completada'){
+      mtsRestantes=Math.max(0,mtsNec-mtsConsumidos);
+      mtsDispAhora=_mtsDisponiblesParaOC(o,oeVinc,idxAsoc);
+      if(mtsDispAhora<mtsRestantes-0.01){
+        const segOE=schedOEReal[oeVinc.id];
         if(segOE&&segOE.fin){
-          // El fin de la OE puede venir en cualquier instante; lo llevamos a jornada
-          // de corte para razonar en horas de trabajo válidas.
           const finOE=ajustarAJornada(new Date(segOE.fin),'corte');
-          // La OC no puede arrancar antes de que la OE arranque a producir
+          let Emat=restarHsLaborales(finOE,r2(hsRestantes),'corte');
           if(segOE.ini){
             const iniOE=ajustarAJornada(new Date(segOE.ini),'corte');
-            if(iniOE>ini)ini=iniOE;
+            if(iniOE>Emat)Emat=iniOE;
           }
-          // Proyectar el fin de la OC desde el inicio actual (en horas laborales)
-          const finOCproyectado=sumarHsLaborales(ini,r2(hsRestantes),'corte');
-          // Si la OC terminaría ANTES de que la OE termine → atrasar el inicio.
-          if(finOCproyectado<finOE){
-            const hsAtraso=hsLaboralesEntre(finOCproyectado,finOE,'corte');
-            ini=sumarHsLaborales(ini,hsAtraso,'corte');
+          if(Emat>E0){
+            ini=_slotComunCorte(maqIds,ajustarAJornada(new Date(Emat),'corte'),hsRestantes,busy);
           }
         }
       }
+      // Si mtsDispAhora >= mtsRestantes: material completo en stock → sin restricción de OE.
     }
+    if(ini>iniLibre)frenoMaterial=true;
 
     // El inicio siempre debe caer dentro de la jornada de corte
     ini=ajustarAJornada(ini,'corte');
@@ -23690,12 +24201,1258 @@ function calcScheduleCorteReal(){
       ini,fin,hs:r2(hsRestantes),
       pctAvance:uniTotal?Math.round(unidadesHechas/uniTotal*100):0,
       mtsConsumidos:r1(mtsConsumidos),
-      mtsNecesarios:mtsNec
+      mtsNecesarios:mtsNec,
+      // Diagnóstico del lanzamiento (para el Gantt combinado y la Torre de Control):
+      // iniLibre: cuándo arrancaría según cola de máquina, sin restricción de material.
+      // frenoMaterial: true si lo que define el inicio es la espera de material de la OE.
+      iniLibre,frenoMaterial,
+      oeVincId:oeVinc?oeVinc.id:null,
+      mtsDispAhora,mtsRestantes
     };
-    o.orden_corte_maquinas.forEach(om=>{cursor[om.maquina_id]=new Date(fin);});
+    maqIds.forEach(id=>{
+      if(busy[id])_insertarIntervalo(busy[id],{ini:new Date(ini),fin:new Date(fin)});
+    });
   });
   return sched;
 }
+// ===== PROMESA ASISTIDA (what-if al crear pedido) =====
+// Simula insertar las líneas del pedido en la cola REAL de hoy y propone fecha de entrega.
+// Reusa el dimensionamiento del circuito pedido→OC→OE:
+//   unidades = paquetes × u/paq · metros = unidades × m/bolsa × (1+merma%) · kg = metros × kg/m bobina
+// Descuenta stock de bolsas terminadas (estado 'disponible') y bobinas libres compatibles.
+// Cada línea hipotética toma la extrusora y cortadora que antes se liberen, con alineación
+// JIT de material (misma física que calcScheduleCorteReal). Es una foto de la cola de HOY.
+function simularPromesaPedido(){
+  const ahora=new Date();
+  const bufferDias=cfg.buffer_entrega_dias||1;
+  const schedOE=calcScheduleReal();
+  const schedOC=calcScheduleCorteReal();
+
+  // ── Cursores de liberación de máquinas según la cola actual ──
+  const libreExt={},libreCorte={};
+  (C.extrusoras||[]).forEach(e=>{libreExt[e.id]=new Date(ahora);});
+  (C.maq_corte||[]).forEach(m=>{libreCorte[m.id]=new Date(ahora);});
+  (C.ordenes||[]).forEach(o=>{
+    const seg=schedOE[o.id];if(!seg||!seg.fin)return;
+    (o.orden_extrusoras||[]).forEach(x=>{
+      const id=x.extrusora_id;
+      if(libreExt[id]!=null&&seg.fin>libreExt[id])libreExt[id]=new Date(seg.fin);
+    });
+  });
+  (C.ord_corte||[]).forEach(o=>{
+    const seg=schedOC[o.id];if(!seg||!seg.fin)return;
+    (o.orden_corte_maquinas||[]).forEach(x=>{
+      const id=x.maquina_id;
+      if(libreCorte[id]!=null&&seg.fin>libreCorte[id])libreCorte[id]=new Date(seg.fin);
+    });
+  });
+
+  // ── Pool de bobinas libres por tipo (sin consumir, sin reservar, en stock) ──
+  const idxAsoc={};
+  (C.ord_corte||[]).forEach(o=>(o.orden_corte_bobinas||[]).forEach(x=>{
+    if(x.bobina_producida_id!=null)idxAsoc[x.bobina_producida_id]=o.id;
+  }));
+  const poolBobinas={};  // bobina_id (tipo) → metros libres
+  (C.bobinas_prod||[]).forEach(b=>{
+    if(b.estado_calidad==='rechazada')return;
+    if(idxAsoc[b.id])return;
+    if(b.en_stock===false)return;
+    if(b.reservada_oc_id)return;
+    const oe=C.ordenes.find(x=>x.id===b.orden_id);
+    const tipo=oe?.bobina_id;if(!tipo)return;
+    poolBobinas[tipo]=(poolBobinas[tipo]||0)+(parseFloat(b.metros_reales)||0);
+  });
+
+  // ── Simular línea por línea (consumiendo cursores y pools) ──
+  const lineas=(_pedLineas||[]).filter(l=>l.producto_id&&l.cantidad>0);
+  if(!lineas.length)return {ok:false,motivo:'Agregá al menos una línea con producto y cantidad.'};
+
+  const detalle=[];let entregaFinal=null;
+  const poolStockBolsas={};  // producto_id → paq disponibles (se consume entre líneas)
+
+  for(const l of lineas){
+    const prod=C.productos.find(p=>p.id===l.producto_id);
+    const r={producto:prod?(prod.codigo+' · '+prod.descripcion):'#'+l.producto_id,paq:l.cantidad,avisos:[]};
+    detalle.push(r);
+    if(!prod){r.avisos.push('Producto no encontrado');continue;}
+    const emp=C.emp.find(e=>e.id===prod.empaque_id);
+    const uniPaq=emp?.unidades||0;
+    if(!uniPaq){r.avisos.push('Sin empaque definido — no se puede dimensionar');continue;}
+    if(!prod.metros_por_bolsa){r.avisos.push('Sin metros/bolsa definidos');continue;}
+
+    // Stock de bolsas terminadas disponible (compartido entre líneas del mismo producto)
+    if(poolStockBolsas[prod.id]==null){
+      poolStockBolsas[prod.id]=(C.stock_bolsas||[])
+        .filter(s=>s.producto_id===prod.id&&s.estado==='disponible')
+        .reduce((s,x)=>s+(parseFloat(x.cantidad_paquetes)||0),0);
+    }
+    const paqDeStock=Math.min(l.cantidad,poolStockBolsas[prod.id]);
+    poolStockBolsas[prod.id]-=paqDeStock;
+    const paqAProducir=l.cantidad-paqDeStock;
+    r.paqDeStock=paqDeStock;r.paqAProducir=paqAProducir;
+
+    if(paqAProducir<=0){
+      // Todo sale de stock terminado: solo despacho + buffer
+      r.entrega=sumarDiasHabiles(new Date(ahora),bufferDias,cfg.corte_dias);
+      r.soloStock=true;
+      if(!entregaFinal||r.entrega>entregaFinal)entregaFinal=r.entrega;
+      continue;
+    }
+
+    const merma=prod.merma_pct||5;
+    const unidades=paqAProducir*uniPaq;
+    const mtsNec=r2(unidades*prod.metros_por_bolsa*(1+merma/100));
+    r.unidades=unidades;r.mtsNec=mtsNec;
+
+    // Bobinas libres compatibles reducen lo que hay que extrudir
+    let mtsDeBobinas=0;
+    if(prod.bobina_id&&poolBobinas[prod.bobina_id]>0){
+      mtsDeBobinas=Math.min(mtsNec,poolBobinas[prod.bobina_id]);
+      poolBobinas[prod.bobina_id]-=mtsDeBobinas;
+    }
+    const mtsAExtrudir=r2(Math.max(0,mtsNec-mtsDeBobinas));
+    r.mtsDeBobinas=r1(mtsDeBobinas);r.mtsAExtrudir=mtsAExtrudir;
+
+    // ── OE hipotética (si hace falta extrudir) ──
+    let finOE=null,iniOE=null;
+    if(mtsAExtrudir>0){
+      const bobina=C.bobinas.find(b=>b.id===prod.bobina_id);
+      const kgPorMt=bobina?.kg_por_metro||(bobina?.gramaje?bobina.gramaje/1000:0);
+      if(!prod.bobina_id||!kgPorMt){r.avisos.push('Producto sin bobina o bobina sin kg/m — no se puede simular extrusión');continue;}
+      const kg=r2(mtsAExtrudir*kgPorMt);r.kg=kg;
+      // Extrusora que antes se libere
+      let extId=null,extLibre=null;
+      (C.extrusoras||[]).forEach(e=>{
+        if(!e.kg_por_hora)return;
+        if(extLibre===null||libreExt[e.id]<extLibre){extLibre=libreExt[e.id];extId=e.id;}
+      });
+      if(extId===null){r.avisos.push('No hay extrusoras con kg/h definidos');continue;}
+      const velE=C.extrusoras.find(e=>e.id===extId).kg_por_hora;
+      const hsOE=r2(kg/velE);
+      iniOE=ajustarAJornada(new Date(Math.max(ahora,extLibre)),'extrusion');
+      finOE=sumarHsLaborales(iniOE,hsOE,'extrusion');
+      libreExt[extId]=new Date(finOE);  // la línea siguiente espera detrás
+      r.extrusora=extId;r.hsOE=hsOE;r.finOE=finOE;
+    }
+
+    // ── OC hipotética ──
+    let cortId=null,cortLibre=null;
+    (C.maq_corte||[]).forEach(m=>{
+      if(!m.bolsas_por_hora)return;
+      if(cortLibre===null||libreCorte[m.id]<cortLibre){cortLibre=libreCorte[m.id];cortId=m.id;}
+    });
+    if(cortId===null){r.avisos.push('No hay cortadoras con bolsas/h definidas');continue;}
+    const velC=C.maq_corte.find(m=>m.id===cortId).bolsas_por_hora;
+    const hsOC=r2(unidades/velC);
+    let iniOC=ajustarAJornada(new Date(Math.max(ahora,cortLibre)),'corte');
+    // Alineación JIT con la OE hipotética (misma regla que el motor real)
+    if(finOE){
+      const finOEadj=ajustarAJornada(new Date(finOE),'corte');
+      const iniOEadj=ajustarAJornada(new Date(iniOE),'corte');
+      if(iniOEadj>iniOC)iniOC=iniOEadj;
+      const finOCproj=sumarHsLaborales(iniOC,hsOC,'corte');
+      if(finOCproj<finOEadj){
+        iniOC=sumarHsLaborales(iniOC,hsLaboralesEntre(finOCproj,finOEadj,'corte'),'corte');
+      }
+    }
+    iniOC=ajustarAJornada(iniOC,'corte');
+    const finOC=sumarHsLaborales(iniOC,hsOC,'corte');
+    libreCorte[cortId]=new Date(finOC);
+    r.cortadora=cortId;r.hsOC=hsOC;r.finOC=finOC;
+    r.entrega=sumarDiasHabiles(new Date(finOC),bufferDias,cfg.corte_dias);
+    if(!entregaFinal||r.entrega>entregaFinal)entregaFinal=r.entrega;
+  }
+
+  return {ok:true,detalle,entregaFinal,bufferDias};
+}
+
+function npSugerirPromesa(pfx){
+  const panel=document.getElementById(pfx+'-promesa-panel');
+  if(!panel)return;
+  const sim=simularPromesaPedido();
+  if(!sim.ok){
+    panel.innerHTML='<div style="background:var(--amberbg,rgba(245,158,11,.08));border:1px solid var(--amber);border-radius:var(--r);padding:8px 12px;font-size:12px;color:var(--amber);margin-top:8px;">📅 '+escapeHtml(sim.motivo)+'</div>';
+    return;
+  }
+  const fd=d=>d?d.toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'}):'—';
+  const filas=sim.detalle.map(r=>{
+    let info;
+    if(r.avisos.length)info='<span style="color:var(--red);">⚠ '+escapeHtml(r.avisos.join(' · '))+'</span>';
+    else if(r.soloStock)info='<span style="color:var(--green);">📦 Sale todo de stock ('+r.paqDeStock+' paq) → <strong>'+fd(r.entrega)+'</strong></span>';
+    else {
+      const partes=[];
+      if(r.paqDeStock>0)partes.push('📦 '+r.paqDeStock+' paq de stock');
+      if(r.mtsDeBobinas>0)partes.push('🧵 '+r.mtsDeBobinas.toLocaleString('es-AR')+' m de bobinas libres');
+      if(r.mtsAExtrudir>0)partes.push('🏭 extrusión hasta '+fd(r.finOE));
+      partes.push('✂️ corte hasta '+fd(r.finOC));
+      info=partes.join(' · ')+' → <strong>'+fd(r.entrega)+'</strong>';
+    }
+    return '<div style="font-size:11.5px;color:var(--text2);padding:3px 0;border-bottom:1px dashed var(--border);">'
+      +'<strong style="color:var(--text1);">'+escapeHtml(r.producto)+'</strong> ('+r.paq+' paq)<br>'+info+'</div>';
+  }).join('');
+  const tieneProblemas=sim.detalle.some(r=>r.avisos.length);
+  const fechaStr=sim.entregaFinal?localDate(sim.entregaFinal):null;
+  panel.innerHTML='<div style="background:var(--bg3);border:1px solid var(--accent);border-radius:var(--rl);padding:10px 14px;margin-top:8px;">'
+    +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">'
+      +'<span style="font-size:13px;font-weight:700;color:var(--text1);">📅 Con la cola de hoy podrías entregar el '
+        +(sim.entregaFinal?'<span style="color:var(--accent);">'+sim.entregaFinal.toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'2-digit'})+'</span>':'—')+'</span>'
+      +(fechaStr&&!tieneProblemas?'<button class="btn btn-sm btn-primary" onclick="npUsarPromesa(\''+pfx+'\',\''+fechaStr+'\')">✓ Usar esta fecha</button>':'')
+      +'<button class="btn btn-sm" onclick="npSugerirPromesa(\''+pfx+'\')">🔄</button>'
+      +'<button class="btn btn-sm" onclick="document.getElementById(\''+pfx+'-promesa-panel\').innerHTML=\'\'">✕</button>'
+    +'</div>'
+    +filas
+    +'<div style="font-size:10px;color:var(--text3);margin-top:6px;">Simulación con la cola de producción actual (cada línea toma la extrusora y cortadora que antes se liberen, descontando stock terminado y bobinas libres) + '+sim.bufferDias+' día'+(sim.bufferDias===1?'':'s')+' hábil'+(sim.bufferDias===1?'':'es')+' de despacho. No reserva capacidad: si entran pedidos con más prioridad, la fecha puede correrse.</div>'
+  +'</div>';
+}
+
+function npUsarPromesa(pfx,fecha){
+  const inp=document.getElementById(pfx+'-entrega');
+  if(inp){
+    inp.value=fecha;
+    inp.dispatchEvent(new Event('change',{bubbles:true}));
+  }
+  const panel=document.getElementById(pfx+'-promesa-panel');
+  if(panel)panel.innerHTML='<div style="font-size:12px;color:var(--green);padding:6px 0;">✓ Fecha de entrega cargada: '+new Date(fecha+'T12:00:00').toLocaleDateString('es-AR')+'</div>';
+}
+
+// ===== TORRE DE CONTROL DE ENTREGAS =====
+// Responde la Pregunta 3 por pedido: promesa vs estimado, semáforo y DIAGNÓSTICO
+// (qué frena la entrega: sin OC, sin máquina, material de la OE, bobinas robadas, cola de corte).
+// Reusa el motor instrumentado de calcScheduleCorteReal + _dependenciaMaterialOC.
+
+// Severidad de diagnóstico (mayor = peor). El motivo principal del pedido es el peor de sus tandas.
+const _TCE_SEV={sin_oc:6,sin_maquina:5,robadas:4,material:3,cola:2,cortando:1,lista:0};
+
+// Diagnóstico de una tanda (OC). Devuelve {clave, sev, icono, txt, finCorte, entrega}
+function _tceDiagnosticoTanda(oc,seg,bufferDias){
+  if(!oc)return {clave:'sin_oc',sev:_TCE_SEV.sin_oc,icono:'📝',txt:'Sin OC generada'};
+  if(oc.estado==='Completada'){
+    const finC=oc.fecha_completada?new Date(oc.fecha_completada):null;
+    return {clave:'lista',sev:_TCE_SEV.lista,icono:'✅',txt:'Corte terminado',
+      finCorte:finC,entrega:finC?sumarDiasHabiles(new Date(finC),bufferDias,cfg.corte_dias):null};
+  }
+  if(!seg)return {clave:'sin_maquina',sev:_TCE_SEV.sin_maquina,icono:'⚠',txt:'Sin máquina/capacidad asignada'};
+  const finCorte=seg.fin?new Date(seg.fin):null;
+  const entrega=finCorte?sumarDiasHabiles(new Date(finCorte),bufferDias,cfg.corte_dias):null;
+  const dep=_dependenciaMaterialOC(oc);
+  if(dep.tiene&&dep.mtsPropiasRobadas>0&&!dep.puedeArrancar){
+    return {clave:'robadas',sev:_TCE_SEV.robadas,icono:'🚨',
+      txt:'Bobinas robadas: '+r1(dep.mtsPropiasRobadas).toLocaleString('es-AR')+' m de '+(dep.oe?.numero_orden||'su OE')+' en otra OC',
+      finCorte,entrega};
+  }
+  if(seg.frenoMaterial){
+    const oe=dep.oe;
+    return {clave:'material',sev:_TCE_SEV.material,icono:'🟠',
+      txt:'Espera material de '+(oe?.numero_orden||'su OE')
+        +(seg.mtsRestantes!=null?' ('+r1(seg.mtsDispAhora||0).toLocaleString('es-AR')+' / '+r1(seg.mtsRestantes).toLocaleString('es-AR')+' m)':''),
+      finCorte,entrega};
+  }
+  if(oc.estado==='En proceso')return {clave:'cortando',sev:_TCE_SEV.cortando,icono:'✂️',txt:'Cortando ('+(seg.pctAvance||0)+'%)',finCorte,entrega};
+  const ahora=new Date();
+  if((seg.ini-ahora)>2*3600000)return {clave:'cola',sev:_TCE_SEV.cola,icono:'🔵',txt:'En cola de corte (arranca '+seg.ini.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})+')',finCorte,entrega};
+  return {clave:'cortando',sev:_TCE_SEV.cortando,icono:'🟢',txt:'Lanzable ya',finCorte,entrega};
+}
+
+function torreVerEnGantt(cliente){
+  go('gantt-combinado');
+  const sel=document.getElementById('gcb-cliente');
+  if(sel&&cliente!=null){sel.value=cliente;renderGanttCombinado();}
+}
+// Saltar al Gantt en modo máquina con la cadena de esta OC enfocada (panel incluido)
+function torreVerCadena(ocId){
+  go('gantt-combinado');
+  const selM=document.getElementById('gcb-modo');
+  if(selM&&selM.value!=='maquina'){selM.value='maquina';}
+  const selC=document.getElementById('gcb-cliente');
+  if(selC)selC.value='';
+  renderGanttCombinado();
+  _gcbFocoActual=null;
+  gcbFoco('oc',ocId);
+}
+
+function renderTorreEntregas(){
+  const cont=document.getElementById('tce-container');
+  if(!cont)return;
+  const fCliente=document.getElementById('tce-cliente')?.value||'';
+  const soloProblemas=document.getElementById('tce-problemas')?.checked||false;
+  const mostrarHist=document.getElementById('tce-hist')?.checked||false;
+  const hoy=new Date();hoy.setHours(0,0,0,0);
+  const bufferDias=cfg.buffer_entrega_dias||1;
+  // Blindaje: si el motor falla con algún dato raro, la torre igual muestra los pedidos
+  // (con diagnóstico degradado) en vez de quedarse en blanco.
+  let schedOC={},motorError=null;
+  try{schedOC=calcScheduleCorteReal();}
+  catch(e){motorError=e;console.error('Torre: error en calcScheduleCorteReal',e);}
+
+  // Estados operativos que cuentan como "pedido abierto con compromiso de entrega"
+  const ABIERTOS=new Set(['pendiente_oc','pendiente_producir','esperando_bobinas','en_produccion','listo_parcial','listo_entregar','entregado_parcial']);
+
+  const filas=[];let nBorradores=0,nHistOcultos=0;const erroresProc=[];
+  (C.pedidos||[]).forEach(p=>{
+    try{
+      const eOp=_estadoOperativoPedido(p);
+      if(p.es_historico&&!mostrarHist){
+        // Oculto, pero contamos los que estarían abiertos para avisarlo abajo
+        if(ABIERTOS.has(eOp))nHistOcultos++;
+        return;
+      }
+      if(eOp==='borrador'){
+        // BORRADOR HÍBRIDO: si ya tiene OCs activas vinculadas, hay producción lanzada
+        // → es un compromiso de entrega abierto y DEBE estar en la torre.
+        // (Señal robusta: pedido_ordenes_corte con OCs no canceladas, independiente
+        //  del formato del JSON plan_ordenes.)
+        const tieneOCs=(p.pedido_ordenes_corte||[]).some(x=>{
+          const oc=C.ord_corte.find(o=>o.id===x.orden_corte_id);
+          return oc&&oc.estado!=='Cancelada';
+        });
+        if(!tieneOCs){nBorradores++;return;}
+        // sigue como abierto, marcado híbrido
+      } else if(!ABIERTOS.has(eOp))return;
+      const esHibrido=(eOp==='borrador');
+
+    const promesa=p.fecha_entrega_est?new Date(p.fecha_entrega_est+'T12:00:00'):null;
+    // Tandas: OCs vinculadas + diagnóstico de cada una
+    const ocIds=(p.pedido_ordenes_corte||[]).map(x=>x.orden_corte_id);
+    const tandas=[];
+    let entregaFinal=null;
+    if(!ocIds.length){
+      tandas.push(_tceDiagnosticoTanda(null,null,bufferDias));
+    } else {
+      ocIds.forEach(id=>{
+        const oc=C.ord_corte.find(o=>o.id===id);
+        if(!oc||oc.estado==='Cancelada')return;
+        const d=_tceDiagnosticoTanda(oc,schedOC[oc.id]||null,bufferDias);
+        d.oc=oc;
+        tandas.push(d);
+        if(d.entrega&&(!entregaFinal||d.entrega>entregaFinal))entregaFinal=d.entrega;
+      });
+      if(!tandas.length)tandas.push(_tceDiagnosticoTanda(null,null,bufferDias));
+    }
+    // Motivo principal = la tanda con peor severidad
+    // En híbridos, la parte del borrador SIN confirmar todavía no tiene producción:
+    // se agrega como tanda-aviso (el estimado solo cubre lo confirmado).
+    if(esHibrido){
+      tandas.push({clave:'parcial',sev:_TCE_SEV.material,icono:'📄',
+        txt:'Tandas del borrador sin confirmar — el estimado solo cubre lo ya lanzado'});
+    }
+    // Préstamos: si a este pedido le sacaron mercadería para otro, avisar.
+    const prestadosP=(C.prestamos||[]).filter(x=>x.pedido_origen_id===p.id&&x.estado==='pendiente_reposicion');
+    if(prestadosP.length){
+      const paqPrest=prestadosP.reduce((s,x)=>s+(parseFloat(x.cantidad_paquetes)||0),0);
+      tandas.push({clave:'prestado',sev:_TCE_SEV.robadas,icono:'🟠',
+        txt:'Le prestaron '+paqPrest.toLocaleString('es-AR')+' paq a otro destino — pendiente de reposición (ver Despacho)'});
+    }
+    const principal=tandas.reduce((w,t)=>t.sev>(w?.sev??-1)?t:w,null);
+
+    // Semáforo del pedido
+    let sem,semTxt,deltaDias=0;
+    const vencido=promesa&&promesa<hoy;
+    const tarde=promesa&&entregaFinal&&entregaFinal>promesa;
+    if(tarde)deltaDias=Math.ceil((entregaFinal-promesa)/86400000);
+    if(vencido){sem='🔴';semTxt='Promesa vencida';}
+    else if(tarde){sem='⚠️';semTxt='Va a llegar tarde';}
+    else if(!promesa){sem='⚪';semTxt='Sin promesa';}
+    else if(!entregaFinal){sem='⚪';semTxt='Sin estimado';}
+    else {sem='🟢';semTxt='A tiempo';}
+
+    filas.push({p,eOp,promesa,entregaFinal,tandas,principal,sem,semTxt,deltaDias,vencido,tarde,
+      cliente:p.cliente||'',esHibrido});
+    }catch(e){
+      erroresProc.push({p,e});
+      console.error('Torre: error procesando pedido '+(p.numero_pedido||p.id),e);
+    }
+  });
+
+  // ── Poblar filtro de clientes ──
+  const selCli=document.getElementById('tce-cliente');
+  if(selCli){
+    const clientes=[...new Set(filas.map(f=>f.cliente).filter(Boolean))].sort();
+    const actual=selCli.value;
+    selCli.innerHTML='<option value="">Todos los clientes</option>'
+      +clientes.map(c=>'<option value="'+escapeHtml(c)+'"'+(c===actual?' selected':'')+'>'+escapeHtml(c)+'</option>').join('');
+  }
+
+  // ── KPIs (sobre el universo completo, sin filtros) ──
+  const nVencidos=filas.filter(f=>f.vencido).length;
+  const nRiesgo=filas.filter(f=>!f.vencido&&f.tarde).length;
+  const nOk=filas.filter(f=>f.sem==='🟢').length;
+  const nSinProm=filas.filter(f=>!f.promesa).length;
+  const kpi=(num,lbl,color)=>'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;text-align:center;">'
+    +'<div style="font-size:22px;font-weight:800;color:'+color+';">'+num+'</div>'
+    +'<div style="font-size:11px;color:var(--text2);">'+lbl+'</div></div>';
+  const kpis=document.getElementById('tce-kpis');
+  if(kpis)kpis.innerHTML=kpi(filas.length,'Pedidos abiertos','var(--text1)')
+    +kpi(nVencidos,'🔴 Promesa vencida',nVencidos?'var(--red)':'var(--text3)')
+    +kpi(nRiesgo,'⚠️ Van a llegar tarde',nRiesgo?'var(--amber)':'var(--text3)')
+    +kpi(nOk,'🟢 A tiempo','var(--green)')
+    +kpi(nSinProm,'⚪ Sin promesa',nSinProm?'var(--text2)':'var(--text3)');
+
+  // ── Filtros + orden (peores arriba) ──
+  let lista=filas;
+  if(fCliente)lista=lista.filter(f=>f.cliente===fCliente);
+  if(soloProblemas)lista=lista.filter(f=>f.vencido||f.tarde||f.principal?.sev>=_TCE_SEV.material);
+  lista.sort((a,b)=>{
+    const ra=a.vencido?0:a.tarde?1:!a.promesa?3:2;
+    const rb=b.vencido?0:b.tarde?1:!b.promesa?3:2;
+    if(ra!==rb)return ra-rb;
+    if(ra<=1&&a.deltaDias!==b.deltaDias)return b.deltaDias-a.deltaDias;
+    const pa=a.promesa?a.promesa.getTime():9e15,pb=b.promesa?b.promesa.getTime():9e15;
+    return pa-pb;
+  });
+
+  if(!lista.length){
+    cont.innerHTML='<div class="empty">'+(soloProblemas||fCliente?'Sin pedidos que cumplan el filtro.':'No hay pedidos abiertos con compromiso de entrega.')
+      +(nHistOcultos>0?'<div style="font-size:12px;color:var(--amber);margin-top:6px;">'+nHistOcultos+' pedido'+(nHistOcultos===1?'':'s')+' abierto'+(nHistOcultos===1?'':'s')+' está'+(nHistOcultos===1?'':'n')+' marcado'+(nHistOcultos===1?'':'s')+' como histórico — activá "Mostrar históricos".</div>':'')
+      +(motorError?'<div style="font-size:12px;color:var(--red);margin-top:6px;">⚠ El motor de fechas falló: '+escapeHtml(motorError.message||'')+' (ver consola F12)</div>':'')
+    +'</div>';
+    _tceRenderBorradores(nBorradores);
+    return;
+  }
+
+  // ── Tabla ──
+  let html='<table style="width:100%;border-collapse:collapse;font-size:12px;min-width:980px;">'
+    +'<thead><tr style="background:var(--bg3);">'
+      +'<th style="padding:7px 8px;text-align:left;width:140px;">Pedido</th>'
+      +'<th style="padding:7px 8px;text-align:left;">Cliente</th>'
+      +'<th style="padding:7px 8px;text-align:left;width:110px;">Estado</th>'
+      +'<th style="padding:7px 8px;text-align:left;width:88px;">Promesa</th>'
+      +'<th style="padding:7px 8px;text-align:left;width:88px;">Estimado</th>'
+      +'<th style="padding:7px 8px;text-align:center;width:55px;">Δ días</th>'
+      +'<th style="padding:7px 8px;text-align:left;min-width:230px;">Diagnóstico — qué lo frena</th>'
+      +'<th style="padding:7px 8px;text-align:left;min-width:240px;">Tandas (OC → entrega)</th>'
+      +'<th style="padding:7px 8px;text-align:center;width:60px;">Acc.</th>'
+    +'</tr></thead><tbody>';
+
+  lista.forEach(f=>{
+    const{p,eOp,promesa,entregaFinal,tandas,principal,sem,semTxt,deltaDias}=f;
+    const est=f.esHibrido
+      ?{label:'Híbrido (parcial)',color:'var(--amber)',icono:'📄⚙',bg:'rgba(245,158,11,.10)'}
+      :_labelEstadoOp(eOp);
+    const bgFila=f.vencido?'rgba(239,68,68,.06)':f.tarde?'rgba(245,158,11,.05)':'';
+    const promStr=promesa?promesa.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}):'—';
+    const estStr=entregaFinal?entregaFinal.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}):'—';
+    const colEst=f.tarde||f.vencido?'var(--red)':'var(--text1)';
+    const deltaStr=deltaDias>0?'<span style="color:var(--red);font-weight:700;">+'+deltaDias+'</span>':(promesa&&entregaFinal?'<span style="color:var(--green);">✓</span>':'—');
+
+    // Diagnóstico principal
+    const diag='<span title="'+escapeHtml(semTxt)+'">'+(principal?principal.icono+' '+escapeHtml(principal.txt):'—')+'</span>';
+
+    // Mini-detalle de tandas — con acciones de programación por OC
+    const tandasHTML=tandas.map(t=>{
+      const nro=t.oc?escapeHtml(t.oc.numero_orden||('OC #'+t.oc.id)):'—';
+      const prodT=t.oc?(t.oc.productos||C.productos.find(pr=>pr.id===t.oc.producto_id)):null;
+      const descT=prodT?(prodT.descripcion||prodT.codigo||''):'';
+      const ent=t.entrega?t.entrega.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}):'s/f';
+      const acc=t.oc?(' <button class="btn btn-sm" style="padding:0 5px;font-size:9.5px;" title="Ver la cadena en el Gantt" onclick="torreVerCadena('+t.oc.id+')">👁</button>'
+        +(t.oc.estado!=='En proceso'&&t.oc.estado!=='Completada'
+          ?'<button class="btn btn-sm" style="padding:0 5px;font-size:9.5px;" title="Subirla al frente de la cola de corte" onclick="gcbAcercarOC('+t.oc.id+')">🧲</button>':'')):'';
+      return '<div style="font-size:11px;color:var(--text2);margin-bottom:2px;" title="'+escapeHtml(t.txt)+'">'
+        +'<div style="white-space:nowrap;">'+t.icono+' '+nro+' <span style="color:var(--text3);">→ '+ent+'</span>'+acc+'</div>'
+        +(descT?'<div style="font-size:10px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px;padding-left:16px;">'+escapeHtml(descT)+'</div>':'')
+      +'</div>';
+    }).join('');
+
+    html+='<tr style="border-bottom:1px solid var(--border);'+(bgFila?'background:'+bgFila+';':'')+'">'
+      +'<td style="padding:6px 8px;font-weight:700;color:var(--text1);white-space:nowrap;">'+sem+' '+escapeHtml(p.numero_pedido||('#'+p.id))+'</td>'
+      +'<td style="padding:6px 8px;color:var(--text2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escapeHtml(f.cliente||'—')+'</td>'
+      +'<td style="padding:6px 8px;"><span style="font-size:11px;color:'+est.color+';background:'+est.bg+';padding:2px 6px;border-radius:4px;white-space:nowrap;">'+est.icono+' '+est.label+'</span></td>'
+      +'<td style="padding:6px 8px;color:'+(f.vencido?'var(--red)':'var(--text2)')+';font-weight:'+(f.vencido?'700':'400')+';">'+promStr+'</td>'
+      +'<td style="padding:6px 8px;color:'+colEst+';font-weight:600;">'+estStr+'</td>'
+      +'<td style="padding:6px 8px;text-align:center;">'+deltaStr+'</td>'
+      +'<td style="padding:6px 8px;color:var(--text1);">'+diag+'</td>'
+      +'<td style="padding:6px 8px;">'+tandasHTML+'</td>'
+      +'<td style="padding:6px 8px;text-align:center;"><button class="btn btn-sm" title="Ver la cadena en el Gantt combinado" onclick="torreVerEnGantt(\''+escapeHtml(f.cliente||'').replace(/'/g,"\\'")+'\')">🔗</button></td>'
+    +'</tr>';
+  });
+  html+='</tbody></table>';
+  // ── Transparencia: que SIEMPRE se sepa cuántos hay y por qué no se ven ──
+  const ocultosFiltro=filas.length-lista.length;
+  html+='<div style="font-size:11px;color:var(--text3);padding:6px 8px;">'
+    +'Mostrando <strong>'+lista.length+'</strong> de <strong>'+filas.length+'</strong> pedido'+(filas.length===1?'':'s')+' abierto'+(filas.length===1?'':'s')
+    +(ocultosFiltro>0?' · '+ocultosFiltro+' oculto'+(ocultosFiltro===1?'':'s')+' por '+(fCliente?'filtro de cliente':'')+(fCliente&&soloProblemas?' + ':'')+(soloProblemas?'"solo con problemas"':''):'')
+    +(nHistOcultos>0?' · <span style="color:var(--amber);">'+nHistOcultos+' abierto'+(nHistOcultos===1?'':'s')+' marcado'+(nHistOcultos===1?'':'s')+' como histórico — activá "Mostrar históricos" para verlo'+(nHistOcultos===1?'':'s')+'</span>':'')
+    +'</div>';
+  if(motorError){
+    html+='<div style="font-size:12px;color:var(--red);padding:8px 10px;background:rgba(239,68,68,.06);border-radius:var(--r);border:1px solid var(--red);margin-top:4px;">'
+      +'⚠ El motor de fechas falló ('+escapeHtml(motorError.message||'error')+') — los estimados pueden faltar. Revisá la consola (F12) y avisale a Claude el mensaje.</div>';
+  }
+  if(erroresProc.length){
+    html+='<div style="font-size:12px;color:var(--red);padding:8px 10px;background:rgba(239,68,68,.06);border-radius:var(--r);border:1px solid var(--red);margin-top:4px;">'
+      +'⚠ '+erroresProc.length+' pedido'+(erroresProc.length===1?'':'s')+' no se pudo procesar: '
+      +erroresProc.map(x=>escapeHtml(x.p.numero_pedido||('#'+x.p.id))).join(' · ')
+      +' — detalle en la consola (F12).</div>';
+  }
+  cont.innerHTML=html;
+  _tceRenderBorradores(nBorradores);
+}
+
+function _tceRenderBorradores(n){
+  const div=document.getElementById('tce-borradores');
+  if(!div)return;
+  div.innerHTML=n>0
+    ?'<div style="font-size:12px;color:var(--text2);padding:8px 10px;background:var(--bg2);border-radius:var(--r);border:1px solid var(--border);">'
+      +'📄 Hay <strong>'+n+'</strong> pedido'+(n===1?'':'s')+' en <strong>Borrador</strong> (sin producción lanzada) — no entran a la torre hasta confirmarse.</div>'
+    :'';
+}
+
+// ===== GANTT COMBINADO EXTRUSIÓN + CORTE =====
+// Cada fila es una CADENA: la OE (material) arriba y su OC (corte) abajo,
+// en la misma línea de tiempo. El rombo marca el punto de lanzamiento de la OC
+// y su color dice QUÉ la define: material (🟠), cola de máquina (🔵) o nada (🟢 lanzable ya).
+// Vista "Día por horas" (como el Gantt diario) o vista por días (horizonte).
+let gcbFecha=new Date();gcbFecha.setHours(0,0,0,0);
+function gcbHoy(){gcbFecha=new Date();gcbFecha.setHours(0,0,0,0);renderGanttCombinado();}
+function gcbPrev(){const d=parseInt(document.getElementById('gcb-dias')?.value)||10;gcbFecha=addDays(gcbFecha,d===1?-1:-d);renderGanttCombinado();}
+function gcbNext(){const d=parseInt(document.getElementById('gcb-dias')?.value)||10;gcbFecha=addDays(gcbFecha,d===1?1:d);renderGanttCombinado();}
+function renderGanttCombinado(){
+  const cont=document.getElementById('gcb-container');
+  if(!cont)return;
+  const dias=parseInt(document.getElementById('gcb-dias')?.value)||10;
+  const vistaHoras=dias===1;
+  const modo=document.getElementById('gcb-modo')?.value||'cadena';
+  const fCliente=document.getElementById('gcb-cliente')?.value||'';
+  const soloRiesgo=document.getElementById('gcb-riesgo')?.checked||false;
+
+  const ahora=new Date();
+
+  // ── Eje temporal ──
+  // Vista por horas: jornada combinada (extrusión suele arrancar antes y terminar después que corte)
+  const jExt=getJornada('extrusion'),jCor=getJornada('corte');
+  const hIniAxis=Math.min(jExt.hIni,jCor.hIni),hFinAxis=Math.max(jExt.hFin,jCor.hFin);
+  let t0,t1;
+  if(vistaHoras){
+    t0=new Date(gcbFecha);t0.setHours(hIniAxis,0,0,0);
+    t1=new Date(gcbFecha);t1.setHours(hFinAxis,0,0,0);
+  } else {
+    t0=new Date(gcbFecha);t0.setHours(0,0,0,0);
+    t1=new Date(t0);t1.setDate(t1.getDate()+dias);
+  }
+  const rango=t1-t0;
+  const pos=dt=>Math.max(0,Math.min(100,((dt-t0)/rango)*100));
+  _gcbVentana={t0,t1};
+
+  // Etiqueta de fecha en la barra superior
+  const lbl=document.getElementById('gcb-lbl');
+  if(lbl){
+    lbl.textContent=vistaHoras
+      ?gcbFecha.toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long'})
+      :gcbFecha.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})+' → '+addDays(gcbFecha,dias-1).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'});
+  }
+
+  const schedOE=calcScheduleReal();
+  const schedOC=calcScheduleCorteReal();
+  const bufferDias=cfg.buffer_entrega_dias||1;
+
+  // ── Armar cadenas: una por OC activa ──
+  const cadenas=[];
+  C.ord_corte
+    .filter(o=>o.estado!=='Completada'&&o.estado!=='Suspendida'&&o.estado!=='Cancelada')
+    .forEach(oc=>{
+      const seg=schedOC[oc.id]||null;
+      const oe=_balOEdeOC(oc);
+      const segOE=oe?schedOE[oe.id]:null;
+      const ped=C.pedidos.find(p=>(p.pedido_ordenes_corte||[]).some(x=>x.orden_corte_id===oc.id))||null;
+      const cliente=ped?.cliente||oc.cliente||'';
+      // Entrega estimada de ESTA tanda = fin de corte + buffer hábil
+      let entrega=null;
+      if(seg&&seg.fin)entrega=sumarDiasHabiles(new Date(seg.fin),bufferDias,cfg.corte_dias);
+      const promesa=ped?.fecha_entrega_est?new Date(ped.fecha_entrega_est+'T12:00:00'):null;
+      const diasAtraso=(entrega&&promesa&&entrega>promesa)?Math.ceil((entrega-promesa)/86400000):0;
+      // Motivo del lanzamiento
+      let lanz='🔵',lanzTxt='Espera máquina libre';
+      if(seg){
+        if(seg.frenoMaterial){lanz='🟠';lanzTxt='Frenada por material de '+(oe?.numero_orden||'su OE');}
+        else if((seg.ini-ahora)<2*3600000){lanz='🟢';lanzTxt='Lanzable ya — material y máquina disponibles';}
+      }
+      // Plan de compra: si el pedido de esta OC financia un plan activo, marcarla (⚡ APURAR / 🎯)
+      const planInfo=(typeof _planDeOC==='function')?_planDeOC(oc):null;
+      cadenas.push({oc,oe,seg,segOE,ped,cliente,entrega,promesa,diasAtraso,lanz,lanzTxt,planInfo});
+    });
+  _gcbCadenas=cadenas;  // accesible para el panel de cadena, foco y sugerencias
+
+  // ── Poblar filtro de clientes (preservando selección) ──
+  const selCli=document.getElementById('gcb-cliente');
+  if(selCli){
+    const clientes=[...new Set(cadenas.map(c=>c.cliente).filter(Boolean))].sort();
+    const actual=selCli.value;
+    selCli.innerHTML='<option value="">Todos los clientes</option>'
+      +clientes.map(c=>'<option value="'+escapeHtml(c)+'"'+(c===actual?' selected':'')+'>'+escapeHtml(c)+'</option>').join('');
+  }
+
+  // ── Filtros + orden ──
+  let lista=cadenas;
+  if(fCliente)lista=lista.filter(c=>c.cliente===fCliente);
+  if(soloRiesgo)lista=lista.filter(c=>c.diasAtraso>0);
+  lista.sort((a,b)=>{
+    const pa=a.promesa?a.promesa.getTime():9e15,pb=b.promesa?b.promesa.getTime():9e15;
+    if(pa!==pb)return pa-pb;
+    const fa=a.seg?.fin?.getTime()||9e15,fb=b.seg?.fin?.getTime()||9e15;
+    return fa-fb;
+  });
+
+  // ── Resumen ──
+  const nRiesgo=cadenas.filter(c=>c.diasAtraso>0).length;
+  const nLanzables=cadenas.filter(c=>c.lanz==='🟢').length;
+  const res=document.getElementById('gcb-resumen');
+  if(res)res.innerHTML='<span style="font-size:12px;color:var(--text2);">'
+    +cadenas.length+' cadena'+(cadenas.length===1?'':'s')
+    +' · <span style="color:var(--green);font-weight:600;">🟢 '+nLanzables+' lanzable'+(nLanzables===1?'':'s')+'</span>'
+    +(nRiesgo>0?' · <span style="color:var(--red);font-weight:600;">⚠ '+nRiesgo+' en riesgo</span>':' · <span style="color:var(--green);">✓ sin riesgos</span>')
+    +'</span>';
+
+  if(!lista.length&&modo!=='maquina'){
+    cont.innerHTML='<div class="empty">'+(soloRiesgo||fCliente?'Sin cadenas que cumplan el filtro.':'No hay órdenes de corte activas.')+'</div>';
+    _gcbRenderSinOC(schedOE);
+    return;
+  }
+
+  // ── Cabecera del eje (horas o días) ──
+  const LBLW=240;
+  let hdrEje='',nCols,capasFondo='';
+  if(vistaHoras){
+    nCols=hFinAxis-hIniAxis;
+    for(let h=hIniAxis;h<hFinAxis;h++){
+      hdrEje+='<div style="flex:1;text-align:center;font-size:10px;padding:4px 0;color:var(--text2);border-left:1px solid var(--border);">'+h+':00</div>';
+    }
+    for(let i=1;i<nCols;i++){
+      capasFondo+='<div style="position:absolute;top:0;bottom:0;left:'+(i/nCols*100)+'%;width:1px;background:var(--border);opacity:.4;pointer-events:none;"></div>';
+    }
+    // Sombrear horas fuera de la jornada de corte (corte suele cerrar antes que extrusión)
+    if(jCor.hFin<hFinAxis){
+      capasFondo+='<div title="Fuera de jornada de corte" style="position:absolute;top:0;bottom:0;left:'+((jCor.hFin-hIniAxis)/nCols*100)+'%;right:0;background:rgba(255,255,255,.03);pointer-events:none;"></div>';
+    }
+    if(jCor.hIni>hIniAxis){
+      capasFondo+='<div title="Fuera de jornada de corte" style="position:absolute;top:0;bottom:0;left:0;width:'+((jCor.hIni-hIniAxis)/nCols*100)+'%;background:rgba(255,255,255,.03);pointer-events:none;"></div>';
+    }
+  } else {
+    nCols=dias;
+    for(let i=0;i<dias;i++){
+      const d=new Date(t0);d.setDate(d.getDate()+i);
+      const finde=d.getDay()===0||d.getDay()===6;
+      hdrEje+='<div style="flex:1;text-align:center;font-size:10px;padding:4px 0;color:'+(finde?'var(--text3)':'var(--text2)')+';'
+        +'border-left:1px solid var(--border);'+(finde?'background:rgba(255,255,255,.02);':'')+'">'
+        +d.toLocaleDateString('es-AR',{weekday:'short'}).slice(0,2)+' '+d.getDate()+'/'+(d.getMonth()+1)+'</div>';
+    }
+    for(let i=0;i<dias;i++){
+      const d=new Date(t0);d.setDate(d.getDate()+i);
+      if(d.getDay()===0||d.getDay()===6){
+        capasFondo+='<div style="position:absolute;top:0;bottom:0;left:'+(i/dias*100)+'%;width:'+(100/dias)+'%;background:rgba(255,255,255,.025);pointer-events:none;"></div>';
+      }
+      if(i>0)capasFondo+='<div style="position:absolute;top:0;bottom:0;left:'+(i/dias*100)+'%;width:1px;background:var(--border);opacity:.5;pointer-events:none;"></div>';
+    }
+  }
+  const posAhora=pos(ahora);
+  const lineaAhora=(ahora>=t0&&ahora<=t1)
+    ?'<div style="position:absolute;top:0;bottom:0;left:'+posAhora+'%;width:2px;background:var(--amber);z-index:5;pointer-events:none;"></div>':'';
+
+  // ── MODO POR MÁQUINA: vista de planta (carriles por extrusora y por cortadora) ──
+  if(modo==='maquina'){
+    cont.innerHTML=_gcbHTMLPorMaquina({t0,t1,pos,vistaHoras,hdrEje,capasFondo,lineaAhora,lista,schedOE,ahora});
+    _gcbEngancharDnD();
+    _gcbSugerencias(cadenas,ahora);
+    // Mantener el foco de cadena al navegar fechas o recargar (no perder la conexión visual)
+    if(_gcbFocoActual){
+      const[ft,fi]=_gcbFocoActual.split(':');
+      _gcbAplicarFoco(ft,parseInt(fi));
+    } else {
+      const pan=document.getElementById('gcb-cadena-panel');if(pan)pan.innerHTML='';
+    }
+    _gcbRenderSinOC(schedOE);
+    return;
+  }
+  // Modo cadena: sin panel de foco; sugerencias igual aplican
+  _gcbSugerencias(cadenas,ahora);
+  {const pan=document.getElementById('gcb-cadena-panel');if(pan)pan.innerHTML='';}
+
+  // ── Geometría de carriles (más grande en vista por horas) ──
+  const LANE_H=vistaHoras?24:18,GAP=vistaHoras?12:9,TOPPAD=4;
+  const topOE=TOPPAD,topOC=TOPPAD+LANE_H+GAP;
+  const ROWH=topOC+LANE_H+5;
+  const fBar=vistaHoras?'11px':'10px';
+
+  // ── Filas ──
+  let html='<div style="min-width:'+(LBLW+(vistaHoras?760:700))+'px;">'
+    +'<div style="display:flex;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg1);z-index:6;">'
+      +'<div style="width:'+LBLW+'px;flex-shrink:0;font-size:10px;color:var(--text3);padding:4px 8px;">CADENA OE → OC</div>'
+      +'<div style="flex:1;display:flex;">'+hdrEje+'</div>'
+    +'</div>';
+
+  lista.forEach(c=>{
+    const{oc,oe,seg,segOE,ped,entrega,promesa,diasAtraso,lanz,lanzTxt}=c;
+    const prod=oc.productos||C.productos.find(p=>p.id===oc.producto_id);
+
+    // ── Columna de etiqueta ──
+    let lblCol='<div style="font-weight:700;font-size:12.5px;color:var(--text1);">'+lanz+' '+escapeHtml(oc.numero_orden||('OC #'+oc.id))
+      +(c.planInfo?(c.planInfo.apurar?' <span style="color:var(--amber);font-weight:800;" title="Plan de compra: APURAR">⚡</span>':' <span title="En plan de compra">🎯</span>'):'')
+      +(seg&&seg.pctAvance>0?' <span style="color:var(--accent);font-size:10px;">▶'+seg.pctAvance+'%</span>':'')+'</div>'
+      +'<div style="font-size:10.5px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+escapeHtml(prod?.descripcion||prod?.codigo||'—')+'</div>'
+      +'<div style="font-size:10.5px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+escapeHtml(c.cliente||'(sin pedido)')+(ped?' · '+escapeHtml(ped.numero_pedido||''):'')+'</div>';
+    if(promesa){
+      lblCol+='<div style="font-size:10.5px;color:'+(diasAtraso>0?'var(--red)':'var(--text2)')+';">'
+        +'Promesa '+promesa.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})
+        +(diasAtraso>0?' · <strong>⚠ atrasa '+diasAtraso+'d</strong>':' ✓')+'</div>';
+    }
+
+    // ── Barras ──
+    let barras='';
+    let oeBarVisible=false,xFinOE=null,xIniOE=null;
+    // OE (carril superior)
+    if(oe&&oe.estado==='Completada'){
+      barras+='<div style="position:absolute;top:'+(topOE+3)+'px;left:6px;font-size:'+fBar+';color:var(--green);font-weight:600;">✓ '+escapeHtml(oe.numero_orden)+' — material listo</div>';
+    } else if(segOE&&segOE.fin>t0&&segOE.ini<t1){
+      const l=pos(segOE.ini),w=Math.max(.7,pos(segOE.fin)-l);
+      oeBarVisible=true;xIniOE=l;xFinOE=Math.min(100,pos(segOE.fin));
+      const tipOE='OE '+escapeHtml(oe.numero_orden)+' · '+(segOE.pctAvance||0)+'% · fin proyectado: '+fmtDt(segOE.fin);
+      barras+='<div title="'+tipOE+'" style="position:absolute;top:'+topOE+'px;height:'+LANE_H+'px;left:'+l+'%;width:'+w+'%;'
+        +'background:rgba(99,179,237,.14);border:1.5px solid var(--accent);border-radius:4px;'
+        +'font-size:'+fBar+';color:var(--accent);font-weight:600;overflow:hidden;white-space:nowrap;">'
+        +'<div style="position:absolute;left:0;top:0;bottom:0;width:'+(segOE.pctAvance||0)+'%;background:rgba(99,179,237,.32);"></div>'
+        +'<span style="position:relative;padding:0 5px;line-height:'+(LANE_H-3)+'px;display:block;">'
+        +'🏭 '+escapeHtml(oe.numero_orden)+(segOE.pctAvance?' ▶'+segOE.pctAvance+'%':'')
+        +' <span style="color:var(--text2);font-weight:400;">· '+escapeHtml(_descDeOE(oe))+'</span></span></div>';
+      if(segOE.fin>t1)barras+='<div style="position:absolute;top:'+(topOE+5)+'px;right:2px;font-size:9px;color:var(--accent);z-index:4;">→ '+new Date(segOE.fin).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})+'</div>';
+    } else if(segOE&&segOE.ini>=t1){
+      barras+='<div style="position:absolute;top:'+(topOE+3)+'px;right:4px;font-size:9.5px;color:var(--text3);">'+escapeHtml(oe.numero_orden)+' arranca '+new Date(segOE.ini).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})+' →</div>';
+    } else if(segOE&&segOE.fin<=t0){
+      barras+='<div style="position:absolute;top:'+(topOE+3)+'px;left:6px;font-size:9.5px;color:var(--text3);">← '+escapeHtml(oe.numero_orden)+' terminó '+new Date(segOE.fin).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})+'</div>';
+    } else if(oe&&!segOE){
+      barras+='<div style="position:absolute;top:'+(topOE+3)+'px;left:6px;font-size:9.5px;color:var(--text3);">'+escapeHtml(oe.numero_orden)+' — sin programación</div>';
+    } else if(!oe){
+      barras+='<div style="position:absolute;top:'+(topOE+3)+'px;left:6px;font-size:9.5px;color:var(--text3);">Sin OE asociada</div>';
+    }
+    // OC (carril inferior)
+    if(seg&&seg.fin>t0&&seg.ini<t1){
+      const l=pos(seg.ini),w=Math.max(.7,pos(seg.fin)-l);
+      let tipOC='OC '+escapeHtml(oc.numero_orden||'')+' · '+oc.estado+(seg.pctAvance?' ('+seg.pctAvance+'%)':'')
+        +'&#10;'+fmtDt(seg.ini)+' → '+fmtDt(seg.fin)
+        +'&#10;Lanzamiento: '+lanzTxt;
+      if(seg.mtsRestantes!=null)tipOC+='&#10;Material: '+r1(seg.mtsDispAhora||0).toLocaleString('es-AR')+' m disponibles / '+r1(seg.mtsRestantes).toLocaleString('es-AR')+' m que faltan cortar';
+      if(entrega)tipOC+='&#10;Entrega estimada: '+entrega.toLocaleDateString('es-AR')+(promesa?' · Promesa: '+promesa.toLocaleDateString('es-AR'):'');
+      const bordeOC=diasAtraso>0?'var(--red)':'var(--purple)';
+      barras+='<div title="'+tipOC+'" style="position:absolute;top:'+topOC+'px;height:'+LANE_H+'px;left:'+l+'%;width:'+w+'%;'
+        +'background:rgba(168,85,247,.13);border:1.5px solid '+bordeOC+';border-radius:4px;'
+        +(c.planInfo&&c.planInfo.apurar?'box-shadow:0 0 0 1.5px var(--amber);':'')
+        +'font-size:'+fBar+';color:var(--purple);font-weight:600;overflow:hidden;white-space:nowrap;">'
+        +'<div style="position:absolute;left:0;top:0;bottom:0;width:'+(seg.pctAvance||0)+'%;background:rgba(168,85,247,.30);"></div>'
+        +'<span style="position:relative;padding:0 5px;line-height:'+(LANE_H-3)+'px;display:block;">'
+        +(c.planInfo?(c.planInfo.apurar?'⚡ ':'🎯 '):'')+'✂️ '+escapeHtml(oc.numero_orden||'')+(seg.pctAvance?' ▶'+seg.pctAvance+'%':'')+'</span></div>';
+      // Rombo de lanzamiento sobre el inicio de la OC
+      barras+='<div title="'+lanzTxt+'" style="position:absolute;top:'+(topOC-9)+'px;left:calc('+l+'% - 5px);font-size:11px;z-index:4;">'+lanz+'</div>';
+
+      // ── CONECTOR OE → OC (codo) ──
+      // Une el fin de la barra OE con el inicio de la barra OC pasando por el medio del gap.
+      // Ámbar cuando el material es lo que define el inicio; gris suave si no.
+      if(oeBarVisible){
+        const colCon=seg.frenoMaterial?'var(--amber)':'var(--text3)';
+        const estilo=seg.frenoMaterial?'solid':'dashed';
+        const op=seg.frenoMaterial?'1':'.55';
+        const yMid=topOE+LANE_H+Math.floor(GAP/2);
+        const xA=Math.min(xFinOE,l),xB=Math.max(xFinOE,l);
+        // bajada desde el fin de la OE
+        barras+='<div style="position:absolute;top:'+(topOE+LANE_H)+'px;height:'+Math.floor(GAP/2)+'px;left:calc('+xFinOE+'% - 1px);width:0;border-left:2px '+estilo+' '+colCon+';opacity:'+op+';z-index:3;pointer-events:none;"></div>';
+        // tramo horizontal en el medio del gap
+        if(xB-xA>0.15){
+          barras+='<div style="position:absolute;top:'+yMid+'px;left:'+xA+'%;width:'+(xB-xA)+'%;height:0;border-top:2px '+estilo+' '+colCon+';opacity:'+op+';z-index:3;pointer-events:none;"></div>';
+        }
+        // bajada hasta el inicio de la OC + flecha
+        barras+='<div style="position:absolute;top:'+yMid+'px;height:'+(topOC-yMid)+'px;left:calc('+l+'% - 1px);width:0;border-left:2px '+estilo+' '+colCon+';opacity:'+op+';z-index:3;pointer-events:none;"></div>';
+        barras+='<div style="position:absolute;top:'+(topOC-7)+'px;left:calc('+l+'% - 4px);font-size:8px;color:'+colCon+';opacity:'+op+';z-index:3;pointer-events:none;">▼</div>';
+      } else if(seg.frenoMaterial){
+        // OE no visible en este rango pero el material define el inicio → marca vertical
+        barras+='<div style="position:absolute;top:'+(topOE+LANE_H)+'px;height:'+GAP+'px;left:calc('+l+'% - 1px);width:0;border-left:2px dashed var(--amber);z-index:3;pointer-events:none;"></div>';
+      }
+      if(seg.fin>t1)barras+='<div style="position:absolute;top:'+(topOC+5)+'px;right:2px;font-size:9px;color:var(--purple);z-index:4;">→ '+new Date(seg.fin).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})+'</div>';
+    } else if(seg&&seg.ini>=t1){
+      barras+='<div style="position:absolute;top:'+(topOC+3)+'px;right:4px;font-size:9.5px;color:var(--text3);">corte arranca '+new Date(seg.ini).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})+' →</div>';
+    } else if(seg&&seg.fin<=t0){
+      barras+='<div style="position:absolute;top:'+(topOC+3)+'px;left:6px;font-size:9.5px;color:var(--text3);">← corte terminó '+new Date(seg.fin).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})+'</div>';
+    } else if(!seg){
+      barras+='<div style="position:absolute;top:'+(topOC+3)+'px;left:6px;font-size:9.5px;color:var(--red);">⚠ sin máquina/capacidad asignada</div>';
+    }
+
+    html+='<div style="display:flex;border-bottom:1px solid var(--border);'+(diasAtraso>0?'background:rgba(239,68,68,.05);':'')+'">'
+      +'<div style="width:'+LBLW+'px;flex-shrink:0;padding:6px 8px;border-right:1px solid var(--border);">'+lblCol+'</div>'
+      +'<div style="flex:1;position:relative;height:'+ROWH+'px;">'+capasFondo+lineaAhora+barras+'</div>'
+    +'</div>';
+  });
+
+  html+='</div>';
+  cont.innerHTML=html;
+  _gcbRenderSinOC(schedOE);
+}
+
+// ── VISTA DE PLANTA: un carril por extrusora (con sus OEs) y por cortadora (con sus OCs) ──
+// Las órdenes con MÁQUINAS COMBINADAS ocupan todas sus máquinas en la misma ventana de tiempo
+// (así lo programa el motor: capacidad = suma de bolsas/h, cursores avanzan juntos).
+// Por eso la misma barra aparece en cada carril que usa, marcada con ⧉ y una franja de color
+// única por orden, para reconocerla entre carriles de un vistazo.
+const _GCB_PAL=['#63b3ed','#a855f7','#f59e0b','#10b981','#06b6d4','#eab308','#8b5cf6','#f472b6','#84cc16','#fb923c'];
+function _gcbColorOrden(id){return _GCB_PAL[Math.abs(id||0)%_GCB_PAL.length];}
+function _gcbHTMLPorMaquina(ctx){
+  const{t0,t1,pos,vistaHoras,hdrEje,capasFondo,lineaAhora,lista,schedOE,ahora}=ctx;
+  const LBLW=240,LANE_H=vistaHoras?26:20,ROWH=LANE_H+12;
+  const fBar=vistaHoras?'11px':'10px';
+  const fdd=d=>new Date(d).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'});
+
+  const secHdr=t=>'<div style="display:flex;border-bottom:1px solid var(--border);background:var(--bg3);">'
+    +'<div style="width:100%;font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--text2);padding:5px 8px;">'+t+'</div></div>';
+
+  let html='<div id="gcb-plant-wrap" style="position:relative;min-width:'+(LBLW+(vistaHoras?760:700))+'px;">'
+    +'<div style="display:flex;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg1);z-index:6;">'
+      +'<div style="width:'+LBLW+'px;flex-shrink:0;font-size:10px;color:var(--text3);padding:4px 8px;">MÁQUINA</div>'
+      +'<div style="flex:1;display:flex;">'+hdrEje+'</div>'
+    +'</div>';
+
+  // ════ SECCIÓN EXTRUSORAS ════
+  html+=secHdr('🏭 EXTRUSORAS');
+  (C.extrusoras||[]).forEach(e=>{
+    const oes=(C.ordenes||[]).filter(o=>
+      o.estado!=='Completada'&&o.estado!=='Suspendida'&&o.estado!=='Cancelada'
+      &&(o.orden_extrusoras||[]).some(x=>x.extrusora_id===e.id)&&schedOE[o.id]);
+    let hasta=null;oes.forEach(o=>{const f=schedOE[o.id].fin;if(f&&(!hasta||f>hasta))hasta=f;});
+
+    let barras='';let fueraRango=0;
+    oes.forEach(o=>{
+      const seg=schedOE[o.id];
+      if(!(seg.fin>t0&&seg.ini<t1)){if(seg.ini>=t1)fueraRango++;return;}
+      const l=pos(seg.ini),w=Math.max(.7,pos(seg.fin)-l);
+      const multi=(o.orden_extrusoras||[]).length>1;
+      const nombresExt=(o.orden_extrusoras||[]).map(x=>{
+        const ee=C.extrusoras.find(z=>z.id===x.extrusora_id);return ee?ee.nombre:('#'+x.extrusora_id);
+      }).join(' + ');
+      const descOE=_descDeOE(o);
+      const planOE=(typeof _planDeOE==='function')?_planDeOE(o):null;
+      const tip='OE '+escapeHtml(o.numero_orden)+' · '+(seg.pctAvance||0)+'%'
+        +'&#10;Producto: '+escapeHtml(descOE||'—')
+        +'&#10;'+fmtDt(seg.ini)+' → '+fmtDt(seg.fin)
+        +(o.cliente?'&#10;Cliente: '+escapeHtml(o.cliente):'')
+        +(multi?'&#10;⧉ Combinada: '+escapeHtml(nombresExt):'')
+        +(planOE?'&#10;'+(planOE.apurar?'⚡ APURAR · ':'🎯 Plan: ')+escapeHtml(planOE.plan.nombre||''):'')
+        +'&#10;👆 Click: resaltar cadena · Arrastrar sobre otra OE: reordenar cola';
+      barras+='<div draggable="true" data-gcbtipo="oe" data-gcbid="'+o.id+'"'
+        +' onclick="gcbFoco(\'oe\','+o.id+')" title="'+tip+'" style="position:absolute;top:5px;height:'+LANE_H+'px;left:'+l+'%;width:'+w+'%;cursor:grab;'
+        +'background:rgba(99,179,237,.14);border:1.5px solid var(--accent);border-left:4px solid '+_gcbColorOrden(o.id)+';border-radius:4px;'
+        +(planOE?.apurar?'box-shadow:0 0 0 1.5px var(--amber);':'')
+        +'font-size:'+fBar+';color:var(--accent);font-weight:600;overflow:hidden;white-space:nowrap;">'
+        // Relleno de avance (lo hecho, más oscuro) detrás del texto
+        +'<div style="position:absolute;left:0;top:0;bottom:0;width:'+(seg.pctAvance||0)+'%;background:rgba(99,179,237,.32);"></div>'
+        +'<span style="position:relative;padding:0 5px;line-height:'+(LANE_H-3)+'px;display:block;">'
+        +(planOE?(planOE.apurar?'⚡ ':'🎯 '):'')+(multi?'⧉ ':'')+escapeHtml(o.numero_orden)+(seg.pctAvance?' ▶'+seg.pctAvance+'%':'')
+        +(descOE?' <span style="color:var(--text2);font-weight:400;">· '+escapeHtml(descOE)+'</span>':'')+'</span></div>';
+    });
+    if(fueraRango>0)barras+='<div style="position:absolute;top:8px;right:2px;font-size:9px;color:var(--text3);z-index:4;">+'+fueraRango+' →</div>';
+
+    const lbl='<div style="font-weight:700;font-size:12px;color:var(--text1);">'+escapeHtml(e.nombre||('Extrusora #'+e.id))+'</div>'
+      +'<div style="font-size:10px;color:var(--text3);">'+(e.kg_por_hora||'?')+' kg/h · '
+      +(oes.length?oes.length+' OE'+(oes.length===1?'':'s')+(hasta?' · hasta '+fdd(hasta):''):'<span style="color:var(--green);">libre</span>')+'</div>';
+    html+='<div style="display:flex;border-bottom:1px solid var(--border);">'
+      +'<div style="width:'+LBLW+'px;flex-shrink:0;padding:5px 8px;border-right:1px solid var(--border);">'+lbl+'</div>'
+      +'<div style="flex:1;position:relative;height:'+ROWH+'px;">'+capasFondo+lineaAhora+barras+'</div>'
+    +'</div>';
+  });
+
+  // ════ SECCIÓN CORTADORAS ════
+  html+=secHdr('✂️ CORTADORAS');
+  (C.maq_corte||[]).forEach(m=>{
+    const ocsM=lista.filter(c=>c.seg&&(c.oc.orden_corte_maquinas||[]).some(x=>x.maquina_id===m.id));
+    let hasta=null;ocsM.forEach(c=>{if(c.seg.fin&&(!hasta||c.seg.fin>hasta))hasta=c.seg.fin;});
+
+    let barras='';let fueraRango=0;
+    ocsM.forEach(c=>{
+      const{oc,seg,diasAtraso,lanz,lanzTxt,entrega,promesa}=c;
+      if(!(seg.fin>t0&&seg.ini<t1)){if(seg.ini>=t1)fueraRango++;return;}
+      const l=pos(seg.ini),w=Math.max(.7,pos(seg.fin)-l);
+      const maqs=(oc.orden_corte_maquinas||[]);
+      const multi=maqs.length>1;
+      const nombresMaq=maqs.map(x=>{
+        const mm=C.maq_corte.find(z=>z.id===x.maquina_id);return mm?mm.nombre:('#'+x.maquina_id);
+      }).join(' + ');
+      const capComb=maqs.reduce((s,x)=>s+(x.maquinas_corte?.bolsas_por_hora||0),0);
+      let tip='OC '+escapeHtml(oc.numero_orden||'')+' · '+oc.estado+(seg.pctAvance?' ('+seg.pctAvance+'%)':'')
+        +'&#10;Producto: '+escapeHtml(oc.productos?.descripcion||oc.productos?.codigo||'—')
+        +'&#10;'+fmtDt(seg.ini)+' → '+fmtDt(seg.fin)
+        +'&#10;Lanzamiento: '+lanzTxt
+        +(multi?'&#10;⧉ Combinada: '+escapeHtml(nombresMaq)+' ('+capComb.toLocaleString('es-AR')+' bolsas/h)':'')
+        +(c.cliente?'&#10;Cliente: '+escapeHtml(c.cliente):'')
+        +(c.planInfo?'&#10;'+(c.planInfo.apurar?'⚡ APURAR · ':'🎯 Plan: ')+escapeHtml(c.planInfo.plan.nombre||''):'');
+      if(entrega)tip+='&#10;Entrega estimada: '+entrega.toLocaleDateString('es-AR')+(promesa?' · Promesa: '+promesa.toLocaleDateString('es-AR'):'');
+      tip+='&#10;👆 Click: resaltar cadena · Arrastrar sobre otra OC: reordenar cola';
+      const bordeOC=diasAtraso>0?'var(--red)':'var(--purple)';
+      const descBar=oc.productos?.descripcion||oc.productos?.codigo||'';
+      barras+='<div draggable="true" data-gcbtipo="oc" data-gcbid="'+oc.id+'" data-gcboe="'+(c.oe?c.oe.id:'')+'"'
+        +' onclick="gcbFoco(\'oc\','+oc.id+')" title="'+tip+'" style="position:absolute;top:5px;height:'+LANE_H+'px;left:'+l+'%;width:'+w+'%;cursor:grab;'
+        +'background:rgba(168,85,247,.13);border:1.5px solid '+bordeOC+';border-left:4px solid '+_gcbColorOrden(oc.id)+';border-radius:4px;'
+        +(c.planInfo?.apurar?'box-shadow:0 0 0 1.5px var(--amber);':'')
+        +'font-size:'+fBar+';color:var(--purple);font-weight:600;overflow:hidden;white-space:nowrap;">'
+        // Relleno de avance (lo hecho, más oscuro) detrás del texto
+        +'<div style="position:absolute;left:0;top:0;bottom:0;width:'+(seg.pctAvance||0)+'%;background:rgba(168,85,247,.30);"></div>'
+        +'<span style="position:relative;padding:0 5px;line-height:'+(LANE_H-3)+'px;display:block;">'
+        +(c.planInfo?(c.planInfo.apurar?'⚡ ':'🎯 '):'')+(multi?'⧉ ':'')+escapeHtml(oc.numero_orden||'')+(seg.pctAvance?' ▶'+seg.pctAvance+'%':'')
+        +(descBar?' <span style="color:var(--text2);font-weight:400;">· '+escapeHtml(descBar)+'</span>':'')+'</span></div>';
+      // Rombo de lanzamiento + marca de freno por material
+      barras+='<div title="'+lanzTxt+'" style="position:absolute;top:-3px;left:calc('+l+'% - 5px);font-size:10px;z-index:4;">'+lanz+'</div>';
+      if(seg.frenoMaterial){
+        barras+='<div style="position:absolute;top:0;height:5px;left:calc('+l+'% - 1px);width:0;border-left:2px dashed var(--amber);z-index:3;"></div>';
+      }
+    });
+    if(fueraRango>0)barras+='<div style="position:absolute;top:8px;right:2px;font-size:9px;color:var(--text3);z-index:4;">+'+fueraRango+' →</div>';
+
+    const lbl='<div style="font-weight:700;font-size:12px;color:var(--text1);">'+escapeHtml(m.nombre||('Cortadora #'+m.id))+'</div>'
+      +'<div style="font-size:10px;color:var(--text3);">'+(m.bolsas_por_hora||'?').toLocaleString('es-AR')+' bolsas/h · '
+      +(ocsM.length?ocsM.length+' OC'+(ocsM.length===1?'':'s')+(hasta?' · hasta '+fdd(hasta):''):'<span style="color:var(--green);">libre</span>')+'</div>';
+    html+='<div style="display:flex;border-bottom:1px solid var(--border);">'
+      +'<div style="width:'+LBLW+'px;flex-shrink:0;padding:5px 8px;border-right:1px solid var(--border);">'+lbl+'</div>'
+      +'<div style="flex:1;position:relative;height:'+ROWH+'px;">'+capasFondo+lineaAhora+barras+'</div>'
+    +'</div>';
+  });
+
+  // ── OCs activas sin máquina asignada (no aparecen en ningún carril) ──
+  const sinMaq=lista.filter(c=>!(c.oc.orden_corte_maquinas||[]).length||!c.seg);
+  if(sinMaq.length){
+    html+='<div style="font-size:12px;color:var(--red);padding:8px 10px;background:rgba(239,68,68,.06);border-top:1px solid var(--border);">'
+      +'⚠ <strong>Sin máquina/capacidad asignada:</strong> '
+      +sinMaq.map(c=>escapeHtml(c.oc.numero_orden||('OC #'+c.oc.id))).join(' · ')
+    +'</div>';
+  }
+
+  html+='<div id="gcb-conn-overlay" style="position:absolute;inset:0;pointer-events:none;z-index:7;"></div>';
+  html+='</div>';
+  return html;
+}
+
+// ── FOCO DE CADENA: click en una barra resalta su cadena OE↔OC y dibuja los conectores ──
+let _gcbFocoActual=null;
+let _gcbCadenas=[];  // último set de cadenas calculado por renderGanttCombinado
+
+// OC asociada a una OE (vínculo nuevo o legacy) — inversa de _balOEdeOC
+function _ocDeOE(oe){
+  if(!oe)return null;
+  return C.ord_corte.find(o=>o.orden_extrusion_id===oe.id)
+    ||(oe.orden_corte_origen_id?C.ord_corte.find(o=>o.id===oe.orden_corte_origen_id):null)
+    ||null;
+}
+// Descripción "humana" de una OE: el producto de su OC si la tiene, si no el tipo de bobina
+function _descDeOE(oe){
+  const oc=_ocDeOE(oe);
+  if(oc?.productos?.descripcion)return oc.productos.descripcion;
+  if(oc?.productos?.codigo)return oc.productos.codigo;
+  const b=C.bobinas.find(x=>x.id===oe.bobina_id);
+  return b?('Bobina '+(b.nombre||('#'+b.id))):'';
+}
+
+function gcbFoco(tipo,id){
+  const clave=tipo+':'+id;
+  if(_gcbFocoActual===clave){_gcbLimpiarFoco();return;}  // segundo click: salir del foco
+  _gcbFocoActual=clave;
+  _gcbAplicarFoco(tipo,id);
+}
+function _gcbAplicarFoco(tipo,id){
+  const wrap=document.getElementById('gcb-plant-wrap');
+  if(!wrap)return;
+  // Conjunto de barras de la cadena: la OE y todas sus OCs (o la OC y su OE)
+  const ids={oe:new Set(),oc:new Set()};
+  if(tipo==='oc'){
+    ids.oc.add(id);
+    const barOC=wrap.querySelector('[data-gcbtipo="oc"][data-gcbid="'+id+'"]');
+    const oeId=barOC&&barOC.dataset.gcboe?parseInt(barOC.dataset.gcboe):null;
+    if(oeId)ids.oe.add(oeId);
+  } else {
+    ids.oe.add(id);
+    wrap.querySelectorAll('[data-gcbtipo="oc"][data-gcboe="'+id+'"]').forEach(b=>ids.oc.add(parseInt(b.dataset.gcbid)));
+  }
+  // Atenuar todo lo que no es de la cadena
+  wrap.querySelectorAll('[data-gcbid]').forEach(b=>{
+    const t=b.dataset.gcbtipo,i=parseInt(b.dataset.gcbid);
+    b.style.opacity=(ids[t]&&ids[t].has(i))?'1':'.18';
+  });
+  _gcbDibujarConectores(wrap,ids);
+  _gcbPanelCadena(tipo,id);
+}
+function _gcbLimpiarFoco(){
+  _gcbFocoActual=null;
+  const pan=document.getElementById('gcb-cadena-panel');
+  if(pan)pan.innerHTML='';
+  const wrap=document.getElementById('gcb-plant-wrap');
+  if(!wrap)return;
+  wrap.querySelectorAll('[data-gcbid]').forEach(b=>{b.style.opacity='1';});
+  const ov=document.getElementById('gcb-conn-overlay');
+  if(ov)ov.innerHTML='';
+}
+function _gcbDibujarConectores(wrap,ids){
+  const ov=document.getElementById('gcb-conn-overlay');
+  if(!ov)return;
+  ov.innerHTML='';
+  const wr=wrap.getBoundingClientRect();
+  const seg=(x,y,w,h,estilo,col)=>'<div style="position:absolute;left:'+x+'px;top:'+y+'px;width:'+(w||0)+'px;height:'+(h||0)+'px;'
+    +(w?'border-top:2px '+estilo+' '+col+';':'border-left:2px '+estilo+' '+col+';')+'"></div>';
+  let html='';
+  ids.oe.forEach(oeId=>{
+    // Una OE combinada aparece en varios carriles: usamos su primera aparición como origen
+    const barOE=wrap.querySelector('[data-gcbtipo="oe"][data-gcbid="'+oeId+'"]');
+    if(!barOE)return;
+    const rOE=barOE.getBoundingClientRect();
+    const x1=rOE.right-wr.left,y1=rOE.bottom-wr.top;
+    ids.oc.forEach(ocId=>{
+      wrap.querySelectorAll('[data-gcbtipo="oc"][data-gcbid="'+ocId+'"]').forEach(barOC=>{
+        if(barOC.dataset.gcboe!==String(oeId))return;
+        const freno=(barOC.title||'').includes('Frenada por material');
+        const col=freno?'var(--amber)':'var(--text3)';
+        const estilo=freno?'solid':'dashed';
+        const rOC=barOC.getBoundingClientRect();
+        const x2=rOC.left-wr.left,y2=rOC.top-wr.top;
+        const yMid=Math.round((y1+y2)/2);
+        html+=seg(x1-1,y1,0,Math.max(1,yMid-y1),estilo,col);                       // bajada desde el fin de la OE
+        html+=seg(Math.min(x1,x2),yMid,Math.max(2,Math.abs(x2-x1)),0,estilo,col);  // tramo horizontal
+        html+=seg(x2-1,yMid,0,Math.max(1,y2-yMid),estilo,col);                     // bajada al inicio de la OC
+        html+='<div style="position:absolute;left:'+(x2-5)+'px;top:'+(y2-8)+'px;font-size:8px;color:'+col+';">▼</div>';
+      });
+    });
+  });
+  ov.innerHTML=html;
+}
+
+// ── PANEL DE CADENA: la historia completa Pedido → OE → OC visible aunque las barras
+// estén fuera de la ventana de tiempo. Es el ancla visual que no se pierde al navegar. ──
+function _gcbPanelCadena(tipo,id){
+  const pan=document.getElementById('gcb-cadena-panel');
+  if(!pan)return;
+  const cads=tipo==='oc'
+    ?_gcbCadenas.filter(c=>c.oc.id===id)
+    :_gcbCadenas.filter(c=>c.oe&&c.oe.id===id);
+  if(!cads.length){pan.innerHTML='';return;}
+  const fd=d=>d?new Date(d).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}):'—';
+  const fdh=d=>d?new Date(d).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})+' '+new Date(d).getHours()+'h':'—';
+  const pct=(p,color)=>'<span style="display:inline-block;min-width:64px;height:9px;background:var(--bg4);border-radius:5px;overflow:hidden;vertical-align:middle;margin:0 4px;"><span style="display:block;height:100%;width:'+(p||0)+'%;background:'+color+';"></span></span><strong>'+(p||0)+'%</strong>';
+  const card=(html,borde)=>'<div style="background:var(--bg3);border:1px solid '+(borde||'var(--border)')+';border-radius:var(--r);padding:7px 10px;font-size:11.5px;color:var(--text2);min-width:200px;">'+html+'</div>';
+
+  const c0=cads[0];
+  // ── Tarjeta PEDIDO ──
+  let pedHTML;
+  if(c0.ped){
+    const dlt=c0.diasAtraso>0?' <span style="color:var(--red);font-weight:700;">⚠ atrasa '+c0.diasAtraso+'d</span>':(c0.promesa?' <span style="color:var(--green);">✓</span>':'');
+    pedHTML=card('<div style="font-weight:700;color:var(--text1);">📋 '+escapeHtml(c0.ped.numero_pedido||('#'+c0.ped.id))
+      +(c0.planInfo?(c0.planInfo.apurar?' <span style="color:var(--amber);font-weight:800;">⚡ APURAR</span>':' 🎯'):'')+'</div>'
+      +'<div>'+escapeHtml(c0.cliente||'—')+'</div>'
+      +'<div>Promesa: <strong style="color:var(--text1);">'+fd(c0.promesa)+'</strong>'+dlt+'</div>'
+      +'<div>Entrega est.: <strong style="color:'+(c0.diasAtraso>0?'var(--red)':'var(--text1)')+';">'+fd(c0.entrega)+'</strong></div>',
+      c0.planInfo?.apurar?'var(--amber)':null);
+  } else {
+    pedHTML=card('<div style="font-weight:700;color:var(--text3);">📋 Sin pedido</div><div>Producción a stock</div>');
+  }
+  // ── Tarjeta OE ──
+  let oeHTML;
+  if(c0.oe){
+    const so=c0.segOE;
+    const fueraOE=so&&!_gcbEnVentana(so.ini,so.fin);
+    oeHTML=card('<div style="font-weight:700;color:var(--accent);">🏭 '+escapeHtml(c0.oe.numero_orden)
+        +(c0.oe.estado==='Completada'?' <span style="color:var(--green);">✓ lista</span>':'')
+        +' <button class="btn btn-sm" style="padding:0 6px;font-size:10px;" onclick="go(\'ordenes\')" title="Abrir órdenes de extrusión">📂</button>'
+        +'<button class="btn btn-sm" style="padding:0 6px;font-size:10px;" onclick="imprimirOrden('+c0.oe.id+',\'extrusion\')" title="Imprimir orden para el operario">🖨️</button></div>'
+      +'<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;">'+escapeHtml(_descDeOE(c0.oe))+(c0.cliente?' · '+escapeHtml(c0.cliente):'')+'</div>'
+      +(so?'<div>Avance: '+pct(so.pctAvance,'var(--accent)')+'</div><div>'+fdh(so.ini)+' → <strong>'+fdh(so.fin)+'</strong>'
+        +(fueraOE?' <button class="btn btn-sm" style="padding:1px 7px;font-size:10px;" onclick="gcbIrA('+new Date(so.ini).getTime()+')">📍 Ver</button>':'')+'</div>'
+       :(c0.oe.estado==='Completada'?'<div>Material producido</div>':'<div style="color:var(--text3);">sin programación</div>')));
+  } else {
+    oeHTML=card('<div style="font-weight:700;color:var(--text3);">🏭 Sin OE</div><div>'+(c0.seg&&c0.seg.mtsRestantes>0?'⚠ revisar material':'corta de stock de bobinas')+'</div>');
+  }
+  // ── Tarjeta(s) OC ──
+  const ocHTML=cads.map(c=>{
+    const s=c.seg;
+    const maqs=(c.oc.orden_corte_maquinas||[]).map(x=>{
+      const m=C.maq_corte.find(z=>z.id===x.maquina_id);return m?m.nombre:('#'+x.maquina_id);
+    }).join(' + ');
+    const fueraOC=s&&!_gcbEnVentana(s.ini,s.fin);
+    return card('<div style="font-weight:700;color:var(--purple);">'+c.lanz+' ✂️ '+escapeHtml(c.oc.numero_orden||('OC #'+c.oc.id))
+      +' <button class="btn btn-sm" style="padding:0 6px;font-size:10px;" onclick="go(\'ordenes-corte\')" title="Abrir órdenes de corte">📂</button>'
+      +'<button class="btn btn-sm" style="padding:0 6px;font-size:10px;" onclick="imprimirOrden('+c.oc.id+',\'corte\')" title="Imprimir orden para el operario">🖨️</button></div>'
+      +'<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;">'+escapeHtml(c.oc.productos?.descripcion||c.oc.productos?.codigo||'—')+(c.cliente?' · '+escapeHtml(c.cliente):'')+'</div>'
+      +(s?'<div>Avance: '+pct(s.pctAvance,'var(--purple)')+'</div>'
+        +'<div>'+fdh(s.ini)+' → <strong>'+fdh(s.fin)+'</strong>'
+          +(fueraOC?' <button class="btn btn-sm" style="padding:1px 7px;font-size:10px;" onclick="gcbIrA('+new Date(s.ini).getTime()+')">📍 Ver</button>':'')+'</div>'
+        +'<div>'+escapeHtml(maqs||'sin máquina')+' · '+escapeHtml(c.lanzTxt)+'</div>'
+        +(c.oc.estado!=='En proceso'?'<div style="margin-top:3px;"><button class="btn btn-sm" style="padding:2px 8px;font-size:10.5px;" onclick="gcbAcercarOC('+c.oc.id+')" title="Subirla al frente de la cola de corte para que arranque lo antes posible (el material igual la frena si no está)">🧲 Acercar a su OE</button></div>':'')
+       :'<div style="color:var(--red);">⚠ sin máquina/capacidad</div>'),
+      c.diasAtraso>0?'var(--red)':null);
+  }).join('<div style="align-self:center;color:var(--text3);font-size:14px;">→</div>');
+
+  pan.innerHTML='<div style="background:var(--bg2);border:1.5px solid var(--accent);border-radius:var(--rl);padding:8px 12px;margin-bottom:8px;display:flex;gap:8px;align-items:stretch;flex-wrap:wrap;">'
+    +pedHTML+'<div style="align-self:center;color:var(--text3);font-size:14px;">→</div>'+oeHTML
+    +'<div style="align-self:center;color:var(--text3);font-size:14px;">→</div>'+ocHTML
+    +'<button class="btn btn-sm" style="align-self:flex-start;margin-left:auto;" onclick="_gcbLimpiarFoco()" title="Salir del foco">✕</button>'
+  +'</div>';
+}
+// ¿Un rango cae (al menos en parte) dentro de la ventana visible del gantt?
+let _gcbVentana={t0:null,t1:null};
+function _gcbEnVentana(ini,fin){
+  if(!_gcbVentana.t0)return true;
+  return fin>_gcbVentana.t0&&ini<_gcbVentana.t1;
+}
+// Saltar la ventana del gantt a una fecha (manteniendo el foco de cadena activo)
+function gcbIrA(ms){
+  gcbFecha=new Date(ms);gcbFecha.setHours(0,0,0,0);
+  renderGanttCombinado();
+}
+// 🧲 ACERCAR: subir la OC al frente de la cola de corte (detrás de las En proceso).
+// El motor la programa lo antes posible; si el material no está, la restricción
+// de la OE igual la frena — o sea: queda EXACTAMENTE pegada a su OE.
+function gcbAcercarOC(ocId){
+  const oc=C.ord_corte.find(o=>o.id===ocId);
+  if(!oc)return;
+  const cola=C.ord_corte
+    .filter(o=>o.estado!=='Completada'&&o.estado!=='Suspendida'&&o.estado!=='Cancelada')
+    .sort(ordenCola).map(o=>o.id);
+  // Primera posición disponible = después del bloque "En proceso"
+  let idxLibre=0;
+  for(const cid of cola){
+    const o=C.ord_corte.find(x=>x.id===cid);
+    if(o&&o.estado==='En proceso')idxLibre++;else break;
+  }
+  const idxActual=cola.indexOf(ocId);
+  if(idxActual<0)return;
+  if(idxActual<=idxLibre){toast('✓ '+(oc.numero_orden||'la OC')+' ya está lo antes posible en la cola','green');return;}
+  _gcbReordenar('oc',ocId,cola[idxLibre]);
+}
+
+// ── 💡 SUGERENCIAS DEL PROGRAMADOR: el sistema avisa solo dónde hay para mejorar ──
+// 1) OCs cuyo material está (o estará) listo mucho antes de su turno de máquina → acercarlas.
+// 2) OCs de pedidos en plan de compra con ⚡ APURAR que no están al frente de la cola.
+function _gcbSugerencias(cadenas,ahora){
+  const div=document.getElementById('gcb-sugerencias');
+  if(!div)return;
+  const sug=[];
+  const UMBRAL_HS=6;  // horas laborales de corte "desperdiciadas" para sugerir
+  cadenas.forEach(c=>{
+    if(!c.seg||c.oc.estado==='En proceso')return;
+    // ¿Cuándo está el material listo?
+    let matListo=null;
+    if(!c.oe||c.oe.estado==='Completada'||(c.seg.mtsRestantes!=null&&(c.seg.mtsDispAhora||0)>=c.seg.mtsRestantes-0.01)){
+      matListo=ahora;
+    } else if(c.segOE&&c.segOE.fin){
+      matListo=new Date(c.segOE.fin);
+    }
+    if(matListo&&!c.seg.frenoMaterial){
+      const gap=hsLaboralesEntre(new Date(Math.max(ahora,matListo)),new Date(c.seg.ini),'corte');
+      if(gap>=UMBRAL_HS){
+        sug.push({pri:c.planInfo?.apurar?0:1,gap,
+          html:(c.planInfo?.apurar?'⚡ ':'')+'✂️ <strong>'+escapeHtml(c.oc.numero_orden||'')+'</strong> ('
+            +escapeHtml(c.oc.productos?.descripcion||c.oc.productos?.codigo||'—')
+            +(c.cliente?' · '+escapeHtml(c.cliente):'')+') tiene el material '
+            +(matListo<=ahora?'<strong>listo YA</strong>':'listo el <strong>'+matListo.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})+'</strong>')
+            +' pero recién corta el <strong>'+new Date(c.seg.ini).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})+'</strong> ('+r1(gap)+' hs de corte de por medio)',
+          ocId:c.oc.id});
+      }
+    }
+    // APURAR que no está al frente
+    if(c.planInfo?.apurar&&!sug.some(s=>s.ocId===c.oc.id)){
+      sug.push({pri:0,gap:999,
+        html:'⚡ <strong>'+escapeHtml(c.oc.numero_orden||'')+'</strong> es de un plan <strong>APURAR</strong> ('+escapeHtml(c.planInfo.plan.nombre||'')+') — revisá que esté al frente de la cola',
+        ocId:c.oc.id});
+    }
+  });
+  if(!sug.length){div.innerHTML='';return;}
+  sug.sort((a,b)=>a.pri-b.pri||b.gap-a.gap);
+  div.innerHTML='<div style="background:rgba(245,158,11,.06);border:1px solid var(--amberbd,var(--amber));border-radius:var(--rl);padding:7px 12px;margin-bottom:8px;font-size:12px;">'
+    +'<div style="font-weight:700;color:var(--amber);margin-bottom:3px;">💡 Sugerencias del programador</div>'
+    +sug.slice(0,4).map(s=>'<div style="padding:2px 0;color:var(--text2);display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+      +'<span style="flex:1;min-width:200px;">'+s.html+'</span>'
+      +'<button class="btn btn-sm" style="padding:2px 8px;font-size:10.5px;flex-shrink:0;" onclick="gcbAcercarOC('+s.ocId+')">🧲 Acercar</button>'
+      +'<button class="btn btn-sm" style="padding:2px 8px;font-size:10.5px;flex-shrink:0;" onclick="_gcbFocoActual=null;gcbFoco(\'oc\','+s.ocId+')">👁 Ver cadena</button>'
+    +'</div>').join('')
+    +(sug.length>4?'<div style="font-size:10.5px;color:var(--text3);">… y '+(sug.length-4)+' más</div>':'')
+  +'</div>';
+}
+
+// ── DRAG & DROP: reordenar la cola arrastrando una barra sobre otra del mismo tipo ──
+// Misma semántica que el planificador: el drag cambia el ORDEN DE LA COLA (prioridades),
+// no la posición horaria — las fechas las recalcula siempre el motor. Al confirmar se
+// guarda prioridad=posición en la base (igual que guardarPlanificacion), así el
+// planificador y el Gantt quedan sincronizados automáticamente: leen el mismo dato.
+function _gcbNuevaCola(tipo,dragId,targetId){
+  const fuente=tipo==='oe'?C.ordenes:C.ord_corte;
+  const cola=fuente
+    .filter(o=>o.estado!=='Completada'&&o.estado!=='Suspendida'&&o.estado!=='Cancelada')
+    .sort(ordenCola).map(o=>o.id);
+  const iD=cola.indexOf(dragId),iT=cola.indexOf(targetId);
+  if(iD<0||iT<0||dragId===targetId)return null;
+  cola.splice(iD,1);
+  cola.splice(cola.indexOf(targetId),0,dragId);  // queda DELANTE del target
+  return cola;
+}
+async function _gcbReordenar(tipo,dragId,targetId){
+  const fuente=tipo==='oe'?C.ordenes:C.ord_corte;
+  const drag=fuente.find(o=>o.id===dragId),target=fuente.find(o=>o.id===targetId);
+  if(!drag||!target)return;
+  const cola=_gcbNuevaCola(tipo,dragId,targetId);
+  if(!cola)return;
+  if(!confirm('¿Mover '+(drag.numero_orden||'#'+dragId)+' DELANTE de '+(target.numero_orden||'#'+targetId)
+    +' en la cola de '+(tipo==='oe'?'extrusión':'corte')+'?\n\nSe guardan las nuevas prioridades y se recalculan las fechas (también en el planificador).'))return;
+  const tabla=tipo==='oe'?'ordenes':'ordenes_corte';
+  const errores=[];
+  for(let i=0;i<cola.length;i++){
+    const{error}=await sb.from(tabla).update({prioridad:i+1}).eq('id',cola[i]);
+    if(error)errores.push(error.message);
+  }
+  if(errores.length){toast('⚠ Error guardando prioridades: '+errores[0],'red');return;}
+  toast('✓ Cola de '+(tipo==='oe'?'extrusión':'corte')+' reordenada — fechas recalculadas','green');
+  await reload();
+  renderGanttCombinado();
+  if(typeof renderTorreEntregas==='function')renderTorreEntregas();
+}
+function _gcbEngancharDnD(){
+  const wrap=document.getElementById('gcb-plant-wrap');
+  if(!wrap)return;
+  let dragTipo=null,dragId=null;
+  wrap.querySelectorAll('[data-gcbid][draggable="true"]').forEach(bar=>{
+    bar.addEventListener('dragstart',e=>{
+      dragTipo=bar.dataset.gcbtipo;dragId=parseInt(bar.dataset.gcbid);
+      bar.style.opacity='.4';
+      e.dataTransfer.effectAllowed='move';
+      try{e.dataTransfer.setData('text/plain',dragTipo+':'+dragId);}catch(_){}
+    });
+    bar.addEventListener('dragend',()=>{bar.style.opacity='';dragTipo=null;dragId=null;});
+    bar.addEventListener('dragover',e=>{
+      if(dragTipo&&bar.dataset.gcbtipo===dragTipo&&parseInt(bar.dataset.gcbid)!==dragId){
+        e.preventDefault();e.dataTransfer.dropEffect='move';
+        bar.style.outline='2px dashed var(--accent)';
+      }
+    });
+    bar.addEventListener('dragleave',()=>{bar.style.outline='';});
+    bar.addEventListener('drop',e=>{
+      e.preventDefault();bar.style.outline='';
+      if(dragTipo===null||dragId===null)return;
+      if(bar.dataset.gcbtipo!==dragTipo){
+        toast('⚠ Solo se puede reordenar dentro de la misma cola ('+(dragTipo==='oe'?'extrusión':'corte')+')','red');
+        return;
+      }
+      const targetId=parseInt(bar.dataset.gcbid);
+      if(targetId===dragId)return;
+      _gcbReordenar(dragTipo,dragId,targetId);
+    });
+  });
+}
+
+// OEs activas que no alimentan ninguna OC (producción a stock) — lista informativa al pie
+function _gcbRenderSinOC(schedOE){
+  const div=document.getElementById('gcb-sin-oc');
+  if(!div)return;
+  const conOC=new Set();
+  (C.ord_corte||[]).forEach(oc=>{
+    if(oc.estado==='Cancelada')return;
+    const oe=_balOEdeOC(oc);
+    if(oe)conOC.add(oe.id);
+  });
+  const sueltas=(C.ordenes||[]).filter(o=>
+    o.estado!=='Completada'&&o.estado!=='Suspendida'&&o.estado!=='Cancelada'&&!conOC.has(o.id));
+  if(!sueltas.length){div.innerHTML='';return;}
+  div.innerHTML='<div style="font-size:12px;color:var(--text2);padding:8px 10px;background:var(--bg2);border-radius:var(--r);border:1px solid var(--border);">'
+    +'<strong>🏭 OEs sin OC asociada</strong> (producción a stock): '
+    +sueltas.map(o=>{
+      const seg=schedOE[o.id];
+      return escapeHtml(o.numero_orden)+(seg&&seg.fin?' <span style="color:var(--text3);">(fin '+new Date(seg.fin).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})+')</span>':'');
+    }).join(' · ')
+  +'</div>';
+}
+
 function renderGanttCorteDiario(){
   const schedProg=computeScheduleCorte(),schedReal=calcScheduleCorteReal();
   document.getElementById('gcd-lbl').textContent=gcdDate.toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
@@ -31853,6 +33610,16 @@ function ccMovimientosUnificados(){
     const cta=p.cuenta_id||defP;
     out.push({key:'p'+p.id,fecha:p.fecha,tipo:'egreso',cuenta_id:cta,monto,concepto:'Pago · '+lcProvNombre(p.proveedor_id),conciliado:false,origen:'pago',origen_id:p.id,editable:false,sinCuenta:!cta});
   });
+  (C.deudas_financieras||[]).forEach(d=>{
+    if(d.estado==='cancelado')return;
+    (d.cuotas||[]).forEach(c=>{
+      if(c.estado!=='pagada')return;
+      const monto=parseFloat(c.monto_pagado!=null?c.monto_pagado:c.monto)||0;
+      if(monto<=0.01)return;
+      const cta=c.cuenta_id||defP;
+      out.push({key:'d'+d.id+'-'+(c.nro||0),fecha:c.fecha_pago||c.vencimiento,tipo:'egreso',cuenta_id:cta,monto,concepto:dfTipoIc(d.tipo)+' '+(d.acreedor||'Deuda')+' · cuota '+(c.nro||''),conciliado:false,origen:'deuda',origen_id:d.id,editable:false,sinCuenta:!cta});
+    });
+  });
   return out;
 }
 function ccSaldos(){
@@ -34216,15 +35983,30 @@ function getPeriodosFor(tipo){
 function getPeriodos(){ return getPeriodosFor(anPeriod==='semana'?'day':anPeriod); }
 
 async function loadAnData(){
-  // Cargar TODOS los datos históricos para analytics (sin límite)
-  const[rbp,roc,rmov]=await Promise.all([
-    sb.from('bobinas_producidas').select('fecha_produccion,kg_reales,metros_reales,extrusora_id,error_pct,error_kg,estado_calidad,fuera_de_rango').order('fecha_produccion'),
-    sb.from('ordenes_corte').select('created_at,unidades_reales,bultos_reales,peso_scrap_kg,merma_pct,estado').order('created_at'),
-    sb.from('stock_movimientos').select('fecha,tipo,kg,metros').eq('tipo','salida').order('fecha')
+  // Cargar TODOS los datos históricos para analytics.
+  // OJO: Supabase corta cada consulta en 1000 filas por defecto, así que paginamos
+  // con range() hasta traer todo (si no, los KPIs ignoran la producción más reciente).
+  async function fetchAll(builder){
+    const out=[];const PAGE=1000;let from=0;
+    while(true){
+      const{data,error}=await builder().range(from,from+PAGE-1);
+      if(error){console.error('analytics fetchAll:',error.message);return out.length?out:null;}
+      const rows=data||[];
+      out.push(...rows);
+      if(rows.length<PAGE)break;
+      from+=PAGE;
+    }
+    return out;
+  }
+  const[bobs,ords,movs]=await Promise.all([
+    fetchAll(()=>sb.from('bobinas_producidas').select('fecha_produccion,kg_reales,metros_reales,extrusora_id,error_pct,error_kg,estado_calidad,fuera_de_rango').order('fecha_produccion')),
+    fetchAll(()=>sb.from('ordenes_corte').select('created_at,unidades_reales,bultos_reales,peso_scrap_kg,merma_pct,estado').order('created_at')),
+    fetchAll(()=>sb.from('stock_movimientos').select('fecha,tipo,kg,metros').eq('tipo','salida').order('fecha'))
   ]);
-  anDataCache.bobinas=rbp.data||[];
-  anDataCache.ordenes_corte=roc.data||[];
-  anDataCache.movimientos=rmov.data||[];
+  // si una consulta falla, no pisar el cache con vacío
+  if(bobs!==null)anDataCache.bobinas=bobs;else anDataCache.bobinas=anDataCache.bobinas||[];
+  if(ords!==null)anDataCache.ordenes_corte=ords;else anDataCache.ordenes_corte=anDataCache.ordenes_corte||[];
+  if(movs!==null)anDataCache.movimientos=movs;else anDataCache.movimientos=anDataCache.movimientos||[];
   anDataCache.loaded=true;
 }
 
