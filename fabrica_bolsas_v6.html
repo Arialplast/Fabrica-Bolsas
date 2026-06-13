@@ -376,6 +376,7 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
     <div class="nav-item" onclick="go('carga-bobinas')"><div class="nav-dot"></div>Carga de bobinas</div>
     <div class="nav-item" onclick="go('stock')"><div class="nav-dot"></div>Stock bobinas</div>
     <div class="nav-item" onclick="go('confeccion')"><div class="nav-dot"></div>Confección</div>
+    <div class="nav-item" onclick="go('panel-corte')"><div class="nav-dot" style="background:var(--accent)"></div>Panel corte 🖥️</div>
     <div class="nav-sec">Módulo Corte</div>
     <div class="nav-item" onclick="go('ordenes-corte')"><div class="nav-dot"></div>Órdenes de corte</div>
     <div class="nav-item" onclick="go('nueva-corte')"><div class="nav-dot"></div>Nueva orden corte</div>
@@ -775,6 +776,11 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
         <div class="tw-bar"><span class="tw-title">Historial de consumos</span></div>
         <div id="conf-hist"><div class="loading"><div class="spinner"></div></div></div>
       </div>
+    </div>
+
+    <!-- PANEL CORTE (pantalla de planta, fullscreen) -->
+    <div class="page" id="page-panel-corte">
+      <div id="pcorte-root"></div>
     </div>
 
     <!-- BOBINAS -->
@@ -4033,7 +4039,15 @@ async function reload(){
     sb.from('cliente_precios_especiales').select('*, productos(*), listas_precios(nombre)').then(r=>r).catch(()=>({data:[]})),
     sb.from('pedidos').select('*, pedido_lineas(*, productos(*)), pedido_cobros(*), pedido_ordenes_corte(*, ordenes_corte(numero_orden,estado,fecha_completada))').order('created_at',{ascending:false}),
     sb.from('stock_bolsas').select('*, productos(*), ordenes_corte(numero_orden)').then(r=>r).catch(()=>({data:[]})),
-    sb.from('remitos').select('*, remito_lineas(*, productos(*), stock_bolsas(*))').order('created_at',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
+    sb.from('remitos').select('*, remito_lineas(*, productos!remito_lineas_producto_id_fkey(*), stock_bolsas(*))').order('created_at',{ascending:false}).then(async r=>{
+      if(r.error){
+        console.error('Carga de remitos falló con relación desambiguada:',r.error.message,'— reintento sin productos anidado');
+        const r2=await sb.from('remitos').select('*, remito_lineas(*, stock_bolsas(*))').order('created_at',{ascending:false});
+        if(r2.error){console.error('Reintento de remitos también falló:',r2.error.message);return{data:[]};}
+        return r2;
+      }
+      return r;
+    }).catch(e=>{console.error('Carga de remitos (catch):',e);return{data:[]};}),
     sb.from('facturas').select('*, factura_lineas(*), factura_remitos(remito_id), clientes(nombre,razon_social,cuit,condicion_iva)').order('created_at',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
     sb.from('recibos').select('*, recibo_valores(*), recibo_retenciones(*), recibo_facturas(*), recibo_rvs(*), clientes(nombre,razon_social)').order('created_at',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
     sb.from('metodos_pago').select('*').eq('activo',true).order('orden').then(r=>r).catch(()=>({data:[]})),
@@ -6627,6 +6641,7 @@ function go(name){
   if(name==='empaque')renderEmpaque();
   if(name==='capacidad-corte')renderCapCorte();
   if(name==='panel-operario')renderPanelOperario();
+  if(name==='panel-corte')renderPanelCorte();
   if(name==='mp-ingreso'){renderTiposMP();renderProveedores();poblarSelectsMP();}
   if(name==='mp-inventario'){renderInvAlerta();renderInvHist();poblarInvOp();}
   if(name==='mp-formulas'){poblarSelectsFormulas();renderFormulaBobina();}
@@ -7560,6 +7575,7 @@ async function acreditarStockDesdeOC(ocId){
         orden_corte_id:ocId,estado:'reservado',pedido_id:pedidoId
       });
       if(e1){console.error('Error insert stock_bolsas reservado:',e1);toast('⚠ Error cargando stock reservado: '+e1.message,'red');}
+      else await _autoReponerPrestamos(pedidoId,o.producto_id,reservar,ocId);
     }
     if(excedente>0){
       const{error:e2}=await sb.from('stock_bolsas').insert({
@@ -7643,6 +7659,7 @@ async function reservarStockOCalPedido(ocId){
       cantidad_unidades:uniPaq>0?aReservar*uniPaq:0,
       orden_corte_id:ocId,estado:'reservado',pedido_id:pedido.id
     });
+    await _autoReponerPrestamos(pedido.id,o.producto_id,aReservar,ocId);
   }
   // Crear disponible si quedó excedente
   if(aDejarDisp>0){
@@ -7937,6 +7954,7 @@ async function confirmarCargaParcial(ocId){
           orden_corte_id:ocId,estado:'reservado',pedido_id:pedidoId
         });
         if(e1){console.error('Error insert reservado:',e1);throw new Error('Reservado: '+e1.message);}
+        await _autoReponerPrestamos(pedidoId,o.producto_id,reservar,ocId);
       }
       if(excedente>0){
         const{error:e2}=await sb.from('stock_bolsas').insert({
@@ -8150,7 +8168,7 @@ function onNrPedidoChange(){
     const stk=_nrStockProducto(l.producto_id,pedId);
     const paqPedido=parseFloat(l.cantidad)||0;
     // Cuánto ya se entregó de esta línea (entregas previas)
-    const yaEntregado=(C.stock_bolsas||[]).filter(s=>s.producto_id===l.producto_id&&s.pedido_id===pedId&&s.estado==='entregado').reduce((s,x)=>s+(parseFloat(x.cantidad_paquetes)||0),0)+(parseFloat(l.entregado)||0);
+    const yaEntregado=(C.stock_bolsas||[]).filter(s=>s.producto_id===l.producto_id&&s.pedido_id===pedId&&s.estado==='entregado').reduce((s,x)=>s+(parseFloat(x.cantidad_paquetes)||0),0)+(parseFloat(l.entregado)||0)+_entregadoSustituto(pedId,l);
     const pendiente=Math.max(0,paqPedido-yaEntregado);
     // El input permite hasta lo PENDIENTE (aunque no haya stock — la reasignación se encarga)
     const maxEntregar=pendiente;
@@ -8543,9 +8561,14 @@ function abrirDialogoReasignacion(faltantes,pedId,cliId,fecha,obs,modo,lineasRem
         +'Disponible: <strong style="color:var(--green);">'+f.disp.toLocaleString('es-AR')+'</strong> · '
         +'<strong style="color:var(--red);">Faltan '+f.falta.toLocaleString('es-AR')+' paq</strong>'
       +'</div>';
+    const sustOpts=_sustOpcionesProducto(f.rl.producto_id,pedId);
     if(!grupos.length){
-      html+='<div style="font-size:12px;color:var(--red);">✕ No hay stock reservado a otros pedidos de este producto. No se puede completar el remito.</div>';
-      hayOpciones=false;
+      if(sustOpts.length){
+        html+='<div style="font-size:12px;color:var(--amber);">⚠ No hay stock de ESTE producto en otros pedidos — pero podés entregar un sustituto (abajo).</div>';
+      } else {
+        html+='<div style="font-size:12px;color:var(--red);">✕ No hay stock de este producto en otros pedidos ni productos sustitutos con stock. No se puede completar el remito.</div>';
+        hayOpciones=false;
+      }
     } else {
       html+='<div style="font-size:11px;color:var(--text3);margin-bottom:4px;">Stock reservado a otros pedidos:</div>';
       grupos.forEach((g,gIdx)=>{
@@ -8563,6 +8586,17 @@ function abrirDialogoReasignacion(faltantes,pedId,cliId,fecha,obs,modo,lineasRem
       });
       html+='<div style="font-size:11px;margin-top:6px;" id="reasign-status-'+fIdx+'">Tildá pedidos para cubrir el faltante.</div>';
     }
+    // 🔁 Sustitución: entregar OTRO producto (acordado con el cliente)
+    if(sustOpts.length){
+      html+='<div style="margin-top:10px;border-top:1px dashed var(--border);padding-top:8px;">'
+        +'<div style="font-size:11px;color:var(--text3);margin-bottom:4px;">🔁 O entregar un producto <strong>sustituto</strong> (acordado con el cliente — queda registrado y genera deuda de reposición si era de otro pedido):</div>'
+        +'<select class="st-sel" style="font-size:12px;max-width:100%;" id="sust-sel-'+fIdx+'" onchange="sustElegirProducto('+fIdx+')">'
+          +'<option value="">— sin sustituto —</option>'
+          +sustOpts.map(o=>'<option value="'+o.producto.id+'">'+escapeHtml((o.producto.codigo?o.producto.codigo+' · ':'')+(o.producto.descripcion||''))+' — '+(o.paqOtros+o.paqDisp).toLocaleString('es-AR')+' paq</option>').join('')
+        +'</select>'
+        +'<div id="sust-lotes-'+fIdx+'" style="margin-top:6px;"></div>'
+      +'</div>';
+    }
     html+='</div>';
   });
 
@@ -8577,6 +8611,61 @@ function abrirDialogoReasignacion(faltantes,pedId,cliId,fecha,obs,modo,lineasRem
   faltantes.forEach((_,i)=>calcReasign(i));
 }
 
+// Productos candidatos a sustituto: distintos al pedido, con stock reservado
+// a otros pedidos o disponible.
+function _sustOpcionesProducto(productoExcluidoId,pedId){
+  const por={};
+  (C.stock_bolsas||[]).forEach(st=>{
+    if(st.producto_id===productoExcluidoId||(st.cantidad_paquetes||0)<=0)return;
+    const esOtro=st.estado==='reservado'&&st.pedido_id&&st.pedido_id!==pedId;
+    const esDisp=st.estado==='disponible';
+    if(!esOtro&&!esDisp)return;
+    if(!por[st.producto_id])por[st.producto_id]={paqOtros:0,paqDisp:0};
+    if(esOtro)por[st.producto_id].paqOtros+=parseFloat(st.cantidad_paquetes)||0;
+    else por[st.producto_id].paqDisp+=parseFloat(st.cantidad_paquetes)||0;
+  });
+  return Object.entries(por).map(([pid,x])=>{
+    const producto=C.productos.find(p=>p.id===parseInt(pid));
+    return producto?{producto,...x}:null;
+  }).filter(Boolean).sort((a,b)=>(b.paqOtros+b.paqDisp)-(a.paqOtros+a.paqDisp));
+}
+
+// Al elegir un producto sustituto: mostrar sus lotes agrupados por dueño
+function sustElegirProducto(fIdx){
+  const pedId=window._reasignCtx?.pedId;
+  const prodId=parseInt(document.getElementById('sust-sel-'+fIdx)?.value)||0;
+  const div=document.getElementById('sust-lotes-'+fIdx);
+  if(!div)return;
+  if(!prodId){div.innerHTML='';calcReasign(fIdx);return;}
+  const porPed={};let paqDisp=0;
+  (C.stock_bolsas||[]).forEach(st=>{
+    if(st.producto_id!==prodId||(st.cantidad_paquetes||0)<=0)return;
+    if(st.estado==='disponible')paqDisp+=parseFloat(st.cantidad_paquetes)||0;
+    else if(st.estado==='reservado'&&st.pedido_id&&st.pedido_id!==pedId){
+      porPed[st.pedido_id]=(porPed[st.pedido_id]||0)+(parseFloat(st.cantidad_paquetes)||0);
+    }
+  });
+  let h='';
+  if(paqDisp>0){
+    h+='<label style="display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:var(--r);padding:6px 10px;margin-bottom:4px;cursor:pointer;">'
+      +'<input type="checkbox" class="sust-chk" data-falt="'+fIdx+'" data-producto="'+prodId+'" data-pedido="disp" data-disp="'+paqDisp+'" onchange="calcReasign('+fIdx+')">'
+      +'<div style="flex:1;font-size:12px;">🔵 Stock disponible (sin dueño — no genera deuda)</div>'
+      +'<div style="font-size:12px;font-weight:700;color:var(--accent);">'+paqDisp.toLocaleString('es-AR')+' paq</div></label>';
+  }
+  Object.entries(porPed).map(([pid,paq])=>{
+    const pe=C.pedidos.find(p=>p.id===parseInt(pid));
+    return{pid:parseInt(pid),paq,pe,fe:pe?.fecha_entrega_est||'9999-12-31'};
+  }).sort((a,b)=>b.fe.localeCompare(a.fe)).forEach(g=>{
+    const feTxt=g.pe?.fecha_entrega_est?new Date(g.pe.fecha_entrega_est+'T12:00:00').toLocaleDateString('es-AR'):'sin fecha';
+    h+='<label style="display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:var(--r);padding:6px 10px;margin-bottom:4px;cursor:pointer;">'
+      +'<input type="checkbox" class="sust-chk" data-falt="'+fIdx+'" data-producto="'+prodId+'" data-pedido="'+g.pid+'" data-disp="'+g.paq+'" onchange="calcReasign('+fIdx+')">'
+      +'<div style="flex:1;font-size:12px;">🟠 <strong style="font-family:monospace;color:var(--accent);">'+escapeHtml(g.pe?.numero_pedido||'PED-?')+'</strong> · '+escapeHtml(g.pe?.cliente||'—')+' · entrega '+feTxt+' <span style="color:var(--amber);">(préstamo)</span></div>'
+      +'<div style="font-size:12px;font-weight:700;color:var(--amber);">'+g.paq.toLocaleString('es-AR')+' paq</div></label>';
+  });
+  div.innerHTML=h||'<div style="font-size:11px;color:var(--text3);">Sin lotes utilizables de este producto.</div>';
+  calcReasign(fIdx);
+}
+
 function calcReasign(fIdx){
   const cont=document.querySelector('[data-falt-idx="'+fIdx+'"]');
   if(!cont)return;
@@ -8584,6 +8673,7 @@ function calcReasign(fIdx){
   const chks=cont.querySelectorAll('.reasign-chk:checked');
   let cubierto=0;
   chks.forEach(c=>{cubierto+=parseFloat(c.dataset.disp)||0;});
+  cont.querySelectorAll('.sust-chk:checked').forEach(c=>{cubierto+=parseFloat(c.dataset.disp)||0;});
   const statusEl=document.getElementById('reasign-status-'+fIdx);
   const ok=cubierto>=falta;
   if(statusEl){
@@ -8597,8 +8687,9 @@ async function confirmarReasignacionRemito(){
   if(!ctx){alert('Error: se perdió el contexto del remito. Cerrá y volvé a intentar.');return;}
   const msg=document.getElementById('reasign-msg');
 
-  // Recolectar las reasignaciones elegidas
+  // Recolectar las reasignaciones (mismo producto) y sustituciones (otro producto)
   const reasignaciones=[];
+  const sustituciones=[];
   let todoCubierto=true;
   ctx.faltantes.forEach((f,fIdx)=>{
     const cont=document.querySelector('[data-falt-idx="'+fIdx+'"]');
@@ -8623,10 +8714,28 @@ async function confirmarReasignacionRemito(){
         falta-=usar;
       }
     });
-    if(falta>0)todoCubierto=false;
     if(lotes.length){
       reasignaciones.push({productoId:f.rl.producto_id,lotes});
     }
+    // Sustitutos: cubren lo que el mismo producto no alcanzó
+    cont.querySelectorAll('.sust-chk:checked').forEach(c=>{
+      if(falta<=0)return;
+      const prodS=parseInt(c.dataset.producto);
+      const pedKey=c.dataset.pedido; // 'disp' o id de pedido dueño
+      const lotesS=(C.stock_bolsas||[]).filter(st=>
+        st.producto_id===prodS&&(st.cantidad_paquetes||0)>0&&
+        (pedKey==='disp'?st.estado==='disponible':(st.estado==='reservado'&&st.pedido_id===parseInt(pedKey)))
+      ).sort((a,b)=>new Date(a.created_at||0)-new Date(b.created_at||0));
+      const lotesU=[];
+      for(const lote of lotesS){
+        if(falta<=0)break;
+        const usar=Math.min(falta,parseFloat(lote.cantidad_paquetes)||0);
+        lotesU.push({...lote,_usado:usar});
+        falta-=usar;
+      }
+      if(lotesU.length)sustituciones.push({pedidoLineaId:f.rl.pedido_linea_id,productoPedidoId:f.rl.producto_id,productoId:prodS,lotes:lotesU});
+    });
+    if(falta>0)todoCubierto=false;
   });
 
   if(!todoCubierto){
@@ -8638,16 +8747,18 @@ async function confirmarReasignacionRemito(){
     return;
   }
 
-  if(!confirm('Vas a tomar stock reservado de otros pedidos para completar este remito.\n\nLos pedidos afectados quedarán marcados para reposición.\n\n¿Confirmás?'))return;
+  const txtSust=sustituciones.length?'\n\n🔁 Incluye SUSTITUCIÓN de producto: se entrega un producto distinto al pedido (acordalo con el cliente antes).':'';
+  if(!confirm('Vas a tomar stock reservado de otros pedidos para completar este remito.'+txtSust+'\n\nLos pedidos afectados quedarán marcados para reposición.\n\n¿Confirmás?'))return;
 
   if(msg){msg.style.color='var(--text2)';msg.innerHTML='<span class="spinner" style="width:12px;height:12px;display:inline-block;"></span> Guardando...';}
   document.getElementById('reasign-modal')?.remove();
 
-  await _ejecutarGuardarRemito(ctx.nro,ctx.pedId,ctx.cliId,ctx.fecha,ctx.obs,ctx.modo,ctx.ped,ctx.cli,ctx.lineasRemito,reasignaciones);
+  await _ejecutarGuardarRemito(ctx.nro,ctx.pedId,ctx.cliId,ctx.fecha,ctx.obs,ctx.modo,ctx.ped,ctx.cli,ctx.lineasRemito,reasignaciones,sustituciones);
 }
 
 // Ejecuta el guardado real del remito. reasignaciones = lotes tomados de otros pedidos
-async function _ejecutarGuardarRemito(nro,pedId,cliId,fecha,obs,modo,ped,cli,lineasRemito,reasignaciones){
+async function _ejecutarGuardarRemito(nro,pedId,cliId,fecha,obs,modo,ped,cli,lineasRemito,reasignaciones,sustituciones){
+  sustituciones=sustituciones||[];
   const msg=document.getElementById('msg-nr');
   try{
     // Crear remito
@@ -8667,82 +8778,104 @@ async function _ejecutarGuardarRemito(nro,pedId,cliId,fecha,obs,modo,ped,cli,lin
     }).select().single();
     if(e1)throw e1;
 
-    // Insertar líneas y descontar stock
+    // Insertar líneas y descontar stock.
+    // Cada línea del pedido se entrega en PARTES: lo que sale con el producto
+    // pedido + lo que sale con productos SUSTITUTOS (acordados con el cliente).
+    // Acumulamos lo que el destino recibió por PRÉSTAMO (no produjo su OC),
+    // por línea de pedido, para ofrecer ajustar su OC al final.
+    const _prestadoAlDestino={}; // pedido_linea_id -> paq recibidos por préstamo
     for(const rl of lineasRemito){
-      // Si esta línea tiene reasignaciones, agregar esos lotes a la lista de lotes a consumir
       const reasignLinea=reasignaciones.filter(r=>r.productoId===rl.producto_id);
-      let lotesConsumir=[...rl.lotes];
+      let lotesMismo=[...rl.lotes];
       reasignLinea.forEach(r=>{
         r.lotes.forEach(lote=>{
-          if(!lotesConsumir.find(x=>x.id===lote.id))lotesConsumir.push(lote);
+          if(!lotesMismo.find(x=>x.id===lote.id))lotesMismo.push(lote);
         });
       });
-      // ── PLAN DE CONSUMO: calcular cuánto sale de cada lote ANTES de tocar nada ──
-      let restantePlan=rl.cantidad_paquetes;
-      const plan=[];
-      for(const s of lotesConsumir){
-        if(restantePlan<=0)break;
-        const usar=Math.min(restantePlan,parseFloat(s.cantidad_paquetes)||0);
-        if(usar>0)plan.push({s,usar});
-        restantePlan-=usar;
-      }
-      // ── PRÉSTAMOS: todo lote reservado a OTRO pedido genera deuda de reposición ──
-      // (Documento → Movimiento → Saldo: el desvío queda registrado, no en una nota)
-      const porDonante={};
-      plan.forEach(x=>{
-        if(x.s.estado==='reservado'&&x.s.pedido_id&&x.s.pedido_id!==(pedId||-1)){
-          porDonante[x.s.pedido_id]=(porDonante[x.s.pedido_id]||0)+x.usar;
-        }
-      });
-      let primerPrestamoId=null;
+      const sustLin=sustituciones.filter(sg=>sg.pedidoLineaId===rl.pedido_linea_id&&sg.productoPedidoId===rl.producto_id);
+      const paqSust=sustLin.reduce((a,sg)=>a+sg.lotes.reduce((b,l)=>b+(parseFloat(l._usado)||0),0),0);
       const uniRatio=rl.cantidad_paquetes>0?(rl.cantidad_unidades||0)/rl.cantidad_paquetes:0;
-      for(const pidOStr of Object.keys(porDonante)){
-        const pidO=parseInt(pidOStr),paqP=porDonante[pidOStr];
-        const pOri=C.pedidos.find(x=>x.id===pidO);
-        const{data:pr,error:ePr}=await sb.from('prestamos_bolsas').insert({
-          fecha:localDate(),producto_id:rl.producto_id,
-          cantidad_paquetes:paqP,cantidad_unidades:Math.round(paqP*uniRatio),
-          pedido_origen_id:pidO,pedido_destino_id:pedId||null,
-          cliente_destino:cli?.nombre||null,remito_id:rem.id,
-          es_sustitucion:false,estado:'pendiente_reposicion',
-          notas:'Remito '+nro+(pOri?' — tomado de '+(pOri.numero_pedido||('#'+pidO)):'')
-        }).select().single();
-        if(ePr){console.error('No se pudo registrar el préstamo (¿falta correr la migración SQL?):',ePr);}
-        else if(pr&&!primerPrestamoId)primerPrestamoId=pr.id;
-      }
-      // Insertar línea del remito (con vínculo al préstamo; fallback si falta la columna)
-      const lineaIns={
-        remito_id:rem.id,pedido_linea_id:rl.pedido_linea_id,
-        producto_id:rl.producto_id,stock_bolsa_id:plan[0]?.s.id||null,
-        cantidad_paquetes:rl.cantidad_paquetes,cantidad_unidades:rl.cantidad_unidades,
-        precio_paquete:rl.precio_paquete,subtotal:rl.subtotal
-      };
-      if(primerPrestamoId)lineaIns.origen_prestamo_id=primerPrestamoId;
-      let{error:eLin}=await sb.from('remito_lineas').insert(lineaIns);
-      if(eLin&&(eLin.message||'').includes('origen_prestamo_id')){
-        delete lineaIns.origen_prestamo_id;
-        const r2=await sb.from('remito_lineas').insert(lineaIns);eLin=r2.error;
-      }
-      if(eLin)throw eLin;
-      // Descontar stock según el plan (propios primero, después reasignados)
-      for(const x of plan){
-        const s=x.s;
-        const nuevo=(parseFloat(s.cantidad_paquetes)||0)-x.usar;
-        const ratioUni=(s.cantidad_unidades&&s.cantidad_paquetes)?s.cantidad_unidades/s.cantidad_paquetes:0;
-        await sb.from('stock_bolsas').update({
-          cantidad_paquetes:nuevo,
-          cantidad_unidades:Math.round(nuevo*ratioUni)
-        }).eq('id',s.id);
-      }
-      // Crear el registro 'entregado' con la cantidad exacta del remito
-      await sb.from('stock_bolsas').insert({
-        producto_id:rl.producto_id,
-        pedido_id:pedId||null,
-        cantidad_paquetes:rl.cantidad_paquetes,
-        cantidad_unidades:rl.cantidad_unidades,
-        estado:'entregado',
-        orden_corte_id:null
+      const partes=[];
+      const paqPrincipal=rl.cantidad_paquetes-paqSust;
+      if(paqPrincipal>0)partes.push({producto_id:rl.producto_id,paq:paqPrincipal,uni:Math.round(paqPrincipal*uniRatio),lotes:lotesMismo,sustDe:null});
+      sustLin.forEach(sg=>{
+        const paqG=sg.lotes.reduce((b,l)=>b+(parseFloat(l._usado)||0),0);
+        if(paqG<=0)return;
+        const prodS=C.productos.find(x=>x.id===sg.productoId);
+        const uniPaqS=parseInt((C.emp||[]).find(e=>e.id===prodS?.empaque_id)?.unidades)||0;
+        const ratioLote=(sg.lotes[0]&&parseFloat(sg.lotes[0].cantidad_paquetes))?(parseFloat(sg.lotes[0].cantidad_unidades)||0)/parseFloat(sg.lotes[0].cantidad_paquetes):0;
+        partes.push({producto_id:sg.productoId,paq:paqG,uni:Math.round(paqG*(uniPaqS||ratioLote)),lotes:sg.lotes,sustDe:rl.producto_id});
       });
+      for(const parte of partes){
+        let restantePlan=parte.paq;
+        const plan=[];
+        for(const st of parte.lotes){
+          if(restantePlan<=0)break;
+          const tope=st._usado!==undefined?parseFloat(st._usado):parseFloat(st.cantidad_paquetes);
+          const usar=Math.min(restantePlan,tope||0);
+          if(usar>0)plan.push({s:st,usar});
+          restantePlan-=usar;
+        }
+        const porDonante={};
+        plan.forEach(x=>{
+          if(x.s.estado==='reservado'&&x.s.pedido_id&&x.s.pedido_id!==(pedId||-1)){
+            porDonante[x.s.pedido_id]=(porDonante[x.s.pedido_id]||0)+x.usar;
+          }
+        });
+        let primerPrestamoId=null;
+        const uniRatioP=parte.paq>0?parte.uni/parte.paq:0;
+        for(const pidOStr of Object.keys(porDonante)){
+          const pidO=parseInt(pidOStr),paqP=porDonante[pidOStr];
+          const pOri=C.pedidos.find(x=>x.id===pidO);
+          const prodPed=parte.sustDe?C.productos.find(x=>x.id===parte.sustDe):null;
+          const{data:pr,error:ePr}=await sb.from('prestamos_bolsas').insert({
+            fecha:localDate(),producto_id:parte.producto_id,
+            cantidad_paquetes:paqP,cantidad_unidades:Math.round(paqP*uniRatioP),
+            pedido_origen_id:pidO,pedido_destino_id:pedId||null,
+            cliente_destino:cli?.nombre||null,remito_id:rem.id,
+            es_sustitucion:!!parte.sustDe,producto_pedido_id:parte.sustDe||null,
+            estado:'pendiente_reposicion',
+            notas:'Remito '+nro+(pOri?' — tomado de '+(pOri.numero_pedido||('#'+pidO)):'')
+              +(parte.sustDe?' · sustituto de '+(prodPed?.descripcion||('#'+parte.sustDe)):'')
+          }).select().single();
+          if(ePr){console.error('No se pudo registrar el préstamo (¿falta correr la migración SQL?):',ePr);}
+          else if(pr&&!primerPrestamoId)primerPrestamoId=pr.id;
+          // El destino recibió paqP que NO produjo su OC → candidato a ajuste
+          if(rl.pedido_linea_id)_prestadoAlDestino[rl.pedido_linea_id]=(_prestadoAlDestino[rl.pedido_linea_id]||0)+paqP;
+        }
+        const lineaIns={
+          remito_id:rem.id,pedido_linea_id:rl.pedido_linea_id,
+          producto_id:parte.producto_id,stock_bolsa_id:plan[0]?.s.id||null,
+          cantidad_paquetes:parte.paq,cantidad_unidades:parte.uni,
+          precio_paquete:rl.precio_paquete,
+          subtotal:r2(parte.paq*(parseFloat(rl.precio_paquete)||0))
+        };
+        if(primerPrestamoId)lineaIns.origen_prestamo_id=primerPrestamoId;
+        if(parte.sustDe)lineaIns.producto_sustituto_de=parte.sustDe;
+        let{error:eLin}=await sb.from('remito_lineas').insert(lineaIns);
+        if(eLin&&((eLin.message||'').includes('origen_prestamo_id')||(eLin.message||'').includes('producto_sustituto_de'))){
+          delete lineaIns.origen_prestamo_id;delete lineaIns.producto_sustituto_de;
+          const rRe=await sb.from('remito_lineas').insert(lineaIns);eLin=rRe.error;
+        }
+        if(eLin)throw eLin;
+        for(const x of plan){
+          const st=x.s;
+          const nuevo=(parseFloat(st.cantidad_paquetes)||0)-x.usar;
+          const ratioUni=(st.cantidad_unidades&&st.cantidad_paquetes)?st.cantidad_unidades/st.cantidad_paquetes:0;
+          await sb.from('stock_bolsas').update({
+            cantidad_paquetes:nuevo,
+            cantidad_unidades:Math.round(nuevo*ratioUni)
+          }).eq('id',st.id);
+        }
+        await sb.from('stock_bolsas').insert({
+          producto_id:parte.producto_id,
+          pedido_id:pedId||null,
+          cantidad_paquetes:parte.paq,
+          cantidad_unidades:parte.uni,
+          estado:'entregado',
+          orden_corte_id:null
+        });
+      }
     }
 
     // Marcar los pedidos afectados por reasignación (les sacamos stock)
@@ -8810,7 +8943,13 @@ async function _ejecutarGuardarRemito(nro,pedId,cliId,fecha,obs,modo,ped,cli,lin
     const reasignTxt=reasignaciones.length?' · ⚠ se reasignó stock de '+Object.keys(pedidosAfectados).length+' pedido(s)':'';
     msg.style.color='var(--green)';msg.textContent='✓ Remito '+nro+' guardado — '+lineasRemito.length+' productos'+reasignTxt;
     await reload();
-    setTimeout(()=>{imprimirRemito(rem.id);go('remitos');},1200);
+    // Ofrecer ajustar la OC del destino por lo que recibió prestado (no produjo su OC)
+    const _hayPrestamo=Object.values(_prestadoAlDestino).some(v=>v>0);
+    if(_hayPrestamo&&pedId){
+      _ofrecerAjusteOCDestino(pedId,_prestadoAlDestino,rem.id);
+    } else {
+      setTimeout(()=>{imprimirRemito(rem.id);go('remitos');},1200);
+    }
   } catch(err){
     console.error('Error guardando remito:',err);
     msg.style.color='var(--red)';msg.textContent='Error: '+(err.message||err);
@@ -8824,6 +8963,157 @@ async function _ejecutarGuardarRemito(nro,pedId,cliId,fecha,obs,modo,ped,cli,lin
 // Principio: el PENDIENTE nunca se guarda — se deriva de los
 // documentos (pedido_lineas − remito_lineas no anuladas).
 // ════════════════════════════════════════════════════════════════
+
+// Auto-reposición: cuando entra stock reservado a un pedido que es ACREEDOR
+// de un préstamo de ese mismo producto, los préstamos más viejos que queden
+// totalmente cubiertos se marcan repuestos solos. Greedy: nunca marca de más.
+async function _autoReponerPrestamos(pedidoId,productoId,paqNuevos,ocId){
+  if(!pedidoId||!(paqNuevos>0))return 0;
+  const pend=(C.prestamos||[]).filter(x=>x.estado==='pendiente_reposicion'
+      &&x.pedido_origen_id===pedidoId&&x.producto_id===productoId)
+    .sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+  let resto=paqNuevos,marcados=0;
+  for(const pr of pend){
+    const q=parseFloat(pr.cantidad_paquetes)||0;
+    if(q<=0||q>resto)continue; // no alcanza para éste: probar uno más chico
+    const{error}=await sb.from('prestamos_bolsas').update({
+      estado:'repuesto',fecha_reposicion:localDate(),repuesto_oc_id:ocId||null
+    }).eq('id',pr.id);
+    if(!error){resto-=q;marcados++;pr.estado='repuesto';}
+  }
+  if(marcados)console.log('[reposición automática] '+marcados+' préstamo(s) repuestos al pedido '+pedidoId+' ('+productoId+')');
+  return marcados;
+}
+
+// Entregado vía SUSTITUTOS: remito_lineas de esta línea con OTRO producto
+function _entregadoSustituto(pedId,l){
+  let t=0;
+  (C.remitos||[]).forEach(r=>{
+    if(r.pedido_id!==pedId||r.estado==='anulado')return;
+    (r.remito_lineas||[]).forEach(rl=>{
+      if(rl.pedido_linea_id===l.id&&rl.producto_id!==l.producto_id)t+=parseFloat(rl.cantidad_paquetes)||0;
+    });
+  });
+  return t;
+}
+
+// Paquetes YA producidos de una OC (lo real cortado). Usado como piso para no
+// bajar una OC por debajo de lo que ya se fabricó.
+function _paqProducidosOC(oc){
+  if(!oc)return 0;
+  if(oc.estado==='Completada')return parseFloat(oc.cantidad_paquetes)||0;
+  // bolsones reales × paq/bolsón + sueltos; si no hay, 0 (todavía no cortó)
+  const bols=parseFloat(oc.bolsones_reales)||0;
+  const ppb=parseFloat(oc.paquetes_por_bolson)||0;
+  const sueltos=parseFloat(oc.paquetes_sueltos_reales)||0;
+  return bols*ppb+sueltos;
+}
+
+// Tras prestar a un pedido, ofrecer ajustar SU OC pendiente: el destino ya
+// recibió mercadería que no produjo, así que su OC puede achicarse para no
+// producir de más. Protección: nunca por debajo de lo ya cortado.
+function _ofrecerAjusteOCDestino(pedId,prestadoPorLinea,remitoId){
+  const ped=C.pedidos.find(p=>p.id===pedId);
+  if(!ped){setTimeout(()=>{imprimirRemito(remitoId);go('remitos');},800);return;}
+  // Para cada línea con préstamo, buscar su OC pendiente vinculada
+  const candidatos=[];
+  Object.entries(prestadoPorLinea).forEach(([liStr,paq])=>{
+    if(!(paq>0))return;
+    const liId=parseInt(liStr);
+    const li=(ped.pedido_lineas||[]).find(l=>l.id===liId);
+    if(!li)return;
+    // OCs del pedido vinculadas a esta línea, del mismo producto, no terminadas
+    const ocs=(ped.pedido_ordenes_corte||[])
+      .filter(x=>x.pedido_linea_id===liId)
+      .map(x=>C.ord_corte.find(o=>o.id===x.orden_corte_id))
+      .filter(o=>o&&o.estado!=='Completada'&&o.estado!=='Cancelada'&&o.producto_id===li.producto_id);
+    ocs.forEach(oc=>{
+      const actual=parseFloat(oc.cantidad_paquetes)||0;
+      const yaCortado=_paqProducidosOC(oc);
+      const sugerido=Math.max(yaCortado,actual-paq);
+      candidatos.push({oc,li,paq,actual,yaCortado,sugerido,prod:C.productos.find(p=>p.id===oc.producto_id)});
+    });
+  });
+  if(!candidatos.length){setTimeout(()=>{imprimirRemito(remitoId);go('remitos');},800);return;}
+  window._ajusteCtx={remitoId,candidatos};
+
+  let html='<div id="ajuste-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9250;display:flex;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto;">'
+    +'<div style="background:var(--bg1);border:1.5px solid var(--amber);border-radius:var(--rl);padding:20px;max-width:680px;width:100%;">'
+    +'<div style="font-weight:800;color:var(--amber);font-size:15px;margin-bottom:4px;">Ajustar las órdenes de '+escapeHtml(ped.numero_pedido||('#'+ped.id))+'</div>'
+    +'<div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Este pedido recibió mercadería prestada que no produjo su propia orden. Para <strong>no producir de más</strong>, su orden de corte se puede achicar por esa cantidad. Revisá y confirmá:</div>';
+  candidatos.forEach((c,i)=>{
+    const prodTxt=escapeHtml(c.prod?(c.prod.descripcion||c.prod.codigo||''):'producto');
+    const bloqueado=c.sugerido>=c.actual; // ya cortó tanto que no se puede bajar
+    html+='<div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px;margin-bottom:8px;" data-aj-idx="'+i+'">'
+      +'<div style="font-size:12px;font-weight:700;">'+escapeHtml(c.oc.numero_orden||('OC #'+c.oc.id))+' · '+prodTxt+'</div>'
+      +'<div style="font-size:12px;color:var(--text2);margin-top:4px;">'
+        +'Recibió prestadas <strong style="color:var(--amber);">'+c.paq.toLocaleString('es-AR')+' paq</strong> · '
+        +'la orden está en <strong>'+c.actual.toLocaleString('es-AR')+'</strong>'
+        +(c.yaCortado>0?' · ya cortó '+c.yaCortado.toLocaleString('es-AR'):'')
+      +'</div>'
+      +(bloqueado
+        ?'<div style="font-size:11px;color:var(--red);margin-top:6px;">⚠ Ya cortó '+c.yaCortado.toLocaleString('es-AR')+' paq — no se puede bajar a '+(c.actual-c.paq).toLocaleString('es-AR')+'. Se deja como está.</div>'
+        :'<div style="font-size:12px;margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+          +'<label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" class="aj-chk" data-idx="'+i+'" checked> Ajustar a</label>'
+          +'<input type="number" class="aj-val" data-idx="'+i+'" value="'+c.sugerido+'" min="'+c.yaCortado+'" max="'+c.actual+'" style="width:100px;padding:2px 6px;font-weight:700;">'
+          +'<span style="color:var(--text3);">paq (mínimo '+c.yaCortado.toLocaleString('es-AR')+' por lo ya cortado)</span>'
+        +'</div>')
+    +'</div>';
+  });
+  html+='<div class="btn-grp" style="display:flex;gap:8px;margin-top:10px;">'
+    +'<button class="btn btn-sm btn-primary" onclick="confirmarAjusteOC()">✓ Aplicar ajustes</button>'
+    +'<button class="btn btn-sm" onclick="cerrarAjusteOC()">Dejar todo como está</button>'
+    +'<span id="ajuste-msg" style="font-size:12px;margin-left:8px;align-self:center;"></span>'
+  +'</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+function cerrarAjusteOC(){
+  const ctx=window._ajusteCtx;
+  document.getElementById('ajuste-modal')?.remove();
+  if(ctx)setTimeout(()=>{imprimirRemito(ctx.remitoId);go('remitos');},400);
+}
+
+async function confirmarAjusteOC(){
+  const ctx=window._ajusteCtx;if(!ctx)return;
+  const msg=document.getElementById('ajuste-msg');
+  if(msg){msg.style.color='var(--text2)';msg.innerHTML='<span class="spinner" style="width:12px;height:12px;display:inline-block;"></span> Aplicando...';}
+  let aplicados=0;
+  try{
+    for(const chk of document.querySelectorAll('.aj-chk:checked')){
+      const i=parseInt(chk.dataset.idx);
+      const c=ctx.candidatos[i];if(!c)continue;
+      const inp=document.querySelector('.aj-val[data-idx="'+i+'"]');
+      let nuevo=parseInt(inp?.value)||c.sugerido;
+      // Protección dura: nunca por debajo de lo ya cortado, ni por encima del actual
+      nuevo=Math.max(c.yaCortado,Math.min(nuevo,c.actual));
+      if(nuevo===c.actual)continue; // sin cambio
+      // Recalcular unidades y metros proporcionalmente
+      const ppb=parseFloat(c.oc.paquetes_por_bolson)||0;
+      const uniPaq=ppb>0&&c.oc.unidades_a_producir&&c.oc.cantidad_paquetes
+        ?(parseFloat(c.oc.unidades_a_producir)/parseFloat(c.oc.cantidad_paquetes)):0;
+      const bolsones=ppb>0?Math.ceil(nuevo/ppb):c.oc.bolsones_a_producir;
+      const totalPaq=ppb>0?bolsones*ppb:nuevo;
+      const unidades=uniPaq>0?Math.round(totalPaq*uniPaq):c.oc.unidades_a_producir;
+      const mtsPorUni=c.oc.unidades_a_producir>0?(parseFloat(c.oc.metros_necesarios)||0)/parseFloat(c.oc.unidades_a_producir):0;
+      const mts=mtsPorUni>0?r2(unidades*mtsPorUni):c.oc.metros_necesarios;
+      const obsPrev=c.oc.observaciones||'';
+      const obs=obsPrev+(obsPrev?' · ':'')+'[Ajustada de '+c.actual+' a '+totalPaq+' paq — recibió '+c.paq+' prestadas '+localDate()+']';
+      const{error}=await sb.from('ordenes_corte').update({
+        cantidad_paquetes:totalPaq,bolsones_a_producir:bolsones,
+        unidades_a_producir:unidades,metros_necesarios:mts,observaciones:obs
+      }).eq('id',c.oc.id);
+      if(error){console.error('No se pudo ajustar OC '+c.oc.numero_orden+':',error);}
+      else aplicados++;
+    }
+    document.getElementById('ajuste-modal')?.remove();
+    await reload();
+    setTimeout(()=>{imprimirRemito(ctx.remitoId);go('remitos');},400);
+  }catch(err){
+    console.error('Error ajustando OC:',err);
+    if(msg){msg.style.color='var(--red)';msg.textContent='Error: '+(err.message||err);}
+  }
+}
 
 // ── Deudas de reposición (préstamos pendientes entre pedidos) ──
 function renderDeudasReposicion(){
@@ -8841,11 +9131,16 @@ function renderDeudasReposicion(){
       +'<td style="font-weight:600;">'+escapeHtml(pOri?(pOri.numero_pedido||('#'+pr.pedido_origen_id)):'#'+pr.pedido_origen_id)
         +(pOri?' <span style="color:var(--text3);font-weight:400;">'+escapeHtml(pOri.cliente||'')+'</span>':'')+'</td>'
       +'<td style="text-align:right;font-weight:800;color:var(--amber);">'+(parseFloat(pr.cantidad_paquetes)||0).toLocaleString('es-AR')+' paq</td>'
-      +'<td style="max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="'+escapeHtml(prod?.descripcion||'')+'">'+escapeHtml(prod?(prod.descripcion||prod.codigo||''):('#'+pr.producto_id))+'</td>'
+      +'<td style="max-width:240px;" title="'+escapeHtml(prod?.descripcion||'')+'"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+escapeHtml(prod?(prod.descripcion||prod.codigo||''):('#'+pr.producto_id))+'</div>'
+        +(pr.es_sustitucion?'<div style="font-size:10px;color:var(--accent);">🔁 entregado como sustituto de '+escapeHtml(C.productos.find(x=>x.id===pr.producto_pedido_id)?.descripcion||('#'+(pr.producto_pedido_id||'?')))+'</div>':'')+'</td>'
       +'<td>'+escapeHtml(pDes?(pDes.numero_pedido||('#'+pr.pedido_destino_id)):(pr.cliente_destino||'—'))
         +(pDes&&pr.cliente_destino?' <span style="color:var(--text3);">'+escapeHtml(pr.cliente_destino)+'</span>':'')+'</td>'
       +'<td style="white-space:nowrap;">'
-        +'<button class="btn btn-sm" style="padding:2px 8px;font-size:11px;color:var(--green);border-color:var(--green);" onclick="prestamoMarcarRepuesto('+pr.id+')" title="Ya se repuso la mercadería al pedido origen">✓ Repuesto</button> '
+        +'<button class="btn btn-sm" style="padding:2px 8px;font-size:11px;color:var(--accent);" onclick="prestamoVerCircuito('+pr.id+')" title="Ver el diagrama de cómo se repone esta deuda">👁 Circuito</button> '
+        +(_ocReposicionEnCurso(pr)
+          ?'<span style="font-size:11px;color:var(--accent);" title="Ya hay una orden de corte de reposición lanzada para esta deuda">🏭 OC en curso</span> '
+          :'<button class="btn btn-sm" style="padding:2px 8px;font-size:11px;color:var(--amber);border-color:var(--amber);" onclick="prestamoReponer('+pr.id+')" title="Generar la orden de corte para reponer esta mercadería al pedido origen">🏭 Reponer</button> ')
+        +'<button class="btn btn-sm" style="padding:2px 8px;font-size:11px;color:var(--green);border-color:var(--green);" onclick="prestamoMarcarRepuesto('+pr.id+')" title="Marcar repuesto a mano (si ya repusiste por otra vía)">✓ Repuesto</button> '
         +'<button class="btn btn-sm" style="padding:2px 8px;font-size:11px;color:var(--text3);" onclick="prestamoCondonar('+pr.id+')" title="Dar por perdida la deuda (requiere clave admin)">✗ Condonar</button>'
       +'</td>'
     +'</tr>';
@@ -8853,7 +9148,7 @@ function renderDeudasReposicion(){
   const totPaq=pend.reduce((s,x)=>s+(parseFloat(x.cantidad_paquetes)||0),0);
   div.innerHTML='<div style="background:rgba(245,158,11,.05);border:1.5px solid var(--amber);border-radius:var(--rl);padding:10px 14px;">'
     +'<div style="font-weight:800;color:var(--amber);margin-bottom:6px;">🟠 Deudas de reposición — '+pend.length+' préstamo'+(pend.length===1?'':'s')+' pendiente'+(pend.length===1?'':'s')+' · '+totPaq.toLocaleString('es-AR')+' paq</div>'
-    +'<div style="font-size:11px;color:var(--text2);margin-bottom:8px;">Mercadería que se sacó de un pedido para entregarla a otro destino. Cuando la produzcas y reserves de nuevo, marcala como repuesta.</div>'
+    +'<div style="font-size:11px;color:var(--text2);margin-bottom:8px;">Mercadería que se sacó de un pedido para entregarla a otro destino. Tocá <strong>🏭 Reponer</strong> para generar la orden de corte: cuando la produzcas, el stock se reserva solo al pedido origen y la deuda se salda sola. El botón <strong>👁 Circuito</strong> te muestra el esquema completo.</div>'
     +'<table class="tbl" style="font-size:12px;"><thead><tr>'
       +'<th>Fecha</th><th>Se le debe a</th><th style="text-align:right;">Cuánto</th><th>Producto</th><th>Se entregó a</th><th></th>'
     +'</tr></thead><tbody>'+filas+'</tbody></table>'
@@ -8876,6 +9171,211 @@ function prestamoCondonar(id){
     if(error){alert('Error: '+error.message);return;}
     await reload();renderDespacho();
   });
+}
+
+// ¿Ya hay una OC de reposición lanzada para esta deuda? (vinculada por pedido_ordenes_corte
+// al pedido origen, del mismo producto, marcada como reposición y todavía no completada)
+function _ocReposicionEnCurso(pr){
+  if(!pr.pedido_origen_id)return false;
+  const ocsDelOrigen=(C.pedidos.find(p=>p.id===pr.pedido_origen_id)?.pedido_ordenes_corte||[])
+    .map(x=>C.ord_corte.find(o=>o.id===x.orden_corte_id)).filter(Boolean);
+  return ocsDelOrigen.some(oc=>
+    oc.producto_id===pr.producto_id&&
+    /reposici[oó]n/i.test(oc.observaciones||'')&&
+    oc.estado!=='Completada'&&oc.estado!=='Cancelada');
+}
+
+// Calcula los datos de material para reponer una deuda. Solo cuenta bobinas LIBRES:
+// en_stock=true y SIN asociar a ninguna OC (sin fila en orden_corte_bobinas).
+function _datosReposicion(pr){
+  const prod=C.productos.find(x=>x.id===pr.producto_id);
+  const pOri=C.pedidos.find(x=>x.id===pr.pedido_origen_id);
+  const paq=parseFloat(pr.cantidad_paquetes)||0;
+  const emp=prod?C.emp.find(e=>e.id===prod.empaque_id):null;
+  const uniPaq=emp?.unidades||0;
+  const paqPorBolson=prod?.paquetes_por_bolson||0;
+  const bolsones=paqPorBolson>0?Math.ceil(paq/paqPorBolson):0;
+  const totalPaq=paqPorBolson>0?bolsones*paqPorBolson:paq;
+  const unidades=totalPaq*uniPaq;
+  const merma=5;
+  const mtsNecesarios=r2(unidades*(prod?.metros_por_bolsa||0)*(1+merma/100));
+  // Bobinas LIBRES del tipo que usa este producto
+  const idsAsociadas=new Set();
+  (C.ord_corte||[]).forEach(oc=>(oc.orden_corte_bobinas||[]).forEach(b=>{if(b.bobina_producida_id)idsAsociadas.add(b.bobina_producida_id);}));
+  const bobinasLibres=(C.bobinas_prod||[]).filter(b=>
+    b.en_stock&&!idsAsociadas.has(b.id)&&
+    (!prod?.bobina_id||b.bobina_tipo_id===prod.bobina_id)&&
+    (parseFloat(b.metros_reales)||0)>0);
+  const mtsLibres=r2(bobinasLibres.reduce((s,b)=>s+(parseFloat(b.metros_reales)||0),0));
+  return{prod,pOri,paq,uniPaq,paqPorBolson,bolsones,totalPaq,unidades,merma,mtsNecesarios,bobinasLibres,mtsLibres,alcanzaLibre:mtsLibres>=mtsNecesarios};
+}
+
+// Botón "Reponer": abre el modal con las dos opciones de material.
+function prestamoReponer(id){
+  const pr=(C.prestamos||[]).find(x=>x.id===id);
+  if(!pr){alert('No se encontró la deuda.');return;}
+  const d=_datosReposicion(pr);
+  if(!d.prod){alert('El producto de la deuda no existe en el catálogo.');return;}
+  if(!d.pOri){alert('El pedido origen de la deuda no existe.');return;}
+  if(d.totalPaq<=0){alert('La deuda no tiene cantidad válida.');return;}
+  window._repCtx={prestamoId:id};
+
+  document.getElementById('rep-modal')?.remove();
+  let avisos='';
+  if(!d.paqPorBolson)avisos+='<div style="font-size:11px;color:var(--amber);margin-top:4px;">⚠ El producto no tiene paquetes_por_bolsón cargado: la OC se crea por paquetes directos.</div>';
+  if(!d.uniPaq)avisos+='<div style="font-size:11px;color:var(--amber);margin-top:4px;">⚠ El producto/empaque no tiene unidades por paquete: las unidades quedarán en 0, completá la OC antes de producir.</div>';
+
+  let html='<div class="modal-overlay" id="rep-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9200;display:flex;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto;">'
+    +'<div style="background:var(--bg1);border:1.5px solid var(--amber);border-radius:var(--rl);padding:20px;max-width:680px;width:100%;">'
+    +'<div style="font-weight:800;color:var(--amber);font-size:15px;margin-bottom:4px;">🏭 Reponer a '+escapeHtml(d.pOri.numero_pedido||('#'+d.pOri.id))+'</div>'
+    +'<div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Vas a generar la orden para devolverle a '+escapeHtml(d.pOri.cliente||'el pedido')+' las <strong>'+d.totalPaq.toLocaleString('es-AR')+' paq</strong> de '+escapeHtml(d.prod.descripcion||d.prod.codigo||'')+(d.bolsones?' ('+d.bolsones+' bolsones)':'')+'.</div>'
+    +'<div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px;margin-bottom:12px;font-size:12px;">'
+      +'Material necesario: <strong>'+d.mtsNecesarios.toLocaleString('es-AR')+' m</strong> de bobina.'+avisos
+    +'</div>'
+    +'<div style="font-size:12px;font-weight:700;color:var(--text1);margin-bottom:6px;">¿De dónde sale el material?</div>'
+    // Opción A: bobinas libres
+    +'<label style="display:flex;align-items:flex-start;gap:8px;background:var(--bg3);border-radius:var(--r);padding:10px 12px;margin-bottom:6px;cursor:'+(d.alcanzaLibre?'pointer':'not-allowed')+';opacity:'+(d.alcanzaLibre?'1':'.55')+';">'
+      +'<input type="radio" name="rep-mat" value="libre" '+(d.alcanzaLibre?'checked':'disabled')+' style="margin-top:2px;">'
+      +'<div style="flex:1;font-size:12px;">'
+        +'<strong>📦 Tomar de bobinas libres</strong><br>'
+        +'<span style="color:var(--text2);">Tenés <strong style="color:'+(d.alcanzaLibre?'var(--green)':'var(--red)')+';">'+d.mtsLibres.toLocaleString('es-AR')+' m</strong> libres'
+        +(d.alcanzaLibre?' — alcanza. Las tomamos para esta reposición.':' — NO alcanza (faltan '+(d.mtsNecesarios-d.mtsLibres).toLocaleString('es-AR')+' m).')+'</span>'
+      +'</div>'
+    +'</label>'
+    // Opción B: generar OE (siempre disponible)
+    +'<label style="display:flex;align-items:flex-start;gap:8px;background:var(--bg3);border-radius:var(--r);padding:10px 12px;margin-bottom:12px;cursor:pointer;">'
+      +'<input type="radio" name="rep-mat" value="oe" '+(d.alcanzaLibre?'':'checked')+' style="margin-top:2px;">'
+      +'<div style="flex:1;font-size:12px;">'
+        +'<strong>🏭 Generar orden de extrusión (OE)</strong><br>'
+        +'<span style="color:var(--text2);">Producir las bobinas con los '+d.mtsNecesarios.toLocaleString('es-AR')+' m completos. La OE queda vinculada a la OC de reposición.</span>'
+      +'</div>'
+    +'</label>'
+    +'<div class="btn-grp" style="display:flex;gap:8px;">'
+      +'<button class="btn btn-sm btn-primary" onclick="confirmarReposicion()">✓ Generar reposición</button>'
+      +'<button class="btn btn-sm" onclick="prestamoVerCircuito('+id+')">👁 Ver circuito</button>'
+      +'<button class="btn btn-sm" onclick="document.getElementById(\'rep-modal\').remove()">Cancelar</button>'
+      +'<span id="rep-msg" style="font-size:12px;margin-left:8px;align-self:center;"></span>'
+    +'</div>'
+  +'</div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+async function confirmarReposicion(){
+  const ctx=window._repCtx;if(!ctx)return;
+  const pr=(C.prestamos||[]).find(x=>x.id===ctx.prestamoId);if(!pr)return;
+  const d=_datosReposicion(pr);
+  const modoMat=document.querySelector('input[name="rep-mat"]:checked')?.value||'oe';
+  const msg=document.getElementById('rep-msg');
+  if(msg){msg.style.color='var(--text2)';msg.innerHTML='<span class="spinner" style="width:12px;height:12px;display:inline-block;"></span> Generando...';}
+  try{
+    // 1) Crear la OC de reposición, vinculada al pedido ORIGEN
+    const nord=await generarNroOC();
+    const obs='Reposición de préstamo a '+(d.pOri.numero_pedido||('#'+d.pOri.id))
+      +' — '+d.paq.toLocaleString('es-AR')+' paq prestados'
+      +(pr.es_sustitucion?' (se había entregado un sustituto)':'');
+    const{data:oc,error:eOC}=await sb.from('ordenes_corte').insert({
+      numero_orden:nord,cliente:d.pOri.cliente||null,
+      producto_id:d.prod.id,empaque_id:d.prod.empaque_id||null,
+      bolsones_a_producir:d.bolsones||null,paquetes_por_bolson:d.paqPorBolson||null,
+      cantidad_paquetes:d.totalPaq,unidades_a_producir:d.unidades,
+      metros_necesarios:d.mtsNecesarios,merma_pct:d.merma,
+      prioridad:1,estado:'Pendiente',observaciones:obs
+    }).select().single();
+    if(eOC)throw eOC;
+    const liOri=(d.pOri.pedido_lineas||[]).find(l=>l.producto_id===d.prod.id);
+    const{error:eVin}=await sb.from('pedido_ordenes_corte').insert({
+      pedido_id:d.pOri.id,orden_corte_id:oc.id,pedido_linea_id:liOri?.id||null
+    });
+    if(eVin)console.error('OC creada pero no se pudo vincular al pedido origen:',eVin);
+
+    // 2) Material
+    let txtMat='';
+    if(modoMat==='oe'){
+      // Generar OE por los metros completos, vinculada a la OC
+      const bobina=C.bobinas.find(b=>b.id===d.prod.bobina_id);
+      const kgPorMt=bobina?(bobina.kg_por_metro||(bobina.gramaje?bobina.gramaje/1000:0)):0;
+      const kgEst=kgPorMt>0?r2(d.mtsNecesarios*kgPorMt):null;
+      const nroOE=await generarNroORD();
+      const{data:oe,error:eOE}=await sb.from('ordenes').insert({
+        numero_orden:nroOE,bobina_id:d.prod.bobina_id||null,metros:d.mtsNecesarios,
+        kg_totales:kgEst,cliente:d.pOri.cliente||null,estado:'Pendiente',prioridad:1,
+        observaciones:'Extrusión para reposición '+nord+' → '+(d.pOri.numero_pedido||('#'+d.pOri.id))
+      }).select().single();
+      if(eOE){console.error('No se pudo crear la OE:',eOE);txtMat=' (la OC quedó sin OE: '+eOE.message+')';}
+      else{
+        await sb.from('ordenes_corte').update({orden_extrusion_id:oe.id}).eq('id',oc.id);
+        txtMat=' + OE '+nroOE+' ('+d.mtsNecesarios.toLocaleString('es-AR')+' m)';
+      }
+    } else {
+      txtMat=' (usa '+d.mtsNecesarios.toLocaleString('es-AR')+' m de bobinas libres — asignalas al cortar)';
+    }
+    document.getElementById('rep-modal')?.remove();
+    await reload();renderDespacho();
+    alert('✓ OC '+nord+' creada para reponer a '+(d.pOri.numero_pedido||('#'+d.pOri.id))+txtMat+'.\n\nApenas la produzcas, la deuda se salda sola.');
+  }catch(err){
+    console.error('Error generando reposición:',err);
+    if(msg){msg.style.color='var(--red)';msg.textContent='Error: '+(err.message||err);}
+  }
+}
+
+// Diagrama del circuito de reposición, con los NÚMEROS REALES de esta deuda.
+function prestamoVerCircuito(id){
+  const pr=(C.prestamos||[]).find(x=>x.id===id);if(!pr)return;
+  const d=_datosReposicion(pr);
+  const pDes=C.pedidos.find(x=>x.id===pr.pedido_destino_id);
+  // Lo pedido por el destino de ese producto (si lo encontramos)
+  const liDes=pDes?(pDes.pedido_lineas||[]).find(l=>l.producto_id===(pr.producto_pedido_id||pr.producto_id)):null;
+  const pedidoDes=liDes?parseFloat(liDes.cantidad)||0:null;
+  const prestado=d.paq;
+  const ocAjustada=pedidoDes!=null?Math.max(0,pedidoDes-prestado):null;
+  const nombreOri=escapeHtml(d.pOri?(d.pOri.numero_pedido||('#'+pr.pedido_origen_id)):'origen');
+  const nombreDes=escapeHtml(pDes?(pDes.numero_pedido||('#'+pr.pedido_destino_id)):(pr.cliente_destino||'destino'));
+  const prodTxt=escapeHtml(d.prod?(d.prod.descripcion||d.prod.codigo||''):'producto');
+
+  const fmt=n=>(n==null?'?':n.toLocaleString('es-AR'));
+  document.getElementById('circ-modal')?.remove();
+  const html='<div id="circ-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9300;display:flex;align-items:flex-start;justify-content:center;padding:30px 20px;overflow-y:auto;">'
+    +'<div style="background:var(--bg1);border:1.5px solid var(--accentbd);border-radius:var(--rl);padding:20px;max-width:720px;width:100%;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
+      +'<div style="font-weight:800;font-size:15px;color:var(--accent);">Circuito de reposición</div>'
+      +'<button class="btn btn-sm" onclick="document.getElementById(\'circ-modal\').remove()">✕ Cerrar</button>'
+    +'</div>'
+    +'<div style="font-size:12px;color:var(--text2);margin-bottom:14px;">'+prodTxt+'</div>'
+    // Fila 1: el préstamo
+    +'<div style="display:flex;gap:10px;align-items:stretch;margin-bottom:10px;">'
+      +'<div style="flex:1;background:rgba(29,158,117,.08);border:1px solid var(--green);border-radius:var(--r);padding:10px 12px;">'
+        +'<div style="font-weight:700;font-size:12px;color:var(--green);">'+nombreOri+' (acreedor)</div>'
+        +'<div style="font-size:11px;color:var(--text2);margin-top:3px;">Le sacaste <strong>'+fmt(prestado)+' paq</strong> para dárselos a '+nombreDes+'</div>'
+      +'</div>'
+      +'<div style="display:flex;align-items:center;color:var(--amber);font-weight:700;">→ '+fmt(prestado)+' →</div>'
+      +'<div style="flex:1;background:rgba(245,158,11,.08);border:1px solid var(--amber);border-radius:var(--r);padding:10px 12px;">'
+        +'<div style="font-weight:700;font-size:12px;color:var(--amber);">'+nombreDes+' (recibió)</div>'
+        +'<div style="font-size:11px;color:var(--text2);margin-top:3px;">'+(pedidoDes!=null?'Pidió '+fmt(pedidoDes)+' · ya tiene '+fmt(prestado)+' · le faltan '+fmt(ocAjustada):'Recibió '+fmt(prestado)+' prestadas')+'</div>'
+      +'</div>'
+    +'</div>'
+    // Fila 2: las tres órdenes
+    +'<div style="font-weight:700;font-size:12px;color:var(--text1);margin:12px 0 6px;">Las tres órdenes — ninguna se pisa</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">'
+      +'<div style="background:rgba(29,158,117,.08);border:1px solid var(--green);border-radius:var(--r);padding:8px 10px;font-size:11px;">'
+        +'<div style="font-weight:700;color:var(--green);">OC '+nombreOri+' (vieja)</div>'
+        +'<div style="color:var(--text2);margin-top:2px;">Ya produjo lo suyo. No se toca.</div>'
+      +'</div>'
+      +'<div style="background:rgba(245,158,11,.08);border:1px solid var(--amber);border-radius:var(--r);padding:8px 10px;font-size:11px;">'
+        +'<div style="font-weight:700;color:var(--amber);">OC '+nombreDes+' (se ajusta)</div>'
+        +'<div style="color:var(--text2);margin-top:2px;">'+(pedidoDes!=null?fmt(pedidoDes)+' → '+fmt(ocAjustada)+' (ya recibió '+fmt(prestado)+')':'Se baja por lo que ya recibió')+'</div>'
+      +'</div>'
+      +'<div style="background:rgba(216,90,48,.08);border:1px solid var(--coral,#D85A30);border-radius:var(--r);padding:8px 10px;font-size:11px;">'
+        +'<div style="font-weight:700;color:#D85A30;">OC reposición (nueva)</div>'
+        +'<div style="color:var(--text2);margin-top:2px;">'+fmt(prestado)+' paq para '+nombreOri+'. La crea el botón 🏭.</div>'
+      +'</div>'
+    +'</div>'
+    // Fila 3: cierre
+    +'<div style="background:rgba(99,153,34,.10);border:1px solid var(--green);border-radius:var(--r);padding:10px 12px;font-size:12px;">'
+      +'<div style="font-weight:700;color:var(--green);">Cuando producís la reposición</div>'
+      +'<div style="color:var(--text2);margin-top:3px;">Las '+fmt(prestado)+' paq se reservan solas a '+nombreOri+' y la deuda se salda automáticamente. No sobra ni falta nada.</div>'
+    +'</div>'
+  +'</div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
 }
 
 // Saldos de un pedido para despacho. Devuelve null si no tiene líneas.
@@ -15479,7 +15979,7 @@ function _rmCalcVentas(iniStr,finStr,costoMap){
         if(l.producto_id)prodSinCosto.add(l.producto_id);
       }
       const key=l.producto_id||0;
-      if(!porProducto.has(key))porProducto.set(key,{nombre:l.productos?.descripcion||('producto '+key),venta:0,costo:0,unidades:0,paquetes:0,sinCosto:false,fuente:cm?.fuente||''});
+      if(!porProducto.has(key))porProducto.set(key,{nombre:l.productos?.descripcion||C.productos.find(p=>p.id===l.producto_id)?.descripcion||('producto '+key),venta:0,costo:0,unidades:0,paquetes:0,sinCosto:false,fuente:cm?.fuente||''});
       const pp=porProducto.get(key);
       pp.venta=r2(pp.venta+v);pp.unidades+=uni;pp.paquetes+=paq;
       if(cLinea!==null)pp.costo=r2(pp.costo+cLinea);else pp.sinCosto=true;
@@ -21872,12 +22372,14 @@ function renderPuestaCero(){
     const revisado=_pcPedidoRevisado(p);
     const lineas=(p.pedido_lineas||[]).filter(l=>!_lineaCancelada(l));
     const estOp=_labelEstadoOp(_estadoOperativoPedido(p));
-    html+='<div style="background:'+(revisado?'rgba(34,197,94,.04)':'var(--bg2)')+';border:1.5px solid '+(revisado?'var(--green)':'var(--border)')+';border-radius:var(--rl);overflow:hidden;">'
+    const _prestPend=(C.prestamos||[]).filter(x=>x.pedido_origen_id===p.id&&x.estado==='pendiente_reposicion');
+    const _prestPaq=_prestPend.reduce((s,x)=>s+(parseFloat(x.cantidad_paquetes)||0),0);
+    const chipPrest=_prestPend.length?' <span style="background:rgba(245,158,11,.10);color:var(--amber);border:1px solid var(--amber);font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;" title="Se le sacó mercadería a este pedido para entregarla a otro destino — pendiente de reponer. Vela en Despacho → Deudas de reposición.">🟠 prestó '+_prestPaq.toLocaleString('es-AR')+' paq</span>':'';
       +'<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;cursor:pointer;" onclick="pcTogglePedido('+p.id+')">'
         +'<div style="flex:1;">'
           +'<span style="font-family:monospace;font-weight:700;color:var(--accent);">'+p.numero_pedido+'</span>'
           +' · '+(p.cliente||'—')
-          +(revisado?' <span style="color:var(--green);font-size:11px;font-weight:700;">✓ revisado</span>':'')
+          +(revisado?' <span style="color:var(--green);font-size:11px;font-weight:700;">✓ revisado</span>':'')+chipPrest
         +'</div>'
         +'<div style="font-size:11px;color:var(--text3);">'+lineas.length+' líneas · '+(p.fecha_pedido||'')+'</div>'
         +'<span style="background:'+estOp.bg+';color:'+estOp.color+';font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;">'+estOp.icono+' '+estOp.label+'</span>'
@@ -23047,17 +23549,17 @@ async function cambiarEstadoCorte(id,estado){
   if(estado==='En proceso'){
     const oc=C.ord_corte.find(o=>o.id===id);
     if(oc?.orden_corte_maquinas?.length){
-      const maqIds=oc.orden_corte_maquinas.map(om=>om.maquina_corte_id);
+      const maqIds=oc.orden_corte_maquinas.map(om=>om.maquina_id);
       const conflictos=C.ord_corte.filter(o=>
         o.id!==id &&
         o.estado==='En proceso' &&
-        o.orden_corte_maquinas?.some(om=>maqIds.includes(om.maquina_corte_id))
+        o.orden_corte_maquinas?.some(om=>maqIds.includes(om.maquina_id))
       );
       if(conflictos.length){
         const nros=conflictos.map(o=>o.numero_orden).join(', ');
         const maqsConflicto=oc.orden_corte_maquinas
-          .filter(om=>conflictos.some(c=>c.orden_corte_maquinas?.some(x=>x.maquina_corte_id===om.maquina_corte_id)))
-          .map(om=>C.maq_corte.find(m=>m.id===om.maquina_corte_id)?.nombre||'?').join(', ');
+          .filter(om=>conflictos.some(c=>c.orden_corte_maquinas?.some(x=>x.maquina_id===om.maquina_id)))
+          .map(om=>C.maq_corte.find(m=>m.id===om.maquina_id)?.nombre||'?').join(', ');
         document.body.insertAdjacentHTML('beforeend',`<div class="modal-overlay" id="conflict-corte-modal">
           <div class="modal-card" style="max-width:480px">
             <div class="modal-title" style="color:var(--amber)">⚠ Conflicto de máquina de corte</div>
@@ -26858,6 +27360,443 @@ function renderPanelOperario(){
   }
 }
 
+
+// ════════════════════════════════════════════════════════════════
+// PANEL CORTE — pantalla de planta para el operario de corte.
+// Reusa la maquinaria del lector de Confección (procesarEscaneoOC /
+// procesarEscaneoBobina vía funciones propias panelc-*). El operario
+// EJECUTA (empezar/pausar/terminó de cortar); el dueño CIERRA con
+// bolsones y scrap desde Confección. Terminar acá NO descuenta stock.
+// ════════════════════════════════════════════════════════════════
+let _pcorteFullscreen=false;
+
+function renderPanelCorte(){
+  // Entrar en modo planta: ocultar sidebar y cromo
+  _entrarFullscreenCorte();
+  _pintarPanelCorte();
+}
+
+function _entrarFullscreenCorte(){
+  if(_pcorteFullscreen)return;
+  _pcorteFullscreen=true;
+  document.body.classList.add('pcorte-on');
+  if(!document.getElementById('pcorte-style')){
+    const st=document.createElement('style');
+    st.id='pcorte-style';
+    st.textContent='body.pcorte-on .sidebar,body.pcorte-on .topbar{display:none!important;}'
+      +'body.pcorte-on .main,body.pcorte-on .content{margin-left:0!important;padding:0!important;max-width:none!important;}'
+      +'body.pcorte-on #page-panel-corte{padding:0;}';
+    document.head.appendChild(st);
+  }
+}
+function _salirFullscreenCorte(){
+  _pcorteFullscreen=false;
+  document.body.classList.remove('pcorte-on');
+  go('confeccion');
+}
+
+// Material de una OC: ¿hay bobinas reservadas/asociadas o stock libre suficiente?
+// Solo cuenta como "listo" si hay bobinas vinculadas a la OC (reserva/asociación)
+// o vínculos lógicos con su OE. Devuelve {ok, txt}.
+function _panelMaterialOC(oc){
+  if(!oc)return{ok:false,txt:'—'};
+  // Bobinas ya asociadas a la OC (se van a cortar para ella)
+  const asoc=(oc.orden_corte_bobinas||[]).length;
+  // Bobinas reservadas a esta OC
+  const reservadas=(C.bobinas_prod||[]).filter(b=>b.reservada_oc_id===oc.id&&b.en_stock).length;
+  // OE vinculada lógicamente (su extrusión la alimenta)
+  const oeVinc=(C.ordenes||[]).find(oe=>oe.id===oc.orden_extrusion_id
+    ||oe.orden_corte_origen_id===oc.id);
+  const oeLista=oeVinc&&(oeVinc.estado==='Completada'||oeVinc.estado==='En proceso');
+  if(asoc>0)return{ok:true,txt:'Material listo ('+asoc+' bobina'+(asoc===1?'':'s')+' asociada'+(asoc===1?'':'s')+')'};
+  if(reservadas>0)return{ok:true,txt:'Material reservado ('+reservadas+' bobina'+(reservadas===1?'':'s')+')'};
+  if(oeLista)return{ok:true,txt:'Extrusión en curso/lista'};
+  return{ok:false,txt:'Espera material'};
+}
+
+function _pintarPanelCorte(){
+  const root=document.getElementById('pcorte-root');
+  if(!root)return;
+  const ahora=new Date();
+  const opActual=window._pcorteOperario||'';
+
+  let html='<div style="min-height:100vh;background:var(--bg1);padding:16px 20px;">'
+    // Barra superior
+    +'<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px;">'
+      +'<div style="font-size:22px;font-weight:800;">✂️ Panel corte</div>'
+      +'<div style="font-size:13px;color:var(--text3);">'+ahora.toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long'})+' · '+ahora.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})+'</div>'
+      +'<div style="margin-left:auto;display:flex;gap:8px;align-items:center;">'
+        +'<button class="btn btn-sm" onclick="_pintarPanelCorte()">↻ Actualizar</button>'
+        +'<button class="btn btn-sm" onclick="_salirFullscreenCorte()" style="color:var(--text3);">✕ Salir</button>'
+      +'</div>'
+    +'</div>'
+    // Lector
+    +'<div style="background:var(--bg2);border:2px solid var(--accent);border-radius:12px;padding:14px 16px;margin-bottom:16px;">'
+      +'<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'
+        +'<div style="font-size:15px;font-weight:700;white-space:nowrap;">📷 Operario:</div>'
+        +'<select id="pcorte-op-sel" onchange="_pcorteSetOperario(this.value)" style="min-width:180px;font-size:15px;padding:6px;">'
+          +'<option value="">— elegí tu nombre —</option>'
+          +(C.operarios||[]).map(o=>'<option value="'+escapeHtml(o.nombre)+'"'+(o.nombre===opActual?' selected':'')+'>'+escapeHtml(o.nombre)+'</option>').join('')
+        +'</select>'
+        +'<input id="pcorte-pistola-input" type="text" autocomplete="off" placeholder="Escaneá el QR de la OC o de una bobina..." '
+          +'onkeydown="onPcortePistolaKey(event)" onblur="reFocoPcortePistola()" '
+          +'style="flex:1;min-width:240px;font-family:\'Courier New\',monospace;font-size:16px;background:var(--bg1);border:1.5px solid var(--accent);padding:8px;">'
+        +'<button class="btn btn-sm" onclick="document.getElementById(\'pcorte-pistola-input\').focus()" title="Recuperar foco del lector">🎯 Foco</button>'
+      +'</div>'
+      +'<div id="pcorte-fb" style="margin-top:10px;font-size:16px;font-weight:700;min-height:22px;"></div>'
+    +'</div>'
+    // Cortadoras
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px;">';
+
+  (C.maq_corte||[]).forEach(maq=>{
+    const fuera=maq.en_servicio===false;
+    const enProc=C.ord_corte.find(o=>o.estado==='En proceso'&&o.orden_corte_maquinas?.some(om=>om.maquina_id===maq.id));
+    const pend=C.ord_corte.filter(o=>o.estado==='Pendiente'&&o.orden_corte_maquinas?.some(om=>om.maquina_id===maq.id))
+      .sort((a,b)=>(a.prioridad||99)-(b.prioridad||99)||new Date(a.created_at)-new Date(b.created_at));
+    const proxima=pend[0];
+
+    html+='<div style="background:var(--bg2);border:2px solid '+(fuera?'var(--redbd)':enProc?'var(--accentbd)':'var(--border)')+';border-radius:14px;padding:18px;">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">'
+        +'<div style="display:flex;align-items:center;gap:10px;">'
+          +'<div style="width:16px;height:16px;border-radius:50%;background:'+(fuera?'var(--red)':enProc?'var(--green)':'var(--text3)')+'"></div>'
+          +'<div style="font-size:19px;font-weight:800;">'+escapeHtml(maq.nombre)+'</div>'
+        +'</div>'
+        +'<div style="font-size:12px;color:var(--text3);">'+(maq.bolsas_por_hora||0).toLocaleString('es-AR')+' bolsas/h</div>'
+      +'</div>';
+
+    if(fuera){
+      html+='<div style="text-align:center;padding:24px 0;color:var(--red);"><div style="font-size:32px;margin-bottom:8px;">🔧</div><div style="font-weight:700;font-size:15px;">FUERA DE SERVICIO</div>'+(maq.motivo_fuera_servicio?'<div style="font-size:12px;color:var(--text2);margin-top:4px;">'+escapeHtml(maq.motivo_fuera_servicio)+'</div>':'')+'</div>';
+    } else if(enProc){
+      const prod=enProc.productos||C.productos.find(p=>p.id===enProc.producto_id);
+      html+='<div style="background:rgba(34,197,94,.06);border:1px solid var(--green);border-radius:10px;padding:14px;margin-bottom:12px;">'
+        +'<div style="font-size:12px;color:var(--green);font-weight:700;text-transform:uppercase;letter-spacing:.05em;">▶ Cortando ahora</div>'
+        +'<div style="font-size:24px;font-weight:800;margin:6px 0;">'+escapeHtml(enProc.numero_orden)+'</div>'
+        +'<div style="font-size:16px;font-weight:600;">'+escapeHtml(prod?(prod.descripcion||prod.codigo||''):'—')+'</div>'
+        +'<div style="font-size:13px;color:var(--text2);margin-top:3px;">'+escapeHtml(enProc.cliente||'—')+'</div>'
+        +'<div style="font-size:13px;color:var(--text3);margin-top:8px;">Meta: '+(enProc.cantidad_paquetes||0).toLocaleString('es-AR')+' paq · '+(enProc.bolsones_a_producir||0).toLocaleString('es-AR')+' bolsones</div>'
+      +'</div>'
+      +'<div style="display:flex;gap:10px;">'
+        +'<button class="btn" style="flex:1;padding:16px;font-size:15px;font-weight:700;color:var(--amber);border-color:var(--amber);" onclick="panelcPausarOC('+enProc.id+')">⏸ Pausar</button>'
+        +'<button class="btn" style="flex:1;padding:16px;font-size:15px;font-weight:700;color:var(--green);border-color:var(--green);" onclick="panelcTerminoCorte('+enProc.id+')">✓ Terminó de cortar</button>'
+      +'</div>'
+      +'<div style="font-size:11px;color:var(--text3);margin-top:8px;text-align:center;">Terminar acá NO cierra la orden — el dueño la cierra con bolsones y scrap.</div>'
+      +_pcorteBobinasHTML(enProc);
+    } else {
+      html+='<div style="text-align:center;padding:18px 0;color:var(--text3);font-size:14px;">Sin orden en proceso<br><span style="font-size:12px;">Escaneá el QR de una OC para empezar</span></div>';
+    }
+
+    if(proxima){
+      const prodP=proxima.productos||C.productos.find(p=>p.id===proxima.producto_id);
+      const mat=_panelMaterialOC(proxima);
+      html+='<div style="border-top:1px dashed var(--border);margin-top:14px;padding-top:12px;">'
+        +'<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Sigue</div>'
+        +'<div style="display:flex;align-items:center;gap:10px;">'
+          +'<div style="font-size:20px;">'+(mat.ok?'🟢':'🔴')+'</div>'
+          +'<div style="flex:1;">'
+            +'<div style="font-size:15px;font-weight:700;">'+escapeHtml(proxima.numero_orden)+'</div>'
+            +'<div style="font-size:13px;color:var(--text2);">'+escapeHtml(prodP?(prodP.descripcion||prodP.codigo||''):'—')+'</div>'
+            +'<div style="font-size:12px;color:'+(mat.ok?'var(--green)':'var(--red)')+';margin-top:2px;">'+mat.txt+'</div>'
+          +'</div>'
+        +'</div>'
+      +(pend.length>1?'<div style="font-size:11px;color:var(--text3);margin-top:8px;">+ '+(pend.length-1)+' más en cola</div>':'')
+      +'</div>';
+    } else if(!fuera&&!enProc){
+      html+='<div style="border-top:1px dashed var(--border);margin-top:14px;padding-top:12px;font-size:13px;color:var(--green);">✓ Sin cola para esta máquina</div>';
+    }
+    html+='</div>';
+  });
+  html+='</div></div>';
+  root.innerHTML=html;
+  // Restaurar operario elegido y foco
+  setTimeout(()=>document.getElementById('pcorte-pistola-input')?.focus(),200);
+}
+
+// Sección de bobinas para la OC en proceso en el panel de corte.
+// Muestra DOS bloques separados: (1) ya asociadas (lo que el operario ya cargó),
+// (2) disponibles del tipo (para buscar/separar y agregar a mano si no usa el lector).
+function _pcorteBobinasHTML(oc){
+  if(!oc)return '';
+  const tipoBobinaId=oc.productos?.bobina_id||C.productos.find(p=>p.id===oc.producto_id)?.bobina_id||0;
+  const oeAsociadaId=oc.orden_extrusion_id||null;
+  const asoc=oc.orden_corte_bobinas||[];
+  const idsAsoc=new Set(asoc.map(b=>b.bobina_producida_id));
+  // Disponibles: en stock, no fuera de rango, mismo tipo, no ya asociadas
+  const disp=(C.bobinas_prod||[])
+    .filter(b=>b.en_stock&&!b.fuera_de_rango&&!idsAsoc.has(b.id))
+    .filter(b=>!tipoBobinaId||(b.bobina_tipo_id??b.bobinas?.id)===tipoBobinaId)
+    .sort((a,b)=>new Date(a.fecha_produccion||0)-new Date(b.fecha_produccion||0));
+
+  // Separar igual que Confección: de la OE asociada / de otras OEs / stock libre
+  const grupoAsociada=[],grupoOtraOE=[],grupoStock=[];
+  for(const b of disp){
+    if(oeAsociadaId&&b.orden_id===oeAsociadaId)grupoAsociada.push(b);
+    else if(b.orden_id)grupoOtraOE.push(b);
+    else grupoStock.push(b);
+  }
+
+  const filaDisp=(b,esDeOC)=>{
+    const m=parseFloat(b.metros_reales)||0;
+    const fecha=b.fecha_produccion?new Date(b.fecha_produccion+'T00:00:00').toLocaleDateString('es-AR'):'';
+    const oe=b.orden_id?C.ordenes.find(o=>o.id===b.orden_id):null;
+    const oeTxt=oe?' · '+escapeHtml(oe.numero_orden):' · stock libre';
+    const bg=esDeOC?'rgba(34,197,94,.06)':'var(--bg3)';
+    const colNum=esDeOC?'var(--green)':'var(--accent)';
+    return '<div style="display:flex;align-items:center;gap:8px;background:'+bg+';border-radius:6px;padding:6px 10px;font-size:13px;">'
+      +'<span style="font-family:monospace;font-weight:600;color:'+colNum+';">'+escapeHtml(b.numero_bobina||'—')+'</span>'
+      +'<span style="font-family:monospace;font-weight:700;">'+m.toLocaleString('es-AR')+' m</span>'
+      +'<span style="color:var(--text3);font-size:11px;">'+fecha+oeTxt+'</span>'
+      +'<button class="btn btn-sm" style="margin-left:auto;padding:3px 12px;font-size:12px;font-weight:700;color:'+colNum+';border-color:'+colNum+';" onclick="_pcorteCargarBobina('+oc.id+','+b.id+')">+ Cargar</button>'
+    +'</div>';
+  };
+  const header=(txt,color,subtitle)=>
+    '<div style="display:flex;align-items:center;gap:8px;margin:8px 0 4px;padding:4px 10px;background:transparent;border-left:3px solid '+color+';">'
+      +'<div style="font-size:11px;font-weight:700;color:'+color+';text-transform:uppercase;letter-spacing:.05em;">'+txt+'</div>'
+      +(subtitle?'<div style="font-size:10px;color:var(--text3);font-style:italic;">'+subtitle+'</div>':'')
+    +'</div>';
+
+  let html='<div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px;">';
+
+  // ── ARRIBA: bobinas en stock del tipo, separadas por origen (lo que falta cargar) ──
+  html+='<div style="font-size:13px;font-weight:800;color:var(--accent);margin-bottom:4px;">📦 Bobinas del tipo en stock ('+disp.length+')</div>';
+  if(!disp.length){
+    html+='<div style="font-size:12px;color:var(--text3);padding:4px 0 10px;">No hay bobinas en stock del tipo de esta orden.</div>';
+  } else {
+    html+='<div style="font-size:11px;color:var(--text3);margin-bottom:6px;">Tocá <strong>+ Cargar</strong> para agregarla a mano (hace lo mismo que escanearla: la asocia y la saca del stock).</div>'
+      +'<div style="display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto;margin-bottom:8px;">';
+    // 🎯 De la OE asociada (las que corresponden a esta OC)
+    if(grupoAsociada.length){
+      const oeA=C.ordenes.find(o=>o.id===oeAsociadaId);
+      html+=header('🎯 De la OE de esta orden · '+(oeA?.numero_orden||'')+' ('+grupoAsociada.length+')','var(--green)','son las que corresponden');
+      html+=grupoAsociada.map(b=>filaDisp(b,true)).join('');
+    } else if(oeAsociadaId){
+      const oeA=C.ordenes.find(o=>o.id===oeAsociadaId);
+      html+=header('🎯 De la OE de esta orden · '+(oeA?.numero_orden||'')+' (0)','var(--text3)','sin bobinas en stock');
+    }
+    // 🧵 De otras OEs (NO corresponden — avisa al cargar)
+    if(grupoOtraOE.length){
+      html+=header('🧵 De otras OEs ('+grupoOtraOE.length+')','var(--amber)','no son de esta orden · pedirá confirmar');
+      html+=grupoOtraOE.map(b=>filaDisp(b,false)).join('');
+    }
+    // 📦 Stock libre (sin OE)
+    if(grupoStock.length){
+      html+=header('📦 Stock libre ('+grupoStock.length+')','var(--accent)','sin OE asociada');
+      html+=grupoStock.map(b=>filaDisp(b,false)).join('');
+    }
+    html+='</div>';
+  }
+
+  // ── ABAJO: ya cargadas a esta orden ──
+  html+='<div style="border-top:1px dashed var(--border);margin-top:6px;padding-top:10px;">'
+    +'<div style="font-size:13px;font-weight:800;color:var(--green);margin-bottom:6px;">✓ Ya cargadas a esta orden ('+asoc.length+')</div>';
+  if(!asoc.length){
+    html+='<div style="font-size:12px;color:var(--text3);padding:4px 0;">Ninguna cargada todavía. Escaneá o tocá + Cargar arriba.</div>';
+  } else {
+    let mtsAsoc=0;
+    html+='<div style="display:flex;flex-direction:column;gap:4px;">'
+      +asoc.map(b=>{
+        const bp=b.bobinas_producidas;const m=parseFloat(bp?.metros_reales)||0;mtsAsoc+=m;
+        return '<div style="display:flex;align-items:center;gap:8px;background:rgba(34,197,94,.06);border-radius:6px;padding:6px 10px;font-size:13px;">'
+          +'<span style="font-family:monospace;font-weight:700;color:var(--green);">'+escapeHtml(bp?.numero_bobina||'—')+'</span>'
+          +'<span style="margin-left:auto;font-family:monospace;font-weight:700;">'+m.toLocaleString('es-AR')+' m</span>'
+        +'</div>';
+      }).join('')
+      +'</div>'
+      +'<div style="font-size:12px;color:var(--text2);margin-top:8px;">Total cargado: <strong>'+mtsAsoc.toLocaleString('es-AR')+' m</strong>'
+        +(oc.metros_necesarios?' de '+(parseFloat(oc.metros_necesarios)||0).toLocaleString('es-AR')+' m necesarios':'')+'</div>';
+  }
+  html+='</div></div>';
+  return html;
+}
+
+// Cargar una bobina a mano desde el panel: hace LO MISMO que escanearla
+// (asocia a la OC, la saca del stock, registra el movimiento). Reusa la
+// validación y el insert tal como Confección.
+async function _pcorteCargarBobina(ocId,bobId){
+  const oc=C.ord_corte.find(x=>x.id===ocId);
+  const b=C.bobinas_prod.find(x=>x.id===bobId);
+  if(!oc||!b){_pcorteFeedback('✕ No encontré la orden o la bobina.','var(--red)','error');return;}
+  // Validar que no esté ya asociada
+  if((oc.orden_corte_bobinas||[]).some(x=>x.bobina_producida_id===bobId)){
+    _pcorteFeedback('La bobina '+b.numero_bobina+' ya está en esta orden.','var(--amber)','error');return;
+  }
+  // Validar mismo tipo
+  const tipoBobinaId=oc.productos?.bobina_id||C.productos.find(p=>p.id===oc.producto_id)?.bobina_id;
+  if(tipoBobinaId&&(b.bobina_tipo_id??b.bobinas?.id)!==tipoBobinaId){
+    _pcorteFeedback('✕ La bobina '+b.numero_bobina+' no es del tipo de esta orden.','var(--red)','error');return;
+  }
+  const opNom=(window._pcorteOperario||'').trim();
+  // Ejecuta la asociación real (mismo efecto que escanear)
+  const ejecutar=async()=>{
+    try{
+      const{error:e1}=await sb.from('orden_corte_bobinas').insert({
+        orden_corte_id:ocId,bobina_producida_id:bobId,metros_usados:b.metros_reales
+      });
+      if(e1)throw e1;
+      await sb.from('bobinas_producidas').update({en_stock:false,reservada_oc_id:null}).eq('id',bobId);
+      await sb.from('stock_movimientos').insert({
+        bobina_producida_id:bobId,tipo:'salida',motivo:'corte_confeccion',
+        orden_corte:oc.numero_orden,metros:b.metros_reales,kg:b.kg_reales,operario:opNom||null
+      });
+      await reload();
+      _pcorteFeedback('+ Bobina '+b.numero_bobina+' cargada a '+oc.numero_orden+' ('+(parseFloat(b.metros_reales)||0).toLocaleString('es-AR')+' m)','var(--green)','ok');
+      _pintarPanelCorte();
+    }catch(e){
+      _pcorteFeedback('✕ Error cargando la bobina: '+(e.message||e),'var(--red)','error');
+    }
+  };
+  // Advertencia si la bobina NO es de la OE asociada a esta OC (igual que Confección)
+  const oeAsociadaId=oc.orden_extrusion_id||null;
+  if(oeAsociadaId&&b.orden_id!==oeAsociadaId){
+    const oeA=C.ordenes.find(o=>o.id===oeAsociadaId);
+    const oeB=b.orden_id?C.ordenes.find(o=>o.id===b.orden_id):null;
+    const origen=oeB?'la OE '+oeB.numero_orden:'stock libre';
+    if(!confirm('⚠ Atención\n\nLa orden '+oc.numero_orden+' está asociada a la OE '+(oeA?.numero_orden||'?')+', pero la bobina '+b.numero_bobina+' es de '+origen+'.\n\n¿Cargarla igual a esta orden?'))return;
+  }
+  await ejecutar();
+}
+
+function _pcorteSetOperario(nom){
+  window._pcorteOperario=nom;
+  setTimeout(()=>document.getElementById('pcorte-pistola-input')?.focus(),50);
+}
+
+// Feedback grande del lector del panel
+function _pcorteFeedback(msg,color,beep){
+  const el=document.getElementById('pcorte-fb');
+  if(el){el.textContent=msg;el.style.color=color;}
+  if(beep&&typeof pistolaFeedback==='function'){
+    // Reusar el beep de Confección (crea su propio audio, no toca el DOM de conf)
+    try{
+      const AC=window.AudioContext||window.webkitAudioContext;
+      if(AC){const ctx=new AC();const osc=ctx.createOscillator();const gain=ctx.createGain();
+        osc.connect(gain);gain.connect(ctx.destination);
+        osc.frequency.value=beep==='error'?220:880;osc.type='sine';
+        gain.gain.setValueAtTime(0.1,ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+(beep==='error'?0.3:0.12));
+        osc.start();osc.stop(ctx.currentTime+(beep==='error'?0.3:0.12));}
+    }catch(e){}
+  }
+}
+
+function onPcortePistolaKey(ev){
+  if(ev.key!=='Enter')return;
+  ev.preventDefault();
+  const input=ev.target;
+  const raw=input.value;
+  input.value='';
+  setTimeout(()=>input.focus(),10);
+  _pcorteProcesarEscaneo(raw);
+}
+
+function reFocoPcortePistola(){
+  setTimeout(()=>{
+    const inp=document.getElementById('pcorte-pistola-input');
+    if(!inp||!_pcorteFullscreen)return;
+    const act=document.activeElement;
+    if(act&&act!==document.body&&act.tagName){
+      const tag=act.tagName.toUpperCase();const tipo=(act.type||'').toLowerCase();
+      if(tag==='SELECT'||tag==='TEXTAREA')return;
+      if(tag==='INPUT'&&['text','number'].includes(tipo))return;
+      if(tag==='BUTTON')return;
+    }
+    inp.focus();
+  },150);
+}
+
+// Procesa un escaneo en el panel: OC = arrancar (con operario), bobina = descontar.
+async function _pcorteProcesarEscaneo(raw){
+  if(esEscaneoDeOC(raw)){
+    await _pcorteIniciarOC(raw);
+  } else {
+    // Bobina: reusar el flujo de Confección tal cual (descuenta stock, funciona perfecto)
+    if(typeof procesarEscaneoBobina==='function'){
+      // procesarEscaneoBobina escribe en conf-pistola-msg; replicamos el feedback acá
+      _pcorteFeedback('Procesando bobina...','var(--text2)');
+      try{procesarEscaneoBobina(raw);_pcorteFeedback('📦 Bobina procesada','var(--green)','ok');}
+      catch(e){_pcorteFeedback('✕ Error con la bobina: '+(e.message||e),'var(--red)','error');}
+      setTimeout(_pintarPanelCorte,800);
+    }
+  }
+}
+
+// Arrancar una OC desde el panel, registrando el operario que la inició.
+async function _pcorteIniciarOC(raw){
+  const codigoOC=extraerNumeroOCdeEscaneo(raw);
+  if(!codigoOC){_pcorteFeedback('No pude leer el código de OC del QR.','var(--red)','error');return;}
+  const oc=C.ord_corte.find(x=>(x.numero_orden||'').toUpperCase()===codigoOC);
+  if(!oc){_pcorteFeedback('✕ OC '+codigoOC+' no encontrada.','var(--red)','error');return;}
+  const opNom=(window._pcorteOperario||'').trim();
+  if(!opNom){_pcorteFeedback('⚠ Elegí primero tu nombre arriba antes de iniciar la OC.','var(--amber)','error');return;}
+  if(oc.estado==='Completada'){_pcorteFeedback('✕ OC '+codigoOC+' ya está Completada.','var(--red)','error');return;}
+  if(oc.estado==='Suspendida'){_pcorteFeedback('✕ OC '+codigoOC+' está Suspendida — reactivala desde la lista.','var(--red)','error');return;}
+  if(oc.estado==='Cancelada'){_pcorteFeedback('✕ OC '+codigoOC+' está Cancelada.','var(--red)','error');return;}
+  if(oc.estado==='En proceso'){_pcorteFeedback('▶ OC '+codigoOC+' ya estaba En proceso — continuando','var(--accent)','ok');setTimeout(_pintarPanelCorte,600);return;}
+  // Pendiente → arrancar, registrando operario en observaciones
+  try{
+    const obsPrev=oc.observaciones||'';
+    const marca='[Iniciada en panel '+localDate()+' '+fmtHora(new Date())+' por '+opNom+']';
+    await sb.from('ordenes_corte').update({estado:'En proceso',observaciones:obsPrev+(obsPrev?' ':'')+marca}).eq('id',oc.id);
+    if(typeof congelarBaselineCorte==='function')await congelarBaselineCorte(oc.id);
+    await reload();
+    _pcorteFeedback('▶ OC '+codigoOC+' iniciada por '+opNom,'var(--green)','ok');
+    setTimeout(_pintarPanelCorte,600);
+  }catch(e){
+    _pcorteFeedback('✕ Error iniciando la OC: '+(e.message||e),'var(--red)','error');
+  }
+}
+
+// Pausar: vuelve a Pendiente con motivo (botones rápidos). Queda registrado.
+function panelcPausarOC(id){
+  const oc=C.ord_corte.find(o=>o.id===id);
+  if(!oc)return;
+  document.getElementById('pcorte-pausa-modal')?.remove();
+  const html='<div id="pcorte-pausa-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9400;display:flex;align-items:center;justify-content:center;padding:20px;">'
+    +'<div style="background:var(--bg1);border:1.5px solid var(--amber);border-radius:14px;padding:22px;max-width:420px;width:100%;">'
+      +'<div style="font-size:17px;font-weight:800;color:var(--amber);margin-bottom:4px;">⏸ Pausar '+escapeHtml(oc.numero_orden)+'</div>'
+      +'<div style="font-size:13px;color:var(--text2);margin-bottom:16px;">¿Por qué se pausa? Vuelve a la cola para retomarla después.</div>'
+      +'<div style="display:flex;flex-direction:column;gap:10px;">'
+        +'<button class="btn" style="padding:14px;font-size:15px;font-weight:700;" onclick="_pcorteConfirmarPausa('+id+',\'Sin bobinas\')">📦 Sin bobinas</button>'
+        +'<button class="btn" style="padding:14px;font-size:15px;font-weight:700;" onclick="_pcorteConfirmarPausa('+id+',\'Cambio de máquina\')">🔧 Cambio de máquina</button>'
+        +'<button class="btn" style="padding:14px;font-size:15px;font-weight:700;" onclick="_pcorteConfirmarPausa('+id+',\'Otro\')">… Otro motivo</button>'
+      +'</div>'
+      +'<button class="btn btn-sm" style="margin-top:14px;width:100%;color:var(--text3);" onclick="document.getElementById(\'pcorte-pausa-modal\').remove()">Cancelar</button>'
+    +'</div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+async function _pcorteConfirmarPausa(id,motivo){
+  const oc=C.ord_corte.find(o=>o.id===id);
+  document.getElementById('pcorte-pausa-modal')?.remove();
+  if(!oc)return;
+  try{
+    const obsPrev=oc.observaciones||'';
+    const marca='[Pausada en panel '+localDate()+' '+fmtHora(new Date())+' — '+motivo+(window._pcorteOperario?' · '+window._pcorteOperario:'')+']';
+    await sb.from('ordenes_corte').update({estado:'Pendiente',observaciones:obsPrev+(obsPrev?' ':'')+marca}).eq('id',id);
+    await reload();
+    _pcorteFeedback('⏸ '+oc.numero_orden+' pausada ('+motivo+') — vuelve a la cola','var(--amber)','ok');
+    _pintarPanelCorte();
+  }catch(e){
+    _pcorteFeedback('✕ Error al pausar: '+(e.message||e),'var(--red)','error');
+  }
+}
+
+// Terminó de cortar: marca que el corte físico terminó, SIN cerrar ni descontar.
+// Pasa la OC a "Pendiente empaque" para que el dueño la cierre desde Confección.
+async function panelcTerminoCorte(id){
+  const oc=C.ord_corte.find(o=>o.id===id);
+  if(!oc)return;
+  if(!confirm('¿'+oc.numero_orden+' terminó de cortar?\n\nEsto NO cierra la orden ni descuenta stock — solo avisa que el corte físico terminó. El dueño la cierra después con bolsones y scrap.'))return;
+  try{
+    const obsPrev=oc.observaciones||'';
+    const marca='[Corte terminado en panel '+localDate()+' '+fmtHora(new Date())+(window._pcorteOperario?' por '+window._pcorteOperario:'')+' — pendiente de cierre]';
+    await sb.from('ordenes_corte').update({estado:'Pendiente empaque',observaciones:obsPrev+(obsPrev?' ':'')+marca}).eq('id',id);
+    await reload();
+    _pcorteFeedback('✓ '+oc.numero_orden+' marcada como cortada — esperando cierre del dueño','var(--green)','ok');
+    _pintarPanelCorte();
+  }catch(e){
+    _pcorteFeedback('✕ Error: '+(e.message||e),'var(--red)','error');
+  }
+}
 
 function calcPrecioCorte(){
   const eId=parseInt(document.getElementById('nc-emp')?.value);
