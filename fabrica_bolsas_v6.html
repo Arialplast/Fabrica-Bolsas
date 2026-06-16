@@ -451,30 +451,6 @@ body.pext-on .main{margin-left:0!important;}
 @keyframes tcm-pulse{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.18);opacity:.65;}}
 @keyframes tcm-blink{0%,100%{opacity:1;}50%{opacity:.35;}}
 @keyframes tcm-breathe{0%,100%{border-color:rgba(43,255,136,.22);}50%{border-color:rgba(43,255,136,.55);}}
-
-/* ═══════════ GANTT COMBINADO — Alta Densidad Industrial ═══════════ */
-/* Mismo lenguaje que la Torre. NO se redefine --purple para que las barras de
-   Corte sigan distinguiéndose de las de Extrusión (azul). Solo CSS scoped. */
-#page-gantt-combinado{
-  --green:#2bff88; --amber:#ffe600; --red:#ff5b5b; --accent:#38bdf8;
-  --text:#ffffff; --text1:#ffffff; --text2:#aeb7c4; --text3:#6b7686;
-  --bg2:#14171d; --bg3:#1a1e26; --border:rgba(120,150,190,.16);
-  --greenbg:rgba(43,255,136,.10); --greenbd:rgba(43,255,136,.35);
-  --amberbg:rgba(255,230,0,.10); --amberbd:rgba(255,230,0,.35);
-  --redbg:rgba(255,91,91,.10); --redbd:rgba(255,91,91,.38);
-  --accentbg:rgba(56,189,248,.12); --accentbd:rgba(56,189,248,.4);
-  color:#fff;
-  background:
-    linear-gradient(rgba(120,150,200,.04) 1px,transparent 1px) 0 0/24px 24px,
-    linear-gradient(90deg,rgba(120,150,200,.04) 1px,transparent 1px) 0 0/24px 24px,
-    radial-gradient(ellipse at 50% -8%,rgba(43,255,136,.045),transparent 55%),
-    #0d1015;
-  margin:-2rem; padding:2rem; min-height:100vh;
-}
-#page-gantt-combinado *{font-family:'JetBrains Mono',ui-monospace,'DM Mono',monospace !important;}
-#page-gantt-combinado .page-title{color:#fff;letter-spacing:.02em;text-shadow:0 0 18px rgba(43,255,136,.22);}
-#page-gantt-combinado .page-sub{color:var(--text2);}
-#page-gantt-combinado .page-hdr{border-bottom:1px solid var(--border);padding-bottom:14px;}
 </style>
 </head>
 <body>
@@ -27616,23 +27592,55 @@ function imprimirEtiquetasBulto(ocId){
   }
 
   const tituloProd=(prod.descripcion||prod.codigo||'(sin descripción)').toUpperCase();
-  const lineaCantidad=paqPorBolson+' PAQUETES x '+uniPorPaq+' UN';
+  const cantNum=paqPorBolson;
+  const cantLbl=(paqPorBolson===1?'PAQUETE':'PAQUETES');
+  const cantDet=uniPorPaq?('× '+uniPorPaq+' u c/u'):'';
 
-  // Auto-shrink del título según largo
-  let tamProd='9mm';
-  if(tituloProd.length<=14)tamProd='9mm';
-  else if(tituloProd.length<=22)tamProd='7mm';
-  else if(tituloProd.length<=32)tamProd='5.5mm';
-  else tamProd='4.5mm';
+  // PRODUCTO: si la descripción tiene una medida tipo "40X50" (o 40x50x3, con
+  // decimales o espacios), la resaltamos GRANDE y dejamos el resto del nombre
+  // mediano arriba. Es lo que distingue dos bolsas parecidas en el depósito.
+  // Si no hay medida detectable, mostramos el nombre completo con auto-shrink.
+  const medidaRe=/\d+(?:[.,]\d+)?\s*[X×]\s*\d+(?:[.,]\d+)?(?:\s*[X×]\s*\d+(?:[.,]\d+)?)?/;
+  const mMatch=tituloProd.match(medidaRe);
+  let productoHtml;
+  if(mMatch){
+    const medida=mMatch[0].replace(/\s+/g,'');
+    const desc=(tituloProd.slice(0,mMatch.index)+tituloProd.slice(mMatch.index+mMatch[0].length)).replace(/\s+/g,' ').trim();
+    // tamaño de la medida según largo (la medida es lo más grande de la etiqueta)
+    let tamMed;
+    if(medida.length<=7)tamMed='13mm';
+    else if(medida.length<=11)tamMed='10.5mm';
+    else tamMed='8.5mm';
+    // tamaño del texto descriptivo (secundario)
+    let tamDesc;
+    if(desc.length<=14)tamDesc='5mm';
+    else if(desc.length<=24)tamDesc='4mm';
+    else tamDesc='3.3mm';
+    productoHtml='<div class="producto">'
+      +(desc?'<div class="prod-desc" style="font-size:'+tamDesc+'">'+desc+'</div>':'')
+      +'<div class="prod-medida" style="font-size:'+tamMed+'">'+medida+'</div>'
+    +'</div>';
+  } else {
+    // Sin medida: nombre completo, auto-shrink (un escalón más grande que antes).
+    let tamProd;
+    if(tituloProd.length<=12)tamProd='11mm';
+    else if(tituloProd.length<=20)tamProd='9mm';
+    else if(tituloProd.length<=30)tamProd='7mm';
+    else if(tituloProd.length<=42)tamProd='5.5mm';
+    else tamProd='4.5mm';
+    productoHtml='<div class="producto" style="font-size:'+tamProd+'">'+tituloProd+'</div>';
+  }
 
   // CSS — todo en mm. Forzamos el tamaño físico en cada etiqueta y usamos
   // page-break-after para que cada una vaya en página separada.
   // El panel "instrucciones" se oculta al imprimir vía @media print.
   //
-  // DISEÑO: empresa arriba (texto negro normal), banda negra al centro con el
-  // producto en BLANCO (lo que resalta a distancia), cantidad abajo en negro.
-  // La banda negra ocupa solo el área central, no toda la etiqueta — gasta
-  // menos cinta y la térmica imprime más rápido que con fondo negro total.
+  // DISEÑO (rediseño jun-2026): SIN fondo negro. Todo negro sobre blanco —
+  // gasta mucha menos cinta y la térmica imprime más rápido y nítido.
+  // El PRODUCTO se resalta con tamaño grande + negrita máxima, enmarcado por
+  // dos líneas gruesas (arriba y abajo) en vez de una banda rellena.
+  // La CANTIDAD se resalta abajo en un recuadro de borde grueso, con el número
+  // de paquetes bien grande (es el dato que se cuenta en depósito).
   const CSS=''
     +'@page{size:52.5mm 45mm;margin:0;}'
     +'*{box-sizing:border-box;margin:0;padding:0;}'
@@ -27664,33 +27672,45 @@ function imprimirEtiquetasBulto(ocId){
       +'border:1px dashed #94a3b8;'  // solo en preview, NO en print
     +'}'
     +'.etiq:last-child{page-break-after:auto;break-after:auto;}'
-    +'.empresa{font-size:3.5mm;font-weight:900;letter-spacing:.3mm;line-height:1;}'
+    +'.empresa{font-size:3mm;font-weight:900;letter-spacing:.3mm;line-height:1;'
+      +'border-bottom:.4mm solid #000;padding-bottom:.8mm;}'
     +'.producto-box{'
-      +'background:#000;color:#fff;'
-      +'padding:2mm 1.5mm;border-radius:1.5mm;'
+      +'border-top:.6mm solid #000;border-bottom:.6mm solid #000;'
+      +'padding:1.5mm 1mm;'
       +'display:flex;align-items:center;justify-content:center;'
-      +'flex:1;margin:1.5mm 0;'
+      +'flex:1;margin:1mm 0;'
     +'}'
-    +'.producto{font-size:'+tamProd+';font-weight:900;line-height:1.05;'
-      +'word-wrap:break-word;max-width:100%;color:#fff;}'
-    +'.cantidad{font-size:3mm;font-weight:700;line-height:1.1;}'
+    +'.producto{font-weight:900;line-height:1.05;color:#000;max-width:100%;'
+      +'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6mm;'
+      +'word-wrap:break-word;}'
+    +'.prod-desc{font-weight:800;line-height:1.05;letter-spacing:.1mm;}'
+    +'.prod-medida{font-weight:900;line-height:1;letter-spacing:.3mm;}'
+    +'.cantidad-box{'
+      +'border:.6mm solid #000;border-radius:1mm;'
+      +'padding:1mm .5mm;'
+      +'display:flex;align-items:baseline;justify-content:center;gap:1.2mm;'
+    +'}'
+    +'.cant-num{font-size:7mm;font-weight:900;line-height:1;}'
+    +'.cant-lbl{font-size:3mm;font-weight:800;letter-spacing:.2mm;}'
+    +'.cant-det{font-size:2.6mm;font-weight:600;}'
     +'@media print{'
       +'html,body{margin:0;padding:0;background:#fff;width:52.5mm;}'
       +'.instr{display:none !important;}'
       +'.etiquetas-wrap{display:block;padding:0;gap:0;}'
       +'.etiq{border:none !important;margin:0 0 0 10mm !important;}'   /* preservamos el margin-left que compensa el offset de la térmica */
-      // Forzar que la térmica respete los fondos negros: clave para que la banda salga oscura
       +'*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important;}'
-      +'.producto-box{background:#000 !important;color:#fff !important;}'
-      +'.producto{color:#fff !important;}'
     +'}';
 
   let etiquetas='';
   for(let i=0;i<bolsones;i++){
     etiquetas+='<div class="etiq">'
       +'<div class="empresa">ARIALPLAST SA</div>'
-      +'<div class="producto-box"><div class="producto">'+tituloProd+'</div></div>'
-      +'<div class="cantidad">'+lineaCantidad+'</div>'
+      +'<div class="producto-box">'+productoHtml+'</div>'
+      +'<div class="cantidad-box">'
+        +'<span class="cant-num">'+cantNum+'</span>'
+        +'<span class="cant-lbl">'+cantLbl+'</span>'
+        +(cantDet?'<span class="cant-det">'+cantDet+'</span>':'')
+      +'</div>'
     +'</div>';
   }
 
@@ -28542,6 +28562,9 @@ function _pintarPanelCorte(){
   // cuándo cada OC va a poder cortar de verdad, no por prioridad teórica. Una OC con
   // prioridad alta pero sin material aparece donde realmente le toca, no primera.
   const _schedCpanel=(typeof calcScheduleCorteReal==='function')?calcScheduleCorteReal():{};
+  const _ocObjetivo=_pcorteResolverOCobjetivo();   // OC a la que se cargan las bobinas escaneadas
+  const _ocObjNum=_ocObjetivo?(C.ord_corte.find(o=>o.id===_ocObjetivo)?.numero_orden||''):'';
+  const _enProcCount=C.ord_corte.filter(o=>o.estado==='En proceso').length;
 
   let html='<div style="min-height:100vh;background:var(--bg1);padding:16px 20px;">'
     // Barra superior
@@ -28567,6 +28590,14 @@ function _pintarPanelCorte(){
         +'<button class="btn btn-sm" onclick="document.getElementById(\'pcorte-pistola-input\').focus()" title="Recuperar foco del lector">🎯 Foco</button>'
       +'</div>'
       +'<div id="pcorte-fb" style="margin-top:10px;font-size:16px;font-weight:700;min-height:22px;"></div>'
+      +'<div style="margin-top:8px;font-size:13px;font-weight:700;padding:6px 10px;border-radius:8px;'
+        +(_ocObjetivo?'background:rgba(99,179,237,.12);color:var(--accent);':(_enProcCount>1?'background:rgba(245,158,11,.14);color:var(--amber);':'background:var(--bg3);color:var(--text3);'))+'">'
+        +(_ocObjetivo
+            ?'📦 Las bobinas que escanees se cargan a: <strong>'+escapeHtml(_ocObjNum)+'</strong>'
+            :(_enProcCount>1
+                ?'⚠ Hay '+_enProcCount+' OC en proceso. Tocá "📷 Cargar bobinas acá" en la que estás cortando antes de escanear bobinas.'
+                :'Escaneá el QR de una OC para empezar; después las bobinas se cargan a esa OC.'))
+      +'</div>'
     +'</div>'
     // Cortadoras
     +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px;">';
@@ -28597,8 +28628,14 @@ function _pintarPanelCorte(){
       html+='<div style="text-align:center;padding:24px 0;color:var(--red);"><div style="font-size:32px;margin-bottom:8px;">🔧</div><div style="font-weight:700;font-size:15px;">FUERA DE SERVICIO</div>'+(maq.motivo_fuera_servicio?'<div style="font-size:12px;color:var(--text2);margin-top:4px;">'+escapeHtml(maq.motivo_fuera_servicio)+'</div>':'')+'</div>';
     } else if(enProc){
       const prod=enProc.productos||C.productos.find(p=>p.id===enProc.producto_id);
+      const esObjetivo=enProc.id===_ocObjetivo;
       html+='<div style="background:rgba(34,197,94,.06);border:1px solid var(--green);border-radius:10px;padding:14px;margin-bottom:12px;">'
-        +'<div style="font-size:12px;color:var(--green);font-weight:700;text-transform:uppercase;letter-spacing:.05em;">▶ Cortando ahora</div>'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">'
+          +'<div style="font-size:12px;color:var(--green);font-weight:700;text-transform:uppercase;letter-spacing:.05em;">▶ Cortando ahora</div>'
+          +(esObjetivo
+              ?'<div style="font-size:11px;font-weight:800;color:var(--accent);background:rgba(99,179,237,.15);padding:2px 8px;border-radius:6px;">📦 Bobinas acá</div>'
+              :'<button class="btn btn-sm" style="padding:2px 9px;font-size:11px;font-weight:700;color:var(--accent);border-color:var(--accent);" onclick="_pcorteSetOCobjetivo('+enProc.id+')" title="Las bobinas que escanees se cargan a esta OC">📷 Cargar bobinas acá</button>')
+        +'</div>'
         +'<div style="font-size:24px;font-weight:800;margin:6px 0;">'+escapeHtml(enProc.numero_orden)+'</div>'
         +'<div style="font-size:16px;font-weight:600;">'+escapeHtml(prod?(prod.descripcion||prod.codigo||''):'—')+'</div>'
         +'<div style="font-size:13px;color:var(--text2);margin-top:3px;">'+escapeHtml(enProc.cliente||'—')+'</div>'
@@ -28832,20 +28869,48 @@ function reFocoPcortePistola(){
   },150);
 }
 
-// Procesa un escaneo en el panel: OC = arrancar (con operario), bobina = descontar.
+// Procesa un escaneo en el panel: OC = arrancar (con operario) y queda como objetivo;
+// bobina = se carga a la OC objetivo (la que estás cortando), igual que el botón + Cargar.
 async function _pcorteProcesarEscaneo(raw){
   if(esEscaneoDeOC(raw)){
     await _pcorteIniciarOC(raw);
   } else {
-    // Bobina: reusar el flujo de Confección tal cual (descuenta stock, funciona perfecto)
-    if(typeof procesarEscaneoBobina==='function'){
-      // procesarEscaneoBobina escribe en conf-pistola-msg; replicamos el feedback acá
-      _pcorteFeedback('Procesando bobina...','var(--text2)');
-      try{procesarEscaneoBobina(raw);_pcorteFeedback('📦 Bobina procesada','var(--green)','ok');}
-      catch(e){_pcorteFeedback('✕ Error con la bobina: '+(e.message||e),'var(--red)','error');}
-      setTimeout(_pintarPanelCorte,800);
-    }
+    await _pcorteEscanearBobina(raw);
   }
+}
+
+// Cuál es la OC a la que se asocian las bobinas escaneadas:
+// - la elegida explícitamente (si sigue En proceso), o
+// - la única En proceso (si hay una sola), o
+// - null si hay varias y todavía no elegiste cuál.
+function _pcorteResolverOCobjetivo(){
+  const enProc=C.ord_corte.filter(o=>o.estado==='En proceso');
+  if(window._pcorteOCobjetivo&&enProc.some(o=>o.id===window._pcorteOCobjetivo))return window._pcorteOCobjetivo;
+  if(enProc.length===1){window._pcorteOCobjetivo=enProc[0].id;return enProc[0].id;}
+  return null;
+}
+
+// Elegir manualmente a qué OC en proceso se cargan las bobinas escaneadas.
+function _pcorteSetOCobjetivo(id){
+  window._pcorteOCobjetivo=id;
+  const oc=C.ord_corte.find(o=>o.id===id);
+  _pcorteFeedback('🎯 Las bobinas que escanees ahora se cargan a '+(oc?.numero_orden||('OC '+id)),'var(--accent)');
+  _pintarPanelCorte();
+}
+
+// Escanear una bobina: buscarla por número y cargarla a la OC objetivo (flujo real, asocia y descuenta).
+async function _pcorteEscanearBobina(raw){
+  const nro=extraerNumeroBobinaDeEscaneo(raw);
+  if(!nro){_pcorteFeedback('No pude leer el número de bobina del QR.','var(--red)','error');return;}
+  const b=C.bobinas_prod.find(x=>x.numero_bobina===nro);
+  if(!b){_pcorteFeedback('✕ Bobina '+nro+' no encontrada.','var(--red)','error');return;}
+  if(!b.en_stock){_pcorteFeedback('✕ Bobina '+nro+' ya no está en stock (consumida).','var(--red)','error');return;}
+  const ocId=_pcorteResolverOCobjetivo();
+  if(!ocId){
+    _pcorteFeedback('⚠ Hay varias OC en proceso. Tocá "📷 Cargar bobinas acá" en la que estás cortando (o escaneá primero el QR de esa OC) y volvé a escanear la bobina.','var(--amber)','error');
+    return;
+  }
+  await _pcorteCargarBobina(ocId,b.id);
 }
 
 // Arrancar una OC desde el panel, registrando el operario que la inició.
@@ -28859,15 +28924,16 @@ async function _pcorteIniciarOC(raw){
   if(oc.estado==='Completada'){_pcorteFeedback('✕ OC '+codigoOC+' ya está Completada.','var(--red)','error');return;}
   if(oc.estado==='Suspendida'){_pcorteFeedback('✕ OC '+codigoOC+' está Suspendida — reactivala desde la lista.','var(--red)','error');return;}
   if(oc.estado==='Cancelada'){_pcorteFeedback('✕ OC '+codigoOC+' está Cancelada.','var(--red)','error');return;}
-  if(oc.estado==='En proceso'){_pcorteFeedback('▶ OC '+codigoOC+' ya estaba En proceso — continuando','var(--accent)','ok');setTimeout(_pintarPanelCorte,600);return;}
+  if(oc.estado==='En proceso'){window._pcorteOCobjetivo=oc.id;_pcorteFeedback('▶ OC '+codigoOC+' ya estaba En proceso — bobinas se cargan acá','var(--accent)','ok');setTimeout(_pintarPanelCorte,600);return;}
   // Pendiente → arrancar, registrando operario en observaciones
   try{
     const obsPrev=oc.observaciones||'';
     const marca='[Iniciada en panel '+localDate()+' '+fmtHora(new Date())+' por '+opNom+']';
     await sb.from('ordenes_corte').update({estado:'En proceso',observaciones:obsPrev+(obsPrev?' ':'')+marca}).eq('id',oc.id);
     if(typeof congelarBaselineCorte==='function')await congelarBaselineCorte(oc.id);
+    window._pcorteOCobjetivo=oc.id;
     await reload();
-    _pcorteFeedback('▶ OC '+codigoOC+' iniciada por '+opNom,'var(--green)','ok');
+    _pcorteFeedback('▶ OC '+codigoOC+' iniciada por '+opNom+' — bobinas se cargan acá','var(--green)','ok');
     setTimeout(_pintarPanelCorte,600);
   }catch(e){
     _pcorteFeedback('✕ Error iniciando la OC: '+(e.message||e),'var(--red)','error');
