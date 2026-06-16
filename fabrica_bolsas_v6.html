@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Producción · Fábrica de Bolsas</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -365,6 +365,116 @@ text-align:center;padding:3rem;color:var(--text3);font-size:13px;}
 /* Estación Extrusión en pantalla completa (etapa 3c): oculta el menú para que el operario no vea todo el sistema */
 body.pext-on .sidebar,body.pext-on .topbar{display:none!important;}
 body.pext-on .main{margin-left:0!important;}
+/* TABLERO DE DIRECCIÓN — toque profesional (etapa diseño) */
+.tab-sec-lbl{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--text3);margin:24px 0 12px;display:flex;align-items:center;gap:12px;}
+.tab-sec-lbl:first-child{margin-top:4px;}
+.tab-sec-lbl::after{content:'';flex:1;height:1px;background:var(--border);}
+.tab-q-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;}
+.tab-q{position:relative;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:18px 20px 14px;cursor:pointer;overflow:hidden;transition:transform .14s,border-color .14s,box-shadow .14s;}
+.tab-q::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--acc);}
+.tab-q:hover{transform:translateY(-3px);border-color:var(--acc);box-shadow:var(--sh2);}
+.tab-q-idx{position:absolute;top:8px;right:16px;font-family:'Syne',sans-serif;font-weight:800;font-size:46px;line-height:1;color:var(--acc);opacity:.14;pointer-events:none;}
+.tab-q-ask{font-size:13.5px;font-weight:600;color:var(--text2);max-width:78%;}
+.tab-q-val{font-family:'Syne',sans-serif;font-weight:800;font-size:33px;line-height:1.08;letter-spacing:-.02em;margin:7px 0 12px;}
+.tab-q-rows{border-top:1px solid var(--border);padding-top:8px;}
+.tab-mini-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;}
+.tab-mini{position:relative;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:14px 16px;cursor:pointer;transition:transform .12s,border-color .12s;}
+.tab-mini:hover{transform:translateY(-2px);border-color:var(--acc);}
+.tab-mini-lbl{font-size:11.5px;color:var(--text3);font-weight:600;margin-bottom:7px;}
+.tab-mini-val{font-family:'Syne',sans-serif;font-weight:800;font-size:24px;line-height:1;letter-spacing:-.01em;margin-bottom:4px;}
+.tab-chain{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;align-items:start;gap:10px;}
+.tab-chain-arrow{display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:20px;padding-top:24px;}
+@media(max-width:640px){.tab-chain{grid-template-columns:1fr;}.tab-chain-arrow{display:none;}}
+/* SIDEBAR en áreas colapsables (rediseño de navegación) */
+.nav-grp{margin-bottom:1px;}
+.nav-grp-hd{display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-family:'DM Mono',monospace;font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--text3);padding:9px 8px 5px;user-select:none;transition:color .12s;}
+.nav-grp-hd:hover{color:var(--text2);}
+.nav-grp-chev{font-size:9px;transition:transform .15s;opacity:.65;}
+.nav-grp.open>.nav-grp-hd .nav-grp-chev{transform:rotate(90deg);}
+.nav-grp-items{display:none;}
+.nav-grp.open>.nav-grp-items{display:block;}
+.nav-subdiv{font-family:'DM Mono',monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);opacity:.7;padding:7px 8px 3px;}
+/* Más contraste en la sidebar */
+.sidebar{border-right:1px solid rgba(255,255,255,0.13);}
+.nav-item{color:#aeb5c6;}
+.nav-grp-hd{color:#c6ccda;font-weight:600;}
+.nav-grp-hd:hover{color:#eef0f5;}
+.nav-subdiv{color:#9aa1b3;opacity:1;}
+
+/* ═══════════ TORRE DE CONTROL — ALTA DENSIDAD INDUSTRIAL ═══════════ */
+#page-torre-entregas{
+  /* paleta neón redefinida en el scope: todo el contenido que usa var(--x) la adopta */
+  --green:#2bff88; --amber:#ffe600; --red:#ff5b5b; --accent:#38bdf8;
+  --text:#ffffff; --text1:#ffffff; --text2:#aeb7c4; --text3:#6b7686;
+  --bg2:#14171d; --bg3:#1a1e26; --border:rgba(120,150,190,.16);
+  --greenbg:rgba(43,255,136,.10); --greenbd:rgba(43,255,136,.35);
+  --amberbg:rgba(255,230,0,.10); --amberbd:rgba(255,230,0,.35);
+  --redbg:rgba(255,91,91,.10); --redbd:rgba(255,91,91,.38);
+  --accentbg:rgba(56,189,248,.12); --accentbd:rgba(56,189,248,.4);
+  color:#fff;
+  background:
+    linear-gradient(rgba(120,150,200,.045) 1px,transparent 1px) 0 0/24px 24px,
+    linear-gradient(90deg,rgba(120,150,200,.045) 1px,transparent 1px) 0 0/24px 24px,
+    radial-gradient(ellipse at 50% -8%,rgba(43,255,136,.05),transparent 55%),
+    #0d1015;
+  margin:-2rem; padding:2rem; min-height:100vh;
+}
+#page-torre-entregas *{font-family:'JetBrains Mono',ui-monospace,'DM Mono',monospace !important;}
+#page-torre-entregas .page-title{color:#fff;letter-spacing:.02em;text-shadow:0 0 18px rgba(43,255,136,.25);}
+#page-torre-entregas .page-sub{color:var(--text2);}
+#page-torre-entregas .page-hdr{border-bottom:1px solid var(--border);padding-bottom:14px;}
+
+/* Mapa de máquinas — panel de cabina */
+.tcm-panel{background:rgba(10,13,18,.6);border:1px solid var(--border);border-radius:10px;padding:14px 16px 16px;margin-bottom:16px;backdrop-filter:blur(2px);}
+.tcm-banner{display:flex;align-items:center;gap:10px;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;}
+.tcm-banner::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:tcm-blink 1.6s infinite;}
+.tcm-banner .tcm-count{margin-left:auto;color:var(--text2);letter-spacing:.1em;}
+.tcm-row-lbl{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--text3);margin:14px 0 8px;display:flex;align-items:center;gap:8px;}
+.tcm-row-lbl::after{content:'';flex:1;height:1px;background:var(--border);}
+.tcm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:9px;}
+.tcm-cell{position:relative;background:linear-gradient(180deg,rgba(255,255,255,.025),transparent),var(--bg2);border:1px solid var(--border);border-radius:7px;padding:10px 11px;overflow:hidden;transition:transform .12s;}
+.tcm-cell::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--c,var(--text3));}
+.tcm-cell:hover{transform:translateY(-2px);}
+.tcm-cell.run{--c:var(--green);border-color:rgba(43,255,136,.28);animation:tcm-breathe 2.4s ease-in-out infinite;}
+.tcm-cell.idle{--c:var(--text3);opacity:.82;}
+.tcm-cell.off{--c:var(--red);border-color:rgba(255,91,91,.3);}
+.tcm-head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:7px;}
+.tcm-name{font-size:12.5px;font-weight:700;color:#fff;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tcm-led{width:9px;height:9px;border-radius:50%;flex-shrink:0;background:var(--c);}
+.tcm-cell.run .tcm-led{box-shadow:0 0 7px var(--green),0 0 2px #fff inset;animation:tcm-pulse 1.3s infinite;}
+.tcm-cell.off .tcm-led{box-shadow:0 0 7px var(--red);}
+.tcm-ord{font-size:12px;font-weight:700;color:var(--c);letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tcm-cli{font-size:10px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;min-height:13px;}
+.tcm-kg{margin-top:7px;padding-top:6px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:baseline;}
+.tcm-kg-v{font-size:15px;font-weight:800;color:#fff;}
+.tcm-kg-l{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);}
+@keyframes tcm-pulse{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.18);opacity:.65;}}
+@keyframes tcm-blink{0%,100%{opacity:1;}50%{opacity:.35;}}
+@keyframes tcm-breathe{0%,100%{border-color:rgba(43,255,136,.22);}50%{border-color:rgba(43,255,136,.55);}}
+
+/* ═══════════ GANTT COMBINADO — Alta Densidad Industrial ═══════════ */
+/* Mismo lenguaje que la Torre. NO se redefine --purple para que las barras de
+   Corte sigan distinguiéndose de las de Extrusión (azul). Solo CSS scoped. */
+#page-gantt-combinado{
+  --green:#2bff88; --amber:#ffe600; --red:#ff5b5b; --accent:#38bdf8;
+  --text:#ffffff; --text1:#ffffff; --text2:#aeb7c4; --text3:#6b7686;
+  --bg2:#14171d; --bg3:#1a1e26; --border:rgba(120,150,190,.16);
+  --greenbg:rgba(43,255,136,.10); --greenbd:rgba(43,255,136,.35);
+  --amberbg:rgba(255,230,0,.10); --amberbd:rgba(255,230,0,.35);
+  --redbg:rgba(255,91,91,.10); --redbd:rgba(255,91,91,.38);
+  --accentbg:rgba(56,189,248,.12); --accentbd:rgba(56,189,248,.4);
+  color:#fff;
+  background:
+    linear-gradient(rgba(120,150,200,.04) 1px,transparent 1px) 0 0/24px 24px,
+    linear-gradient(90deg,rgba(120,150,200,.04) 1px,transparent 1px) 0 0/24px 24px,
+    radial-gradient(ellipse at 50% -8%,rgba(43,255,136,.045),transparent 55%),
+    #0d1015;
+  margin:-2rem; padding:2rem; min-height:100vh;
+}
+#page-gantt-combinado *{font-family:'JetBrains Mono',ui-monospace,'DM Mono',monospace !important;}
+#page-gantt-combinado .page-title{color:#fff;letter-spacing:.02em;text-shadow:0 0 18px rgba(43,255,136,.22);}
+#page-gantt-combinado .page-sub{color:var(--text2);}
+#page-gantt-combinado .page-hdr{border-bottom:1px solid var(--border);padding-bottom:14px;}
 </style>
 </head>
 <body>
@@ -393,83 +503,124 @@ body.pext-on .main{margin-left:0!important;}
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
     <div class="logo-sub">Fábrica de Bolsas v5</div>
-    <div class="nav-sec">Operaciones</div>
-    <div class="nav-item" onclick="go('tablero')" style="background:linear-gradient(90deg,var(--accentbg),transparent);border:1px solid var(--accentbd);border-radius:var(--r);margin-bottom:2px;"><div class="nav-dot" style="background:var(--accent)"></div>Tablero de Dirección 📊</div>
-    <div class="nav-item active" onclick="go('dashboard')"><div class="nav-dot"></div>Dashboard</div>
-    <div class="nav-item" onclick="go('panel-operario')" style="background:var(--accentbg);border:1px solid var(--accentbd);border-radius:var(--r);margin-bottom:2px;"><div class="nav-dot" style="background:var(--accent)"></div>Panel operario 👷</div>
-    <div class="nav-item" onclick="go('planificar')" style="background:rgba(245,158,11,.08);border:1px solid var(--amberbd);border-radius:var(--r);margin-bottom:2px;"><div class="nav-dot" style="background:var(--amber)"></div>Planificar producción 📋</div>
-    <div class="nav-item" onclick="go('simulador')" style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.3);border-radius:var(--r);margin-bottom:2px;"><div class="nav-dot" style="background:var(--green)"></div>Simulador de MP 🧮</div>
-    <div class="nav-item" onclick="go('flujo-mp')" style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.3);border-radius:var(--r);margin-bottom:2px;"><div class="nav-dot" style="background:#3b82f6"></div>Flujo caja vs MP 💵</div>
-    <div class="nav-item" onclick="go('ordenes')"><div class="nav-dot"></div>Órdenes</div>
-    <div class="nav-item" onclick="go('historial-ordenes')"><div class="nav-dot"></div>Historial órdenes</div>
-    <div class="nav-item" onclick="go('suspension-maquinas')"><div class="nav-dot" style="background:var(--red)"></div>Suspensión máquinas</div>
-    <div class="nav-item" onclick="go('nueva')"><div class="nav-dot"></div>Nueva orden</div>
-    <div class="nav-item" onclick="go('gantt')"><div class="nav-dot"></div>Gantt semanal</div>
-    <div class="nav-item" onclick="goAdmin('gantt-diario')"><div class="nav-dot"></div>Gantt diario 🔐</div>
-    <div class="nav-item" onclick="go('carga-bobinas')"><div class="nav-dot"></div>Carga de bobinas</div>
-    <div class="nav-item" onclick="go('stock')"><div class="nav-dot"></div>Stock bobinas</div>
-    <div class="nav-item" onclick="go('confeccion')"><div class="nav-dot"></div>Confección</div>
-    <div class="nav-item" onclick="go('panel-corte')"><div class="nav-dot" style="background:var(--accent)"></div>Panel corte 🖥️</div>
-    <div class="nav-sec">Módulo Corte</div>
-    <div class="nav-item" onclick="go('ordenes-corte')"><div class="nav-dot"></div>Órdenes de corte</div>
-    <div class="nav-item" onclick="go('nueva-corte')"><div class="nav-dot"></div>Nueva orden corte</div>
-    <div class="nav-item" onclick="go('gantt-corte')"><div class="nav-dot"></div>Gantt corte semanal</div>
-    <div class="nav-item" onclick="go('gantt-combinado')"><div class="nav-dot" style="background:var(--purple)"></div>🔗 Gantt combinado</div>
-    <div class="nav-item" onclick="goAdmin('gantt-corte-diario')"><div class="nav-dot"></div>Gantt corte diario 🔐</div>
-    <div class="nav-item" onclick="go('bobinas-fuera-rango')"><div class="nav-dot" style="background:var(--red)"></div>Fuera de rango</div>
-    <div class="nav-item" onclick="go('balance-bobinas')"><div class="nav-dot" style="background:var(--amber)"></div>⚖ Balance de bobinas</div>
-    <div class="nav-sec">Pedidos y Cobranzas</div>
-    <div class="nav-item" onclick="go('pedidos')"><div class="nav-dot" style="background:var(--teal)"></div>Pedidos</div>
-    <div class="nav-item" onclick="go('torre-entregas')"><div class="nav-dot" style="background:var(--red)"></div>🗼 Torre de entregas</div>
-    <div class="nav-item" onclick="go('nuevo-pedido')"><div class="nav-dot"></div>Nuevo pedido</div>
-    <div class="nav-item" onclick="go('nuevo-pedido-v2')"><div class="nav-dot" style="background:var(--purple)"></div>Nuevo pedido v2 ✨</div>
-    <div class="nav-item" onclick="goAdmin('flujo-caja')"><div class="nav-dot" style="background:var(--green)"></div>Flujo de caja 🔐</div>
-    <div class="nav-item" onclick="goAdmin('informe-corte')"><div class="nav-dot" style="background:var(--purple)"></div>Informe producción 🔐</div>
-    <div class="nav-sec">Precios y ventas</div>
-    <div class="nav-item" onclick="goAdmin('listas-precios')"><div class="nav-dot" style="background:var(--teal)"></div>Listas de precios 🔐</div>
-    <div class="nav-item" onclick="go('clientes-precios')"><div class="nav-dot"></div>Precios por cliente</div>
-    <div class="nav-item" onclick="go('stock-bolsas')"><div class="nav-dot" style="background:var(--green)"></div>Stock bolsas</div>
-    <div class="nav-item" onclick="go('kardex')"><div class="nav-dot" style="background:var(--teal)"></div>Kardex 📊</div>
-    <div class="nav-item" onclick="go('puesta-cero')"><div class="nav-dot" style="background:#6366f1"></div>Puesta a cero 🎯</div>
-    <div class="nav-item" onclick="goAdmin('audit-stock-bolsas')"><div class="nav-dot" style="background:var(--amber)"></div>Auditar stock bolsas 🔍</div>
-    <div class="nav-item" onclick="goAdmin('init-stock-fisico')"><div class="nav-dot" style="background:var(--amber)"></div>Inicializar stock físico 📐</div>
-    <div class="nav-item" onclick="go('remitos')"><div class="nav-dot" style="background:var(--accent)"></div>Remitos</div>
-    <div class="nav-item" onclick="go('despacho')"><div class="nav-dot" style="background:var(--green)"></div>Despacho 📦</div>
-    <div class="nav-item" onclick="go('facturacion')"><div class="nav-dot" style="background:var(--green)"></div>Facturación</div>
-    <div class="nav-item" onclick="go('ventas-informales')"><div class="nav-dot" style="background:#9333ea"></div>Ventas informales</div>
-    <div class="nav-item" onclick="go('cuenta-corriente')"><div class="nav-dot" style="background:var(--amber)"></div>Cuenta corriente</div>
-    <div class="nav-item" onclick="go('compensaciones')"><div class="nav-dot" style="background:#06b6d4"></div>Compensaciones</div>
-    <div class="nav-item" onclick="goAdmin('consolidado')"><div class="nav-dot" style="background:#dc2626"></div>Consolidado 🔐</div>
-    <div class="nav-item" onclick="goAdmin('resultado-mes')"><div class="nav-dot" style="background:var(--green)"></div>💰 Resultado del mes 🔐</div>
-    <div class="nav-sec">Materia Prima</div>
-    <div class="nav-item" onclick="go('mp-stock')"><div class="nav-dot" style="background:var(--teal)"></div>Stock MP</div>
-    <div class="nav-item" onclick="go('mp-ingreso')"><div class="nav-dot"></div>Ingreso lotes</div>
-    <div class="nav-item" onclick="goAdmin('mp-inventario')"><div class="nav-dot" id="nav-dot-inv" style="background:var(--green)"></div>Inventario físico 🔐</div>
-    <div class="nav-item" onclick="go('mp-formulas')"><div class="nav-dot"></div>Fórmulas</div>
-    <div class="nav-item" onclick="goAdmin('costos')"><div class="nav-dot" style="background:var(--purple)"></div>Costos 🔐</div>
-    <div class="nav-item" onclick="goAdmin('rentabilidad')"><div class="nav-dot" style="background:var(--green)"></div>Rentabilidad 🔐</div>
-    <div class="nav-item" onclick="goAdmin('gastos-fijos')"><div class="nav-dot" style="background:var(--amber)"></div>🧾 Gastos fijos 🔐</div>
-    <div class="nav-item" onclick="go('compras-gastos')"><div class="nav-dot" style="background:#f97316"></div>🛒 Compras y Gastos</div>
-    <div class="nav-item" onclick="goAdmin('deudas')"><div class="nav-dot" style="background:var(--red)"></div>💳 Deudas (ARCA/bancos) 🔐</div>
-    <div class="nav-item" onclick="goAdmin('libro-caja')"><div class="nav-dot" style="background:var(--green)"></div>🏦 Libro de caja 🔐</div>
-    <div class="nav-item" onclick="goAdmin('categorias-gasto')"><div class="nav-dot" style="background:#f59e0b"></div>🏷 Categorías de gasto 🔐</div>
-    <div class="nav-item" onclick="goAdmin('cartera-cheques')"><div class="nav-dot" style="background:#9333ea"></div>🧾 Cartera de cheques 🔐</div>
-    <div class="nav-item" onclick="go('informe-lote')"><div class="nav-dot" style="background:var(--accent)"></div>📊 Informe de lote MP</div>
-    <div class="nav-sec">Configuración</div>
-    <div class="nav-item" onclick="go('bobinas')"><div class="nav-dot"></div>Bobinas</div>
-    <div class="nav-item" onclick="go('extrusoras')"><div class="nav-dot"></div>Extrusoras</div>
-    <div class="nav-item" onclick="go('clientes')"><div class="nav-dot"></div>Clientes</div>
-    <div class="nav-item" onclick="go('operarios')"><div class="nav-dot"></div>Operarios</div>
-    <div class="nav-item" onclick="go('capacidad')"><div class="nav-dot"></div>Capacidad extrusión</div>
-    <div class="nav-item" onclick="go('maquinas-corte')"><div class="nav-dot"></div>Máq. de corte</div>
-    <div class="nav-item" onclick="go('productos')"><div class="nav-dot"></div>Productos</div>
-    <div class="nav-item" onclick="goAdmin('recalc-pesos')"><div class="nav-dot" style="background:var(--amber)"></div>Recalcular pesos 🧮</div>
-    <div class="nav-item" onclick="go('empaque')"><div class="nav-dot"></div>Tipos de empaque</div>
-    <div class="nav-item" onclick="go('capacidad-corte')"><div class="nav-dot"></div>Capacidad corte</div>
-    <div class="nav-item" onclick="go('analytics')" style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px;">
+    <!-- NAV en 9 áreas colapsables -->
+    <div class="nav-grp" data-grp="inicio">
+      <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
+      <div class="nav-grp-items">
+        <div class="nav-item" onclick="go('tablero')" style="background:linear-gradient(90deg,var(--accentbg),transparent);border:1px solid var(--accentbd);border-radius:var(--r);margin-bottom:2px;"><div class="nav-dot" style="background:var(--accent)"></div>Tablero de Dirección 📊</div>
+        <div class="nav-item" onclick="go('dashboard')"><div class="nav-dot"></div>Dashboard</div>
+        <div class="nav-item" onclick="go('analytics')" style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px;">
       <div class="nav-dot" style="background:var(--purple);"></div>Analytics & KPIs
     </div>
-    <div class="nav-item" onclick="go('admin')" style="margin-top:4px;"><div class="nav-dot" style="background:var(--amber);"></div>Administración</div>
+      </div>
+    </div>
+    <div class="nav-grp" data-grp="ventas">
+      <div class="nav-grp-hd" onclick="toggleNavGrp('ventas')"><span>Ventas y pedidos</span><span class="nav-grp-chev">▸</span></div>
+      <div class="nav-grp-items">
+        <div class="nav-item" onclick="go('pedidos')"><div class="nav-dot" style="background:var(--teal)"></div>Pedidos</div>
+        <div class="nav-item" onclick="go('torre-entregas')"><div class="nav-dot" style="background:var(--red)"></div>🗼 Torre de entregas</div>
+        <div class="nav-item" onclick="go('nuevo-pedido')"><div class="nav-dot"></div>Nuevo pedido</div>
+        <div class="nav-item" onclick="go('nuevo-pedido-v2')"><div class="nav-dot" style="background:var(--purple)"></div>Nuevo pedido v2 ✨</div>
+        <div class="nav-item" onclick="go('clientes-precios')"><div class="nav-dot"></div>Precios por cliente</div>
+      </div>
+    </div>
+    <div class="nav-grp" data-grp="produccion">
+      <div class="nav-grp-hd" onclick="toggleNavGrp('produccion')"><span>Producción</span><span class="nav-grp-chev">▸</span></div>
+      <div class="nav-grp-items">
+        <div class="nav-item" onclick="go('panel-operario')" style="background:var(--accentbg);border:1px solid var(--accentbd);border-radius:var(--r);margin-bottom:2px;"><div class="nav-dot" style="background:var(--accent)"></div>Panel operario 👷</div>
+        <div class="nav-item" onclick="go('planificar')" style="background:rgba(245,158,11,.08);border:1px solid var(--amberbd);border-radius:var(--r);margin-bottom:2px;"><div class="nav-dot" style="background:var(--amber)"></div>Planificar producción 📋</div>
+        <div class="nav-item" onclick="go('ordenes')"><div class="nav-dot"></div>Órdenes</div>
+        <div class="nav-item" onclick="go('nueva')"><div class="nav-dot"></div>Nueva orden</div>
+        <div class="nav-item" onclick="go('gantt')"><div class="nav-dot"></div>Gantt semanal</div>
+        <div class="nav-item" onclick="goAdmin('gantt-diario')"><div class="nav-dot"></div>Gantt diario 🔐</div>
+        <div class="nav-item" onclick="go('gantt-combinado')"><div class="nav-dot" style="background:var(--purple)"></div>🔗 Gantt combinado</div>
+        <div class="nav-item" onclick="go('carga-bobinas')"><div class="nav-dot"></div>Carga de bobinas</div>
+        <div class="nav-item" onclick="go('confeccion')"><div class="nav-dot"></div>Confección</div>
+        <div class="nav-item" onclick="go('balance-bobinas')"><div class="nav-dot" style="background:var(--amber)"></div>⚖ Balance de bobinas</div>
+        <div class="nav-item" onclick="go('panel-corte')"><div class="nav-dot" style="background:var(--accent)"></div>Panel corte 🖥️</div>
+        <div class="nav-item" onclick="go('ordenes-corte')"><div class="nav-dot"></div>Órdenes de corte</div>
+        <div class="nav-item" onclick="go('nueva-corte')"><div class="nav-dot"></div>Nueva orden corte</div>
+        <div class="nav-item" onclick="go('gantt-corte')"><div class="nav-dot"></div>Gantt corte semanal</div>
+        <div class="nav-item" onclick="goAdmin('gantt-corte-diario')"><div class="nav-dot"></div>Gantt corte diario 🔐</div>
+        <div class="nav-item" onclick="go('bobinas-fuera-rango')"><div class="nav-dot" style="background:var(--red)"></div>Fuera de rango</div>
+        <div class="nav-item" onclick="go('historial-ordenes')"><div class="nav-dot"></div>Historial órdenes</div>
+        <div class="nav-item" onclick="go('suspension-maquinas')"><div class="nav-dot" style="background:var(--red)"></div>Suspensión máquinas</div>
+        <div class="nav-item" onclick="goAdmin('informe-corte')"><div class="nav-dot" style="background:var(--purple)"></div>Informe producción 🔐</div>
+      </div>
+    </div>
+    <div class="nav-grp" data-grp="stock">
+      <div class="nav-grp-hd" onclick="toggleNavGrp('stock')"><span>Stock</span><span class="nav-grp-chev">▸</span></div>
+      <div class="nav-grp-items">
+        <div class="nav-item" onclick="go('stock')"><div class="nav-dot"></div>Stock bobinas</div>
+        <div class="nav-item" onclick="go('stock-bolsas')"><div class="nav-dot" style="background:var(--green)"></div>Stock bolsas</div>
+        <div class="nav-item" onclick="go('despacho')"><div class="nav-dot" style="background:var(--green)"></div>Despacho 📦</div>
+        <div class="nav-item" onclick="go('puesta-cero')"><div class="nav-dot" style="background:#6366f1"></div>Puesta a cero 🎯</div>
+        <div class="nav-item" onclick="go('mp-stock')"><div class="nav-dot" style="background:var(--teal)"></div>Stock MP</div>
+        <div class="nav-item" onclick="go('mp-ingreso')"><div class="nav-dot"></div>Ingreso lotes</div>
+        <div class="nav-item" onclick="go('kardex')"><div class="nav-dot" style="background:var(--teal)"></div>Kardex 📊</div>
+      </div>
+    </div>
+    <div class="nav-grp" data-grp="costos">
+      <div class="nav-grp-hd" onclick="toggleNavGrp('costos')"><span>Costos y resultados</span><span class="nav-grp-chev">▸</span></div>
+      <div class="nav-grp-items">
+        <div class="nav-item" onclick="goAdmin('resultado-mes')"><div class="nav-dot" style="background:var(--green)"></div>💰 Resultado del mes 🔐</div>
+        <div class="nav-item" onclick="goAdmin('rentabilidad')"><div class="nav-dot" style="background:var(--green)"></div>Rentabilidad 🔐</div>
+        <div class="nav-item" onclick="goAdmin('costos')"><div class="nav-dot" style="background:var(--purple)"></div>Costos 🔐</div>
+        <div class="nav-item" onclick="goAdmin('consolidado')"><div class="nav-dot" style="background:#dc2626"></div>Consolidado 🔐</div>
+        <div class="nav-subdiv">Proyección</div>
+        <div class="nav-item" onclick="go('simulador')" style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.3);border-radius:var(--r);margin-bottom:2px;"><div class="nav-dot" style="background:var(--green)"></div>Simulador de MP 🧮</div>
+        <div class="nav-item" onclick="go('flujo-mp')" style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.3);border-radius:var(--r);margin-bottom:2px;"><div class="nav-dot" style="background:#3b82f6"></div>Flujo caja vs MP 💵</div>
+      </div>
+    </div>
+    <div class="nav-grp" data-grp="finanzas">
+      <div class="nav-grp-hd" onclick="toggleNavGrp('finanzas')"><span>Finanzas</span><span class="nav-grp-chev">▸</span></div>
+      <div class="nav-grp-items">
+        <div class="nav-item" onclick="goAdmin('libro-caja')"><div class="nav-dot" style="background:var(--green)"></div>🏦 Libro de caja 🔐</div>
+        <div class="nav-item" onclick="goAdmin('cartera-cheques')"><div class="nav-dot" style="background:#9333ea"></div>🧾 Cartera de cheques 🔐</div>
+        <div class="nav-item" onclick="goAdmin('flujo-caja')"><div class="nav-dot" style="background:var(--green)"></div>Flujo de caja 🔐</div>
+        <div class="nav-item" onclick="go('compras-gastos')"><div class="nav-dot" style="background:#f97316"></div>🛒 Compras y Gastos</div>
+        <div class="nav-item" onclick="goAdmin('deudas')"><div class="nav-dot" style="background:var(--red)"></div>💳 Deudas (ARCA/bancos) 🔐</div>
+        <div class="nav-item" onclick="goAdmin('gastos-fijos')"><div class="nav-dot" style="background:var(--amber)"></div>🧾 Gastos fijos 🔐</div>
+      </div>
+    </div>
+    <div class="nav-grp" data-grp="facturacion">
+      <div class="nav-grp-hd" onclick="toggleNavGrp('facturacion')"><span>Facturación y cobranzas</span><span class="nav-grp-chev">▸</span></div>
+      <div class="nav-grp-items">
+        <div class="nav-item" onclick="go('remitos')"><div class="nav-dot" style="background:var(--accent)"></div>Remitos</div>
+        <div class="nav-item" onclick="go('facturacion')"><div class="nav-dot" style="background:var(--green)"></div>Facturación</div>
+        <div class="nav-item" onclick="go('ventas-informales')"><div class="nav-dot" style="background:#9333ea"></div>Ventas informales</div>
+        <div class="nav-item" onclick="go('cuenta-corriente')"><div class="nav-dot" style="background:var(--amber)"></div>Cuenta corriente</div>
+        <div class="nav-item" onclick="go('compensaciones')"><div class="nav-dot" style="background:#06b6d4"></div>Compensaciones</div>
+      </div>
+    </div>
+    <div class="nav-grp" data-grp="config">
+      <div class="nav-grp-hd" onclick="toggleNavGrp('config')"><span>Configuración y tablas</span><span class="nav-grp-chev">▸</span></div>
+      <div class="nav-grp-items">
+        <div class="nav-item" onclick="go('clientes')"><div class="nav-dot"></div>Clientes</div>
+        <div class="nav-item" onclick="go('productos')"><div class="nav-dot"></div>Productos</div>
+        <div class="nav-item" onclick="go('bobinas')"><div class="nav-dot"></div>Bobinas</div>
+        <div class="nav-item" onclick="go('extrusoras')"><div class="nav-dot"></div>Extrusoras</div>
+        <div class="nav-item" onclick="go('maquinas-corte')"><div class="nav-dot"></div>Máq. de corte</div>
+        <div class="nav-item" onclick="go('operarios')"><div class="nav-dot"></div>Operarios</div>
+        <div class="nav-item" onclick="go('empaque')"><div class="nav-dot"></div>Tipos de empaque</div>
+        <div class="nav-item" onclick="go('capacidad')"><div class="nav-dot"></div>Capacidad extrusión</div>
+        <div class="nav-item" onclick="go('capacidad-corte')"><div class="nav-dot"></div>Capacidad corte</div>
+        <div class="nav-item" onclick="go('mp-formulas')"><div class="nav-dot"></div>Fórmulas</div>
+        <div class="nav-item" onclick="goAdmin('listas-precios')"><div class="nav-dot" style="background:var(--teal)"></div>Listas de precios 🔐</div>
+        <div class="nav-item" onclick="goAdmin('categorias-gasto')"><div class="nav-dot" style="background:#f59e0b"></div>🏷 Categorías de gasto 🔐</div>
+        <div class="nav-item" onclick="go('admin')" style="margin-top:4px;"><div class="nav-dot" style="background:var(--amber);"></div>Administración</div>
+      </div>
+    </div>
+    <div class="nav-grp" data-grp="herramientas">
+      <div class="nav-grp-hd" onclick="toggleNavGrp('herramientas')"><span>Herramientas</span><span class="nav-grp-chev">▸</span></div>
+      <div class="nav-grp-items">
+        <div class="nav-item" onclick="go('informe-lote')"><div class="nav-dot" style="background:var(--accent)"></div>📊 Informe de lote MP</div>
+        <div class="nav-item" onclick="goAdmin('mp-inventario')"><div class="nav-dot" id="nav-dot-inv" style="background:var(--green)"></div>Inventario físico 🔐</div>
+        <div class="nav-item" onclick="goAdmin('audit-stock-bolsas')"><div class="nav-dot" style="background:var(--amber)"></div>Auditar stock bolsas 🔍</div>
+        <div class="nav-item" onclick="goAdmin('init-stock-fisico')"><div class="nav-dot" style="background:var(--amber)"></div>Inicializar stock físico 📐</div>
+        <div class="nav-item" onclick="goAdmin('recalc-pesos')"><div class="nav-dot" style="background:var(--amber)"></div>Recalcular pesos 🧮</div>
+      </div>
+    </div>
     <div class="sb-bot"><div class="conn-dot"></div><span class="conn-lbl">Supabase conectado</span></div>
   </div>
 
@@ -1548,6 +1699,7 @@ body.pext-on .main{margin-left:0!important;}
         </div>
       </div>
       <div id="tce-kpis" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px;"></div>
+      <div id="tce-mapa"></div>
       <div style="overflow-x:auto;">
         <div id="tce-container"><div class="loading"><div class="spinner"></div>Cargando...</div></div>
       </div>
@@ -4022,6 +4174,7 @@ async function conectar(){
     document.getElementById('app').style.display='block';
     document.getElementById('dash-fecha').textContent=new Date().toLocaleDateString('es-AR',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
     await reload();
+    initNavGrps();
     mostrarSelector();
   }catch(e){err.style.display='block';err.textContent='Error: '+e.message;}
 }
@@ -4955,6 +5108,25 @@ async function confirmarConflictoAdmin(id){
 // al recargar la página se pierde, por seguridad (no deja admin abierto solo).
 window._sesionRol = window._sesionRol || null;
 function cerrarSesionRol(){ window._sesionRol=null; }
+
+// ===== SIDEBAR COLAPSABLE POR ÁREAS (rediseño de navegación) =====
+// Solo muestra/oculta los ítems de cada área. No toca go() ni las páginas.
+// Recuerda qué áreas dejaste abiertas (localStorage). Por defecto abre Inicio.
+function toggleNavGrp(id){
+  const g=document.querySelector('.nav-grp[data-grp="'+id+'"]');
+  if(!g)return;
+  const open=g.classList.toggle('open');
+  let st={};try{st=JSON.parse(localStorage.getItem('navGrps')||'{}');}catch(e){}
+  st[id]=open;try{localStorage.setItem('navGrps',JSON.stringify(st));}catch(e){}
+}
+function initNavGrps(){
+  let st={};try{st=JSON.parse(localStorage.getItem('navGrps')||'{}');}catch(e){}
+  document.querySelectorAll('.nav-grp').forEach(g=>{
+    const id=g.dataset.grp;
+    const abrir=(id in st)?st[id]:(id==='inicio');
+    g.classList.toggle('open',abrir);
+  });
+}
 
 // ===== SELECTOR DE ESTACIÓN (etapa 2) =====
 function mostrarSelector(){
@@ -16978,103 +17150,109 @@ async function renderTablero(){
   // Para no recalcular todo, lo dejamos como enlace a Rentabilidad con un resumen simple.
 
   // ═══════════ RENDER ═══════════
-  const card=(titulo,contenido,onclick,color)=>
-    '<div onclick="'+onclick+'" style="background:var(--bg2);border:1.5px solid '+(color||'var(--border)')+';border-radius:var(--rl);padding:16px 18px;cursor:pointer;transition:transform .1s;" onmouseover="this.style.transform=\'translateY(-2px)\'" onmouseout="this.style.transform=\'none\'">'
-      +'<div style="font-size:12px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">'+titulo+'</div>'
-      +contenido+'</div>';
-  const stat=(label,valor,color)=>'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:3px 0;"><span style="font-size:12px;color:var(--text2);">'+label+'</span><span style="font-size:15px;font-weight:800;color:'+(color||'var(--text1)')+';">'+valor+'</span></div>';
   const fmt=n=>'$'+(Math.round(n||0)).toLocaleString('es-AR');
+  const fmtKg=n=>Math.round(n||0).toLocaleString('es-AR')+' kg';
+  const row=(label,valor,color,sub)=>'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:'+(sub?'1px 0 1px 14px':'4px 0')+';">'
+      +'<span style="font-size:'+(sub?'11px':'12.5px')+';color:'+(sub?'var(--text3)':'var(--text2)')+';">'+label+'</span>'
+      +'<span style="font-family:\'DM Mono\',monospace;font-size:'+(sub?'12px':'13.5px')+';font-weight:'+(sub?'500':'600')+';color:'+(color||'var(--text1)')+';white-space:nowrap;">'+valor+'</span></div>';
+  const q=(idx,pregunta,valHtml,filas,onclick,acento)=>
+    '<div onclick="'+onclick+'" class="tab-q" style="--acc:'+(acento||'var(--accent)')+';">'
+      +'<div class="tab-q-idx">'+idx+'</div>'
+      +'<div class="tab-q-ask">'+pregunta+'</div>'
+      +'<div class="tab-q-val">'+valHtml+'</div>'
+      +'<div class="tab-q-rows">'+filas+'</div>'
+    +'</div>';
+  const mini=(label,valHtml,filas,onclick,acento)=>
+    '<div onclick="'+onclick+'" class="tab-mini" style="--acc:'+(acento||'var(--accent)')+';">'
+      +'<div class="tab-mini-lbl">'+label+'</div>'
+      +'<div class="tab-mini-val">'+valHtml+'</div>'
+      +(filas||'')
+    +'</div>';
+  const mesLargo=new Date(hoy+'T00:00:00').toLocaleDateString('es-AR',{month:'long',year:'numeric'});
 
-  let html='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;">';
+  let html='<div class="tab-sec-lbl">Las 4 preguntas · '+mesLargo+'</div><div class="tab-q-grid">';
 
   // P1
   const resColor=resultado==null?'var(--text3)':(resultado>=0?'var(--green)':'var(--red)');
-  html+=card('1 · ¿Gané o perdí este mes?',
-    '<div style="font-size:30px;font-weight:900;color:'+resColor+';margin-bottom:8px;">'+(resultado==null?'s/datos':fmt(resultado))+'</div>'
-    +stat('Margen sobre venta',margenPct+'%')
-    +stat('Cobertura gastos fijos',coberturaFijos+'%',coberturaFijos>=100?'var(--green)':'var(--amber)')
-    +stat('Ventas del mes',fmt(ventaMes)),
+  html+=q('01','¿Gané o perdí este mes?',
+    '<span style="color:'+resColor+'">'+(resultado==null?'s/datos':fmt(resultado))+'</span>',
+    row('Margen sobre venta',margenPct+'%')
+    +row('Cobertura gastos fijos',coberturaFijos+'%',coberturaFijos>=100?'var(--green)':'var(--amber)')
+    +row('Ventas del mes',fmt(ventaMes)),
     "go('resultado-mes')",resColor);
 
-  // P2 — consolidado manda (lo fundamental), desglose por plano abajo como referencia
+  // P2
   const neto7Color=neto7>=0?'var(--green)':'var(--red)';
-  const subStat=(label,valor,color)=>'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:2px 0;"><span style="font-size:11px;color:var(--text3);padding-left:10px;">'+label+'</span><span style="font-size:12px;font-weight:600;color:'+(color||'var(--text3)')+';">'+valor+'</span></div>';
-  html+=card('2 · ¿Voy a poder pagar?',
-    '<div style="font-size:13px;color:var(--text3);margin-bottom:4px;">Neto próximos 7 días (consolidado)</div>'
-    +'<div style="font-size:26px;font-weight:900;color:'+neto7Color+';margin-bottom:8px;">'+fmt(neto7)+'</div>'
-    +stat('A cobrar (7 días + vencido)',fmt(porCobrar7),'var(--green)')
-    +subStat('⚪ blanco (facturas)',fmt(cobrar7Blanco))
-    +subStat('⚫ negro (RV)',fmt(cobrar7Negro))
-    +stat('A pagar (7 días + vencido)',fmt(porPagar7),'var(--amber)')
-    +subStat('⚪ blanco',fmt(pagar7Blanco))
-    +subStat('⚫ negro',fmt(pagar7Negro))
-    +'<div style="border-top:1px solid var(--border);margin:8px 0 4px;"></div>'
-    +stat('Total a cobrar (pendiente)',fmt(porCobrarTotal),'var(--text2)')
-    +stat('Deuda viva total',fmt(deudaViva))
-    +stat('Cheques en cartera',fmt(chequesEnCartera)),
+  html+=q('02','¿Voy a poder pagar?',
+    '<span style="color:'+neto7Color+'">'+fmt(neto7)+'</span><span style="font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:500;color:var(--text3);"> neto 7 días</span>',
+    row('A cobrar (7 días + vencido)',fmt(porCobrar7),'var(--green)')
+    +row('⚪ blanco',fmt(cobrar7Blanco),null,true)
+    +row('⚫ negro',fmt(cobrar7Negro),null,true)
+    +row('A pagar (7 días + vencido)',fmt(porPagar7),'var(--amber)')
+    +row('⚪ blanco',fmt(pagar7Blanco),null,true)
+    +row('⚫ negro',fmt(pagar7Negro),null,true)
+    +'<div style="border-top:1px solid var(--border);margin:6px 0 2px;"></div>'
+    +row('Deuda viva total',fmt(deudaViva))
+    +row('Cheques en cartera',fmt(chequesEnCartera)),
     "go('flujo-caja')",neto7Color);
 
   // P3
-  const p3Color=(promesasVencidas>0||promesasRiesgo>0)?'var(--amber)':'var(--green)';
-  html+=card('3 · ¿Entrego a tiempo?',
-    stat('🔴 Promesas vencidas',promesasVencidas,promesasVencidas>0?'var(--red)':'var(--text1)')
-    +stat('🟠 En riesgo (7 días)',promesasRiesgo,promesasRiesgo>0?'var(--amber)':'var(--text1)')
-    +stat('✂️ Cola del cuello (corte)',diasColaCorte>0?diasColaCorte.toFixed(1)+' días':'—',diasColaCorte>5?'var(--red)':diasColaCorte>3?'var(--amber)':'var(--green)')
-    +stat('📝 Borradores abiertos',borradoresAbiertos)
-    +stat('📝 Borradores vencidos',borradoresVencidos,borradoresVencidos>0?'var(--red)':'var(--text1)'),
+  const p3Color=(promesasVencidas>0)?'var(--red)':(promesasRiesgo>0?'var(--amber)':'var(--green)');
+  const p3Val=promesasVencidas>0?promesasVencidas+' vencida'+(promesasVencidas===1?'':'s'):(promesasRiesgo>0?promesasRiesgo+' en riesgo':'Al día');
+  html+=q('03','¿Entrego a tiempo?',
+    '<span style="color:'+p3Color+'">'+p3Val+'</span>',
+    row('🔴 Promesas vencidas',promesasVencidas,promesasVencidas>0?'var(--red)':'var(--text1)')
+    +row('🟠 En riesgo (7 días)',promesasRiesgo,promesasRiesgo>0?'var(--amber)':'var(--text1)')
+    +row('✂️ Cola del cuello (corte)',diasColaCorte>0?diasColaCorte.toFixed(1)+' días':'—',diasColaCorte>5?'var(--red)':diasColaCorte>3?'var(--amber)':'var(--green)')
+    +row('📝 Borradores abiertos',borradoresAbiertos)
+    +row('📝 Borradores vencidos',borradoresVencidos,borradoresVencidos>0?'var(--red)':'var(--text1)'),
     "go('torre-entregas')",p3Color);
 
   // P4
-  html+=card('4 · ¿Dónde se va/genera la plata?',
-    '<div style="font-size:13px;color:var(--text2);line-height:1.6;">Top productos por margen y los que pierden plata están en <strong>Rentabilidad</strong>.</div>'
-    +'<div style="margin-top:8px;font-size:12px;color:var(--accent);font-weight:700;">Abrir Rentabilidad →</div>',
-    "go('rentabilidad')",'var(--border)');
+  html+=q('04','¿Dónde se va o se genera la plata?',
+    '<span style="font-size:19px;color:var(--text2);font-family:\'DM Sans\',sans-serif;font-weight:600;">Top productos por margen</span>',
+    '<div style="font-size:12.5px;color:var(--text2);line-height:1.6;padding:2px 0;">Los que más ganan y los que pierden plata están en Rentabilidad.</div>'
+    +'<div style="margin-top:6px;font-size:12.5px;color:var(--accent);font-weight:700;">Abrir Rentabilidad →</div>',
+    "go('rentabilidad')",'var(--accent)');
 
   html+='</div>';
 
-  // ── Franja de ROBOS Y MATERIAL PARADO ──
-  // ── Franja FLUJO PRODUCTIVO DEL MES ──
-  const fmtKg=n=>Math.round(n||0).toLocaleString('es-AR')+' kg';
+  // ── La cadena productiva ──
   const cuelloGap=kgExtrusion-kgCorte;
-  html+='<div style="margin-top:16px;font-size:13px;font-weight:800;color:var(--text2);">⚙️ Flujo productivo del mes (la cadena)</div>'
-    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:8px;">';
-  html+=card('🏭 Extrusión',
-    '<div style="font-size:22px;font-weight:900;color:var(--accent);">'+fmtKg(kgExtrusion)+'</div>'
-    +'<div style="font-size:11px;color:var(--text3);margin-top:2px;">producido este mes</div>',
-    "go('bobinas')",'var(--border)');
-  html+=card('✂️ Corte',
-    '<div style="font-size:22px;font-weight:900;color:'+(cuelloGap>0?'var(--amber)':'var(--green)')+';">'+fmtKg(kgCorte)+'</div>'
-    +stat('Diferencia con extrusión',(cuelloGap>0?'−':'+')+fmtKg(Math.abs(cuelloGap)),cuelloGap>0?'var(--amber)':'var(--green)'),
-    "go('ordenes-corte')",cuelloGap>0?'var(--amber)':'var(--border)');
-  html+=card('📦 Vendido',
-    '<div style="font-size:22px;font-weight:900;color:var(--green);">'+fmtKg(kgVendido)+'</div>'
-    +stat('Paquetes',Math.round(paqVendido).toLocaleString('es-AR'))
-    +stat('Precio/kg venta',precioKgVenta>0?fmt(precioKgVenta)+'/kg':'—','var(--green)'),
-    "go('resultado-mes')",'var(--border)');
+  html+='<div class="tab-sec-lbl">La cadena productiva del mes</div><div class="tab-chain">';
+  html+=mini('🏭 Extrusión','<span style="color:var(--accent)">'+fmtKg(kgExtrusion)+'</span>',
+    '<div style="font-size:11px;color:var(--text3);margin-top:3px;">producido este mes</div>',
+    "go('bobinas')",'var(--accent)');
+  html+='<div class="tab-chain-arrow">→</div>';
+  html+=mini('✂️ Corte','<span style="color:'+(cuelloGap>0?'var(--amber)':'var(--green)')+'">'+fmtKg(kgCorte)+'</span>',
+    row('Dif. con extrusión',(cuelloGap>0?'−':'+')+fmtKg(Math.abs(cuelloGap)),cuelloGap>0?'var(--amber)':'var(--green)'),
+    "go('ordenes-corte')",cuelloGap>0?'var(--amber)':'var(--green)');
+  html+='<div class="tab-chain-arrow">→</div>';
+  html+=mini('📦 Vendido','<span style="color:var(--green)">'+fmtKg(kgVendido)+'</span>',
+    row('Paquetes',Math.round(paqVendido).toLocaleString('es-AR'))
+    +row('Precio/kg',precioKgVenta>0?fmt(precioKgVenta):'—','var(--green)'),
+    "go('resultado-mes')",'var(--green)');
   html+='</div>';
   if(cuelloGap>0){
-    html+='<div style="margin-top:6px;font-size:11px;color:var(--amber);text-align:center;">⚠ Extrudiste '+fmtKg(cuelloGap)+' más de lo que cortaste — ese material se acumula como bobinas paradas (el cuello de botella).</div>';
+    html+='<div style="margin-top:8px;font-size:11.5px;color:var(--amber);">⚠ Extrudiste '+fmtKg(cuelloGap)+' más de lo que cortaste — ese material se acumula como bobinas paradas (el cuello de botella).</div>';
   }
 
-  html+='<div style="margin-top:16px;font-size:13px;font-weight:800;color:var(--text2);">🚨 Material y mercadería comprometida</div>'
-    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:8px;">';
-  html+=card('Bobinas paradas (WIP)',
-    '<div style="font-size:22px;font-weight:900;">'+Math.round(mtsParados).toLocaleString('es-AR')+' m</div>'
-    +stat('Kg parados',Math.round(kgParados).toLocaleString('es-AR')+' kg')
-    +stat('N° bobinas',nBobinasParadas),
+  // ── Comprometido ──
+  html+='<div class="tab-sec-lbl">Material y mercadería comprometida</div><div class="tab-mini-grid">';
+  html+=mini('Bobinas paradas (WIP)',Math.round(mtsParados).toLocaleString('es-AR')+' m',
+    row('Kg parados',Math.round(kgParados).toLocaleString('es-AR')+' kg')
+    +row('N° bobinas',nBobinasParadas),
     "go('bobinas')",mtsParados>0?'var(--amber)':'var(--border)');
-  html+=card('🚨 Bobinas robadas',
-    '<div style="font-size:22px;font-weight:900;color:'+(nBobinasRobadas>0?'var(--red)':'var(--text1)')+';">'+nBobinasRobadas+'</div>'
-    +stat('Metros',Math.round(mtsBobinasRobadas).toLocaleString('es-AR')+' m'),
+  html+=mini('🚨 Bobinas robadas','<span style="color:'+(nBobinasRobadas>0?'var(--red)':'var(--text1)')+'">'+nBobinasRobadas+'</span>',
+    row('Metros',Math.round(mtsBobinasRobadas).toLocaleString('es-AR')+' m'),
     "go('balance-bobinas')",nBobinasRobadas>0?'var(--red)':'var(--border)');
-  html+=card('🟠 Bolsas prestadas',
-    '<div style="font-size:22px;font-weight:900;color:'+(paqPrestados>0?'var(--amber)':'var(--text1)')+';">'+paqPrestados.toLocaleString('es-AR')+' paq</div>'
-    +stat('Préstamos pendientes',prestPend.length,paqPrestados>0?'var(--amber)':'var(--text1)')
-    +stat('Ya repuestos (histórico)',prestRepuestos),
+  html+=mini('🟠 Bolsas prestadas','<span style="color:'+(paqPrestados>0?'var(--amber)':'var(--text1)')+'">'+paqPrestados.toLocaleString('es-AR')+' paq</span>',
+    row('Préstamos pendientes',prestPend.length,paqPrestados>0?'var(--amber)':'var(--text1)')
+    +row('Ya repuestos',prestRepuestos),
     "go('despacho')",paqPrestados>0?'var(--amber)':'var(--border)');
   html+='</div>';
 
-  html+='<div style="margin-top:14px;font-size:11px;color:var(--text3);text-align:center;">Cada tarjeta te lleva a su pantalla. Los números se derivan en vivo — no hay datos cargados a mano acá.</div>';
+  html+='<div style="margin-top:18px;font-size:11px;color:var(--text3);text-align:center;">Cada tarjeta te lleva a su pantalla · los números se derivan en vivo, no hay nada cargado a mano.</div>';
 
   wrap.innerHTML=html;
 }
@@ -19126,6 +19304,7 @@ function renderOrdenesCorte(){
 // ====== PLANIFICAR PRODUCCIÓN (vista tablero por máquina/extrusora) ======
 // Estado: lista ordenada de IDs por tipo (orden global = prioridad)
 let _planOE=[],_planOC=[];
+let _planSchedOE={},_planSchedOC={};  // schedule REAL (mismo motor que Gantt combinado y Torre)
 
 function renderPlanificar(){
   // Cargar listas desde C, ordenadas por prioridad actual
@@ -19143,6 +19322,9 @@ function renderPlanificar(){
     const oa=C.ord_corte.find(x=>x.id===a),ob=C.ord_corte.find(x=>x.id===b);
     return (oa?.prioridad||99)-(ob?.prioridad||99)||a-b;
   });
+  // Schedule REAL calculado UNA vez — las tarjetas lo leen para mostrar fin estimado y entrega.
+  _planSchedOE=(typeof calcScheduleReal==='function')?calcScheduleReal():{};
+  _planSchedOC=(typeof calcScheduleCorteReal==='function')?calcScheduleCorteReal():{};
   renderPlanSeccion('oe');
   renderPlanSeccion('oc');
 }
@@ -19202,11 +19384,20 @@ function renderPlanSeccion(tipo){
     return;
   }
   let colsHtml='';
+  const _schedSec=tipo==='oe'?_planSchedOE:_planSchedOC;
+  const _tini=oid=>{const s=_schedSec[oid];return s&&s.ini?new Date(s.ini).getTime():Infinity;};
   maquinas.forEach(maq=>{
-    // Órdenes pendientes que usan esta máquina, en el orden global (= prioridad)
+    // Órdenes pendientes que usan esta máquina, ordenadas por TIEMPO REAL de corte/extrusión
+    // (mismo orden que el Gantt combinado). La prioridad sigue siendo lo que se guarda y se
+    // edita con drag/flechas; acá solo cambia la PRESENTACIÓN para que coincida con la realidad.
     const ordenesEnMaq=lista
       .map(id=>fuente.find(x=>x.id===id))
-      .filter(o=>o&&getMaquinasDeOrden(tipo,o).includes(maq.id));
+      .filter(o=>o&&getMaquinasDeOrden(tipo,o).includes(maq.id))
+      .sort((a,b)=>{
+        const ta=_tini(a.id),tb=_tini(b.id);
+        if(ta!==tb)return ta-tb;
+        return (a.prioridad||99)-(b.prioridad||99);
+      });
     // En proceso en esta máquina
     const enProcEnMaq=enProc.filter(o=>getMaquinasDeOrden(tipo,o).includes(maq.id));
 
@@ -19414,6 +19605,34 @@ function renderPlanCardCompact(tipo,o,enProceso,maqId,globalIdx,posEnMaq){
     chipPlanOrden=_chipPlan(_planDeOE(o));
   }
 
+  // ── Fin estimado (motor real) + entrega del pedido — conecta el planificador con el Gantt/Torre/Pedidos ──
+  const _fd=d=>d?new Date(d).toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'}):'—';
+  const _seg=tipo==='oe'?_planSchedOE[o.id]:_planSchedOC[o.id];
+  let lineaFecha='';
+  if(_seg&&_seg.fin){
+    lineaFecha='<div style="font-size:11.5px;color:var(--text2);margin-top:5px;">🕒 Fin estimado: <strong style="color:var(--text1);">'+_fd(_seg.fin)+' '+new Date(_seg.fin).getHours()+'h</strong>'
+      +(_seg.frenoMaterial?' <span style="color:var(--amber);">· frenada por material</span>':'')+'</div>';
+  }
+  if(tipo==='oc'){
+    // Pedido de esta OC: por pedido_ordenes_corte (como el Gantt) o por pedido_ref_id (fallback)
+    const ped=C.pedidos.find(p=>(p.pedido_ordenes_corte||[]).some(x=>x.orden_corte_id===o.id))
+      ||(o.pedido_ref_id?C.pedidos.find(p=>p.id===o.pedido_ref_id):null);
+    if(ped&&typeof fechaEntregaPedido==='function'){
+      const ent=fechaEntregaPedido(ped.id,_planSchedOC);
+      const fEst=ent&&ent.fechaEntregaFinal?ent.fechaEntregaFinal:null;
+      const prom=ped.fecha_entrega_est?new Date(ped.fecha_entrega_est+'T12:00:00'):null;
+      if(fEst){
+        const atrasa=prom&&fEst>prom;
+        lineaFecha+='<div style="font-size:11px;margin-top:3px;padding:3px 7px;border-radius:6px;font-weight:600;'
+          +'background:'+(atrasa?'rgba(239,68,68,.12)':'rgba(99,179,237,.10)')+';color:'+(atrasa?'var(--red)':'var(--accent)')+';">'
+          +'📦 Pedido '+escapeHtml(ped.numero_pedido||('#'+ped.id))+': entrega est. <strong>'+fEst.toLocaleDateString('es-AR')+'</strong>'
+          +(prom?' · prometida '+prom.toLocaleDateString('es-AR'):'')
+          +(atrasa?' ⚠ ATRASA '+Math.ceil((fEst-prom)/86400000)+'d':(prom?' ✓':''))
+          +'</div>';
+      }
+    }
+  }
+
   return '<div class="plan-card'+(esMulti?' multi':'')+'" draggable="true" data-tipo="'+tipo+'" data-id="'+o.id+'" data-maq="'+(maqId||'')+'">'
     +'<div class="plan-handle" title="Arrastrar para reordenar">☰</div>'
     +'<div class="plan-pos" title="Prioridad global">'+pos+'</div>'
@@ -19424,6 +19643,7 @@ function renderPlanCardCompact(tipo,o,enProceso,maqId,globalIdx,posEnMaq){
       +'<div class="plan-cliente">'+lineaCliente+' '+badge+chipPlanOrden+'</div>'
       +lineaBobinas
       +lineaDepOE
+      +lineaFecha
     +'</div>'
     +'<div class="plan-actions">'
       +'<button class="btn btn-sm" '+(globalIdx===0||globalIdx===null?'disabled':'')+' onclick="moverPlanGlobal(\''+tipo+'\','+o.id+',-1)" title="Subir prioridad">↑</button>'
@@ -19441,6 +19661,18 @@ function moverPlanGlobal(tipo,id,delta){
   if(nuevo<0||nuevo>=lista.length)return;
   // Swap con el vecino
   [lista[idx],lista[nuevo]]=[lista[nuevo],lista[idx]];
+  _planRecalcVista(tipo);
+}
+
+// Aplica las prioridades locales (orden de _planOE/_planOC) a la cache C en memoria y
+// recalcula el schedule, para que la vista por tiempo refleje el reordenamiento ANTES de
+// guardar. No persiste: al guardar se escribe en la BD, y un reload trae lo de la base.
+function _planRecalcVista(tipo){
+  const lista=tipo==='oe'?_planOE:_planOC;
+  const fuente=tipo==='oe'?C.ordenes:C.ord_corte;
+  lista.forEach((id,i)=>{const o=fuente.find(x=>x.id===id);if(o)o.prioridad=i+1;});
+  _planSchedOE=(typeof calcScheduleReal==='function')?calcScheduleReal():{};
+  _planSchedOC=(typeof calcScheduleCorteReal==='function')?calcScheduleCorteReal():{};
   renderPlanSeccion(tipo);
 }
 
@@ -19495,7 +19727,7 @@ function engancharDnDColumnas(tipo){
       const insertAt=idxDrag<idxTarget?idxTarget:idxTarget;
       lista.splice(insertAt,0,item);
       dragId=null;
-      renderPlanSeccion(tipo);
+      _planRecalcVista(tipo);
     });
   });
   // También permitir drop en la columna (al final) si está vacía o entre cards
@@ -19524,7 +19756,7 @@ function engancharDnDColumnas(tipo){
       const [item]=lista.splice(idxDrag,1);
       lista.push(item);
       dragId=null;
-      renderPlanSeccion(tipo);
+      _planRecalcVista(tipo);
     });
   });
 }
@@ -25032,6 +25264,38 @@ function gcdNext(){gcdDate=addDays(gcdDate,1);renderGanttCorteDiario();}
 // Devuelve {tiene, oe, estado, txt, color, puedeArrancar, velOK, mtsPropias...}.
 // estado: 'sin_oe' | 'oe_lista' | 'esperando' | 'en_curso'
 // puedeArrancar: true si la OC ya puede empezar a cortar sin riesgo de quedarse sin material.
+// Todas las OE que alimentan una OC, no solo la principal.
+// Una OC puede tener 2+ OE: la principal (orden_extrusion_id) y OE de reposición
+// creadas desde el Balance cuando le robaron bobinas. Esas OE secundarias NO tocan
+// orden_extrusion_id (ya ocupado) — quedan registradas en oc.resolucion_robo como
+// eventos {tipo:'oe_complementaria', ord_id}. También contempla el vínculo legacy
+// orden_corte_origen_id (varias OE pueden apuntar a la misma OC).
+function _oesDeOC(oc){
+  if(!oc)return [];
+  const ids=new Set();const out=[];
+  const add=o=>{if(o&&!ids.has(o.id)&&o.estado!=='Cancelada'){ids.add(o.id);out.push(o);}};
+  add(_balOEdeOC(oc));                                              // principal (nueva o legacy)
+  (C.ordenes||[]).forEach(o=>{if(o.orden_corte_origen_id===oc.id)add(o);}); // legacy N:1
+  if(Array.isArray(oc.resolucion_robo)){                           // OE de reposición en paralelo
+    oc.resolucion_robo.forEach(ev=>{
+      if(ev&&ev.tipo==='oe_complementaria'&&ev.ord_id!=null)
+        add((C.ordenes||[]).find(o=>o.id===ev.ord_id));
+    });
+  }
+  return out;
+}
+// ¿La OC tiene una reposición de robo en marcha? (2da OE viva, devolución o reserva ya hecha)
+function _ocTieneReposicion(oc){
+  if(!oc||!Array.isArray(oc.resolucion_robo))return false;
+  return oc.resolucion_robo.some(ev=>{
+    if(!ev)return false;
+    if(ev.tipo==='oe_complementaria'&&ev.ord_id!=null){
+      const o=(C.ordenes||[]).find(x=>x.id===ev.ord_id);
+      return o&&o.estado!=='Cancelada';
+    }
+    return ev.tipo==='devolucion'||ev.tipo==='devolucion_directa'||ev.tipo==='reserva_stock';
+  });
+}
 function _dependenciaMaterialOC(oc){
   if(!oc)return {tiene:false};
   // Vínculo unificado OE↔OC: orden_extrusion_id (nuevo) o oe.orden_corte_origen_id (legacy).
@@ -25039,6 +25303,12 @@ function _dependenciaMaterialOC(oc){
   const oe=_balOEdeOC(oc);
   if(!oe)return {tiene:false,estado:'sin_oe',txt:'Sin OE asignada',color:'var(--text3)'};
   const oeId=oe.id;
+  // Conjunto de TODAS las OE que alimentan esta OC (principal + reposición en paralelo).
+  // El material y el robo se cuentan sobre todas, no solo la principal.
+  const _oesVinc=_oesDeOC(oc);
+  const _oeIds=new Set(_oesVinc.map(o=>o.id));
+  if(!_oeIds.size)_oeIds.add(oeId);
+  const reposicionEnMarcha=_ocTieneReposicion(oc);
 
   // ── Análisis de velocidad: ¿la OE produce igual o más rápido que lo que la OC consume? ──
   // Velocidad OE en metros/hora: (suma kg/h de sus extrusoras) / (kg por metro de la bobina)
@@ -25073,8 +25343,8 @@ function _dependenciaMaterialOC(oc){
     if(b.estado_calidad==='rechazada')return;
     const mts=parseFloat(b.metros_reales)||0;
     const ocAsociadaId=idxAsoc[b.id];
-    if(b.orden_id===oeId){
-      // ── Bobina producida por LA OE de esta OC ──
+    if(_oeIds.has(b.orden_id)){
+      // ── Bobina producida por ALGUNA OE de esta OC (principal o reposición) ──
       if(ocAsociadaId){
         if(ocAsociadaId===oc.id)return;     // ya consumida por ESTA OC → es avance, no disponible
         mtsPropiasRobadas+=mts;             // consumida por OTRA OC → robada
@@ -25107,7 +25377,7 @@ function _dependenciaMaterialOC(oc){
 
   if(oe.estado==='Completada'){
     return {tiene:true,oe,estado:'oe_lista',puedeArrancar:mtsDisponibles>=mtsNec,velOK,velOEmh,velOCmh,
-      mtsPropias,mtsPropiasRobadas,mtsReservadas,mtsDisponibles,mtsNec,avisoRobadas,
+      mtsPropias,mtsPropiasRobadas,mtsReservadas,mtsDisponibles,mtsNec,avisoRobadas,reposicionEnMarcha,oesVinc:_oesVinc,
       txt:mtsDisponibles>=mtsNec?'Material completo · '+oe.numero_orden:'⚠ Material insuficiente · '+oe.numero_orden,
       color:mtsDisponibles>=mtsNec?'var(--green)':'var(--red)'};
   }
@@ -25124,7 +25394,7 @@ function _dependenciaMaterialOC(oc){
 
   if(oe.estado==='En proceso'){
     return {tiene:true,oe,estado:'en_curso',puedeArrancar,velOK,velOEmh,velOCmh,
-      mtsPropias,mtsPropiasRobadas,mtsReservadas,mtsDisponibles,mtsNec,avisoRobadas,
+      mtsPropias,mtsPropiasRobadas,mtsReservadas,mtsDisponibles,mtsNec,avisoRobadas,reposicionEnMarcha,oesVinc:_oesVinc,
       txt:puedeArrancar
         ?'Ya podés cortar · '+oe.numero_orden
         :'Material en producción · '+oe.numero_orden,
@@ -25132,7 +25402,7 @@ function _dependenciaMaterialOC(oc){
   }
   // OE Pendiente
   return {tiene:true,oe,estado:'esperando',puedeArrancar,velOK,velOEmh,velOCmh,
-    mtsPropias,mtsPropiasRobadas,mtsReservadas,mtsDisponibles,mtsNec,avisoRobadas,
+    mtsPropias,mtsPropiasRobadas,mtsReservadas,mtsDisponibles,mtsNec,avisoRobadas,reposicionEnMarcha,oesVinc:_oesVinc,
     txt:'Espera material de '+oe.numero_orden,color:'var(--amber)'};
 }
 
@@ -25297,25 +25567,42 @@ function calcScheduleCorteReal(){
     // Con esa cota se busca OTRO hueco — y el hueco que esta OC deja libre
     // queda disponible para las siguientes (eso es el backfilling).
     const oeVinc=_balOEdeOC(o);
-    let frenoMaterial=false,mtsDispAhora=null,mtsRestantes=null;
-    if(oeVinc&&oeVinc.estado!=='Completada'){
-      mtsRestantes=Math.max(0,mtsNec-mtsConsumidos);
-      mtsDispAhora=_mtsDisponiblesParaOC(o,oeVinc,idxAsoc);
-      if(mtsDispAhora<mtsRestantes-0.01){
-        const segOE=schedOEReal[oeVinc.id];
-        if(segOE&&segOE.fin){
-          const finOE=ajustarAJornada(new Date(segOE.fin),'corte');
-          let Emat=restarHsLaborales(finOE,r2(hsRestantes),'corte');
-          if(segOE.ini){
-            const iniOE=ajustarAJornada(new Date(segOE.ini),'corte');
-            if(iniOE>Emat)Emat=iniOE;
-          }
-          if(Emat>E0){
-            ini=_slotComunCorte(maqIds,ajustarAJornada(new Date(Emat),'corte'),hsRestantes,busy);
-          }
+    // TODAS las OE de la OC (principal + reposición de robo). La principal puede estar
+    // Completada pero con su material robado; en ese caso el material real lo produce
+    // la OE de reposición, y la OC no puede cortar antes de que esa OE termine.
+    const oesOC=_oesDeOC(o);
+    const oeIdsOC=new Set(oesOC.map(x=>x.id));
+    const oesPend=oesOC.filter(x=>x.estado!=='Completada');
+    let frenoMaterial=false;
+    let mtsRestantes=Math.max(0,mtsNec-mtsConsumidos),mtsDispAhora=0;
+    // Material disponible HOY para la OC: bobinas de cualquiera de sus OE (libres o reservadas
+    // a ella) + bobinas de otras OE reservadas explícitamente a ella. Excluye las ya consumidas
+    // y las comprometidas a otra OC (robadas). Reusa el idxAsoc global del scheduler.
+    (C.bobinas_prod||[]).forEach(b=>{
+      if(b.estado_calidad==='rechazada')return;
+      if(idxAsoc[b.id])return;
+      if(b.en_stock===false)return;
+      if(b.reservada_oc_id&&b.reservada_oc_id!==o.id)return;
+      if(oeIdsOC.has(b.orden_id)||b.reservada_oc_id===o.id)mtsDispAhora+=parseFloat(b.metros_reales)||0;
+    });
+    if(mtsDispAhora<mtsRestantes-0.01&&oesPend.length){
+      // El material recién está cuando termina la OE pendiente más tardía.
+      let finMat=null,iniMat=null;
+      oesPend.forEach(oe=>{
+        const s=schedOEReal[oe.id];
+        if(s&&s.fin){const ff=new Date(s.fin);if(!finMat||ff>finMat){finMat=ff;iniMat=s.ini?new Date(s.ini):null;}}
+      });
+      if(finMat){
+        const finOE=ajustarAJornada(finMat,'corte');
+        let Emat=restarHsLaborales(finOE,r2(hsRestantes),'corte');
+        if(iniMat){
+          const iniOE=ajustarAJornada(iniMat,'corte');
+          if(iniOE>Emat)Emat=iniOE;
+        }
+        if(Emat>E0){
+          ini=_slotComunCorte(maqIds,ajustarAJornada(new Date(Emat),'corte'),hsRestantes,busy);
         }
       }
-      // Si mtsDispAhora >= mtsRestantes: material completo en stock → sin restricción de OE.
     }
     if(ini>iniLibre)frenoMaterial=true;
 
@@ -25546,7 +25833,7 @@ function npUsarPromesa(pfx,fecha){
 // Reusa el motor instrumentado de calcScheduleCorteReal + _dependenciaMaterialOC.
 
 // Severidad de diagnóstico (mayor = peor). El motivo principal del pedido es el peor de sus tandas.
-const _TCE_SEV={sin_oc:6,sin_maquina:5,robadas:4,material:3,cola:2,cortando:1,lista:0};
+const _TCE_SEV={sin_oc:6,sin_maquina:5,robadas:4,reponiendo:3,material:3,cola:2,cortando:1,lista:0};
 
 // Diagnóstico de una tanda (OC). Devuelve {clave, sev, icono, txt, finCorte, entrega}
 function _tceDiagnosticoTanda(oc,seg,bufferDias){
@@ -25560,6 +25847,11 @@ function _tceDiagnosticoTanda(oc,seg,bufferDias){
   const finCorte=seg.fin?new Date(seg.fin):null;
   const entrega=finCorte?sumarDiasHabiles(new Date(finCorte),bufferDias,cfg.corte_dias):null;
   const dep=_dependenciaMaterialOC(oc);
+  if(dep.tiene&&dep.mtsPropiasRobadas>0&&!dep.puedeArrancar&&dep.reposicionEnMarcha){
+    return {clave:'reponiendo',sev:_TCE_SEV.reponiendo,icono:'🔧',
+      txt:'Reponiendo robo: '+r1(dep.mtsPropiasRobadas).toLocaleString('es-AR')+' m — OE/devolución en marcha',
+      finCorte,entrega};
+  }
   if(dep.tiene&&dep.mtsPropiasRobadas>0&&!dep.puedeArrancar){
     return {clave:'robadas',sev:_TCE_SEV.robadas,icono:'🚨',
       txt:'Bobinas robadas: '+r1(dep.mtsPropiasRobadas).toLocaleString('es-AR')+' m de '+(dep.oe?.numero_orden||'su OE')+' en otra OC',
@@ -25595,9 +25887,54 @@ function torreVerCadena(ocId){
   gcbFoco('oc',ocId);
 }
 
+// Mapa de máquinas en vivo para la Torre de Control (estética industrial).
+// Lee estado real: una máquina "produce" si tiene una orden En proceso asociada.
+// No toca datos: solo lee C.extrusoras / C.maq_corte / C.ordenes / C.ord_corte / C.bobinas_prod.
+function renderMapaMaquinas(){
+  const cont=document.getElementById('tce-mapa');
+  if(!cont)return;
+  const hoyStr=(typeof localDate==='function')?localDate():new Date().toISOString().slice(0,10);
+  const celda=(nombre,estado,ord,cli,kg)=>{
+    const ordTxt=ord||'—';
+    return '<div class="tcm-cell '+estado+'">'
+      +'<div class="tcm-head"><span class="tcm-name">'+(nombre||'—')+'</span><span class="tcm-led"></span></div>'
+      +'<div class="tcm-ord">'+ordTxt+'</div>'
+      +'<div class="tcm-cli">'+(cli||'')+'</div>'
+      +(kg!=null?'<div class="tcm-kg"><span class="tcm-kg-v">'+Math.round(kg).toLocaleString('es-AR')+'</span><span class="tcm-kg-l">kg hoy</span></div>':'')
+      +'</div>';
+  };
+  // Extrusoras
+  let nRun=0,nTot=0,ex='';
+  (C.extrusoras||[]).forEach(e=>{
+    nTot++;
+    const oe=(C.ordenes||[]).find(o=>o.estado==='En proceso'&&(o.orden_extrusoras||[]).some(x=>x.extrusora_id===e.id));
+    const fuera=e.en_servicio===false;
+    const estado=fuera?'off':(oe?'run':'idle');
+    if(estado==='run')nRun++;
+    const kgDia=(C.bobinas_prod||[]).reduce((s,b)=>(b.extrusora_id===e.id&&b.fecha_produccion===hoyStr)?s+(b.kg_reales||0):s,0);
+    ex+=celda(e.nombre,estado,oe?oe.numero_orden:(fuera?'FUERA DE SERVICIO':'EN ESPERA'),oe?(oe.cliente||oe.bobinas?.nombre||''):'',kgDia);
+  });
+  // Cortadoras
+  let co='';
+  (C.maq_corte||[]).forEach(m=>{
+    nTot++;
+    const oc=(C.ord_corte||[]).find(o=>o.estado==='En proceso'&&(o.orden_corte_maquinas||[]).some(x=>x.maquina_id===m.id));
+    const fuera=m.en_servicio===false;
+    const estado=fuera?'off':(oc?'run':'idle');
+    if(estado==='run')nRun++;
+    co+=celda(m.nombre,estado,oc?oc.numero_orden:(fuera?'FUERA DE SERVICIO':'EN ESPERA'),oc?(oc.cliente||''):'',null);
+  });
+  cont.innerHTML='<div class="tcm-panel">'
+    +'<div class="tcm-banner">Estado de planta en vivo<span class="tcm-count">'+nRun+'/'+nTot+' EN MARCHA</span></div>'
+    +'<div class="tcm-row-lbl">Extrusión</div><div class="tcm-grid">'+(ex||'<div class="tcm-cli">Sin extrusoras cargadas</div>')+'</div>'
+    +'<div class="tcm-row-lbl">Corte</div><div class="tcm-grid">'+(co||'<div class="tcm-cli">Sin cortadoras cargadas</div>')+'</div>'
+    +'</div>';
+}
+
 function renderTorreEntregas(){
   const cont=document.getElementById('tce-container');
   if(!cont)return;
+  renderMapaMaquinas();
   const fCliente=document.getElementById('tce-cliente')?.value||'';
   const soloProblemas=document.getElementById('tce-problemas')?.checked||false;
   const mostrarHist=document.getElementById('tce-hist')?.checked||false;
@@ -25770,7 +26107,7 @@ function renderTorreEntregas(){
       const ent=t.entrega?t.entrega.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}):'s/f';
       const acc=t.oc?(' <button class="btn btn-sm" style="padding:0 5px;font-size:9.5px;" title="Ver la cadena en el Gantt" onclick="torreVerCadena('+t.oc.id+')">👁</button>'
         +(t.oc.estado!=='En proceso'&&t.oc.estado!=='Completada'
-          ?'<button class="btn btn-sm" style="padding:0 5px;font-size:9.5px;" title="Subirla al frente de la cola de corte" onclick="gcbAcercarOC('+t.oc.id+')">🧲</button>':'')):'';
+          ?'<button class="btn btn-sm" style="padding:0 5px;font-size:9.5px;" title="Acercar la OC a su OE: sincronizarla con cuándo va a estar su material" onclick="gcbAcercarOC('+t.oc.id+')">🧲</button>':'')):'';
       return '<div style="font-size:11px;color:var(--text2);margin-bottom:2px;" title="'+escapeHtml(t.txt)+'">'
         +'<div style="white-space:nowrap;">'+t.icono+' '+nro+' <span style="color:var(--text3);">→ '+ent+'</span>'+acc+'</div>'
         +(descT?'<div style="font-size:10px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px;padding-left:16px;">'+escapeHtml(descT)+'</div>':'')
@@ -25875,6 +26212,7 @@ function renderGanttCombinado(){
     .forEach(oc=>{
       const seg=schedOC[oc.id]||null;
       const oe=_balOEdeOC(oc);
+      const oesTodas=_oesDeOC(oc);   // principal + reposición (2da OE) + legacy
       const segOE=oe?schedOE[oe.id]:null;
       const ped=C.pedidos.find(p=>(p.pedido_ordenes_corte||[]).some(x=>x.orden_corte_id===oc.id))||null;
       const cliente=ped?.cliente||oc.cliente||'';
@@ -25884,14 +26222,24 @@ function renderGanttCombinado(){
       const promesa=ped?.fecha_entrega_est?new Date(ped.fecha_entrega_est+'T12:00:00'):null;
       const diasAtraso=(entrega&&promesa&&entrega>promesa)?Math.ceil((entrega-promesa)/86400000):0;
       // Motivo del lanzamiento
+      // Las bobinas ROBADAS no las detecta el motor de scheduling (si la OE ya está
+      // Completada, frenoMaterial queda en false). Se consultan acá vía _dependenciaMaterialOC,
+      // que ya contempla las OE de reposición (2da OE) y las devoluciones/reservas.
+      const dep=_dependenciaMaterialOC(oc);
+      const robadasSinReponer=dep.tiene&&dep.mtsPropiasRobadas>0&&!dep.puedeArrancar&&!dep.reposicionEnMarcha;
+      const robadasReponiendo=dep.tiene&&dep.mtsPropiasRobadas>0&&!dep.puedeArrancar&&dep.reposicionEnMarcha;
       let lanz='🔵',lanzTxt='Espera máquina libre';
-      if(seg){
+      if(robadasSinReponer){
+        lanz='🚨';lanzTxt='Bobinas robadas sin reponer: '+r1(dep.mtsPropiasRobadas).toLocaleString('es-AR')+' m de '+(dep.oe?.numero_orden||'su OE')+' en otra OC';
+      } else if(robadasReponiendo){
+        lanz='🔧';lanzTxt='Reponiendo robo: '+r1(dep.mtsPropiasRobadas).toLocaleString('es-AR')+' m — OE/devolución en marcha';
+      } else if(seg){
         if(seg.frenoMaterial){lanz='🟠';lanzTxt='Frenada por material de '+(oe?.numero_orden||'su OE');}
         else if((seg.ini-ahora)<2*3600000){lanz='🟢';lanzTxt='Lanzable ya — material y máquina disponibles';}
       }
       // Plan de compra: si el pedido de esta OC financia un plan activo, marcarla (⚡ APURAR / 🎯)
       const planInfo=(typeof _planDeOC==='function')?_planDeOC(oc):null;
-      cadenas.push({oc,oe,seg,segOE,ped,cliente,entrega,promesa,diasAtraso,lanz,lanzTxt,planInfo});
+      cadenas.push({oc,oe,oes:oesTodas,seg,segOE,ped,cliente,entrega,promesa,diasAtraso,lanz,lanzTxt,planInfo,robadasSinReponer,robadasReponiendo});
     });
   _gcbCadenas=cadenas;  // accesible para el panel de cadena, foco y sugerencias
 
@@ -25907,7 +26255,7 @@ function renderGanttCombinado(){
   // ── Filtros + orden ──
   let lista=cadenas;
   if(fCliente)lista=lista.filter(c=>c.cliente===fCliente);
-  if(soloRiesgo)lista=lista.filter(c=>c.diasAtraso>0);
+  if(soloRiesgo)lista=lista.filter(c=>c.diasAtraso>0||c.robadasSinReponer);
   lista.sort((a,b)=>{
     const pa=a.promesa?a.promesa.getTime():9e15,pb=b.promesa?b.promesa.getTime():9e15;
     if(pa!==pb)return pa-pb;
@@ -25918,10 +26266,12 @@ function renderGanttCombinado(){
   // ── Resumen ──
   const nRiesgo=cadenas.filter(c=>c.diasAtraso>0).length;
   const nLanzables=cadenas.filter(c=>c.lanz==='🟢').length;
+  const nRobadas=cadenas.filter(c=>c.robadasSinReponer).length;
   const res=document.getElementById('gcb-resumen');
   if(res)res.innerHTML='<span style="font-size:12px;color:var(--text2);">'
     +cadenas.length+' cadena'+(cadenas.length===1?'':'s')
     +' · <span style="color:var(--green);font-weight:600;">🟢 '+nLanzables+' lanzable'+(nLanzables===1?'':'s')+'</span>'
+    +(nRobadas>0?' · <span style="color:var(--red);font-weight:600;">🚨 '+nRobadas+' con robo sin reponer</span>':'')
     +(nRiesgo>0?' · <span style="color:var(--red);font-weight:600;">⚠ '+nRiesgo+' en riesgo</span>':' · <span style="color:var(--green);">✓ sin riesgos</span>')
     +'</span>';
 
@@ -26053,14 +26403,16 @@ function renderGanttCombinado(){
         +'&#10;Lanzamiento: '+lanzTxt;
       if(seg.mtsRestantes!=null)tipOC+='&#10;Material: '+r1(seg.mtsDispAhora||0).toLocaleString('es-AR')+' m disponibles / '+r1(seg.mtsRestantes).toLocaleString('es-AR')+' m que faltan cortar';
       if(entrega)tipOC+='&#10;Entrega estimada: '+entrega.toLocaleDateString('es-AR')+(promesa?' · Promesa: '+promesa.toLocaleDateString('es-AR'):'');
-      const bordeOC=diasAtraso>0?'var(--red)':'var(--purple)';
+      const bordeOC=c.robadasSinReponer?'var(--red)':(c.robadasReponiendo?'var(--amber)':(diasAtraso>0?'var(--red)':'var(--purple)'));
+      const bgOC=c.robadasSinReponer?'rgba(239,68,68,.16)':(c.robadasReponiendo?'rgba(245,158,11,.14)':'rgba(168,85,247,.13)');
+      const fgOC=c.robadasSinReponer?'var(--red)':(c.robadasReponiendo?'var(--amber)':'var(--purple)');
       barras+='<div title="'+tipOC+'" style="position:absolute;top:'+topOC+'px;height:'+LANE_H+'px;left:'+l+'%;width:'+w+'%;'
-        +'background:rgba(168,85,247,.13);border:1.5px solid '+bordeOC+';border-radius:4px;'
-        +(c.planInfo&&c.planInfo.apurar?'box-shadow:0 0 0 1.5px var(--amber);':'')
-        +'font-size:'+fBar+';color:var(--purple);font-weight:600;overflow:hidden;white-space:nowrap;">'
+        +'background:'+bgOC+';border:1.5px solid '+bordeOC+';border-radius:4px;'
+        +(c.robadasSinReponer?'box-shadow:0 0 0 1.5px var(--red);':(c.planInfo&&c.planInfo.apurar?'box-shadow:0 0 0 1.5px var(--amber);':''))
+        +'font-size:'+fBar+';color:'+fgOC+';font-weight:600;overflow:hidden;white-space:nowrap;">'
         +'<div style="position:absolute;left:0;top:0;bottom:0;width:'+(seg.pctAvance||0)+'%;background:rgba(168,85,247,.30);"></div>'
         +'<span style="position:relative;padding:0 5px;line-height:'+(LANE_H-3)+'px;display:block;">'
-        +(c.planInfo?(c.planInfo.apurar?'⚡ ':'🎯 '):'')+'✂️ '+escapeHtml(oc.numero_orden||'')+(seg.pctAvance?' ▶'+seg.pctAvance+'%':'')+'</span></div>';
+        +(c.planInfo?(c.planInfo.apurar?'⚡ ':'🎯 '):'')+(c.robadasSinReponer?'🚨 ':(c.robadasReponiendo?'🔧 ':'✂️ '))+escapeHtml(oc.numero_orden||'')+(seg.pctAvance?' ▶'+seg.pctAvance+'%':'')+'</span></div>';
       // Rombo de lanzamiento sobre el inicio de la OC
       barras+='<div title="'+lanzTxt+'" style="position:absolute;top:'+(topOC-9)+'px;left:calc('+l+'% - 5px);font-size:11px;z-index:4;">'+lanz+'</div>';
 
@@ -26184,7 +26536,7 @@ function _gcbHTMLPorMaquina(ctx){
 
     let barras='';let fueraRango=0;
     ocsM.forEach(c=>{
-      const{oc,seg,diasAtraso,lanz,lanzTxt,entrega,promesa}=c;
+      const{oc,seg,diasAtraso,lanz,lanzTxt,entrega,promesa,robadasSinReponer,robadasReponiendo}=c;
       if(!(seg.fin>t0&&seg.ini<t1)){if(seg.ini>=t1)fueraRango++;return;}
       const l=pos(seg.ini),w=Math.max(.7,pos(seg.fin)-l);
       const maqs=(oc.orden_corte_maquinas||[]);
@@ -26202,13 +26554,17 @@ function _gcbHTMLPorMaquina(ctx){
         +(c.planInfo?'&#10;'+(c.planInfo.apurar?'⚡ APURAR · ':'🎯 Plan: ')+escapeHtml(c.planInfo.plan.nombre||''):'');
       if(entrega)tip+='&#10;Entrega estimada: '+entrega.toLocaleDateString('es-AR')+(promesa?' · Promesa: '+promesa.toLocaleDateString('es-AR'):'');
       tip+='&#10;👆 Click: resaltar cadena · Arrastrar sobre otra OC: reordenar cola';
-      const bordeOC=diasAtraso>0?'var(--red)':'var(--purple)';
+      // Robadas sin reponer → rojo (NO azul/violeta: no está lista para cortar).
+      // Reponiendo (2da OE o devolución en marcha) → ámbar. Resto → violeta como siempre.
+      const bordeOC=robadasSinReponer?'var(--red)':(robadasReponiendo?'var(--amber)':(diasAtraso>0?'var(--red)':'var(--purple)'));
+      const bgOC=robadasSinReponer?'rgba(239,68,68,.16)':(robadasReponiendo?'rgba(245,158,11,.14)':'rgba(168,85,247,.13)');
+      const fgOC=robadasSinReponer?'var(--red)':(robadasReponiendo?'var(--amber)':'var(--purple)');
       const descBar=oc.productos?.descripcion||oc.productos?.codigo||'';
-      barras+='<div draggable="true" data-gcbtipo="oc" data-gcbid="'+oc.id+'" data-gcboe="'+(c.oe?c.oe.id:'')+'"'
+      barras+='<div draggable="true" data-gcbtipo="oc" data-gcbid="'+oc.id+'" data-gcboe="'+(c.oe?c.oe.id:'')+'" data-gcboes="'+(c.oes||[]).map(o=>o.id).join(',')+'"'
         +' onclick="gcbFoco(\'oc\','+oc.id+')" title="'+tip+'" style="position:absolute;top:5px;height:'+LANE_H+'px;left:'+l+'%;width:'+w+'%;cursor:grab;'
-        +'background:rgba(168,85,247,.13);border:1.5px solid '+bordeOC+';border-left:4px solid '+_gcbColorOrden(oc.id)+';border-radius:4px;'
-        +(c.planInfo?.apurar?'box-shadow:0 0 0 1.5px var(--amber);':'')
-        +'font-size:'+fBar+';color:var(--purple);font-weight:600;overflow:hidden;white-space:nowrap;">'
+        +'background:'+bgOC+';border:1.5px solid '+bordeOC+';border-left:4px solid '+(robadasSinReponer?'var(--red)':_gcbColorOrden(oc.id))+';border-radius:4px;'
+        +(robadasSinReponer?'box-shadow:0 0 0 1.5px var(--red);':(c.planInfo?.apurar?'box-shadow:0 0 0 1.5px var(--amber);':''))
+        +'font-size:'+fBar+';color:'+fgOC+';font-weight:600;overflow:hidden;white-space:nowrap;">'
         // Relleno de avance (lo hecho, más oscuro) detrás del texto
         +'<div style="position:absolute;left:0;top:0;bottom:0;width:'+(seg.pctAvance||0)+'%;background:rgba(168,85,247,.30);"></div>'
         +'<span style="position:relative;padding:0 5px;line-height:'+(LANE_H-3)+'px;display:block;">'
@@ -26279,11 +26635,17 @@ function _gcbAplicarFoco(tipo,id){
   if(tipo==='oc'){
     ids.oc.add(id);
     const barOC=wrap.querySelector('[data-gcbtipo="oc"][data-gcbid="'+id+'"]');
+    // Todas las OE de la cadena (principal + reposición), leídas de data-gcboes.
+    const oesAttr=barOC&&barOC.dataset.gcboes?barOC.dataset.gcboes:'';
+    oesAttr.split(',').forEach(s=>{const n=parseInt(s);if(n)ids.oe.add(n);});
     const oeId=barOC&&barOC.dataset.gcboe?parseInt(barOC.dataset.gcboe):null;
     if(oeId)ids.oe.add(oeId);
   } else {
     ids.oe.add(id);
-    wrap.querySelectorAll('[data-gcbtipo="oc"][data-gcboe="'+id+'"]').forEach(b=>ids.oc.add(parseInt(b.dataset.gcbid)));
+    wrap.querySelectorAll('[data-gcbtipo="oc"]').forEach(b=>{
+      const oes=(b.dataset.gcboes||b.dataset.gcboe||'').split(',').map(x=>parseInt(x));
+      if(oes.includes(id))ids.oc.add(parseInt(b.dataset.gcbid));
+    });
   }
   // Atenuar todo lo que no es de la cadena
   wrap.querySelectorAll('[data-gcbid]').forEach(b=>{
@@ -26319,7 +26681,8 @@ function _gcbDibujarConectores(wrap,ids){
     const x1=rOE.right-wr.left,y1=rOE.bottom-wr.top;
     ids.oc.forEach(ocId=>{
       wrap.querySelectorAll('[data-gcbtipo="oc"][data-gcbid="'+ocId+'"]').forEach(barOC=>{
-        if(barOC.dataset.gcboe!==String(oeId))return;
+        const oesOC=(barOC.dataset.gcboes||barOC.dataset.gcboe||'').split(',').map(x=>parseInt(x));
+        if(!oesOC.includes(oeId))return;
         const freno=(barOC.title||'').includes('Frenada por material');
         const col=freno?'var(--amber)':'var(--text3)';
         const estilo=freno?'solid':'dashed';
@@ -26364,19 +26727,27 @@ function _gcbPanelCadena(tipo,id){
   } else {
     pedHTML=card('<div style="font-weight:700;color:var(--text3);">📋 Sin pedido</div><div>Producción a stock</div>');
   }
-  // ── Tarjeta OE ──
-  let oeHTML;
-  if(c0.oe){
-    const so=c0.segOE;
+  // ── Tarjeta(s) OE ── (una OC puede tener 2+ OE: principal + reposición de robo)
+  const _schedOEpanel=(typeof calcScheduleReal==='function')?calcScheduleReal():{};
+  const oesCadena=(c0.oes&&c0.oes.length)?c0.oes:(c0.oe?[c0.oe]:[]);
+  const oePrincipalId=c0.oe?c0.oe.id:null;
+  const oeCard=(oeItem,esRepo)=>{
+    const so=_schedOEpanel[oeItem.id];
     const fueraOE=so&&!_gcbEnVentana(so.ini,so.fin);
-    oeHTML=card('<div style="font-weight:700;color:var(--accent);">🏭 '+escapeHtml(c0.oe.numero_orden)
-        +(c0.oe.estado==='Completada'?' <span style="color:var(--green);">✓ lista</span>':'')
+    return card('<div style="font-weight:700;color:var(--accent);">🏭 '+escapeHtml(oeItem.numero_orden)
+        +(esRepo?' <span style="color:var(--amber);font-weight:800;">🔧 reposición</span>':'')
+        +(oeItem.estado==='Completada'?' <span style="color:var(--green);">✓ lista</span>':'')
         +' <button class="btn btn-sm" style="padding:0 6px;font-size:10px;" onclick="go(\'ordenes\')" title="Abrir órdenes de extrusión">📂</button>'
-        +'<button class="btn btn-sm" style="padding:0 6px;font-size:10px;" onclick="imprimirOrden('+c0.oe.id+',\'extrusion\')" title="Imprimir orden para el operario">🖨️</button></div>'
-      +'<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;">'+escapeHtml(_descDeOE(c0.oe))+(c0.cliente?' · '+escapeHtml(c0.cliente):'')+'</div>'
+        +'<button class="btn btn-sm" style="padding:0 6px;font-size:10px;" onclick="imprimirOrden('+oeItem.id+',\'extrusion\')" title="Imprimir orden para el operario">🖨️</button></div>'
+      +'<div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;">'+escapeHtml(_descDeOE(oeItem))+(c0.cliente?' · '+escapeHtml(c0.cliente):'')+'</div>'
       +(so?'<div>Avance: '+pct(so.pctAvance,'var(--accent)')+'</div><div>'+fdh(so.ini)+' → <strong>'+fdh(so.fin)+'</strong>'
         +(fueraOE?' <button class="btn btn-sm" style="padding:1px 7px;font-size:10px;" onclick="gcbIrA('+new Date(so.ini).getTime()+')">📍 Ver</button>':'')+'</div>'
-       :(c0.oe.estado==='Completada'?'<div>Material producido</div>':'<div style="color:var(--text3);">sin programación</div>')));
+       :(oeItem.estado==='Completada'?'<div>Material producido</div>':'<div style="color:var(--text3);">sin programación</div>')),
+      esRepo?'var(--amber)':null);
+  };
+  let oeHTML;
+  if(oesCadena.length){
+    oeHTML=oesCadena.map(oeItem=>oeCard(oeItem,oeItem.id!==oePrincipalId)).join('<div style="align-self:center;color:var(--text3);font-size:12px;">+</div>');
   } else {
     oeHTML=card('<div style="font-weight:700;color:var(--text3);">🏭 Sin OE</div><div>'+(c0.seg&&c0.seg.mtsRestantes>0?'⚠ revisar material':'corta de stock de bobinas')+'</div>');
   }
@@ -26395,7 +26766,10 @@ function _gcbPanelCadena(tipo,id){
         +'<div>'+fdh(s.ini)+' → <strong>'+fdh(s.fin)+'</strong>'
           +(fueraOC?' <button class="btn btn-sm" style="padding:1px 7px;font-size:10px;" onclick="gcbIrA('+new Date(s.ini).getTime()+')">📍 Ver</button>':'')+'</div>'
         +'<div>'+escapeHtml(maqs||'sin máquina')+' · '+escapeHtml(c.lanzTxt)+'</div>'
-        +(c.oc.estado!=='En proceso'?'<div style="margin-top:3px;"><button class="btn btn-sm" style="padding:2px 8px;font-size:10.5px;" onclick="gcbAcercarOC('+c.oc.id+')" title="Subirla al frente de la cola de corte para que arranque lo antes posible (el material igual la frena si no está)">🧲 Acercar a su OE</button></div>':'')
+        +(c.oc.estado!=='En proceso'?'<div style="margin-top:3px;display:flex;gap:5px;flex-wrap:wrap;">'
+          +'<button class="btn btn-sm" style="padding:2px 8px;font-size:10.5px;" onclick="gcbAcercarOC('+c.oc.id+')" title="Sincronizar: reubica la OC según cuándo va a estar su material. Si su OE está al fondo, la OC se va al fondo (no bloquea a las que sí tienen material). No mueve la OE.">🧲 Acercar a su OE</button>'
+          +'<button class="btn btn-sm" style="padding:2px 8px;font-size:10.5px;" onclick="gcbApurarOC('+c.oc.id+')" title="Priorizar: adelanta su OE (incl. reposición) y la OC lo más cerca del frente, alineadas para no dejar tiempos muertos.">⚡ Apurar</button>'
+        +'</div>':'')
        :'<div style="color:var(--red);">⚠ sin máquina/capacidad</div>'),
       c.diasAtraso>0?'var(--red)':null);
   }).join('<div style="align-self:center;color:var(--text3);font-size:14px;">→</div>');
@@ -26420,22 +26794,110 @@ function gcbIrA(ms){
 // 🧲 ACERCAR: subir la OC al frente de la cola de corte (detrás de las En proceso).
 // El motor la programa lo antes posible; si el material no está, la restricción
 // de la OE igual la frena — o sea: queda EXACTAMENTE pegada a su OE.
-function gcbAcercarOC(ocId){
-  const oc=C.ord_corte.find(o=>o.id===ocId);
-  if(!oc)return;
-  const cola=C.ord_corte
+// Reordena una cola (oe/oc) poniendo `idsAdelantar` al frente (tras el bloque En proceso),
+// respetando su orden relativo. Persiste prioridades. NO recarga (lo hace el orquestador).
+async function _gcbColaAlFrente(tipo,idsAdelantar){
+  const fuente=tipo==='oe'?C.ordenes:C.ord_corte;
+  const tabla=tipo==='oe'?'ordenes':'ordenes_corte';
+  const cola=fuente
     .filter(o=>o.estado!=='Completada'&&o.estado!=='Suspendida'&&o.estado!=='Cancelada')
     .sort(ordenCola).map(o=>o.id);
-  // Primera posición disponible = después del bloque "En proceso"
   let idxLibre=0;
-  for(const cid of cola){
-    const o=C.ord_corte.find(x=>x.id===cid);
-    if(o&&o.estado==='En proceso')idxLibre++;else break;
+  for(const cid of cola){const o=fuente.find(x=>x.id===cid);if(o&&o.estado==='En proceso')idxLibre++;else break;}
+  const fijos=cola.slice(0,idxLibre);
+  const resto=cola.slice(idxLibre);
+  const setAdel=new Set(idsAdelantar);
+  const adel=resto.filter(id=>setAdel.has(id));
+  const otros=resto.filter(id=>!setAdel.has(id));
+  const nueva=[...fijos,...adel,...otros];
+  const errores=[];
+  for(let i=0;i<nueva.length;i++){
+    const{error}=await sb.from(tabla).update({prioridad:i+1}).eq('id',nueva[i]);
+    if(error)errores.push(error.message);
   }
-  const idxActual=cola.indexOf(ocId);
-  if(idxActual<0)return;
-  if(idxActual<=idxLibre){toast('✓ '+(oc.numero_orden||'la OC')+' ya está lo antes posible en la cola','green');return;}
-  _gcbReordenar('oc',ocId,cola[idxLibre]);
+  return {movidos:adel.length,errores};
+}
+
+// ⚡ APURAR: priorizar la cadena. Adelanta las OE de la OC (incl. reposición) en extrusión
+// y la OC en corte lo más cerca del frente. El motor las alinea JIT (la OC no arranca antes
+// que su material), así no quedan tiempos muertos. Es lo contrario de "Acercar a su OE".
+async function gcbApurarOC(ocId){
+  const oc=C.ord_corte.find(o=>o.id===ocId);
+  if(!oc)return;
+  const activa=o=>o&&o.estado!=='Completada'&&o.estado!=='Suspendida'&&o.estado!=='Cancelada';
+
+  // Cola de corte: ¿la OC ya está al frente?
+  const colaOC=C.ord_corte.filter(activa).sort(ordenCola).map(o=>o.id);
+  let idxLibreOC=0;for(const cid of colaOC){const o=C.ord_corte.find(x=>x.id===cid);if(o&&o.estado==='En proceso')idxLibreOC++;else break;}
+  const ocAlFrente=colaOC.indexOf(ocId)<=idxLibreOC;
+
+  // Cola de extrusión: ¿qué OE de la OC (principal + reposición) están atrás y frenan el material?
+  const colaOE=C.ordenes.filter(activa).sort(ordenCola).map(o=>o.id);
+  let idxLibreOE=0;for(const cid of colaOE){const o=C.ordenes.find(x=>x.id===cid);if(o&&o.estado==='En proceso')idxLibreOE++;else break;}
+  const oesActivas=_oesDeOC(oc).filter(activa);
+  const oesAdelantar=oesActivas.filter(oe=>colaOE.indexOf(oe.id)>idxLibreOE).map(o=>o.id);
+
+  if(ocAlFrente&&!oesAdelantar.length){
+    toast('✓ '+(oc.numero_orden||'la OC')+' y su material ya están lo antes posible','green');return;
+  }
+  let msg='⚡ Apurar '+(oc.numero_orden||'la OC')+' — adelantarla lo antes posible:\n\n';
+  if(oesAdelantar.length)
+    msg+='• Adelantar en EXTRUSIÓN (producen el material): '+oesAdelantar.map(id=>C.ordenes.find(o=>o.id===id)?.numero_orden||('#'+id)).join(', ')+'\n';
+  if(!ocAlFrente)
+    msg+='• Adelantar en CORTE: '+(oc.numero_orden||'la OC')+'\n';
+  msg+='\nSe guardan las nuevas prioridades y se recalculan las fechas (Gantt, Torre y planificador). ¿Confirmás?';
+  if(!confirm(msg))return;
+
+  const errs=[];
+  if(oesAdelantar.length){const r=await _gcbColaAlFrente('oe',oesAdelantar);errs.push(...r.errores);}
+  if(!ocAlFrente){const r=await _gcbColaAlFrente('oc',[ocId]);errs.push(...r.errores);}
+  if(errs.length){toast('⚠ Error guardando prioridades: '+errs[0],'red');return;}
+  toast('⚡ '+(oc.numero_orden||'la OC')+' apurada — fechas recalculadas','green');
+  await reload();
+  renderGanttCombinado();
+  if(typeof renderTorreEntregas==='function')renderTorreEntregas();
+}
+
+// 🧲 ACERCAR OC A SU OE: sincronizar (NO apurar). Reubica la OC en la cola de corte según
+// CUÁNDO va a estar listo su material (fin de su OE más tardía), relativo a las demás OC.
+// Si su OE está al fondo de extrusión, la OC se va al fondo del corte (no bloquea a las que
+// sí tienen material); si su material está antes, sube. No mueve ninguna OE.
+async function gcbAcercarOC(ocId){
+  const oc=C.ord_corte.find(o=>o.id===ocId);
+  if(!oc)return;
+  const activa=o=>o&&o.estado!=='Completada'&&o.estado!=='Suspendida'&&o.estado!=='Cancelada';
+  const schedOE=(typeof calcScheduleReal==='function')?calcScheduleReal():{};
+  // Momento en que el material de una OC estará listo (max fin de sus OE activas; 0 = ya está)
+  const matListo=o=>{
+    const oes=_oesDeOC(o).filter(activa);
+    if(!oes.length)return 0;
+    let m=0;oes.forEach(oe=>{const s=schedOE[oe.id];if(s&&s.fin){const t=new Date(s.fin).getTime();if(t>m)m=t;}});
+    return m;
+  };
+  const cola=C.ord_corte.filter(activa).sort(ordenCola);
+  let idxLibre=0;for(const o of cola){if(o.estado==='En proceso')idxLibre++;else break;}
+  if(cola.findIndex(o=>o.id===ocId)<idxLibre){toast('La OC ya está en proceso','green');return;}
+  const fijos=cola.slice(0,idxLibre).map(o=>o.id);
+  const resto=cola.slice(idxLibre).filter(o=>o.id!==ocId);
+  const miMat=matListo(oc);
+  // Insertar delante de la primera OC cuyo material esté listo MÁS TARDE que el suyo.
+  let insertAt=resto.length;
+  for(let i=0;i<resto.length;i++){if(matListo(resto[i])>miMat){insertAt=i;break;}}
+  const nueva=[...fijos,...resto.slice(0,insertAt).map(o=>o.id),ocId,...resto.slice(insertAt).map(o=>o.id)];
+  const actual=cola.map(o=>o.id);
+  if(JSON.stringify(actual)===JSON.stringify(nueva)){toast('✓ '+(oc.numero_orden||'la OC')+' ya está alineada con su material','green');return;}
+  const posVieja=actual.indexOf(ocId),posNueva=nueva.indexOf(ocId);
+  const dir=posNueva>posVieja
+    ?'más ATRÁS (su material recién va a estar listo, no conviene tenerla adelante bloqueando)'
+    :'más ADELANTE (su material está listo antes que el de las que tiene delante)';
+  if(!confirm('🧲 Acercar '+(oc.numero_orden||'la OC')+' a su OE:\n\nMover la OC '+dir+'.\n\nSe recalculan las fechas (Gantt, Torre y planificador). ¿Confirmás?'))return;
+  const errs=[];
+  for(let i=0;i<nueva.length;i++){const{error}=await sb.from('ordenes_corte').update({prioridad:i+1}).eq('id',nueva[i]);if(error)errs.push(error.message);}
+  if(errs.length){toast('⚠ Error guardando prioridades: '+errs[0],'red');return;}
+  toast('✓ '+(oc.numero_orden||'la OC')+' alineada con su material — fechas recalculadas','green');
+  await reload();
+  renderGanttCombinado();
+  if(typeof renderTorreEntregas==='function')renderTorreEntregas();
 }
 
 // ── 💡 SUGERENCIAS DEL PROGRAMADOR: el sistema avisa solo dónde hay para mejorar ──
@@ -26480,7 +26942,7 @@ function _gcbSugerencias(cadenas,ahora){
     +'<div style="font-weight:700;color:var(--amber);margin-bottom:3px;">💡 Sugerencias del programador</div>'
     +sug.slice(0,4).map(s=>'<div style="padding:2px 0;color:var(--text2);display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
       +'<span style="flex:1;min-width:200px;">'+s.html+'</span>'
-      +'<button class="btn btn-sm" style="padding:2px 8px;font-size:10.5px;flex-shrink:0;" onclick="gcbAcercarOC('+s.ocId+')">🧲 Acercar</button>'
+      +'<button class="btn btn-sm" style="padding:2px 8px;font-size:10.5px;flex-shrink:0;" onclick="gcbApurarOC('+s.ocId+')" title="Adelantar OE + OC para aprovechar que el material está listo antes que su turno">⚡ Apurar</button>'
       +'<button class="btn btn-sm" style="padding:2px 8px;font-size:10.5px;flex-shrink:0;" onclick="_gcbFocoActual=null;gcbFoco(\'oc\','+s.ocId+')">👁 Ver cadena</button>'
     +'</div>').join('')
     +(sug.length>4?'<div style="font-size:10.5px;color:var(--text3);">… y '+(sug.length-4)+' más</div>':'')
@@ -26563,8 +27025,8 @@ function _gcbRenderSinOC(schedOE){
   const conOC=new Set();
   (C.ord_corte||[]).forEach(oc=>{
     if(oc.estado==='Cancelada')return;
-    const oe=_balOEdeOC(oc);
-    if(oe)conOC.add(oe.id);
+    // Todas las OE de la OC (principal + reposición de robo), no solo la principal.
+    _oesDeOC(oc).forEach(oe=>{if(oe)conOC.add(oe.id);});
   });
   const sueltas=(C.ordenes||[]).filter(o=>
     o.estado!=='Completada'&&o.estado!=='Suspendida'&&o.estado!=='Cancelada'&&!conOC.has(o.id));
@@ -28076,6 +28538,10 @@ function _pintarPanelCorte(){
   if(!root)return;
   const ahora=new Date();
   const opActual=window._pcorteOperario||'';
+  // Schedule de corte REAL (mismo motor que el Gantt y la Torre): ordena la cola por
+  // cuándo cada OC va a poder cortar de verdad, no por prioridad teórica. Una OC con
+  // prioridad alta pero sin material aparece donde realmente le toca, no primera.
+  const _schedCpanel=(typeof calcScheduleCorteReal==='function')?calcScheduleCorteReal():{};
 
   let html='<div style="min-height:100vh;background:var(--bg1);padding:16px 20px;">'
     // Barra superior
@@ -28109,7 +28575,13 @@ function _pintarPanelCorte(){
     const fuera=maq.en_servicio===false;
     const enProc=C.ord_corte.find(o=>o.estado==='En proceso'&&o.orden_corte_maquinas?.some(om=>om.maquina_id===maq.id));
     const pend=C.ord_corte.filter(o=>o.estado==='Pendiente'&&o.orden_corte_maquinas?.some(om=>om.maquina_id===maq.id))
-      .sort((a,b)=>(a.prioridad||99)-(b.prioridad||99)||new Date(a.created_at)-new Date(b.created_at));
+      .sort((a,b)=>{
+        const sa=_schedCpanel[a.id],sb=_schedCpanel[b.id];
+        const ta=sa&&sa.ini?new Date(sa.ini).getTime():Infinity;
+        const tb=sb&&sb.ini?new Date(sb.ini).getTime():Infinity;
+        if(ta!==tb)return ta-tb;
+        return (a.prioridad||99)-(b.prioridad||99)||new Date(a.created_at)-new Date(b.created_at);
+      });
     const proxima=pend[0];
 
     html+='<div style="background:var(--bg2);border:2px solid '+(fuera?'var(--redbd)':enProc?'var(--accentbd)':'var(--border)')+';border-radius:14px;padding:18px;">'
@@ -29246,20 +29718,20 @@ function _pedidoInfoProduccion(p){
     sinBobinas:ocsDetalle.filter(d=>d.oc.estado==='Pendiente'&&(d.mtsAsociadas+d.mtsPropiasDisp+d.mtsOtrasDisp)<d.mtsNecesarios).length
   };
 
-  // FECHA ESTIMADA: si hay Gantt, usarlo; si no, calcular con fallback
+  // FECHA ESTIMADA: usar el motor REAL de corte (mismo que el Gantt combinado y la Torre).
+  // Antes llamaba a scheduleGantt() — función inexistente → el try fallaba siempre y
+  // caía al fallback crudo, dando fechas distintas a las del resto del sistema.
   let fechaEstimada=null;
   try{
-    const sched=(typeof scheduleGantt==='function')?scheduleGantt():null;
+    const sched=(typeof calcScheduleCorteReal==='function')?calcScheduleCorteReal():null;
     if(sched){
       ocs.forEach(o=>{
         if(o.estado==='Completada')return;
-        const s=sched[o.id];if(!s)return;
-        Object.values(s).forEach(slot=>{
-          if(slot?.fin){
-            const f=new Date(slot.fin);
-            if(!fechaEstimada||f>fechaEstimada)fechaEstimada=f;
-          }
-        });
+        const s=sched[o.id];
+        if(s&&s.fin){
+          const f=new Date(s.fin);
+          if(!fechaEstimada||f>fechaEstimada)fechaEstimada=f;
+        }
       });
     }
   }catch(e){}
