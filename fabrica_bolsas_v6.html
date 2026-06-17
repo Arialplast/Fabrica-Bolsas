@@ -451,6 +451,30 @@ body.pext-on .main{margin-left:0!important;}
 @keyframes tcm-pulse{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.18);opacity:.65;}}
 @keyframes tcm-blink{0%,100%{opacity:1;}50%{opacity:.35;}}
 @keyframes tcm-breathe{0%,100%{border-color:rgba(43,255,136,.22);}50%{border-color:rgba(43,255,136,.55);}}
+
+/* ═══════════ GANTT COMBINADO — Alta Densidad Industrial ═══════════ */
+/* Mismo lenguaje que la Torre. NO se redefine --purple para que las barras de
+   Corte sigan distinguiéndose de las de Extrusión (azul). Solo CSS scoped. */
+#page-gantt-combinado{
+  --green:#2bff88; --amber:#ffe600; --red:#ff5b5b; --accent:#38bdf8;
+  --text:#ffffff; --text1:#ffffff; --text2:#aeb7c4; --text3:#6b7686;
+  --bg2:#14171d; --bg3:#1a1e26; --border:rgba(120,150,190,.16);
+  --greenbg:rgba(43,255,136,.10); --greenbd:rgba(43,255,136,.35);
+  --amberbg:rgba(255,230,0,.10); --amberbd:rgba(255,230,0,.35);
+  --redbg:rgba(255,91,91,.10); --redbd:rgba(255,91,91,.38);
+  --accentbg:rgba(56,189,248,.12); --accentbd:rgba(56,189,248,.4);
+  color:#fff;
+  background:
+    linear-gradient(rgba(120,150,200,.04) 1px,transparent 1px) 0 0/24px 24px,
+    linear-gradient(90deg,rgba(120,150,200,.04) 1px,transparent 1px) 0 0/24px 24px,
+    radial-gradient(ellipse at 50% -8%,rgba(43,255,136,.045),transparent 55%),
+    #0d1015;
+  margin:-2rem; padding:2rem; min-height:100vh;
+}
+#page-gantt-combinado *{font-family:'JetBrains Mono',ui-monospace,'DM Mono',monospace !important;}
+#page-gantt-combinado .page-title{color:#fff;letter-spacing:.02em;text-shadow:0 0 18px rgba(43,255,136,.22);}
+#page-gantt-combinado .page-sub{color:var(--text2);}
+#page-gantt-combinado .page-hdr{border-bottom:1px solid var(--border);padding-bottom:14px;}
 </style>
 </head>
 <body>
@@ -5657,7 +5681,7 @@ function onConfOCChange(){
   }
 
   // Metros ya usados en esta orden
-  const mtsUsados=oc.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0;
+  const mtsUsados=_mtsRealesOC(oc);
   const pct=oc.metros_necesarios?Math.round(mtsUsados/oc.metros_necesarios*100):0;
   const maxPct=100+15;
   const pctColor=pct>=100?'var(--red)':pct>80?'var(--amber)':'var(--green)';
@@ -5834,7 +5858,7 @@ function toggleBobinaConf(id,checked){
 function actualizarResumenBobinas(oc){
   const res=document.getElementById('conf-bob-resumen');
   if(!res||!oc)return;
-  const mtsUsados=oc.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0;
+  const mtsUsados=_mtsRealesOC(oc);
   const mtsNec=oc.metros_necesarios||0;
   const faltan=Math.max(0,r1(mtsNec-mtsUsados));
   const mtsSel=[..._confBobSel].reduce((s,id)=>{
@@ -6203,7 +6227,7 @@ async function asociarBobinasOrdenCorte(){
     if(otra){msg.style.color='var(--red)';msg.textContent='Todas las bobinas seleccionadas deben ser del mismo tipo.';return;}
   }
   // Validar límite 115%
-  const mtsUsados=oc.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0;
+  const mtsUsados=_mtsRealesOC(oc);
   const mtsNuevos=bobs.reduce((s,b)=>s+(b.metros_reales||0),0);
   const total=mtsUsados+mtsNuevos;
   const pctNuevo=oc.metros_necesarios?total/oc.metros_necesarios*100:0;
@@ -6217,8 +6241,13 @@ async function asociarBobinasOrdenCorte(){
 
   const ejecutar=async()=>{
     msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Asociando '+bobs.length+' bobina'+(bobs.length>1?'s':'')+'...</div>';
-    // Insertar todas las asociaciones de una vez
-    const rows=bobs.map(b=>({
+    // Blindaje anti-duplicado: nunca asociar una bobina que YA está en la OC
+    // (esto evitaba el doble conteo de metros al cerrar el lote).
+    const _yaAsoc=new Set((oc.orden_corte_bobinas||[]).map(x=>x.bobina_producida_id));
+    const bobsNuevas=bobs.filter(b=>!_yaAsoc.has(b.id));
+    if(!bobsNuevas.length){msg.style.color='var(--amber)';msg.textContent='Esas bobinas ya estaban asociadas a la orden — no se duplican.';return;}
+    // Insertar las asociaciones (solo las que no estaban)
+    const rows=bobsNuevas.map(b=>({
       orden_corte_id:ocId,
       bobina_producida_id:b.id,
       metros_usados:b.metros_reales
@@ -6227,17 +6256,17 @@ async function asociarBobinasOrdenCorte(){
     if(e1){msg.style.color='var(--red)';msg.textContent='Error: '+e1.message;return;}
     // Sacar todas del stock y limpiar reserva si la tenían
     // (reservada_oc_id era una reserva opcional desde el Balance; al cortar, ya no aplica)
-    const ids=bobs.map(b=>b.id);
+    const ids=bobsNuevas.map(b=>b.id);
     await sb.from('bobinas_producidas').update({en_stock:false,reservada_oc_id:null}).in('id',ids);
     // Registrar movimientos
-    const movs=bobs.map(b=>({
+    const movs=bobsNuevas.map(b=>({
       bobina_producida_id:b.id,tipo:'salida',motivo:'corte_confeccion',
       orden_corte:oc.numero_orden,metros:b.metros_reales,kg:b.kg_reales,operario:op||null
     }));
     await sb.from('stock_movimientos').insert(movs);
     msg.style.color='var(--green)';
     const txtOrigen=requiereConfirmacionOrigen?' (incluye '+bobinasNoAsoc.length+' bobina'+(bobinasNoAsoc.length>1?'s':'')+' de fuera de la OE asociada)':'';
-    msg.textContent='✓ '+bobs.length+' bobina'+(bobs.length>1?'s':'')+' asociada'+(bobs.length>1?'s':'')+' a '+oc.numero_orden+' — '+r1(mtsNuevos).toLocaleString('es-AR')+' m'+txtOrigen;
+    msg.textContent='✓ '+bobsNuevas.length+' bobina'+(bobsNuevas.length>1?'s':'')+' asociada'+(bobsNuevas.length>1?'s':'')+' a '+oc.numero_orden+' — '+r1(mtsNuevos).toLocaleString('es-AR')+' m'+txtOrigen;
     _confBobSel=new Set();
     // Limpiar el mensaje del lector — quedan vencidos los warnings tipo "ya tenés 4 bobinas".
     const pistolaMsg=document.getElementById('conf-pistola-msg');
@@ -7618,7 +7647,7 @@ function renderInformeCorte(){
       const emp=C.emp.find(e=>e.id===o.empaque_id)||C.emp.find(e=>e.id===o.productos?.empaque_id);
       const difUni=(o.unidades_reales||0)-(o.unidades_a_producir||0);
       const difScrap=o.scrap_diferencia_kg||0;
-      const mtsUsados=r2(o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0);
+      const mtsUsados=r2(_mtsRealesOC(o));
       return '<tr>'
         +'<td class="mono" style="font-weight:600">'+o.numero_orden+'</td>'
         +'<td style="font-size:12px">'+(o.productos?.codigo||'')+'<br><span style="color:var(--text2)">'+(o.productos?.descripcion||'—')+'</span></td>'
@@ -19107,7 +19136,7 @@ function renderOrdenesCorte(){
     const maqsStr=o.orden_corte_maquinas?.map(om=>om.maquinas_corte?.nombre||'?').join(', ')||'—';
     const cap=o.orden_corte_maquinas?.reduce((s,om)=>s+(om.maquinas_corte?.bolsas_por_hora||0),0)||0;
     const hs=cap>0?r2(o.unidades_a_producir/cap):'—';
-    const mtsUsados=o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0;
+    const mtsUsados=_mtsRealesOC(o);
     const pctMts=o.metros_necesarios?Math.min(100,Math.round(mtsUsados/o.metros_necesarios*100)):0;
     const s=sched[o.id];const m0=o.orden_corte_maquinas?.[0];
     const ini=s&&m0?fmtDt(s[m0.maquina_id]?.inicio):'—';
@@ -24288,7 +24317,7 @@ async function confirmarGenerarOrdenExt(ocId){
 
 function verDetalleOrdenCorte(id){
   const o=C.ord_corte.find(x=>x.id===id);if(!o)return;
-  const mtsUsados=r1(o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0);
+  const mtsUsados=r1(_mtsRealesOC(o));
   const bolsasTeo=o.productos?.metros_por_bolsa&&mtsUsados?
     Math.floor(mtsUsados/o.productos.metros_por_bolsa*(1-o.merma_pct/100)):0;
   const unidadesReales=o.unidades_reales||0;
@@ -24527,8 +24556,8 @@ function abrirCierreOrdenCorte(id){
   const emp=C.emp.find(e=>e.id===o.empaque_id);
   const uniPorPaq=emp?.unidades||0;
   const paqPorBolson=o.paquetes_por_bolson||1;
-  const mtsUsados=r2(o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0);
-  const kgUsados=r3(o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.kg_reales||0),0)||0);
+  const mtsUsados=r2(_mtsRealesOC(o));
+  const kgUsados=r3(_kgRealesOC(o));
   const mtsPorBolsa=prod?.metros_por_bolsa||0;
   const uniPlan=o.unidades_a_producir||0;
   const bolsonesPlan=o.bolsones_a_producir||0;
@@ -24647,8 +24676,8 @@ function calcCierreOC(id){
   const faltaBultos=difPaq<0;
 
   // === Metros ===
-  const mtsUsados=r2(o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0);
-  const kgUsados=r3(o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.kg_reales||0),0)||0);
+  const mtsUsados=r2(_mtsRealesOC(o));
+  const kgUsados=r3(_kgRealesOC(o));
   // Metros teóricos: lo que la orden requiere SIN merma
   const mtsTeoricosPlan=r2(uniPlan*mtsPorBolsa);
   // Metros necesarios: teóricos + merma planificada
@@ -24773,8 +24802,8 @@ async function cerrarOrdenCorte(id){
   if((!bolsones&&!paqSueltos)||isNaN(scrapPesado)){err.textContent='Completá bolsones y peso de scrap.';return;}
   const totalPaq=(bolsones*paqPorBolson)+paqSueltos;
   const totalUni=uniPorPaq>0?totalPaq*uniPorPaq:0;
-  const mtsUsados=r2(o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0);
-  const kgUsados=r3(o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.kg_reales||0),0)||0);
+  const mtsUsados=r2(_mtsRealesOC(o));
+  const kgUsados=r3(_kgRealesOC(o));
   // Metros productivos reales: los que efectivamente se convirtieron en bolsas
   const mtsProductivos=r2(totalUni*(prod?.metros_por_bolsa||0));
   // Scrap en metros: usados − productivos (merma real)
@@ -25240,6 +25269,29 @@ function gcdNext(){gcdDate=addDays(gcdDate,1);renderGanttCorteDiario();}
 // Devuelve {tiene, oe, estado, txt, color, puedeArrancar, velOK, mtsPropias...}.
 // estado: 'sin_oe' | 'oe_lista' | 'esperando' | 'en_curso'
 // puedeArrancar: true si la OC ya puede empezar a cortar sin riesgo de quedarse sin material.
+// Suma de metros/kg REALES de las bobinas de una OC, contando cada bobina UNA sola vez.
+// Defensa ante registros duplicados en orden_corte_bobinas (misma bobina asociada 2 veces):
+// sin esto, una bobina repetida inflaba "metros usados" y rompía merma, scrap y balance.
+function _mtsRealesOC(oc){
+  const vistas=new Set();let s=0;
+  (oc?.orden_corte_bobinas||[]).forEach(b=>{
+    const id=b.bobina_producida_id;
+    if(id!=null&&vistas.has(id))return;
+    if(id!=null)vistas.add(id);
+    s+=b.bobinas_producidas?.metros_reales||0;
+  });
+  return s;
+}
+function _kgRealesOC(oc){
+  const vistas=new Set();let s=0;
+  (oc?.orden_corte_bobinas||[]).forEach(b=>{
+    const id=b.bobina_producida_id;
+    if(id!=null&&vistas.has(id))return;
+    if(id!=null)vistas.add(id);
+    s+=b.bobinas_producidas?.kg_reales||0;
+  });
+  return s;
+}
 // Todas las OE que alimentan una OC, no solo la principal.
 // Una OC puede tener 2+ OE: la principal (orden_extrusion_id) y OE de reposición
 // creadas desde el Balance cuando le robaron bobinas. Esas OE secundarias NO tocan
@@ -28562,7 +28614,7 @@ function _pintarPanelCorte(){
   // cuándo cada OC va a poder cortar de verdad, no por prioridad teórica. Una OC con
   // prioridad alta pero sin material aparece donde realmente le toca, no primera.
   const _schedCpanel=(typeof calcScheduleCorteReal==='function')?calcScheduleCorteReal():{};
-  const _ocObjetivo=_pcorteResolverOCobjetivo();   // OC a la que se cargan las bobinas escaneadas
+  const _ocObjetivo=_pcorteResolverOCobjetivo();
   const _ocObjNum=_ocObjetivo?(C.ord_corte.find(o=>o.id===_ocObjetivo)?.numero_orden||''):'';
   const _enProcCount=C.ord_corte.filter(o=>o.estado==='En proceso').length;
 
@@ -37482,7 +37534,7 @@ function calcResumenPeriodo(ini,fin,gg){
   const totalBolsas=ordsCorte.reduce((s,o)=>s+(o.unidades_reales||0),0);
   let costoTotalBolsas=0;
   ordsCorte.forEach(o=>{
-    const mtsUsados=o.orden_corte_bobinas?.reduce((s,b)=>s+(b.bobinas_producidas?.metros_reales||0),0)||0;
+    const mtsUsados=_mtsRealesOC(o);
     costoTotalBolsas+=mtsUsados*costoMetro;
   });
   const costoPorBolsa=totalBolsas>0?r6(costoTotalBolsas/totalBolsas):0;
