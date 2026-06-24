@@ -579,6 +579,7 @@ body.pext-on .main{margin-left:0!important;}
         <div class="nav-item" onclick="goAdmin('conciliacion')"><div class="nav-dot" style="background:#06b6d4"></div>✓ Conciliación bancaria 🔐</div>
         <div class="nav-item" onclick="goAdmin('cartera-cheques')"><div class="nav-dot" style="background:#9333ea"></div>🧾 Cartera de cheques 🔐</div>
         <div class="nav-item" onclick="goAdmin('flujo-caja')"><div class="nav-dot" style="background:var(--green)"></div>Flujo de caja 🔐</div>
+        <div class="nav-item" onclick="goAdmin('salud-flujo')"><div class="nav-dot" style="background:var(--green)"></div>Salud del flujo 🩺</div>
         <div class="nav-item" onclick="go('compras-gastos')"><div class="nav-dot" style="background:#f97316"></div>🛒 Compras y Gastos</div>
         <div class="nav-item" onclick="goAdmin('deudas')"><div class="nav-dot" style="background:var(--red)"></div>💳 Deudas (ARCA/bancos) 🔐</div>
         <div class="nav-item" onclick="goAdmin('gastos-fijos')"><div class="nav-dot" style="background:var(--amber)"></div>🧾 Gastos fijos 🔐</div>
@@ -2746,6 +2747,19 @@ body.pext-on .main{margin-left:0!important;}
       <div id="salud-stock-cont"></div>
     </div>
 
+    <div class="page" id="page-salud-flujo">
+      <div class="page-hdr">
+        <div>
+          <div class="page-title">🩺 Salud del flujo / cuenta corriente</div>
+          <div class="page-sub">Invariantes de plata (P1): detecta verdad duplicada y drift entre lo guardado y lo derivado de documentos</div>
+        </div>
+        <div class="btn-grp">
+          <button class="btn btn-sm" onclick="renderSaludFlujo()">🔄 Refrescar</button>
+        </div>
+      </div>
+      <div id="salud-flujo-cont"></div>
+    </div>
+
     <!-- AUDITAR STOCK DE BOLSAS -->
     <div class="page" id="page-audit-stock-bolsas">
       <div class="page-hdr">
@@ -3286,6 +3300,50 @@ body.pext-on .main{margin-left:0!important;}
     </div>
 
     <!-- ============ NUEVO RECIBO ============ -->
+    <div class="page" id="page-nuevo-pago">
+      <div class="page-hdr">
+        <div>
+          <div class="page-title">💵 Nuevo pago a proveedor</div>
+          <div class="page-sub">Registrar un pago y aplicarlo a compras/gastos pendientes</div>
+        </div>
+        <div class="btn-grp"><button class="btn btn-sm" onclick="go('compras-gastos')">← Volver</button></div>
+      </div>
+      <div class="card"><div class="card-bd">
+        <div class="fgrid" style="margin-bottom:14px;">
+          <div class="fg"><label>Proveedor</label>
+            <select id="npag-prov" onchange="onNpagChange()"><option value="">— seleccionar —</option></select>
+          </div>
+          <div class="fg"><label>Plano</label>
+            <select id="npag-plano" onchange="onNpagPlano()"><option value="blanco">⚪ Blanco</option><option value="negro">⚫ Negro</option></select>
+          </div>
+          <div class="fg"><label>Cuenta (medio de pago)</label>
+            <select id="npag-cuenta" onchange="onNpagCuenta()"></select>
+          </div>
+          <div class="fg"><label>Fecha</label><input id="npag-fecha" type="date"></div>
+        </div>
+        <div id="npag-wrap" style="display:none;">
+          <h4 style="margin:14px 0 8px;">Compras / gastos pendientes</h4>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Poné cuánto pagás de cada uno (podés pagar parcial):</div>
+          <div id="npag-docs"></div>
+          <h4 style="margin:18px 0 8px;">Valores entregados</h4>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Endosá cheques de cartera y/o pagá el resto con la cuenta de arriba. Un cheque de otro circuito (↔ cruce) pasa por la cuenta conciliación.</div>
+          <div id="npag-cheques"></div>
+          <div style="margin-top:14px;padding:14px;background:var(--bg2);border-radius:8px;">
+            <div style="display:flex;justify-content:space-between;font-size:14px;"><span style="color:var(--text2);">Total a pagar (imputado):</span><strong class="mono" id="npag-tot" style="font-size:18px;">$ 0,00</strong></div>
+            <div style="display:flex;justify-content:space-between;font-size:14px;margin-top:6px;"><span style="color:var(--text2);">− Cheques endosados:</span><strong class="mono" id="npag-tot-cheques" style="color:#9333ea;">$ 0,00</strong></div>
+            <div style="display:flex;justify-content:space-between;font-size:16px;margin-top:6px;border-top:1px solid var(--border);padding-top:8px;"><span>= Resto en cuenta:</span><strong class="mono" id="npag-resto" style="color:var(--green);font-size:18px;">$ 0,00</strong></div>
+            <div id="npag-warn" style="font-size:12px;color:var(--red);margin-top:6px;"></div>
+          </div>
+          <div class="fg" style="margin-top:14px;"><label>Observaciones</label><input id="npag-obs" type="text"></div>
+          <div class="btn-grp" style="margin-top:18px;">
+            <button class="btn btn-primary" onclick="guardarPago()">💾 Registrar pago</button>
+            <button class="btn" onclick="go('compras-gastos')">Cancelar</button>
+            <span id="msg-npag" style="font-size:13px;margin-left:8px;"></span>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
     <div class="page" id="page-nuevo-recibo">
       <div class="page-hdr">
         <div>
@@ -3348,6 +3406,11 @@ body.pext-on .main{margin-left:0!important;}
               </div>
             </div>
 
+            <div class="fg" style="margin-top:14px;">
+              <label>Cuenta donde cae la plata (efectivo/transferencia)</label>
+              <select id="nrec-cuenta" onchange="onNrecCuenta()"></select>
+              <div id="nrec-cross-hint" style="font-size:11px;color:#f59e0b;margin-top:4px;"></div>
+            </div>
             <div class="fg" style="margin-top:14px;">
               <label>Observaciones</label>
               <input id="nrec-obs" type="text">
@@ -3575,8 +3638,9 @@ body.pext-on .main{margin-left:0!important;}
                     <th style="padding:6px;text-align:left;width:25%">Concepto</th>
                     <th style="text-align:center;width:12%">Plano</th>
                     <th style="text-align:right;width:15%">Monto</th>
-                    <th style="text-align:center;width:18%">Fecha est. cobro</th>
-                    <th style="text-align:left;width:25%">Observaciones</th>
+                    <th style="text-align:center;width:15%">Fecha est. cobro</th>
+                    <th style="text-align:center;width:13%">¿Influye en resultado?</th>
+                    <th style="text-align:left;width:22%">Observaciones</th>
                     <th style="width:5%"></th>
                   </tr></thead>
                   <tbody id="ci-saldos-cli-tbody"></tbody>
@@ -3810,6 +3874,7 @@ body.pext-on .main{margin-left:0!important;}
           <div class="page-sub">Facturas de proveedores y gastos · alimenta deuda, caja y el resultado del mes · carga rápida</div>
         </div>
         <div class="btn-grp">
+          <button class="btn btn-sm btn-primary" onclick="initNuevoPago()" title="Pagar varias compras/gastos en un solo pago">💵 Nuevo pago</button>
           <button class="btn btn-sm" onclick="cgRepetirUltimo()" title="Clonar el último cargado">🔁 Repetir último</button>
           <button class="btn btn-sm" onclick="cgVerProveedores()">👥 Proveedores</button>
         </div>
@@ -4296,7 +4361,7 @@ async function reload(){
       return r;
     }).catch(e=>{console.error('Carga de remitos (catch):',e);return{data:[]};}),
     sb.from('facturas').select('*, factura_lineas(*), factura_remitos(remito_id), clientes(nombre,razon_social,cuit,condicion_iva)').order('created_at',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
-    sb.from('recibos').select('*, recibo_valores(*), recibo_retenciones(*), recibo_facturas(*), recibo_rvs(*), clientes(nombre,razon_social)').order('created_at',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
+    sb.from('recibos').select('*, recibo_valores(*), recibo_retenciones(*), recibo_facturas(*), recibo_rvs(*), recibo_saldos_iniciales(*), clientes(nombre,razon_social)').order('created_at',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
     sb.from('metodos_pago').select('*').eq('activo',true).order('orden').then(r=>r).catch(()=>({data:[]})),
     sb.from('tipos_retencion').select('*').eq('activo',true).order('nombre').then(r=>r).catch(()=>({data:[]})),
     sb.from('remitos_valorizados').select('*, rv_lineas(*), rv_remitos(remito_id), clientes(nombre,razon_social)').order('created_at',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
@@ -4315,6 +4380,7 @@ async function reload(){
     sb.from('categorias_gasto').select('*').order('orden').then(r=>r).catch(()=>({data:[]})),
     sb.from('bancos').select('*').order('orden').then(r=>r).catch(()=>({data:[]})),
     sb.from('motivos_ajuste').select('*').eq('activo',true).order('id').then(r=>r).catch(()=>({data:[]})),
+    sb.from('pagos').select('*').order('fecha',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
   ]);
   const d=r=>results[r].status==='fulfilled'?results[r].value.data||[]:[];
   C.bobinas=d(0);C.extrusoras=d(1);C.ordenes=d(2);
@@ -4355,6 +4421,7 @@ async function reload(){
   C.categorias_gasto=d(44)||[];
   C.bancos=d(45)||[];
   C.motivos_ajuste=d(46)||[];
+  C.pagos=d(47)||[];
   const rcfg=results[8].status==='fulfilled'?results[8].value:null;
   if(rcfg?.data){rcfg.data.forEach(r=>{
     if(r.clave==='clave_admin')cfg.clave_admin=r.valor;
@@ -7078,6 +7145,7 @@ function go(name){
   if(name==='puesta-cero')renderPuestaCero();
   if(name==='audit-stock-bolsas')renderAuditStockBolsas();
   if(name==='salud-stock')renderSaludStock();
+  if(name==='salud-flujo')renderSaludFlujo();
   if(name==='init-stock-fisico')initStockFisico();
   if(name==='remitos')renderRemitos();
   if(name==='despacho')renderDespacho();
@@ -10291,6 +10359,12 @@ function _aplicadoARV(rvId){
   return s;
 }
 function _saldoRV(rv){ if(!rv)return 0; return r2((parseFloat(rv.total)||0)-_aplicadoARV(rv.id)); }
+function _aplicadoASaldoInicial(siId){
+  let s=0;
+  (C.recibos||[]).forEach(r=>{if(r.estado==='anulado')return;(r.recibo_saldos_iniciales||[]).forEach(rsi=>{if(rsi.saldo_inicial_id===siId)s+=parseFloat(rsi.monto_aplicado)||0;});});
+  return s;
+}
+function _saldoInicial(si){ if(!si)return 0; return r2((parseFloat(si.monto)||0)-_aplicadoASaldoInicial(si.id)); }
 function _estadoRV(rv){
   if(!rv)return 'pendiente';
   if(rv.estado==='anulada')return 'anulada';
@@ -10985,15 +11059,15 @@ function calcularSaldosCliente(cliId){
     totalFactInformal+=parseFloat(rv.total)||0;
     if(['pendiente','parcial'].includes(rv.estado))pendInformal++;
   });
-  // Saldos iniciales pendientes (cobrado_el IS NULL → no cobrados)
+  // Saldos iniciales pendientes (saldo derivado de recibo_saldos_iniciales)
   (C.saldos_iniciales||[]).forEach(si=>{
     if(si.cliente_id!==cliId)return;
-    if(si.cobrado_el)return; // ya cobrado
-    const monto=parseFloat(si.monto)||0;
+    const sal=_saldoInicial(si);
+    if(sal<=0.01)return; // ya cobrado
     if(si.plano==='formal'){
-      saldoFormal+=monto; siFormal++;
+      saldoFormal+=sal; siFormal++;
     } else {
-      saldoInformal+=monto; siInformal++;
+      saldoInformal+=sal; siInformal++;
     }
   });
   // Notas de débito (cheques rechazados): vuelven a cargar al cliente
@@ -11123,7 +11197,7 @@ function renderDetalleCC(){
     // Saldos iniciales formales
     (C.saldos_iniciales||[]).filter(si=>si.cliente_id===cliId && si.plano==='formal')
       .forEach(si=>{
-        const cobrado=si.cobrado_el?parseFloat(si.monto_cobrado_real||si.monto)||0:0;
+        const cobrado=_aplicadoASaldoInicial(si.id);
         const saldoSI=Math.max(0,(parseFloat(si.monto)||0)-cobrado);
         movs.push({
           fecha:si.fecha_estimada_cobro||si.created_at?.slice(0,10)||'',
@@ -11131,17 +11205,11 @@ function renderDetalleCC(){
           ref:'📋 Saldo inicial: '+(si.concepto||'Sin concepto'),
           debe:parseFloat(si.monto)||0,haber:0,
           id:si.id,obj:si,
-          estado:si.cobrado_el?'cobrado':(saldoSI>0?'pendiente':'cobrado'),
+          estado:saldoSI>0.01?'pendiente':'cobrado',
           saldo:saldoSI
         });
-        if(si.cobrado_el && cobrado>0){
-          movs.push({
-            fecha:si.cobrado_el,tipo:'COBRO_SI',plano:'formal',
-            ref:'Cobro saldo inicial: '+(si.concepto||'Sin concepto'),
-            debe:0,haber:cobrado,
-            id:si.id,obj:si
-          });
-        }
+        // El cobro del saldo inicial lo aporta el movimiento RECIBO de abajo (haber=total_aplicado).
+        // No emitir COBRO_SI desde cobrado_el: duplicaba el haber (corolario v2.2, P1).
       });
     (C.recibos||[]).filter(r=>r.cliente_id===cliId && r.plano==='formal' && r.estado!=='anulado')
       .forEach(r=>{
@@ -11185,7 +11253,7 @@ function renderDetalleCC(){
     // Saldos iniciales informales
     (C.saldos_iniciales||[]).filter(si=>si.cliente_id===cliId && si.plano==='informal')
       .forEach(si=>{
-        const cobrado=si.cobrado_el?parseFloat(si.monto_cobrado_real||si.monto)||0:0;
+        const cobrado=_aplicadoASaldoInicial(si.id);
         const saldoSI=Math.max(0,(parseFloat(si.monto)||0)-cobrado);
         movs.push({
           fecha:si.fecha_estimada_cobro||si.created_at?.slice(0,10)||'',
@@ -11193,17 +11261,11 @@ function renderDetalleCC(){
           ref:'📋 Saldo inicial: '+(si.concepto||'Sin concepto'),
           debe:parseFloat(si.monto)||0,haber:0,
           id:si.id,obj:si,
-          estado:si.cobrado_el?'cobrado':(saldoSI>0?'pendiente':'cobrado'),
+          estado:saldoSI>0.01?'pendiente':'cobrado',
           saldo:saldoSI
         });
-        if(si.cobrado_el && cobrado>0){
-          movs.push({
-            fecha:si.cobrado_el,tipo:'COBRO_SI',plano:'informal',
-            ref:'Cobro saldo inicial: '+(si.concepto||'Sin concepto'),
-            debe:0,haber:cobrado,
-            id:si.id,obj:si
-          });
-        }
+        // El cobro del saldo inicial lo aporta el movimiento RECIBO de abajo (haber=total_aplicado).
+        // No emitir COBRO_SI desde cobrado_el: duplicaba el haber (corolario v2.2, P1).
       });
     (C.recibos||[]).filter(r=>r.cliente_id===cliId && r.plano==='informal' && r.estado!=='anulado')
       .forEach(r=>{
@@ -11276,8 +11338,6 @@ function renderDetalleCC(){
       if(m.estado!=='cobrado')estado+='<span style="font-size:10px;color:var(--text3);">saldo '+fmtMoney(m.saldo)+'</span>';
       if(m.saldo>0.01 && s.creditoTotal>0.01){
         estado+='<button class="btn btn-sm btn-primary" onclick="abrirImputar(\'SALDO_INI\','+m.id+')" style="font-size:10px;padding:3px 6px;">💵 Imputar</button>';
-      } else if(m.estado!=='cobrado'){
-        estado+='<button class="btn btn-sm" onclick="marcarCobradoSI('+m.id+')" style="font-size:10px;padding:3px 6px;">Marcar cobrado</button>';
       }
       estado+='</div>';
     } else if(m.tipo==='RECIBO'){
@@ -11340,18 +11400,17 @@ function abrirImputar(tipoDestino,destinoId){
     destino=C.facturas.find(f=>f.id===destinoId);
     if(!destino)return;
     plano='formal';
-    saldoDisp=parseFloat(destino.saldo)||0;
+    saldoDisp=_saldoFactura(destino);
   } else if(tipoDestino==='RV'){
     destino=C.rvs.find(r=>r.id===destinoId);
     if(!destino)return;
     plano='informal';
-    saldoDisp=parseFloat(destino.saldo)||0;
+    saldoDisp=_saldoRV(destino);
   } else if(tipoDestino==='SALDO_INI'){
     destino=C.saldos_iniciales.find(s=>s.id===destinoId);
     if(!destino)return;
     plano=destino.plano;
-    const cobrado=destino.cobrado_el?parseFloat(destino.monto_cobrado_real||destino.monto)||0:0;
-    saldoDisp=Math.max(0,(parseFloat(destino.monto)||0)-cobrado);
+    saldoDisp=_saldoInicial(destino);
   }
   // Recibos con crédito del mismo plano
   const recibosDisp=(C.recibos||[]).filter(r=>{
@@ -11402,9 +11461,8 @@ function abrirImputarRecibo(reciboId){
     });
   }
   // Saldos iniciales del mismo plano y cliente
-  (C.saldos_iniciales||[]).filter(si=>si.cliente_id===cliId && si.plano===plano && !si.cobrado_el).forEach(si=>{
-    const cobrado=parseFloat(si.monto_cobrado_real)||0;
-    const saldoSI=Math.max(0,(parseFloat(si.monto)||0)-cobrado);
+  (C.saldos_iniciales||[]).filter(si=>si.cliente_id===cliId && si.plano===plano && _saldoInicial(si)>0.01).forEach(si=>{
+    const saldoSI=_saldoInicial(si);
     if(saldoSI>0.01)destinos.push({tipo:'SALDO_INI',id:si.id,ref:'📋 Saldo inicial: '+(si.concepto||'Sin concepto'),fecha:si.fecha_estimada_cobro||'',saldo:saldoSI});
   });
   if(!destinos.length){
@@ -11601,16 +11659,16 @@ async function aplicarImputacion({recibo_id,tipoDestino,destinoId,monto}){
       await sb.from('remitos_valorizados').update({saldo:nuevoSaldo,estado:nuevoEstado}).eq('id',destinoId);
     }
   } else if(tipoDestino==='SALDO_INI'){
-    const si=C.saldos_iniciales.find(x=>x.id===destinoId);
-    if(si){
-      const cobradoActual=parseFloat(si.monto_cobrado_real)||0;
-      const nuevoCobrado=r2(cobradoActual+monto);
-      const monto_total=parseFloat(si.monto)||0;
-      const update={monto_cobrado_real:nuevoCobrado};
-      if(nuevoCobrado>=monto_total-0.01){
-        update.cobrado_el=localDate();
-      }
-      await sb.from('saldos_iniciales').update(update).eq('id',destinoId);
+    // P1: el cobro de un saldo inicial se registra como movimiento (recibo_saldos_iniciales),
+    // igual que recibo_facturas. El saldo se deriva, no se muta la fila.
+    const{data:existing}=await sb.from('recibo_saldos_iniciales')
+      .select('*').eq('recibo_id',recibo_id).eq('saldo_inicial_id',destinoId).maybeSingle();
+    if(existing){
+      await sb.from('recibo_saldos_iniciales').update({
+        monto_aplicado:r2((parseFloat(existing.monto_aplicado)||0)+monto)
+      }).eq('id',existing.id);
+    } else {
+      await sb.from('recibo_saldos_iniciales').insert({recibo_id,saldo_inicial_id:destinoId,monto_aplicado:r2(monto)});
     }
   }
   // Actualizar total_aplicado del recibo
@@ -11621,27 +11679,7 @@ async function aplicarImputacion({recibo_id,tipoDestino,destinoId,monto}){
   }
 }
 
-// Marcar saldo inicial como cobrado (sin pasar por recibo)
-async function marcarCobradoSI(siId){
-  const si=C.saldos_iniciales.find(x=>x.id===siId);
-  if(!si)return;
-  const cobradoActual=parseFloat(si.monto_cobrado_real)||0;
-  const restante=r2(Math.max(0,(parseFloat(si.monto)||0)-cobradoActual));
-  const fechaIn=prompt('Fecha real de cobro (YYYY-MM-DD):',localDate());
-  if(!fechaIn)return;
-  const montoIn=prompt('Monto cobrado (saldo pendiente: '+fmtMoney(restante)+'):',restante);
-  if(!montoIn)return;
-  const monto=parseFloat(montoIn);
-  if(isNaN(monto)||monto<=0){alert('Monto inválido');return;}
-  const nuevoCobrado=r2(cobradoActual+monto);
-  const monto_total=parseFloat(si.monto)||0;
-  const update={monto_cobrado_real:nuevoCobrado};
-  if(nuevoCobrado>=monto_total-0.01){update.cobrado_el=fechaIn;}
-  await sb.from('saldos_iniciales').update(update).eq('id',siId);
-  await reload();
-  renderDetalleCC();
-  renderCCResumen();
-}
+// (marcarCobradoSI eliminada: el cobro de un saldo inicial va siempre por recibo)
 
 function imprimirEstadoCuenta(tipo){
   if(!_ccCliId)return;
@@ -11710,6 +11748,36 @@ function imprimirEstadoCuenta(tipo){
 
 let _recCtx={plano:'formal',cliente:null,valores:[],retenciones:[],imputaciones:{}};
 
+function _nrecRenderCuentas(){
+  const sel=document.getElementById('nrec-cuenta'); if(!sel)return;
+  const ctas=(C.cuentas_caja||[]).filter(x=>x.activa!==false && !x.es_conciliacion);
+  const defC=(C.cuentas_caja||[]).find(c=>c.default_cobros)?.id;
+  sel.innerHTML=ctas.map(x=>'<option value="'+x.id+'"'+(x.id===defC?' selected':'')+'>'+escapeHtml(x.nombre||'cuenta')+' '+((x.plano||'blanco')==='negro'?'⚫':'⚪')+'</option>').join('');
+  onNrecCuenta();
+}
+function onNrecCuenta(){
+  const hint=document.getElementById('nrec-cross-hint'); if(!hint)return;
+  const cid=parseInt((document.getElementById('nrec-cuenta')||{}).value)||null;
+  const cuenta=(C.cuentas_caja||[]).find(x=>x.id===cid);
+  if(cuenta && _planoNorm(_recCtx.plano)!==(cuenta.plano||'blanco')) hint.textContent='↔ Cruce: cobro '+_planoNorm(_recCtx.plano)+' que cae en cuenta '+(cuenta.plano||'blanco')+' → pasa por conciliación.';
+  else hint.textContent='';
+}
+function _recCuentaCobro(){ return parseInt((document.getElementById('nrec-cuenta')||{}).value)||null; }
+async function _recCruceConciliacion(rec,totValores,fecha){
+  const cuentaId=rec.cuenta_id; if(!cuentaId)return;
+  const cuenta=(C.cuentas_caja||[]).find(x=>x.id===cuentaId); if(!cuenta)return;
+  const recPlano=_planoNorm(rec.plano);
+  if(recPlano===(cuenta.plano||'blanco'))return;           // mismo circuito: sin cruce
+  const cheques=_recCtx.valores.filter(v=>(v.numero||v.vto)).reduce((s,v)=>s+(parseFloat(v.monto)||0),0);
+  const cash=r2((parseFloat(totValores)||0)-cheques);      // lo que cae en la cuenta (los cheques van a cartera)
+  if(cash<=0.01)return;
+  const conc=_ctaConciliacion(); if(!conc)return;
+  const dPlano=cuenta.plano||'blanco';
+  await sb.from('movimientos_caja').insert([
+    {fecha,cuenta_id:conc.id,tipo:'ingreso',monto:cash,concepto:'Cobro recibo '+(rec.numero||'')+' ('+recPlano+') acreditado en conciliación (cruce)',origen_tipo:'cobro_cruce',origen_id:rec.id},
+    {fecha,cuenta_id:conc.id,tipo:'egreso',monto:cash,concepto:'Cobro recibo '+(rec.numero||'')+' fue a cuenta '+dPlano+' ('+ccCuentaNombre(cuentaId)+')',origen_tipo:'cobro_cruce',origen_id:rec.id}
+  ]);
+}
 function initNuevoRecibo(plano){
   _recCtx={plano:plano||'formal',cliente:null,valores:[],retenciones:[],imputaciones:{}};
   go('nuevo-recibo');
@@ -11753,6 +11821,7 @@ function onNrecCliChange(){
   renderValoresRecibo();
   renderRetencionesRecibo();
   renderComprobantesParaImputar();
+  _nrecRenderCuentas();
   recalcRecibo();
 }
 
@@ -11893,8 +11962,12 @@ function renderComprobantesParaImputar(){
       .sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''))
       .map(rv=>({tipo:'RV',ref:'RV '+(rv.numero||'#'+rv.id),id:rv.id,fecha:rv.fecha,total:rv.total,saldo:_saldoRV(rv)}));
   }
+  // Saldos iniciales del mismo plano: aparecen como un comprobante más
+  (C.saldos_iniciales||[]).filter(si=>si.cliente_id===cliId && si.plano===_recCtx.plano && _saldoInicial(si)>0.01)
+    .forEach(si=>comprobantes.push({tipo:'SALDOINI',ref:'📋 Saldo inicial: '+(si.concepto||'Sin concepto'),id:si.id,fecha:si.fecha_estimada_cobro||'',total:si.monto,saldo:_saldoInicial(si)}));
+  comprobantes.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
   if(!comprobantes.length){
-    wrap.innerHTML='<div class="empty">Este cliente no tiene '+(_recCtx.plano==='formal'?'facturas':'RV')+' pendientes.</div>';
+    wrap.innerHTML='<div class="empty">Este cliente no tiene comprobantes ni saldos iniciales pendientes.</div>';
     return;
   }
   let html='<div style="overflow-x:auto"><table><thead><tr>'
@@ -11944,6 +12017,8 @@ function autoImputarRec(){
       .sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''))
       .map(rv=>({key:'RV_'+rv.id,saldo:_saldoRV(rv)}));
   }
+  (C.saldos_iniciales||[]).filter(si=>si.cliente_id===cliId && si.plano===_recCtx.plano && _saldoInicial(si)>0.01)
+    .forEach(si=>comprobantes.push({key:'SALDOINI_'+si.id,saldo:_saldoInicial(si)}));
   for(const c of comprobantes){
     if(disponible<=0.01)break;
     const aplicar=Math.min(disponible,c.saldo);
@@ -11990,6 +12065,9 @@ async function guardarRecibo(){
     } else if(tipo==='RV'){
       const rv=C.rvs.find(r=>r.id===cid); const sr=_saldoRV(rv);
       if(monto>sr+0.01){msg.style.color='var(--red)';msg.textContent='No podés imputar '+fmtMoney(monto)+' al RV '+(rv?.numero||('#'+cid))+': su saldo real es '+fmtMoney(sr)+'.';return;}
+    } else if(tipo==='SALDOINI'){
+      const si=C.saldos_iniciales.find(s=>s.id===cid); const sr=_saldoInicial(si);
+      if(monto>sr+0.01){msg.style.color='var(--red)';msg.textContent='No podés imputar '+fmtMoney(monto)+' al saldo inicial: su saldo real es '+fmtMoney(sr)+'.';return;}
     }
   }
 
@@ -12007,9 +12085,10 @@ async function guardarRecibo(){
 
   const {data:rec,error:e1}=await sb.from('recibos').insert({
     numero:numero,plano:_recCtx.plano,cliente_id:_recCtx.cliente.id,fecha:fecha,
-    total_cobrado:r2(totValores),total_retenciones:r2(totRet),total_aplicado:r2(aImputar),observaciones:obs
+    total_cobrado:r2(totValores),total_retenciones:r2(totRet),total_aplicado:r2(aImputar),observaciones:obs,cuenta_id:_recCuentaCobro()
   }).select().single();
   if(e1){msg.style.color='var(--red)';msg.textContent='Error: '+e1.message;return;}
+  await _recCruceConciliacion(rec,totValores,fecha);
 
   const valoresIns=_recCtx.valores.filter(v=>(parseFloat(v.monto)||0)>0).map(v=>{
     const m=C.metodos_pago.find(mp=>mp.id===v.metodo_id);
@@ -12051,6 +12130,8 @@ async function guardarRecibo(){
         let nuevoEst=nuevoSaldo<=0.01?'pagada':nuevoSaldo<(parseFloat(rv.total)||0)-0.01?'parcial':'pendiente';
         await sb.from('remitos_valorizados').update({saldo:nuevoSaldo,estado:nuevoEst}).eq('id',id);
       }
+    } else if(tipo==='SALDOINI'){
+      await sb.from('recibo_saldos_iniciales').insert({recibo_id:rec.id,saldo_inicial_id:id,monto_aplicado:r2(monto)});
     }
   }
 
@@ -12149,6 +12230,7 @@ function anularRecibo(id){
   const motivo=prompt('Motivo de la anulación del recibo '+(r.numero||'#'+r.id)+':\n(las facturas/RV que pagó vuelven a quedar pendientes)','Error de carga');
   if(motivo===null)return;
   (async()=>{
+    await sb.from('movimientos_caja').delete().eq('origen_tipo','cobro_cruce').eq('origen_id',id);
     const{error}=await sb.from('recibos').update({estado:'anulado',fecha_anulacion:localDate(),motivo_anulacion:motivo||null}).eq('id',id);
     if(error){toast('Error: '+error.message,'red');return;}
     toast('✓ Recibo anulado','green');
@@ -12321,7 +12403,7 @@ function renderCompComprobantes(){
   } else {
     comprobantes=(C.facturas||[]).filter(f=>f.cliente_id===cli.id && _estadoFactura(f)!=='anulada' && _saldoFactura(f)>0.01)
       .sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''))
-      .map(f=>({tipo:'FAC',ref:'Factura '+f.tipo+' '+(f.numero||'#'+f.id),id:f.id,fecha:f.fecha,saldo:f.saldo}));
+      .map(f=>({tipo:'FAC',ref:'Factura '+f.tipo+' '+(f.numero||'#'+f.id),id:f.id,fecha:f.fecha,saldo:_saldoFactura(f)}));
   }
   if(!comprobantes.length){
     wrap.innerHTML='<div class="empty" style="font-size:12px;">El cliente no tiene comprobantes pendientes en el plano destino. Podés guardar la compensación sin imputar — se registra como crédito disponible.</div>';
@@ -12831,7 +12913,8 @@ async function initCargaInicial(){
       plano:s.plano,
       monto:parseFloat(s.monto)||0,
       fecha:s.fecha_estimada_cobro||'',
-      obs:s.observaciones||''
+      obs:s.observaciones||'',
+      impacta_resultado:!!s.impacta_resultado
     });
   });
 
@@ -12897,7 +12980,10 @@ function renderSaldosCli(){
         +'<option value="informal" '+(s.plano==='informal'?'selected':'')+'>Negro</option>'
       +'</select></td>'
       +'<td style="text-align:right"><input type="number" step="0.01" value="'+(s.monto||'')+'" oninput="updSaldo('+i+',\'monto\',this.value)" style="width:100%;text-align:right"></td>'
-      +'<td style="text-align:center"><input type="date" value="'+(s.fecha||'')+'" oninput="updSaldo('+i+',\'fecha\',this.value)" style="width:100%"></td>'
+      +'<td style="text-align:center"><select onchange="updSaldo('+i+',\'impacta_resultado\',this.value===\'1\')" style="width:100%">'
+        +'<option value="0" '+(!s.impacta_resultado?'selected':'')+'>No</option>'
+        +'<option value="1" '+(s.impacta_resultado?'selected':'')+'>Sí</option>'
+      +'</select></td>'
       +'<td><input type="text" value="'+escapeHtml(s.obs||'')+'" placeholder="(opcional)" oninput="updSaldo('+i+',\'obs\',this.value)" style="width:100%"></td>'
       +'<td><button class="btn btn-sm btn-del" onclick="quitarSaldoFila('+i+')">×</button></td>'
       +'</tr>';
@@ -12920,7 +13006,7 @@ function updSaldo(i,campo,val){
 function agregarSaldoFila(){
   if(!_ciCli){alert('Primero seleccioná un cliente.');return;}
   if(!_ciSaldos[_ciCli])_ciSaldos[_ciCli]=[];
-  _ciSaldos[_ciCli].push({concepto:'',plano:'formal',monto:0,fecha:'',obs:''});
+  _ciSaldos[_ciCli].push({concepto:'',plano:'formal',monto:0,fecha:'',obs:'',impacta_resultado:false});
   renderSaldosCli();
 }
 
@@ -13048,7 +13134,8 @@ async function guardarCargaInicial(){
         plano:s.plano,
         monto:r2(s.monto),
         fecha_estimada_cobro:s.fecha||null,
-        observaciones:s.obs||null
+        observaciones:s.obs||null,
+        impacta_resultado:!!s.impacta_resultado
       };
       if(s.id){
         await sb.from('saldos_iniciales').update(payload).eq('id',s.id);
@@ -16338,6 +16425,195 @@ function cgBorrar(id){
     if(error){toast('Error: '+error.message,'red');return;}
     toast('✓ Borrado','green');
     await reload();renderComprasGastos();
+  });
+}
+
+// ===================== NUEVO PAGO A PROVEEDOR (cabecera) =====================
+let _pagCtx={proveedor_id:null,plano:'blanco',cuenta_id:null,imputaciones:{},cheques:[]};
+function initNuevoPago(){
+  _pagCtx={proveedor_id:null,plano:'blanco',cuenta_id:null,imputaciones:{},cheques:[]};
+  go('nuevo-pago');
+  const selP=document.getElementById('npag-prov');
+  if(selP){
+    selP.innerHTML='<option value="">— seleccionar —</option>'
+      +(C.proveedores||[]).slice().sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||'')).map(p=>'<option value="'+p.id+'">'+escapeHtml(p.nombre||'')+'</option>').join('');
+    selP.value='';
+  }
+  const pl=document.getElementById('npag-plano'); if(pl)pl.value='blanco';
+  document.getElementById('npag-fecha').value=localDate();
+  _npagRenderCuentas();
+  document.getElementById('npag-wrap').style.display='none';
+  document.getElementById('msg-npag').textContent='';
+  document.getElementById('npag-obs').value='';
+}
+function _npagRenderCuentas(){
+  const sel=document.getElementById('npag-cuenta'); if(!sel)return;
+  const ctas=(C.cuentas_caja||[]).filter(x=>x.activa!==false && !x.es_conciliacion && (x.plano||'blanco')===_pagCtx.plano);
+  const defP=ctas.find(x=>x.default_pagos)?.id;
+  sel.innerHTML=ctas.length
+    ? ctas.map(x=>'<option value="'+x.id+'"'+(x.id===defP?' selected':'')+'>'+escapeHtml(x.nombre||'cuenta')+' · '+escapeHtml(x.tipo||'')+'</option>').join('')
+    : '<option value="">— no hay cuentas '+_pagCtx.plano+' (cargá una en el Libro de caja) —</option>';
+  _pagCtx.cuenta_id=parseInt(sel.value)||null;
+}
+function onNpagPlano(){ _pagCtx.plano=document.getElementById('npag-plano').value||'blanco'; _npagRenderCuentas(); onNpagChange(); }
+function onNpagCuenta(){ _pagCtx.cuenta_id=parseInt(document.getElementById('npag-cuenta').value)||null; }
+function onNpagChange(){
+  const pid=parseInt(document.getElementById('npag-prov').value);
+  if(!pid){document.getElementById('npag-wrap').style.display='none';return;}
+  _pagCtx.proveedor_id=pid; _pagCtx.imputaciones={};
+  document.getElementById('npag-wrap').style.display='block';
+  renderDocsParaImputarPago(); renderChequesPago(); recalcPago();
+}
+function _npagDocs(){
+  const pid=_pagCtx.proveedor_id;
+  return (C.compras_gastos||[]).filter(c=>c.proveedor_id===pid && (c.plano||'blanco')===_pagCtx.plano && cgSaldoDoc(c)>0.01)
+    .sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+}
+function renderDocsParaImputarPago(){
+  const wrap=document.getElementById('npag-docs');
+  const docs=_npagDocs();
+  if(!docs.length){wrap.innerHTML='<div class="empty">Este proveedor no tiene compras/gastos pendientes en '+_pagCtx.plano+'.</div>';return;}
+  let html='<div style="overflow-x:auto"><table><thead><tr><th>Documento</th><th>Fecha</th><th style="text-align:right">Total</th><th style="text-align:right">Saldo</th><th style="text-align:right;width:140px;">A pagar</th></tr></thead><tbody>';
+  docs.forEach(c=>{
+    const key='CG_'+c.id; const saldo=cgSaldoDoc(c); const imp=_pagCtx.imputaciones[key]||0;
+    const ref=cgCatLabel(c.categoria)+(c.descripcion?' · '+escapeHtml(c.descripcion):'');
+    html+='<tr><td><strong>'+ref+'</strong></td><td>'+(c.fecha||'')+'</td>'
+      +'<td style="text-align:right" class="mono">'+fmtMoney(c.total)+'</td>'
+      +'<td style="text-align:right;font-weight:600;" class="mono">'+fmtMoney(saldo)+'</td>'
+      +'<td style="text-align:right"><input type="number" step="0.01" min="0" max="'+saldo+'" value="'+(imp||'')+'" data-key="'+key+'" data-saldo="'+saldo+'" oninput="onPagarChange(this)" style="width:100%;text-align:right;font-family:monospace;"></td></tr>';
+  });
+  html+='</tbody></table></div><div style="margin-top:8px;"><button class="btn btn-sm" onclick="autoImputarPago()">⚡ Pagar automáticamente</button></div>';
+  wrap.innerHTML=html;
+}
+function onPagarChange(input){
+  const key=input.dataset.key; const saldo=parseFloat(input.dataset.saldo)||0;
+  let v=parseFloat(input.value)||0; if(v<0)v=0;
+  if(v>saldo+0.01){v=r2(saldo);input.value=v;}
+  _pagCtx.imputaciones[key]=v; recalcPago();
+}
+function autoImputarPago(){
+  _pagCtx.imputaciones={};
+  _npagDocs().forEach(c=>{_pagCtx.imputaciones['CG_'+c.id]=r2(cgSaldoDoc(c));});
+  renderDocsParaImputarPago(); recalcPago();
+}
+function _planoNorm(p){ return (p==='formal'||p==='blanco')?'blanco':(p==='informal'||p==='negro')?'negro':p; }
+function _chequesCartera(){ return chCheques().filter(c=>c.estado==='en_cartera').sort((a,b)=>String(a.fecha_vto||'').localeCompare(String(b.fecha_vto||''))); }
+function renderChequesPago(){
+  const wrap=document.getElementById('npag-cheques'); if(!wrap)return;
+  const chs=_chequesCartera();
+  if(!chs.length){wrap.innerHTML='<div style="font-size:12px;color:var(--text3);padding:4px 0;">No tenés cheques en cartera.</div>';return;}
+  let html='<div style="overflow-x:auto"><table><thead><tr><th style="width:30px;text-align:center;">✓</th><th>Cheque</th><th>Vto</th><th>De</th><th style="text-align:right">Monto</th><th>Circuito</th></tr></thead><tbody>';
+  chs.forEach(c=>{
+    const sel=_pagCtx.cheques.includes(c.id); const pl=_planoNorm(c.plano_recibo); const cross=pl!==_pagCtx.plano;
+    html+='<tr style="'+(sel?'background:rgba(147,51,234,.07);':'')+'">'
+      +'<td style="text-align:center"><input type="checkbox" '+(sel?'checked':'')+' onchange="toggleChequePago('+c.id+',this.checked)"></td>'
+      +'<td>'+escapeHtml(c.banco||'cheque')+(c.numero_cheque?' N° '+escapeHtml(c.numero_cheque):'')+'</td>'
+      +'<td>'+(c.fecha_vto||'—')+'</td>'
+      +'<td>'+escapeHtml(lcCliNombre(c.cliente_id)||'')+'</td>'
+      +'<td style="text-align:right" class="mono">'+fmtMoney(c.monto)+'</td>'
+      +'<td>'+(pl==='negro'?'⚫':'⚪')+(cross?' <span style="font-size:10px;color:#f59e0b;font-weight:700;">↔ cruce</span>':'')+'</td>'
+    +'</tr>';
+  });
+  html+='</tbody></table></div>';
+  wrap.innerHTML=html;
+}
+function toggleChequePago(id,on){ _pagCtx.cheques=_pagCtx.cheques.filter(x=>x!==id); if(on)_pagCtx.cheques.push(id); renderChequesPago(); recalcPago(); }
+function recalcPago(){
+  const tot=Object.values(_pagCtx.imputaciones).reduce((s,v)=>s+(parseFloat(v)||0),0);
+  const totCh=r2(_chequesCartera().filter(c=>_pagCtx.cheques.includes(c.id)).reduce((s,c)=>s+(parseFloat(c.monto)||0),0));
+  const resto=r2(tot-totCh);
+  const set=(id,v)=>{const e=document.getElementById(id); if(e)e.textContent=v;};
+  set('npag-tot',fmtMoney(tot)); set('npag-tot-cheques',fmtMoney(totCh)); set('npag-resto',fmtMoney(resto));
+  const warn=document.getElementById('npag-warn');
+  if(warn){
+    if(resto<-0.01)warn.textContent='Los cheques ('+fmtMoney(totCh)+') superan el total a pagar. Sacá algún cheque o imputá más.';
+    else if(resto>0.01 && !(parseInt((document.getElementById('npag-cuenta')||{}).value)||0))warn.textContent='El resto de '+fmtMoney(resto)+' necesita una cuenta seleccionada arriba.';
+    else warn.textContent='';
+  }
+}
+async function guardarPago(){
+  const msg=document.getElementById('msg-npag');
+  if(!_pagCtx.proveedor_id){msg.style.color='var(--red)';msg.textContent='Falta proveedor.';return;}
+  _pagCtx.cuenta_id=parseInt(document.getElementById('npag-cuenta').value)||null;
+  const tot=Object.values(_pagCtx.imputaciones).reduce((s,v)=>s+(parseFloat(v)||0),0);
+  if(tot<=0){msg.style.color='var(--red)';msg.textContent='Ingresá al menos un monto a pagar.';return;}
+  const chsSel=_chequesCartera().filter(c=>_pagCtx.cheques.includes(c.id));
+  const totCh=r2(chsSel.reduce((s,c)=>s+(parseFloat(c.monto)||0),0));
+  const resto=r2(tot-totCh);
+  if(resto<-0.01){msg.style.color='var(--red)';msg.textContent='Los cheques superan el total. Sacá algún cheque.';return;}
+  if(resto>0.01 && !_pagCtx.cuenta_id){msg.style.color='var(--red)';msg.textContent='Falta la cuenta para el resto ('+fmtMoney(resto)+').';return;}
+  for(const [key,mont] of Object.entries(_pagCtx.imputaciones)){
+    const monto=parseFloat(mont)||0; if(monto<=0)continue;
+    const cid=parseInt(key.split('_')[1]);
+    const cg=(C.compras_gastos||[]).find(c=>c.id===cid); const sr=cgSaldoDoc(cg);
+    if(monto>sr+0.01){msg.style.color='var(--red)';msg.textContent='No podés pagar '+fmtMoney(monto)+' a '+cgCatLabel(cg?.categoria)+': saldo real '+fmtMoney(sr)+'. Reabrí la pantalla.';return;}
+  }
+  msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Guardando…</div>';
+  const fecha=document.getElementById('npag-fecha').value||localDate();
+  const obs=document.getElementById('npag-obs').value.trim()||null;
+  const cuenta=(C.cuentas_caja||[]).find(x=>x.id===_pagCtx.cuenta_id);
+  const plano=_pagCtx.plano;                       // plano de la DEUDA que se paga
+  const medio=cuenta?(cuenta.nombre||null):(totCh>0?'cheque endosado':null);
+  const prefix=plano==='negro'?'PAGN':'PAG';
+  const ult=(C.pagos||[]).filter(p=>p.plano===plano).reduce((max,p)=>{const m=(p.numero||'').match(/(\d+)/);return m?Math.max(max,parseInt(m[1])):max;},0);
+  const numero=prefix+'-'+String(ult+1).padStart(6,'0');
+  const {data:pg,error:e1}=await sb.from('pagos').insert({numero,plano,proveedor_id:_pagCtx.proveedor_id,fecha,cuenta_id:_pagCtx.cuenta_id,total:r2(tot),total_cheques:totCh,observaciones:obs}).select().single();
+  if(e1){msg.style.color='var(--red)';msg.textContent='Error: '+e1.message;return;}
+  const lineas=[];
+  for(const [key,mont] of Object.entries(_pagCtx.imputaciones)){
+    const monto=parseFloat(mont)||0; if(monto<=0)continue;
+    lineas.push({fecha,proveedor_id:_pagCtx.proveedor_id,monto:r2(monto),medio_pago:medio,cuenta_id:_pagCtx.cuenta_id,compra_gasto_id:parseInt(key.split('_')[1]),plano,pago_id:pg.id});
+  }
+  if(lineas.length){const{error:e2}=await sb.from('pagos_proveedores').insert(lineas);
+    if(e2){msg.style.color='var(--red)';msg.textContent='Error en líneas: '+e2.message;return;}}
+  // ---- cheques endosados ----
+  const conc=_ctaConciliacion();
+  for(const ch of chsSel){
+    await sb.from('recibo_valores').update({estado:'endosado',proveedor_endoso_id:_pagCtx.proveedor_id,pago_cabecera_id:pg.id}).eq('id',ch.id);
+    const chPlano=_planoNorm(ch.plano_recibo);
+    if(chPlano!==plano){                               // CRUCE: el cheque acredita en conciliación y desde ahí se paga la deuda
+      if(conc){
+        const X=r2(parseFloat(ch.monto)||0);
+        const etq='Cheque '+(ch.banco||'')+(ch.numero_cheque?' N° '+ch.numero_cheque:'')+' ('+chPlano+')';
+        await sb.from('movimientos_caja').insert([
+          {fecha,cuenta_id:conc.id,tipo:'ingreso',monto:X,concepto:etq+' acreditado en conciliación (cruce '+chPlano+'→'+plano+')',origen_tipo:'cheque_endoso',origen_id:ch.id},
+          {fecha,cuenta_id:conc.id,tipo:'egreso',monto:X,concepto:'Pago deuda '+(plano==='negro'?'negra':'blanca')+' desde conciliación · '+lcProvNombre(_pagCtx.proveedor_id),origen_tipo:'cheque_endoso',origen_id:ch.id}
+        ]);
+      } else { msg.style.color='var(--amber)'; msg.textContent='⚠ Cheque de otro circuito pero no existe la cuenta CONCILIACIÓN (corré el SQL). El cruce no se registró en caja.'; }
+    }
+  }
+  for(const l of lineas){
+    const cg=(C.compras_gastos||[]).find(c=>c.id===l.compra_gasto_id);
+    const pagado=(C.pagos_proveedores||[]).filter(p=>p.compra_gasto_id===l.compra_gasto_id).reduce((s,p)=>s+(parseFloat(p.monto)||0),0)+l.monto;
+    const est=pagado>=(parseFloat(cg?.total)||0)-0.01?'pagado':(pagado>0?'parcial':'pendiente');
+    await sb.from('compras_gastos').update({estado_pago:est}).eq('id',l.compra_gasto_id);
+  }
+  toast('✓ Pago '+numero+' registrado'+(totCh>0?' (con cheques endosados)':''),'green');
+  await reload(); go('compras-gastos');
+}
+function anularPago(id){
+  const pg=(C.pagos||[]).find(p=>p.id===id); if(!pg)return;
+  if(pg.estado==='anulado'){toast('Ese pago ya está anulado','amber');return;}
+  const motivo=prompt('Motivo de la anulación del pago '+(pg.numero||'#'+id)+':\n(las compras/gastos que pagó vuelven a quedar pendientes)','Error de carga');
+  if(motivo===null)return;
+  pedirAdminYEjecutar(async()=>{
+    const lineas=(C.pagos_proveedores||[]).filter(p=>p.pago_id===id);
+    // revertir cheques endosados de este pago (vuelven a cartera) + patas de conciliación del cruce
+    const chs=chCheques().filter(c=>c.pago_cabecera_id===id);
+    for(const ch of chs){
+      await sb.from('recibo_valores').update({estado:'en_cartera',proveedor_endoso_id:null,pago_cabecera_id:null}).eq('id',ch.id);
+      await sb.from('movimientos_caja').delete().eq('origen_tipo','cheque_endoso').eq('origen_id',ch.id);
+    }
+    await sb.from('pagos_proveedores').delete().eq('pago_id',id);
+    await sb.from('pagos').update({estado:'anulado',fecha_anulacion:new Date().toISOString(),motivo_anulacion:motivo}).eq('id',id);
+    for(const l of lineas){
+      const cg=(C.compras_gastos||[]).find(c=>c.id===l.compra_gasto_id);
+      const restantes=(C.pagos_proveedores||[]).filter(p=>p.compra_gasto_id===l.compra_gasto_id && p.pago_id!==id).reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
+      const est=restantes>=(parseFloat(cg?.total)||0)-0.01&&restantes>0?'pagado':(restantes>0?'parcial':'pendiente');
+      await sb.from('compras_gastos').update({estado_pago:est}).eq('id',l.compra_gasto_id);
+    }
+    toast('✓ Pago anulado','green');
+    await reload(); renderComprasGastos();
   });
 }
 
@@ -20903,6 +21179,56 @@ function _calcularCobroPedido(p){
   return {fechaEntrega,fechaCobro,plazo,totalPed,cobrosRegistrados,pendiente,cliente:p.cliente||'—',esHibrido};
 }
 
+// Monto ya DOCUMENTADO (facturado / valorizado) de un pedido, vía sus remitos.
+// OJO: facturas y RV NO guardan pedido_id. El único vínculo confiable es
+// remito.pedido_id -> remito.factura_id / remito.rv_id. Devuelve {neto,bruto}
+// para poder restar en la misma base que use _calcularCobroPedido (híbrido=neto, resto=bruto).
+function _pedidoYaDocumentado(pid){
+  pid=parseInt(pid);let neto=0,bruto=0;const vf=new Set(),vr=new Set();
+  (C.remitos||[]).forEach(rm=>{
+    if(parseInt(rm.pedido_id)!==pid)return;
+    if(rm.factura_id&&!vf.has(String(rm.factura_id))){
+      const f=(C.facturas||[]).find(x=>String(x.id)===String(rm.factura_id));
+      if(f&&f.estado!=='anulada'){vf.add(String(rm.factura_id));neto+=parseFloat(f.subtotal)||0;bruto+=parseFloat(f.total)||0;}
+    }
+    if(rm.rv_id&&!vr.has(String(rm.rv_id))){
+      const rv=(C.rvs||[]).find(x=>String(x.id)===String(rm.rv_id));
+      if(rv&&rv.estado!=='anulada'){vr.add(String(rm.rv_id));neto+=parseFloat(rv.subtotal)||parseFloat(rv.total)||0;bruto+=parseFloat(rv.total)||0;}
+    }
+  });
+  return {neto:r2(neto),bruto:r2(bruto)};
+}
+// Pendiente de cobro de un pedido para la capa PIPELINE, ya NETO de lo facturado/valorizado.
+// Evita el doble conteo: la parte ya entregada+facturada vive como saldo de factura/RV y como
+// cheque en cartera; no debe reproyectarse acá como cobro futuro (bug Pesce).
+function _cobroPipelinePendiente(p){
+  const c=_calcularCobroPedido(p);
+  if(!c)return null;
+  const doc=_pedidoYaDocumentado(p.id);
+  const yaDoc=c.esHibrido?doc.neto:doc.bruto;
+  const pend=r2(Math.max(0,(c.pendiente||0)-yaDoc));
+  return Object.assign({},c,{pendiente:pend,yaDocumentado:yaDoc});
+}
+
+// ÚNICA fuente de verdad de la cobranza REAL de un pedido (P1: deriva de movimientos).
+// = recibos aplicados a las facturas/RV del pedido (vía cadena remito->factura/rv).
+// Fallback legacy: si el pedido no tiene NINGÚN documento formal con recibo, usa los
+// pedido_cobros marcados cobrados (datos viejos previos al circuito de recibos).
+// NUNCA leer pedido_cobros directo para saber "cuánto cobré": usar esta función.
+function _cobradoPedido(p){
+  if(!p)return 0;
+  let cob=0,tieneDoc=false;const facs=new Set(),rvs=new Set();
+  (C.remitos||[]).forEach(rm=>{
+    if(String(rm.pedido_id)!==String(p.id))return;
+    if(rm.factura_id)facs.add(String(rm.factura_id));
+    if(rm.rv_id)rvs.add(String(rm.rv_id));
+  });
+  facs.forEach(fid=>{const f=(C.facturas||[]).find(x=>String(x.id)===fid);if(f&&f.estado!=='anulada'){tieneDoc=true;cob+=(typeof _aplicadoAFactura==='function'?_aplicadoAFactura(f.id):0);}});
+  rvs.forEach(rid=>{const rv=(C.rvs||[]).find(x=>String(x.id)===rid);if(rv&&rv.estado!=='anulada'){tieneDoc=true;cob+=(typeof _aplicadoARV==='function'?_aplicadoARV(rv.id):0);}});
+  if(!tieneDoc)cob=(p.pedido_cobros||[]).filter(c=>c.cobrado).reduce((s,c)=>s+(parseFloat(c.monto)||0),0);
+  return r2(cob);
+}
+
 // Selección manual de pedidos que financian la compra (el sistema sugiere, vos decidís)
 let _fmpSel=new Set();let _fmpSelKey=null;
 function _fmpToggleSel(id){
@@ -23872,6 +24198,106 @@ async function alinearStockProducto(productoId,dif){
     toast('Alineado','green');
     renderSaludStock();
   }catch(e){toast('Error: '+(e?.message||e),'red');}
+}
+
+// ===== Salud del flujo / cuenta corriente: invariantes de plata (P1) =====
+// Detecta verdad duplicada y drift entre lo GUARDADO y lo DERIVADO de documentos.
+// Devuelve [{sev:'red'|'amber', cat, msg}]. Corre sobre el cache C (sin tocar la BD).
+function _saludFlujoChecks(){
+  const V=[];const EPS=0.5;
+  const ar=(C.facturas||[]);const rvs=(C.rvs||[]);const recs=(C.recibos||[]);const sis=(C.saldos_iniciales||[]);
+  // 1) Factura: saldo guardado vs derivado (sombra) + sobre-aplicación
+  ar.forEach(f=>{
+    if(f.estado==='anulada')return;
+    const der=_saldoFactura(f), apl=_aplicadoAFactura(f.id), tot=parseFloat(f.total)||0;
+    if(f.saldo!=null&&Math.abs((parseFloat(f.saldo)||0)-der)>EPS)
+      V.push({sev:'amber',cat:'Factura · saldo guardado ≠ derivado',msg:'Factura '+(f.numero||'#'+f.id)+' · '+lcCliNombre(f.cliente_id)+': guardado $'+r2(parseFloat(f.saldo)||0).toLocaleString('es-AR')+' vs derivado $'+der.toLocaleString('es-AR')});
+    if(apl>tot+EPS)
+      V.push({sev:'red',cat:'Factura · sobre-aplicada (cobraste de más)',msg:'Factura '+(f.numero||'#'+f.id)+' · '+lcCliNombre(f.cliente_id)+': aplicado $'+r2(apl).toLocaleString('es-AR')+' > total $'+r2(tot).toLocaleString('es-AR')});
+  });
+  // 2) RV: idem
+  rvs.forEach(rv=>{
+    if(rv.estado==='anulada')return;
+    const der=_saldoRV(rv), apl=_aplicadoARV(rv.id), tot=parseFloat(rv.total)||0;
+    if(rv.saldo!=null&&Math.abs((parseFloat(rv.saldo)||0)-der)>EPS)
+      V.push({sev:'amber',cat:'RV · saldo guardado ≠ derivado',msg:'RV '+(rv.numero||'#'+rv.id)+' · '+lcCliNombre(rv.cliente_id)+': guardado $'+r2(parseFloat(rv.saldo)||0).toLocaleString('es-AR')+' vs derivado $'+der.toLocaleString('es-AR')});
+    if(apl>tot+EPS)
+      V.push({sev:'red',cat:'RV · sobre-aplicada',msg:'RV '+(rv.numero||'#'+rv.id)+' · '+lcCliNombre(rv.cliente_id)+': aplicado $'+r2(apl).toLocaleString('es-AR')+' > total $'+r2(tot).toLocaleString('es-AR')});
+  });
+  // 3) Saldo inicial: sobre-aplicado + flag legacy cobrado_el (no se debe usar)
+  sis.forEach(si=>{
+    const apl=_aplicadoASaldoInicial(si.id), mon=parseFloat(si.monto)||0;
+    if(apl>mon+EPS)
+      V.push({sev:'red',cat:'Saldo inicial · sobre-aplicado',msg:'Saldo inicial '+lcCliNombre(si.cliente_id)+': aplicado $'+r2(apl).toLocaleString('es-AR')+' > monto $'+r2(mon).toLocaleString('es-AR')});
+    if(si.cobrado_el)
+      V.push({sev:'amber',cat:'Saldo inicial · flag cobrado_el viejo',msg:'Saldo inicial '+lcCliNombre(si.cliente_id)+' tiene cobrado_el seteado — el saldo se deriva de recibos; ese flag no se usa y puede confundir.'});
+  });
+  // 4) Recibo: total_aplicado vs suma de aplicaciones; total_cobrado vs suma de valores
+  recs.forEach(r=>{
+    if(r.estado==='anulado')return;
+    const sumApl=(r.recibo_facturas||[]).reduce((s,x)=>s+(parseFloat(x.monto_aplicado)||0),0)
+      +(r.recibo_rvs||[]).reduce((s,x)=>s+(parseFloat(x.monto_aplicado)||0),0)
+      +(r.recibo_saldos_iniciales||[]).reduce((s,x)=>s+(parseFloat(x.monto_aplicado)||0),0);
+    const totApl=parseFloat(r.total_aplicado)||0;
+    if(Math.abs(totApl-sumApl)>EPS)
+      V.push({sev:'red',cat:'Recibo · total_aplicado ≠ suma de aplicaciones',msg:'Recibo '+(r.numero||'#'+r.id)+': total_aplicado $'+r2(totApl).toLocaleString('es-AR')+' vs aplicaciones $'+r2(sumApl).toLocaleString('es-AR')});
+    const sumVal=(r.recibo_valores||[]).reduce((s,x)=>s+(parseFloat(x.monto)||0),0);
+    const totCob=parseFloat(r.total_cobrado)||0;
+    if(sumVal>0&&Math.abs(totCob-sumVal)>EPS)
+      V.push({sev:'amber',cat:'Recibo · total_cobrado ≠ suma de valores',msg:'Recibo '+(r.numero||'#'+r.id)+': total_cobrado $'+r2(totCob).toLocaleString('es-AR')+' vs valores $'+r2(sumVal).toLocaleString('es-AR')});
+  });
+  // 5) pedido_cobros marcado cobrado en pedidos que YA cobran por recibo (doble registro legacy)
+  (C.pedidos||[]).forEach(p=>{
+    const pcCob=(p.pedido_cobros||[]).filter(c=>c.cobrado).reduce((s,c)=>s+(parseFloat(c.monto)||0),0);
+    if(pcCob<=EPS)return;
+    const rems=(C.remitos||[]).filter(r=>String(r.pedido_id)===String(p.id));
+    const tieneDoc=rems.some(r=>r.factura_id||r.rv_id);
+    if(tieneDoc)
+      V.push({sev:'amber',cat:'pedido_cobros legacy conviviendo con recibos',msg:'Pedido '+(p.numero_pedido||p.id)+' · '+(p.cliente||'')+': tiene cobros viejos en pedido_cobros ($'+r2(pcCob).toLocaleString('es-AR')+') y además documentos con recibo. La cobranza real la da _cobradoPedido; conviene limpiar el registro viejo.'});
+  });
+  return V;
+}
+// Resumen numérico derivado (lo que el flujo considera "verdad")
+function _saludFlujoResumen(){
+  let ar=0,vencido=0,cheques=0;const hoy=localDate();
+  (C.facturas||[]).forEach(f=>{if(_estadoFactura(f)==='anulada')return;const s=_saldoFactura(f);if(s>0.01){ar+=s;if(String(fcEfectivaCobro(f,f.fecha))<hoy)vencido+=s;}});
+  (C.rvs||[]).forEach(rv=>{if(_estadoRV(rv)==='anulada')return;const s=_saldoRV(rv);if(s>0.01){ar+=s;if(String(fcEfectivaCobro(rv,rv.fecha))<hoy)vencido+=s;}});
+  (C.saldos_iniciales||[]).forEach(si=>{const s=_saldoInicial(si);if(s>0.01){ar+=s;const fe=String(si.fecha_estimada_cobro||si.created_at?.slice(0,10)||'');if(fe&&fe<hoy)vencido+=s;}});
+  try{(chCheques()||[]).forEach(ch=>{if(ch.estado==='en_cartera'||ch.estado==='depositado')cheques+=parseFloat(ch.monto)||0;});}catch(e){}
+  return {ar:r2(ar),vencido:r2(vencido),cheques:r2(cheques)};
+}
+function renderSaludFlujo(){
+  const cont=document.getElementById('salud-flujo-cont');
+  if(!cont)return;
+  let V=[];try{V=_saludFlujoChecks();}catch(e){cont.innerHTML='<div class="alert alert-danger" style="font-size:12px;">Error corriendo invariantes: '+(e?.message||e)+'</div>';return;}
+  const R=_saludFlujoResumen();
+  const reds=V.filter(v=>v.sev==='red'),ambers=V.filter(v=>v.sev==='amber');
+  let html='';
+  // Resumen
+  html+='<div class="stats" style="margin-bottom:12px;">'
+    +'<div class="stat" style="border-top:3px solid var(--accent)"><div class="stat-lbl">Por cobrar (AR derivado)</div><div class="stat-val" style="color:var(--accent)">$'+R.ar.toLocaleString('es-AR')+'</div></div>'
+    +'<div class="stat" style="border-top:3px solid var(--red)"><div class="stat-lbl">Vencido</div><div class="stat-val" style="color:var(--red)">$'+R.vencido.toLocaleString('es-AR')+'</div></div>'
+    +'<div class="stat" style="border-top:3px solid var(--green)"><div class="stat-lbl">Cheques en cartera</div><div class="stat-val" style="color:var(--green)">$'+R.cheques.toLocaleString('es-AR')+'</div></div>'
+    +'</div>';
+  if(!V.length){
+    html+='<div class="alert" style="background:rgba(34,197,94,.08);border:1px solid var(--green);color:var(--green);font-size:13px;padding:12px 14px;border-radius:var(--rl);">✅ Todo cierra. Ninguna invariante de plata violada: los saldos guardados coinciden con los derivados, ningún documento está sobre-aplicado, y los recibos cuadran. La cobranza es la verdad de los documentos.</div>';
+    cont.innerHTML=html;return;
+  }
+  html+='<div class="alert '+(reds.length?'alert-danger':'alert-warn')+'" style="font-size:12px;margin-bottom:12px;">'
+    +(reds.length?'🔴 <b>'+reds.length+'</b> alerta(s) críticas (plata mal contada). ':'')
+    +(ambers.length?'🟡 <b>'+ambers.length+'</b> aviso(s) de drift/limpieza.':'')
+    +' Resolver primero las rojas.</div>';
+  html+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">'
+    +'<thead><tr style="background:var(--bg3);"><th style="padding:6px 8px;text-align:center;width:40px;"></th><th style="padding:6px 8px;text-align:left;">Invariante</th><th style="padding:6px 8px;text-align:left;">Detalle</th></tr></thead><tbody>';
+  [...reds,...ambers].forEach(v=>{
+    html+='<tr style="border-bottom:1px solid var(--bd);">'
+      +'<td style="padding:6px 8px;text-align:center;">'+(v.sev==='red'?'🔴':'🟡')+'</td>'
+      +'<td style="padding:6px 8px;font-weight:600;">'+v.cat+'</td>'
+      +'<td style="padding:6px 8px;color:var(--text2);">'+v.msg+'</td>'
+      +'</tr>';
+  });
+  html+='</tbody></table></div>';
+  cont.innerHTML=html;
 }
 
 function renderAuditStockBolsas(){
@@ -30007,8 +30433,7 @@ function _estadoOperativoPedido(p){
   });
 
   // Cobros
-  const cobros=p.pedido_cobros||[];
-  const totalCobrado=cobros.filter(c=>c.cobrado).reduce((s,c)=>s+(parseFloat(c.monto)||0),0);
+  const totalCobrado=_cobradoPedido(p); // derivado de recibos (P1), no de pedido_cobros
   const totalPedido=p.total||0;
   const cobradoCompleto=totalPedido>0&&totalCobrado>=totalPedido-0.01;
   const cobradoParcial=totalCobrado>0&&!cobradoCompleto;
@@ -30331,9 +30756,15 @@ function renderDashboardVentas(){
   const iniMes=new Date(ahora.getFullYear(),ahora.getMonth(),1);
   const pedMes=C.pedidos.filter(p=>new Date(p.fecha_pedido||p.created_at)>=iniMes&&p.estado!=='Cancelado');
   const facturado=r2(pedMes.reduce((s,p)=>s+(p.total||0),0));
-  const cobros=C.pedidos.flatMap(p=>p.pedido_cobros||[]);
-  const porCobrar=r2(cobros.filter(c=>!c.cobrado).reduce((s,c)=>s+(c.monto||0),0));
-  const vencido=r2(cobros.filter(c=>!c.cobrado&&c.fecha_cobro_est&&new Date(c.fecha_cobro_est)<ahora).reduce((s,c)=>s+(c.monto||0),0));
+  // Por cobrar / vencido = AR REAL derivado de documentos (P1): saldos de factura + RV + saldo inicial.
+  // NUNCA de pedido_cobros (placeholders ciegos a recibos). Los cheques no son "por cobrar":
+  // si pagaron una factura, esa factura ya tiene saldo 0; el cheque es un valor a depositar aparte.
+  const _hoyKpi=localDate();
+  let porCobrar=0,vencido=0;
+  (C.facturas||[]).forEach(f=>{if(_estadoFactura(f)==='anulada')return;const s=_saldoFactura(f);if(s<=0.01)return;porCobrar+=s;if(String(fcEfectivaCobro(f,f.fecha))<_hoyKpi)vencido+=s;});
+  (C.rvs||[]).forEach(rv=>{if(_estadoRV(rv)==='anulada')return;const s=_saldoRV(rv);if(s<=0.01)return;porCobrar+=s;if(String(fcEfectivaCobro(rv,rv.fecha))<_hoyKpi)vencido+=s;});
+  (C.saldos_iniciales||[]).forEach(si=>{const s=_saldoInicial(si);if(s<=0.01)return;porCobrar+=s;const fe=String(si.fecha_estimada_cobro||si.created_at?.slice(0,10)||'');if(fe&&fe<_hoyKpi)vencido+=s;});
+  porCobrar=r2(porCobrar);vencido=r2(vencido);
   const sinFact=r2(C.pedidos.filter(p=>p.estado==='Entregado'&&!p.numero_comprobante).reduce((s,p)=>s+(p.total||0),0));
   const kpis=document.getElementById('ped-kpis');
   if(kpis)kpis.innerHTML='<div class="stats" style="margin-bottom:0">'
@@ -30382,7 +30813,7 @@ function renderDashboardVentas(){
       if(!porCli[p.cliente])porCli[p.cliente]={cliente:p.cliente,total:0,pedidos:0,cobrado:0};
       porCli[p.cliente].total+=(p.total||0);
       porCli[p.cliente].pedidos++;
-      (p.pedido_cobros||[]).filter(c=>c.cobrado).forEach(c=>{porCli[p.cliente].cobrado+=(parseFloat(c.monto)||0);});
+      porCli[p.cliente].cobrado+=_cobradoPedido(p); // derivado de recibos (P1)
     });
     const top=Object.values(porCli).sort((a,b)=>b.total-a.total).slice(0,5);
     if(top.length){
@@ -30583,9 +31014,8 @@ function renderPedidosLista(){
   const _schedCorteLista=calcScheduleCorteReal();
 
   lista.forEach(p=>{
-    const cobros=p.pedido_cobros||[];
-    const cobrado=r2(cobros.filter(c=>c.cobrado).reduce((s,c)=>s+(c.monto||0),0));
-    const pendCobro=r2(cobros.filter(c=>!c.cobrado).reduce((s,c)=>s+(c.monto||0),0));
+    const cobrado=_cobradoPedido(p); // derivado de recibos (P1)
+    const pendCobro=r2(Math.max(0,(p.total||0)-cobrado));
     // Kg de MP del pedido: Borrador → desde plan_ordenes; Confirmado+ → desde sus OC
     let kgMP=0;
     if(p.estado==='Borrador'){
@@ -34544,8 +34974,8 @@ function renderDetallePedidoPagina(pedidoId){
   }
 
   // KPIs de cabecera
-  const cobrado=r2(cobros.filter(c=>c.cobrado).reduce((s,c)=>s+(c.monto||0),0));
-  const pendCobro=r2(cobros.filter(c=>!c.cobrado).reduce((s,c)=>s+(c.monto||0),0));
+  const cobrado=_cobradoPedido(p); // derivado de recibos (P1)
+  const pendCobro=r2(Math.max(0,(p.total||0)-cobrado));
   const prio=parseInt(p.prioridad)||3;
   const prioColor=prio<=2?'var(--red)':prio===3?'var(--amber)':'var(--text2)';
   const prioTxt={1:'1 · Urgente',2:'2 · Alta',3:'3 · Media',4:'4 · Baja',5:'5 · Mínima'}[prio]||'3 · Media';
@@ -35029,28 +35459,37 @@ function _dpRenderHistorico(p){
 function _dpRenderCobrosRemitos(p){
   const cont=document.getElementById('dp-cobros-remitos');
   if(!cont)return;
-  const cobros=p.pedido_cobros||[];
   const remitos=(C.remitos||[]).filter(r=>r.pedido_id===p.id);
+  // Documentos del pedido vía cadena remito->factura/RV, con saldo DERIVADO (P1).
+  const facIds=new Set(),rvIds=new Set();
+  remitos.forEach(r=>{if(r.factura_id)facIds.add(String(r.factura_id));if(r.rv_id)rvIds.add(String(r.rv_id));});
+  const docs=[];
+  facIds.forEach(id=>{const f=(C.facturas||[]).find(x=>String(x.id)===id);if(f&&_estadoFactura(f)!=='anulada')docs.push({et:'Factura '+(f.tipo||''),ref:(f.numero||''),total:parseFloat(f.total)||0,saldo:_saldoFactura(f)});});
+  rvIds.forEach(id=>{const rv=(C.rvs||[]).find(x=>String(x.id)===id);if(rv&&_estadoRV(rv)!=='anulada')docs.push({et:'RV',ref:(rv.numero||'#'+rv.id),total:parseFloat(rv.total)||0,saldo:_saldoRV(rv)});});
+  const cobrado=_cobradoPedido(p);
+  const pendDoc=r2(docs.reduce((s,d)=>s+Math.max(0,d.saldo),0));
   let html='<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">';
 
-  // Cobros
-  html+='<div class="fp" style="margin:0;"><div class="fp-t">💰 Cobros</div><div style="padding:10px 14px;">';
-  if(cobros.length){
+  // Cobranza (derivada de recibos)
+  html+='<div class="fp" style="margin:0;"><div class="fp-t">💰 Cobranza (por recibos)</div><div style="padding:10px 14px;">';
+  html+='<div style="display:flex;gap:18px;margin-bottom:8px;">'
+    +'<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;">Cobrado</div><div class="mono" style="font-weight:800;color:var(--green);">$'+cobrado.toLocaleString('es-AR')+'</div></div>'
+    +'<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;">Pendiente (saldo doc.)</div><div class="mono" style="font-weight:800;color:'+(pendDoc>0.01?'var(--accent)':'var(--text3)')+';">$'+pendDoc.toLocaleString('es-AR')+'</div></div>'
+    +'</div>';
+  if(docs.length){
     html+='<div style="display:flex;flex-direction:column;gap:6px;">';
-    cobros.forEach(c=>{
-      const vencido=!c.cobrado&&c.fecha_cobro_est&&new Date(c.fecha_cobro_est)<new Date();
-      html+='<div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:var(--r);padding:8px 12px;">'
-        +'<div style="flex:1;font-size:12px;">'+(c.descripcion||'Cobro')+'<div style="font-size:10px;color:var(--text3);">'+(c.fecha_cobro_est||'—')+'</div></div>'
-        +'<div class="mono" style="font-weight:700;">$'+r2(c.monto).toLocaleString('es-AR')+'</div>'
-        +'<span style="font-size:10px;color:'+(c.cobrado?'var(--green)':vencido?'var(--red)':'var(--text2)')+';font-weight:600;">'+(c.cobrado?'✓ Cobrado':vencido?'⚠ Vencido':'Pendiente')+'</span>'
-        +(c.cobrado?'':'<button class="btn btn-sm" style="background:var(--green);color:#fff;border:none;font-size:10px;" onclick="registrarCobro('+p.id+','+c.id+')">Cobrar</button>')
+    docs.forEach(d=>{
+      html+='<div style="display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:var(--r);padding:6px 10px;font-size:12px;">'
+        +'<div style="flex:1;">'+d.et+' '+d.ref+'</div>'
+        +'<div class="mono" style="font-weight:700;">$'+r2(d.total).toLocaleString('es-AR')+'</div>'
+        +'<span style="font-size:10px;font-weight:600;color:'+(d.saldo<=0.01?'var(--green)':'var(--accent)')+';">'+(d.saldo<=0.01?'✓ cobrado':'saldo $'+r2(d.saldo).toLocaleString('es-AR'))+'</span>'
       +'</div>';
     });
     html+='</div>';
   } else {
-    html+='<div style="color:var(--text3);font-size:12px;font-style:italic;">Sin cobros planificados.</div>';
+    html+='<div style="color:var(--text3);font-size:12px;font-style:italic;">Todavía sin facturar/valorizar. La cobranza se registra por recibo una vez emitido el comprobante.</div>';
   }
-  html+='<div style="margin-top:8px;"><button class="btn btn-sm" onclick="abrirRegistrarCobro('+p.id+')">+ Agregar cobro</button></div>';
+  html+='<div style="margin-top:8px;"><button class="btn btn-sm" onclick="abrirRegistrarCobro('+p.id+')">+ Registrar recibo</button></div>';
   html+='</div></div>';
 
   // Remitos
@@ -35764,7 +36203,20 @@ async function confirmarEditarOrdenCorte(id){
   },1000);
 }
 
+// DEPRECADO (decisión de Germán, jun-2026): la cobranza se registra SOLO por recibo (circuito único, P1).
+// La cobranza de un pedido se DERIVA de los recibos aplicados a sus facturas/RV (_cobradoPedido).
+// Este botón ya no crea pedido_cobros: redirige a "nuevo recibo".
 function abrirRegistrarCobro(pedId){
+  const p=C.pedidos.find(x=>x.id===pedId);
+  const plano=(p&&p.tipo_venta==='negro')?'informal':'formal';
+  document.getElementById('det-ped-modal')?.remove();
+  document.getElementById('cobro-modal')?.remove();
+  if(confirm('Los cobros se registran SOLO por recibo (circuito único).\n\nLa cobranza de cada pedido se calcula sola a partir de los recibos aplicados a sus facturas/RV.\n\n¿Abrir un nuevo recibo '+plano+(p&&p.cliente?' para '+p.cliente:'')+'?')){
+    try{ go('cuenta-corriente'); }catch(e){}
+    setTimeout(()=>{ try{ initNuevoRecibo(plano); }catch(e){ if(typeof toast==='function')toast('Andá a Cuenta corriente → + Recibo','amber'); } },80);
+  }
+}
+function _abrirRegistrarCobroVIEJO(pedId){
   document.getElementById('det-ped-modal')?.remove();
   const p=C.pedidos.find(x=>x.id===pedId);if(!p)return;
   const cobros=p.pedido_cobros||[];
@@ -35860,8 +36312,11 @@ function fcCobrosPendientes(){
     out.push({clase:'cobro',tipo:'rv',id:rv.id,cliente_id:rv.cliente_id,plano:'informal',ref:'RV '+(rv.numero||'')+' · '+lcCliNombre(rv.cliente_id),saldo,fEf:fcEfectivaCobro(rv,rv.fecha),editable:true});
   });
   (C.saldos_iniciales||[]).forEach(si=>{
-    if(si.cobrado_el)return;
-    const saldo=parseFloat(si.monto)||0;if(saldo<=0.01)return;
+    // Saldo NETO derivado de movimientos (recibos aplicados), nunca el flag cobrado_el ni el monto bruto.
+    // Si el cliente ya pagó el saldo inicial con un recibo, esa plata vive como cheque/valor en cartera;
+    // contar acá el monto bruto la duplicaría (bug Rolando: saldo inicial fantasma + 3 e-cheq).
+    const saldo=(typeof _saldoInicial==='function')?_saldoInicial(si):((parseFloat(si.monto)||0)*(si.cobrado_el?0:1));
+    if(saldo<=0.01)return;
     out.push({clase:'cobro',tipo:'si',id:si.id,cliente_id:si.cliente_id,plano:si.plano,ref:'Saldo inicial: '+(si.concepto||'')+' · '+lcCliNombre(si.cliente_id),saldo,fEf:String(si.fecha_estimada_cobro||si.created_at?.slice(0,10)||localDate()),editable:false});
   });
   // Cheques diferidos en cartera: plata que entra al acreditarse (en su fecha de vto).
@@ -35896,6 +36351,18 @@ async function fcSetPago(id,val){
 function fcSemanaLun(fechaStr){
   const f=new Date(fechaStr+'T12:00:00');const lun=new Date(f);lun.setDate(f.getDate()-f.getDay()+1);return dStr(lun);
 }
+// Banner de salud que corre al abrir el flujo: rojo/amarillo si una invariante de plata no cierra.
+function _fcSaludBanner(){
+  let V=[];try{V=_saludFlujoChecks();}catch(e){return '';}
+  if(!V.length)return '';
+  const reds=V.filter(v=>v.sev==='red').length, ambers=V.length-reds;
+  const bg=reds?'rgba(239,68,68,.10)':'rgba(245,158,11,.10)', bd=reds?'var(--red)':'var(--amber)';
+  return '<div style="background:'+bg+';border:1px solid '+bd+';border-radius:var(--rl);padding:9px 12px;margin-bottom:10px;font-size:12px;display:flex;align-items:center;gap:10px;">'
+    +'<span>'+(reds?'🔴':'🟡')+'</span>'
+    +'<span style="flex:1;">'+(reds?'<b>'+reds+'</b> alerta(s) de plata mal contada. ':'')+(ambers?'<b>'+ambers+'</b> aviso(s) de drift.':'')+' La proyección puede no cerrar.</span>'
+    +'<button class="btn btn-sm" onclick="goAdmin(\'salud-flujo\')">Ver salud 🩺</button>'
+    +'</div>';
+}
 function renderFlujoCaja(){
   const periodo=document.getElementById('fc-periodo')?.value||'mes';
   const ahora=new Date();const hoyStr=localDate();
@@ -35925,7 +36392,7 @@ function renderFlujoCaja(){
   const saldoFinal=r2(FC.saldoIni+porCobrar-porPagar);
 
   // Barra de vista + presupuesto
-  const toolbar='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">'
+  const toolbar=_fcSaludBanner()+'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">'
     +'<div class="btn-grp"><button class="btn btn-sm'+(FC.vista==='tabla'?' btn-primary':'')+'" onclick="FC.vista=\'tabla\';renderFlujoCaja();">📋 Tabla</button><button class="btn btn-sm'+(FC.vista==='grilla'?' btn-primary':'')+'" onclick="FC.vista=\'grilla\';renderFlujoCaja();">📊 Planilla</button></div>'
     +(FC.vista==='grilla'?'<select class="st-sel" onchange="FC.gran=this.value;renderFlujoCaja();"><option value="dia"'+(FC.gran==='dia'?' selected':'')+'>Por día</option><option value="semana"'+(FC.gran==='semana'?' selected':'')+'>Por semana</option><option value="mes"'+(FC.gran==='mes'?' selected':'')+'>Por mes</option></select>':'')
     +'<label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" '+(FC.incTentativos?'checked':'')+' onchange="FC.incTentativos=this.checked;renderFlujoCaja();"> incluir tentativos</label>'
@@ -36030,16 +36497,25 @@ function renderFlujoCaja(){
 function _pedidoCapaProduccion(p){
   const ocIds=(p.pedido_ordenes_corte||[]).map(x=>x.orden_corte_id).filter(Boolean);
   if(!ocIds.length)return 'a_producir';
-  let algunaRoja=false,hayPendiente=false;
+  let hayPendiente=false,necesitaExtrusion=false;
   for(const ocId of ocIds){
     const oc=(C.ord_corte||[]).find(o=>o.id===ocId);
     if(!oc||oc.estado==='Completada'||oc.estado==='Cancelada')continue;
     hayPendiente=true;
     let bal=null;try{bal=_calcularBalanceOC(oc);}catch(e){}
-    if(bal&&bal.semaforo==='rojo')algunaRoja=true;
+    if(!bal)continue;
+    if(bal.semaforo==='rojo'){
+      // Una OC roja NO siempre significa "hay que extruir/comprar MP".
+      // Si el material YA se produjo (la OE alcanzó) y el faltante se explica por bobinas
+      // robadas/reasignadas a otra OC, es un tema de reasignación/corte, no de MP → sigue 'producido'.
+      // Solo cuenta como 'a_producir' si, contando incluso las robadas, la OE no llega: ahí sí falta extruir.
+      const mtsRobadas=(bal.bobinasRobadas||[]).reduce((s,r)=>s+(parseFloat(r.bobina&&r.bobina.metros_reales)||0),0);
+      const cubiertoConRobadas=(bal.mtsCortados||0)+(bal.mtsReservado||0)+(bal.mtsEnCurso||0)+mtsRobadas;
+      if(cubiertoConRobadas < (bal.mtsNecesarios||0)-0.5) necesitaExtrusion=true;
+    }
   }
   if(!hayPendiente)return 'producido';
-  return algunaRoja?'a_producir':'producido';
+  return necesitaExtrusion?'a_producir':'producido';
 }
 // Capa de certeza de un ítem (4 niveles):
 //  1=firme · 2=producido (material listo, sin comprar MP) · 3=a producir (necesita extrudir → depende de MP)
@@ -36111,16 +36587,14 @@ function fcItemsProyectados(hastaStr){
   // Dedup contra la capa firme y el presupuesto: si el pedido ya tiene factura, su cobro vive
   // como saldo de factura; si ya fue presupuestado (origen pedido), lo representa esa línea.
   try{
-    const _pedConFactura=new Set((C.facturas||[]).filter(f=>f.estado!=='anulada'&&f.pedido_id).map(f=>f.pedido_id));
     const _pedPresup=new Set((C.flujo_presupuesto||[]).filter(fp=>fp.origen_tipo==='pedido'&&fp.origen_id).map(fp=>parseInt(fp.origen_id)));
     const _estPipe=['Pendiente','Confirmado','En producción','En proceso','Parcial','Cobrado parcial'];
     (C.pedidos||[]).forEach(p=>{
       if(p.es_historico)return;
       const ok=_estPipe.includes(p.estado)||(p.estado==='Borrador'&&typeof _esBorradorHibrido==='function'&&_esBorradorHibrido(p));
       if(!ok)return;
-      if(_pedConFactura.has(p.id))return;
       if(_pedPresup.has(p.id))return;
-      const c=_calcularCobroPedido(p);
+      const c=_cobroPipelinePendiente(p);
       if(!c||c.pendiente<=0.01)return;
       const _pe=_pedidoCapaProduccion(p);
       const _ic=_pe==='producido'?'🏭':'📦';
@@ -36205,16 +36679,14 @@ function fpEditar(id){const f=(C.flujo_presupuesto||[]).find(x=>x.id===id);if(f)
 // Pedidos del pipeline disponibles para presupuestar (mismos criterios que la capa pipeline)
 function _fpPedidosPipeline(){
   const out=[];
-  const _pedConFactura=new Set((C.facturas||[]).filter(f=>f.estado!=='anulada'&&f.pedido_id).map(f=>f.pedido_id));
   const _pedPresup=new Set((C.flujo_presupuesto||[]).filter(fp=>fp.origen_tipo==='pedido'&&fp.origen_id).map(fp=>parseInt(fp.origen_id)));
   const _est=['Pendiente','Confirmado','En producción','En proceso','Parcial','Cobrado parcial'];
   (C.pedidos||[]).forEach(p=>{
     if(p.es_historico)return;
     const ok=_est.includes(p.estado)||(p.estado==='Borrador'&&typeof _esBorradorHibrido==='function'&&_esBorradorHibrido(p));
     if(!ok)return;
-    if(_pedConFactura.has(p.id))return;
     if(_pedPresup.has(p.id))return;
-    const c=_calcularCobroPedido(p);
+    const c=_cobroPipelinePendiente(p);
     if(!c||c.pendiente<=0.01)return;
     out.push({id:p.id,numero:p.numero_pedido||String(p.id),cliente:p.cliente||'—',monto:r2(c.pendiente),fecha:dStr(c.fechaCobro),plano:(p.tipo_venta==='negro'?'negro':'blanco')});
   });
@@ -36226,7 +36698,7 @@ function _fpPoblarPedidos(selId){
   // Si edito un fp cuyo pedido ya salió del pipeline (facturado/presupuestado), lo agrego igual para no perderlo
   if(selId!=null&&!list.some(x=>x.id===parseInt(selId))){
     const _p=(C.pedidos||[]).find(pp=>pp.id===parseInt(selId));
-    if(_p){const c=_calcularCobroPedido(_p);list.unshift({id:_p.id,numero:_p.numero_pedido||String(_p.id),cliente:_p.cliente||'—',monto:r2(c?.pendiente||0),fecha:c?dStr(c.fechaCobro):localDate(),plano:(_p.tipo_venta==='negro'?'negro':'blanco')});}
+    if(_p){const c=_cobroPipelinePendiente(_p);list.unshift({id:_p.id,numero:_p.numero_pedido||String(_p.id),cliente:_p.cliente||'—',monto:r2(c?.pendiente||0),fecha:c?dStr(c.fechaCobro):localDate(),plano:(_p.tipo_venta==='negro'?'negro':'blanco')});}
   }
   sel.innerHTML=list.length?list.map(x=>'<option value="'+x.id+'"'+(parseInt(selId)===x.id?' selected':'')+'>Pedido '+x.numero+' · '+x.cliente+' · $'+x.monto.toLocaleString('es-AR')+'</option>').join(''):'<option value="">(sin pedidos pendientes)</option>';
 }
@@ -36575,11 +37047,19 @@ function ccMovimientosUnificados(){
     out.push({key:'r'+r.id,fecha:r.fecha,tipo:'ingreso',cuenta_id:cta,monto,concepto:'Recibo '+(r.numero||'')+' · '+lcCliNombre(r.cliente_id),conciliado:!!r.conciliado,fecha_conciliacion:r.fecha_conciliacion||null,origen:'recibo',origen_id:r.id,editable:false,sinCuenta:!cta});
   });
   (C.pagos_proveedores||[]).forEach(p=>{
+    if(p.pago_id)return; // línea de un pago agrupado: el egreso lo pone la cabecera (abajo)
     if(p.afecta_caja===false)return; // pago que no mueve caja propia (ej: costo de descuento, ya neteado dentro del ingreso)
     const monto=parseFloat(p.monto)||0;if(monto<=0)return;
     const cta=p.cuenta_id||defP;
     const concepto=p.proveedor_id?('Pago · '+lcProvNombre(p.proveedor_id)):(p.observaciones||'Pago');
     out.push({key:'p'+p.id,fecha:p.fecha,tipo:'egreso',cuenta_id:cta,monto,concepto,conciliado:!!p.conciliado,fecha_conciliacion:p.fecha_conciliacion||null,origen:'pago',origen_id:p.id,editable:false,sinCuenta:!cta});
+  });
+  // Pagos agrupados (cabecera = un egreso, espejo del recibo)
+  (C.pagos||[]).forEach(pg=>{
+    if(pg.estado==='anulado')return;
+    const monto=r2((parseFloat(pg.total)||0)-(parseFloat(pg.total_cheques)||0));if(monto<=0)return; // solo parte en cuenta; los cheques van por endoso/conciliación
+    const cta=pg.cuenta_id||defP;
+    out.push({key:'pg'+pg.id,fecha:pg.fecha,tipo:'egreso',cuenta_id:cta,monto,concepto:'Pago '+(pg.numero||'')+' · '+lcProvNombre(pg.proveedor_id),conciliado:!!pg.conciliado,fecha_conciliacion:pg.fecha_conciliacion||null,origen:'pago_grupo',origen_id:pg.id,editable:false,sinCuenta:!cta});
   });
   (C.deudas_financieras||[]).forEach(d=>{
     if(d.estado==='cancelado')return;
@@ -36768,7 +37248,9 @@ function catGastoToggle(id){
 
 function renderLibroCaja(){
   const wrap=document.getElementById('lc-wrap');if(!wrap)return;
-  const cuentas=(C.cuentas_caja||[]).filter(c=>c.activa!==false);
+  const cuentasAll=(C.cuentas_caja||[]).filter(c=>c.activa!==false);
+  const conc=cuentasAll.find(c=>c.es_conciliacion);
+  const cuentas=cuentasAll.filter(c=>!c.es_conciliacion);
   if(!cuentas.length){wrap.innerHTML='<div class="empty" style="padding:30px;text-align:center;color:var(--text3);">Todavía no tenés cuentas. Creá la primera (efectivo, un banco, un FCI...) con su saldo de apertura.<br><br><button class="btn" onclick="ccNuevaCuenta()">🏦 Crear primera cuenta</button></div>';return;}
   const saldos=ccSaldos();
   const total=r2(cuentas.reduce((s,c)=>s+(saldos[c.id]||0),0));
@@ -36780,6 +37262,16 @@ function renderLibroCaja(){
     +'<div class="stat"><div class="stat-lbl">⚪ Blanco</div><div class="stat-val">'+fmt(blanco)+'</div></div>'
     +'<div class="stat"><div class="stat-lbl">⚫ Negro</div><div class="stat-val">'+fmt(negro)+'</div></div>'
   +'</div>';
+  if(conc){
+    const sc=saldos[conc.id]||0; const ok=Math.abs(sc)<0.01;
+    html+='<div style="margin-bottom:1.2rem;border:1px solid '+(ok?'var(--green)':'var(--red)')+';border-radius:var(--r);padding:10px 14px;background:'+(ok?'rgba(34,197,94,.07)':'rgba(239,68,68,.08)')+';display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">'
+      +'<div><strong>'+(ok?'✓':'⚠')+' Conciliación:</strong> <span class="mono">'+fmt(sc)+'</span> '
+      +'<span style="font-size:11px;color:var(--text3);">'+(ok?'· cuadrada (todos los cruces cerrados)':'· hay un cruce sin cerrar (una sola pata). Completá la pata que falta.')+'</span></div>'
+      +'<button class="btn btn-sm btn-primary" onclick="ccCruce()">↔ Cruce entre circuitos</button>'
+    +'</div>';
+  } else {
+    html+='<div style="margin-bottom:1rem;"><button class="btn btn-sm" onclick="ccCruce()">↔ Cruce entre circuitos</button></div>';
+  }
   // tarjetas de cuentas
   html+='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:1.2rem;">';
   cuentas.forEach(c=>{
@@ -36934,6 +37426,52 @@ function ccMovBorrar(id){
   if(!confirm('¿Borrar este movimiento?'))return;
   (async()=>{const{error}=await sb.from('movimientos_caja').delete().eq('id',id);if(error){toast('Error: '+error.message,'red');return;}document.getElementById('cc-modal')?.remove();toast('✓ Borrado','green');await reload();renderLibroCaja();})();
 }
+// ============ CUENTA CONCILIACIÓN (puente) + CRUCE entre circuitos ============
+function _ctaConciliacion(){ return (C.cuentas_caja||[]).find(c=>c.es_conciliacion); }
+function ccCruce(){
+  const conc=_ctaConciliacion();
+  if(!conc){alert('No existe la cuenta CONCILIACIÓN. Corré el SQL de conciliación primero.');return;}
+  const ctas=(C.cuentas_caja||[]).filter(c=>c.activa!==false && !c.es_conciliacion);
+  const opt=()=>'<option value="">— ninguna —</option>'+ctas.map(c=>'<option value="'+c.id+'">'+escapeHtml(c.nombre||'')+' '+((c.plano||'blanco')==='negro'?'⚫':'⚪')+'</option>').join('');
+  document.getElementById('cc-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="cc-modal"><div class="modal-card" style="max-width:470px;">'
+    +'<div class="modal-title">↔ Cruce entre circuitos</div>'
+    +'<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Mové plata de un circuito a otro a través de la cuenta CONCILIACIÓN. Si registrás las dos patas, su saldo vuelve a 0.</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
+      +'<div class="fg"><label>Sale de (origen)</label><select id="cr-origen">'+opt()+'</select></div>'
+      +'<div class="fg"><label>Entra a (destino)</label><select id="cr-destino">'+opt()+'</select></div>'
+      +'<div class="fg"><label>Monto $</label><input type="number" id="cr-monto" min="0" step="0.01" style="width:100%"></div>'
+      +'<div class="fg"><label>Fecha</label><input type="date" id="cr-fecha" value="'+localDate()+'" style="width:100%"></div>'
+      +'<div class="fg" style="grid-column:1/3;"><label>Concepto</label><input type="text" id="cr-concepto" placeholder="ej: paso efectivo de blanco a negro" style="width:100%"></div>'
+    +'</div>'
+    +'<div style="font-size:11px;color:var(--text3);margin-top:6px;">Podés dejar origen o destino vacío si una pata todavía no pasó: la otra deja la conciliación con saldo (alarma) hasta que la cierres.</div>'
+    +'<div class="btn-grp" style="margin-top:1rem;"><button class="btn btn-sm btn-primary" onclick="ccCruceGuardar()">💾 Registrar cruce</button><button class="btn btn-sm" onclick="document.getElementById(\'cc-modal\').remove()">Cancelar</button><span id="cr-msg" style="font-size:11px;margin-left:8px;"></span></div>'
+    +'</div></div>');
+}
+function ccCruceGuardar(){
+  const conc=_ctaConciliacion(); if(!conc)return;
+  const origen=parseInt(document.getElementById('cr-origen').value)||null;
+  const destino=parseInt(document.getElementById('cr-destino').value)||null;
+  const monto=parseFloat(document.getElementById('cr-monto').value)||0;
+  const fecha=document.getElementById('cr-fecha').value||localDate();
+  const concepto=document.getElementById('cr-concepto').value.trim();
+  const msg=document.getElementById('cr-msg');
+  const setErr=t=>{if(msg){msg.style.color='var(--red)';msg.textContent=t;}};
+  if(monto<=0){setErr('Monto inválido');return;}
+  if(!origen&&!destino){setErr('Elegí al menos origen o destino');return;}
+  if(origen&&destino&&origen===destino){setErr('Origen y destino deben ser distintas');return;}
+  (async()=>{
+    const ref=Date.now(); const rows=[]; const nom=id=>ccCuentaNombre(id);
+    if(origen) rows.push({fecha,cuenta_id:origen,tipo:'transferencia',monto:r2(monto),cuenta_destino_id:conc.id,concepto:'Cruce'+(concepto?': '+concepto:'')+' ['+nom(origen)+'→conciliación]',origen_tipo:'cruce',origen_id:ref});
+    if(destino) rows.push({fecha,cuenta_id:conc.id,tipo:'transferencia',monto:r2(monto),cuenta_destino_id:destino,concepto:'Cruce'+(concepto?': '+concepto:'')+' [conciliación→'+nom(destino)+']',origen_tipo:'cruce',origen_id:ref});
+    const{error}=await sb.from('movimientos_caja').insert(rows);
+    if(error){setErr('Error: '+error.message);return;}
+    document.getElementById('cc-modal')?.remove(); toast('✓ Cruce registrado','green');
+    await reload(); renderLibroCaja();
+  })();
+}
+
 function ccAsignarCuenta(origen,id,cuentaId){
   const cta=cuentaId?parseInt(cuentaId):null;
   const tabla=origen==='recibo'?'recibos':'pagos_proveedores';
@@ -37064,6 +37602,7 @@ async function ccMarcarUno(m,valor){
   if(m.origen==='manual')return sb.from('movimientos_caja').update({conciliado:valor,fecha_conciliacion:fecha}).eq('id',m.origen_id);
   if(m.origen==='recibo')return sb.from('recibos').update({conciliado:valor,fecha_conciliacion:fecha}).eq('id',m.origen_id);
   if(m.origen==='pago')return sb.from('pagos_proveedores').update({conciliado:valor,fecha_conciliacion:fecha}).eq('id',m.origen_id);
+  if(m.origen==='pago_grupo')return sb.from('pagos').update({conciliado:valor,fecha_conciliacion:fecha}).eq('id',m.origen_id);
   if(m.origen==='deuda'){
     const d=(C.deudas_financieras||[]).find(x=>x.id===m.origen_id);
     if(d){const cuotas=(d.cuotas||[]).map(c=>c.nro===m.cuotaNro?Object.assign({},c,{conciliado:valor,fecha_conciliacion:fecha}):c);
@@ -37548,7 +38087,7 @@ function renderCartera(){
   });
   html+='</div>';
   const lista=todos.filter(c=>c.estado===CH.filtro).sort((a,b)=>String(a.fecha_vto||'').localeCompare(String(b.fecha_vto||'')));
-  html+='<div class="an-section">Cheques · '+chEstLbl(CH.filtro)+'</div>';
+  html+='<div class="an-section" style="display:flex;align-items:center;gap:10px;">Cheques · '+chEstLbl(CH.filtro)+(CH.filtro==='en_cartera'?'<button class="btn btn-sm" style="margin-left:auto;" onclick="chDescontarLote()" title="Descontar varios cheques en una sola operación (Credicoop)">💸 Descontar lote</button>':'')+'</div>';
   if(!lista.length){html+='<div class="empty" style="padding:18px;color:var(--text3);">No hay cheques en este estado.</div>';wrap.innerHTML=html;return;}
   html+='<div style="overflow-x:auto"><table><thead><tr><th>Cliente</th><th>Emisor</th><th>Banco</th><th>N°</th><th>Vto</th><th style="text-align:right">Monto</th><th>Detalle</th><th>Acciones</th></tr></thead><tbody>';
   lista.forEach(c=>{
@@ -37752,7 +38291,126 @@ function chDescGuardar(id){
     // 4) marcar el cheque como descontado
     const{error:e4}=await sb.from('recibo_valores').update({estado:'descontado',fecha_descuento:fecha,cuenta_descuento_id:cta,tasa_descuento:tasa,dias_descuento:dias,gastos_descuento:gastos,neto_descuento:neto,mov_descuento_id:mov?.id||null,gasto_descuento_id:gastoId}).eq('id',id);
     if(e4){setMsg(e4.message);return;}
+    // 5) cruce: cheque de un circuito descontado en banco del otro -> registrar en conciliación
+    const _chPl=_planoNorm(c.plano_recibo), _bco=(C.cuentas_caja||[]).find(x=>x.id===cta);
+    if(_bco && _chPl!==(_bco.plano||'blanco')){
+      const _conc=_ctaConciliacion();
+      if(_conc){ await sb.from('movimientos_caja').insert([
+        {fecha,cuenta_id:_conc.id,tipo:'ingreso',monto:neto,concepto:'Cheque '+(c.numero_cheque||'')+' ('+_chPl+') descontado, acreditado en conciliación (cruce)',origen_tipo:'descuento_cruce',origen_id:id},
+        {fecha,cuenta_id:_conc.id,tipo:'egreso',monto:neto,concepto:'Neto del descuento fue a '+(_bco.plano||'blanco')+' ('+ccCuentaNombre(cta)+')',origen_tipo:'descuento_cruce',origen_id:id}
+      ]); }
+    }
     document.getElementById('ch-modal')?.remove();toast('✓ Cheque descontado — la caja quedó con el neto','green');await reload();renderCartera();
+  })();
+}
+// ===== DESCUENTO POR LOTE (Credicoop y similares: varios cheques, 1 acreditación neta) =====
+// Una sola acreditación al banco (matchea 1:1 con la línea del extracto) + un solo gasto financiero.
+// Mezcla de planos OK: cada cheque negro cruza por Conciliación según SU plano; los blancos no.
+function chDescontarLote(){
+  const ctas=chCuentasBanco();if(!ctas.length){alert('Creá primero una cuenta de banco en el Libro de caja.');return;}
+  const enCartera=chCheques().filter(c=>c.estado==='en_cartera');
+  if(!enCartera.length){alert('No hay cheques en cartera para descontar.');return;}
+  document.getElementById('ch-modal')?.remove();
+  const filas=enCartera.map(c=>{
+    const pl=_planoNorm(c.plano_recibo);
+    const plBadge=pl==='negro'?'<span style="color:#f59e0b;font-size:10px;font-weight:700;">NEGRO</span>':'<span style="color:var(--green);font-size:10px;font-weight:700;">BLANCO</span>';
+    return '<tr>'
+      +'<td style="text-align:center;"><input type="checkbox" class="chl-chk" value="'+c.id+'" onchange="chDescLoteCalc()"></td>'
+      +'<td style="font-size:11px;">'+lcCliNombre(c.cliente_id)+'</td>'
+      +'<td style="font-size:11px;">'+(c.es_tercero?escapeHtml(c.nombre_emisor||'tercero'):'propio')+'</td>'
+      +'<td class="mono" style="font-size:11px;">'+(c.numero_cheque||'—')+'</td>'
+      +'<td class="mono" style="font-size:11px;white-space:nowrap;">'+(c.fecha_vto||'—')+'</td>'
+      +'<td style="text-align:center;">'+plBadge+'</td>'
+      +'<td class="mono" style="text-align:right;font-weight:700;">$'+(parseFloat(c.monto)||0).toLocaleString('es-AR')+'</td>'
+      +'</tr>';
+  }).join('');
+  document.body.insertAdjacentHTML('beforeend','<div class="modal-overlay" id="ch-modal"><div class="modal-card" style="max-width:660px;"><div class="modal-title">💸 Descontar lote de cheques</div>'
+    +'<div style="font-size:12px;color:var(--text3);margin-bottom:8px;">Para cuando el banco te liquida varios cheques en una sola acreditación neta (ej: Credicoop). El sistema crea <b>una sola</b> acreditación que matchea 1:1 con la línea del extracto. Los cheques del circuito negro cruzan por Conciliación; los blancos no.</div>'
+    +'<div style="max-height:230px;overflow:auto;border:1px solid var(--border);border-radius:var(--r);margin-bottom:10px;"><table style="width:100%;"><thead><tr style="background:var(--bg3);"><th style="width:28px;"></th><th style="text-align:left;font-size:10px;padding:4px 6px;">Cliente</th><th style="text-align:left;font-size:10px;">Emisor</th><th style="text-align:left;font-size:10px;">N°</th><th style="text-align:left;font-size:10px;">Vto</th><th style="font-size:10px;">Circuito</th><th style="text-align:right;font-size:10px;padding:4px 6px;">Monto</th></tr></thead><tbody>'+filas+'</tbody></table></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
+      +'<div class="fg"><label>Banco que lo descuenta</label><select id="chl-cta" style="width:100%">'+ctas.map(x=>'<option value="'+x.id+'">'+ccTipoIc(x.tipo)+' '+x.nombre+' ('+(x.plano||'blanco')+')</option>').join('')+'</select></div>'
+      +'<div class="fg"><label>Fecha de descuento</label><input id="chl-fecha" type="date" value="'+localDate()+'" style="width:100%"></div>'
+    +'</div>'
+    +'<div class="fg"><label>Cómo lo acredita el banco en el extracto</label><select id="chl-modo" style="width:100%"><option value="neto">Una sola línea por el neto (ej: Credicoop)</option><option value="nominal">Acredita el nominal y debita los gastos aparte (ej: Galicia)</option></select></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
+      +'<div class="fg"><label>Costo financiero TOTAL $ (interés + IVA)</label><input id="chl-costo" type="number" step="0.01" value="0" oninput="chDescLoteCalc()" style="width:100%;font-weight:700;"></div>'
+      +'<div class="fg"><label>Neto a acreditar $</label><input id="chl-neto" type="text" disabled style="width:100%;font-weight:700;color:var(--green);opacity:1;"></div>'
+    +'</div>'
+    +'<div style="font-size:11px;color:var(--text3);margin-top:2px;">El costo total es el nominal menos lo que te acreditó el banco. El sistema lo reparte entre los cheques (proporcional a monto × días) solo para el registro de cada cheque; la caja queda con el neto total.</div>'
+    +'<div id="chl-resumen" style="font-size:11px;color:var(--text2);background:var(--bg2);border-radius:var(--r);padding:8px 10px;margin-top:6px;">Seleccioná al menos un cheque.</div>'
+    +'<div class="btn-grp" style="margin-top:1rem;"><button class="btn btn-sm btn-primary" onclick="chDescLoteGuardar()">💾 Descontar lote</button><button class="btn btn-sm" onclick="document.getElementById(\'ch-modal\').remove()">Cancelar</button><span id="ch-msg" style="font-size:11px;margin-left:8px;"></span></div>'
+    +'</div></div>');
+  chDescLoteCalc();
+}
+function _chLoteSeleccionados(){
+  const ids=[...document.querySelectorAll('.chl-chk:checked')].map(x=>x.value);
+  const all=chCheques();
+  return ids.map(id=>all.find(c=>String(c.id)===String(id))).filter(Boolean);
+}
+function chDescLoteCalc(){
+  const sel=_chLoteSeleccionados();
+  const nominal=r2(sel.reduce((s,c)=>s+(parseFloat(c.monto)||0),0));
+  const costo=r2(parseFloat(document.getElementById('chl-costo')?.value)||0);
+  const neto=r2(nominal-costo);
+  const n=document.getElementById('chl-neto');if(n){n.value='$'+neto.toLocaleString('es-AR');n.style.color=neto>=0?'var(--green)':'var(--red)';}
+  const negros=sel.filter(c=>_planoNorm(c.plano_recibo)==='negro').length;
+  const r=document.getElementById('chl-resumen');
+  if(r)r.innerHTML=sel.length
+    ?('Seleccionados: <b>'+sel.length+'</b> cheque(s) · Nominal $'+nominal.toLocaleString('es-AR')+' · Neto $'+neto.toLocaleString('es-AR')+(negros?(' · <b>'+negros+'</b> del circuito negro → cruzan por Conciliación'):' · todos blancos'))
+    :'Seleccioná al menos un cheque.';
+}
+function chDescLoteGuardar(){
+  const sel=_chLoteSeleccionados();
+  const setMsg=(t,col)=>{const m=document.getElementById('ch-msg');if(m){m.style.color=col||'var(--red)';m.textContent=t;}};
+  if(!sel.length){setMsg('Seleccioná al menos un cheque.');return;}
+  const cta=parseInt(document.getElementById('chl-cta')?.value)||null;
+  const fecha=document.getElementById('chl-fecha')?.value||localDate();
+  const modo=document.getElementById('chl-modo')?.value||'neto';
+  const costoTot=r2(parseFloat(document.getElementById('chl-costo')?.value)||0);
+  if(!cta){setMsg('Elegí el banco que lo descuenta');return;}
+  if(costoTot<0){setMsg('El costo no puede ser negativo');return;}
+  const nominalTot=r2(sel.reduce((s,c)=>s+(parseFloat(c.monto)||0),0));
+  const netoTot=r2(nominalTot-costoTot);
+  if(netoTot<=0){setMsg('El neto total no puede ser cero o negativo');return;}
+  // Reparto del costo por cheque (proporcional a nominal × días al vto, mínimo 1 día). El último absorbe el redondeo.
+  const pesos=sel.map(c=>{const nom=parseFloat(c.monto)||0;let d=1;if(c.fecha_vto){const a=new Date(fecha+'T00:00:00'),b=new Date(c.fecha_vto+'T00:00:00');d=Math.max(1,Math.round((b-a)/86400000));}return nom*d;});
+  const sumP=pesos.reduce((a,b)=>a+b,0)||1;
+  let acum=0;
+  const reparto=sel.map((c,i)=>{const costoI=(i===sel.length-1)?r2(costoTot-acum):r2(costoTot*pesos[i]/sumP);acum=r2(acum+costoI);const nom=r2(parseFloat(c.monto)||0);return {c,costoI,netoI:r2(nom-costoI)};});
+  (async()=>{
+    setMsg('Guardando...','var(--text2)');
+    const bco=(C.cuentas_caja||[]).find(x=>x.id===cta);
+    const ctaPl=(bco&&bco.plano)||'blanco';
+    const nums=sel.map(c=>c.numero_cheque).filter(Boolean).join(', ');
+    // 1) UNA sola acreditación al banco (matchea 1:1 con la línea del extracto)
+    const ingreso=modo==='nominal'?nominalTot:netoTot;
+    const concIng=(modo==='nominal'?'Acreditación lote cheques descontados':'Descuento lote de cheques')+' ('+sel.length+') · N° '+nums;
+    const{data:mov,error:e1}=await sb.from('movimientos_caja').insert({fecha,cuenta_id:cta,tipo:'ingreso',monto:ingreso,concepto:concIng,origen_tipo:'cheque_lote',origen_id:null}).select().single();
+    if(e1){setMsg(e1.message);return;}
+    // 2) UN gasto financiero por el costo total + su pago (saldado solo)
+    let gastoId=null;
+    if(costoTot>0.009){
+      const{data:cg,error:e2}=await sb.from('compras_gastos').insert({fecha,proveedor_id:null,categoria:'financiero',descripcion:'Descuento lote de cheques ('+sel.length+')',neto:costoTot,iva_porcentaje:0,iva_monto:0,total:costoTot,plano:'blanco',afecta_resultado:true,observaciones:'Costo financiero del descuento de lote · N° '+nums}).select().single();
+      if(e2){setMsg('Acreditación OK pero falló el gasto: '+e2.message);return;}
+      gastoId=cg&&cg.id||null;
+      const{error:e3}=await sb.from('pagos_proveedores').insert({fecha,proveedor_id:null,monto:costoTot,medio_pago:(modo==='nominal'?'Débito bancario (descuento)':'Descontado en origen'),compra_gasto_id:gastoId,plano:'blanco',observaciones:'Costo descuento lote de cheques',cuenta_id:cta,afecta_caja:(modo==='nominal')});
+      if(e3){setMsg('Gasto OK pero falló el pago: '+e3.message);return;}
+    }
+    // 3) marcar cada cheque descontado (con su reparto) + cruce por cheque según SU plano
+    const conc=_ctaConciliacion();const concInserts=[];
+    for(const rp of reparto){
+      const{error:e4}=await sb.from('recibo_valores').update({estado:'descontado',fecha_descuento:fecha,cuenta_descuento_id:cta,gastos_descuento:rp.costoI,neto_descuento:rp.netoI,mov_descuento_id:mov&&mov.id||null,gasto_descuento_id:gastoId}).eq('id',rp.c.id);
+      if(e4){setMsg('Falló al marcar el cheque '+(rp.c.numero_cheque||rp.c.id)+': '+e4.message);return;}
+      const chPl=_planoNorm(rp.c.plano_recibo);
+      if(conc&&chPl!==ctaPl){
+        concInserts.push(
+          {fecha,cuenta_id:conc.id,tipo:'ingreso',monto:rp.netoI,concepto:'Cheque '+(rp.c.numero_cheque||'')+' ('+chPl+') descontado en lote, acreditado en conciliación (cruce)',origen_tipo:'descuento_cruce',origen_id:rp.c.id},
+          {fecha,cuenta_id:conc.id,tipo:'egreso',monto:rp.netoI,concepto:'Neto del descuento (lote) fue a '+ctaPl+' ('+ccCuentaNombre(cta)+')',origen_tipo:'descuento_cruce',origen_id:rp.c.id}
+        );
+      }
+    }
+    if(concInserts.length){const{error:e5}=await sb.from('movimientos_caja').insert(concInserts);if(e5){setMsg('Cheques OK pero falló el cruce de conciliación: '+e5.message);return;}}
+    document.getElementById('ch-modal')?.remove();toast('✓ Lote descontado — 1 acreditación neta de $'+netoTot.toLocaleString('es-AR'),'green');await reload();renderCartera();
   })();
 }
 // ---- endosar ----
@@ -37813,6 +38471,7 @@ function chRechGuardar(id){
     if(eraDesc&&c.cuenta_descuento_id){
       const{error:e2b}=await sb.from('movimientos_caja').insert({fecha,cuenta_id:c.cuenta_descuento_id,tipo:'egreso',monto,concepto:'Rechazo cheque descontado N° '+(c.numero_cheque||'')+' (el banco debita el nominal)',origen_tipo:'cheque',origen_id:id});
       if(e2b){setMsg(e2b.message);return;}
+      await sb.from('movimientos_caja').delete().eq('origen_tipo','descuento_cruce').eq('origen_id',id);
     }
     // 3) si estaba endosado: nota de débito del proveedor (le vuelvo a deber)
     if(eraEndos&&c.proveedor_endoso_id){
