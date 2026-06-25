@@ -1052,12 +1052,33 @@ body.pext-on .main{margin-left:0!important;}
         </div>
       </div>
       <div class="fp">
-        <div class="fp-t">Agregar cliente manualmente</div>
-        <div class="fgrid">
-          <div class="fg"><label>Código</label><input id="c-cod" type="text" placeholder="CLI-001"></div>
-          <div class="fg"><label>Razón social</label><input id="c-rs" type="text" placeholder="Empresa S.A."></div>
+        <div class="fp-t">➕ Agregar cliente manualmente</div>
+        <div class="fgrid" style="margin-bottom:10px;">
+          <div class="fg"><label>Código</label><input id="c-cod" type="text" placeholder="(opcional)"></div>
+          <div class="fg"><label>Razón social *</label><input id="c-rs" type="text" placeholder="Empresa S.A."></div>
         </div>
-        <div class="btn-grp"><button class="btn btn-primary btn-sm" onclick="addCliente()">Agregar</button><span id="msg-cli" style="font-size:12px;"></span></div>
+        <div class="fgrid" style="margin-bottom:10px;">
+          <div class="fg"><label>Lista de precios <span style="font-size:11px;color:var(--text2)">(precios automáticos en pedidos)</span></label>
+            <select id="c-lista"><option value="">— sin lista —</option></select>
+          </div>
+          <div class="fg"><label>Condición IVA</label>
+            <select id="c-iva">
+              <option value="con_iva">Responsable inscripto</option>
+              <option value="monotributo">Monotributista</option>
+              <option value="consumidor_final">Consumidor final</option>
+              <option value="exento">Exento</option>
+            </select>
+          </div>
+        </div>
+        <div class="fgrid" style="margin-bottom:10px;">
+          <div class="fg"><label>Días de crédito</label><input id="c-dias" type="number" min="0" value="0"><div style="font-size:10px;color:var(--text3);margin-top:2px;">0 = contado</div></div>
+          <div class="fg"><label>CUIT</label><input id="c-cuit" type="text" placeholder="30-12345678-9"></div>
+        </div>
+        <div class="fgrid" style="margin-bottom:10px;">
+          <div class="fg"><label>Localidad</label><input id="c-loc" type="text"></div>
+          <div class="fg"><label>Dirección</label><input id="c-dir" type="text"></div>
+        </div>
+        <div class="btn-grp"><button class="btn btn-primary btn-sm" onclick="addCliente()">➕ Agregar cliente</button><span id="msg-cli" style="font-size:12px;"></span></div>
       </div>
       <div class="tw"><div id="cli-tbl"><div class="loading"><div class="spinner"></div></div></div></div>
     </div>
@@ -6558,6 +6579,42 @@ function renderClientes(){
         +'</tr>';
     }).join('')
     +'</tbody></table></div>';
+  _cliPoblarFormNuevo();
+}
+// Pobla el form de alta manual: opciones de lista de precios + sugerencia de código
+function _cliPoblarFormNuevo(){
+  const selL=document.getElementById('c-lista');
+  if(selL){const cur=selL.value;selL.innerHTML='<option value="">— sin lista —</option>'+(C.listas_precios||[]).map(l=>'<option value="'+l.id+'">'+l.nombre+'</option>').join('');selL.value=cur;}
+  const cod=document.getElementById('c-cod');
+  if(cod&&!cod.value){const mx=(C.clientes||[]).reduce((m,c)=>{const n=parseInt(c.codigo);return isNaN(n)?m:Math.max(m,n);},0);cod.placeholder=mx?('sugerido: '+(mx+1)):'(opcional)';}
+}
+async function addCliente(){
+  const cod=document.getElementById('c-cod')?.value.trim();
+  const rs=document.getElementById('c-rs')?.value.trim();
+  const listaId=parseInt(document.getElementById('c-lista')?.value)||null;
+  const iva=document.getElementById('c-iva')?.value||'con_iva';
+  const dias=parseInt(document.getElementById('c-dias')?.value)||0;
+  const cuit=document.getElementById('c-cuit')?.value.trim()||null;
+  const loc=document.getElementById('c-loc')?.value.trim()||null;
+  const dir=document.getElementById('c-dir')?.value.trim()||null;
+  const msg=document.getElementById('msg-cli');
+  if(!rs){if(msg){msg.style.color='var(--red)';msg.textContent='La razón social es obligatoria.';}return;}
+  if(cod&&(C.clientes||[]).some(c=>String(c.codigo)===String(cod))){
+    if(!confirm('Ya existe un cliente con el código '+cod+'. ¿Lo agrego igual?'))return;
+  }
+  if(msg)msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div></div>';
+  const{error}=await sb.from('clientes').insert({
+    codigo:cod||null,razon_social:rs,nombre:rs,
+    lista_precio_id:listaId,condicion_iva:iva,
+    dias_credito:dias,plazo_pago_dias:dias,
+    cuit:cuit,direccion:dir,localidad:loc
+  });
+  if(error){if(msg){msg.style.color='var(--red)';msg.textContent='Error: '+error.message;}return;}
+  ['c-cod','c-rs','c-cuit','c-loc','c-dir'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  const d=document.getElementById('c-dias');if(d)d.value='0';
+  const l=document.getElementById('c-lista');if(l)l.value='';
+  if(msg){msg.style.color='var(--green)';msg.textContent='✓ Cliente agregado';}
+  await reload();renderClientes();
 }
 function editarCliente(id){
   const c=C.clientes.find(x=>x.id===id);if(!c)return;
@@ -11751,7 +11808,11 @@ let _recCtx={plano:'formal',cliente:null,valores:[],retenciones:[],imputaciones:
 function _nrecRenderCuentas(){
   const sel=document.getElementById('nrec-cuenta'); if(!sel)return;
   const ctas=(C.cuentas_caja||[]).filter(x=>x.activa!==false && !x.es_conciliacion);
-  const defC=(C.cuentas_caja||[]).find(c=>c.default_cobros)?.id;
+  // Default por PLANO del recibo: un recibo blanco cae por defecto en una cuenta blanca (banco),
+  // uno negro en una negra (caja). Evita que todo caiga en CAJA1 y dispare un cruce fantasma.
+  const recPl=_planoNorm(_recCtx.plano);
+  const mismo=ctas.filter(x=>(x.plano||'blanco')===recPl);
+  const defC=(mismo.find(c=>c.default_cobros)||mismo[0]||ctas.find(c=>c.default_cobros)||ctas[0])?.id;
   sel.innerHTML=ctas.map(x=>'<option value="'+x.id+'"'+(x.id===defC?' selected':'')+'>'+escapeHtml(x.nombre||'cuenta')+' '+((x.plano||'blanco')==='negro'?'⚫':'⚪')+'</option>').join('');
   onNrecCuenta();
 }
@@ -12238,6 +12299,45 @@ function anularRecibo(id){
   })();
 }
 
+// Recalcula el cruce de conciliación de un recibo YA guardado (borra los viejos y, si
+// sigue siendo cruce de circuito, crea el par +/-; si quedó en el mismo plano, no crea nada).
+async function _recRecomputarCruce(rec){
+  await sb.from('movimientos_caja').delete().eq('origen_tipo','cobro_cruce').eq('origen_id',rec.id);
+  const cuenta=(C.cuentas_caja||[]).find(x=>x.id===rec.cuenta_id);if(!cuenta)return;
+  const recPlano=_planoNorm(rec.plano);
+  if(recPlano===(cuenta.plano||'blanco'))return; // mismo circuito: sin cruce
+  const vals=rec.recibo_valores||[];
+  const cheq=vals.filter(chEsCheque).reduce((s,v)=>s+(parseFloat(v.monto)||0),0);
+  const cash=r2((parseFloat(rec.total_cobrado)||0)-cheq);
+  if(cash<=0.01)return;
+  const conc=_ctaConciliacion();if(!conc)return;
+  const dPlano=cuenta.plano||'blanco';
+  await sb.from('movimientos_caja').insert([
+    {fecha:rec.fecha,cuenta_id:conc.id,tipo:'ingreso',monto:cash,concepto:'Cobro recibo '+(rec.numero||'')+' ('+recPlano+') acreditado en conciliación (cruce)',origen_tipo:'cobro_cruce',origen_id:rec.id},
+    {fecha:rec.fecha,cuenta_id:conc.id,tipo:'egreso',monto:cash,concepto:'Cobro recibo '+(rec.numero||'')+' fue a cuenta '+dPlano+' ('+ccCuentaNombre(rec.cuenta_id)+')',origen_tipo:'cobro_cruce',origen_id:rec.id}
+  ]);
+}
+// Cambiar la cuenta donde entró el cobro de un recibo (corrige recibos mal ruteados).
+function cambiarCuentaRecibo(id){
+  const r=(C.recibos||[]).find(x=>x.id===id);if(!r)return;
+  if(r.estado==='anulado'){alert('El recibo está anulado.');return;}
+  const ctas=(C.cuentas_caja||[]).filter(x=>x.activa!==false && !x.es_conciliacion);
+  if(!ctas.length){alert('No hay cuentas de caja.');return;}
+  const recPl=_planoNorm(r.plano);
+  const lines=ctas.map((x,i)=>(i+1)+') '+x.nombre+' ('+(x.plano||'blanco')+')'+((x.plano||'blanco')!==recPl?' ↔ cruza por conciliación':'')+(x.id===r.cuenta_id?'  ← actual':'')).join('\n');
+  const sel=prompt('Recibo '+(r.numero||'')+' ('+recPl+') — ¿en qué cuenta entró realmente el cobro?\n\n'+lines+'\n\nEscribí el número:','');
+  if(sel===null)return;
+  const idx=parseInt(sel)-1;if(isNaN(idx)||idx<0||idx>=ctas.length){toast('Opción inválida','red');return;}
+  const nueva=ctas[idx];
+  if(nueva.id===r.cuenta_id){toast('Ya estaba en esa cuenta','amber');return;}
+  (async()=>{
+    const{error}=await sb.from('recibos').update({cuenta_id:nueva.id}).eq('id',id);
+    if(error){toast('Error: '+error.message,'red');return;}
+    await _recRecomputarCruce(Object.assign({},r,{cuenta_id:nueva.id}));
+    toast('✓ Cobro re-ruteado a '+nueva.nombre,'green');
+    await reload();renderRecibos();if(typeof renderLibroCaja==='function')renderLibroCaja();
+  })();
+}
 function renderRecibos(){
   const tbl=document.getElementById('rec-tbl');
   if(!tbl)return;
@@ -12251,12 +12351,14 @@ function renderRecibos(){
   if(!lista.length){tbl.innerHTML='<div class="empty">Sin recibos.</div>';return;}
   let html='<div style="overflow-x:auto"><table><thead><tr>'
     +'<th>Recibo</th><th>Plano</th><th>Fecha</th><th>Cliente</th>'
-    +'<th style="text-align:right">Valores</th><th style="text-align:right">Retenciones</th><th style="text-align:right">Aplicado</th><th></th>'
+    +'<th style="text-align:right">Valores</th><th style="text-align:right">Retenciones</th><th style="text-align:right">Aplicado</th><th>Cuenta</th><th></th>'
     +'</tr></thead><tbody>';
   lista.forEach(r=>{
     const cli=r.clientes||C.clientes.find(c=>c.id===r.cliente_id);
     const planoColor=r.plano==='formal'?'var(--green)':'#9333ea';
     const anulado=r.estado==='anulado';
+    const _cobCta=(C.cuentas_caja||[]).find(x=>x.id===r.cuenta_id);
+    const _esCruce=_cobCta&&_planoNorm(r.plano)!==(_cobCta.plano||'blanco');
     html+='<tr style="'+(anulado?'opacity:.5;':'')+'">'
       +'<td><strong>'+(r.numero||'#'+r.id)+'</strong>'+(anulado?' <span style="font-size:10px;color:var(--red);font-weight:700;">ANULADO</span>':'')+'</td>'
       +'<td><span style="font-size:11px;font-weight:600;color:'+planoColor+';">'+(r.plano||'').toUpperCase()+'</span></td>'
@@ -12265,7 +12367,9 @@ function renderRecibos(){
       +'<td style="text-align:right'+(anulado?';text-decoration:line-through':'')+'" class="mono">'+fmtMoney(r.total_cobrado)+'</td>'
       +'<td style="text-align:right;color:var(--amber);" class="mono">'+fmtMoney(r.total_retenciones)+'</td>'
       +'<td style="text-align:right;font-weight:600;color:var(--green);" class="mono">'+(anulado?'—':fmtMoney(r.total_aplicado))+'</td>'
+      +'<td style="font-size:11px;white-space:nowrap;">'+(_cobCta?escapeHtml(_cobCta.nombre||'cuenta')+((_cobCta.plano||'blanco')==='negro'?' ⚫':' ⚪'):'<span style="color:var(--text3)">— default —</span>')+(_esCruce?' <span title="El cobro cae en una cuenta de otro circuito → cruza por conciliación. Revisá si es correcto." style="color:var(--amber);font-weight:700;">↔</span>':'')+'</td>'
       +'<td style="white-space:nowrap;"><button class="btn btn-sm" onclick="imprimirRecibo('+r.id+')">🖨</button>'
+        +(anulado?'':' <button class="btn btn-sm" onclick="cambiarCuentaRecibo('+r.id+')" title="Cambiar la cuenta donde entró el cobro">🏦</button>')
         +(anulado?'':' <button class="btn btn-sm btn-del" onclick="anularRecibo('+r.id+')" title="Anular este recibo">✗</button>')
       +'</td>'
       +'</tr>';
@@ -37043,7 +37147,11 @@ function ccMovimientosUnificados(){
     const cheq=vals.filter(chEsCheque).reduce((s,v)=>s+(parseFloat(v.monto)||0),0);
     const monto=r2((parseFloat(r.total_cobrado)||0)-cheq); // solo efectivo/transferencia entra ya; el cheque entra al acreditarse
     if(monto<=0.01)return;
-    const cta=r.cuenta_id||defC;
+    // Fallback de cuenta por PLANO del recibo (no la global, que puede ser negra).
+    const _recPl=_planoNorm(r.plano);
+    const _defPlano=(C.cuentas_caja||[]).find(c=>c.default_cobros&&!c.es_conciliacion&&(c.plano||'blanco')===_recPl)
+      ||(C.cuentas_caja||[]).find(c=>!c.es_conciliacion&&(c.plano||'blanco')===_recPl);
+    const cta=r.cuenta_id||(_defPlano&&_defPlano.id)||defC;
     out.push({key:'r'+r.id,fecha:r.fecha,tipo:'ingreso',cuenta_id:cta,monto,concepto:'Recibo '+(r.numero||'')+' · '+lcCliNombre(r.cliente_id),conciliado:!!r.conciliado,fecha_conciliacion:r.fecha_conciliacion||null,origen:'recibo',origen_id:r.id,editable:false,sinCuenta:!cta});
   });
   (C.pagos_proveedores||[]).forEach(p=>{
@@ -37267,10 +37375,10 @@ function renderLibroCaja(){
     html+='<div style="margin-bottom:1.2rem;border:1px solid '+(ok?'var(--green)':'var(--red)')+';border-radius:var(--r);padding:10px 14px;background:'+(ok?'rgba(34,197,94,.07)':'rgba(239,68,68,.08)')+';display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">'
       +'<div><strong>'+(ok?'✓':'⚠')+' Conciliación:</strong> <span class="mono">'+fmt(sc)+'</span> '
       +'<span style="font-size:11px;color:var(--text3);">'+(ok?'· cuadrada (todos los cruces cerrados)':'· hay un cruce sin cerrar (una sola pata). Completá la pata que falta.')+'</span></div>'
-      +'<button class="btn btn-sm btn-primary" onclick="ccCruce()">↔ Cruce entre circuitos</button>'
+      +'<button class="btn btn-sm" onclick="ccExtraccion()">🏦 Extracción cheque propio</button> <button class="btn btn-sm btn-primary" onclick="ccCruce()">↔ Cruce entre circuitos</button>'
     +'</div>';
   } else {
-    html+='<div style="margin-bottom:1rem;"><button class="btn btn-sm" onclick="ccCruce()">↔ Cruce entre circuitos</button></div>';
+    html+='<div style="margin-bottom:1rem;"><button class="btn btn-sm" onclick="ccExtraccion()">🏦 Extracción cheque propio</button> <button class="btn btn-sm" onclick="ccCruce()">↔ Cruce entre circuitos</button></div>';
   }
   // tarjetas de cuentas
   html+='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:1.2rem;">';
@@ -37468,6 +37576,62 @@ function ccCruceGuardar(){
     const{error}=await sb.from('movimientos_caja').insert(rows);
     if(error){setErr('Error: '+error.message);return;}
     document.getElementById('cc-modal')?.remove(); toast('✓ Cruce registrado','green');
+    await reload(); renderLibroCaja();
+  })();
+}
+
+// ============ EXTRACCIÓN CON CHEQUE PROPIO (banco -> caja) ============
+function ccExtraccion(){
+  const ctas=(C.cuentas_caja||[]).filter(c=>c.activa!==false && !c.es_conciliacion);
+  const bancos=ctas.filter(c=>c.tipo==='banco');
+  const cajas=ctas.filter(c=>c.tipo!=='banco');
+  if(!bancos.length||!cajas.length){alert('Necesitás al menos un banco y una caja (efectivo) cargados en el Libro de caja.');return;}
+  const opt=arr=>arr.map(c=>'<option value="'+c.id+'">'+escapeHtml(c.nombre||'')+' '+((c.plano||'blanco')==='negro'?'⚫':'⚪')+'</option>').join('');
+  document.getElementById('cc-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="cc-modal"><div class="modal-card" style="max-width:470px;">'
+    +'<div class="modal-title">🏦 Extracción con cheque propio</div>'
+    +'<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Sacás plata del banco con un cheque propio cobrado por ventanilla y la pasás a la caja. Si el banco y la caja son de circuitos distintos, pasa por conciliación.</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
+      +'<div class="fg"><label>Sale del banco</label><select id="ex-banco">'+opt(bancos)+'</select></div>'
+      +'<div class="fg"><label>Entra a la caja</label><select id="ex-caja">'+opt(cajas)+'</select></div>'
+      +'<div class="fg"><label>Monto $</label><input type="number" id="ex-monto" min="0" step="0.01" style="width:100%"></div>'
+      +'<div class="fg"><label>Fecha</label><input type="date" id="ex-fecha" value="'+localDate()+'" style="width:100%"></div>'
+      +'<div class="fg" style="grid-column:1/3;"><label>N° de cheque propio</label><input type="text" id="ex-nro" placeholder="ej: 00012345" style="width:100%"></div>'
+    +'</div>'
+    +'<div class="btn-grp" style="margin-top:1rem;"><button class="btn btn-sm btn-primary" onclick="ccExtraccionGuardar()">💾 Registrar extracción</button><button class="btn btn-sm" onclick="document.getElementById(\'cc-modal\').remove()">Cancelar</button><span id="ex-msg" style="font-size:11px;margin-left:8px;"></span></div>'
+    +'</div></div>');
+}
+function ccExtraccionGuardar(){
+  const banco=parseInt(document.getElementById('ex-banco').value)||null;
+  const caja=parseInt(document.getElementById('ex-caja').value)||null;
+  const monto=parseFloat(document.getElementById('ex-monto').value)||0;
+  const fecha=document.getElementById('ex-fecha').value||localDate();
+  const nro=(document.getElementById('ex-nro').value||'').trim();
+  const msg=document.getElementById('ex-msg');
+  const setErr=t=>{if(msg){msg.style.color='var(--red)';msg.textContent=t;}};
+  if(monto<=0){setErr('Monto inválido');return;}
+  if(!banco||!caja){setErr('Elegí banco y caja');return;}
+  if(banco===caja){setErr('Banco y caja deben ser distintos');return;}
+  const bo=(C.cuentas_caja||[]).find(x=>x.id===banco), ca=(C.cuentas_caja||[]).find(x=>x.id===caja);
+  const cross=(bo.plano||'blanco')!==(ca.plano||'blanco');
+  const ref='cheque propio'+(nro?' N° '+nro:'');
+  (async()=>{
+    if(!cross){
+      // mismo circuito: transferencia directa banco -> caja
+      const{error}=await sb.from('movimientos_caja').insert({fecha,cuenta_id:banco,tipo:'transferencia',monto:r2(monto),cuenta_destino_id:caja,concepto:'Extracción con '+ref+' · '+ccCuentaNombre(banco)+'→'+ccCuentaNombre(caja),origen_tipo:'extraccion',notas:(nro||null)});
+      if(error){setErr('Error: '+error.message);return;}
+    } else {
+      // cruce de circuito: banco -> conciliación -> caja
+      const conc=_ctaConciliacion(); if(!conc){setErr('No existe la cuenta CONCILIACIÓN (corré el SQL).');return;}
+      const rid=Date.now();
+      const{error}=await sb.from('movimientos_caja').insert([
+        {fecha,cuenta_id:banco,tipo:'transferencia',monto:r2(monto),cuenta_destino_id:conc.id,concepto:'Extracción con '+ref+' ['+ccCuentaNombre(banco)+'→conciliación]',origen_tipo:'extraccion',origen_id:rid,notas:(nro||null)},
+        {fecha,cuenta_id:conc.id,tipo:'transferencia',monto:r2(monto),cuenta_destino_id:caja,concepto:'Extracción con '+ref+' [conciliación→'+ccCuentaNombre(caja)+']',origen_tipo:'extraccion',origen_id:rid,notas:(nro||null)}
+      ]);
+      if(error){setErr('Error: '+error.message);return;}
+    }
+    document.getElementById('cc-modal')?.remove(); toast('✓ Extracción registrada','green');
     await reload(); renderLibroCaja();
   })();
 }
