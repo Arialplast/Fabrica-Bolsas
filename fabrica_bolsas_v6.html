@@ -3422,7 +3422,7 @@ body.pext-on .main{margin-left:0!important;}
                 <strong class="mono" id="nrec-tot-imputado">$ 0,00</strong>
               </div>
               <div style="display:flex;justify-content:space-between;font-size:14px;margin-top:4px;">
-                <span>Diferencia (debe ser $0):</span>
+                <span id="nrec-dif-lbl">Diferencia (debe ser $0):</span>
                 <strong class="mono" id="nrec-dif" style="color:var(--red);">$ 0,00</strong>
               </div>
             </div>
@@ -3685,6 +3685,32 @@ body.pext-on .main{margin-left:0!important;}
             <div id="ci-todos-tbl"></div>
             <div id="ci-todos-resumen" style="margin-top:12px;padding:10px;background:var(--bg2);border-radius:6px;font-size:13px;"></div>
           </div>
+        </div>
+      </div>
+
+      <!-- SECCIÓN: SALDOS DE PROVEEDORES -->
+      <div class="card" style="margin-bottom:1rem;">
+        <div class="card-hdr">
+          <div class="card-title">🧾 Saldos de proveedores (deudas al corte)</div>
+        </div>
+        <div class="card-bd">
+          <div style="font-size:12px;color:var(--text2);margin-bottom:10px;">
+            Lo que le debías a cada proveedor al corte. Se carga como deuda pendiente (no afecta el resultado del mes) y la saldás con la pantalla de pago.
+          </div>
+          <div style="overflow-x:auto;">
+            <table style="width:100%;font-size:12px;">
+              <thead><tr style="background:var(--bg3)">
+                <th style="padding:6px;text-align:left;width:35%">Proveedor</th>
+                <th style="width:15%">Circuito</th>
+                <th style="text-align:left;width:30%">Concepto</th>
+                <th style="text-align:right;width:15%">Monto $</th>
+                <th style="width:5%"></th>
+              </tr></thead>
+              <tbody id="ci-saldos-prov-tbody"></tbody>
+            </table>
+          </div>
+          <button class="btn btn-sm btn-primary" onclick="agregarSaldoProvFila()" style="margin-top:8px;">+ Agregar proveedor</button>
+          <span id="msg-ci-saldos-prov" style="font-size:12px;margin-left:10px;"></span>
         </div>
       </div>
 
@@ -11137,7 +11163,7 @@ function calcularSaldosCliente(cliId){
   let creditoFormal=0, creditoInformal=0;
   (C.recibos||[]).forEach(r=>{
     if(r.cliente_id!==cliId)return;
-    const disponible=(parseFloat(r.total_cobrado)||0) - (parseFloat(r.total_retenciones)||0) - (parseFloat(r.total_aplicado)||0);
+    const disponible=(parseFloat(r.total_cobrado)||0) + (parseFloat(r.total_retenciones)||0) - (parseFloat(r.total_aplicado)||0);
     if(disponible<=0.01)return;
     if(r.plano==='formal')creditoFormal+=disponible;
     else creditoInformal+=disponible;
@@ -11273,7 +11299,7 @@ function renderDetalleCC(){
         const totalAplicado=parseFloat(r.total_aplicado)||0;
         const totalCobrado=parseFloat(r.total_cobrado)||0;
         const totalRet=parseFloat(r.total_retenciones)||0;
-        const disponible=totalCobrado-totalRet-totalAplicado;
+        const disponible=totalCobrado+totalRet-totalAplicado;
         movs.push({
           fecha:r.fecha,tipo:'RECIBO',plano:'formal',
           ref:'Recibo formal '+(r.numero||'#'+r.id),
@@ -11329,7 +11355,7 @@ function renderDetalleCC(){
         const totalAplicado=parseFloat(r.total_aplicado)||0;
         const totalCobrado=parseFloat(r.total_cobrado)||0;
         const totalRet=parseFloat(r.total_retenciones)||0;
-        const disponible=totalCobrado-totalRet-totalAplicado;
+        const disponible=totalCobrado+totalRet-totalAplicado;
         movs.push({
           fecha:r.fecha,tipo:'RECIBO',plano:'informal',
           ref:'Recibo informal '+(r.numero||'#'+r.id),
@@ -11477,10 +11503,10 @@ function abrirImputar(tipoDestino,destinoId){
     const totalCobrado=parseFloat(r.total_cobrado)||0;
     const totalRet=parseFloat(r.total_retenciones)||0;
     const totalAplicado=parseFloat(r.total_aplicado)||0;
-    return (totalCobrado-totalRet-totalAplicado)>0.01;
+    return (totalCobrado+totalRet-totalAplicado)>0.01;
   }).map(r=>({
     ...r,
-    _disponible:r2((parseFloat(r.total_cobrado)||0)-(parseFloat(r.total_retenciones)||0)-(parseFloat(r.total_aplicado)||0))
+    _disponible:r2((parseFloat(r.total_cobrado)||0)+(parseFloat(r.total_retenciones)||0)-(parseFloat(r.total_aplicado)||0))
   }));
   if(!recibosDisp.length){
     alert('No hay recibos con crédito disponible del plano '+plano+' para imputar.');
@@ -11503,7 +11529,7 @@ function abrirImputarRecibo(reciboId){
   const totalCobrado=parseFloat(recibo.total_cobrado)||0;
   const totalRet=parseFloat(recibo.total_retenciones)||0;
   const totalAplicado=parseFloat(recibo.total_aplicado)||0;
-  const disponible=r2(totalCobrado-totalRet-totalAplicado);
+  const disponible=r2(totalCobrado+totalRet-totalAplicado);
   if(disponible<=0.01){alert('Este recibo no tiene crédito disponible.');return;}
   const plano=recibo.plano;
   // Destinos pendientes del cliente y plano
@@ -12101,8 +12127,21 @@ function recalcRecibo(){
   document.getElementById('nrec-tot-aimputar').textContent=fmtMoney(aImputar);
   document.getElementById('nrec-tot-imputado').textContent=fmtMoney(totImp);
   const difEl=document.getElementById('nrec-dif');
-  difEl.textContent=fmtMoney(dif);
-  difEl.style.color=Math.abs(dif)<0.01?'var(--green)':'var(--red)';
+  const difLbl=document.getElementById('nrec-dif-lbl');
+  if(dif>0.01){
+    // Imputaste menos de lo recibido → el sobrante queda como saldo a favor del cliente.
+    difEl.textContent='💳 '+fmtMoney(dif);
+    difEl.style.color='var(--accent)';
+    if(difLbl)difLbl.textContent='Saldo a favor del cliente:';
+  } else if(dif<-0.01){
+    difEl.textContent=fmtMoney(dif);
+    difEl.style.color='var(--red)';
+    if(difLbl)difLbl.textContent='⚠ Imputaste más de lo recibido:';
+  } else {
+    difEl.textContent=fmtMoney(dif);
+    difEl.style.color='var(--green)';
+    if(difLbl)difLbl.textContent='Diferencia (debe ser $0):';
+  }
 }
 
 async function guardarRecibo(){
@@ -12113,7 +12152,10 @@ async function guardarRecibo(){
   const aImputar=totValores+totRet;
   if(aImputar<=0){msg.style.color='var(--red)';msg.textContent='Falta ingresar valores o retenciones.';return;}
   const totImp=Object.values(_recCtx.imputaciones).reduce((s,v)=>s+(parseFloat(v)||0),0);
-  if(Math.abs(aImputar-totImp)>0.01){msg.style.color='var(--red)';msg.textContent='Diferencia: '+fmtMoney(aImputar-totImp);return;}
+  // Saldo a favor permitido: imputar MENOS de lo recibido deja el sobrante como crédito del cliente.
+  // Solo se bloquea imputar MÁS de lo recibido (eso se hace desde la cuenta corriente, usando crédito previo).
+  const _dif=r2(aImputar-totImp);
+  if(_dif<-0.01){msg.style.color='var(--red)';msg.textContent='Imputaste '+fmtMoney(-_dif)+' más de lo recibido. Para aplicar saldo a favor previo del cliente, hacelo desde la Cuenta corriente (botón 💵 Imputar).';return;}
 
   // Anti-sobreaplicación (P1): ningún comprobante puede recibir más que su saldo REAL derivado.
   // Esto evita el caso de cargar dos recibos por el total a una factura ya pagada.
@@ -12146,7 +12188,7 @@ async function guardarRecibo(){
 
   const {data:rec,error:e1}=await sb.from('recibos').insert({
     numero:numero,plano:_recCtx.plano,cliente_id:_recCtx.cliente.id,fecha:fecha,
-    total_cobrado:r2(totValores),total_retenciones:r2(totRet),total_aplicado:r2(aImputar),observaciones:obs,cuenta_id:_recCuentaCobro()
+    total_cobrado:r2(totValores),total_retenciones:r2(totRet),total_aplicado:r2(totImp),observaciones:obs,cuenta_id:_recCuentaCobro()
   }).select().single();
   if(e1){msg.style.color='var(--red)';msg.textContent='Error: '+e1.message;return;}
   await _recCruceConciliacion(rec,totValores,fecha);
@@ -12196,7 +12238,8 @@ async function guardarRecibo(){
     }
   }
 
-  msg.style.color='var(--green)';msg.textContent='✓ Recibo '+numero+' emitido';
+  const _favor=r2(aImputar-totImp);
+  msg.style.color='var(--green)';msg.textContent='✓ Recibo '+numero+' emitido'+(_favor>0.01?' · 💳 saldo a favor del cliente: '+fmtMoney(_favor)+' (lo aplicás desde Cuenta corriente)':'');
   await reload();
   setTimeout(()=>{imprimirRecibo(rec.id);go('cuenta-corriente');},800);
 }
@@ -13044,6 +13087,8 @@ async function initCargaInicial(){
   document.getElementById('ci-btn-todos').classList.remove('active');
   _ciVista='individual';
 
+  _ciSaldosProv=(C.compras_gastos||[]).filter(x=>x.categoria==='saldo_inicial').map(x=>({id:x.id,proveedor_id:x.proveedor_id,plano:x.plano||'blanco',concepto:x.descripcion||'',monto:parseFloat(x.total)||0}));
+  renderSaldosProv();
   renderStockInicial();
 }
 
@@ -13198,7 +13243,32 @@ function updStockFila(i,campo,val){
   _ciStock[i][campo]=val;
 }
 
+// ===== Saldos iniciales de PROVEEDORES (deudas al corte -> compras_gastos 'saldo_inicial') =====
+let _ciSaldosProv=[];
+function agregarSaldoProvFila(){ _ciSaldosProv.push({proveedor_id:'',plano:'blanco',concepto:'Saldo inicial al corte',monto:0}); renderSaldosProv(); }
+function renderSaldosProv(){
+  const tb=document.getElementById('ci-saldos-prov-tbody'); if(!tb)return;
+  const provs=(C.proveedores||[]).slice().sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
+  const opt=sel=>'<option value="">— elegir —</option>'+provs.map(p=>'<option value="'+p.id+'"'+(String(p.id)===String(sel)?' selected':'')+'>'+escapeHtml(p.nombre||'')+'</option>').join('');
+  if(!_ciSaldosProv.length){tb.innerHTML='<tr><td colspan="5" style="color:var(--text3);font-style:italic;padding:8px;">Sin saldos de proveedores cargados.</td></tr>';return;}
+  tb.innerHTML=_ciSaldosProv.map((s,i)=>'<tr>'
+    +'<td style="padding:4px;"><select onchange="_ciSaldosProv['+i+'].proveedor_id=this.value" style="width:100%">'+opt(s.proveedor_id)+'</select></td>'
+    +'<td style="padding:4px;"><select onchange="_ciSaldosProv['+i+'].plano=this.value" style="width:100%"><option value="blanco"'+(s.plano==='blanco'?' selected':'')+'>⚪ Blanco</option><option value="negro"'+(s.plano==='negro'?' selected':'')+'>⚫ Negro</option></select></td>'
+    +'<td style="padding:4px;"><input type="text" value="'+escapeHtml(s.concepto||'')+'" oninput="_ciSaldosProv['+i+'].concepto=this.value" style="width:100%"></td>'
+    +'<td style="padding:4px;text-align:right"><input type="number" step="0.01" value="'+(s.monto||'')+'" oninput="_ciSaldosProv['+i+'].monto=parseFloat(this.value)||0" style="width:110px;text-align:right"></td>'
+    +'<td style="padding:4px;text-align:center"><button class="btn btn-sm" onclick="quitarSaldoProvFila('+i+')">✕</button></td>'
+  +'</tr>').join('');
+}
+function quitarSaldoProvFila(i){
+  const item=_ciSaldosProv[i];
+  if(item && item.id){
+    if((C.pagos_proveedores||[]).some(p=>p.compra_gasto_id===item.id)){alert('Esta deuda inicial ya tiene pagos aplicados. Anulá los pagos antes de eliminarla.');return;}
+    if(!confirm('¿Eliminar este saldo inicial? (ya estaba guardado como deuda del proveedor)'))return;
+    pedirAdminYEjecutar(async()=>{ await sb.from('compras_gastos').delete().eq('id',item.id); _ciSaldosProv.splice(i,1); renderSaldosProv(); toast('Saldo eliminado','green'); });
+  } else { _ciSaldosProv.splice(i,1); renderSaldosProv(); }
+}
 function agregarStockFila(){
+
   _ciStock.push({producto_id:null,paquetes:0,obs:''});
   renderStockInicial();
 }
@@ -13255,6 +13325,13 @@ async function guardarCargaInicial(){
   // 2) Guardar stock inicial
   // Primero borrar stock_bolsas previas generadas de stock_inicial (las re-creamos limpias)
   let stockCreados=0;
+  // Saldos de proveedores -> compras_gastos categoria 'saldo_inicial' (no afecta resultado)
+  for(const s of _ciSaldosProv){
+    if(!s.proveedor_id || !(parseFloat(s.monto)>0))continue;
+    const pl={proveedor_id:parseInt(s.proveedor_id),categoria:'saldo_inicial',descripcion:(s.concepto||'Saldo inicial al corte'),neto:r2(s.monto),iva_porcentaje:0,iva_monto:0,total:r2(s.monto),plano:s.plano||'blanco',afecta_resultado:false,estado_pago:'pendiente',fecha:localDate()};
+    if(s.id){ await sb.from('compras_gastos').update(pl).eq('id',s.id); }
+    else { const{data:ins}=await sb.from('compras_gastos').insert(pl).select().single(); if(ins)s.id=ins.id; }
+  }
   for(const s of _ciStock){
     if(!s.producto_id||!s.paquetes||s.paquetes<=0)continue;
     const payload={
@@ -36433,7 +36510,31 @@ function fcCobrosPendientes(){
     const fEf=String(ch.fecha_vto||ch.recibo_fecha||localDate());
     out.push({clase:'cobro',tipo:'cheque',id:ch.id,cliente_id:ch.cliente_id,plano:ch.plano_recibo||'informal',ref:'Cheque '+(ch.banco||'')+(ch.numero_cheque?' N° '+ch.numero_cheque:'')+(ch.estado==='depositado'?' (depositado)':' (en cartera)')+' · '+lcCliNombre(ch.cliente_id),saldo,fEf,editable:false});
   });
-  return out;
+  // Saldo a favor del cliente: reduce los cobros FUTUROS (la próxima vez paga menos efectivo).
+  // La plata del sobrepago YA entró al libro de caja como saldo real; acá NO se cuenta de nuevo —
+  // solo evitamos sobre-contar lo por venir. No toca cheques (instrumento ya en mano), solo factura/RV/saldo inicial.
+  const _credCli={};
+  (C.recibos||[]).forEach(r=>{
+    if(r.estado==='anulado')return;
+    const disp=r2((parseFloat(r.total_cobrado)||0)+(parseFloat(r.total_retenciones)||0)-(parseFloat(r.total_aplicado)||0));
+    if(disp<=0.01)return;
+    const k=r.cliente_id+'|'+_planoNorm(r.plano);
+    _credCli[k]=r2((_credCli[k]||0)+disp);
+  });
+  Object.keys(_credCli).forEach(k=>{
+    let cred=_credCli[k];
+    const ix=k.lastIndexOf('|');const cliId=k.slice(0,ix),plano=k.slice(ix+1);
+    const items=out.filter(o=>o.clase==='cobro'&&(o.tipo==='factura'||o.tipo==='rv'||o.tipo==='si')&&String(o.cliente_id)===cliId&&_planoNorm(o.plano)===plano)
+      .sort((a,b)=>String(a.fEf).localeCompare(String(b.fEf)));
+    for(const it of items){
+      if(cred<=0.01)break;
+      const red=Math.min(cred,it.saldo);
+      it.saldo=r2(it.saldo-red);
+      it.ref=it.ref+' · neto de saldo a favor';
+      cred=r2(cred-red);
+    }
+  });
+  return out.filter(o=>!((o.tipo==='factura'||o.tipo==='rv'||o.tipo==='si')&&o.clase==='cobro'&&o.saldo<=0.01));
 }
 function fcPagosPendientes(){
   return (C.compras_gastos||[]).filter(c=>cgEstadoPago(c)!=='pagado'&&cgSaldoDoc(c)>0.01).map(c=>({
@@ -37813,28 +37914,29 @@ function ccConcSetSaldoBanco(v){CC.saldoBanco=(v===''||v==null)?null:v;renderCon
 // tipo 'match' -> solo busca el movimiento que ya tenés y lo concilia (no crea nada).
 // tipo 'deuda' -> detecta cuota de préstamo/ARCA y la sugiere (no la salda solo: se hace con documento explícito).
 const BANK_RULES=[
-  {id:'desc',      cod:['00743'], re:/CREDITO DESCUENTO DOCUMENTO|Documentos Diferidos/i, tipo:'match', kind:'ingreso', lbl:'Descuento de cheque (acreditación)'},
-  {id:'interes',   re:/INTERES NOMINAL|INTERESES SOBRE SALDOS/i, tipo:'gasto', cat:'financiero', afecta:true, lbl:'Interés'},
-  {id:'sellos',    re:/IMPUESTO DE SELLOS/i, tipo:'gasto', cat:'impuestos', afecta:true, lbl:'Sellos'},
-  {id:'imp25413',  cod:['IDCC1','IDCC3'], re:/LEY 25\.?413/i, tipo:'gasto', cat:'impuestos', afecta:true, lbl:'Imp. débito/crédito 25413'},
+  {id:'desc',      cod:['00743'], re:/CREDITO DESCUENTO DOCUMENTO|Documentos Diferidos|DESCUENTO DE ECHEQ|DESCUENTO ECHEQ/i, tipo:'match', kind:'ingreso', lbl:'Descuento de cheque (acreditación)'},
+  {id:'interes',   re:/INTERES NOMINAL|INTERESES SOBRE SALDOS|INTS\.?\s*S\/DESC|INTER.*ECHEQ/i, tipo:'gasto', cat:'financiero', afecta:true, lbl:'Interés'},
+  {id:'sellos',    re:/IMPUESTO DE SELLOS|IMPUESTO A LOS SELLOS|SELLOS/i, tipo:'gasto', cat:'impuestos', afecta:true, lbl:'Sellos'},
+  {id:'imp25413',  cod:['IDCC1','IDCC3'], re:/LEY 25\.?413|IMP\.?\s*DB\/CR|IMP\.?DB\/CR BANCARIOS/i, tipo:'gasto', cat:'impuestos', afecta:true, lbl:'Imp. débito/crédito 25413'},
   {id:'comision',  cod:['00211','02513'], re:/COMISION|COM\. DEPOSITO|COMIS\. RETIRO/i, tipo:'gasto', cat:'financiero', afecta:true, lbl:'Comisión bancaria'},
   {id:'percep',    cod:['IVAA1'], re:/PERCEP/i, tipo:'gasto', cat:'percepciones', afecta:false, lbl:'Percepción IVA'},
-  {id:'iva',       cod:['IVA08'], re:/^IVA\b|IVA -|^IVA$|Alicuota Inscripto/i, tipo:'gasto', cat:'iva_credito_fiscal', afecta:false, lbl:'IVA crédito fiscal'},
+  {id:'iva',       cod:['IVA08'], re:/^IVA\b|IVA -|^IVA$|Alicuota Inscripto|IVA ALICUOTA/i, tipo:'gasto', cat:'iva_credito_fiscal', afecta:false, lbl:'IVA crédito fiscal'},
   {id:'sueldos',   cod:['00110'], re:/Pago de Haberes|HABERES/i, tipo:'match', lbl:'Sueldos (se cruza con tu pago, no lo duplica)'},
   {id:'segded',    cod:['02499'], re:/Debito Automatico Directo|FEDERACION PATRO/i, tipo:'gasto', cat:'servicios', afecta:true, lbl:'Débito automático (seguro/servicio)'},
   {id:'arca',      cod:['00401'], re:/DEB\. AUTOM\. DE SERV|Recaudaciones en Pesos|PLANRG|DEB\. AUTOM/i, tipo:'deuda', deudaTipo:'arca', lbl:'Pago de plan ARCA'},
-  {id:'cuotaprest',cod:['03264'], re:/Nuevo Sistema de Creditos|CTAS CREDITOS/i, tipo:'deuda', deudaTipo:'prestamo', lbl:'Cuota de préstamo'},
-  {id:'transfprop',cod:['00926','01273'], re:/cuentas propias|Igual Tit|CUENTA PROPIA|TRANSF INMED CP/i, tipo:'match', kind:'transfer', lbl:'Transferencia entre cuentas propias'},
+  {id:'cuotaprest',cod:['03264'], re:/Nuevo Sistema de Creditos|CTAS CREDITOS|AMORT\.?\s*S\/PRESTAMO|AMORTIZACION.*PRESTAMO/i, tipo:'deuda', deudaTipo:'prestamo', lbl:'Cuota de préstamo'},
+  {id:'transfprop',cod:['00926','01273'], re:/cuentas propias|Igual Tit|CUENTA PROPIA|TRANSF INMED CP|TRANSF\.?\s*PROP|TRANSFERENCIA ENTRE CUENTAS/i, tipo:'match', kind:'transfer', lbl:'Transferencia entre cuentas propias'},
   {id:'acred',     cod:['AVGUV'], re:/Acreditacion Valores|Valores Camara/i, tipo:'match', kind:'ingreso', lbl:'Acreditación de cheque depositado'},
   {id:'chprop',    cod:['00020'], re:/Pago Cheque por Caja/i, tipo:'match', kind:'egreso', lbl:'Pago de cheque propio'},
   {id:'cobro',     cod:['01872','01874'], re:/TERCEROS|COELSA/i, tipo:'match', kind:'ingreso', lbl:'Cobro de cliente'},
   {id:'pago',      cod:['01274','00271'], re:/PROVEED|Distinto Titular|Dist\. Titular|Dist Tit/i, tipo:'match', kind:'auto', lbl:'Pago / transferencia a tercero'},
 ];
-function ccImpBancoEs(){ // 'credicoop' | 'galicia' | 'otro' segun el nombre de la cuenta elegida
+function ccImpBancoEs(){ // 'credicoop' | 'galicia' | 'patagonia' | 'otro' segun el nombre de la cuenta elegida
   const c=(C.cuentas_caja||[]).find(x=>x.id===CC.cuenta);
   const n=(c?.nombre||'').toLowerCase();
   if(n.includes('credicoop'))return 'credicoop';
   if(n.includes('galicia'))return 'galicia';
+  if(n.includes('patagonia'))return 'patagonia';
   return 'otro';
 }
 // extrae importes (solo tokens con decimales, para no confundir nº de cuenta/comprobante)
@@ -37847,10 +37949,45 @@ function ccImpCod(s){
   const m=String(s).trim().match(/\b([A-Z]{2,5}\d?|\d{5})\b\s*$/);
   return m?m[1]:null;
 }
+// parser especial Banco Patagonia: la descripción viene partida en varias líneas y el signo
+// se deduce de la diferencia de saldos (a prueba de balas, sobre todo con descubierto en negativo)
+function ccImpParsePatagonia(raw){
+  const esFecha=l=>/^\s*\d{1,2}\/\d{1,2}\/\d{4}/.test(l);
+  const esHeader=l=>/Movimientos de Cuenta|Cuenta\s*:|Titularidad|^\s*Fecha\s+Descrip|P[áa]?gina|^SA$/i.test(l);
+  const normF=l=>{const m=l.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);if(!m)return null;let a=m[3];if(a.length===2)a='20'+a;return a+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[1]).padStart(2,'0');};
+  const anclas=[];
+  raw.forEach((l,i)=>{
+    if(!esFecha(l))return;
+    const inline=l.replace(/^\s*\d{1,2}\/\d{1,2}\/\d{4}\s*/,'').replace(/-?\d{1,3}(?:\.\d{3})*,\d{2}/g,'').replace(/\bVAR\b.*$/i,'').replace(/\s+/g,' ').trim();
+    let desc;
+    if(inline.replace(/[^A-Za-zÁÉÍÓÚÑ]/gi,'').length>=3){ // la línea ya trae su propia descripción
+      desc=inline;
+    } else { // descripción partida arriba/abajo de la línea con fecha
+      const prev=(i>0&&!esFecha(raw[i-1])&&!esHeader(raw[i-1]))?raw[i-1]:'';
+      const next=(i+1<raw.length&&!esFecha(raw[i+1])&&!esHeader(raw[i+1]))?raw[i+1]:'';
+      desc=[prev,next].filter(Boolean).join(' ');
+    }
+    desc=desc.replace(/\bVAR\b\s*\d+/gi,'').replace(/ARIALPLAST\s*(S\.?A\.?)?/gi,'').replace(/\s+/g,' ').trim();
+    const nums=ccImpMontos(l);
+    const saldo=nums.length?nums[nums.length-1]:null;
+    const montoExtr=nums.length>=2?Math.abs(nums[nums.length-2]):(nums.length?Math.abs(nums[0]):0);
+    anclas.push({fecha:normF(l),desc,saldo,montoExtr});
+  });
+  anclas.forEach((a,k)=>{
+    a.monto=a.montoExtr; // el importe exacto que imprime el banco
+    if(k+1<anclas.length&&a.saldo!=null&&anclas[k+1].saldo!=null){
+      a.signo=(a.saldo-anclas[k+1].saldo)>=0?'+':'-'; // saldo sube => entró; baja => salió
+    } else {
+      a.signo=(/DESCUENTO|ACREDITA|TRANSFERENCIA ENTRE CUENTAS|DEP[OÓ]SITO/i.test(a.desc)&&!/IMP|INTS|INTER|IVA|SELLO/i.test(a.desc))?'+':'-';
+    }
+  });
+  return anclas.filter(a=>a.monto>0.001).map(a=>({fecha:a.fecha,desc:a.desc,monto:a.monto,signo:a.signo,cod:null,full:a.desc}));
+}
 // parsea el extracto pegado -> lista de movimientos {fecha,desc,monto,signo,cod}
 function ccImpParse(txt){
   const banco=ccImpBancoEs();
-  const raw=txt.split(/\r?\n/).map(l=>l.replace(/\u00a0/g,' ').trimEnd());
+  const raw=txt.split(/\r?\n/).map(l=>l.replace(/\u00a0/g,' ').trimEnd()).filter(l=>l.trim());
+  if(banco==='patagonia')return ccImpParsePatagonia(raw);
   const movs=[]; let cur=null;
   const esFecha=l=>/^\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\d{4}-\d{2}-\d{2})/.test(l);
   const normFecha=l=>{
