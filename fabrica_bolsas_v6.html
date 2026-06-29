@@ -4428,6 +4428,7 @@ async function reload(){
     sb.from('bancos').select('*').order('orden').then(r=>r).catch(()=>({data:[]})),
     sb.from('motivos_ajuste').select('*').eq('activo',true).order('id').then(r=>r).catch(()=>({data:[]})),
     sb.from('pagos').select('*').order('fecha',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
+    sb.from('consumos_mp_bobina').select('bobina_producida_id,kg_consumidos,precio_kg,costo_parcial').then(r=>r).catch(()=>({data:[]})),
   ]);
   const d=r=>results[r].status==='fulfilled'?results[r].value.data||[]:[];
   C.bobinas=d(0);C.extrusoras=d(1);C.ordenes=d(2);
@@ -4469,6 +4470,8 @@ async function reload(){
   C.bancos=d(45)||[];
   C.motivos_ajuste=d(46)||[];
   C.pagos=d(47)||[];
+  C.consumos_mp=d(48)||[];
+  _costoBobinaIdx=null; // invalidar índice de costo real por bobina al recargar
   const rcfg=results[8].status==='fulfilled'?results[8].value:null;
   if(rcfg?.data){rcfg.data.forEach(r=>{
     if(r.clave==='clave_admin')cfg.clave_admin=r.valor;
@@ -8812,7 +8815,15 @@ function calcNrLinea(lineaId){
     if(reservadoOtros>=falta){
       aviso.innerHTML='<span style="color:var(--amber);">⚠ Supera el stock propio por '+falta.toLocaleString('es-AR')+' paq. Al guardar se podrá reasignar de otros pedidos ('+reservadoOtros.toLocaleString('es-AR')+' paq reservados disponibles).</span>';
     } else {
-      aviso.innerHTML='<span style="color:var(--red);">✕ Supera el stock propio por '+falta.toLocaleString('es-AR')+' paq y no hay suficiente reservado a otros pedidos ('+reservadoOtros.toLocaleString('es-AR')+' paq).</span>';
+      // ¿Hay sustituto disponible para esta línea? (solo modo pedido). Si lo hay,
+      // el faltante lo resuelve el diálogo de sustitución al guardar — no es un ✕.
+      const pedIdNr=parseInt(document.getElementById('nr-pedido')?.value)||0;
+      const tieneSust=pedIdNr&&typeof _sustOpcionesProducto==='function'&&_sustOpcionesProducto(productoId,pedIdNr).length>0;
+      if(tieneSust){
+        aviso.innerHTML='<span style="color:var(--amber);">⚠ Sin stock propio ni reservado a otros pedidos — al guardar vas a poder entregar un producto sustituto.</span>';
+      } else {
+        aviso.innerHTML='<span style="color:var(--red);">✕ Supera el stock propio por '+falta.toLocaleString('es-AR')+' paq y no hay suficiente reservado a otros pedidos ('+reservadoOtros.toLocaleString('es-AR')+' paq).</span>';
+      }
     }
   } else if(aviso){
     if(inp)inp.style.borderColor='';
@@ -9081,6 +9092,10 @@ async function guardarRemito(){
       .filter(s=>s.producto_id===rl.producto_id&&(s.estado==='disponible'||s.estado==='reservado'))
       .reduce((a,x)=>a+(parseFloat(x.cantidad_paquetes)||0),0);
     if(rl.cantidad_paquetes>fisicoTotal){
+      // Si hay sustituto disponible para esta línea (modo pedido), el faltante lo
+      // resuelve el diálogo de sustitución, que exige cobertura completa antes de
+      // confirmar. No es sobre-entrega real → diferir al diálogo.
+      if(modo==='pedido'&&pedId&&typeof _sustOpcionesProducto==='function'&&_sustOpcionesProducto(rl.producto_id,pedId).length>0)continue;
       const prod=C.productos.find(p=>p.id===rl.producto_id);
       sobreEntrega.push({
         nombre:(prod?.codigo?prod.codigo+' · ':'')+(prod?.descripcion||'producto'),
@@ -16911,6 +16926,24 @@ function gastosFijosDelMes(iniStr,finStr){
 
 // IVA contenido en el monto_mensual (tratado como total con IVA). Negro o iva 0 => 0.
 function gfIvaMonto(g){const iva=parseFloat(g?.iva_porcentaje)||0;const m=parseFloat(g?.monto_mensual)||0;return iva>0?r2(m*iva/(100+iva)):0;}
+// ¿este gasto real (compras_gastos) corresponde a este gasto fijo presupuestado?
+// Match por proveedor_id (si la factura se cargó con proveedor) O por patrón de texto
+// en la descripción (para débitos bancarios sin proveedor). Sin proveedor ni patrón
+// => nunca matchea (ej. sueldos: presupuesto puro hasta el módulo de sueldos).
+function _comprasMatcheaFijo(c,gf){
+  if(!gf||!c)return false;
+  if(gf.proveedor_id&&c.proveedor_id&&String(c.proveedor_id)===String(gf.proveedor_id))return true;
+  if(gf.patron_match){const p=String(gf.patron_match).trim().toLowerCase();if(p&&String(c.descripcion||'').toLowerCase().includes(p))return true;}
+  return false;
+}
+// Gasto REAL del mes que corresponde a un gasto fijo (suma de compras_gastos que matchean).
+function _gastoFijoRealMes(gf,ini,fin){
+  return r2((C.compras_gastos||[]).filter(c=>c.fecha&&String(c.fecha)>=ini&&String(c.fecha)<=fin&&_comprasMatcheaFijo(c,gf)).reduce((s,c)=>s+(parseFloat(c.total)||0),0));
+}
+// ¿alguna compra del mes matchea ALGÚN gasto fijo vigente? (para excluirla de operativos)
+function _comprasEsDeFijo(c,fijosVigentes){
+  return (fijosVigentes||[]).some(gf=>_comprasMatcheaFijo(c,gf));
+}
 function renderGastosFijos(){
   const wrap=document.getElementById('gf-wrap');if(!wrap)return;
   const hoy=localDate();
@@ -16982,6 +17015,11 @@ function gfAbrirForm(g){
       +'<div class="fg"><label>Activo desde</label><input id="gf-desde" type="date" value="'+(g?.activo_desde||localDate())+'" style="width:100%"></div>'
       +'<div class="fg"><label>Activo hasta <span style="color:var(--text3);font-size:10px;">(vacío = sigue)</span></label><input id="gf-hasta" type="date" value="'+(g?.activo_hasta||'')+'" style="width:100%"></div>'
     +'</div>'
+    +'<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;margin:10px 0 6px;font-size:11px;color:var(--text2);">💡 El presupuesto se <b>apaga solo</b> cuando entra el gasto real. Indicá cómo reconocerlo (por proveedor de la factura y/o por un texto que aparezca en la descripción del débito). Dejá ambos vacíos para los que no tienen documento todavía (ej: sueldos).</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
+      +'<div class="fg"><label>Proveedor del gasto real <span style="color:var(--text3);font-size:10px;">(opcional)</span></label><select id="gf-prov" style="width:100%"><option value="">— sin proveedor —</option>'+(C.proveedores||[]).slice().sort((a,b)=>String(a.nombre||a.razon_social||'').localeCompare(String(b.nombre||b.razon_social||''))).map(p=>'<option value="'+p.id+'"'+(String(g?.proveedor_id||'')===String(p.id)?' selected':'')+'>'+String(p.nombre||p.razon_social||('#'+p.id)).replace(/</g,'&lt;')+'</option>').join('')+'</select></div>'
+      +'<div class="fg"><label>Patrón en la descripción <span style="color:var(--text3);font-size:10px;">(ej: FLEX)</span></label><input id="gf-patron" type="text" value="'+String(g?.patron_match||'').replace(/"/g,'&quot;')+'" placeholder="texto del débito/factura" style="width:100%"></div>'
+    +'</div>'
     +'<div class="fg"><label>Notas (opcional)</label><input id="gf-notas" type="text" value="'+String(g?.notas||'').replace(/"/g,'&quot;')+'" style="width:100%"></div>'
     +'<div class="btn-grp" style="margin-top:1rem;">'
       +'<button class="btn btn-sm" onclick="gfGuardar()">💾 Guardar 🔐</button>'
@@ -17003,7 +17041,7 @@ function gfGuardar(){
   if(hasta&&hasta<desde){if(msg){msg.style.color='var(--red)';msg.textContent='"Hasta" no puede ser anterior a "Desde"';}return;}
   pedirAdminYEjecutar(async()=>{
     if(msg){msg.style.color='var(--text2)';msg.textContent='Guardando...';}
-    const row={concepto,categoria,monto_mensual:monto,plano:document.getElementById('gf-plano')?.value||'blanco',iva_porcentaje:parseFloat(document.getElementById('gf-iva')?.value)||0,frecuencia:document.getElementById('gf-frec')?.value||'mensual',dia_pago:Math.min(31,Math.max(1,parseInt(document.getElementById('gf-dia')?.value)||30)),activo_desde:desde,activo_hasta:hasta,notas};
+    const row={concepto,categoria,monto_mensual:monto,plano:document.getElementById('gf-plano')?.value||'blanco',iva_porcentaje:parseFloat(document.getElementById('gf-iva')?.value)||0,frecuencia:document.getElementById('gf-frec')?.value||'mensual',dia_pago:Math.min(31,Math.max(1,parseInt(document.getElementById('gf-dia')?.value)||30)),activo_desde:desde,activo_hasta:hasta,notas,proveedor_id:parseInt(document.getElementById('gf-prov')?.value)||null,patron_match:(document.getElementById('gf-patron')?.value||'').trim()||null};
     let error;
     if(id){({error}=await sb.from('gastos_fijos').update(row).eq('id',parseInt(id)));}
     else{({error}=await sb.from('gastos_fijos').insert(row));}
@@ -17062,9 +17100,11 @@ function _rmMesAnterior(ym){
 function _rmCostoRealBolsaMap(finStr){
   const fin=new Date(finStr+'T23:59:59');
   const iniVentana=new Date(fin.getTime()-120*86400000);
-  // Costo MP real de una bobina (idéntico a Rentabilidad: fórmula × precio promedio de lotes)
+  // Costo MP real de una bobina: consumo trazado (consumos_mp_bobina); fallback fórmula × promedio
   function costoBobina(bp){
     if(!bp)return 0;
+    const real=_costoMPRealBobina(bp);
+    if(real>0)return real; // consumo REAL trazado (P1)
     const ordEx=C.ordenes.find(o=>o.id===bp.orden_id);
     if(!ordEx)return 0;
     const formula=C.formulas.filter(f=>f.bobina_id===ordEx.bobina_id);
@@ -17923,17 +17963,32 @@ async function renderResultadoMes(){
   // 1) Ventas con costo real — mes actual y anterior (misma vara para comparar)
   const A=_rmCalcVentas(iniStr,finStr,_rmCostoRealBolsaMap(finStr));
   const B=_rmCalcVentas(rB.iniStr,rB.finStr,_rmCostoRealBolsaMap(rB.finStr));
-  // 2) Gastos fijos de cada mes
+  // 2) Gastos fijos de cada mes — el PRESUPUESTO cede ante el gasto REAL.
+  //    Por cada fijo: si ya hay factura/débito real que lo matchea (proveedor o patrón),
+  //    se usa el real; si no, el presupuesto. Así se presupuesta sin duplicar.
+  const fijosCalc=(ini,fin)=>{
+    let total=0;const porCat={};const docs=[];
+    gastosFijosDelMes(ini,fin).forEach(g=>{
+      const real=_gastoFijoRealMes(g,ini,fin);
+      const usado=real>0?real:r2(parseFloat(g.monto_mensual)||0);
+      total+=usado;porCat[g.categoria]=r2((porCat[g.categoria]||0)+usado);
+      docs.push({gf:g,real,usado,esReal:real>0});
+    });
+    return{total:r2(total),porCat,docs};
+  };
   const gastosA=gastosFijosDelMes(iniStr,finStr);
-  const fijosA=r2(gastosA.reduce((s,g)=>s+(parseFloat(g.monto_mensual)||0),0));
-  const fijosPorCat={};
-  gastosA.forEach(g=>{fijosPorCat[g.categoria]=r2((fijosPorCat[g.categoria]||0)+(parseFloat(g.monto_mensual)||0));});
-  const fijosB=r2(gastosFijosDelMes(rB.iniStr,rB.finStr).reduce((s,g)=>s+(parseFloat(g.monto_mensual)||0),0));
-  // 2b) Gastos operativos del mes: compras_gastos que afectan resultado (MP queda excluida por afecta_resultado=false)
-  const opMes=(ini,fin)=>(C.compras_gastos||[]).filter(c=>c.afecta_resultado&&c.fecha&&String(c.fecha)>=ini&&String(c.fecha)<=fin);
-  const gastosOpDocsA=opMes(iniStr,finStr);
+  const fijosCalcA=fijosCalc(iniStr,finStr);
+  const fijosA=fijosCalcA.total;
+  const fijosPorCat=fijosCalcA.porCat;
+  const fijosRealesA=fijosCalcA.docs.filter(d=>d.esReal).length;
+  const fijosB=fijosCalc(rB.iniStr,rB.finStr).total;
+  // 2b) Gastos operativos del mes: compras_gastos que afectan resultado, EXCLUYENDO las que
+  //     ya matchean un gasto fijo (contadas como el "real" del fijo) y MP (afecta_resultado=false).
+  const vigA=gastosA, vigB=gastosFijosDelMes(rB.iniStr,rB.finStr);
+  const opMes=(ini,fin,vig)=>(C.compras_gastos||[]).filter(c=>c.afecta_resultado&&c.fecha&&String(c.fecha)>=ini&&String(c.fecha)<=fin&&!_comprasEsDeFijo(c,vig));
+  const gastosOpDocsA=opMes(iniStr,finStr,vigA);
   const gastosOpA=r2(gastosOpDocsA.reduce((s,c)=>s+(parseFloat(c.total)||0),0));
-  const gastosOpB=r2(opMes(rB.iniStr,rB.finStr).reduce((s,c)=>s+(parseFloat(c.total)||0),0));
+  const gastosOpB=r2(opMes(rB.iniStr,rB.finStr,vigB).reduce((s,c)=>s+(parseFloat(c.total)||0),0));
   // 2c) Gastos financieros del mes: ARCA (cuota completa) + interés de préstamos, por mes de VENCIMIENTO
   const deudaCalcA=deudaGastoDelMes(iniStr,finStr);
   const deudaA=deudaCalcA.total;
@@ -17999,7 +18054,7 @@ async function renderResultadoMes(){
     +filaCasc('Ventas del mes',A.venta,'','consolidado (blanco + negro) · '+A.nRemitos+' remito'+(A.nRemitos===1?'':'s')+' · '+A.paquetes.toLocaleString('es-AR')+' paq','var(--accent)')
     +filaCasc('Costo MP real de lo vendido',A.costo,'−','costo real promedio por bolsa de cada producto (OCs completadas, sin GG)','var(--text1)')
     +filaCasc('Margen marginal',A.margen,'=',margenPctA+'% de margen sobre venta',A.margen>=0?'var(--green)':'var(--red)')
-    +filaCasc('Gastos fijos del mes',fijosA,'−',gastosA.length+' concepto'+(gastosA.length===1?'':'s')+' vigente'+(gastosA.length===1?'':'s'),'var(--amber)')
+    +filaCasc('Gastos fijos del mes',fijosA,'−',gastosA.length+' concepto'+(gastosA.length===1?'':'s')+' vigente'+(gastosA.length===1?'':'s')+(fijosRealesA>0?' · '+fijosRealesA+' con factura real, el resto presupuesto':' (presupuesto)'),'var(--amber)')
     +(gastosOpA>0?filaCasc('Gastos operativos del mes',gastosOpA,'−',gastosOpDocsA.length+' movimiento'+(gastosOpDocsA.length===1?'':'s')+' de Compras y Gastos (excluye MP)','#f97316'):'')
     +(deudaA>0?filaCasc('Deudas financieras del mes',deudaA,'−',deudaCalcA.docs.length+' cuota'+(deudaCalcA.docs.length===1?'':'s')+' (ARCA completo + interés de préstamos)','var(--red)'):'')
     +(difInvOk?filaCasc('Diferencias reales de inventario MP',difInvA,(difInvA>=0?'+':'−'),(nInvA?nInvA+' inventario'+(nInvA===1?'':'s')+' del mes (excluye ajustes de sistema)':'sin inventarios este mes'),difInvA>=0?'var(--green)':'var(--red)'):'')
@@ -21361,34 +21416,68 @@ function _calcularCobroPedido(p){
 }
 
 // Monto ya DOCUMENTADO (facturado / valorizado) de un pedido, vía sus remitos.
-// OJO: facturas y RV NO guardan pedido_id. El único vínculo confiable es
-// remito.pedido_id -> remito.factura_id / remito.rv_id. Devuelve {neto,bruto}
-// para poder restar en la misma base que use _calcularCobroPedido (híbrido=neto, resto=bruto).
+// OJO: facturas y RV NO guardan pedido_id. El vínculo es remito.pedido_id -> factura_id/rv_id.
+// IMPORTANTE: una factura/RV puede agrupar remitos de VARIOS pedidos (o remitos sin pedido),
+// así que NO se puede sumar el total entero de la factura/RV. Se suma el valor de los
+// renglones de CADA remito de ESTE pedido (misma base que el total del pedido), aplicando
+// el ratio de IVA de la factura para el bruto. (Bug García: RV-40 compartida con remito 156.)
 function _pedidoYaDocumentado(pid){
-  pid=parseInt(pid);let neto=0,bruto=0;const vf=new Set(),vr=new Set();
+  pid=parseInt(pid);let neto=0,bruto=0;
   (C.remitos||[]).forEach(rm=>{
     if(parseInt(rm.pedido_id)!==pid)return;
-    if(rm.factura_id&&!vf.has(String(rm.factura_id))){
+    let docOk=false,ratio=1; // ratio = bruto/neto del comprobante (IVA); RV sin IVA => 1
+    if(rm.factura_id){
       const f=(C.facturas||[]).find(x=>String(x.id)===String(rm.factura_id));
-      if(f&&f.estado!=='anulada'){vf.add(String(rm.factura_id));neto+=parseFloat(f.subtotal)||0;bruto+=parseFloat(f.total)||0;}
-    }
-    if(rm.rv_id&&!vr.has(String(rm.rv_id))){
+      if(f&&f.estado!=='anulada'){docOk=true;const sub=parseFloat(f.subtotal)||0,tot=parseFloat(f.total)||0;ratio=sub>0?tot/sub:1;}
+    } else if(rm.rv_id){
       const rv=(C.rvs||[]).find(x=>String(x.id)===String(rm.rv_id));
-      if(rv&&rv.estado!=='anulada'){vr.add(String(rm.rv_id));neto+=parseFloat(rv.subtotal)||parseFloat(rv.total)||0;bruto+=parseFloat(rv.total)||0;}
+      if(rv&&rv.estado!=='anulada')docOk=true;
     }
+    if(!docOk)return;
+    const val=(rm.remito_lineas||[]).reduce((s,l)=>s+(parseFloat(l.subtotal)||((parseFloat(l.precio_paquete)||0)*(parseFloat(l.cantidad_paquetes)||0))),0);
+    neto+=val;bruto+=val*ratio;
   });
   return {neto:r2(neto),bruto:r2(bruto)};
 }
 // Pendiente de cobro de un pedido para la capa PIPELINE, ya NETO de lo facturado/valorizado.
 // Evita el doble conteo: la parte ya entregada+facturada vive como saldo de factura/RV y como
 // cheque en cartera; no debe reproyectarse acá como cobro futuro (bug Pesce).
+// Valor NO ENTREGADO de un pedido, línea por línea, a precio de pedido.
+// entregado real = paquetes de remito_lineas por pedido_linea_id (remitos no anulados).
+// OJO: pedido_lineas.entregado NO es confiable (queda en 0); la entrega real vive en los remitos.
+function _pedidoNoEntregadoValor(p){
+  const entreg={};
+  (C.remitos||[]).forEach(rm=>{
+    if(String(rm.pedido_id)!==String(p.id)||rm.estado==='anulado')return;
+    (rm.remito_lineas||[]).forEach(l=>{
+      const plid=l.pedido_linea_id; if(!plid)return;
+      entreg[plid]=(entreg[plid]||0)+(parseFloat(l.cantidad_paquetes)||0);
+    });
+  });
+  let val=0;
+  (p.pedido_lineas||[]).forEach(l=>{
+    if(l.estado_linea==='Cancelado')return; // línea cerrada/cancelada: el resto NO se entrega, no proyectar
+    const cant=parseFloat(l.cantidad)||0, canc=parseFloat(l.cantidad_cancelada)||0;
+    const faltaPaq=Math.max(0,cant-(entreg[l.id]||0)-canc);
+    val+=faltaPaq*(parseFloat(l.precio_paquete)||0);
+  });
+  return r2(val);
+}
 function _cobroPipelinePendiente(p){
   const c=_calcularCobroPedido(p);
   if(!c)return null;
-  const doc=_pedidoYaDocumentado(p.id);
-  const yaDoc=c.esHibrido?doc.neto:doc.bruto;
-  const pend=r2(Math.max(0,(c.pendiente||0)-yaDoc));
-  return Object.assign({},c,{pendiente:pend,yaDocumentado:yaDoc});
+  // Híbrido (Borrador): se mantiene la lógica de tandas confirmadas, neta de lo ya documentado.
+  if(c.esHibrido){
+    const doc=_pedidoYaDocumentado(p.id);
+    const pend=r2(Math.max(0,(c.pendiente||0)-doc.neto));
+    return Object.assign({},c,{pendiente:pend,yaDocumentado:doc.neto});
+  }
+  // No híbrido: el pendiente es lo NO entregado, línea por línea, a precio de pedido.
+  // Más preciso que (total − documentado): no depende del valor de los remitos (que puede diferir
+  // por sobre-entrega o precio distinto) ni de facturas/RV compartidas entre pedidos (bug García).
+  const noEnt=_pedidoNoEntregadoValor(p);
+  const pend=r2(Math.max(0,noEnt-(c.cobrosRegistrados||0)));
+  return Object.assign({},c,{pendiente:pend,yaDocumentado:r2((c.totalPed||0)-noEnt)});
 }
 
 // ÚNICA fuente de verdad de la cobranza REAL de un pedido (P1: deriva de movimientos).
@@ -24384,6 +24473,17 @@ async function alinearStockProducto(productoId,dif){
 // ===== Salud del flujo / cuenta corriente: invariantes de plata (P1) =====
 // Detecta verdad duplicada y drift entre lo GUARDADO y lo DERIVADO de documentos.
 // Devuelve [{sev:'red'|'amber', cat, msg}]. Corre sobre el cache C (sin tocar la BD).
+// Detecta OC cuyas unidades_reales son físicamente imposibles vs los kg producidos
+// (>2000 bolsas/kg; lo normal es ~100-300). Una sola OC mal cargada envenena Rentabilidad
+// y Estado de resultado. Caso testigo: OC-1052052 (6.000.000 bolsas con 53,7 kg).
+function _ocKgProducidos(o){
+  return (o.orden_corte_bobinas||[]).reduce((s,ocb)=>s+(parseFloat(ocb.bobinas_producidas?.kg_reales)||0),0);
+}
+function _ocUnidadesSospechosa(o){
+  const ur=parseFloat(o?.unidades_reales)||0; if(ur<=0)return false;
+  const kg=_ocKgProducidos(o);
+  return kg>0 && (ur/kg)>2000;
+}
 function _saludFlujoChecks(){
   const V=[];const EPS=0.5;
   const ar=(C.facturas||[]);const rvs=(C.rvs||[]);const recs=(C.recibos||[]);const sis=(C.saldos_iniciales||[]);
@@ -24436,9 +24536,37 @@ function _saludFlujoChecks(){
     if(tieneDoc)
       V.push({sev:'amber',cat:'pedido_cobros legacy conviviendo con recibos',msg:'Pedido '+(p.numero_pedido||p.id)+' · '+(p.cliente||'')+': tiene cobros viejos en pedido_cobros ($'+r2(pcCob).toLocaleString('es-AR')+') y además documentos con recibo. La cobranza real la da _cobradoPedido; conviene limpiar el registro viejo.'});
   });
+  // 6) OC completada con unidades_reales imposibles vs producción física (bobinas).
+  //    Una bolsa pesa >0,3 g → tope físico ~3000 bolsas/kg. Si declara muchísimas más,
+  //    hay error de carga que infla Rentabilidad y Estado de resultado (caso OC-1052052).
+  (C.ord_corte||[]).forEach(o=>{
+    if(o.estado!=='Completada')return;
+    if(!_ocUnidadesSospechosa(o))return;
+    const ur=parseFloat(o.unidades_reales)||0, kg=_ocKgProducidos(o);
+    const prod=C.productos.find(p=>p.id===o.producto_id);
+    V.push({sev:'red',cat:'OC · unidades imposibles vs kg producidos',
+      msg:'OC '+(o.numero_orden||'#'+o.id)+(prod?' · '+(prod.codigo?prod.codigo+' ':'')+prod.descripcion:'')+': declara '+ur.toLocaleString('es-AR')+' bolsas con solo '+r2(kg).toLocaleString('es-AR')+' kg ('+Math.round(ur/kg).toLocaleString('es-AR')+' bolsas/kg, imposible). Revisá unidades_reales / bolsones_reales — está inflando Rentabilidad y Estado de resultado.'});
+  });
+  // 7) compras_gastos DUPLICADAS (mismo fecha+total+descripción+categoría el mismo día):
+  //    típico de reimportar dos veces la conciliación bancaria. Infla los gastos operativos
+  //    y subestima el resultado (caso testigo: 27 dups del 25/06).
+  {
+    const grp=new Map();
+    (C.compras_gastos||[]).forEach(c=>{
+      const dia=String(c.created_at||'').slice(0,10);
+      const k=[c.fecha,c.total,String(c.descripcion||'').trim().slice(0,60),c.categoria||'',dia].join('§');
+      if(!grp.has(k))grp.set(k,[]);
+      grp.get(k).push(c);
+    });
+    grp.forEach(arr=>{
+      if(arr.length<2)return;
+      const ex=r2((arr.length-1)*(parseFloat(arr[0].total)||0));
+      V.push({sev:'red',cat:'Gasto duplicado (¿reimport de conciliación?)',
+        msg:'×'+arr.length+' · '+(arr[0].fecha||'')+' · '+(arr[0].descripcion||'gasto')+' $'+r2(parseFloat(arr[0].total)||0).toLocaleString('es-AR')+' (mismo día) — infla gastos operativos en $'+ex.toLocaleString('es-AR')+'. Conservá una y borrá la copia.'});
+    });
+  }
   return V;
 }
-// Resumen numérico derivado (lo que el flujo considera "verdad")
 function _saludFlujoResumen(){
   let ar=0,vencido=0,cheques=0;const hoy=localDate();
   (C.facturas||[]).forEach(f=>{if(_estadoFactura(f)==='anulada')return;const s=_saldoFactura(f);if(s>0.01){ar+=s;if(String(fcEfectivaCobro(f,f.fecha))<hoy)vencido+=s;}});
@@ -30117,9 +30245,11 @@ function calcRentPeriodo(ini,fin,gg,prodFiltro=0){
 
   const ordsConPrecio=ords.filter(o=>(o.precio_bolsa||o.precio_paquete||getPrecioBolsa(o))&&o.unidades_reales);
 
-  // Helper: costo real de una bobina producida por fórmula
+  // Helper: costo real de una bobina producida (consumo trazado; fallback a fórmula × promedio)
   function costoBobinaReal(bp){
     if(!bp)return 0;
+    const real=_costoMPRealBobina(bp);
+    if(real>0)return real; // consumo REAL trazado (P1)
     const ordEx=C.ordenes.find(o=>o.id===bp.orden_id);
     if(!ordEx)return 0;
     const formula=C.formulas.filter(f=>f.bobina_id===ordEx.bobina_id);
@@ -30217,7 +30347,20 @@ function renderRentResumen(wrap,A,B,comp,gg,label){
   const colGan=A.gananciaTotal>=0?'var(--green)':'var(--red)';
   const colMar=A.margenTotal>=20?'var(--green)':A.margenTotal>=10?'var(--amber)':'var(--red)';
   let html='<div class="an-section">Resumen — '+label+'</div>';
+  html+='<div style="background:var(--bg3);border-left:3px solid var(--accent);border-radius:var(--r);padding:10px 14px;font-size:12px;color:var(--text2);margin-bottom:1rem;line-height:1.5;">'
+    +'ℹ️ Esta pantalla valúa la <strong>PRODUCCIÓN cortada en el período a precio de venta</strong> y le resta <strong>solo materia prima</strong> (margen marginal). '
+    +'<u>No es tu venta real ni tu ganancia neta</u>: incluye bolsas cortadas que todavía no vendiste, y no descuenta sueldos, costos fijos ni financieros. '
+    +'Para tu resultado real (gano/pierdo) mirá <strong>Estado de resultado</strong>.'
+  +'</div>';
   if(A.ordsSinPrecio>0)html+='<div class="alert alert-warn" style="font-size:12px;margin-bottom:1rem;">⚠ '+A.ordsSinPrecio+' orden'+(A.ordsSinPrecio>1?'es':'')+' sin precio de venta — no incluidas.</div>';
+  const ocsMalas=(A.porOrden||[]).filter(x=>_ocUnidadesSospechosa(x.o));
+  if(ocsMalas.length){
+    html+='<div style="background:var(--redbg);border:1px solid var(--redbd);border-radius:var(--r);padding:10px 14px;font-size:12px;color:var(--red);margin-bottom:1rem;line-height:1.5;">'
+      +'🛑 <strong>'+ocsMalas.length+' orden'+(ocsMalas.length>1?'es':'')+' con unidades imposibles vs kg producidos</strong> — están inflando estos números. '
+      +ocsMalas.map(x=>(x.o.numero_orden||'#'+x.o.id)+' ('+(parseFloat(x.o.unidades_reales)||0).toLocaleString('es-AR')+' bolsas con '+r2(_ocKgProducidos(x.o)).toLocaleString('es-AR')+' kg)').join(', ')
+      +'. Corregí <code>unidades_reales</code> de esa OC. Detalle en Admin → Salud del flujo 🩺.'
+    +'</div>';
+  }
   if(B&&B.totalOrds<3)html+='<div style="background:var(--amberbg);border:1px solid var(--amberbd);border-radius:var(--r);padding:8px 12px;font-size:12px;color:var(--amber);margin-bottom:1rem;">⚠ El período de comparación tiene muy pocas órdenes ('+B.totalOrds+') — los promedios pueden no ser representativos.</div>';
   // Usar costoMPPuro (sin GG) almacenado — no cambia con slider
   const costoSinGG=A.costoMPPuro!=null?A.costoMPPuro:r2(A.costoTotal/(1+gg/100));
@@ -30230,8 +30373,8 @@ function renderRentResumen(wrap,A,B,comp,gg,label){
   const gananciaPorBolsaSinGG=r6(A.ventaPorBolsa-costoPorBolsaSinGG);
 
   const kpis=[
-    {lbl:'Venta total',       val:'$'+A.ventaTotal.toLocaleString('es-AR'),    actNum:A.ventaTotal,         antV:B?.ventaTotal,    col:'var(--accent)', inv:false, principal:true},
-    {lbl:'Venta / bolsa',     val:'$'+A.ventaPorBolsa,                         actNum:A.ventaPorBolsa,      antV:B?.ventaPorBolsa, col:'var(--accent)', inv:false, principal:true},
+    {lbl:'Producción valuada (a precio venta)', val:'$'+A.ventaTotal.toLocaleString('es-AR'),    actNum:A.ventaTotal,         antV:B?.ventaTotal,    col:'var(--accent)', inv:false, principal:true},
+    {lbl:'Valor / bolsa',     val:'$'+A.ventaPorBolsa,                         actNum:A.ventaPorBolsa,      antV:B?.ventaPorBolsa, col:'var(--accent)', inv:false, principal:true},
     {lbl:'Costo MP',          val:'$'+costoSinGG.toLocaleString('es-AR'),      actNum:costoSinGG,           antV:BCostoSinGG,      col:'var(--text1)',  inv:true,  principal:true, secundario:'$'+A.costoTotal.toLocaleString('es-AR')},
     {lbl:'Costo MP / bolsa',  val:'$'+costoPorBolsaSinGG,                      actNum:costoPorBolsaSinGG,   antV:B&&BCostoSinGG!=null?r6(BCostoSinGG/(B.unidadesTotal||1)):undefined, col:'var(--text1)', inv:true, principal:true, secundario:'$'+r6(A.costoPorBolsa)},
     {lbl:'Ganancia marginal', val:'$'+gananciaSinGG.toLocaleString('es-AR'),   actNum:gananciaSinGG,        antV:BGananciaSinGG,   col:gananciaSinGG>=0?'var(--green)':'var(--red)', inv:false, principal:true, secundario:'$'+A.gananciaTotal.toLocaleString('es-AR')},
@@ -36480,6 +36623,39 @@ function fcEfectivaCobro(doc,fecha){
   const cli=(C.clientes||[]).find(c=>c.id===doc.cliente_id);
   return cgAddDays(String(fecha||localDate()),cli?.dias_credito||0);
 }
+// ¿El pipeline ya proyecta el cobro de este pedido entero? (misma lista de estados que la capa pipeline).
+// Si sí, sus remitos NO deben sumarse aparte como "entrega sin facturar" (sería doble conteo).
+function _pedidoEnPipelineActivo(p){
+  if(!p||p.es_historico)return false;
+  const _est=['Pendiente','Confirmado','En producción','En proceso','Parcial','Cobrado parcial'];
+  return _est.includes(p.estado)||(p.estado==='Borrador'&&typeof _esBorradorHibrido==='function'&&_esBorradorHibrido(p));
+}
+// Fecha estimada de cobro de una entrega SIN facturar. La factura única se hace cuando el
+// pedido está COMPLETO, y el plazo del cliente corre desde esa factura. Por eso la fecha se
+// ata al CIERRE del pedido, no a cada remito. Criterio conservador (mejor mostrar la plata
+// tarde que temprano): pedido completo → última entrega del pedido + crédito; pedido a medias
+// → fecha de entrega estimada (o hoy si ya pasó) + crédito; venta directa → fecha del remito + crédito.
+function _fechaCobroEntregaSinFacturar(rm,ped){
+  const cli=(C.clientes||[]).find(c=>c.id===rm.cliente_id);
+  const plazo=cli?.dias_credito??30;
+  const hoy=localDate();
+  let base;
+  if(!ped){
+    base=String(rm.fecha||hoy);
+  } else if(ped.estado==='Entregado parcial'){
+    const est=ped.fecha_entrega_est||hoy;
+    base=(est>hoy)?est:hoy; // todavía falta entregar → no mostrar la plata antes del cierre estimado
+  } else {
+    // pedido completo → factura ahora: fecha = última entrega no anulada del pedido
+    let ult=String(rm.fecha||hoy);
+    (C.remitos||[]).forEach(r=>{
+      if(r.estado==='anulado'||String(r.pedido_id)!==String(ped.id))return;
+      const f=String(r.fecha||'');if(f>ult)ult=f;
+    });
+    base=ult;
+  }
+  try{return dStr(addDays(new Date(base+'T00:00:00'),plazo));}catch(e){return base;}
+}
 function fcCobrosPendientes(){
   const out=[];
   (C.facturas||[]).forEach(f=>{
@@ -36510,6 +36686,30 @@ function fcCobrosPendientes(){
     const fEf=String(ch.fecha_vto||ch.recibo_fecha||localDate());
     out.push({clase:'cobro',tipo:'cheque',id:ch.id,cliente_id:ch.cliente_id,plano:ch.plano_recibo||'informal',ref:'Cheque '+(ch.banco||'')+(ch.numero_cheque?' N° '+ch.numero_cheque:'')+(ch.estado==='depositado'?' (depositado)':' (en cartera)')+' · '+lcCliNombre(ch.cliente_id),saldo,fEf,editable:false});
   });
+  // Entregas SIN valorizar: remitos ya entregados que todavía no tienen factura ni RV.
+  // La mercadería YA salió, así que el cobro es REAL y firme — solo falta el documento.
+  // Algunos clientes (LYME, GRUPO ENSER) piden UNA sola factura por todo el pedido al final;
+  // entre la entrega y esa factura, el cobro vive acá. Cuando se valoriza, el remito toma
+  // factura_id/rv_id y sale de este conteo (la plata pasa al saldo del documento) → sin doble
+  // conteo (P1, deriva del remito). Si el pedido sigue en el pipeline, lo proyecta esa capa,
+  // así que no lo contamos de nuevo; los cancelados no generan cobro.
+  (C.remitos||[]).forEach(rm=>{
+    if(rm.estado==='anulado')return;
+    if(rm.factura_id||rm.rv_id)return;
+    const ped=rm.pedido_id?(C.pedidos||[]).find(p=>p.id===parseInt(rm.pedido_id)):null;
+    if(ped){
+      if(ped.estado==='Cancelado'||ped.es_historico)return;
+      // El pipeline ahora proyecta SOLO lo NO entregado (línea por línea). Lo ya entregado
+      // pero sin facturar NO está en el pipeline, así que se cuenta acá (capas complementarias,
+      // sin doble conteo: el pipeline resta las cantidades entregadas).
+    }
+    const val=(rm.remito_lineas||[]).reduce((s,l)=>s+(parseFloat(l.subtotal)||r2((parseFloat(l.precio_paquete)||0)*(parseFloat(l.cantidad_paquetes)||0))),0);
+    if(val<=0.01)return;
+    const plano=(rm.plano==='informal')?'informal':'formal';
+    const fEfR=_fechaCobroEntregaSinFacturar(rm,ped);
+    const _hint=(ped&&ped.estado==='Entregado parcial')?' · factura al cerrar el pedido':' · falta facturar';
+    out.push({clase:'cobro',tipo:'remito',id:rm.id,cliente_id:rm.cliente_id,plano,ref:'📦 '+(rm.numero_remito||'Remito')+' entregado'+_hint+' · '+lcCliNombre(rm.cliente_id),saldo:r2(val),fEf:fEfR,editable:false});
+  });
   // Saldo a favor del cliente: reduce los cobros FUTUROS (la próxima vez paga menos efectivo).
   // La plata del sobrepago YA entró al libro de caja como saldo real; acá NO se cuenta de nuevo —
   // solo evitamos sobre-contar lo por venir. No toca cheques (instrumento ya en mano), solo factura/RV/saldo inicial.
@@ -36524,7 +36724,7 @@ function fcCobrosPendientes(){
   Object.keys(_credCli).forEach(k=>{
     let cred=_credCli[k];
     const ix=k.lastIndexOf('|');const cliId=k.slice(0,ix),plano=k.slice(ix+1);
-    const items=out.filter(o=>o.clase==='cobro'&&(o.tipo==='factura'||o.tipo==='rv'||o.tipo==='si')&&String(o.cliente_id)===cliId&&_planoNorm(o.plano)===plano)
+    const items=out.filter(o=>o.clase==='cobro'&&(o.tipo==='factura'||o.tipo==='rv'||o.tipo==='si'||o.tipo==='remito')&&String(o.cliente_id)===cliId&&_planoNorm(o.plano)===plano)
       .sort((a,b)=>String(a.fEf).localeCompare(String(b.fEf)));
     for(const it of items){
       if(cred<=0.01)break;
@@ -36534,7 +36734,7 @@ function fcCobrosPendientes(){
       cred=r2(cred-red);
     }
   });
-  return out.filter(o=>!((o.tipo==='factura'||o.tipo==='rv'||o.tipo==='si')&&o.clase==='cobro'&&o.saldo<=0.01));
+  return out.filter(o=>!((o.tipo==='factura'||o.tipo==='rv'||o.tipo==='si'||o.tipo==='remito')&&o.clase==='cobro'&&o.saldo<=0.01));
 }
 function fcPagosPendientes(){
   return (C.compras_gastos||[]).filter(c=>cgEstadoPago(c)!=='pagado'&&cgSaldoDoc(c)>0.01).map(c=>({
@@ -36749,10 +36949,25 @@ function fcItemsProyectados(hastaStr){
   });
   // Presupuesto manual (aditivos / tentativos / cobro de pedido fijado)
   (C.flujo_presupuesto||[]).forEach(fp=>{
-    const monto=parseFloat(fp.monto)||0;if(monto<=0)return;
+    let monto=parseFloat(fp.monto)||0;if(monto<=0)return;
     let _cli=null,_extra='';
     if(fp.origen_tipo==='pedido'&&fp.origen_id){
       const _p=(C.pedidos||[]).find(pp=>pp.id===parseInt(fp.origen_id));
+      // P1: un cobro FIJADO de un pedido NO es plata propia — sigue al pedido.
+      // Si el pedido se canceló, ya no existe, o su cobro real ya quedó DOCUMENTADO
+      // (factura/RV con su saldo) o cobrado, la línea fijada es un fantasma: NO se
+      // cuenta (la plata vive en el saldo del documento / en el recibo). Como mucho,
+      // vale el PENDIENTE REAL del pedido, nunca el monto congelado. Así no se
+      // duplica el cobro ni se proyecta plata de un pedido muerto (bug VEGA).
+      if(fp.tipo==='cobro'){
+        if(!_p||_p.estado==='Cancelado'||_p.es_historico)return;
+        let _pend=null;try{_pend=_cobroPipelinePendiente(_p);}catch(e){}
+        const _pr=_pend?r2(_pend.pendiente||0):null;
+        if(_pr!=null){
+          if(_pr<=0.01)return;     // ya documentado/cobrado → no reproyectar
+          if(monto>_pr)monto=_pr;  // nunca proyectar más que el pendiente real
+        }
+      }
       if(_p){_cli=_p.cliente_id;_extra=' (pedido '+(_p.numero_pedido||_p.id)+')';}
     }
     const _ico=fp.tentativo?'❓ ':(fp.origen_tipo==='pedido'?'📌 ':'📝 ');
@@ -36776,6 +36991,9 @@ function fcItemsProyectados(hastaStr){
     const ymStr=_cur;
     gastosFijosDelMes(_cur+'-01',_cur+'-31').forEach(g=>{
       const m=parseFloat(g.monto_mensual)||0;if(m<=0)return;
+      // El presupuesto cede ante la realidad: si ya entró la factura/débito real de
+      // ese fijo en el mes, no proyectar el presupuesto (lo proyecta la capa de compras/pagos).
+      if(_gastoFijoRealMes(g,_cur+'-01',_cur+'-31')>0)return;
       const dia=Math.min(Math.max(parseInt(g.dia_pago)||lastDay,1),lastDay);
       const fechaDia=(d)=>ymStr+'-'+String(Math.min(d,lastDay)).padStart(2,'0');
       if((g.frecuencia||'mensual')==='quincenal'){
@@ -36811,6 +37029,13 @@ function fcItemsProyectados(hastaStr){
 }
 async function fcReprogramar(tipo,id,nuevaFecha){
   if(!nuevaFecha)return;
+  // Tipos con fecha DERIVADA (entrega + crédito, vencimiento del cheque, cuota): no se
+  // reprograman a mano. Sin este guard, el drag&drop de la planilla los dejaba pasar y
+  // avisaba "✓ reprogramado" sin guardar nada.
+  if(tipo==='remito'||tipo==='pedido'||tipo==='cheque'||tipo==='deuda'){
+    toast('Esa fecha se calcula sola (entrega/crédito/vencimiento) y no se reprograma a mano.');
+    return;
+  }
   let error;
   if(tipo==='factura'){({error}=await sb.from('facturas').update({fecha_estimada_cobro:nuevaFecha}).eq('id',id));}
   else if(tipo==='rv'){({error}=await sb.from('remitos_valorizados').update({fecha_estimada_cobro:nuevaFecha}).eq('id',id));}
@@ -38083,6 +38308,22 @@ function ccImpBuscarCuotaPagada(m){
   }
   return null;
 }
+// busca una FACTURA/gasto ya cargado y NO pagado que este debito venga a pagar
+// (mismo importe, fecha cercana). Asi el debito bancario se registra como PAGO de esa
+// factura en vez de crear un gasto nuevo (evita duplicar factura + debito).
+function ccImpBuscarGasto(m){
+  let best=null,bestScore=Infinity;
+  (C.compras_gastos||[]).forEach(g=>{
+    if((g.estado_pago||'pendiente')!=='pendiente')return;          // solo facturas impagas
+    if((C.pagos_proveedores||[]).some(p=>String(p.compra_gasto_id)===String(g.id)))return; // ya tiene pago
+    const tot=parseFloat(g.total)||0; if(tot<=0)return;
+    if(Math.abs(tot-m.monto)>Math.max(1,tot*0.005))return;         // mismo importe (0,5% tol)
+    let score=Math.abs(tot-m.monto);
+    if(m.fecha&&g.fecha){const dd=Math.abs((new Date(m.fecha+'T00:00:00')-new Date(g.fecha+'T00:00:00'))/86400000);if(dd>45)return;score+=dd;}
+    if(score<bestScore){bestScore=score;best=g;}
+  });
+  return best;
+}
 // arma el plan de importacion a partir del textarea
 function ccImpPreparar(txtOpt){
   const txt=(txtOpt!=null?txtOpt:(document.getElementById('conc-extracto')?.value))||'';
@@ -38104,10 +38345,17 @@ function ccImpPreparar(txtOpt){
         else {row.accion='revisar';row.incluir=false;}
       }
     } else if(cl.tipo==='gasto'){
-      // ¿ya existe un gasto igual ese día para no duplicar?
-      const dup=(C.compras_gastos||[]).some(g=>g.categoria===cl.cat&&Math.abs((parseFloat(g.total)||0)-m.monto)<0.5&&String(g.fecha)===m.fecha);
-      row.accion=dup?'duplicado':'crear';
-      row.incluir=!dup;
+      // ¿este débito paga una factura ya cargada (impaga)? → registrarlo como PAGO, no como gasto nuevo
+      const gp=ccImpBuscarGasto(m);
+      if(gp){
+        row.gastoRef=gp; row.accion='pagar_gasto'; row.incluir=true;
+        row.matchDesc='Paga factura: '+(gp.descripcion||lcProvNombre(gp.proveedor_id)||'gasto #'+gp.id)+' · $'+(parseFloat(gp.total)||0).toLocaleString('es-AR');
+      } else {
+        // ¿ya existe un gasto igual ese día para no duplicar?
+        const dup=(C.compras_gastos||[]).some(g=>g.categoria===cl.cat&&Math.abs((parseFloat(g.total)||0)-m.monto)<0.5&&String(g.fecha)===m.fecha);
+        row.accion=dup?'duplicado':'crear';
+        row.incluir=!dup;
+      }
     } else { row.accion='revisar'; row.incluir=false; }
     return row;
   });
@@ -38168,21 +38416,41 @@ function ccImpSaldarTodas(){
   })();
 }
 async function ccImpEjecutar(){
+  if(CC._importando){toast('Ya se está importando, esperá a que termine','amber');return;}
   if(!CC.imp||!CC.imp.plan)return;
-  const items=CC.imp.plan.filter(r=>r.incluir&&(r.accion==='crear'||r.accion==='conciliar'||r.accion==='crear_mov'));
+  const items=CC.imp.plan.filter(r=>r.incluir&&(r.accion==='crear'||r.accion==='conciliar'||r.accion==='crear_mov'||r.accion==='pagar_gasto'));
   if(!items.length){toast('No hay nada marcado para importar','amber');return;}
-  if(!confirm('¿Importar '+items.length+' movimiento(s)? Se crean los gastos/movimientos y se concilian.'))return;
-  let creados=0,conciliados=0,err=null;
+  if(!confirm('¿Importar '+items.length+' movimiento(s)? Se crean los gastos/movimientos, se registran los pagos de facturas y se concilian.'))return;
+  CC._importando=true;
+  // firma de gastos ya existentes: evita duplicar si se reimporta el mismo extracto o si el botón se dispara dos veces
+  const _sigGasto=(fecha,monto,desc)=>String(fecha)+'|'+r2(parseFloat(monto)||0)+'|'+String(desc||'').trim().slice(0,60).toLowerCase();
+  const _existentes=new Set((C.compras_gastos||[]).map(g=>_sigGasto(g.fecha,g.total,g.descripcion)));
+  let creados=0,conciliados=0,pagados=0,saltados=0,err=null;
+  try{
   for(const r of items){
     if(err)break;
     if(r.accion==='conciliar'&&r.matchKey){
       const mv=ccMovsCuentaRango().find(x=>x.key===r.matchKey);
       if(mv){const{error}=await ccMarcarUno(mv,true);if(error){err=error.message;break;}conciliados++;}
+    } else if(r.accion==='pagar_gasto'&&r.gastoRef){
+      // el débito paga una factura ya cargada: registrar el pago + marcarla pagada (NO crear gasto)
+      const g=r.gastoRef;
+      // idempotencia: si la factura ya quedó pagada (otra corrida), no volver a pagar
+      if((C.pagos_proveedores||[]).some(p=>String(p.compra_gasto_id)===String(g.id))){saltados++;continue;}
+      const{error:ep}=await sb.from('pagos_proveedores').insert({fecha:r.fecha,proveedor_id:g.proveedor_id||null,monto:r.monto,medio_pago:'Débito bancario',compra_gasto_id:g.id,plano:g.plano||'blanco',observaciones:(r.desc||'').slice(0,120),cuenta_id:CC.cuenta,afecta_caja:true,conciliado:true,fecha_conciliacion:localDate()});
+      if(ep){err=ep.message;break;}
+      const{error:eu}=await sb.from('compras_gastos').update({estado_pago:'pagado'}).eq('id',g.id);
+      if(eu){err=eu.message;break;}
+      pagados++;
     } else if(r.accion==='crear'){
+      // idempotencia: si ya existe un gasto con misma fecha+monto+descripción, no duplicar
+      const sig=_sigGasto(r.fecha,r.monto,r.desc);
+      if(_existentes.has(sig)){saltados++;continue;}
       const{data:cg,error:e1}=await sb.from('compras_gastos').insert({fecha:r.fecha,proveedor_id:null,categoria:r.cat,descripcion:r.desc.slice(0,120),neto:r.monto,iva_porcentaje:0,iva_monto:0,total:r.monto,plano:'blanco',afecta_resultado:r.afecta!==false,observaciones:'Importado del extracto'}).select().single();
       if(e1){err=e1.message;break;}
       const{error:e2}=await sb.from('pagos_proveedores').insert({fecha:r.fecha,proveedor_id:null,monto:r.monto,medio_pago:'Débito bancario',compra_gasto_id:cg?.id||null,plano:'blanco',observaciones:r.desc.slice(0,120),cuenta_id:CC.cuenta,afecta_caja:true,conciliado:true,fecha_conciliacion:localDate()});
       if(e2){err=e2.message;break;}
+      _existentes.add(sig);
       creados++;
     } else if(r.accion==='crear_mov'){
       const{error:e3}=await sb.from('movimientos_caja').insert({fecha:r.fecha,cuenta_id:CC.cuenta,cuenta_destino_id:null,tipo:r.movTipo||'egreso',monto:r.monto,concepto:(r.lbl||r.desc||'Movimiento del extracto').slice(0,120),origen_tipo:'manual',conciliado:true,fecha_conciliacion:localDate()});
@@ -38190,9 +38458,10 @@ async function ccImpEjecutar(){
       creados++;
     }
   }
+  } finally { CC._importando=false; }
   if(err){toast('Error: '+err,'red');return;}
   CC.imp=null;
-  toast('✓ '+creados+' gasto(s) creados · '+conciliados+' conciliado(s)','green');
+  toast('✓ '+creados+' gasto(s) · '+pagados+' factura(s) pagada(s) · '+conciliados+' conciliado(s)'+(saltados?' · '+saltados+' ya existían (saltados)':''),'green');
   await reload();renderConciliacion();
 }
 // carga un PDF de extracto y vuelca el texto (reconstruido por renglones) en el textarea
@@ -38305,21 +38574,22 @@ function renderConciliacion(){
     const P=CC.imp.plan;
     const nCrear=P.filter(r=>r.incluir&&r.accion==='crear').length;
     const nConc=P.filter(r=>r.incluir&&r.accion==='conciliar').length;
+    const nPagar=P.filter(r=>r.incluir&&r.accion==='pagar_gasto').length;
     const nMov=P.filter(r=>r.incluir&&r.accion==='crear_mov').length;
     const nDeuda=P.filter(r=>r.accion==='deuda').length;
     const nRev=P.filter(r=>r.accion==='revisar').length;
     const catOpts=(sel)=>(C.categorias_gasto||[]).filter(c=>c.activa!==false).map(c=>'<option value="'+c.codigo+'"'+(sel===c.codigo?' selected':'')+'>'+(c.icono||'')+' '+escapeHtml(c.nombre)+'</option>').join('');
     html+='<div class="an-section" style="margin-top:1.2rem;">🤖 Plan de importación · '+ccCuentaNombre(CC.cuenta)+'</div>';
-    html+='<div style="font-size:12px;color:var(--text3);margin-bottom:8px;max-width:900px;">Revisá antes de importar. <b style="color:var(--green)">Crear</b> = gasto bancario nuevo (sale de caja y se concilia). <b style="color:#06b6d4">Conciliar</b> = ya lo tenías cargado, solo lo marca. <b style="color:var(--amber,#f59e0b)">Cuota</b> = pago de préstamo/ARCA — la saldás con el botón «Saldar cuota» (la confirmás vos). <b style="color:var(--red)">Revisar</b> = no lo reconocí; usá el selector «resolver» para decirle si es un gasto, un egreso o un ingreso.</div>';
+    html+='<div style="font-size:12px;color:var(--text3);margin-bottom:8px;max-width:900px;">Revisá antes de importar. <b style="color:var(--green)">Crear</b> = gasto bancario nuevo (sale de caja y se concilia). <b style="color:#06b6d4">Conciliar</b> = ya lo tenías cargado, solo lo marca. <b style="color:#22c55e">Pagar factura</b> = el débito paga una factura que ya cargaste — registra el pago, NO crea un gasto nuevo. <b style="color:var(--amber,#f59e0b)">Cuota</b> = pago de préstamo/ARCA — la saldás con el botón «Saldar cuota» (la confirmás vos). <b style="color:var(--red)">Revisar</b> = no lo reconocí; usá el selector «resolver».</div>';
     html+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;font-size:12px;">'
-      +'<span style="color:var(--green)">● Crear: '+nCrear+'</span><span style="color:#06b6d4">● Conciliar: '+nConc+'</span><span style="color:var(--amber,#f59e0b)">● Cuota: '+nDeuda+'</span><span style="color:var(--red)">● Revisar: '+nRev+'</span></div>';
+      +'<span style="color:var(--green)">● Crear: '+nCrear+'</span><span style="color:#06b6d4">● Conciliar: '+nConc+'</span><span style="color:#22c55e">● Pagar factura: '+nPagar+'</span><span style="color:var(--amber,#f59e0b)">● Cuota: '+nDeuda+'</span><span style="color:var(--red)">● Revisar: '+nRev+'</span></div>';
     html+='<div style="overflow-x:auto;"><table><thead><tr><th style="width:30px;text-align:center;">✓</th><th>Fecha</th><th>Detalle</th><th style="text-align:right">Importe</th><th>Qué hace</th><th>Categoría</th></tr></thead><tbody>';
     P.forEach((r,i)=>{
-      const accCol={crear:'var(--green)',conciliar:'#06b6d4',deuda:'var(--amber,#f59e0b)',revisar:'var(--red)',duplicado:'var(--text3)',saldada:'var(--green)',conciliado:'var(--text3)'}[r.accion]||'var(--text3)';
-      let accTxt={crear:'crear gasto',conciliar:'conciliar',deuda:'cuota deuda',revisar:'revisar',duplicado:'ya existe',saldada:'✓ saldada',conciliado:'✓ ya pagada'}[r.accion]||r.accion;
+      const accCol={crear:'var(--green)',conciliar:'#06b6d4',pagar_gasto:'#22c55e',deuda:'var(--amber,#f59e0b)',revisar:'var(--red)',duplicado:'var(--text3)',saldada:'var(--green)',conciliado:'var(--text3)'}[r.accion]||'var(--text3)';
+      let accTxt={crear:'crear gasto',conciliar:'conciliar',pagar_gasto:'pagar factura',deuda:'cuota deuda',revisar:'revisar',duplicado:'ya existe',saldada:'✓ saldada',conciliado:'✓ ya pagada'}[r.accion]||r.accion;
       if(r.accion==='crear_mov')accTxt=(r.movTipo==='ingreso'?'crear ingreso':'crear egreso');
       const editable=r.accion==='crear';
-      const puede=r.accion==='crear'||r.accion==='conciliar'||r.accion==='crear_mov';
+      const puede=r.accion==='crear'||r.accion==='conciliar'||r.accion==='crear_mov'||r.accion==='pagar_gasto';
       html+='<tr style="'+(r.incluir?'':'opacity:.45;')+'">'
         +'<td style="text-align:center;">'+(puede?'<input type="checkbox" '+(r.incluir?'checked':'')+' onchange="ccImpToggleRow('+i+')">':'—')+'</td>'
         +'<td class="mono" style="font-size:11px;white-space:nowrap;">'+(r.fecha||'—')+'</td>'
@@ -38336,7 +38606,7 @@ function renderConciliacion(){
       +'</tr>';
     });
     html+='</tbody></table></div>';
-    html+='<div class="btn-grp" style="margin-top:10px;flex-wrap:wrap;gap:6px;"><button class="btn btn-sm btn-primary" onclick="ccImpEjecutar()">✓ Importar y conciliar ('+(nCrear+nConc+nMov)+')</button>'+(nDeuda?'<button class="btn btn-sm" onclick="ccImpSaldarTodas()">💵 Saldar todas las cuotas ('+nDeuda+')</button>':'')+'<button class="btn btn-sm" onclick="CC.imp=null;renderConciliacion();">Cancelar</button></div>';
+    html+='<div class="btn-grp" style="margin-top:10px;flex-wrap:wrap;gap:6px;"><button class="btn btn-sm btn-primary" onclick="ccImpEjecutar()">✓ Importar y conciliar ('+(nCrear+nConc+nMov+nPagar)+')</button>'+(nDeuda?'<button class="btn btn-sm" onclick="ccImpSaldarTodas()">💵 Saldar todas las cuotas ('+nDeuda+')</button>':'')+'<button class="btn btn-sm" onclick="CC.imp=null;renderConciliacion();">Cancelar</button></div>';
     if(nDeuda)html+='<div style="font-size:11px;color:var(--text3);margin-top:8px;max-width:900px;">Las <b>cuotas</b> de préstamo/ARCA las saldás con «Saldar cuota» una por una, o con «Saldar todas las cuotas» si te cayeron varias juntas (los planes de ARCA del mismo día). Cada una queda pagada y conciliada con lo que debitó el banco (toma el resarcitorio si fue 2° vencimiento). El saldado lo confirmás vos.</div>';
   }
   if(CC.procesado){
@@ -39862,16 +40132,36 @@ function calcCostoOrdenConFecha(ordId,gg){
   const costoMetro=mtsProd>0?r4(costoMP*(1+gg/100)/mtsProd):0;
   return{costoMP:r2(costoMP),kgProd,mtsProd,costoKgMP,costoKgTotal,costoMetro,nBobs:bobs.length};
 }
+// Costo MP REAL de una bobina, derivado del consumo trazado (consumos_mp_bobina): P1.
+// Suma costo_parcial (o kg_consumidos × precio del lote real) de esa bobina. Índice cacheado
+// que se reconstruye cuando cambia la cantidad de consumos. Devuelve 0 si la bobina no tiene
+// consumo registrado → el llamador cae al estimado fórmula × promedio de lotes.
+let _costoBobinaIdx=null,_costoBobinaIdxN=-1;
+function _costoMPRealBobina(bp){
+  if(!bp)return 0;
+  const arr=C.consumos_mp||[];
+  if(_costoBobinaIdx===null||_costoBobinaIdxN!==arr.length){
+    _costoBobinaIdx=new Map();
+    arr.forEach(c=>{
+      const k=c.bobina_producida_id;if(k==null)return;
+      const costo=parseFloat(c.costo_parcial)||((parseFloat(c.kg_consumidos)||0)*(parseFloat(c.precio_kg)||0));
+      _costoBobinaIdx.set(k,(_costoBobinaIdx.get(k)||0)+costo);
+    });
+    _costoBobinaIdxN=arr.length;
+  }
+  return _costoBobinaIdx.get(bp.id)||0;
+}
 function calcCostoMPOrden(ordId,bobs){
-  // Si hay consumos registrados en consumos_mp_bobina usarlos
-  // Si no, estimar: kg_bobina × % fórmula × precio_promedio_lote
+  // Costo real desde consumos_mp_bobina por bobina; si una bobina no tiene consumo
+  // registrado, se estima por kg × % fórmula × precio promedio de lotes (fallback).
   if(!bobs.length)return 0;
   const orden=C.ordenes.find(o=>o.id===ordId);
-  if(!orden)return 0;
-  const formula=C.formulas.filter(f=>f.bobina_id===orden.bobina_id);
-  if(!formula.length)return 0;
+  const formula=orden?C.formulas.filter(f=>f.bobina_id===orden.bobina_id):[];
   let costoTotal=0;
   bobs.forEach(b=>{
+    const real=_costoMPRealBobina(b);
+    if(real>0){costoTotal+=real;return;}
+    if(!formula.length)return;
     formula.forEach(f=>{
       const kgComp=r4((b.kg_reales||0)*f.porcentaje/100);
       // Precio promedio del tipo de MP
@@ -40092,12 +40382,11 @@ function calcBolsasPeriodo(ini,fin,gg){
     return d>=ini&&d<=fin&&o.estado==='Completada'&&o.unidades_reales&&o.orden_corte_bobinas?.length;
   });
 
-  // Costo por bobina producida: usar consumos_mp o estimar por kg_reales × precio lote
+  // Costo por bobina producida: consumo trazado (consumos_mp_bobina); fallback fórmula × promedio
   function costoBobina(bobProd){
-    // Buscar consumos registrados
-    const consumos=C.pedido_cobros; // placeholder — usar consumos_mp_bobina si está en cache
-    // Fallback: calcular por fórmula × precio promedio de lotes
     if(!bobProd)return 0;
+    const real=_costoMPRealBobina(bobProd);
+    if(real>0)return real; // consumo REAL trazado (P1)
     const ordEx=C.ordenes.find(o=>o.id===bobProd.orden_id);
     if(!ordEx)return 0;
     const formula=C.formulas.filter(f=>f.bobina_id===ordEx.bobina_id);
