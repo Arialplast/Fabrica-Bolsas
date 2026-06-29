@@ -17695,8 +17695,12 @@ async function renderTablero(){
   try{
     const{iniStr,finStr}=_rmMesRange(ym);
     const V=_rmCalcVentas(iniStr,finStr,_rmCostoRealBolsaMap(finStr));
-    const fijos=r2(gastosFijosDelMes(iniStr,finStr).reduce((s,g)=>s+(parseFloat(g.monto_mensual)||0),0));
-    const op=r2((C.compras_gastos||[]).filter(c=>c.afecta_resultado&&c.fecha&&String(c.fecha)>=iniStr&&String(c.fecha)<=finStr).reduce((s,c)=>s+(parseFloat(c.total)||0),0));
+    // Fijos: el PRESUPUESTO cede ante el gasto REAL (mismo criterio que Resultado del Mes).
+    // Por cada fijo, si hay factura/débito real que lo matchea se usa el real; si no, el presupuesto.
+    const vig=gastosFijosDelMes(iniStr,finStr);
+    const fijos=r2(vig.reduce((s,g)=>{const real=_gastoFijoRealMes(g,iniStr,finStr);return s+(real>0?real:(parseFloat(g.monto_mensual)||0));},0));
+    // Operativos: EXCLUYE las compras que ya matchean un fijo (contadas como el "real" del fijo) — sin doble conteo.
+    const op=r2((C.compras_gastos||[]).filter(c=>c.afecta_resultado&&c.fecha&&String(c.fecha)>=iniStr&&String(c.fecha)<=finStr&&!_comprasEsDeFijo(c,vig)).reduce((s,c)=>s+(parseFloat(c.total)||0),0));
     const deuda=deudaGastoDelMes(iniStr,finStr).total;
     // Diferencias REALES de inventario MP (excluye ajuste_sistema) — mismo cálculo que Resultado del Mes
     let difInv=0;
