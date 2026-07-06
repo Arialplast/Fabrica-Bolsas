@@ -18354,11 +18354,13 @@ function _suRenderPresupuesto(){
   const activos=(C.empleados||[]).filter(e=>e.activo);
   const sumaNeto=r2(activos.reduce((s,e)=>s+(parseFloat(e.neto_presupuesto)||0),0));
   const p931=parseFloat(cfg.cargas_931_presupuesto)||0;
+  const _clP=_costoLaboralMes(localDate().slice(0,7)+'-01','');
+  const _nivelLbl={contador:'contador',interno:'horas reales',presupuesto:'presupuesto',sin_datos:'—'}[_clP.nivel]||_clP.nivel;
   let html='<div style="max-width:640px;">'
     +'<div class="stats" style="margin-bottom:16px;">'
       +'<div class="stat"><div class="stat-lbl">Sueldos netos / mes (presup.)</div><div class="stat-val">'+fmtMoney(sumaNeto)+'</div></div>'
-      +'<div class="stat"><div class="stat-lbl">F.931 / mes (presup.)</div><div class="stat-val">'+fmtMoney(p931)+'</div></div>'
-      +'<div class="stat"><div class="stat-lbl">Costo nómina / mes</div><div class="stat-val" style="color:var(--red);">'+fmtMoney(r2(sumaNeto+p931))+'</div></div>'
+      +'<div class="stat"><div class="stat-lbl">Costo laboral / mes (al resultado)</div><div class="stat-val" style="color:var(--red);">'+fmtMoney(_clP.monto)+'</div><div style="font-size:10px;color:var(--text3);">nivel: '+_nivelLbl+'</div></div>'
+      +'<div class="stat"><div class="stat-lbl">F.931 / mes (al flujo)</div><div class="stat-val">'+fmtMoney(p931)+'</div></div>'
     +'</div>'
     +'<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">El presupuesto por empleado (neto y días de quincena) se edita en la pestaña <b>Empleados</b>. Acá configurás el 931 y el aguinaldo, que se proyectan solos en el <b>Flujo de caja</b> y ceden cuando cargás lo real.</div>'
     +'<div style="border:1px solid var(--border);border-radius:var(--r);padding:14px;background:var(--bg2);">'
@@ -18368,6 +18370,11 @@ function _suRenderPresupuesto(){
         +'<div class="fg"><label>Mes 1º aguinaldo</label><input id="ncfg-sac1" type="number" min="1" max="12" value="'+(cfg.sac_mes_1||6)+'" style="width:100%"></div>'
         +'<div class="fg"><label>Mes 2º aguinaldo</label><input id="ncfg-sac2" type="number" min="1" max="12" value="'+(cfg.sac_mes_2||12)+'" style="width:100%"></div>'
         +'<div class="fg"><label>Día de pago del aguinaldo</label><input id="ncfg-sacdia" type="number" min="1" max="31" value="'+(cfg.sac_dia_pago||30)+'" style="width:100%"></div>'
+      +'</div>'
+      +'<div style="border-top:1px solid var(--border);margin:14px 0 8px;padding-top:10px;font-size:11px;color:var(--text2);">⚙️ Ajuste del costo laboral (nivel presupuesto). El costo real es <b>bruto + contribuciones patronales</b>, bastante más que el neto. Estos factores solo se usan cuando todavía no hay horas ni recibo del contador — cuando entran, manda lo real.</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
+        +'<div class="fg"><label>Factor neto → costo <span style="color:var(--text3);font-size:10px;">(1.5 = +50% sobre el neto)</span></label><input id="ncfg-factor" type="number" min="1" step="0.01" value="'+(cfg.costo_laboral_sobre_neto!=null?cfg.costo_laboral_sobre_neto:1.5)+'" style="width:100%"></div>'
+        +'<div class="fg"><label>% contribuciones patronales <span style="color:var(--text3);font-size:10px;">(931 estimado)</span></label><input id="ncfg-patronal" type="number" min="0" step="0.5" value="'+(cfg.contrib_patronal_pct!=null?cfg.contrib_patronal_pct:30)+'" style="width:100%"></div>'
       +'</div>'
       +'<div class="btn-grp" style="margin-top:12px;"><button class="btn btn-sm" onclick="ncfgGuardar()">💾 Guardar presupuesto</button><span id="ncfg-msg" style="font-size:11px;margin-left:8px;"></span></div>'
     +'</div>'
@@ -18382,7 +18389,9 @@ function ncfgGuardar(){
     cargas_931_dia_pago:Math.min(31,Math.max(1,parseInt(document.getElementById('ncfg-931dia')?.value)||10)),
     sac_mes_1:Math.min(12,Math.max(1,parseInt(document.getElementById('ncfg-sac1')?.value)||6)),
     sac_mes_2:Math.min(12,Math.max(1,parseInt(document.getElementById('ncfg-sac2')?.value)||12)),
-    sac_dia_pago:Math.min(31,Math.max(1,parseInt(document.getElementById('ncfg-sacdia')?.value)||30))
+    sac_dia_pago:Math.min(31,Math.max(1,parseInt(document.getElementById('ncfg-sacdia')?.value)||30)),
+    costo_laboral_sobre_neto:Math.max(1,parseFloat(document.getElementById('ncfg-factor')?.value)||1.5),
+    contrib_patronal_pct:Math.max(0,parseFloat(document.getElementById('ncfg-patronal')?.value)||30)
   };
   (async()=>{
     if(msg){msg.style.color='var(--text2)';msg.textContent='Guardando...';}
