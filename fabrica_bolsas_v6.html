@@ -562,6 +562,7 @@ body.pext-on .main{margin-left:0!important;}
       <div class="nav-grp-hd" onclick="toggleNavGrp('produccion')"><span>Producción</span><span class="nav-grp-chev">▸</span></div>
       <div class="nav-grp-items">
         <div class="nav-item" onclick="go('panel-operario')" style="background:var(--accentbg);border:1px solid var(--accentbd);border-radius:var(--r);margin-bottom:2px;"><div class="nav-dot" style="background:var(--accent)"></div>Panel operario 👷</div>
+        <div class="nav-item" onclick="go('fichaje')"><div class="nav-dot" style="background:#e11d48"></div>🕐 Fichaje</div>
         <div class="nav-item" onclick="go('planificar')" style="background:rgba(245,158,11,.08);border:1px solid var(--amberbd);border-radius:var(--r);margin-bottom:2px;"><div class="nav-dot" style="background:var(--amber)"></div>Planificar producción 📋</div>
         <div class="nav-item" onclick="go('ordenes')"><div class="nav-dot"></div>Órdenes</div>
         <div class="nav-item" onclick="go('nueva')"><div class="nav-dot"></div>Nueva orden</div>
@@ -3078,6 +3079,18 @@ body.pext-on .main{margin-left:0!important;}
         </div>
       </div>
 
+      <!-- LÍNEAS EXTRA (venta suelta) — solo en modo pedido -->
+      <div class="fp" id="nr-extra-wrap" style="display:none;">
+        <div class="fp-t">➕ Productos extra (venta suelta)</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">
+          Agregá productos que <strong>no están en el pedido</strong> (o cantidad de más). Salen del <strong>stock libre</strong> y <strong>no tocan el pedido</strong> — van como venta suelta en este mismo remito.
+        </div>
+        <div id="nr-extra-lineas"></div>
+        <div style="margin-top:8px;">
+          <button class="btn btn-sm" onclick="nrAgregarProductoExtra()">+ Agregar producto extra</button>
+        </div>
+      </div>
+
       <div class="btn-grp" style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">
         <button class="btn btn-primary" onclick="guardarRemito()">💾 Guardar remito</button>
         <button class="btn" onclick="go('remitos')">Cancelar</button>
@@ -4072,6 +4085,16 @@ body.pext-on .main{margin-left:0!important;}
       <div id="gf-wrap"></div>
     </div>
 
+    <div class="page" id="page-fichaje">
+      <div class="page-hdr">
+        <div>
+          <div class="page-title">🕐 Fichaje</div>
+          <div class="page-sub">Entrada / salida por escaneo de carnet · compara contra el turno esperado para calcular horas y tardanzas</div>
+        </div>
+      </div>
+      <div id="fichaje-wrap"></div>
+    </div>
+
     <div class="page" id="page-sueldos">
       <div class="page-hdr">
         <div>
@@ -4496,6 +4519,13 @@ async function reload(){
     sb.from('cargas_sociales').select('*').order('periodo',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
     sb.from('pagos_carga_social').select('*').then(r=>r).catch(()=>({data:[]})),
     sb.from('nomina_config').select('*').then(r=>r).catch(()=>({data:[]})),
+    sb.from('categorias_salariales').select('*').order('orden').then(r=>r).catch(()=>({data:[]})),
+    sb.from('escala_salarial').select('*').order('vigencia_desde').then(r=>r).catch(()=>({data:[]})),
+    sb.from('horas_quincena').select('*').then(r=>r).catch(()=>({data:[]})),
+    sb.from('turnos').select('*').order('orden').then(r=>r).catch(()=>({data:[]})),
+    sb.from('esquemas_turno').select('*').then(r=>r).catch(()=>({data:[]})),
+    sb.from('fichajes').select('*').order('fecha',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
+    sb.from('turnos_excepcion').select('*').then(r=>r).catch(()=>({data:[]})),
   ]);
   const d=r=>results[r].status==='fulfilled'?results[r].value.data||[]:[];
   C.bobinas=d(0);C.extrusoras=d(1);C.ordenes=d(2);
@@ -4545,6 +4575,13 @@ async function reload(){
   C.cargas_sociales=d(53)||[];
   C.pagos_carga_social=d(54)||[];
   C.nomina_config=d(55)||[];
+  C.categorias_salariales=d(56)||[];
+  C.escala_salarial=d(57)||[];
+  C.horas_quincena=d(58)||[];
+  C.turnos=d(59)||[];
+  C.esquemas_turno=d(60)||[];
+  C.fichajes=d(61)||[];
+  C.turnos_excepcion=d(62)||[];
   _costoBobinaIdx=null; // invalidar índice de costo real por bobina al recargar
   const rcfg=results[8].status==='fulfilled'?results[8].value:null;
   if(rcfg?.data){rcfg.data.forEach(r=>{
@@ -7332,6 +7369,7 @@ function go(name){
   if(name==='informe-lote')renderInformeLote();
   if(name==='gastos-fijos')renderGastosFijos();
   if(name==='sueldos')renderSueldos();
+  if(name==='fichaje')renderFichaje();
   if(name==='compras-gastos')renderComprasGastos();
   if(name==='deudas')renderDeudas();
   if(name==='libro-caja')renderLibroCaja();
@@ -8150,6 +8188,15 @@ function renderStockBolsas(){
 // Al cerrar una OC, acreditar stock automáticamente
 // + RESERVA AL PEDIDO: si la OC viene de un pedido, marca el stock como 'reservado'
 //   hasta cubrir lo solicitado; el excedente queda 'disponible' (libre).
+// Paquetes ya PRODUCIDOS/acreditados para una OC, leídos del LIBRO (mov_bolsas), no del
+// stock actual. Robusto a entregas: si un parcial ya se entregó, su fila de stock_bolsas
+// queda en 0 (o cambia), pero el libro conserva el movimiento de producción. Evita el doble
+// conteo al cerrar una OC que ya tuvo cargas parciales.
+async function _ocPaquetesProducidos(ocId){
+  const{data,error}=await sb.from('mov_bolsas').select('paquetes').eq('orden_corte_id',ocId).eq('tipo','produccion');
+  if(error){console.error('_ocPaquetesProducidos:',error.message);return 0;}
+  return (data||[]).reduce((s,m)=>s+(parseFloat(m.paquetes)||0),0);
+}
 async function acreditarStockDesdeOC(ocId){
   const o=C.ord_corte.find(x=>x.id===ocId);if(!o||!o.producto_id){console.warn('acreditarStockDesdeOC: OC sin producto',ocId);return;}
   const prod=C.productos.find(p=>p.id===o.producto_id)||o.productos;
@@ -8161,11 +8208,10 @@ async function acreditarStockDesdeOC(ocId){
   if(paqReales<=0)paqReales=o.cantidad_bultos_reales||0;
   if(!paqReales){console.warn('acreditarStockDesdeOC: paqReales=0 para OC',o.numero_orden);return;}
 
-  // ⚠ ENTREGAS PARCIALES: descontar lo ya cargado (consulta stock_bolsas directamente)
-  // Buscar registros con esta orden_corte_id que NO sean entregados (esos son parciales previos)
-  const yaCargadoParcial=(C.stock_bolsas||[])
-    .filter(s=>s.orden_corte_id===ocId&&s.estado!=='entregado')
-    .reduce((s,l)=>s+(parseFloat(l.cantidad_paquetes)||0),0);
+  // ⚠ PARCIALES: descontar lo YA PRODUCIDO para esta OC, leído del LIBRO (mov_bolsas).
+  // Antes se leía el stock actual (stock_bolsas con estado!='entregado'); si un parcial ya
+  // se había entregado, su fila quedaba en 0 y el cierre re-acreditaba el total → doble conteo.
+  const yaCargadoParcial=await _ocPaquetesProducidos(ocId);
   const paqRestantes=Math.max(0,paqReales-yaCargadoParcial);
   if(paqRestantes<=0){console.log('acreditarStockDesdeOC: ya cargado todo via parciales para',o.numero_orden);return;}
   paqReales=paqRestantes;
@@ -8342,10 +8388,9 @@ async function abrirCargaParcialOC(ocId){
   const mtsPorBolsa=prod.metros_por_bolsa||0;
   const mermaPct=o.merma_pct||prod.merma_pct||5;
 
-  // Calcular ya cargado en parciales previos (desde stock_bolsas, no stock_movimientos)
-  const yaCargadoParcial=(C.stock_bolsas||[])
-    .filter(s=>s.orden_corte_id===ocId&&s.estado!=='entregado')
-    .reduce((s,l)=>s+(parseFloat(l.cantidad_paquetes)||0),0);
+  // Ya cargado en parciales previos, leído del LIBRO (mov_bolsas) — robusto a entregas
+  // (el stock actual pierde los parciales ya entregados y subestimaría lo cargado).
+  const yaCargadoParcial=await _ocPaquetesProducidos(ocId);
 
   // Metros disponibles en bobinas asociadas
   const mtsBobinas=(o.orden_corte_bobinas||[])
@@ -8698,6 +8743,9 @@ function generarRemitoDesdePedido(pedidoId){
 // Estado para venta directa
 let _nrDirectaLineas=[];
 let _nrDirectaId=0;
+// Dónde se renderizan las líneas de _nrDirectaLineas: 'nr-lineas' (modo venta directa)
+// o 'nr-extra-lineas' (líneas extra / venta suelta dentro de un remito desde pedido).
+let _nrDirectaTarget='nr-lineas';
 
 function _nrModo(){
   return document.querySelector('input[name="nr-modo"]:checked')?.value||'pedido';
@@ -8723,7 +8771,10 @@ function onNrModoChange(){
   // Reset líneas
   const wrap=document.getElementById('nr-lineas-wrap');
   if(wrap)wrap.style.display='none';
+  const extraW=document.getElementById('nr-extra-wrap');
+  if(extraW)extraW.style.display='none';
   _nrDirectaLineas=[];
+  _nrDirectaTarget=modo==='directa'?'nr-lineas':'nr-extra-lineas';
   // Si ya hay cliente seleccionado, re-disparar
   const cliId=parseInt(document.getElementById('nr-cli')?.value)||0;
   if(cliId){
@@ -8811,6 +8862,14 @@ function onNrPedidoChange(){
   if(titulo)titulo.textContent='Líneas del pedido '+ped.numero_pedido;
   if(subt)subt.textContent='Indicá cuántos paquetes entregar de cada producto. El stock se descuenta automáticamente.';
   document.getElementById('nr-add-directa').style.display='none';
+
+  // Sección de productos extra (venta suelta) — se resetea por cada pedido
+  const extraW=document.getElementById('nr-extra-wrap');
+  if(extraW)extraW.style.display='block';
+  _nrDirectaLineas=[];
+  _nrDirectaId=0;
+  _nrDirectaTarget='nr-extra-lineas';
+  renderNrDirecta();
 
   // Líneas del pedido (no canceladas)
   const lineas=(ped.pedido_lineas||[]).filter(l=>!_lineaCancelada(l));
@@ -8934,10 +8993,18 @@ function nrIniciarVentaDirecta(){
   document.getElementById('nr-pedido-info').textContent='';
   _nrDirectaLineas=[];
   _nrDirectaId=0;
+  _nrDirectaTarget='nr-lineas';
   renderNrDirecta();
 }
 
 function nrAgregarProductoDirecta(){
+  _nrDirectaLineas.push({id:++_nrDirectaId,producto_id:0,paq:0});
+  renderNrDirecta();
+}
+// Línea extra (venta suelta) dentro de un remito desde pedido: mismo mecanismo que la
+// venta directa, pero renderiza en la sección de extras y al guardar va con pedido_linea_id=null.
+function nrAgregarProductoExtra(){
+  _nrDirectaTarget='nr-extra-lineas';
   _nrDirectaLineas.push({id:++_nrDirectaId,producto_id:0,paq:0});
   renderNrDirecta();
 }
@@ -8948,7 +9015,7 @@ function nrQuitarProductoDirecta(id){
 }
 
 function renderNrDirecta(){
-  const div=document.getElementById('nr-lineas');
+  const div=document.getElementById(_nrDirectaTarget);
   if(!div)return;
   if(!_nrDirectaLineas.length){
     div.innerHTML='<div style="background:var(--bg3);border:1.5px dashed var(--border);border-radius:var(--rl);padding:20px;text-align:center;color:var(--text2);font-size:12px;">Tocá <strong>+ Agregar producto del stock</strong> para empezar.</div>';
@@ -9128,7 +9195,11 @@ async function guardarRemito(){
         lotes:stk.lotes
       });
     }
-  } else {
+  }
+  // Venta directa / líneas extra (venta suelta). En modo 'directa' son las líneas
+  // principales del remito; en modo 'pedido' son EXTRAS que NO tocan el pedido
+  // (pedido_linea_id=null, salen del stock libre). En pedido sin extras, el array va vacío.
+  {
     // Venta directa
     for(const dl of _nrDirectaLineas){
       if(!dl.producto_id||!dl.paq||dl.paq<=0)continue;
@@ -9637,7 +9708,7 @@ async function _ejecutarGuardarRemito(nro,pedId,cliId,fecha,obs,modo,ped,cli,lin
           const prev=(C.stock_bolsas||[]).filter(s=>s.producto_id===l.producto_id&&s.pedido_id===pedId&&s.estado==='entregado').reduce((s,x)=>s+(parseFloat(x.cantidad_paquetes)||0),0)+(parseFloat(l.entregado)||0);
           totalEntregado+=prev;
         });
-        lineasRemito.forEach(rl=>{totalEntregado+=rl.cantidad_paquetes;});
+        lineasRemito.forEach(rl=>{if(rl.pedido_linea_id)totalEntregado+=rl.cantidad_paquetes;});
         const nuevoEstado=totalEntregado>=totalPedido?'Entregado':'Entregado parcial';
         await sb.from('pedidos').update({estado:nuevoEstado}).eq('id',pedId);
       }
@@ -16993,6 +17064,7 @@ function gfCatLabel(v){const c=GF_CATS.find(x=>x.v===v);return c?c.l:(v||'—');
 // (sin prorrateo por días: los fijos son mensuales por naturaleza)
 function gastosFijosDelMes(iniStr,finStr){
   return (C.gastos_fijos||[]).filter(g=>{
+    if(g.es_nomina)return false;
     if(!g.activo_desde)return false;
     if(String(g.activo_desde)>finStr)return false;
     if(g.activo_hasta&&String(g.activo_hasta)<iniStr)return false;
@@ -17097,6 +17169,7 @@ function gfAbrirForm(g){
       +'<div class="fg"><label>Patrón en la descripción <span style="color:var(--text3);font-size:10px;">(ej: FLEX)</span></label><input id="gf-patron" type="text" value="'+String(g?.patron_match||'').replace(/"/g,'&quot;')+'" placeholder="texto del débito/factura" style="width:100%"></div>'
     +'</div>'
     +'<div class="fg"><label>Notas (opcional)</label><input id="gf-notas" type="text" value="'+String(g?.notas||'').replace(/"/g,'&quot;')+'" style="width:100%"></div>'
+    +'<div class="fg"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;"><input id="gf-nomina" type="checkbox"'+(g?.es_nomina?' checked':'')+'> Es nómina (lo maneja el módulo de Sueldos · se excluye de acá)</label></div>'
     +'<div class="btn-grp" style="margin-top:1rem;">'
       +'<button class="btn btn-sm" onclick="gfGuardar()">💾 Guardar 🔐</button>'
       +'<button class="btn btn-sm" onclick="document.getElementById(\'gf-modal\').remove()">Cancelar</button>'
@@ -17117,7 +17190,7 @@ function gfGuardar(){
   if(hasta&&hasta<desde){if(msg){msg.style.color='var(--red)';msg.textContent='"Hasta" no puede ser anterior a "Desde"';}return;}
   pedirAdminYEjecutar(async()=>{
     if(msg){msg.style.color='var(--text2)';msg.textContent='Guardando...';}
-    const row={concepto,categoria,monto_mensual:monto,plano:document.getElementById('gf-plano')?.value||'blanco',iva_porcentaje:parseFloat(document.getElementById('gf-iva')?.value)||0,frecuencia:document.getElementById('gf-frec')?.value||'mensual',dia_pago:Math.min(31,Math.max(1,parseInt(document.getElementById('gf-dia')?.value)||30)),activo_desde:desde,activo_hasta:hasta,notas,proveedor_id:parseInt(document.getElementById('gf-prov')?.value)||null,patron_match:(document.getElementById('gf-patron')?.value||'').trim()||null};
+    const row={concepto,categoria,monto_mensual:monto,plano:document.getElementById('gf-plano')?.value||'blanco',iva_porcentaje:parseFloat(document.getElementById('gf-iva')?.value)||0,frecuencia:document.getElementById('gf-frec')?.value||'mensual',dia_pago:Math.min(31,Math.max(1,parseInt(document.getElementById('gf-dia')?.value)||30)),activo_desde:desde,activo_hasta:hasta,notas,proveedor_id:parseInt(document.getElementById('gf-prov')?.value)||null,patron_match:(document.getElementById('gf-patron')?.value||'').trim()||null,es_nomina:!!document.getElementById('gf-nomina')?.checked};
     let error;
     if(id){({error}=await sb.from('gastos_fijos').update(row).eq('id',parseInt(id)));}
     else{({error}=await sb.from('gastos_fijos').insert(row));}
@@ -17174,7 +17247,7 @@ function _reciboBrutos(r){
   return {rem:r2(rem),norem:r2(norem),desc:r2(desc),bruto:r2(rem+norem),neto:r2(rem+norem-desc)};
 }
 function _reciboNeto(r){return _reciboBrutos(r).neto;}
-function _reciboPagado(r){return r2((C.pagos_sueldo||[]).filter(p=>p.recibo_id===r.id).reduce((s,p)=>s+(parseFloat(p.monto)||0),0));}
+function _reciboPagado(r){return r2((C.pagos_sueldo||[]).filter(p=>p.recibo_id===r.id||(p.recibo_id==null&&p.empleado_id===r.empleado_id&&p.periodo===r.periodo)).reduce((s,p)=>s+(parseFloat(p.monto)||0),0));}
 function _reciboSaldo(r){return r2(_reciboNeto(r)-_reciboPagado(r));}
 function _reciboEstado(r){
   const neto=_reciboNeto(r), pag=_reciboPagado(r);
@@ -17201,13 +17274,19 @@ function renderSueldos(){
   const tabBtn=(id,lbl)=>'<button class="btn btn-sm" onclick="suTab(\''+id+'\')" style="'+(tab===id?'background:var(--accent);color:#fff;border-color:var(--accent);':'')+'">'+lbl+'</button>';
   wrap.innerHTML='<div class="btn-grp" style="margin-bottom:16px;">'
     +tabBtn('empleados','👷 Empleados')
+    +tabBtn('turnos','🕐 Turnos')
+    +tabBtn('quincena','💵 Quincena')
     +tabBtn('recibos','🧾 Recibos')
     +tabBtn('cargas','🏛 F.931 / Cargas')
+    +tabBtn('escala','📊 Escala')
     +tabBtn('presupuesto','📅 Presupuesto')
     +'</div><div id="su-body"></div>';
   if(tab==='empleados')_suRenderEmpleados();
+  else if(tab==='turnos')_suRenderTurnos();
+  else if(tab==='quincena')_suRenderQuincena();
   else if(tab==='recibos')_suRenderRecibos();
   else if(tab==='cargas')_suRenderCargas();
+  else if(tab==='escala')_suRenderEscala();
   else if(tab==='presupuesto')_suRenderPresupuesto();
 }
 function suTab(t){SU.tab=t;renderSueldos();}
@@ -17235,6 +17314,7 @@ function _suRenderEmpleados(){
       +'<td style="text-align:right;font-family:monospace;">'+(parseFloat(e.neto_presupuesto)>0?fmtMoney(parseFloat(e.neto_presupuesto)):'—')+'</td>'
       +'<td>'+(e.activo?'<span style="color:var(--green);font-size:11px;font-weight:700;">● Activo</span>':'<span style="color:var(--text3);font-size:11px;">Inactivo</span>')+'</td>'
       +'<td style="text-align:right;white-space:nowrap;">'
+        +'<button class="btn btn-sm" onclick="empCarnet('+e.id+')" title="Carnet QR">🎫</button> '
         +'<button class="btn btn-sm" onclick="empAbrirForm('+e.id+')" title="Editar">✎</button> '
         +'<button class="btn btn-sm" onclick="empToggle('+e.id+','+(e.activo?'false':'true')+')" title="'+(e.activo?'Dar de baja':'Reactivar')+'">'+(e.activo?'🚫':'✅')+'</button>'
       +'</td></tr>';
@@ -17254,15 +17334,17 @@ function empAbrirForm(id){
       +'<div class="fg"><label>CUIL</label><input id="emp-cuil" type="text" value="'+String(e?.cuil||'').replace(/"/g,'&quot;')+'" placeholder="20-00000000-0" style="width:100%"></div>'
       +'<div class="fg"><label>Legajo</label><input id="emp-legajo" type="text" value="'+String(e?.legajo||'').replace(/"/g,'&quot;')+'" style="width:100%"></div>'
       +'<div class="fg"><label>Sección</label><input id="emp-seccion" type="text" value="'+String(e?.seccion||'').replace(/"/g,'&quot;')+'" placeholder="FABRICA / DIRECCIÓN" style="width:100%"></div>'
-      +'<div class="fg"><label>Categoría</label><input id="emp-categoria" type="text" value="'+String(e?.categoria||'').replace(/"/g,'&quot;')+'" placeholder="OPERADOR / GERENTE" style="width:100%"></div>'
+      +'<div class="fg"><label>Categoría (escala)</label><select id="emp-categoria-id" style="width:100%"><option value="">— sin categoría (dirección) —</option>'+(C.categorias_salariales||[]).filter(c=>c.activo!==false).sort((a,b)=>(a.orden||0)-(b.orden||0)).map(c=>'<option value="'+c.id+'"'+(e&&e.categoria_id===c.id?' selected':'')+'>'+escapeHtml(c.nombre)+'</option>').join('')+'</select></div>'
       +'<div class="fg"><label>Fecha de ingreso</label><input id="emp-ingreso" type="date" value="'+(e?.fecha_ingreso||'')+'" style="width:100%"></div>'
       +'<div class="fg"><label>Obra social</label><input id="emp-os" type="text" value="'+String(e?.obra_social||'').replace(/"/g,'&quot;')+'" style="width:100%"></div>'
       +'<div class="fg"><label>Régimen</label><select id="emp-tipo" style="width:100%"><option value="cct"'+((e?.tipo||'cct')==='cct'?' selected':'')+'>CCT (UOYEP · aportes completos)</option><option value="direccion"'+(e?.tipo==='direccion'?' selected':'')+'>Dirección (dueño/director)</option></select></div>'
+      +'<div class="fg"><label>Esquema de turno</label><select id="emp-esquema" style="width:100%"><option value="">— sin turno —</option>'+(C.esquemas_turno||[]).filter(x=>x.activo!==false).map(x=>'<option value="'+x.id+'"'+(e&&e.esquema_turno_id===x.id?' selected':'')+'>'+escapeHtml(x.nombre)+'</option>').join('')+'</select></div>'
       +'<div class="fg" style="display:flex;align-items:flex-end;"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;"><input id="emp-afiliado" type="checkbox"'+(e?.afiliado_sindical?' checked':'')+'> Afiliado al sindicato (cuota sindical 4105)</label></div>'
     +'</div>'
     +'<div style="border-top:1px solid var(--border);margin:12px 0 8px;padding-top:8px;font-size:11px;color:var(--text2);">📅 Presupuesto para el flujo de caja (lo que cobra por mes, se parte en 2 quincenas). Dejá 0 si no querés proyectarlo.</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">'
       +'<div class="fg"><label>Neto presupuesto $/mes</label><input id="emp-neto" type="number" min="0" step="0.01" value="'+(e?.neto_presupuesto||'')+'" style="width:100%"></div>'
+      +'<div class="fg"><label>Horas previstas/mes</label><input id="emp-horas" type="number" min="0" step="1" value="'+(e?.horas_mensuales_previstas||'')+'" placeholder="ej 176" style="width:100%"></div>'
       +'<div class="fg"><label>Día 1ª quincena</label><input id="emp-q1" type="number" min="1" max="31" value="'+(e?.dia_pago_q1!=null?e.dia_pago_q1:15)+'" style="width:100%"></div>'
       +'<div class="fg"><label>Día 2ª quincena</label><input id="emp-q2" type="number" min="1" max="31" value="'+(e?.dia_pago_q2!=null?e.dia_pago_q2:30)+'" style="width:100%"></div>'
     +'</div>'
@@ -17279,8 +17361,10 @@ function empGuardar(){
     cuil:document.getElementById('emp-cuil')?.value.trim()||null,
     legajo:document.getElementById('emp-legajo')?.value.trim()||null,
     seccion:document.getElementById('emp-seccion')?.value.trim()||null,
-    categoria:document.getElementById('emp-categoria')?.value.trim()||null,
-    calificacion:document.getElementById('emp-categoria')?.value.trim()||null,
+    categoria_id:parseInt(document.getElementById('emp-categoria-id')?.value)||null,
+    categoria:(function(){var _id=parseInt(document.getElementById('emp-categoria-id')?.value)||null;var _c=_id?(C.categorias_salariales||[]).find(x=>x.id===_id):null;return _c?_c.nombre:null;})(),
+    horas_mensuales_previstas:parseFloat(document.getElementById('emp-horas')?.value)||0,
+    esquema_turno_id:parseInt(document.getElementById('emp-esquema')?.value)||null,
     fecha_ingreso:document.getElementById('emp-ingreso')?.value||null,
     obra_social:document.getElementById('emp-os')?.value.trim()||null,
     tipo:document.getElementById('emp-tipo')?.value||'cct',
@@ -17307,6 +17391,629 @@ function empToggle(id,activo){
     toast(activo?'✓ Reactivado':'✓ Dado de baja','green');
     await reload();renderSueldos();
   })();
+}
+
+// ============================================================
+//  MOTOR DE CÁLCULO (escala + horas -> bruto/neto) + ADELANTO POR QUINCENA
+// ============================================================
+let SUQ={periodo:localDate().slice(0,7),quincena:1};
+function _catSalarial(id){return (C.categorias_salariales||[]).find(c=>c.id===id);}
+function _escalaVigente(catId,periodo){
+  const ref=(periodo||localDate().slice(0,7))+'-01';
+  const filas=(C.escala_salarial||[]).filter(e=>e.categoria_id===catId&&String(e.vigencia_desde)<=ref)
+    .sort((a,b)=>String(b.vigencia_desde).localeCompare(String(a.vigencia_desde)));
+  return filas[0]||null;
+}
+function _antiguedadAnios(emp,periodo){
+  if(!emp||!emp.fecha_ingreso)return 0;
+  const ref=new Date((periodo||localDate().slice(0,7))+'-01T12:00:00');
+  const ing=new Date(String(emp.fecha_ingreso)+'T12:00:00');
+  let a=ref.getFullYear()-ing.getFullYear();
+  if(ref.getMonth()<ing.getMonth()||(ref.getMonth()===ing.getMonth()&&ref.getDate()<ing.getDate()))a--;
+  return Math.max(0,a);
+}
+// Adelanto de UNA quincena a partir de horas (o medio mes para categorías mensuales).
+function _calcAdelanto(emp,periodo,horas){
+  const cfg=_nominaCfg();const h=horas||{};
+  const out={base:0,antiguedad:0,extras:0,feriado:0,sumaFija:0,remun:0,bruto:0,desc:0,neto:0,detalle:[],escalaOK:false};
+  if(!emp)return out;
+  const cat=emp.categoria_id?_catSalarial(emp.categoria_id):null;
+  const esc=cat?_escalaVigente(cat.id,periodo):null;
+  if(!cat||!esc){
+    const medio=r2((parseFloat(emp.neto_presupuesto)||0)/2);
+    out.neto=medio;out.bruto=medio;out.remun=medio;out.detalle.push(['Medio neto presupuesto',medio]);
+    return out;
+  }
+  out.escalaOK=true;
+  const vh=parseFloat(esc.valor)||0;
+  const anios=_antiguedadAnios(emp,periodo);
+  const pctAnt=(parseFloat(cfg.antiguedad_pct_anual)||0)/100;
+  if(cat.unidad==='hora'){
+    const hn=parseFloat(h.horas_normales)||0,he50=parseFloat(h.horas_extra50)||0,he100=parseFloat(h.horas_extra100)||0,hf=parseFloat(h.horas_feriado)||0;
+    out.base=r2(hn*vh);
+    out.extras=r2(he50*vh*1.5+he100*vh*2);
+    out.feriado=r2(hf*vh*2);
+    out.detalle.push(['Normales ('+hn+' h × $'+vh.toLocaleString('es-AR')+')',out.base]);
+    if(out.extras>0)out.detalle.push(['Extras 50%/100%',out.extras]);
+    if(out.feriado>0)out.detalle.push(['Feriado ('+hf+' h ×2)',out.feriado]);
+  }else{
+    out.base=r2(vh/2);
+    out.detalle.push(['Medio mes (mensual)',out.base]);
+  }
+  const remunBase=r2(out.base+out.extras+out.feriado);
+  out.antiguedad=r2(remunBase*pctAnt*anios);
+  if(out.antiguedad>0)out.detalle.push(['Antigüedad ('+anios+' años · '+(cfg.antiguedad_pct_anual||0)+'%/año)',out.antiguedad]);
+  out.remun=r2(remunBase+out.antiguedad);
+  if(cfg.suma_fija_en_quincena!==false){
+    out.sumaFija=r2((parseFloat(esc.suma_fija_no_rem)||0)/2);
+    if(out.sumaFija>0)out.detalle.push(['Suma fija no rem. (½)',out.sumaFija]);
+  }
+  out.bruto=r2(out.remun+out.sumaFija);
+  const dPct=((parseFloat(cfg.ap_jubilacion_pct)||0)+(parseFloat(cfg.ap_ley19032_pct)||0)+(parseFloat(cfg.ap_obra_social_pct)||0)+(parseFloat(cfg.ap_fondo_solidario_pct)||0)+(emp.afiliado_sindical?(parseFloat(cfg.cuota_sindical_pct)||0):(parseFloat(cfg.ap_solidario_pct)||0)))/100;
+  out.desc=r2(out.remun*dPct);
+  out.detalle.push(['Descuentos ('+(dPct*100).toFixed(1)+'%)',-out.desc]);
+  out.neto=r2(out.bruto-out.desc);
+  return out;
+}
+
+// ---------- TAB QUINCENA ----------
+function _horasDe(empId,periodo,q){return (C.horas_quincena||[]).find(x=>x.empleado_id===empId&&x.periodo===periodo&&x.quincena===q)||null;}
+function _suRenderQuincena(){
+  const body=document.getElementById('su-body'); if(!body)return;
+  const per=SUQ.periodo,q=SUQ.quincena;
+  let html='<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">'
+    +'<label style="font-size:12px;color:var(--text2);">Período: <input type="month" value="'+per+'" onchange="SUQ.periodo=this.value;renderSueldos();" class="st-sel" style="width:150px;"></label>'
+    +'<div class="btn-grp"><button class="btn btn-sm" onclick="SUQ.quincena=1;renderSueldos();" style="'+(q===1?'background:var(--accent);color:#fff;':'')+'">1ª quincena</button><button class="btn btn-sm" onclick="SUQ.quincena=2;renderSueldos();" style="'+(q===2?'background:var(--accent);color:#fff;':'')+'">2ª quincena</button></div>'
+    +'<button class="btn btn-sm" onclick="suqTraerTodoFichaje()" title="Calcular las horas de la quincena desde los fichajes y guardarlas">⟳ Traer del fichaje</button>'
+    +'</div>';
+  const emps=(C.empleados||[]).filter(e=>e.activo).sort((a,b)=>String(a.apellido_nombre||'').localeCompare(String(b.apellido_nombre||'')));
+  if(!emps.length){body.innerHTML=html+'<div class="empty" style="padding:30px;text-align:center;color:var(--text3);">No hay empleados activos.</div>';return;}
+  html+='<div style="font-size:11px;color:var(--text2);margin-bottom:8px;">Cargá las horas reales de la quincena. El neto se calcula con la escala vigente y se paga por banco como <b>adelanto</b> del período (cuelga de empleado+mes, no del recibo). Los administrativos/dirección van por monto fijo.</div>';
+  html+='<div style="overflow-x:auto;"><table style="width:100%;font-size:12px;border-collapse:collapse;">'
+    +'<tr style="text-align:left;color:var(--text3);font-size:10px;text-transform:uppercase;"><th style="padding:6px;">Empleado</th><th>Categoría</th><th style="text-align:right;">Normales</th><th style="text-align:right;">Ext.50%</th><th style="text-align:right;">Feriado</th><th style="text-align:right;">Neto adelanto</th><th></th></tr>';
+  let totNeto=0;
+  emps.forEach(e=>{
+    const cat=e.categoria_id?_catSalarial(e.categoria_id):null;
+    const h=_horasDe(e.id,per,q)||{};
+    const mensual=!cat||cat.unidad==='mensual';
+    const calc=_calcAdelanto(e,per,{horas_normales:h.horas_normales,horas_extra50:h.horas_extra50,horas_feriado:h.horas_feriado});
+    totNeto+=calc.neto;
+    const yaPag=(C.pagos_sueldo||[]).filter(p=>p.empleado_id===e.id&&p.periodo===per&&p.quincena===q).reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
+    const inp=(cls,val)=> mensual?'<span style="color:var(--text3);">—</span>':'<input class="'+cls+'" type="number" step="0.5" value="'+(val!=null?val:'')+'" oninput="_suqRecalc('+e.id+')" style="width:62px;text-align:right;">';
+    html+='<tr style="border-top:1px solid var(--border);" id="suq-row-'+e.id+'">'
+      +'<td style="padding:6px;font-weight:600;">'+escapeHtml(e.apellido_nombre||'')+(e.tipo==='direccion'?' <span style="font-size:9px;color:var(--text3);">(dir.)</span>':'')+'</td>'
+      +'<td style="font-size:11px;">'+(cat?escapeHtml(cat.nombre):'<span style="color:var(--amber);">sin categoría</span>')+'</td>'
+      +'<td style="text-align:right;">'+inp('suq-hn',h.horas_normales)+'</td>'
+      +'<td style="text-align:right;">'+inp('suq-he50',h.horas_extra50)+'</td>'
+      +'<td style="text-align:right;">'+inp('suq-hf',h.horas_feriado)+'</td>'
+      +'<td style="text-align:right;font-family:monospace;font-weight:700;" id="suq-neto-'+e.id+'">'+fmtMoney(calc.neto)+'</td>'
+      +'<td style="text-align:right;white-space:nowrap;">'
+        +(yaPag>0.01?'<span style="color:var(--green);font-size:11px;" title="ya pagado esta quincena">✓ '+fmtMoney(yaPag)+'</span> ':'')
+        +(mensual?'':'<button class="btn btn-sm" onclick="suqTraerFichaje('+e.id+')" title="Traer horas del fichaje a esta fila (revisá antes de pagar)">⟳</button> ')
+        +(mensual?'':'<button class="btn btn-sm" onclick="suqGuardarHoras('+e.id+')" title="Guardar horas">💾</button> ')
+        +'<button class="btn btn-sm" onclick="suqPagar('+e.id+')" title="Pagar adelanto por banco">💵</button>'
+      +'</td></tr>';
+  });
+  html+='<tr style="border-top:2px solid var(--border);font-weight:700;"><td style="padding:6px;">TOTAL</td><td></td><td></td><td></td><td></td><td style="text-align:right;font-family:monospace;">'+fmtMoney(r2(totNeto))+'</td><td></td></tr>';
+  html+='</table></div>';
+  body.innerHTML=html;
+}
+function _suqLeerHoras(eid){
+  const g=(cls)=>{const el=document.querySelector('#suq-row-'+eid+' .'+cls);return el&&el.value.trim()!==''?(parseFloat(el.value)||0):0;};
+  return {horas_normales:g('suq-hn'),horas_extra50:g('suq-he50'),horas_feriado:g('suq-hf')};
+}
+function _suqRecalc(eid){
+  const e=(C.empleados||[]).find(x=>x.id===eid);if(!e)return;
+  const calc=_calcAdelanto(e,SUQ.periodo,_suqLeerHoras(eid));
+  const el=document.getElementById('suq-neto-'+eid);if(el)el.textContent=fmtMoney(calc.neto);
+}
+function suqGuardarHoras(eid){
+  const h=_suqLeerHoras(eid);
+  (async()=>{
+    const{error}=await sb.from('horas_quincena').upsert({empleado_id:eid,periodo:SUQ.periodo,quincena:SUQ.quincena,horas_normales:h.horas_normales,horas_extra50:h.horas_extra50,horas_feriado:h.horas_feriado},{onConflict:'empleado_id,periodo,quincena'});
+    if(error){toast('Error: '+error.message,'red');return;}
+    toast('✓ Horas guardadas','green');
+    await reload();renderSueldos();
+  })();
+}
+function suqPagar(eid){
+  const e=(C.empleados||[]).find(x=>x.id===eid);if(!e)return;
+  const calc=_calcAdelanto(e,SUQ.periodo,_suqLeerHoras(eid));
+  const ctas=(C.cuentas_caja||[]).filter(x=>x.activa!==false&&!x.es_conciliacion);
+  const defP=ctas.find(x=>x.default_pagos)?.id;
+  const optsCtas=ctas.length?ctas.map(x=>'<option value="'+x.id+'"'+(x.id===defP?' selected':'')+'>'+escapeHtml(x.nombre||'cuenta')+(x.plano==='negro'?' ⚫':' ⚪')+'</option>').join(''):'<option value="">— sin cuentas —</option>';
+  const det=calc.detalle.map(d=>'<div style="display:flex;justify-content:space-between;gap:12px;"><span>'+escapeHtml(d[0])+'</span><span style="font-family:monospace;">'+fmtMoney(d[1])+'</span></div>').join('');
+  document.getElementById('suq-pago-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="suq-pago-modal"><div class="modal-card" style="max-width:460px;">'
+    +'<div class="modal-title">💵 Adelanto quincena '+SUQ.quincena+'</div>'
+    +'<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">'+escapeHtml(e.apellido_nombre||'')+' · '+SUQ.periodo+'</div>'
+    +'<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;font-size:11px;margin-bottom:10px;">'+det+'<div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);margin-top:6px;padding-top:6px;font-weight:700;"><span>NETO</span><span style="font-family:monospace;color:var(--green);">'+fmtMoney(calc.neto)+'</span></div></div>'
+    +'<input type="hidden" id="suqpg-eid" value="'+eid+'">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
+      +'<div class="fg"><label>Fecha</label><input type="date" id="suqpg-fecha" value="'+localDate()+'" style="width:100%"></div>'
+      +'<div class="fg"><label>Monto $</label><input type="number" id="suqpg-monto" step="0.01" value="'+calc.neto+'" style="width:100%"></div>'
+      +'<div class="fg" style="grid-column:1/3;"><label>Cuenta (banco)</label><select id="suqpg-cuenta" style="width:100%">'+optsCtas+'</select></div>'
+    +'</div>'
+    +'<div style="font-size:11px;color:var(--text3);margin-top:6px;">Se registra como adelanto del período. Al cargar el recibo del contador a fin de mes, se imputa solo (saldo del recibo = neto − adelantos).</div>'
+    +'<div class="btn-grp" style="margin-top:1rem;"><button class="btn btn-sm" onclick="suqPagoGuardar()">💾 Pagar</button><button class="btn btn-sm" onclick="document.getElementById(\'suq-pago-modal\').remove()">Cancelar</button><span id="suqpg-msg" style="font-size:11px;margin-left:8px;"></span></div>'
+    +'</div></div>');
+}
+function suqPagoGuardar(){
+  const eid=parseInt(document.getElementById('suqpg-eid')?.value);
+  const fecha=document.getElementById('suqpg-fecha')?.value||localDate();
+  const monto=parseFloat(document.getElementById('suqpg-monto')?.value)||0;
+  const cuentaId=parseInt(document.getElementById('suqpg-cuenta')?.value)||null;
+  const cuenta=(C.cuentas_caja||[]).find(x=>x.id===cuentaId);
+  const msg=document.getElementById('suqpg-msg');
+  if(monto<=0){if(msg){msg.style.color='var(--red)';msg.textContent='Monto inválido';}return;}
+  if(!cuentaId){if(msg){msg.style.color='var(--red)';msg.textContent='Elegí una cuenta.';}return;}
+  const h=_suqLeerHoras(eid);
+  (async()=>{
+    if(msg){msg.style.color='var(--text2)';msg.textContent='Registrando...';}
+    await sb.from('horas_quincena').upsert({empleado_id:eid,periodo:SUQ.periodo,quincena:SUQ.quincena,horas_normales:h.horas_normales,horas_extra50:h.horas_extra50,horas_feriado:h.horas_feriado},{onConflict:'empleado_id,periodo,quincena'});
+    const{error}=await sb.from('pagos_sueldo').insert({recibo_id:null,empleado_id:eid,periodo:SUQ.periodo,quincena:SUQ.quincena,fecha:fecha,monto:monto,cuenta_id:cuentaId,plano:cuenta?cuenta.plano:'blanco',es_adelanto:true});
+    if(error){if(msg){msg.style.color='var(--red)';msg.textContent='Error: '+error.message;}return;}
+    document.getElementById('suq-pago-modal')?.remove();
+    toast('✓ Adelanto pagado','green');
+    await reload();renderSueldos();
+  })();
+}
+
+// ---------- TAB ESCALA ----------
+function _suRenderEscala(){
+  const body=document.getElementById('su-body'); if(!body)return;
+  const per=SUQ.periodo;
+  const cats=(C.categorias_salariales||[]).filter(c=>c.activo!==false).sort((a,b)=>(a.orden||0)-(b.orden||0));
+  let html='<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Escala vigente para <b>'+per+'</b> (la fila de mayor vigencia ≤ período). <input type="month" value="'+per+'" onchange="SUQ.periodo=this.value;renderSueldos();" class="st-sel" style="width:140px;margin-left:6px;"></div>';
+  if(!cats.length){body.innerHTML=html+'<div class="empty" style="padding:30px;text-align:center;color:var(--text3);">No hay escala cargada. Corré la migración Fase 2.</div>';return;}
+  let rubro='';
+  html+='<table style="width:100%;font-size:12px;border-collapse:collapse;">'
+    +'<tr style="text-align:left;color:var(--text3);font-size:10px;text-transform:uppercase;"><th style="padding:6px;">Categoría</th><th>Unidad</th><th style="text-align:right;">Valor vigente</th><th style="text-align:right;">Suma fija no rem.</th><th>Vigencia</th><th></th></tr>';
+  cats.forEach(c=>{
+    if(c.rubro!==rubro){rubro=c.rubro;html+='<tr><td colspan="6" style="padding:8px 6px 3px;font-size:10px;text-transform:uppercase;color:var(--accent);font-weight:700;">'+escapeHtml(rubro)+'</td></tr>';}
+    const esc=_escalaVigente(c.id,per);
+    html+='<tr style="border-top:1px solid var(--border);">'
+      +'<td style="padding:6px;font-weight:600;">'+escapeHtml(c.nombre)+'</td>'
+      +'<td style="font-size:11px;">'+(c.unidad==='hora'?'$/hora':'$/mes')+'</td>'
+      +'<td style="text-align:right;font-family:monospace;font-weight:700;">'+(esc?fmtMoney(parseFloat(esc.valor)):'—')+'</td>'
+      +'<td style="text-align:right;font-family:monospace;">'+(esc&&esc.suma_fija_no_rem!=null?fmtMoney(parseFloat(esc.suma_fija_no_rem)):'—')+'</td>'
+      +'<td style="font-size:11px;">'+(esc?esc.vigencia_desde:'—')+'</td>'
+      +'<td style="text-align:right;"><button class="btn btn-sm" onclick="escEditar('+c.id+')" title="Editar valor del período">✎</button></td>'
+    +'</tr>';
+  });
+  html+='</table>';
+  html+='<div style="font-size:11px;color:var(--text3);margin-top:10px;">Cuando salga una paritaria nueva, editá el valor con la vigencia del mes en que arranca. El motor toma la fila vigente automáticamente.</div>';
+  body.innerHTML=html;
+}
+function escEditar(catId){
+  const c=_catSalarial(catId);if(!c)return;
+  const per=SUQ.periodo;const esc=_escalaVigente(catId,per);
+  document.getElementById('esc-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="esc-modal"><div class="modal-card" style="max-width:420px;">'
+    +'<div class="modal-title">✎ Escala · '+escapeHtml(c.nombre)+'</div>'
+    +'<input type="hidden" id="esc-cat" value="'+catId+'">'
+    +'<div class="fg"><label>Vigencia desde</label><input type="date" id="esc-vig" value="'+(esc?esc.vigencia_desde:per+'-01')+'" style="width:100%"></div>'
+    +'<div class="fg"><label>Valor ('+(c.unidad==='hora'?'$/hora':'$/mes')+')</label><input type="number" step="0.01" id="esc-valor" value="'+(esc?esc.valor:'')+'" style="width:100%"></div>'
+    +'<div class="fg"><label>Suma fija no remunerativa <span style="color:var(--text3);font-size:10px;">(vacío = sin dato)</span></label><input type="number" step="0.01" id="esc-sf" value="'+(esc&&esc.suma_fija_no_rem!=null?esc.suma_fija_no_rem:'')+'" style="width:100%"></div>'
+    +'<div class="btn-grp" style="margin-top:1rem;"><button class="btn btn-sm" onclick="escGuardar()">💾 Guardar</button><button class="btn btn-sm" onclick="document.getElementById(\'esc-modal\').remove()">Cancelar</button><span id="esc-msg" style="font-size:11px;margin-left:8px;"></span></div>'
+    +'</div></div>');
+}
+function escGuardar(){
+  const catId=parseInt(document.getElementById('esc-cat')?.value);
+  const vig=document.getElementById('esc-vig')?.value;
+  const valor=parseFloat(document.getElementById('esc-valor')?.value)||0;
+  const sfRaw=document.getElementById('esc-sf')?.value;
+  const sf=(sfRaw&&sfRaw.trim()!=='')?parseFloat(sfRaw):null;
+  const msg=document.getElementById('esc-msg');
+  if(!vig){if(msg){msg.style.color='var(--red)';msg.textContent='Falta vigencia';}return;}
+  (async()=>{
+    const{error}=await sb.from('escala_salarial').upsert({categoria_id:catId,vigencia_desde:vig,valor:valor,suma_fija_no_rem:sf},{onConflict:'categoria_id,vigencia_desde'});
+    if(error){if(msg){msg.style.color='var(--red)';msg.textContent='Error: '+error.message;}return;}
+    document.getElementById('esc-modal')?.remove();
+    toast('✓ Escala actualizada','green');
+    await reload();renderSueldos();
+  })();
+}
+
+// ============================================================
+//  TURNOS + ROTACIÓN (motor: qué turno le toca a cada empleado por día)
+// ============================================================
+let SUT={fecha:localDate()};
+function _turnoById(id){return (C.turnos||[]).find(t=>t.id===id)||null;}
+function _lunesDeStr(fechaStr){
+  const f=new Date(fechaStr+'T12:00:00');
+  const l=new Date(f); l.setDate(f.getDate()-((f.getDay()+6)%7)); // lunes de esa semana
+  return localDate(l);
+}
+// Devuelve {turno, rot, franco, tipo} — turno esperado ese día (o null si no trabaja / sin esquema)
+function _turnoDelDia(emp,fechaStr){
+  if(!emp)return {turno:null};
+  const ex=(C.turnos_excepcion||[]).find(x=>x.empleado_id===emp.id&&String(x.fecha)===fechaStr);
+  if(ex){
+    if(ex.turno_id==null)return {turno:null,franco:true,tipo:ex.tipo};
+    return {turno:_turnoById(ex.turno_id),tipo:ex.tipo,excepcion:true};
+  }
+  if(!emp.esquema_turno_id)return {turno:null};
+  const esq=(C.esquemas_turno||[]).find(x=>x.id===emp.esquema_turno_id);
+  if(!esq||esq.activo===false)return {turno:null};
+  if(esq.tipo==='fijo')return {turno:_turnoById(esq.turno_fijo_id)};
+  // rotativo semanal
+  const lunAct=_lunesDeStr(fechaStr);
+  const ancla=esq.ancla_lunes?String(esq.ancla_lunes):lunAct;
+  const dias=Math.round((new Date(lunAct+'T12:00:00')-new Date(ancla+'T12:00:00'))/86400000);
+  const nSem=Math.floor(dias/7);
+  const par=(((nSem%2)+2)%2)===0;
+  return {turno:_turnoById(par?esq.turno_a_id:esq.turno_b_id),rot:par?'A':'B'};
+}
+function _hhmm(t){return t?String(t).slice(0,5):'';}
+function _esqNombre(id){const e=(C.esquemas_turno||[]).find(x=>x.id===id);return e?e.nombre:'—';}
+
+function _suRenderTurnos(){
+  const body=document.getElementById('su-body'); if(!body)return;
+  const turnos=(C.turnos||[]).slice().sort((a,b)=>(a.orden||0)-(b.orden||0)||a.id-b.id);
+  const esquemas=(C.esquemas_turno||[]).slice().sort((a,b)=>String(a.nombre||'').localeCompare(String(b.nombre||'')));
+  let html='';
+
+  // ---- Maestro de turnos ----
+  html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><div style="font-size:11px;text-transform:uppercase;color:var(--accent);font-weight:700;">Turnos (horarios)</div><button class="btn btn-sm" onclick="turnoAbrirForm(null)">➕ Nuevo turno</button></div>';
+  if(!turnos.length){
+    html+='<div class="empty" style="padding:20px;text-align:center;color:var(--text3);">No hay turnos. Cargá los horarios reales: extrusión mañana/tarde y confección mañana/tarde.</div>';
+  }else{
+    html+='<table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:20px;">'
+      +'<tr style="text-align:left;color:var(--text3);font-size:10px;text-transform:uppercase;"><th style="padding:6px;">Turno</th><th>Área</th><th style="text-align:center;">Entrada</th><th style="text-align:center;">Salida</th><th style="text-align:center;">Horas</th><th style="text-align:center;">Toler.</th><th></th></tr>';
+    turnos.forEach(t=>{
+      const dur=_turnoHoras(t);
+      html+='<tr style="border-top:1px solid var(--border);'+(t.activo?'':'opacity:.5;')+'">'
+        +'<td style="padding:6px;font-weight:600;">'+escapeHtml(t.nombre||'')+(t.cruza_medianoche?' <span style="font-size:9px;color:var(--text3);">(noche)</span>':'')+'</td>'
+        +'<td style="font-size:11px;">'+escapeHtml(t.area||'—')+'</td>'
+        +'<td style="text-align:center;font-family:monospace;">'+_hhmm(t.hora_entrada)+'</td>'
+        +'<td style="text-align:center;font-family:monospace;">'+_hhmm(t.hora_salida)+'</td>'
+        +'<td style="text-align:center;font-family:monospace;">'+(dur!=null?dur.toFixed(1)+'h':'—')+'</td>'
+        +'<td style="text-align:center;">'+(t.tolerancia_min!=null?t.tolerancia_min+'′':'—')+'</td>'
+        +'<td style="text-align:right;white-space:nowrap;"><button class="btn btn-sm" onclick="turnoAbrirForm('+t.id+')" title="Editar">✎</button> <button class="btn btn-sm btn-del" onclick="turnoBorrar('+t.id+')" title="Borrar">🗑</button></td>'
+      +'</tr>';
+    });
+    html+='</table>';
+  }
+
+  // ---- Esquemas de rotación ----
+  html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><div style="font-size:11px;text-transform:uppercase;color:var(--accent);font-weight:700;">Esquemas de rotación</div><button class="btn btn-sm" onclick="esqAbrirForm(null)"'+(turnos.length?'':' disabled title="Cargá turnos primero"')+'>➕ Nuevo esquema</button></div>';
+  if(!esquemas.length){
+    html+='<div class="empty" style="padding:20px;text-align:center;color:var(--text3);">No hay esquemas. Creá uno fijo (siempre el mismo turno) o rotativo semanal (alterna mañana/tarde por semana).</div>';
+  }else{
+    html+='<table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:20px;">'
+      +'<tr style="text-align:left;color:var(--text3);font-size:10px;text-transform:uppercase;"><th style="padding:6px;">Esquema</th><th>Tipo</th><th>Turnos</th><th style="text-align:center;">Empleados</th><th></th></tr>';
+    esquemas.forEach(es=>{
+      const nEmp=(C.empleados||[]).filter(e=>e.esquema_turno_id===es.id&&e.activo).length;
+      let turnosTxt;
+      if(es.tipo==='fijo')turnosTxt=escapeHtml((_turnoById(es.turno_fijo_id)||{}).nombre||'—');
+      else turnosTxt=escapeHtml((_turnoById(es.turno_a_id)||{}).nombre||'?')+' ↔ '+escapeHtml((_turnoById(es.turno_b_id)||{}).nombre||'?');
+      html+='<tr style="border-top:1px solid var(--border);'+(es.activo?'':'opacity:.5;')+'">'
+        +'<td style="padding:6px;font-weight:600;">'+escapeHtml(es.nombre||'')+'</td>'
+        +'<td style="font-size:11px;">'+(es.tipo==='rotativo_semanal'?'🔄 Rotativo semanal':'📌 Fijo')+'</td>'
+        +'<td style="font-size:11px;">'+turnosTxt+'</td>'
+        +'<td style="text-align:center;">'+nEmp+'</td>'
+        +'<td style="text-align:right;white-space:nowrap;"><button class="btn btn-sm" onclick="esqAbrirForm('+es.id+')" title="Editar">✎</button> <button class="btn btn-sm btn-del" onclick="esqBorrar('+es.id+')" title="Borrar">🗑</button></td>'
+      +'</tr>';
+    });
+    html+='</table>';
+  }
+
+  // ---- Panel semanal: qué turno le toca a cada uno ----
+  html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;"><div style="font-size:11px;text-transform:uppercase;color:var(--accent);font-weight:700;">Semana de trabajo</div><input type="date" value="'+SUT.fecha+'" onchange="SUT.fecha=this.value;renderSueldos();" class="st-sel" style="width:150px;"></div>';
+  const emps=(C.empleados||[]).filter(e=>e.activo&&e.esquema_turno_id).sort((a,b)=>String(a.apellido_nombre||'').localeCompare(String(b.apellido_nombre||'')));
+  if(!emps.length){
+    html+='<div style="font-size:12px;color:var(--text3);">Asigná un esquema de turno a los empleados (en la pestaña Empleados) para ver la rotación semanal acá.</div>';
+  }else{
+    const lun=_lunesDeStr(SUT.fecha);
+    const dias=[];for(let i=0;i<7;i++){const d=new Date(lun+'T12:00:00');d.setDate(d.getDate()+i);dias.push(localDate(d));}
+    const nomDia=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+    html+='<div style="overflow-x:auto;"><table style="width:100%;font-size:11px;border-collapse:collapse;">';
+    html+='<tr style="color:var(--text3);font-size:10px;text-transform:uppercase;"><th style="text-align:left;padding:5px;">Empleado</th>';
+    dias.forEach((d,i)=>{html+='<th style="text-align:center;padding:5px;'+(d===SUT.fecha?'background:rgba(99,102,241,.12);':'')+'">'+nomDia[i]+'<br><span style="font-weight:400;">'+d.slice(8,10)+'/'+d.slice(5,7)+'</span></th>';});
+    html+='</tr>';
+    emps.forEach(e=>{
+      html+='<tr style="border-top:1px solid var(--border);"><td style="padding:5px;font-weight:600;">'+escapeHtml(e.apellido_nombre||'')+'</td>';
+      dias.forEach(d=>{
+        const r=_turnoDelDia(e,d);
+        let cell='—',col='var(--text3)',tt='';
+        if(r.franco){cell=r.tipo==='licencia'?'lic':r.tipo==='feriado'?'fer':'franco';col='var(--amber)';}
+        else if(r.turno){cell=_hhmm(r.turno.hora_entrada)+'–'+_hhmm(r.turno.hora_salida);col='var(--text1)';tt=r.turno.nombre+(r.rot?' (rot. '+r.rot+')':'');}
+        html+='<td style="text-align:center;padding:4px;font-family:monospace;color:'+col+';'+(d===SUT.fecha?'background:rgba(99,102,241,.08);':'')+'" title="'+escapeHtml(tt)+'">'+cell+'</td>';
+      });
+      html+='</tr>';
+    });
+    html+='</table></div>';
+    html+='<div style="font-size:11px;color:var(--text3);margin-top:8px;">El horario que ves acá es el <b>esperado</b>. Cuando prenda el fichaje QR, se compara contra la entrada/salida real para calcular tardanzas y horas extra.</div>';
+  }
+  body.innerHTML=html;
+}
+function _turnoHoras(t){
+  if(!t||!t.hora_entrada||!t.hora_salida)return null;
+  const toMin=s=>{const p=String(s).split(':');return parseInt(p[0])*60+parseInt(p[1]);};
+  let dif=toMin(t.hora_salida)-toMin(t.hora_entrada);
+  if(dif<0||t.cruza_medianoche)dif+=24*60;
+  return dif/60;
+}
+
+// ---- CRUD turnos ----
+function turnoAbrirForm(id){
+  const t=id?(C.turnos||[]).find(x=>x.id===id):null;
+  document.getElementById('turno-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="turno-modal"><div class="modal-card" style="max-width:460px;">'
+    +'<div class="modal-title">'+(t?'✎ Editar turno':'➕ Nuevo turno')+'</div>'
+    +'<input type="hidden" id="turno-id" value="'+(t?.id||'')+'">'
+    +'<div class="fg"><label>Nombre</label><input id="turno-nombre" type="text" value="'+String(t?.nombre||'').replace(/"/g,'&quot;')+'" placeholder="ej: Extrusión Mañana" style="width:100%"></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
+      +'<div class="fg"><label>Área</label><select id="turno-area" style="width:100%"><option value="extrusion"'+(t?.area==='extrusion'?' selected':'')+'>Extrusión</option><option value="confeccion"'+(t?.area==='confeccion'?' selected':'')+'>Confección</option><option value="mantenimiento"'+(t?.area==='mantenimiento'?' selected':'')+'>Mantenimiento</option><option value="admin"'+(t?.area==='admin'?' selected':'')+'>Administración</option></select></div>'
+      +'<div class="fg"><label>Tolerancia (min)</label><input id="turno-tol" type="number" min="0" value="'+(t?.tolerancia_min!=null?t.tolerancia_min:10)+'" style="width:100%"></div>'
+      +'<div class="fg"><label>Hora entrada</label><input id="turno-ent" type="time" value="'+_hhmm(t?.hora_entrada)+'" style="width:100%"></div>'
+      +'<div class="fg"><label>Hora salida</label><input id="turno-sal" type="time" value="'+_hhmm(t?.hora_salida)+'" style="width:100%"></div>'
+    +'</div>'
+    +'<div class="fg"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;"><input id="turno-noche" type="checkbox"'+(t?.cruza_medianoche?' checked':'')+'> Cruza medianoche (turno noche)</label></div>'
+    +'<div class="btn-grp" style="margin-top:1rem;"><button class="btn btn-sm" onclick="turnoGuardar()">💾 Guardar</button><button class="btn btn-sm" onclick="document.getElementById(\'turno-modal\').remove()">Cancelar</button><span id="turno-msg" style="font-size:11px;margin-left:8px;"></span></div>'
+    +'</div></div>');
+}
+function turnoGuardar(){
+  const id=document.getElementById('turno-id')?.value;
+  const nombre=document.getElementById('turno-nombre')?.value.trim();
+  const ent=document.getElementById('turno-ent')?.value;
+  const sal=document.getElementById('turno-sal')?.value;
+  const msg=document.getElementById('turno-msg');
+  if(!nombre){if(msg){msg.style.color='var(--red)';msg.textContent='Falta el nombre';}return;}
+  if(!ent||!sal){if(msg){msg.style.color='var(--red)';msg.textContent='Falta entrada/salida';}return;}
+  const row={nombre:nombre,area:document.getElementById('turno-area')?.value||null,hora_entrada:ent,hora_salida:sal,tolerancia_min:parseInt(document.getElementById('turno-tol')?.value)||0,cruza_medianoche:!!document.getElementById('turno-noche')?.checked};
+  (async()=>{
+    if(msg){msg.style.color='var(--text2)';msg.textContent='Guardando...';}
+    let error;
+    if(id){({error}=await sb.from('turnos').update(row).eq('id',parseInt(id)));}
+    else{({error}=await sb.from('turnos').insert(row));}
+    if(error){if(msg){msg.style.color='var(--red)';msg.textContent='Error: '+error.message;}return;}
+    document.getElementById('turno-modal')?.remove();
+    toast('✓ Turno guardado','green');
+    await reload();renderSueldos();
+  })();
+}
+function turnoBorrar(id){
+  const t=(C.turnos||[]).find(x=>x.id===id);if(!t)return;
+  if(!confirm('¿Borrar el turno "'+t.nombre+'"?'))return;
+  pedirAdminYEjecutar(async()=>{
+    const{error}=await sb.from('turnos').delete().eq('id',id);
+    if(error){toast('Error: '+error.message+' (¿está usado en un esquema?)','red');return;}
+    toast('✓ Turno borrado','green');
+    await reload();renderSueldos();
+  });
+}
+
+// ---- CRUD esquemas ----
+function esqAbrirForm(id){
+  const es=id?(C.esquemas_turno||[]).find(x=>x.id===id):null;
+  const turnos=(C.turnos||[]).filter(t=>t.activo!==false).sort((a,b)=>(a.orden||0)-(b.orden||0)||a.id-b.id);
+  const opt=(sel)=>turnos.map(t=>'<option value="'+t.id+'"'+(sel===t.id?' selected':'')+'>'+escapeHtml(t.nombre)+' ('+_hhmm(t.hora_entrada)+'–'+_hhmm(t.hora_salida)+')</option>').join('');
+  const tipo=es?.tipo||'fijo';
+  // lunes por defecto = lunes de esta semana
+  const lunHoy=_lunesDeStr(localDate());
+  document.getElementById('esq-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="esq-modal"><div class="modal-card" style="max-width:480px;">'
+    +'<div class="modal-title">'+(es?'✎ Editar esquema':'➕ Nuevo esquema de rotación')+'</div>'
+    +'<input type="hidden" id="esq-id" value="'+(es?.id||'')+'">'
+    +'<div class="fg"><label>Nombre</label><input id="esq-nombre" type="text" value="'+String(es?.nombre||'').replace(/"/g,'&quot;')+'" placeholder="ej: Extrusión rotativo (arranca mañana)" style="width:100%"></div>'
+    +'<div class="fg"><label>Tipo</label><select id="esq-tipo" onchange="_esqToggle(this.value)" style="width:100%"><option value="fijo"'+(tipo==='fijo'?' selected':'')+'>Fijo (siempre el mismo turno)</option><option value="rotativo_semanal"'+(tipo==='rotativo_semanal'?' selected':'')+'>Rotativo semanal (alterna A/B por semana)</option></select></div>'
+    +'<div id="esq-fijo" style="display:'+(tipo==='fijo'?'block':'none')+';"><div class="fg"><label>Turno</label><select id="esq-turno-fijo" style="width:100%">'+opt(es?.turno_fijo_id)+'</select></div></div>'
+    +'<div id="esq-rot" style="display:'+(tipo==='rotativo_semanal'?'block':'none')+';">'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
+        +'<div class="fg"><label>Turno semana A</label><select id="esq-turno-a" style="width:100%">'+opt(es?.turno_a_id)+'</select></div>'
+        +'<div class="fg"><label>Turno semana B</label><select id="esq-turno-b" style="width:100%">'+opt(es?.turno_b_id)+'</select></div>'
+      +'</div>'
+      +'<div class="fg"><label>Lunes de referencia <span style="color:var(--text3);font-size:10px;">(una semana que arranca en turno A)</span></label><input id="esq-ancla" type="date" value="'+(es?.ancla_lunes||lunHoy)+'" style="width:100%"></div>'
+      +'<div style="font-size:11px;color:var(--text2);background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:6px 10px;">Para la otra cuadrilla, creá un segundo esquema con los mismos turnos pero A y B invertidos (o el lunes de referencia corrido una semana).</div>'
+    +'</div>'
+    +'<div class="btn-grp" style="margin-top:1rem;"><button class="btn btn-sm" onclick="esqGuardar()">💾 Guardar</button><button class="btn btn-sm" onclick="document.getElementById(\'esq-modal\').remove()">Cancelar</button><span id="esq-msg" style="font-size:11px;margin-left:8px;"></span></div>'
+    +'</div></div>');
+}
+function _esqToggle(tipo){
+  const f=document.getElementById('esq-fijo'),r=document.getElementById('esq-rot');
+  if(f)f.style.display=tipo==='fijo'?'block':'none';
+  if(r)r.style.display=tipo==='rotativo_semanal'?'block':'none';
+}
+function esqGuardar(){
+  const id=document.getElementById('esq-id')?.value;
+  const nombre=document.getElementById('esq-nombre')?.value.trim();
+  const tipo=document.getElementById('esq-tipo')?.value||'fijo';
+  const msg=document.getElementById('esq-msg');
+  if(!nombre){if(msg){msg.style.color='var(--red)';msg.textContent='Falta el nombre';}return;}
+  const row={nombre:nombre,tipo:tipo,turno_fijo_id:null,turno_a_id:null,turno_b_id:null,ancla_lunes:null};
+  if(tipo==='fijo'){
+    row.turno_fijo_id=parseInt(document.getElementById('esq-turno-fijo')?.value)||null;
+    if(!row.turno_fijo_id){if(msg){msg.style.color='var(--red)';msg.textContent='Elegí el turno';}return;}
+    const tt=_turnoById(row.turno_fijo_id);row.area=tt?tt.area:null;
+  }else{
+    row.turno_a_id=parseInt(document.getElementById('esq-turno-a')?.value)||null;
+    row.turno_b_id=parseInt(document.getElementById('esq-turno-b')?.value)||null;
+    row.ancla_lunes=document.getElementById('esq-ancla')?.value||null;
+    if(!row.turno_a_id||!row.turno_b_id){if(msg){msg.style.color='var(--red)';msg.textContent='Elegí turno A y B';}return;}
+    if(!row.ancla_lunes){if(msg){msg.style.color='var(--red)';msg.textContent='Falta el lunes de referencia';}return;}
+    const ta=_turnoById(row.turno_a_id);row.area=ta?ta.area:null;
+  }
+  (async()=>{
+    if(msg){msg.style.color='var(--text2)';msg.textContent='Guardando...';}
+    let error;
+    if(id){({error}=await sb.from('esquemas_turno').update(row).eq('id',parseInt(id)));}
+    else{({error}=await sb.from('esquemas_turno').insert(row));}
+    if(error){if(msg){msg.style.color='var(--red)';msg.textContent='Error: '+error.message;}return;}
+    document.getElementById('esq-modal')?.remove();
+    toast('✓ Esquema guardado','green');
+    await reload();renderSueldos();
+  })();
+}
+function esqBorrar(id){
+  const es=(C.esquemas_turno||[]).find(x=>x.id===id);if(!es)return;
+  const nEmp=(C.empleados||[]).filter(e=>e.esquema_turno_id===id).length;
+  if(nEmp>0){alert('No se puede borrar: hay '+nEmp+' empleado(s) con este esquema. Reasignalos primero.');return;}
+  if(!confirm('¿Borrar el esquema "'+es.nombre+'"?'))return;
+  pedirAdminYEjecutar(async()=>{
+    const{error}=await sb.from('esquemas_turno').delete().eq('id',id);
+    if(error){toast('Error: '+error.message,'red');return;}
+    toast('✓ Esquema borrado','green');
+    await reload();renderSueldos();
+  });
+}
+
+// ============================================================
+//  FICHAJE QR (kiosco) + MOTOR fichaje->horas + volcado a la quincena
+//  El fichaje es el DOCUMENTO; las horas trabajadas/tardanza/extra son
+//  DERIVADAS comparando los fichajes del día contra el turno esperado (P1).
+// ============================================================
+let FICH={ultimo:null};
+function _hhmmss(t){return t?String(t).slice(0,8):'';}
+function _minutosT(hhmmss){const p=String(hhmmss).split(':');return parseInt(p[0])*60+parseInt(p[1])+((parseInt(p[2]||0))/60);}
+
+function renderFichaje(){
+  const wrap=document.getElementById('fichaje-wrap'); if(!wrap)return;
+  const hoy=localDate();
+  let html='<div style="max-width:640px;margin:0 auto;">';
+  html+='<div style="text-align:center;margin-bottom:16px;"><div style="font-size:13px;color:var(--text3);">'+hoy+'</div><div style="font-size:15px;font-weight:700;">Fichaje de entrada / salida</div><div style="font-size:12px;color:var(--text2);">Escaneá tu carnet o tipeá tu legajo y Enter</div></div>';
+  html+='<input id="fich-input" type="text" autocomplete="off" onkeydown="if(event.key===\'Enter\'){fichajeScan(this.value);this.value=\'\';event.preventDefault();}" placeholder="Escaneá el carnet…" style="width:100%;font-size:22px;padding:14px;text-align:center;border:2px solid var(--accent);border-radius:var(--rl);background:var(--bg2);color:var(--text1);box-sizing:border-box;">';
+  html+='<div id="fich-feedback" style="min-height:70px;margin-top:14px;">'+_fichFeedbackHtml(FICH.ultimo)+'</div>';
+  const fs=(C.fichajes||[]).filter(f=>String(f.fecha)===hoy).slice().sort((a,b)=>String(b.hora).localeCompare(String(a.hora)));
+  html+='<div style="font-size:11px;text-transform:uppercase;color:var(--text3);margin:12px 0 6px;">Fichajes de hoy ('+fs.length+')</div>';
+  if(!fs.length)html+='<div style="font-size:12px;color:var(--text3);">Todavía nadie fichó hoy.</div>';
+  else{
+    html+='<table style="width:100%;font-size:12px;border-collapse:collapse;">';
+    fs.slice(0,50).forEach(f=>{
+      html+='<tr style="border-top:1px solid var(--border);"><td style="padding:5px;font-family:monospace;">'+_hhmmss(f.hora)+'</td><td style="padding:5px;">'+(f.tipo==='entrada'?'<span style="color:var(--green);">▶ entrada</span>':'<span style="color:#3b82f6;">◀ salida</span>')+'</td><td style="padding:5px;font-weight:600;">'+escapeHtml(_empNombre(f.empleado_id))+'</td></tr>';
+    });
+    html+='</table>';
+  }
+  html+='</div>';
+  wrap.innerHTML=html;
+  const inp=document.getElementById('fich-input'); if(inp)inp.focus();
+}
+function _fichFeedbackHtml(u){
+  if(!u)return '<div style="text-align:center;color:var(--text3);font-size:13px;padding:20px;">Esperando escaneo…</div>';
+  if(u.error)return '<div style="text-align:center;background:rgba(239,68,68,.12);border:1px solid var(--red);border-radius:var(--rl);padding:16px;color:var(--red);font-weight:700;">✗ '+escapeHtml(u.error)+'</div>';
+  const col=u.tipo==='entrada'?'var(--green)':'#3b82f6';
+  const ico=u.tipo==='entrada'?'▶':'◀';
+  const bg=u.tipo==='entrada'?'rgba(34,197,94,.12)':'rgba(59,130,246,.12)';
+  return '<div style="text-align:center;background:'+bg+';border:1px solid '+col+';border-radius:var(--rl);padding:16px;">'
+    +'<div style="font-size:26px;font-weight:800;color:'+col+';">'+ico+' '+(u.tipo==='entrada'?'ENTRADA':'SALIDA')+'</div>'
+    +'<div style="font-size:18px;font-weight:700;margin-top:4px;">'+escapeHtml(u.nombre)+'</div>'
+    +'<div style="font-size:14px;color:var(--text2);">'+escapeHtml(u.hora)+(u.turno?' · '+escapeHtml(u.turno):'')+(u.tardanza>0?' · <span style="color:var(--amber);">tarde '+u.tardanza+'′</span>':'')+'</div>'
+    +'</div>';
+}
+function fichajeScan(raw){
+  const code=String(raw||'').trim(); if(!code)return;
+  const emp=(C.empleados||[]).find(e=>e.activo&&(String(e.legajo||'')===code||String(e.cuil||'')===code))
+    ||(C.empleados||[]).find(e=>e.activo&&String(e.id)===code);
+  if(!emp){FICH.ultimo={error:'Carnet no reconocido ('+code+')'};renderFichaje();return;}
+  const hoy=localDate();
+  const fsHoy=(C.fichajes||[]).filter(f=>f.empleado_id===emp.id&&String(f.fecha)===hoy).slice().sort((a,b)=>String(a.hora).localeCompare(String(b.hora)));
+  const ultimo=fsHoy[fsHoy.length-1];
+  const tipo=(!ultimo||ultimo.tipo==='salida')?'entrada':'salida';
+  const hora=localTime();
+  const td=_turnoDelDia(emp,hoy);
+  let tardanza=0;
+  if(tipo==='entrada'&&td.turno){
+    const er=_minutosT(hora),ee=_minutosT(td.turno.hora_entrada)+(td.turno.tolerancia_min||0);
+    tardanza=Math.max(0,Math.round(er-ee));
+  }
+  (async()=>{
+    const{data,error}=await sb.from('fichajes').insert({empleado_id:emp.id,fecha:hoy,hora:hora,tipo:tipo,origen:'qr',turno_id:td.turno?td.turno.id:null}).select().single();
+    if(error){FICH.ultimo={error:error.message};renderFichaje();return;}
+    if(data)C.fichajes=[data,...(C.fichajes||[])];
+    FICH.ultimo={nombre:emp.apellido_nombre,tipo:tipo,hora:_hhmmss(hora).slice(0,5),turno:td.turno?td.turno.nombre:null,tardanza:tardanza};
+    renderFichaje();
+  })();
+}
+
+// ---------- MOTOR: fichajes del día -> horas ----------
+function _fichParesDia(empId,fechaStr){
+  const fs=(C.fichajes||[]).filter(f=>f.empleado_id===empId&&String(f.fecha)===fechaStr).slice().sort((a,b)=>String(a.hora).localeCompare(String(b.hora)));
+  const pares=[];let ent=null;
+  fs.forEach(f=>{if(f.tipo==='entrada'){ent=f;}else if(f.tipo==='salida'&&ent){pares.push([ent,f]);ent=null;}});
+  return {fichajes:fs,pares};
+}
+function _fichHorasDia(emp,fechaStr){
+  const pd=_fichParesDia(emp.id,fechaStr);
+  let trabMin=0;pd.pares.forEach(p=>{let d=_minutosT(p[1].hora)-_minutosT(p[0].hora);if(d<0)d+=1440;trabMin+=d;});
+  const out={fichajes:pd.fichajes,pares:pd.pares,trabajadas:r2(trabMin/60),tardanza:0,normales:0,extra:0,feriado:0,esperadas:0,turno:null,abierto:pd.fichajes.length%2!==0};
+  const td=_turnoDelDia(emp,fechaStr);out.turno=td.turno;out.franco=td.franco;out.tipoDia=td.tipo;
+  if(td.turno){
+    const obj=_turnoHoras(td.turno)||0;out.esperadas=r2(obj);
+    if(pd.pares.length){const er=_minutosT(pd.pares[0][0].hora),ee=_minutosT(td.turno.hora_entrada)+(td.turno.tolerancia_min||0);out.tardanza=Math.max(0,Math.round(er-ee));}
+    if(td.tipo==='feriado')out.feriado=out.trabajadas;
+    else{out.normales=r2(Math.min(out.trabajadas,obj));out.extra=r2(Math.max(0,out.trabajadas-obj));}
+  }else{out.normales=out.trabajadas;}
+  return out;
+}
+function _fichHorasQuincena(emp,periodo,q){
+  const yy=parseInt(periodo.slice(0,4)),mm=parseInt(periodo.slice(5,7));
+  const ld=new Date(yy,mm,0).getDate();
+  const desde=q===1?1:16,hasta=q===1?15:ld;
+  let n=0,ex=0,fe=0,dias=0;
+  for(let d=desde;d<=hasta;d++){
+    const fs=periodo+'-'+String(d).padStart(2,'0');
+    const h=_fichHorasDia(emp,fs);
+    if(h.trabajadas>0)dias++;
+    n+=h.normales;ex+=h.extra;fe+=h.feriado;
+  }
+  return {horas_normales:r2(n),horas_extra50:r2(ex),horas_feriado:r2(fe),dias:dias};
+}
+// Rellena los inputs de una fila de la Quincena con lo del fichaje (para revisar antes de pagar)
+function suqTraerFichaje(eid){
+  const e=(C.empleados||[]).find(x=>x.id===eid);if(!e)return;
+  const hh=_fichHorasQuincena(e,SUQ.periodo,SUQ.quincena);
+  const set=(cls,v)=>{const el=document.querySelector('#suq-row-'+eid+' .'+cls);if(el)el.value=(v||v===0)?v:'';};
+  set('suq-hn',hh.horas_normales);set('suq-he50',hh.horas_extra50);set('suq-hf',hh.horas_feriado);
+  _suqRecalc(eid);
+  toast('⟳ '+hh.dias+' día(s) de fichaje traídos','green');
+}
+// Calcula y GUARDA las horas de la quincena desde fichajes, para todos
+function suqTraerTodoFichaje(){
+  const emps=(C.empleados||[]).filter(e=>e.activo&&e.esquema_turno_id);
+  if(!emps.length){toast('No hay empleados con esquema de turno asignado','red');return;}
+  if(!confirm('Calcular las horas de la '+SUQ.quincena+'ª quincena de '+SUQ.periodo+' desde los fichajes y guardarlas para '+emps.length+' empleado(s)?\n\nSobrescribe las horas cargadas de esa quincena.'))return;
+  (async()=>{
+    let ok=0;
+    for(const e of emps){
+      const hh=_fichHorasQuincena(e,SUQ.periodo,SUQ.quincena);
+      const{error}=await sb.from('horas_quincena').upsert({empleado_id:e.id,periodo:SUQ.periodo,quincena:SUQ.quincena,horas_normales:hh.horas_normales,horas_extra50:hh.horas_extra50,horas_feriado:hh.horas_feriado},{onConflict:'empleado_id,periodo,quincena'});
+      if(!error)ok++;
+    }
+    toast('✓ '+ok+' empleado(s) actualizados desde fichaje','green');
+    await reload();renderSueldos();
+  })();
+}
+
+// ---------- CARNET QR ----------
+function _cargarQR(cb){
+  if(window.QRCode){cb();return;}
+  const s=document.createElement('script');
+  s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+  s.onload=cb;
+  s.onerror=()=>{const c=document.getElementById('carnet-qr');if(c)c.innerHTML='<div style="color:#c00;font-size:12px;">Sin internet para generar el QR</div>';};
+  document.head.appendChild(s);
+}
+function empCarnet(id){
+  const e=(C.empleados||[]).find(x=>x.id===id);if(!e)return;
+  const code=(e.legajo&&String(e.legajo).trim())?String(e.legajo).trim():String(e.id);
+  document.getElementById('carnet-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="carnet-modal"><div class="modal-card" style="max-width:320px;text-align:center;">'
+    +'<div class="modal-title">🎫 Carnet · '+escapeHtml(e.apellido_nombre||'')+'</div>'
+    +'<div id="carnet-qr" style="display:flex;justify-content:center;padding:12px;background:#fff;border-radius:var(--r);min-height:200px;align-items:center;"></div>'
+    +'<div style="font-family:monospace;font-size:14px;margin-top:8px;">Legajo: '+escapeHtml(code)+'</div>'
+    +'<div style="font-size:11px;color:var(--text3);margin-top:4px;">Imprimí y pegá en el carnet. El lector lo escanea en la pantalla de Fichaje.</div>'
+    +'<div class="btn-grp" style="margin-top:1rem;justify-content:center;"><button class="btn btn-sm" onclick="window.print()">🖨 Imprimir</button><button class="btn btn-sm" onclick="document.getElementById(\'carnet-modal\').remove()">Cerrar</button></div>'
+    +'</div></div>');
+  _cargarQR(()=>{
+    const cont=document.getElementById('carnet-qr');if(!cont)return;cont.innerHTML='';
+    try{new QRCode(cont,{text:code,width:200,height:200});}catch(err){cont.innerHTML='<div style="color:#c00;font-size:12px;">No se pudo generar el QR</div>';}
+  });
 }
 
 // ============================================================
@@ -17686,6 +18393,65 @@ function ncfgGuardar(){
   })();
 }
 
+
+// ============================================================
+//  COSTO LABORAL DEVENGADO (cascada de certeza) para el Resultado del mes
+//  y el punto de equilibrio. Imputado al MES TRABAJADO (período).
+//   Nivel 3 (contador):     recibos del período + contribuciones patronales del 931
+//   Nivel 2 (interno):      bruto de las quincenas con horas reales + patronal estimada
+//   Nivel 1 (presupuesto):  SIEMPRE, desde el neto que cargás por empleado (× factor
+//                           neto->costo, porque el costo real es bruto + patronales).
+//   => desde el dia 1 el resultado ya tiene el costo laboral completo del mes.
+//  OJO: los aportes del empleado ya estan dentro del bruto; el costo extra del
+//  empleador son SOLO las contribuciones patronales.
+// ============================================================
+function _costoLaboralMes(iniStr,finStr){
+  const ym=String(iniStr).slice(0,7);
+  const cfg=_nominaCfg();
+  const patPct=(parseFloat(cfg.contrib_patronal_pct)||0)/100;
+  const factorNeto=parseFloat(cfg.costo_laboral_sobre_neto)||1.5;
+
+  // Nivel 3: verdad del contador
+  const recibos=(C.recibos_sueldo||[]).filter(r=>r.periodo===ym);
+  if(recibos.length){
+    let bruto=0; recibos.forEach(r=>{bruto+=_reciboBrutos(r).bruto;});
+    const cs=(C.cargas_sociales||[]).find(x=>x.periodo===ym);
+    let patronal;
+    if(cs){
+      const d=cs.datos||{};
+      patronal=r2((parseFloat(d.contrib_ss)||0)+(parseFloat(d.contrib_os)||0)+(parseFloat(d.lrt)||0)+(parseFloat(d.scvo)||0)+(parseFloat(d.otros)||0));
+    }else{ patronal=r2(bruto*patPct); }
+    return {monto:r2(bruto+patronal),nivel:'contador',bruto:r2(bruto),patronal:patronal,con931:!!cs};
+  }
+
+  // Nivel 2: provisorio interno (horas reales cargadas)
+  const emps=(C.empleados||[]).filter(e=>e.activo);
+  let brutoInt=0, dirTotal=0, hayHoras=false;
+  emps.forEach(e=>{
+    const cat=e.categoria_id?_catSalarial(e.categoria_id):null;
+    if(!cat){ dirTotal+=(parseFloat(e.neto_presupuesto)||0); return; }
+    [1,2].forEach(q=>{
+      const h=_horasDe(e.id,ym,q);
+      if(h){ hayHoras=true; brutoInt+=_calcAdelanto(e,ym,{horas_normales:h.horas_normales,horas_extra50:h.horas_extra50,horas_feriado:h.horas_feriado}).bruto; }
+    });
+  });
+  if(hayHoras){
+    const brutoTot=r2(brutoInt+dirTotal);
+    const patronal=r2(brutoInt*patPct);
+    return {monto:r2(brutoTot+patronal),nivel:'interno',bruto:brutoTot,patronal:patronal,con931:false};
+  }
+
+  // Nivel 1: presupuesto (siempre, desde el neto por empleado)
+  let netoCct=0, netoDir=0;
+  emps.forEach(e=>{ const np=parseFloat(e.neto_presupuesto)||0; if(e.categoria_id)netoCct+=np; else netoDir+=np; });
+  if(netoCct+netoDir>0){
+    const monto=r2(netoCct*factorNeto+netoDir);
+    const netoTot=r2(netoCct+netoDir);
+    return {monto:monto,nivel:'presupuesto',bruto:netoTot,patronal:r2(monto-netoTot),con931:false};
+  }
+
+  return {monto:0,nivel:'sin_datos',bruto:0,patronal:0,con931:false};
+}
 
 // ============================================================
 // RESULTADO DEL MES — Pregunta 1 del doc de arquitectura:
@@ -18334,9 +19100,10 @@ async function renderTablero(){
       });
       difInv=r2(difInv);
     }catch(e){console.warn('Tablero P1 inventarios:',e?.message||e);}
-    resultado=r2(V.margen-fijos-op-deuda+difInv);
+    const clTab=_costoLaboralMes(iniStr,finStr);
+    resultado=r2(V.margen-fijos-op-deuda-clTab.monto+difInv);
     margenPct=V.venta>0?r2(V.margen/V.venta*100):0;
-    const gastosTotales=fijos+op+deuda;
+    const gastosTotales=fijos+op+deuda+clTab.monto;
     coberturaFijos=gastosTotales>0?Math.round(V.margen/gastosTotales*100):0;
     ventaMes=V.venta;
   }catch(e){console.warn('Tablero P1:',e?.message||e);}
@@ -18642,8 +19409,10 @@ async function renderResultadoMes(){
     console.warn('Resultado del mes: no se pudieron leer inventarios_mp —',e?.message||e);
   }
   // 4) Resultado
-  const resultadoA=r2(A.margen-fijosA-gastosOpA-deudaA+difInvA);
-  const resultadoB=r2(B.margen-fijosB-gastosOpB-deudaB+difInvB);
+  const clA=_costoLaboralMes(iniStr,finStr);
+  const clB=_costoLaboralMes(rB.iniStr,rB.finStr);
+  const resultadoA=r2(A.margen-fijosA-gastosOpA-deudaA-clA.monto+difInvA);
+  const resultadoB=r2(B.margen-fijosB-gastosOpB-deudaB-clB.monto+difInvB);
   const margenPctA=A.venta>0?r2(A.margen/A.venta*100):0;
 
   // ===== RENDER =====
@@ -18674,6 +19443,7 @@ async function renderResultadoMes(){
     +filaCasc('Costo MP real de lo vendido',A.costo,'−','costo real promedio por bolsa de cada producto (OCs completadas, sin GG)','var(--text1)')
     +filaCasc('Margen marginal',A.margen,'=',margenPctA+'% de margen sobre venta',A.margen>=0?'var(--green)':'var(--red)')
     +filaCasc('Gastos fijos del mes',fijosA,'−',gastosA.length+' concepto'+(gastosA.length===1?'':'s')+' vigente'+(gastosA.length===1?'':'s')+(fijosRealesA>0?' · '+fijosRealesA+' con factura real, el resto presupuesto':' (presupuesto)'),'var(--amber)')
+    +(clA.monto>0?filaCasc('Costo laboral del mes',clA.monto,'−',(clA.nivel==='contador'?('liquidación del contador'+(clA.con931?' + 931':' · 931 estimado')):clA.nivel==='interno'?'provisorio · horas reales de la quincena':'presupuesto · desde el neto por empleado (aún sin horas ni contador)'),'#a855f7'):'')
     +(gastosOpA>0?filaCasc('Gastos operativos del mes',gastosOpA,'−',gastosOpDocsA.length+' movimiento'+(gastosOpDocsA.length===1?'':'s')+' de Compras y Gastos (excluye MP)','#f97316'):'')
     +(deudaA>0?filaCasc('Deudas financieras del mes',deudaA,'−',deudaCalcA.docs.length+' cuota'+(deudaCalcA.docs.length===1?'':'s')+' (ARCA completo + interés de préstamos)','var(--red)'):'')
     +(difInvOk?filaCasc('Diferencias reales de inventario MP',difInvA,(difInvA>=0?'+':'−'),(nInvA?nInvA+' inventario'+(nInvA===1?'':'s')+' del mes (excluye ajustes de sistema)':'sin inventarios este mes'),difInvA>=0?'var(--green)':'var(--red)'):'')
@@ -18688,7 +19458,7 @@ async function renderResultadoMes(){
 
   // Cobertura de fijos + punto de equilibrio
   // Punto de equilibrio sobre GASTOS TOTALES a cubrir (fijos + operativos + deudas), no solo fijos
-  const gastosTotalesA=r2(fijosA+gastosOpA+deudaA);
+  const gastosTotalesA=r2(fijosA+gastosOpA+deudaA+clA.monto);
   const cobertura=gastosTotalesA>0?Math.max(0,Math.min(100,r2(A.margen/gastosTotalesA*100))):null;
   const ventaEq=(gastosTotalesA>0&&margenPctA>0)?r2(gastosTotalesA/(margenPctA/100)):null;
   const margenPorPaq=A.paquetes>0?A.margen/A.paquetes:0;
@@ -37808,8 +38578,12 @@ function fcItemsProyectados(hastaStr){
         const neto=parseFloat(e.neto_presupuesto)||0; if(neto<=0)return;
         if((C.recibos_sueldo||[]).some(r=>r.empleado_id===e.id&&r.periodo===ym&&r.tipo==='mensual'))return;
         const q1=parseInt(e.dia_pago_q1)||15,q2=parseInt(e.dia_pago_q2)||30;
-        items.push({clase:'pago',tipo:'sueldo_presup',id:e.id,layer:'presupuesto',tentativo:false,plano:'blanco',ref:'👷 '+_empNombre(e.id)+' (1ª quinc.)',saldo:r2(neto/2),fEf:diaF(q1),editable:false});
-        items.push({clase:'pago',tipo:'sueldo_presup',id:e.id,layer:'presupuesto',tentativo:false,plano:'blanco',ref:'👷 '+_empNombre(e.id)+' (2ª quinc.)',saldo:r2(neto-neto/2),fEf:diaF(q2),editable:false});
+        const _pg=(C.pagos_sueldo||[]).filter(p=>p.empleado_id===e.id&&p.periodo===ym);
+        const _pg1=_pg.filter(p=>p.quincena===1).reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
+        const _pg2=_pg.filter(p=>p.quincena===2).reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
+        const _pq1=r2(Math.max(0,neto/2-_pg1)),_pq2=r2(Math.max(0,neto-neto/2-_pg2));
+        if(_pq1>0)items.push({clase:'pago',tipo:'sueldo_presup',id:e.id,layer:'presupuesto',tentativo:false,plano:'blanco',ref:'👷 '+_empNombre(e.id)+' (1ª quinc.)',saldo:_pq1,fEf:diaF(q1),editable:false});
+        if(_pq2>0)items.push({clase:'pago',tipo:'sueldo_presup',id:e.id,layer:'presupuesto',tentativo:false,plano:'blanco',ref:'👷 '+_empNombre(e.id)+' (2ª quinc.)',saldo:_pq2,fEf:diaF(q2),editable:false});
         if(mm===(parseInt(_cfg.sac_mes_1)||6)||mm===(parseInt(_cfg.sac_mes_2)||12)){
           if(!(C.recibos_sueldo||[]).some(r=>r.empleado_id===e.id&&r.periodo===ym&&r.tipo==='sac')){
             items.push({clase:'pago',tipo:'sac_presup',id:e.id,layer:'presupuesto',tentativo:false,plano:'blanco',ref:'🎁 Aguinaldo '+_empNombre(e.id),saldo:r2(neto/2),fEf:diaF(parseInt(_cfg.sac_dia_pago)||30),editable:false});
