@@ -4526,6 +4526,7 @@ async function reload(){
     sb.from('esquemas_turno').select('*').then(r=>r).catch(()=>({data:[]})),
     sb.from('fichajes').select('*').order('fecha',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
     sb.from('turnos_excepcion').select('*').then(r=>r).catch(()=>({data:[]})),
+    sb.from('feriados').select('*').order('fecha').then(r=>r).catch(()=>({data:[]})),
   ]);
   const d=r=>results[r].status==='fulfilled'?results[r].value.data||[]:[];
   C.bobinas=d(0);C.extrusoras=d(1);C.ordenes=d(2);
@@ -4582,6 +4583,7 @@ async function reload(){
   C.esquemas_turno=d(60)||[];
   C.fichajes=d(61)||[];
   C.turnos_excepcion=d(62)||[];
+  C.feriados=d(63)||[];
   _costoBobinaIdx=null; // invalidar índice de costo real por bobina al recargar
   const rcfg=results[8].status==='fulfilled'?results[8].value:null;
   if(rcfg?.data){rcfg.data.forEach(r=>{
@@ -17278,6 +17280,7 @@ function renderSueldos(){
     +tabBtn('quincena','💵 Quincena')
     +tabBtn('recibos','🧾 Recibos')
     +tabBtn('cargas','🏛 F.931 / Cargas')
+    +tabBtn('import','📥 Contador')
     +tabBtn('escala','📊 Escala')
     +tabBtn('presupuesto','📅 Presupuesto')
     +'</div><div id="su-body"></div>';
@@ -17286,6 +17289,7 @@ function renderSueldos(){
   else if(tab==='quincena')_suRenderQuincena();
   else if(tab==='recibos')_suRenderRecibos();
   else if(tab==='cargas')_suRenderCargas();
+  else if(tab==='import')_suRenderImport();
   else if(tab==='escala')_suRenderEscala();
   else if(tab==='presupuesto')_suRenderPresupuesto();
 }
@@ -17717,10 +17721,19 @@ function _suRenderTurnos(){
     emps.forEach(e=>{
       html+='<tr style="border-top:1px solid var(--border);"><td style="padding:5px;font-weight:600;">'+escapeHtml(e.apellido_nombre||'')+'</td>';
       dias.forEach(d=>{
-        const r=_turnoDelDia(e,d);
+        const dow=new Date(d+'T12:00:00').getDay();
         let cell='—',col='var(--text3)',tt='';
-        if(r.franco){cell=r.tipo==='licencia'?'lic':r.tipo==='feriado'?'fer':'franco';col='var(--amber)';}
-        else if(r.turno){cell=_hhmm(r.turno.hora_entrada)+'–'+_hhmm(r.turno.hora_salida);col='var(--text1)';tt=r.turno.nombre+(r.rot?' (rot. '+r.rot+')':'');}
+        if(dow===0){ cell='—'; tt='domingo'; }
+        else if(_esFeriado(d)){ cell='feriado'; col='var(--amber)'; tt='feriado'; }
+        else if(dow===6){
+          if(_sabTrabaja(e.id,d)){ cell='sáb 3+3'; col='var(--accent)'; tt='sábado marcado · 3 normales + 3 extra previstas'; }
+          else { cell='—'; tt='sábado (no marcado)'; }
+        }
+        else {
+          const r=_turnoDelDia(e,d);
+          if(r.franco){cell=r.tipo==='licencia'?'lic':r.tipo==='feriado'?'fer':'franco';col='var(--amber)';}
+          else if(r.turno){cell=_hhmm(r.turno.hora_entrada)+'–'+_hhmm(r.turno.hora_salida);col='var(--text1)';tt=r.turno.nombre+(r.rot?' (rot. '+r.rot+')':'');const _ex=parseFloat(r.turno.horas_extra_fijas)||0;if(_ex>0)tt+=' · +'+_ex+'h extra';}
+        }
         html+='<td style="text-align:center;padding:4px;font-family:monospace;color:'+col+';'+(d===SUT.fecha?'background:rgba(99,102,241,.08);':'')+'" title="'+escapeHtml(tt)+'">'+cell+'</td>';
       });
       html+='</tr>';
@@ -17728,8 +17741,64 @@ function _suRenderTurnos(){
     html+='</table></div>';
     html+='<div style="font-size:11px;color:var(--text3);margin-top:8px;">El horario que ves acá es el <b>esperado</b>. Cuando prenda el fichaje QR, se compara contra la entrada/salida real para calcular tardanzas y horas extra.</div>';
   }
+  html+=_calendarioSecciones();
   body.innerHTML=html;
 }
+// ============================================================
+//  CALENDARIO LABORAL — feriados (maestro) + sábados por empleado
+//  Feriado no trabajado = día pago normal (sin extra). Feriado trabajado = ×2.
+//  Sábado = 3 hs normales + resto extra (marcado por empleado).
+// ============================================================
+function _esFeriado(fechaStr){ return (C.feriados||[]).some(f=>f.activo!==false&&String(f.fecha)===fechaStr); }
+function _sabTrabaja(empId,fechaStr){ return (C.turnos_excepcion||[]).some(x=>x.empleado_id===empId&&String(x.fecha)===fechaStr&&x.tipo==='sabado'); }
+function _calendarioSecciones(){
+  const ym=(SUT.fecha||localDate()).slice(0,7);
+  const yy=parseInt(ym.slice(0,4)),mm=parseInt(ym.slice(5,7));
+  const ld=new Date(yy,mm,0).getDate();
+  const ferMes=(C.feriados||[]).filter(f=>String(f.fecha).slice(0,7)===ym).sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)));
+  let h='<div style="border-top:1px solid var(--border);margin-top:22px;padding-top:12px;">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><div style="font-size:11px;text-transform:uppercase;color:var(--accent);font-weight:700;">Feriados de '+ym+'</div><button class="btn btn-sm" onclick="ferAgregar()">➕ Feriado</button></div>';
+  if(!ferMes.length)h+='<div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Sin feriados este mes.</div>';
+  else{
+    h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">';
+    ferMes.forEach(f=>{ h+='<span style="background:var(--bg3);border:1px solid var(--amber);border-radius:99px;padding:3px 10px;font-size:11px;">'+String(f.fecha).slice(8,10)+'/'+String(f.fecha).slice(5,7)+' '+escapeHtml(f.nombre||'')+' <span onclick="ferBorrar('+f.id+')" style="cursor:pointer;color:var(--red);margin-left:4px;font-weight:700;">✕</span></span>'; });
+    h+='</div>';
+  }
+  const sabs=[]; for(let d=1;d<=ld;d++){ const fecha=ym+'-'+String(d).padStart(2,'0'); if(new Date(fecha+'T12:00:00').getDay()===6)sabs.push(fecha); }
+  h+='<div style="font-size:11px;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:8px;">Sábados de '+ym+' — tildá quién viene</div>';
+  const emps=(C.empleados||[]).filter(e=>e.activo&&e.esquema_turno_id).sort((a,b)=>String(a.apellido_nombre||'').localeCompare(String(b.apellido_nombre||'')));
+  if(!emps.length||!sabs.length){ h+='<div style="font-size:12px;color:var(--text3);">'+(!sabs.length?'No hay sábados este mes.':'No hay empleados con turno asignado.')+'</div>'; }
+  else{
+    h+='<div style="overflow-x:auto;"><table style="font-size:11px;border-collapse:collapse;"><tr><th style="text-align:left;padding:4px 8px;color:var(--text3);font-size:10px;">Empleado</th>';
+    sabs.forEach(s=>{h+='<th style="padding:4px 8px;text-align:center;color:var(--text3);font-size:10px;">sáb '+s.slice(8,10)+'</th>';});
+    h+='</tr>';
+    emps.forEach(e=>{
+      h+='<tr style="border-top:1px solid var(--border);"><td style="padding:4px 8px;font-weight:600;">'+escapeHtml(e.apellido_nombre||'')+'</td>';
+      sabs.forEach(s=>{ h+='<td style="text-align:center;padding:4px 8px;"><input type="checkbox" '+(_sabTrabaja(e.id,s)?'checked':'')+' onchange="sabToggle('+e.id+',\''+s+'\',this.checked)"></td>'; });
+      h+='</tr>';
+    });
+    h+='</table></div><div style="font-size:10px;color:var(--text3);margin-top:6px;">Cada sábado marcado = 3 hs normales + 3 hs extra en el presupuesto. Lo real lo confirma el fichaje (3 normales + el resto extra).</div>';
+  }
+  h+='</div>';
+  return h;
+}
+function ferAgregar(){
+  const f=prompt('Fecha del feriado (AAAA-MM-DD):',(SUT.fecha||localDate()).slice(0,7)+'-01'); if(!f)return;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(f)){toast('Fecha inválida','red');return;}
+  const nom=prompt('Nombre del feriado:','Feriado')||'Feriado';
+  (async()=>{ const{error}=await sb.from('feriados').upsert({fecha:f,nombre:nom,tipo:'propio'},{onConflict:'fecha'}); if(error){toast('Error: '+error.message,'red');return;} toast('✓ Feriado agregado','green'); await reload();renderSueldos(); })();
+}
+function ferBorrar(id){ if(!confirm('¿Borrar este feriado?'))return; (async()=>{ const{error}=await sb.from('feriados').delete().eq('id',id); if(error){toast('Error: '+error.message,'red');return;} toast('✓ Borrado','green'); await reload();renderSueldos(); })(); }
+function sabToggle(empId,fecha,checked){
+  (async()=>{
+    let error;
+    if(checked){ ({error}=await sb.from('turnos_excepcion').upsert({empleado_id:empId,fecha:fecha,tipo:'sabado'},{onConflict:'empleado_id,fecha'})); }
+    else{ ({error}=await sb.from('turnos_excepcion').delete().eq('empleado_id',empId).eq('fecha',fecha).eq('tipo','sabado')); }
+    if(error){toast('Error: '+error.message,'red');return;}
+    await reload();renderSueldos();
+  })();
+}
+
 function _turnoHoras(t){
   if(!t||!t.hora_entrada||!t.hora_salida)return null;
   const toMin=s=>{const p=String(s).split(':');return parseInt(p[0])*60+parseInt(p[1]);};
@@ -17750,6 +17819,7 @@ function turnoAbrirForm(id){
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
       +'<div class="fg"><label>Área</label><select id="turno-area" style="width:100%"><option value="extrusion"'+(t?.area==='extrusion'?' selected':'')+'>Extrusión</option><option value="confeccion"'+(t?.area==='confeccion'?' selected':'')+'>Confección</option><option value="mantenimiento"'+(t?.area==='mantenimiento'?' selected':'')+'>Mantenimiento</option><option value="admin"'+(t?.area==='admin'?' selected':'')+'>Administración</option></select></div>'
       +'<div class="fg"><label>Tolerancia (min)</label><input id="turno-tol" type="number" min="0" value="'+(t?.tolerancia_min!=null?t.tolerancia_min:10)+'" style="width:100%"></div>'
+      +'<div class="fg"><label>Hs extra fijas/día <span style="color:var(--text3);font-size:10px;">(ej extrusión tarde 3)</span></label><input id="turno-extra" type="number" min="0" step="0.5" value="'+(t?.horas_extra_fijas!=null?t.horas_extra_fijas:0)+'" style="width:100%"></div>'
       +'<div class="fg"><label>Hora entrada</label><input id="turno-ent" type="time" value="'+_hhmm(t?.hora_entrada)+'" style="width:100%"></div>'
       +'<div class="fg"><label>Hora salida</label><input id="turno-sal" type="time" value="'+_hhmm(t?.hora_salida)+'" style="width:100%"></div>'
     +'</div>'
@@ -17765,7 +17835,7 @@ function turnoGuardar(){
   const msg=document.getElementById('turno-msg');
   if(!nombre){if(msg){msg.style.color='var(--red)';msg.textContent='Falta el nombre';}return;}
   if(!ent||!sal){if(msg){msg.style.color='var(--red)';msg.textContent='Falta entrada/salida';}return;}
-  const row={nombre:nombre,area:document.getElementById('turno-area')?.value||null,hora_entrada:ent,hora_salida:sal,tolerancia_min:parseInt(document.getElementById('turno-tol')?.value)||0,cruza_medianoche:!!document.getElementById('turno-noche')?.checked};
+  const row={nombre:nombre,area:document.getElementById('turno-area')?.value||null,hora_entrada:ent,hora_salida:sal,tolerancia_min:parseInt(document.getElementById('turno-tol')?.value)||0,cruza_medianoche:!!document.getElementById('turno-noche')?.checked,horas_extra_fijas:parseFloat(document.getElementById('turno-extra')?.value)||0};
   (async()=>{
     if(msg){msg.style.color='var(--text2)';msg.textContent='Guardando...';}
     let error;
@@ -17941,13 +18011,24 @@ function _fichHorasDia(emp,fechaStr){
   const pd=_fichParesDia(emp.id,fechaStr);
   let trabMin=0;pd.pares.forEach(p=>{let d=_minutosT(p[1].hora)-_minutosT(p[0].hora);if(d<0)d+=1440;trabMin+=d;});
   const out={fichajes:pd.fichajes,pares:pd.pares,trabajadas:r2(trabMin/60),tardanza:0,normales:0,extra:0,feriado:0,esperadas:0,turno:null,abierto:pd.fichajes.length%2!==0};
+  const trab=out.trabajadas;
+  const dow=new Date(fechaStr+'T12:00:00').getDay();
   const td=_turnoDelDia(emp,fechaStr);out.turno=td.turno;out.franco=td.franco;out.tipoDia=td.tipo;
+  if(_esFeriado(fechaStr)){
+    out.esFeriado=true;
+    if(pd.pares.length)out.feriado=trab;                       // feriado trabajado -> x2 (via _calcAdelanto)
+    else if(td.turno)out.normales=r2(_turnoHoras(td.turno)||0); // feriado no trabajado -> paga día normal
+    return out;
+  }
+  if(dow===6){                                                 // sábado
+    if(trab>0){ out.normales=r2(Math.min(trab,3)); out.extra=r2(Math.max(0,trab-3)); }
+    return out;
+  }
   if(td.turno){
     const obj=_turnoHoras(td.turno)||0;out.esperadas=r2(obj);
     if(pd.pares.length){const er=_minutosT(pd.pares[0][0].hora),ee=_minutosT(td.turno.hora_entrada)+(td.turno.tolerancia_min||0);out.tardanza=Math.max(0,Math.round(er-ee));}
-    if(td.tipo==='feriado')out.feriado=out.trabajadas;
-    else{out.normales=r2(Math.min(out.trabajadas,obj));out.extra=r2(Math.max(0,out.trabajadas-obj));}
-  }else{out.normales=out.trabajadas;}
+    out.normales=r2(Math.min(trab,obj));out.extra=r2(Math.max(0,trab-obj));
+  }else{out.normales=trab;}
   return out;
 }
 function _fichHorasQuincena(emp,periodo,q){
@@ -18014,6 +18095,208 @@ function empCarnet(id){
     const cont=document.getElementById('carnet-qr');if(!cont)return;cont.innerHTML='';
     try{new QRCode(cont,{text:code,width:200,height:200});}catch(err){cont.innerHTML='<div style="color:#c00;font-size:12px;">No se pudo generar el QR</div>';}
   });
+}
+
+// ============================================================
+//  IMPORTAR DEL CONTADOR (recibos + F.931 por PDF) — reusa pdf.js de la
+//  conciliación bancaria: leer PDF -> previsualización EDITABLE -> confirmar.
+//  Cierra el nivel 3 (verdad del contador) sin cargar a mano.
+// ============================================================
+let SUI={tipo:'931',texto:'',periodo:'',n931:null,recs:[]};
+
+function _numAr(s){
+  if(s==null)return NaN;
+  let t=String(s).replace(/[^\d.,-]/g,'');
+  if(t.indexOf(',')>=0){ t=t.replace(/\./g,'').replace(',','.'); }
+  else if((t.match(/\./g)||[]).length>0 && /\.\d{3}(\D|$)/.test(t+' ')){ t=t.replace(/\./g,''); }
+  const n=parseFloat(t); return isNaN(n)?NaN:n;
+}
+async function _leerPDF(file,setM){
+  if(!window.pdfjsLib){
+    if(setM)setM('Cargando lector…');
+    await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';s.onload=res;s.onerror=()=>rej(new Error('No se pudo cargar el lector de PDF (revisá la conexión)'));document.head.appendChild(s);});
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+  if(setM)setM('Leyendo PDF…');
+  const buf=await file.arrayBuffer();
+  const pdf=await window.pdfjsLib.getDocument({data:buf}).promise;
+  const renglones=[];
+  for(let p=1;p<=pdf.numPages;p++){
+    const page=await pdf.getPage(p); const tc=await page.getTextContent();
+    const filas={};
+    tc.items.forEach(it=>{ if(!it.str||!it.str.trim())return; const y=Math.round((it.transform[5]||0)/2)*2; const x=it.transform[4]||0; (filas[y]=filas[y]||[]).push({x,s:it.str}); });
+    Object.keys(filas).map(Number).sort((a,b)=>b-a).forEach(y=>{ const linea=filas[y].sort((a,b)=>a.x-b.x).map(o=>o.s).join(' ').replace(/\s+/g,' ').trim(); if(linea)renglones.push(linea); });
+  }
+  return {txt:renglones.join('\n'),paginas:pdf.numPages,renglones:renglones.length};
+}
+function _periodoDe(txt){
+  // MM/AAAA con barra y mes válido (evita CUITs XX-XXXXXXXX que usan guión)
+  let m=txt.match(/Per[ií]odo[^\d]{0,12}(0[1-9]|1[0-2])\/(20\d{2})/i);
+  if(!m){ const all=[...txt.matchAll(/\b(0[1-9]|1[0-2])\/(20\d{2})\b/g)]; if(all.length)m=all[0]; }
+  if(m)return m[2]+'-'+m[1];
+  return '';
+}
+
+// ---------- Parser F.931 ----------
+function _parse931(txt){
+  // La sección VIII lista cada rubro como "<codigo> - <descripcion> <monto>".
+  // Anclamos en el codigo+guion y tomamos el primer monto que le sigue.
+  const clean=txt.replace(/\n/g,' ');
+  const datos={};
+  const grabCod=(cod)=>{
+    const re=new RegExp('\\b'+cod+'\\s*-\\s*[^\\d]*?([\\d.]+,\\d{2})');
+    const m=clean.match(re); if(m){ const v=_numAr(m[1]); if(!isNaN(v))return r2(v); } return null;
+  };
+  const p=(k,cod)=>{ const v=grabCod(cod); if(v!=null)datos[k]=v; };
+  p('aportes_ss','301'); p('contrib_ss','351'); p('aportes_os','302');
+  p('contrib_os','352'); p('lrt','312'); p('scvo','028');
+  let nom=null; const nm=txt.match(/n[oó]mina[^\d]{0,12}(\d{1,3})/i); if(nm)nom=parseInt(nm[1]);
+  let total=0; Object.values(datos).forEach(v=>total+=(v||0));
+  return {periodo:_periodoDe(txt),empleados_nomina:nom,datos,total:r2(total)};
+}
+
+// ---------- Parser recibos (detecta empleados + intenta neto) ----------
+function _parseRecibos(txt){
+  const digits=txt.replace(/\D/g,'');
+  const emps=(C.empleados||[]);
+  const items=[];
+  emps.forEach(e=>{
+    let match=false;
+    const cuil=String(e.cuil||'').replace(/\D/g,'');
+    if(cuil.length>=10 && digits.indexOf(cuil)>=0)match=true;
+    if(!match){ const ape=String(e.apellido_nombre||'').split(/[ ,]/)[0].toUpperCase(); if(ape.length>=3 && txt.toUpperCase().indexOf(ape)>=0)match=true; }
+    if(match){
+      // intento de neto: línea con "NETO" / "A COBRAR" cerca del nombre
+      let neto=null;
+      const re=new RegExp('(NETO|A COBRAR|NETO A COBRAR)[^\\d]{0,20}([\\d.]+,\\d{2})','i');
+      const mm=txt.match(re); if(mm){ const v=_numAr(mm[2]); if(!isNaN(v))neto=r2(v); }
+      items.push({empleado_id:e.id,nombre:e.apellido_nombre,periodo:_periodoDe(txt),bruto:null,neto:neto,incluir:true});
+    }
+  });
+  return {periodo:_periodoDe(txt),items};
+}
+
+// ---------- Render pestaña ----------
+function _suRenderImport(){
+  const body=document.getElementById('su-body'); if(!body)return;
+  const tb=(id,lbl)=>'<button class="btn btn-sm" onclick="suiSetTipo(\''+id+'\')" style="'+(SUI.tipo===id?'background:var(--accent);color:#fff;':'')+'">'+lbl+'</button>';
+  let html='<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Subí el PDF que te pasa el contador. Se lee, se muestra abajo para que <b>revises y corrijas</b>, y recién ahí confirmás — igual que la conciliación bancaria. Esto carga la verdad del contador (nivel 3).</div>';
+  html+='<div class="btn-grp" style="margin-bottom:12px;">'+tb('931','🏛 F.931')+tb('recibos','🧾 Recibos')+'</div>';
+  html+='<div class="btn-grp" style="margin-bottom:10px;"><input type="file" id="sui-pdf" accept="application/pdf,.pdf" style="display:none;" onchange="suiCargarPDF(this)"><button class="btn btn-sm" onclick="document.getElementById(\'sui-pdf\').click()">📄 Subir PDF</button><span id="sui-msg" style="font-size:11px;color:var(--text3);margin-left:8px;"></span></div>';
+  html+='<div id="sui-preview"></div>';
+  body.innerHTML=html;
+  suiRenderPreview();
+}
+function suiSetTipo(t){SUI.tipo=t;SUI.texto='';SUI.n931=null;SUI.recs=[];renderSueldos();}
+
+async function suiCargarPDF(input){
+  const file=input&&input.files&&input.files[0]; if(!file)return;
+  const msg=document.getElementById('sui-msg');
+  const setM=(t,c)=>{if(msg){msg.style.color=c||'var(--text3)';msg.textContent=t;}};
+  try{
+    const {txt,paginas,renglones}=await _leerPDF(file,setM);
+    SUI.texto=txt;
+    if(SUI.tipo==='931'){ SUI.n931=_parse931(txt); SUI.periodo=SUI.n931.periodo||_periodoDe(txt); }
+    else { const r=_parseRecibos(txt); SUI.recs=r.items; SUI.periodo=r.periodo; }
+    setM('✓ '+paginas+' pág · '+renglones+' renglones leídos. Revisá abajo y confirmá.','var(--green)');
+    toast('✓ PDF leído','green');
+    suiRenderPreview();
+  }catch(e){ setM('Error: '+(e.message||e),'var(--red)'); toast('No se pudo leer el PDF','red'); }
+}
+
+function suiRenderPreview(){
+  const c=document.getElementById('sui-preview'); if(!c)return;
+  if(SUI.tipo==='931'){
+    const d=(SUI.n931&&SUI.n931.datos)||{};
+    if(!SUI.n931){ c.innerHTML='<div style="color:var(--text3);font-size:12px;padding:14px;">Subí el PDF del F.931 para leer los montos de la sección VIII.</div>'; return; }
+    const campos=[['aportes_ss','Aportes Seg. Social (301)'],['contrib_ss','Contribuciones Seg. Social (351)'],['aportes_os','Aportes Obra Social (302)'],['contrib_os','Contribuciones Obra Social (352)'],['lrt','L.R.T. (312)'],['scvo','Seguro de vida (028)']];
+    let tot=0; campos.forEach(([k])=>tot+=(parseFloat(d[k])||0));
+    let h='<div style="border:1px solid var(--border);border-radius:var(--r);padding:14px;background:var(--bg2);max-width:560px;">'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;">'
+        +'<div class="fg"><label>Período (mes trabajado)</label><input type="month" id="sui931-per" value="'+(SUI.periodo||'')+'" style="width:100%"></div>'
+        +'<div class="fg"><label>Empleados en nómina</label><input type="number" id="sui931-nom" value="'+(SUI.n931.empleados_nomina||'')+'" style="width:100%"></div>'
+      +'</div>'
+      +'<div style="font-size:11px;color:var(--text2);margin-bottom:6px;">Detectado del PDF (corregí si algo no cerró):</div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">';
+    campos.forEach(([k,l])=>{ h+='<div class="fg"><label>'+l+'</label><input class="sui931-c" data-k="'+k+'" type="number" step="0.01" value="'+(d[k]!=null?d[k]:'')+'" oninput="suiRecalc931()" style="width:100%"></div>'; });
+    h+='</div><div style="display:flex;justify-content:flex-end;margin-top:10px;font-size:14px;border-top:1px solid var(--border);padding-top:8px;">Total 931: <b id="sui931-tot" style="font-family:monospace;margin-left:8px;color:var(--red);">'+fmtMoney(r2(tot))+'</b></div>';
+    h+='<div class="btn-grp" style="margin-top:12px;"><button class="btn btn-sm" onclick="suiConfirm931()">💾 Crear/actualizar F.931</button><span id="sui931-msg" style="font-size:11px;margin-left:8px;"></span></div>';
+    h+='</div>';
+    c.innerHTML=h;
+  }else{
+    if(!SUI.recs||!SUI.recs.length){ c.innerHTML='<div style="color:var(--text3);font-size:12px;padding:14px;">Subí el PDF de recibos. Voy a detectar los empleados que aparecen (por CUIL o apellido) y precargar lo que pueda; vos completás/corregís el neto y el bruto antes de confirmar.</div>'; return; }
+    let h='<div style="border:1px solid var(--border);border-radius:var(--r);padding:14px;background:var(--bg2);">'
+      +'<div class="fg" style="max-width:220px;margin-bottom:10px;"><label>Período (mes trabajado)</label><input type="month" id="suirec-per" value="'+(SUI.periodo||'')+'"></div>'
+      +'<div style="font-size:11px;color:var(--text2);margin-bottom:6px;">'+SUI.recs.length+' empleado(s) detectado(s) en el PDF. Completá bruto y neto de cada uno (el bruto es lo que va al costo del Resultado):</div>'
+      +'<table style="width:100%;font-size:12px;border-collapse:collapse;"><tr style="text-align:left;color:var(--text3);font-size:10px;text-transform:uppercase;"><th style="padding:5px;">✓</th><th>Empleado</th><th style="text-align:right;">Bruto</th><th style="text-align:right;">Neto</th></tr>';
+    SUI.recs.forEach((it,i)=>{
+      h+='<tr style="border-top:1px solid var(--border);">'
+        +'<td style="padding:5px;"><input type="checkbox" '+(it.incluir?'checked':'')+' onchange="SUI.recs['+i+'].incluir=this.checked;"></td>'
+        +'<td style="padding:5px;font-weight:600;">'+escapeHtml(it.nombre||'')+'</td>'
+        +'<td style="text-align:right;"><input type="number" step="0.01" value="'+(it.bruto!=null?it.bruto:'')+'" oninput="SUI.recs['+i+'].bruto=parseFloat(this.value)||0;" style="width:120px;text-align:right;"></td>'
+        +'<td style="text-align:right;"><input type="number" step="0.01" value="'+(it.neto!=null?it.neto:'')+'" oninput="SUI.recs['+i+'].neto=parseFloat(this.value)||0;" style="width:120px;text-align:right;"></td>'
+      +'</tr>';
+    });
+    h+='</table><div class="btn-grp" style="margin-top:12px;"><button class="btn btn-sm" onclick="suiConfirmRecibos()">💾 Crear recibos</button><span id="suirec-msg" style="font-size:11px;margin-left:8px;"></span></div>';
+    h+='<div style="font-size:10px;color:var(--text3);margin-top:6px;">Se crean como recibo del contador con el bruto y neto que cargues (concepto resumen). El saldo = neto − adelantos ya pagados = tu delta de auditoría.</div>';
+    h+='</div>';
+    c.innerHTML=h;
+  }
+}
+function suiRecalc931(){
+  let t=0; document.querySelectorAll('#sui-preview .sui931-c').forEach(inp=>{t+=parseFloat(inp.value)||0;});
+  const el=document.getElementById('sui931-tot'); if(el)el.textContent=fmtMoney(r2(t));
+}
+function suiConfirm931(){
+  const per=document.getElementById('sui931-per')?.value;
+  const msg=document.getElementById('sui931-msg');
+  if(!per){if(msg){msg.style.color='var(--red)';msg.textContent='Elegí el período';}return;}
+  const datos={}; let total=0;
+  document.querySelectorAll('#sui-preview .sui931-c').forEach(inp=>{ const k=inp.getAttribute('data-k'); const v=parseFloat(inp.value)||0; if(v!==0){datos[k]=r2(v);total+=v;} });
+  const nom=parseInt(document.getElementById('sui931-nom')?.value)||null;
+  const row={periodo:per,empleados_nomina:nom,datos:datos,total:r2(total),plano:'blanco'};
+  (async()=>{
+    if(msg){msg.style.color='var(--text2)';msg.textContent='Guardando...';}
+    const ex=(C.cargas_sociales||[]).find(x=>x.periodo===per);
+    let error;
+    if(ex){({error}=await sb.from('cargas_sociales').update(row).eq('id',ex.id));}
+    else{({error}=await sb.from('cargas_sociales').insert(row));}
+    if(error){if(msg){msg.style.color='var(--red)';msg.textContent='Error: '+error.message;}return;}
+    toast('✓ F.931 importado','green'); SUI.n931=null;SUI.texto='';
+    await reload();renderSueldos();
+  })();
+}
+function suiConfirmRecibos(){
+  const per=document.getElementById('suirec-per')?.value;
+  const msg=document.getElementById('suirec-msg');
+  if(!per){if(msg){msg.style.color='var(--red)';msg.textContent='Elegí el período';}return;}
+  const elegidos=SUI.recs.filter(x=>x.incluir&&(x.bruto>0||x.neto>0));
+  if(!elegidos.length){if(msg){msg.style.color='var(--red)';msg.textContent='Cargá bruto/neto de al menos uno';}return;}
+  // conceptos resumen: 2010 SUELDO (rem) = bruto; descuento agregado (4010) = bruto − neto
+  const cRem=(C.sueldo_conceptos||[]).find(c=>c.codigo==='2010')||(C.sueldo_conceptos||[]).find(c=>c.naturaleza==='remunerativo');
+  const cDesc=(C.sueldo_conceptos||[]).find(c=>c.codigo==='4010')||(C.sueldo_conceptos||[]).find(c=>c.naturaleza==='descuento');
+  (async()=>{
+    if(msg){msg.style.color='var(--text2)';msg.textContent='Creando...';}
+    let ok=0,err='';
+    for(const it of elegidos){
+      const bruto=r2(it.bruto>0?it.bruto:it.neto);
+      const neto=r2(it.neto>0?it.neto:it.bruto);
+      const desc=r2(Math.max(0,bruto-neto));
+      const header={empleado_id:it.empleado_id,periodo:per,tipo:'mensual',recibo_nro:'CONTADOR',bruto_remunerativo:bruto,bruto_no_rem:0,total_descuentos:desc,neto:neto,plano:'blanco'};
+      const ex=(C.recibos_sueldo||[]).find(r=>r.empleado_id===it.empleado_id&&r.periodo===per&&r.tipo==='mensual');
+      let recId;
+      if(ex){ await sb.from('recibos_sueldo').update(header).eq('id',ex.id); await sb.from('recibo_sueldo_conceptos').delete().eq('recibo_id',ex.id); recId=ex.id; }
+      else { const {data,error}=await sb.from('recibos_sueldo').insert(header).select().single(); if(error){err=error.message;continue;} recId=data.id; }
+      const lineas=[];
+      if(cRem)lineas.push({recibo_id:recId,concepto_id:cRem.id,importe:bruto});
+      if(cDesc&&desc>0)lineas.push({recibo_id:recId,concepto_id:cDesc.id,importe:desc});
+      if(lineas.length)await sb.from('recibo_sueldo_conceptos').insert(lineas);
+      ok++;
+    }
+    if(err&&!ok){if(msg){msg.style.color='var(--red)';msg.textContent='Error: '+err;}return;}
+    toast('✓ '+ok+' recibo(s) importado(s)','green'); SUI.recs=[];SUI.texto='';
+    await reload();renderSueldos();
+  })();
 }
 
 // ============================================================
@@ -18352,20 +18635,24 @@ function _suRenderPresupuesto(){
   const body=document.getElementById('su-body'); if(!body)return;
   const cfg=_nominaCfg();
   const activos=(C.empleados||[]).filter(e=>e.activo);
-  const sumaNeto=r2(activos.reduce((s,e)=>s+(parseFloat(e.neto_presupuesto)||0),0));
-  const p931=parseFloat(cfg.cargas_931_presupuesto)||0;
-  const _clP=_costoLaboralMes(localDate().slice(0,7)+'-01','');
+  const _ym=localDate().slice(0,7);
+  const p931cfg=parseFloat(cfg.cargas_931_presupuesto)||0;
+  const _clP=_costoLaboralMes(_ym+'-01','');
   const _nivelLbl={contador:'contador',interno:'horas reales',presupuesto:'presupuesto',sin_datos:'—'}[_clP.nivel]||_clP.nivel;
-  let html='<div style="max-width:640px;">'
+  const _931auto=_presup931Mes(_ym);
+  const _931show=p931cfg>0?p931cfg:_931auto;
+  let _sumNeto=0; activos.forEach(e=>{_sumNeto+=_presupEmpMes(e,_ym).neto;});
+  let html='<div style="max-width:760px;">'
     +'<div class="stats" style="margin-bottom:16px;">'
-      +'<div class="stat"><div class="stat-lbl">Sueldos netos / mes (presup.)</div><div class="stat-val">'+fmtMoney(sumaNeto)+'</div></div>'
+      +'<div class="stat"><div class="stat-lbl">Netos / mes (calculado)</div><div class="stat-val">'+fmtMoney(r2(_sumNeto))+'</div></div>'
       +'<div class="stat"><div class="stat-lbl">Costo laboral / mes (al resultado)</div><div class="stat-val" style="color:var(--red);">'+fmtMoney(_clP.monto)+'</div><div style="font-size:10px;color:var(--text3);">nivel: '+_nivelLbl+'</div></div>'
-      +'<div class="stat"><div class="stat-lbl">F.931 / mes (al flujo)</div><div class="stat-val">'+fmtMoney(p931)+'</div></div>'
+      +'<div class="stat"><div class="stat-lbl">F.931 / mes '+(p931cfg>0?'(manual)':'(calculado)')+'</div><div class="stat-val">'+fmtMoney(_931show)+'</div></div>'
     +'</div>'
-    +'<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">El presupuesto por empleado (neto y días de quincena) se edita en la pestaña <b>Empleados</b>. Acá configurás el 931 y el aguinaldo, que se proyectan solos en el <b>Flujo de caja</b> y ceden cuando cargás lo real.</div>'
+    +_suPresupDesglose(_ym)
+    +'<div style="font-size:12px;color:var(--text2);margin:10px 0;">El presupuesto se calcula solo desde las <b>horas del turno × la escala</b> de cada empleado (con extras fijas por turno y sábados previstos). El neto por empleado (pestaña Empleados) queda de respaldo para dirección o casos fuera de convenio.</div>'
     +'<div style="border:1px solid var(--border);border-radius:var(--r);padding:14px;background:var(--bg2);">'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
-        +'<div class="fg"><label>F.931 presupuesto $/mes</label><input id="ncfg-931" type="number" min="0" step="0.01" value="'+p931+'" style="width:100%"></div>'
+        +'<div class="fg"><label>F.931 presupuesto $/mes <span style="color:var(--text3);font-size:10px;">(0 = calculado)</span></label><input id="ncfg-931" type="number" min="0" step="0.01" value="'+p931cfg+'" style="width:100%"></div>'
         +'<div class="fg"><label>Día de pago del 931 (mes siguiente)</label><input id="ncfg-931dia" type="number" min="1" max="31" value="'+(cfg.cargas_931_dia_pago||10)+'" style="width:100%"></div>'
         +'<div class="fg"><label>Mes 1º aguinaldo</label><input id="ncfg-sac1" type="number" min="1" max="12" value="'+(cfg.sac_mes_1||6)+'" style="width:100%"></div>'
         +'<div class="fg"><label>Mes 2º aguinaldo</label><input id="ncfg-sac2" type="number" min="1" max="12" value="'+(cfg.sac_mes_2||12)+'" style="width:100%"></div>'
@@ -18375,6 +18662,7 @@ function _suRenderPresupuesto(){
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
         +'<div class="fg"><label>Factor neto → costo <span style="color:var(--text3);font-size:10px;">(1.5 = +50% sobre el neto)</span></label><input id="ncfg-factor" type="number" min="1" step="0.01" value="'+(cfg.costo_laboral_sobre_neto!=null?cfg.costo_laboral_sobre_neto:1.5)+'" style="width:100%"></div>'
         +'<div class="fg"><label>% contribuciones patronales <span style="color:var(--text3);font-size:10px;">(931 estimado)</span></label><input id="ncfg-patronal" type="number" min="0" step="0.5" value="'+(cfg.contrib_patronal_pct!=null?cfg.contrib_patronal_pct:30)+'" style="width:100%"></div>'
+        +'<div class="fg" style="grid-column:1/3;"><div style="font-size:11px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:6px 10px;">🗓 Los <b>sábados</b> (quién viene cada uno) y los <b>feriados</b> se cargan en el calendario de la pestaña 🕐 Turnos. Ya no se configuran acá.</div></div>'
       +'</div>'
       +'<div class="btn-grp" style="margin-top:12px;"><button class="btn btn-sm" onclick="ncfgGuardar()">💾 Guardar presupuesto</button><span id="ncfg-msg" style="font-size:11px;margin-left:8px;"></span></div>'
     +'</div>'
@@ -18391,7 +18679,8 @@ function ncfgGuardar(){
     sac_mes_2:Math.min(12,Math.max(1,parseInt(document.getElementById('ncfg-sac2')?.value)||12)),
     sac_dia_pago:Math.min(31,Math.max(1,parseInt(document.getElementById('ncfg-sacdia')?.value)||30)),
     costo_laboral_sobre_neto:Math.max(1,parseFloat(document.getElementById('ncfg-factor')?.value)||1.5),
-    contrib_patronal_pct:Math.max(0,parseFloat(document.getElementById('ncfg-patronal')?.value)||30)
+    contrib_patronal_pct:Math.max(0,parseFloat(document.getElementById('ncfg-patronal')?.value)||30),
+    sabados_previstos_mes:Math.min(5,Math.max(0,parseInt(document.getElementById('ncfg-sabados')?.value)||0))
   };
   (async()=>{
     if(msg){msg.style.color='var(--text2)';msg.textContent='Guardando...';}
@@ -18414,6 +18703,88 @@ function ncfgGuardar(){
 //  OJO: los aportes del empleado ya estan dentro del bruto; el costo extra del
 //  empleador son SOLO las contribuciones patronales.
 // ============================================================
+// ============================================================
+//  MOTOR DE PRESUPUESTO AUTOMÁTICO (horas previstas × escala)
+//  Calcula el costo laboral presupuestado de cada empleado SIN carga manual:
+//  horas del turno (con extras fijas por turno + sábados) × valor hora de su
+//  categoría + antigüedad + suma fija − aportes. De ahí salen bruto/neto/costo/931.
+// ============================================================
+function _horasPrevistasMes(emp,ym){
+  const yy=parseInt(ym.slice(0,4)),mm=parseInt(ym.slice(5,7));
+  const ld=new Date(yy,mm,0).getDate();
+  let normales=0,extra=0,dias=0;
+  for(let d=1;d<=ld;d++){
+    const fecha=ym+'-'+String(d).padStart(2,'0');
+    const dow=new Date(fecha+'T12:00:00').getDay();
+    if(dow===0)continue;               // domingo
+    if(dow===6){                        // sábado: solo si está marcado para este empleado
+      if(_sabTrabaja(emp.id,fecha)){ normales+=3; extra+=3; }
+      continue;
+    }
+    const td=_turnoDelDia(emp,fecha);
+    if(td.franco||!td.turno)continue;
+    normales+=(_turnoHoras(td.turno)||0);
+    if(!_esFeriado(fecha)) extra+=(parseFloat(td.turno.horas_extra_fijas)||0); // feriado: día pago sin extra
+    dias++;
+  }
+  return {normales:r2(normales),extra:r2(extra),dias:dias};
+}
+// Presupuesto mensual de un empleado: bruto, neto, costo (bruto+patronal), aportes, patronal
+function _presupEmpMes(emp,ym){
+  const cfg=_nominaCfg();
+  const out={bruto:0,neto:0,costo:0,aportes:0,patronal:0,horas:null,base:'—'};
+  const cat=emp.categoria_id?_catSalarial(emp.categoria_id):null;
+  const esc=cat?_escalaVigente(cat.id,ym):null;
+  const patPct=(parseFloat(cfg.contrib_patronal_pct)||0)/100;
+  const descPct=((parseFloat(cfg.ap_jubilacion_pct)||0)+(parseFloat(cfg.ap_ley19032_pct)||0)+(parseFloat(cfg.ap_obra_social_pct)||0)+(parseFloat(cfg.ap_fondo_solidario_pct)||0)+(emp.afiliado_sindical?(parseFloat(cfg.cuota_sindical_pct)||0):(parseFloat(cfg.ap_solidario_pct)||0)))/100;
+  if(!cat||!esc){
+    const np=parseFloat(emp.neto_presupuesto)||0;
+    out.bruto=np;out.neto=np;out.costo=np;out.base='manual (dirección)';
+    return out;
+  }
+  const vh=parseFloat(esc.valor)||0;
+  const anios=_antiguedadAnios(emp,ym);
+  const antPct=(parseFloat(cfg.antiguedad_pct_anual)||0)/100;
+  const sumaFija=parseFloat(esc.suma_fija_no_rem)||0;
+  let remun=0;
+  if(cat.unidad==='mensual'){ remun=vh; out.base='mensual'; }
+  else{ const h=_horasPrevistasMes(emp,ym); out.horas=h; remun=h.normales*vh + h.extra*vh*1.5; out.base='horas'; }
+  const remunTot=r2(remun*(1+antPct*anios));
+  out.aportes=r2(remunTot*descPct);
+  out.patronal=r2(remunTot*patPct);
+  out.bruto=r2(remunTot+sumaFija);
+  out.neto=r2(out.bruto-out.aportes);
+  out.costo=r2(out.bruto+out.patronal);
+  return out;
+}
+// 931 presupuestado del mes (aportes retenidos + contribuciones patronales)
+function _presup931Mes(ym){
+  let ap=0,pat=0;
+  (C.empleados||[]).filter(e=>e.activo).forEach(e=>{ const p=_presupEmpMes(e,ym); ap+=p.aportes; pat+=p.patronal; });
+  return r2(ap+pat);
+}
+function _suPresupDesglose(ym){
+  const emps=(C.empleados||[]).filter(e=>e.activo).sort((a,b)=>String(a.apellido_nombre||'').localeCompare(String(b.apellido_nombre||'')));
+  if(!emps.length)return '';
+  let h='<div style="overflow-x:auto;margin-bottom:8px;"><table style="width:100%;font-size:11px;border-collapse:collapse;">'
+    +'<tr style="text-align:left;color:var(--text3);font-size:10px;text-transform:uppercase;"><th style="padding:5px;">Empleado</th><th>Base</th><th style="text-align:right;">Hs norm.</th><th style="text-align:right;">Hs extra</th><th style="text-align:right;">Bruto</th><th style="text-align:right;">Neto</th><th style="text-align:right;">Costo</th></tr>';
+  let tB=0,tN=0,tC=0;
+  emps.forEach(e=>{
+    const p=_presupEmpMes(e,ym); tB+=p.bruto;tN+=p.neto;tC+=p.costo;
+    const hn=p.horas?p.horas.normales:'—', he=p.horas?p.horas.extra:'—';
+    h+='<tr style="border-top:1px solid var(--border);"><td style="padding:5px;font-weight:600;">'+escapeHtml(e.apellido_nombre||'')+'</td>'
+      +'<td style="font-size:10px;color:var(--text3);">'+escapeHtml(p.base)+'</td>'
+      +'<td style="text-align:right;font-family:monospace;">'+hn+'</td>'
+      +'<td style="text-align:right;font-family:monospace;">'+he+'</td>'
+      +'<td style="text-align:right;font-family:monospace;">'+fmtMoney(p.bruto)+'</td>'
+      +'<td style="text-align:right;font-family:monospace;">'+fmtMoney(p.neto)+'</td>'
+      +'<td style="text-align:right;font-family:monospace;font-weight:700;color:var(--red);">'+fmtMoney(p.costo)+'</td></tr>';
+  });
+  h+='<tr style="border-top:2px solid var(--border);font-weight:700;"><td style="padding:5px;">TOTAL</td><td></td><td></td><td></td><td style="text-align:right;font-family:monospace;">'+fmtMoney(r2(tB))+'</td><td style="text-align:right;font-family:monospace;">'+fmtMoney(r2(tN))+'</td><td style="text-align:right;font-family:monospace;color:var(--red);">'+fmtMoney(r2(tC))+'</td></tr>';
+  h+='</table></div>';
+  return h;
+}
+
 function _costoLaboralMes(iniStr,finStr){
   const ym=String(iniStr).slice(0,7);
   const cfg=_nominaCfg();
@@ -18450,13 +18821,11 @@ function _costoLaboralMes(iniStr,finStr){
     return {monto:r2(brutoTot+patronal),nivel:'interno',bruto:brutoTot,patronal:patronal,con931:false};
   }
 
-  // Nivel 1: presupuesto (siempre, desde el neto por empleado)
-  let netoCct=0, netoDir=0;
-  emps.forEach(e=>{ const np=parseFloat(e.neto_presupuesto)||0; if(e.categoria_id)netoCct+=np; else netoDir+=np; });
-  if(netoCct+netoDir>0){
-    const monto=r2(netoCct*factorNeto+netoDir);
-    const netoTot=r2(netoCct+netoDir);
-    return {monto:monto,nivel:'presupuesto',bruto:netoTot,patronal:r2(monto-netoTot),con931:false};
+  // Nivel 1: presupuesto (calculado desde horas previstas × escala)
+  let costoP=0,brutoP=0,patP=0,hayP=false;
+  emps.forEach(e=>{ const p=_presupEmpMes(e,ym); if(p.costo>0){costoP+=p.costo;brutoP+=p.bruto;patP+=p.patronal;hayP=true;} });
+  if(hayP){
+    return {monto:r2(costoP),nivel:'presupuesto',bruto:r2(brutoP),patronal:r2(patP),con931:false};
   }
 
   return {monto:0,nivel:'sin_datos',bruto:0,patronal:0,con931:false};
@@ -38584,7 +38953,7 @@ function fcItemsProyectados(hastaStr){
       const diaF=(dd)=>ym+'-'+String(Math.min(Math.max(dd,1),ld)).padStart(2,'0');
       (C.empleados||[]).forEach(e=>{
         if(!e.activo)return;
-        const neto=parseFloat(e.neto_presupuesto)||0; if(neto<=0)return;
+        const neto=_presupEmpMes(e,ym).neto; if(neto<=0)return;
         if((C.recibos_sueldo||[]).some(r=>r.empleado_id===e.id&&r.periodo===ym&&r.tipo==='mensual'))return;
         const q1=parseInt(e.dia_pago_q1)||15,q2=parseInt(e.dia_pago_q2)||30;
         const _pg=(C.pagos_sueldo||[]).filter(p=>p.empleado_id===e.id&&p.periodo===ym);
@@ -38599,13 +38968,12 @@ function fcItemsProyectados(hastaStr){
           }
         }
       });
-      const p931=parseFloat(_cfg.cargas_931_presupuesto)||0;
-      if(p931>0){
-        let pm=mm-1,py=yy; if(pm<1){pm=12;py--;}
-        const perTrab=py+'-'+String(pm).padStart(2,'0');
-        if(!(C.cargas_sociales||[]).some(cs=>cs.periodo===perTrab)){
-          items.push({clase:'pago',tipo:'carga931_presup',id:perTrab,layer:'presupuesto',tentativo:false,plano:'blanco',ref:'🏛 F.931 '+perTrab+' (presup.)',saldo:r2(p931),fEf:diaF(parseInt(_cfg.cargas_931_dia_pago)||10),editable:false});
-        }
+      let pm=mm-1,py=yy; if(pm<1){pm=12;py--;}
+      const perTrab=py+'-'+String(pm).padStart(2,'0');
+      let p931=parseFloat(_cfg.cargas_931_presupuesto)||0;
+      if(p931<=0)p931=_presup931Mes(perTrab);
+      if(p931>0 && !(C.cargas_sociales||[]).some(cs=>cs.periodo===perTrab)){
+        items.push({clase:'pago',tipo:'carga931_presup',id:perTrab,layer:'presupuesto',tentativo:false,plano:'blanco',ref:'🏛 F.931 '+perTrab+' (presup.)',saldo:r2(p931),fEf:diaF(parseInt(_cfg.cargas_931_dia_pago)||10),editable:false});
       }
       let nm=mm+1,ny=yy;if(nm>12){nm=1;ny++;}_curN=ny+'-'+String(nm).padStart(2,'0');_gn++;
     }
