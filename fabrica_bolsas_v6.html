@@ -3092,7 +3092,7 @@ body.pext-on .main{margin-left:0!important;}
       </div>
 
       <div class="btn-grp" style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">
-        <button class="btn btn-primary" onclick="guardarRemito()">💾 Guardar remito</button>
+        <button class="btn btn-primary" id="btn-guardar-remito" onclick="guardarRemito()">💾 Guardar remito</button>
         <button class="btn" onclick="go('remitos')">Cancelar</button>
         <span id="msg-nr" style="font-size:12px;margin-left:8px;"></span>
       </div>
@@ -3318,6 +3318,10 @@ body.pext-on .main{margin-left:0!important;}
     </div>
 
     <!-- ============ CUENTA CORRIENTE ============ -->
+    <div class="page" id="page-cliente360">
+      <div id="c360-wrap"></div>
+    </div>
+
     <div class="page" id="page-cuenta-corriente">
       <div class="page-hdr">
         <div><div class="page-title">Cuenta corriente</div><div class="page-sub">Saldos formal · informal · total · por cliente</div></div>
@@ -6700,6 +6704,343 @@ async function importCli(){
   msg.style.color='var(--green)';msg.textContent=`✓ ${rows.length} clientes importados${skip?`, ${skip} omitidos`:''}`;
   document.getElementById('cm-cli').style.display='none';await reload();
 }
+// ============================================================
+//  FICHA 360 DEL CLIENTE — financiero + comercial + trazabilidad (estilo Flexxus)
+//  v2: KPIs de kg/$/kg/rentabilidad, chips navegables, qué compra en $ y %,
+//  cuenta corriente embebida, e impresión de cualquier documento.
+//  Reusa derivadores canónicos (P1): _saldoFactura/_saldoRV/_saldoInicial,
+//  lpGetKgPaq, lpGetCostoRealKg, calcularSaldosCliente e imprimir*.
+// ============================================================
+let CLI360={id:null,tabDoc:'facturas',perCom:'hist'};
+
+function _c360Cli(id){return (C.clientes||[]).find(c=>c.id===id);}
+function _c360Facturas(id){return (C.facturas||[]).filter(f=>f.cliente_id===id&&f.estado!=='anulada');}
+function _c360Rvs(id){return (C.rvs||[]).filter(r=>r.cliente_id===id&&r.estado!=='anulado'&&r.estado!=='anulada');}
+function _c360Recibos(id){return (C.recibos||[]).filter(r=>r.cliente_id===id&&r.estado!=='anulado');}
+function _c360Pedidos(id){return (C.pedidos||[]).filter(p=>p.cliente_id===id);}
+function _c360Remitos(id){return (C.remitos||[]).filter(r=>r.cliente_id===id);}
+function _c360SaldosIni(id){return (C.saldos_iniciales||[]).filter(s=>s.cliente_id===id);}
+function _c360Fecha(o){return String(o.fecha||o.created_at||'').slice(0,10);}
+function _kMoney(n){n=Math.round(n);if(Math.abs(n)>=1e6)return (n/1e6).toFixed(1)+'M';if(Math.abs(n)>=1e3)return Math.round(n/1e3)+'k';return String(n);}
+function _c360Prod(l){return l.productos||(C.productos||[]).find(x=>x.id===l.producto_id)||null;}
+function _c360KgLinea(l){const p=_c360Prod(l);const kgp=p?(typeof lpGetKgPaq==='function'?lpGetKgPaq(p):0):0;return (parseFloat(l.cantidad_paquetes)||0)*kgp;}
+function _c360ValorLinea(l){return parseFloat(l.subtotal)||((parseFloat(l.precio_paquete)||0)*(parseFloat(l.cantidad_paquetes)||0));}
+function _c360CostoKg(prodId){var c=(typeof lpGetCostoRealKg==='function'?lpGetCostoRealKg(prodId):0)||0;if(!c&&typeof lpGetCostoTeorico==='function')c=lpGetCostoTeorico(prodId)||0;return c;}
+function _c360CostoLinea(l){const kg=_c360KgLinea(l);return kg*_c360CostoKg(l.producto_id);}
+
+function _c360Saldo(id){
+  let s=0;
+  _c360Facturas(id).forEach(f=>{s+=_saldoFactura(f);});
+  _c360Rvs(id).forEach(r=>{s+=_saldoRV(r);});
+  _c360SaldosIni(id).forEach(si=>{s+=_saldoInicial(si);});
+  _c360Recibos(id).forEach(r=>{const disp=(parseFloat(r.total_cobrado)||0)+(parseFloat(r.total_retenciones)||0)-(parseFloat(r.total_aplicado)||0);if(disp>0.01)s-=disp;});
+  return r2(s);
+}
+function _c360Vencido(id){
+  const hoy=localDate();let v=0;
+  _c360Facturas(id).forEach(f=>{const sal=_saldoFactura(f);if(sal>0.01){const vto=f.vencimiento||f.fecha_vto||f.fecha;if(vto&&String(vto)<hoy)v+=sal;}});
+  _c360Rvs(id).forEach(r=>{const sal=_saldoRV(r);if(sal>0.01){const vto=r.vencimiento||r.fecha;if(vto&&String(vto)<hoy)v+=sal;}});
+  return r2(v);
+}
+// Métricas comerciales (sobre todos los remitos): kg, $, costo, $/kg, rentabilidad %
+function _c360Comercial(id,desde,hasta){
+  let kg=0,valor=0,costo=0;
+  _c360Remitos(id).forEach(rem=>{
+    const fx=_c360Fecha(rem);
+    if(desde&&fx<desde)return; if(hasta&&fx>hasta)return;
+    (rem.remito_lineas||[]).forEach(l=>{kg+=_c360KgLinea(l);valor+=_c360ValorLinea(l);costo+=_c360CostoLinea(l);});
+  });
+  return {kg:r2(kg),valor:r2(valor),costo:r2(costo),precioKg:kg>0?r2(valor/kg):0,rent:valor>0?r2((valor-costo)/valor*100):0};
+}
+function _c360RangoPeriodo(per){
+  if(!per||per==='hist')return {desde:null,hasta:null,lbl:'histórico'};
+  if(per==='mes'){const ym=localDate().slice(0,7);return {desde:ym+'-01',hasta:ym+'-31',lbl:'mes en curso'};}
+  return {desde:per+'-01',hasta:per+'-31',lbl:per};
+}
+function c360SetPeriodo(v){CLI360.perCom=v;renderCliente360();}
+function _c360ImprimirCC(id){
+  const c=_c360Cli(id); if(!c)return;
+  const movs=_c360MovsCC(id);
+  const saldo=movs.length?movs[movs.length-1].saldo:0;
+  const emp=(C.configuracion&&(C.configuracion.razon_social||C.configuracion.empresa||C.configuracion.nombre))||'Arialplast SA';
+  const filas=movs.map(m=>'<tr><td>'+escapeHtml(m.fecha)+'</td><td>'+escapeHtml(m.ref)+'</td><td class="r">'+(m.debe?'$'+m.debe.toLocaleString('es-AR'):'')+'</td><td class="r">'+(m.haber?'$'+m.haber.toLocaleString('es-AR'):'')+'</td><td class="r">$'+m.saldo.toLocaleString('es-AR')+'</td></tr>').join('');
+  const win=window.open('','_blank'); if(!win){if(typeof toast==='function')toast('Habilitá los pop-ups para imprimir','amber');return;}
+  win.document.write('<html><head><title>Cuenta corriente - '+escapeHtml(c.razon_social||c.nombre||'')+'</title>'
+    +'<style>body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#111;padding:24px;}h1{font-size:18px;margin:0;}table{width:100%;border-collapse:collapse;margin-top:14px;}th,td{padding:5px 7px;border-bottom:1px solid #ccc;text-align:left;}th{background:#f0f0f0;font-size:11px;text-transform:uppercase;}td.r,th.r{text-align:right;font-family:monospace;}.tot{font-weight:700;font-size:15px;text-align:right;margin-top:14px;border-top:2px solid #333;padding-top:8px;}.hd{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #333;padding-bottom:8px;}</style></head><body>'
+    +'<div class="hd"><div><h1>'+escapeHtml(emp)+'</h1><div style="color:#555;">Estado de cuenta corriente</div></div>'
+    +'<div style="text-align:right;font-size:11px;color:#555;">Emitido: '+localDate()+'</div></div>'
+    +'<div style="margin-top:12px;"><b>Cliente:</b> '+escapeHtml(c.razon_social||c.nombre||'')+(c.cuit?' &middot; CUIT '+escapeHtml(c.cuit):'')+(c.codigo?' &middot; Cód. '+escapeHtml(c.codigo):'')+'</div>'
+    +'<table><thead><tr><th>Fecha</th><th>Comprobante</th><th class="r">Debe</th><th class="r">Haber</th><th class="r">Saldo</th></tr></thead><tbody>'+filas+'</tbody></table>'
+    +'<div class="tot">SALDO ADEUDADO: $'+saldo.toLocaleString('es-AR')+'</div>'
+    +'<scr'+'ipt>window.onload=function(){setTimeout(function(){try{window.print();}catch(e){}},400);};</scr'+'ipt>'
+    +'</body></html>');
+  win.document.close();
+}
+function _c360Series(id){
+  const meses=[];const hoy=new Date();
+  for(let i=11;i>=0;i--){const d=new Date(hoy.getFullYear(),hoy.getMonth()-i,1);meses.push(d.toISOString().slice(0,7));}
+  const prim=meses[0];
+  const fac={},cob={};meses.forEach(m=>{fac[m]=0;cob[m]=0;});
+  let facAntes=0,cobAntes=0;
+  _c360Facturas(id).forEach(f=>{const m=_c360Fecha(f).slice(0,7);const t=parseFloat(f.total)||0;if(fac[m]!=null)fac[m]+=t;else if(m<prim)facAntes+=t;});
+  _c360Rvs(id).forEach(r=>{const m=_c360Fecha(r).slice(0,7);const t=parseFloat(r.total)||0;if(fac[m]!=null)fac[m]+=t;else if(m<prim)facAntes+=t;});
+  _c360Recibos(id).forEach(r=>{const m=_c360Fecha(r).slice(0,7);const t=parseFloat(r.total_cobrado)||0;if(cob[m]!=null)cob[m]+=t;else if(m<prim)cobAntes+=t;});
+  const siTot=_c360SaldosIni(id).reduce((s,si)=>s+(parseFloat(si.monto)||0),0);
+  const deuda={};let acc=r2(siTot+facAntes-cobAntes);
+  meses.forEach(m=>{acc=r2(acc+(fac[m]||0)-(cob[m]||0));deuda[m]=Math.max(0,acc);});
+  return {meses,fac,cob,deuda};
+}
+function _c360TopProductos(id){
+  const acc={};let tot=0;
+  _c360Remitos(id).forEach(rem=>{(rem.remito_lineas||[]).forEach(l=>{
+    const pid=l.producto_id;if(!pid)return;
+    const nom=(l.productos&&(l.productos.descripcion||l.productos.nombre))||('Prod '+pid);
+    if(!acc[pid])acc[pid]={nom,paq:0,val:0,kg:0};
+    const v=_c360ValorLinea(l);
+    acc[pid].paq+=parseFloat(l.cantidad_paquetes)||0;acc[pid].val+=v;acc[pid].kg+=_c360KgLinea(l);tot+=v;
+  });});
+  const arr=Object.values(acc).sort((a,b)=>b.val-a.val);arr.forEach(x=>x.pct=tot>0?x.val/tot*100:0);
+  return {items:arr.slice(0,8),total:tot};
+}
+// Movimientos de cuenta corriente (debe/haber/saldo corriendo)
+function _c360MovsCC(id){
+  const M=[];
+  _c360Facturas(id).forEach(f=>M.push({fecha:_c360Fecha(f),ref:'Factura '+((f.tipo||'')+' '+(f.numero||'#'+f.id)),debe:parseFloat(f.total)||0,haber:0,tipo:'factura',docId:f.id}));
+  _c360Rvs(id).forEach(r=>M.push({fecha:_c360Fecha(r),ref:'RV '+(r.numero||'#'+r.id),debe:parseFloat(r.total)||0,haber:0,tipo:'rv',docId:r.id}));
+  _c360SaldosIni(id).forEach(si=>M.push({fecha:si.fecha_estimada_cobro||_c360Fecha(si),ref:'Saldo inicial '+(si.concepto||''),debe:parseFloat(si.monto)||0,haber:0,tipo:null}));
+  _c360Recibos(id).forEach(r=>M.push({fecha:_c360Fecha(r),ref:'Recibo '+(r.numero||'#'+r.id),debe:0,haber:parseFloat(r.total_cobrado)||0,tipo:'recibo',docId:r.id}));
+  M.sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)));
+  let sal=0;M.forEach(m=>{sal=r2(sal+m.debe-m.haber);m.saldo=sal;});
+  return M;
+}
+
+// ---------- Trazabilidad ----------
+function _c360TrazaFactura(f){
+  const remIds=(f.factura_remitos||[]).map(fr=>fr.remito_id);
+  const remitos=(C.remitos||[]).filter(r=>remIds.includes(r.id));
+  const pedidos=(C.pedidos||[]).filter(p=>[...new Set(remitos.map(r=>r.pedido_id).filter(Boolean))].includes(p.id));
+  const recibos=(C.recibos||[]).filter(r=>(r.recibo_facturas||[]).some(rf=>rf.factura_id===f.id)&&r.estado!=='anulado');
+  return {remitos,pedidos,recibos};
+}
+function _c360TrazaRemito(rem){
+  const pedido=(C.pedidos||[]).find(p=>p.id===rem.pedido_id);
+  const factura=(C.facturas||[]).find(f=>(f.factura_remitos||[]).some(fr=>fr.remito_id===rem.id));
+  const recibos=factura?(C.recibos||[]).filter(r=>(r.recibo_facturas||[]).some(rf=>rf.factura_id===factura.id)&&r.estado!=='anulado'):[];
+  return {pedido,factura,recibos};
+}
+function _c360TrazaPedido(ped){
+  const remitos=(C.remitos||[]).filter(r=>r.pedido_id===ped.id);
+  const remIds=remitos.map(r=>r.id);
+  const facturas=(C.facturas||[]).filter(f=>(f.factura_remitos||[]).some(fr=>remIds.includes(fr.remito_id)));
+  const ocs=(C.ord_corte||[]).filter(o=>o.pedido_id===ped.id);
+  return {remitos,facturas,ocs};
+}
+function _c360TrazaRecibo(rec){
+  const facIds=(rec.recibo_facturas||[]).map(rf=>rf.factura_id);
+  return {facturas:(C.facturas||[]).filter(f=>facIds.includes(f.id))};
+}
+function _c360Print(tipo,id){
+  try{
+    if(tipo==='factura'&&typeof imprimirFactura==='function')imprimirFactura(id);
+    else if(tipo==='remito'&&typeof imprimirRemito==='function')imprimirRemito(id);
+    else if(tipo==='pedido'&&typeof imprimirPedido==='function')imprimirPedido(id);
+    else if(tipo==='recibo'&&typeof imprimirRecibo==='function')imprimirRecibo(id);
+    else if(tipo==='rv'&&typeof imprimirRV==='function')imprimirRV(id);
+    else toast('No hay impresión para '+tipo,'amber');
+  }catch(e){toast('Error al imprimir: '+e.message,'red');}
+}
+
+function abrirCliente360(id){CLI360.id=id;CLI360.tabDoc='facturas';go('cliente360');renderCliente360();}
+function c360Tab(t){CLI360.tabDoc=t;const el=document.getElementById('c360-docs');if(el)el.innerHTML=_c360RenderDocs(CLI360.id);renderCliente360();}
+
+function renderCliente360(){
+  const wrap=document.getElementById('c360-wrap'); if(!wrap)return;
+  const id=CLI360.id; const c=_c360Cli(id);
+  if(!c){wrap.innerHTML='<div class="empty" style="padding:30px;">Elegí un cliente desde la lista.</div>';return;}
+  const lista=(C.listas_precios||[]).find(l=>l.id===c.lista_precio_id);
+  const saldo=_c360Saldo(id), vencido=_c360Vencido(id);
+  const S=_c360Series(id);
+  const fac12=r2(S.meses.reduce((s,m)=>s+S.fac[m],0));
+  const cob12=r2(S.meses.reduce((s,m)=>s+S.cob[m],0));
+  const facs=_c360Facturas(id);
+  const ticket=facs.length?r2(facs.reduce((s,f)=>s+(parseFloat(f.total)||0),0)/facs.length):0;
+  const _rp=_c360RangoPeriodo(CLI360.perCom||'hist');
+  const com=_c360Comercial(id,_rp.desde,_rp.hasta);
+  const todos=[..._c360Remitos(id).map(_c360Fecha),...facs.map(_c360Fecha)].filter(Boolean).sort();
+  const ultima=todos.length?todos[todos.length-1]:null;
+
+  let h='';
+  h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:6px;">';
+  h+='<div><button class="btn btn-sm" onclick="go(\'clientes\')" style="margin-bottom:8px;">← Clientes</button>'
+    +'<div class="page-title" style="font-size:26px;">'+escapeHtml(c.razon_social||c.nombre||'Cliente')+'</div>'
+    +'<div style="font-size:12px;color:var(--text2);margin-top:4px;display:flex;gap:14px;flex-wrap:wrap;">'
+      +'<span>Cód. <b class="mono">'+escapeHtml(c.codigo||'—')+'</b></span>'
+      +'<span>CUIT <b class="mono">'+escapeHtml(c.cuit||'—')+'</b></span>'
+      +'<span>'+escapeHtml(c.condicion_iva||'—')+'</span>'
+      +(c.localidad?'<span>📍 '+escapeHtml(c.localidad)+'</span>':'')
+      +'<span>Lista: <b>'+(lista?escapeHtml(lista.nombre):'—')+'</b></span>'
+      +'<span>Crédito: <b>'+(c.dias_credito||0)+' días</b></span>'
+    +'</div></div>';
+  h+='<div class="btn-grp"><button class="btn btn-sm" onclick="editarCliente('+id+')">✎ Editar</button></div>';
+  h+='</div>';
+
+  // KPIs financieros
+  h+='<div class="fce-hero" style="margin-top:14px;">'
+    +'<div class="fce-card" style="--acc:'+(saldo>0.01?'var(--red)':'var(--green)')+'"><div class="l">'+(saldo<-0.01?'Saldo a favor':'Te debe')+'</div><div class="v" style="color:'+(saldo>0.01?'var(--red)':'var(--green)')+'">$'+Math.abs(saldo).toLocaleString('es-AR')+'</div><div class="s">cuenta corriente</div></div>'
+    +'<div class="fce-card" style="--acc:var(--red)"><div class="l">Vencido</div><div class="v" style="color:'+(vencido>0.01?'var(--red)':'var(--text3)')+'">$'+vencido.toLocaleString('es-AR')+'</div><div class="s">'+(vencido>0.01?'pasado de fecha':'al día')+'</div></div>'
+    +'<div class="fce-card" style="--acc:var(--green)"><div class="l">Facturado 12m</div><div class="v" style="color:var(--green)">$'+fac12.toLocaleString('es-AR')+'</div><div class="s">últimos 12 meses</div></div>'
+    +'<div class="fce-card" style="--acc:var(--accent)"><div class="l">Cobrado 12m</div><div class="v" style="color:var(--accent)">$'+cob12.toLocaleString('es-AR')+'</div><div class="s">recibos 12m</div></div>'
+    +'<div class="fce-card" style="--acc:#a855f7"><div class="l">Ticket promedio</div><div class="v">$'+ticket.toLocaleString('es-AR')+'</div><div class="s">'+facs.length+' factura'+(facs.length===1?'':'s')+'</div></div>'
+    +'<div class="fce-card" style="--acc:#f97316"><div class="l">Última operación</div><div class="v" style="font-size:18px;">'+(ultima||'—')+'</div><div class="s">remito o factura</div></div>'
+  +'</div>';
+  // KPIs comerciales (kg / $/kg / rentabilidad) con selector de período
+  const _mesesSel=[];for(let _i=0;_i<6;_i++){const _d=new Date();_d.setMonth(_d.getMonth()-_i);_mesesSel.push(_d.toISOString().slice(0,7));}
+  const _cur=CLI360.perCom||'hist';
+  const _perOpts='<option value="hist"'+(_cur==='hist'?' selected':'')+'>Histórico</option><option value="mes"'+(_cur==='mes'?' selected':'')+'>Mes en curso</option>'+_mesesSel.map(m=>'<option value="'+m+'"'+(_cur===m?' selected':'')+'>'+m+'</option>').join('');
+  h+='<div class="an-section" style="display:flex;justify-content:space-between;align-items:center;">Comercial <select onchange="c360SetPeriodo(this.value)" style="font-size:11px;padding:3px 8px;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:6px;text-transform:none;letter-spacing:0;">'+_perOpts+'</select></div>';
+  h+='<div class="fce-hero">'
+    +'<div class="fce-card" style="--acc:#0ea5e9"><div class="l">Kg vendidos</div><div class="v" style="color:#0ea5e9">'+com.kg.toLocaleString('es-AR')+' <span style="font-size:13px;">kg</span></div><div class="s">'+_rp.lbl+'</div></div>'
+    +'<div class="fce-card" style="--acc:#0ea5e9"><div class="l">Precio promedio</div><div class="v">$'+com.precioKg.toLocaleString('es-AR')+' <span style="font-size:13px;">/kg</span></div><div class="s">le vendés el kg a</div></div>'
+    +'<div class="fce-card" style="--acc:'+(com.rent>=0?'var(--green)':'var(--red)')+'"><div class="l">Rentabilidad prom.</div><div class="v" style="color:'+(com.rent>=0?'var(--green)':'var(--red)')+'">'+com.rent.toLocaleString('es-AR')+'%</div><div class="s">'+_rp.lbl+' · real→teórico</div></div>'
+  +'</div>';
+
+  // Gráficos
+  h+='<div class="an-section">Evolución (12 meses)</div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">'
+    +_c360Barras('Facturación por mes',S.fac,S.meses,'var(--green)')
+    +_c360Barras('Cobros por mes',S.cob,S.meses,'var(--accent)')
+    +_c360Barras('Deuda al cierre',S.deuda,S.meses,'#f97316')
+  +'</div>';
+
+  // Documentos con trazabilidad
+  h+='<div class="an-section">Documentos · click en una fila para ver la cadena · 🖨 para imprimir</div>';
+  const tb=(t,l,n)=>'<button class="btn btn-sm'+(CLI360.tabDoc===t?' btn-primary':'')+'" onclick="c360Tab(\''+t+'\')">'+l+' <span style="opacity:.6;">'+n+'</span></button>';
+  h+='<div class="btn-grp" style="margin-bottom:10px;">'
+    +tb('facturas','🧾 Facturas',facs.length)+tb('remitos','📦 Remitos',_c360Remitos(id).length)
+    +tb('pedidos','📋 Pedidos',_c360Pedidos(id).length)+tb('recibos','💵 Recibos',_c360Recibos(id).length)
+  +'</div>';
+  h+='<div id="c360-docs">'+_c360RenderDocs(id)+'</div>';
+
+  // Cuenta corriente embebida
+  h+='<div class="an-section" style="display:flex;justify-content:space-between;align-items:center;">Cuenta corriente <button class="btn btn-sm" onclick="_c360ImprimirCC('+id+')" style="text-transform:none;letter-spacing:0;">🖨 Imprimir para el cliente</button></div>';
+  const movs=_c360MovsCC(id);
+  if(!movs.length)h+='<div style="font-size:12px;color:var(--text3);">Sin movimientos.</div>';
+  else{
+    const last=movs.slice(-14).reverse();
+    h+='<div style="overflow-x:auto;"><table style="width:100%;font-size:12px;border-collapse:collapse;">'
+      +'<tr style="color:var(--text3);font-size:10px;text-transform:uppercase;text-align:left;"><th style="padding:5px;">Fecha</th><th>Comprobante</th><th style="text-align:right;">Debe</th><th style="text-align:right;">Haber</th><th style="text-align:right;">Saldo</th></tr>';
+    last.forEach(m=>{h+='<tr style="border-top:1px solid var(--border);'+(m.tipo?'cursor:pointer;':'')+'"'+(m.tipo&&m.docId?' onclick="c360VerTraza(\''+m.tipo+'\','+m.docId+')"':'')+'>'
+      +'<td style="padding:5px;">'+escapeHtml(m.fecha)+'</td><td>'+escapeHtml(m.ref)+'</td>'
+      +'<td style="text-align:right;font-family:monospace;color:var(--red);">'+(m.debe?'$'+m.debe.toLocaleString('es-AR'):'')+'</td>'
+      +'<td style="text-align:right;font-family:monospace;color:var(--green);">'+(m.haber?'$'+m.haber.toLocaleString('es-AR'):'')+'</td>'
+      +'<td style="text-align:right;font-family:monospace;font-weight:600;">$'+m.saldo.toLocaleString('es-AR')+'</td></tr>';});
+    h+='</table></div><div style="font-size:10px;color:var(--text3);margin-top:4px;">Últimos 14 movimientos. Saldo final: <b>$'+(movs[movs.length-1].saldo).toLocaleString('es-AR')+'</b></div>';
+  }
+
+  // Qué compra ($ y %) + precios
+  const top=_c360TopProductos(id);
+  const esp=(C.cli_precios_esp||[]).filter(e=>e.cliente_id===id);
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px;">';
+  h+='<div><div class="an-section">Qué compra (por facturación)</div>';
+  if(!top.items.length)h+='<div style="font-size:12px;color:var(--text3);">Sin remitos.</div>';
+  else{h+='<table style="width:100%;font-size:12px;"><tbody>'+top.items.map(t=>'<tr><td style="padding:4px 6px;">'+escapeHtml(t.nom)+'</td>'
+    +'<td style="text-align:right;font-family:monospace;">$'+Math.round(t.val).toLocaleString('es-AR')+'</td>'
+    +'<td style="text-align:right;color:var(--accent);width:46px;">'+t.pct.toFixed(0)+'%</td>'
+    +'<td style="width:70px;"><div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;"><div style="height:100%;width:'+Math.min(100,t.pct)+'%;background:var(--accent);"></div></div></td></tr>').join('')+'</tbody></table>';}
+  h+='</div>';
+  h+='<div><div class="an-section">Precios especiales</div>';
+  if(!esp.length)h+='<div style="font-size:12px;color:var(--text3);">Sin precios especiales · usa la lista '+(lista?escapeHtml(lista.nombre):'—')+'.</div>';
+  else{h+='<table style="width:100%;font-size:12px;"><tbody>'+esp.map(e=>{const p=(C.productos||[]).find(x=>x.id===e.producto_id);return '<tr><td style="padding:4px 6px;">'+escapeHtml((p&&(p.descripcion||p.nombre))||('Prod '+e.producto_id))+'</td><td style="text-align:right;font-family:monospace;">$'+(parseFloat(e.precio)||0).toLocaleString('es-AR')+'</td></tr>';}).join('')+'</tbody></table>';}
+  h+='</div></div>';
+
+  wrap.innerHTML=h;
+}
+
+function _c360Barras(titulo,datos,meses,color){
+  const max=Math.max(1,...meses.map(m=>datos[m]||0));
+  const bars=meses.map(m=>{const v=datos[m]||0;const hp=Math.round(v/max*90);
+    return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;justify-content:flex-end;">'
+      +'<div style="font-size:8px;color:var(--text3);font-family:DM Mono,monospace;">'+(v>0?_kMoney(v):'')+'</div>'
+      +'<div style="width:68%;height:'+Math.max(2,hp)+'px;background:'+color+';border-radius:2px 2px 0 0;" title="'+m+': $'+Math.round(v).toLocaleString('es-AR')+'"></div>'
+      +'<div style="font-size:8px;color:var(--text3);">'+m.slice(5,7)+'</div></div>';}).join('');
+  return '<div class="fce-card" style="--acc:'+color+';padding:14px;"><div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">'+titulo+'</div><div style="display:flex;align-items:flex-end;gap:3px;height:120px;">'+bars+'</div></div>';
+}
+
+function _c360RenderDocs(id){
+  const t=CLI360.tabDoc;
+  const printBtn=(tipo,did)=>'<button class="btn btn-sm" onclick="event.stopPropagation();_c360Print(\''+tipo+'\','+did+')" title="Imprimir">🖨</button>';
+  let html='<table style="width:100%;font-size:12px;border-collapse:collapse;">';
+  if(t==='facturas'){
+    const arr=_c360Facturas(id).slice().sort((a,b)=>_c360Fecha(b).localeCompare(_c360Fecha(a)));
+    if(!arr.length)return '<div style="font-size:12px;color:var(--text3);padding:10px;">Sin facturas.</div>';
+    html+='<tr style="color:var(--text3);font-size:10px;text-transform:uppercase;text-align:left;"><th style="padding:5px;">Comprobante</th><th>Fecha</th><th style="text-align:right;">Total</th><th style="text-align:right;">Saldo</th><th></th></tr>';
+    arr.forEach(f=>{const sal=_saldoFactura(f);html+='<tr style="border-top:1px solid var(--border);cursor:pointer;" onclick="c360VerTraza(\'factura\','+f.id+')"><td style="padding:6px;font-weight:600;">'+escapeHtml((f.tipo||'')+' '+(f.numero||('#'+f.id)))+'</td><td>'+_c360Fecha(f)+'</td><td style="text-align:right;font-family:monospace;">$'+(parseFloat(f.total)||0).toLocaleString('es-AR')+'</td><td style="text-align:right;font-family:monospace;color:'+(sal>0.01?'var(--red)':'var(--text3)')+';">$'+sal.toLocaleString('es-AR')+'</td><td style="text-align:right;white-space:nowrap;">'+printBtn('factura',f.id)+'</td></tr>';});
+  } else if(t==='remitos'){
+    const arr=_c360Remitos(id).slice().sort((a,b)=>_c360Fecha(b).localeCompare(_c360Fecha(a)));
+    if(!arr.length)return '<div style="font-size:12px;color:var(--text3);padding:10px;">Sin remitos.</div>';
+    html+='<tr style="color:var(--text3);font-size:10px;text-transform:uppercase;text-align:left;"><th style="padding:5px;">Remito</th><th>Fecha</th><th>Pedido</th><th>Estado</th><th></th></tr>';
+    arr.forEach(r=>{const ped=(C.pedidos||[]).find(p=>p.id===r.pedido_id);html+='<tr style="border-top:1px solid var(--border);cursor:pointer;" onclick="c360VerTraza(\'remito\','+r.id+')"><td style="padding:6px;font-weight:600;">'+escapeHtml(r.numero_remito||('#'+r.id))+'</td><td>'+_c360Fecha(r)+'</td><td>'+(ped?escapeHtml(ped.numero_pedido||('#'+ped.id)):'—')+'</td><td style="font-size:11px;">'+escapeHtml(r.estado||'')+'</td><td style="text-align:right;white-space:nowrap;">'+printBtn('remito',r.id)+'</td></tr>';});
+  } else if(t==='pedidos'){
+    const arr=_c360Pedidos(id).slice().sort((a,b)=>_c360Fecha(b).localeCompare(_c360Fecha(a)));
+    if(!arr.length)return '<div style="font-size:12px;color:var(--text3);padding:10px;">Sin pedidos.</div>';
+    html+='<tr style="color:var(--text3);font-size:10px;text-transform:uppercase;text-align:left;"><th style="padding:5px;">Pedido</th><th>Fecha</th><th>Estado</th><th></th></tr>';
+    arr.forEach(p=>{html+='<tr style="border-top:1px solid var(--border);cursor:pointer;" onclick="c360VerTraza(\'pedido\','+p.id+')"><td style="padding:6px;font-weight:600;">'+escapeHtml(p.numero_pedido||('#'+p.id))+'</td><td>'+_c360Fecha(p)+'</td><td style="font-size:11px;">'+escapeHtml(p.estado||'')+'</td><td style="text-align:right;white-space:nowrap;">'+printBtn('pedido',p.id)+'</td></tr>';});
+  } else {
+    const arr=_c360Recibos(id).slice().sort((a,b)=>_c360Fecha(b).localeCompare(_c360Fecha(a)));
+    if(!arr.length)return '<div style="font-size:12px;color:var(--text3);padding:10px;">Sin recibos.</div>';
+    html+='<tr style="color:var(--text3);font-size:10px;text-transform:uppercase;text-align:left;"><th style="padding:5px;">Recibo</th><th>Fecha</th><th style="text-align:right;">Cobrado</th><th></th></tr>';
+    arr.forEach(r=>{html+='<tr style="border-top:1px solid var(--border);cursor:pointer;" onclick="c360VerTraza(\'recibo\','+r.id+')"><td style="padding:6px;font-weight:600;">'+escapeHtml(r.numero||('#'+r.id))+'</td><td>'+_c360Fecha(r)+'</td><td style="text-align:right;font-family:monospace;">$'+(parseFloat(r.total_cobrado)||0).toLocaleString('es-AR')+'</td><td style="text-align:right;white-space:nowrap;">'+printBtn('recibo',r.id)+'</td></tr>';});
+  }
+  return html+'</table>';
+}
+
+// Modal de trazabilidad con chips NAVEGABLES + imprimir
+function c360VerTraza(tipo,docId){
+  let titulo='',cuerpo='';
+  const chip=(navTipo,navId,txt,sub)=>{
+    const clickable=navTipo&&navId;
+    return '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:6px 10px;margin-bottom:5px;font-size:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;'+(clickable?'cursor:pointer;':'')+'"'+(clickable?' onclick="c360VerTraza(\''+navTipo+'\','+navId+')"':'')+'>'
+      +'<span><b>'+escapeHtml(txt)+'</b>'+(sub?' <span style="color:var(--text3);">· '+escapeHtml(sub)+'</span>':'')+'</span>'
+      +'<span style="white-space:nowrap;">'+(clickable?'<button class="btn btn-sm" onclick="event.stopPropagation();_c360Print(\''+navTipo+'\','+navId+')" title="Imprimir">🖨</button> <span style="color:var(--accent);font-size:11px;">abrir →</span>':'')+'</span>'
+    +'</div>';
+  };
+  const bloque=(lbl,items,fmt)=>'<div style="margin:10px 0;"><div style="font-size:10px;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:4px;">'+lbl+'</div>'+(items&&items.length?items.map(fmt).join(''):'<div style="font-size:12px;color:var(--text3);">— ninguno —</div>')+'</div>';
+  if(tipo==='factura'){
+    const f=(C.facturas||[]).find(x=>x.id===docId);if(!f)return;const tz=_c360TrazaFactura(f);
+    titulo='🧾 Factura '+((f.tipo||'')+' '+(f.numero||('#'+f.id)));
+    cuerpo=chip(null,null,'Total $'+(parseFloat(f.total)||0).toLocaleString('es-AR')+' · saldo $'+_saldoFactura(f).toLocaleString('es-AR'),_c360Fecha(f))
+      +bloque('Remitos que factura',tz.remitos,r=>chip('remito',r.id,'Remito '+(r.numero_remito||('#'+r.id)),_c360Fecha(r)))
+      +bloque('Pedidos de origen',tz.pedidos,p=>chip('pedido',p.id,'Pedido '+(p.numero_pedido||('#'+p.id)),p.estado))
+      +bloque('Recibos que la cobran',tz.recibos,r=>chip('recibo',r.id,'Recibo '+(r.numero||('#'+r.id)),'$'+(parseFloat(r.total_cobrado)||0).toLocaleString('es-AR')));
+  } else if(tipo==='remito'){
+    const r=(C.remitos||[]).find(x=>x.id===docId);if(!r)return;const tz=_c360TrazaRemito(r);
+    titulo='📦 Remito '+(r.numero_remito||('#'+r.id));
+    cuerpo=chip(null,null,_c360Fecha(r)+' · '+(r.estado||''))
+      +bloque('Pedido de origen',tz.pedido?[tz.pedido]:[],p=>chip('pedido',p.id,'Pedido '+(p.numero_pedido||('#'+p.id)),p.estado))
+      +bloque('Factura',tz.factura?[tz.factura]:[],f=>chip('factura',f.id,'Factura '+((f.tipo||'')+' '+(f.numero||('#'+f.id))),'$'+(parseFloat(f.total)||0).toLocaleString('es-AR')))
+      +bloque('Recibos',tz.recibos,x=>chip('recibo',x.id,'Recibo '+(x.numero||('#'+x.id)),'$'+(parseFloat(x.total_cobrado)||0).toLocaleString('es-AR')));
+  } else if(tipo==='pedido'){
+    const p=(C.pedidos||[]).find(x=>x.id===docId);if(!p)return;const tz=_c360TrazaPedido(p);
+    titulo='📋 Pedido '+(p.numero_pedido||('#'+p.id));
+    cuerpo=chip(null,null,_c360Fecha(p)+' · '+(p.estado||''))
+      +bloque('Remitos de entrega',tz.remitos,r=>chip('remito',r.id,'Remito '+(r.numero_remito||('#'+r.id)),_c360Fecha(r)))
+      +bloque('Facturas',tz.facturas,f=>chip('factura',f.id,'Factura '+((f.tipo||'')+' '+(f.numero||('#'+f.id))),'$'+(parseFloat(f.total)||0).toLocaleString('es-AR')))
+      +bloque('Órdenes de corte',tz.ocs,o=>chip(null,null,'OC '+(o.numero||('#'+o.id)),o.estado));
+  } else {
+    const r=(C.recibos||[]).find(x=>x.id===docId);if(!r)return;const tz=_c360TrazaRecibo(r);
+    titulo='💵 Recibo '+(r.numero||('#'+r.id));
+    cuerpo=chip(null,null,'Cobrado $'+(parseFloat(r.total_cobrado)||0).toLocaleString('es-AR'),_c360Fecha(r))
+      +bloque('Facturas que cancela',tz.facturas,f=>chip('factura',f.id,'Factura '+((f.tipo||'')+' '+(f.numero||('#'+f.id))),'$'+(parseFloat(f.total)||0).toLocaleString('es-AR')));
+  }
+  document.getElementById('c360-traza-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="c360-traza-modal"><div class="modal-card" style="max-width:500px;max-height:82vh;overflow:auto;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;"><div class="modal-title" style="border:none;margin:0;padding:0;">'+titulo+'</div><button class="btn btn-sm" onclick="_c360Print(\''+tipo+'\','+docId+')">🖨 Imprimir</button></div>'
+    +'<div style="margin-top:10px;">'+cuerpo+'</div>'
+    +'<div class="btn-grp" style="margin-top:14px;"><button class="btn btn-sm" onclick="document.getElementById(\'c360-traza-modal\').remove()">Cerrar</button></div>'
+    +'</div></div>');
+}
+
 function renderClientes(){
   const w=document.getElementById('cli-tbl');if(!w)return;
   if(!C.clientes.length){w.innerHTML='<div class="empty">No hay clientes.</div>';return;}
@@ -6715,6 +7056,7 @@ function renderClientes(){
         +'<td>'+(lista?'<span style="color:var(--green);font-size:12px;">✓ '+lista.nombre+'</span>':'<span style="color:var(--amber);font-size:11px;">Sin lista</span>')+'</td>'
         +'<td class="mono" style="font-size:12px;">'+(c.dias_credito||'—')+'</td>'
         +'<td style="white-space:nowrap;">'
+          +'<button class="btn btn-sm" onclick="abrirCliente360('+c.id+')" style="margin-right:4px;">📊 360°</button>'
           +'<button class="btn btn-sm" onclick="editarCliente('+c.id+')" style="margin-right:4px;">✏️ Editar</button>'
           +'<button class="btn btn-sm btn-del" onclick="delCliente('+c.id+')">×</button>'
         +'</td>'
@@ -7372,6 +7714,7 @@ function go(name){
   if(name==='gastos-fijos')renderGastosFijos();
   if(name==='sueldos')renderSueldos();
   if(name==='fichaje')renderFichaje();
+  if(name==='cliente360')renderCliente360();
   if(name==='compras-gastos')renderComprasGastos();
   if(name==='deudas')renderDeudas();
   if(name==='libro-caja')renderLibroCaja();
@@ -9023,18 +9366,20 @@ function renderNrDirecta(){
     div.innerHTML='<div style="background:var(--bg3);border:1.5px dashed var(--border);border-radius:var(--rl);padding:20px;text-align:center;color:var(--text2);font-size:12px;">Tocá <strong>+ Agregar producto del stock</strong> para empezar.</div>';
     return;
   }
-  // Productos que tienen stock libre
-  const conStockLibre={};
+  // Productos con existencias: stock libre (disponible) + reservado a otros pedidos.
+  // Se muestran ambos para poder sacar de una reserva y reponerla después (reasignación).
+  const conStock={};
   (C.stock_bolsas||[]).forEach(s=>{
-    if(s.estado==='disponible'&&(s.cantidad_paquetes||0)>0){
-      conStockLibre[s.producto_id]=(conStockLibre[s.producto_id]||0)+(parseFloat(s.cantidad_paquetes)||0);
-    }
+    const q=parseFloat(s.cantidad_paquetes)||0; if(q<=0)return;
+    if(s.estado==='disponible'){(conStock[s.producto_id]=conStock[s.producto_id]||{libre:0,reservado:0}).libre+=q;}
+    else if(s.estado==='reservado'){(conStock[s.producto_id]=conStock[s.producto_id]||{libre:0,reservado:0}).reservado+=q;}
   });
   let html='';
   const cliIdDir=parseInt(document.getElementById('nr-cli')?.value)||0;
   _nrDirectaLineas.forEach(l=>{
     const prod=l.producto_id?C.productos.find(p=>p.id===l.producto_id):null;
-    const stockLibre=l.producto_id?(conStockLibre[l.producto_id]||0):0;
+    const _st=l.producto_id?(conStock[l.producto_id]||{libre:0,reservado:0}):{libre:0,reservado:0};
+    const stockLibre=_st.libre; const stockReserv=_st.reservado;
     const emp=prod?C.emp.find(e=>e.id===prod.empaque_id):null;
     const uniPaq=emp?.unidades||0;
     // Precio según lista del cliente / precio especial
@@ -9051,10 +9396,12 @@ function renderNrDirecta(){
         +'<div class="fg" style="margin:0;flex:2;min-width:180px;"><label style="font-size:11px">Producto</label>'
           +'<select onchange="nrDirectaSetProd('+l.id+',this.value)" style="width:100%;">'
             +'<option value="">— seleccionar —</option>'
-            +Object.keys(conStockLibre).map(pid=>{
+            +Object.keys(conStock).map(pid=>{
               const pr=C.productos.find(p=>p.id===parseInt(pid));
               if(!pr)return '';
-              return '<option value="'+pid+'"'+(l.producto_id===parseInt(pid)?' selected':'')+'>'+(pr.codigo?pr.codigo+' · ':'')+pr.descripcion+' ('+conStockLibre[pid].toLocaleString('es-AR')+' paq libres)</option>';
+              const _s2=conStock[pid];
+              const _etq=_s2.libre.toLocaleString('es-AR')+' libres'+(_s2.reservado>0?' · '+_s2.reservado.toLocaleString('es-AR')+' reservados':'');
+              return '<option value="'+pid+'"'+(l.producto_id===parseInt(pid)?' selected':'')+'>'+(pr.codigo?pr.codigo+' · ':'')+pr.descripcion+' ('+_etq+')</option>';
             }).join('')
           +'</select>'
         +'</div>'
@@ -9064,8 +9411,8 @@ function renderNrDirecta(){
         +'<div class="fg" style="margin:0;width:110px;"><label style="font-size:11px">Precio/paq</label>'
           +'<input type="number" min="0" step="0.01" id="nr-dir-precio-'+l.id+'" value="'+(l.precio||precio||'')+'" placeholder="0" oninput="nrDirectaSetPrecio('+l.id+',this.value)">'
         +'</div>'
-        +'<div class="fg" style="margin:0;width:100px;"><label style="font-size:11px">Stock libre</label>'
-          +'<div class="computed" style="margin-top:0;color:'+(stockLibre>0?'var(--green)':'var(--red)')+';">'+stockLibre.toLocaleString('es-AR')+'</div>'
+        +'<div class="fg" style="margin:0;width:150px;"><label style="font-size:11px">Disponible</label>'
+          +'<div class="computed" style="margin-top:0;font-size:12px;color:'+(stockLibre>0?'var(--green)':'var(--text3)')+';">'+stockLibre.toLocaleString('es-AR')+' libre'+(stockReserv>0?' <span style="color:var(--amber);">+'+stockReserv.toLocaleString('es-AR')+' reserv.</span>':'')+'</div>'
         +'</div>'
         +'<div class="fg" style="margin:0;width:110px;"><label style="font-size:11px">Subtotal</label>'
           +'<div class="computed" id="nr-dir-sub-'+l.id+'" style="margin-top:0;font-weight:700;">—</div>'
@@ -9536,6 +9883,9 @@ async function confirmarReasignacionRemito(){
 async function _ejecutarGuardarRemito(nro,pedId,cliId,fecha,obs,modo,ped,cli,lineasRemito,reasignaciones,sustituciones){
   sustituciones=sustituciones||[];
   const msg=document.getElementById('msg-nr');
+  if(window._ejecutandoRemito){return;}          // candado anti doble-guardado
+  window._ejecutandoRemito=true;
+  const _btnGR=document.getElementById('btn-guardar-remito'); if(_btnGR)_btnGR.disabled=true;
   try{
     // Crear remito
     // Plano: en modo pedido se hereda del pedido; en venta directa lo elige el usuario
@@ -9729,6 +10079,9 @@ async function _ejecutarGuardarRemito(nro,pedId,cliId,fecha,obs,modo,ped,cli,lin
   } catch(err){
     console.error('Error guardando remito:',err);
     msg.style.color='var(--red)';msg.textContent='Error: '+(err.message||err);
+  } finally {
+    window._ejecutandoRemito=false;
+    const _bgr=document.getElementById('btn-guardar-remito'); if(_bgr)_bgr.disabled=false;
   }
 }
 
