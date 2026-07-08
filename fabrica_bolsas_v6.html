@@ -581,6 +581,7 @@ body.pext-on .main{margin-left:0!important;}
         <div class="nav-item" onclick="go('historial-ordenes')"><div class="nav-dot"></div>Historial órdenes</div>
         <div class="nav-item" onclick="go('suspension-maquinas')"><div class="nav-dot" style="background:var(--red)"></div>Suspensión máquinas</div>
         <div class="nav-item" onclick="goAdmin('informe-corte')"><div class="nav-dot" style="background:var(--purple)"></div>Informe producción 🔐</div>
+        <div class="nav-item" onclick="goAdmin('analisis-corte')"><div class="nav-dot" style="background:var(--teal)"></div>Análisis de corte 🔐</div>
       </div>
     </div>
     <div class="nav-grp" data-grp="stock">
@@ -958,7 +959,10 @@ body.pext-on .main{margin-left:0!important;}
             <select id="conf-oc" onchange="onConfOCChange()"><option value="">— seleccionar orden —</option></select>
           </div>
           <div class="fg"><label>Operario</label>
-            <select id="conf-op-sel" onchange="setTimeout(()=>document.getElementById('conf-pistola-input')?.focus(),50)"><option value="">— seleccionar —</option></select>
+            <select id="conf-op-sel" onchange="_confRecordarSel();setTimeout(()=>document.getElementById('conf-pistola-input')?.focus(),50)"><option value="">— seleccionar —</option></select>
+          </div>
+          <div class="fg"><label>Máquina <span style="color:var(--text3);font-weight:400;font-size:10px;">(las bobinas se cargan a esta — cambiala si partís la OC en 2)</span></label>
+            <select id="conf-maq-sel" onchange="_confRecordarSel();setTimeout(()=>document.getElementById('conf-pistola-input')?.focus(),50)"><option value="">— seleccionar —</option></select>
           </div>
         </div>
         <!-- INFO ORDEN -->
@@ -1017,6 +1021,22 @@ body.pext-on .main{margin-left:0!important;}
     <!-- PANEL CORTE (pantalla de planta, fullscreen) -->
     <div class="page" id="page-panel-corte">
       <div id="pcorte-root"></div>
+    </div>
+
+    <!-- ANÁLISIS DE CORTE (día × máquina × operario, cadencia de cargas) -->
+    <div class="page" id="page-analisis-corte">
+      <div class="page-hdr">
+        <div>
+          <div class="page-title">Análisis de corte</div>
+          <div class="page-sub">Kg y bolsas por día y máquina · cadencia entre cargas · rendimiento y costo por operario. Todo derivado de las cargas reales de bobinas (fecha, hora, máquina y operario de cada carga).</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn btn-sm" onclick="acMesNav(-1)">←</button>
+          <input type="month" class="st-sel" id="ac-mes" onchange="renderAnalisisCorte()">
+          <button class="btn btn-sm" onclick="acMesNav(1)">→</button>
+        </div>
+      </div>
+      <div id="ac-root"><div class="loading"><div class="spinner"></div></div></div>
     </div>
 
     <!-- BOBINAS -->
@@ -5938,9 +5958,37 @@ function poblarConfSelects(){
     coc.innerHTML='<option value="">— seleccionar orden de corte —</option>'+
       enProc.map(o=>`<option value="${o.id}">${o.numero_orden} · ${o.productos?.descripcion||''} · ${o.unidades_a_producir?.toLocaleString('es-AR')||''} u</option>`).join('');
   }
-  // Operarios
+  // Operarios: empleados activos del módulo Sueldos (value = id de empleado).
+  // Así cada carga queda atada al legajo y se puede costear (kg/día y costo/kg
+  // por operario en Análisis de corte). P2: se elige del maestro, nunca texto libre.
   const co=document.getElementById('conf-op-sel');
-  if(co)co.innerHTML='<option value="">— seleccionar —</option>'+C.operarios.map(o=>`<option value="${o.nombre}">${o.nombre}</option>`).join('');
+  if(co){
+    const emps=(C.empleados||[]).filter(e=>e.activo);
+    co.innerHTML='<option value="">— seleccionar —</option>'+emps.map(e=>`<option value="${e.id}">${escapeHtml(e.apellido_nombre||('Empleado #'+e.id))}</option>`).join('');
+    try{const last=localStorage.getItem('conf_last_emp');if(last&&emps.some(e=>String(e.id)===last))co.value=last;}catch(e){}
+  }
+  // Máquina de corte (obligatoria al asociar: alimenta kg × día × máquina y la cadencia de cargas)
+  const cmq=document.getElementById('conf-maq-sel');
+  if(cmq){
+    const maqs=(C.maq_corte||[]).filter(m=>m.activa!==false);
+    cmq.innerHTML='<option value="">— seleccionar —</option>'+maqs.map(m=>`<option value="${m.id}">${escapeHtml(m.nombre)}</option>`).join('');
+    try{const last=localStorage.getItem('conf_last_maq');if(last&&maqs.some(m=>String(m.id)===last))cmq.value=last;}catch(e){}
+  }
+}
+// Recuerda el último operario/máquina elegidos en esta terminal (cada PC de planta
+// suele estar al lado de una máquina fija — evita reelegir en cada carga).
+function _confRecordarSel(){
+  try{
+    const e=document.getElementById('conf-op-sel')?.value||'';
+    const m=document.getElementById('conf-maq-sel')?.value||'';
+    if(e)localStorage.setItem('conf_last_emp',e);
+    if(m)localStorage.setItem('conf_last_maq',m);
+  }catch(err){}
+}
+// Nombre visible de un empleado (para marcas de auditoría y stock_movimientos.operario)
+function _empNombre(id){
+  const e=(C.empleados||[]).find(x=>x.id===parseInt(id));
+  return e?(e.apellido_nombre||('Empleado #'+e.id)):'';
 }
 
 // === Set de bobinas seleccionadas (máx 4) ===
@@ -6007,15 +6055,17 @@ function onConfOCChange(){
     if(!asoc.length){tblAsoc.innerHTML='<div class="empty">Sin bobinas asociadas aún.</div>';}
     else {
       tblAsoc.innerHTML='<div style="overflow-x:auto"><table><thead><tr>'
-        +'<th>N° Bobina</th><th>Tipo</th><th>Metros</th><th>Fecha asignación</th>'
+        +'<th>N° Bobina</th><th>Tipo</th><th>Metros</th><th>Máquina</th><th>Fecha asignación</th>'
         +'</tr></thead><tbody>'
         +asoc.map(b=>{
           const bp=b.bobinas_producidas;
           const tipo=bp?.bobinas?.nombre||C.bobinas.find(x=>x.id===bp?.bobina_tipo_id)?.nombre||'—';
+          const maqN=b.maquina_id?(C.maq_corte.find(m=>m.id===b.maquina_id)?.nombre||'—'):'<span style="color:var(--text3)">—</span>';
           return '<tr>'
             +'<td class="mono">'+(bp?.numero_bobina||'—')+'</td>'
             +'<td style="font-size:12px">'+tipo+'</td>'
             +'<td class="mono">'+(bp?.metros_reales||'—')+' m</td>'
+            +'<td style="font-size:12px">'+maqN+'</td>'
             +'<td class="mono" style="font-size:11px">'+(b.fecha_asignacion?new Date(b.fecha_asignacion).toLocaleString('es-AR'):'')+'</td>'
             +'</tr>';
         }).join('')
@@ -6351,7 +6401,7 @@ async function procesarEscaneoOC(raw){
   // Buscar la OC por número
   const oc=C.ord_corte.find(x=>(x.numero_orden||'').toUpperCase()===codigoOC);
   if(!oc){pistolaFeedback('✕ OC '+codigoOC+' no encontrada.','var(--red)','error');return;}
-  // Verificar operario elegido (el value del select es el nombre, no un id)
+  // Verificar operario elegido (el value del select es el id de empleado del módulo Sueldos)
   const opSel=document.getElementById('conf-op-sel');
   const opNom=(opSel?.value||'').trim();
   if(!opNom){pistolaFeedback('⚠ Elegí primero el operario antes de iniciar la OC.','var(--amber)','error');return;}
@@ -6489,9 +6539,13 @@ function preseleccionarBobinaQR(numeroBobina){
 
 async function asociarBobinasOrdenCorte(){
   const ocId=parseInt(document.getElementById('conf-oc')?.value);
-  const op=document.getElementById('conf-op-sel')?.value||'';
+  const empId=parseInt(document.getElementById('conf-op-sel')?.value)||null;
+  const maqId=parseInt(document.getElementById('conf-maq-sel')?.value)||null;
+  const op=empId?_empNombre(empId):'';
   const msg=document.getElementById('msg-conf');
   if(!ocId){msg.style.color='var(--red)';msg.textContent='Seleccioná una orden.';return;}
+  if(!empId){msg.style.color='var(--red)';msg.textContent='Elegí el operario (necesario para el análisis por operario).';return;}
+  if(!maqId){msg.style.color='var(--red)';msg.textContent='Elegí la máquina (necesaria para el análisis por máquina).';return;}
   if(!_confBobSel.size){msg.style.color='var(--red)';msg.textContent='Seleccioná al menos una bobina.';return;}
   if(_confBobSel.size>MAX_BOBINAS_CONF){msg.style.color='var(--red)';msg.textContent='Máximo '+MAX_BOBINAS_CONF+' bobinas.';return;}
   const oc=C.ord_corte.find(x=>x.id===ocId);
@@ -6539,10 +6593,13 @@ async function asociarBobinasOrdenCorte(){
     const rows=bobsNuevas.map(b=>({
       orden_corte_id:ocId,
       bobina_producida_id:b.id,
-      metros_usados:b.metros_reales
+      metros_usados:b.metros_reales,
+      empleado_id:empId,
+      maquina_id:maqId
     }));
     const{error:e1}=await sb.from('orden_corte_bobinas').insert(rows);
     if(e1){msg.style.color='var(--red)';msg.textContent=(e1.code==='23505')?'Una de esas bobinas ya estaba asociada a la orden — no se duplica.':'Error: '+e1.message;return;}
+    _confRecordarSel();
     // Sacar todas del stock y limpiar reserva si la tenían
     // (reservada_oc_id era una reserva opcional desde el Balance; al cortar, ya no aplica)
     const ids=bobsNuevas.map(b=>b.id);
@@ -7705,6 +7762,7 @@ function go(name){
   if(name==='listas-precios')initListasPrecios();
   if(name==='clientes-precios')initClientePrecios();
   if(name==='informe-corte')renderInformeCorte();
+  if(name==='analisis-corte')renderAnalisisCorte();
   if(name==='rentabilidad')renderRentabilidad();
   if(name==='historial-ordenes')renderHistorial();
   if(name==='suspension-maquinas'){renderSuspMaquinas();renderSuspHistorial();}
@@ -17696,6 +17754,7 @@ function empAbrirForm(id){
       +'<div class="fg"><label>Obra social</label><input id="emp-os" type="text" value="'+String(e?.obra_social||'').replace(/"/g,'&quot;')+'" style="width:100%"></div>'
       +'<div class="fg"><label>Régimen</label><select id="emp-tipo" style="width:100%"><option value="cct"'+((e?.tipo||'cct')==='cct'?' selected':'')+'>CCT (UOYEP · aportes completos)</option><option value="direccion"'+(e?.tipo==='direccion'?' selected':'')+'>Dirección (dueño/director)</option></select></div>'
       +'<div class="fg"><label>Esquema de turno</label><select id="emp-esquema" style="width:100%"><option value="">— sin turno —</option>'+(C.esquemas_turno||[]).filter(x=>x.activo!==false).map(x=>'<option value="'+x.id+'"'+(e&&e.esquema_turno_id===x.id?' selected':'')+'>'+escapeHtml(x.nombre)+'</option>').join('')+'</select></div>'
+      +'<div class="fg"><label>Fase de rotación <span style="color:var(--text3);font-size:10px;">(en qué semana del ciclo arranca · 1 = primera · solo rotativos)</span></label><input id="emp-offset" type="number" min="1" value="'+((parseInt(e?.rotacion_offset)||0)+1)+'" style="width:100%"></div>'
       +'<div class="fg" style="display:flex;align-items:flex-end;"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;"><input id="emp-afiliado" type="checkbox"'+(e?.afiliado_sindical?' checked':'')+'> Afiliado al sindicato (cuota sindical 4105)</label></div>'
     +'</div>'
     +'<div style="border-top:1px solid var(--border);margin:12px 0 8px;padding-top:8px;font-size:11px;color:var(--text2);">📅 Presupuesto para el flujo de caja (lo que cobra por mes, se parte en 2 quincenas). Dejá 0 si no querés proyectarlo.</div>'
@@ -17722,6 +17781,7 @@ function empGuardar(){
     categoria:(function(){var _id=parseInt(document.getElementById('emp-categoria-id')?.value)||null;var _c=_id?(C.categorias_salariales||[]).find(x=>x.id===_id):null;return _c?_c.nombre:null;})(),
     horas_mensuales_previstas:parseFloat(document.getElementById('emp-horas')?.value)||0,
     esquema_turno_id:parseInt(document.getElementById('emp-esquema')?.value)||null,
+    rotacion_offset:Math.max(0,(parseInt(document.getElementById('emp-offset')?.value)||1)-1),
     fecha_ingreso:document.getElementById('emp-ingreso')?.value||null,
     obra_social:document.getElementById('emp-os')?.value.trim()||null,
     tipo:document.getElementById('emp-tipo')?.value||'cct',
@@ -18001,8 +18061,22 @@ function _turnoDelDia(emp,fechaStr){
   const ancla=esq.ancla_lunes?String(esq.ancla_lunes):lunAct;
   const dias=Math.round((new Date(lunAct+'T12:00:00')-new Date(ancla+'T12:00:00'))/86400000);
   const nSem=Math.floor(dias/7);
+  const patron=Array.isArray(esq.patron_turnos)?esq.patron_turnos.filter(x=>x!=null):null;
+  if(patron&&patron.length){
+    const off=parseInt(emp.rotacion_offset)||0;
+    const idx=(((nSem+off)%patron.length)+patron.length)%patron.length;
+    return {turno:_turnoById(patron[idx]),rot:'S'+(idx+1)+'/'+patron.length};
+  }
   const par=(((nSem%2)+2)%2)===0;
   return {turno:_turnoById(par?esq.turno_a_id:esq.turno_b_id),rot:par?'A':'B'};
+}
+// Turno de la semana i del ciclo de un esquema (desde patrón o A/B retrocompat)
+function _esqPatVal(es,i){
+  if(!es)return null;
+  if(Array.isArray(es.patron_turnos)&&es.patron_turnos.length)return es.patron_turnos[i]!=null?es.patron_turnos[i]:null;
+  if(i===0)return es.turno_a_id||null;
+  if(i===1)return es.turno_b_id||null;
+  return null;
 }
 function _hhmm(t){return t?String(t).slice(0,5):'';}
 function _esqNombre(id){const e=(C.esquemas_turno||[]).find(x=>x.id===id);return e?e.nombre:'—';}
@@ -18046,7 +18120,7 @@ function _suRenderTurnos(){
       const nEmp=(C.empleados||[]).filter(e=>e.esquema_turno_id===es.id&&e.activo).length;
       let turnosTxt;
       if(es.tipo==='fijo')turnosTxt=escapeHtml((_turnoById(es.turno_fijo_id)||{}).nombre||'—');
-      else turnosTxt=escapeHtml((_turnoById(es.turno_a_id)||{}).nombre||'?')+' ↔ '+escapeHtml((_turnoById(es.turno_b_id)||{}).nombre||'?');
+      else{const _p=Array.isArray(es.patron_turnos)&&es.patron_turnos.length?es.patron_turnos:[es.turno_a_id,es.turno_b_id].filter(Boolean);turnosTxt=_p.map(function(tid,_k){return 'S'+(_k+1)+' '+escapeHtml((_turnoById(tid)||{}).nombre||'?');}).join(' → ');}
       html+='<tr style="border-top:1px solid var(--border);'+(es.activo?'':'opacity:.5;')+'">'
         +'<td style="padding:6px;font-weight:600;">'+escapeHtml(es.nombre||'')+'</td>'
         +'<td style="font-size:11px;">'+(es.tipo==='rotativo_semanal'?'🔄 Rotativo semanal':'📌 Fijo')+'</td>'
@@ -18225,15 +18299,15 @@ function esqAbrirForm(id){
     +'<div class="modal-title">'+(es?'✎ Editar esquema':'➕ Nuevo esquema de rotación')+'</div>'
     +'<input type="hidden" id="esq-id" value="'+(es?.id||'')+'">'
     +'<div class="fg"><label>Nombre</label><input id="esq-nombre" type="text" value="'+String(es?.nombre||'').replace(/"/g,'&quot;')+'" placeholder="ej: Extrusión rotativo (arranca mañana)" style="width:100%"></div>'
-    +'<div class="fg"><label>Tipo</label><select id="esq-tipo" onchange="_esqToggle(this.value)" style="width:100%"><option value="fijo"'+(tipo==='fijo'?' selected':'')+'>Fijo (siempre el mismo turno)</option><option value="rotativo_semanal"'+(tipo==='rotativo_semanal'?' selected':'')+'>Rotativo semanal (alterna A/B por semana)</option></select></div>'
+    +'<div class="fg"><label>Tipo</label><select id="esq-tipo" onchange="_esqToggle(this.value)" style="width:100%"><option value="fijo"'+(tipo==='fijo'?' selected':'')+'>Fijo (siempre el mismo turno)</option><option value="rotativo_semanal"'+(tipo==='rotativo_semanal'?' selected':'')+'>Rotativo por ciclo de semanas</option></select></div>'
     +'<div id="esq-fijo" style="display:'+(tipo==='fijo'?'block':'none')+';"><div class="fg"><label>Turno</label><select id="esq-turno-fijo" style="width:100%">'+opt(es?.turno_fijo_id)+'</select></div></div>'
     +'<div id="esq-rot" style="display:'+(tipo==='rotativo_semanal'?'block':'none')+';">'
-      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
-        +'<div class="fg"><label>Turno semana A</label><select id="esq-turno-a" style="width:100%">'+opt(es?.turno_a_id)+'</select></div>'
-        +'<div class="fg"><label>Turno semana B</label><select id="esq-turno-b" style="width:100%">'+opt(es?.turno_b_id)+'</select></div>'
+      +'<div class="fg" style="margin-bottom:4px;"><label>Ciclo de rotación · el turno de cada semana (dejá "—" para terminar el ciclo)</label></div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">'
+        +[0,1,2,3,4,5].map(function(i){return '<div class="fg" style="margin:0;"><label style="font-size:11px;">Semana '+(i+1)+'</label><select id="esq-sem-'+i+'" style="width:100%"><option value="">—</option>'+opt(_esqPatVal(es,i))+'</select></div>';}).join('')
       +'</div>'
-      +'<div class="fg"><label>Lunes de referencia <span style="color:var(--text3);font-size:10px;">(una semana que arranca en turno A)</span></label><input id="esq-ancla" type="date" value="'+(es?.ancla_lunes||lunHoy)+'" style="width:100%"></div>'
-      +'<div style="font-size:11px;color:var(--text2);background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:6px 10px;">Para la otra cuadrilla, creá un segundo esquema con los mismos turnos pero A y B invertidos (o el lunes de referencia corrido una semana).</div>'
+      +'<div class="fg" style="margin-top:8px;"><label>Lunes de referencia <span style="color:var(--text3);font-size:10px;">(el lunes en que arranca la Semana 1 del ciclo)</span></label><input id="esq-ancla" type="date" value="'+(es?.ancla_lunes||lunHoy)+'" style="width:100%"></div>'
+      +'<div style="font-size:11px;color:var(--text2);background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:6px 10px;">Ej. confección (3 personas): Semana 1 Tarde · Semana 2 Tarde · Semana 3 Mañana. Después a cada empleado le ponés en qué semana del ciclo arranca (su fase 1, 2 o 3).</div>'
     +'</div>'
     +'<div class="btn-grp" style="margin-top:1rem;"><button class="btn btn-sm" onclick="esqGuardar()">💾 Guardar</button><button class="btn btn-sm" onclick="document.getElementById(\'esq-modal\').remove()">Cancelar</button><span id="esq-msg" style="font-size:11px;margin-left:8px;"></span></div>'
     +'</div></div>');
@@ -18249,16 +18323,18 @@ function esqGuardar(){
   const tipo=document.getElementById('esq-tipo')?.value||'fijo';
   const msg=document.getElementById('esq-msg');
   if(!nombre){if(msg){msg.style.color='var(--red)';msg.textContent='Falta el nombre';}return;}
-  const row={nombre:nombre,tipo:tipo,turno_fijo_id:null,turno_a_id:null,turno_b_id:null,ancla_lunes:null};
+  const row={nombre:nombre,tipo:tipo,turno_fijo_id:null,turno_a_id:null,turno_b_id:null,patron_turnos:null,ancla_lunes:null};
   if(tipo==='fijo'){
     row.turno_fijo_id=parseInt(document.getElementById('esq-turno-fijo')?.value)||null;
     if(!row.turno_fijo_id){if(msg){msg.style.color='var(--red)';msg.textContent='Elegí el turno';}return;}
     const tt=_turnoById(row.turno_fijo_id);row.area=tt?tt.area:null;
   }else{
-    row.turno_a_id=parseInt(document.getElementById('esq-turno-a')?.value)||null;
-    row.turno_b_id=parseInt(document.getElementById('esq-turno-b')?.value)||null;
+    const _pat=[];
+    for(let _i=0;_i<6;_i++){const _v=parseInt(document.getElementById('esq-sem-'+_i)?.value)||null;if(_v)_pat.push(_v);}
+    if(_pat.length<2){if(msg){msg.style.color='var(--red)';msg.textContent='Cargá al menos 2 semanas en el ciclo';}return;}
+    row.patron_turnos=_pat;
+    row.turno_a_id=_pat[0]; row.turno_b_id=_pat[1]||_pat[0];
     row.ancla_lunes=document.getElementById('esq-ancla')?.value||null;
-    if(!row.turno_a_id||!row.turno_b_id){if(msg){msg.style.color='var(--red)';msg.textContent='Elegí turno A y B';}return;}
     if(!row.ancla_lunes){if(msg){msg.style.color='var(--red)';msg.textContent='Falta el lunes de referencia';}return;}
     const ta=_turnoById(row.turno_a_id);row.area=ta?ta.area:null;
   }
@@ -19195,6 +19271,50 @@ function _costoLaboralMes(iniStr,finStr){
 // de lotes — misma lógica que Rentabilidad), ventana de 120 días con
 // fallback a histórico. No usa GG: dato marginal, como manda la convención.
 // ============================================================
+// ── SEMAFORO DE RETIROS DE SOCIOS (ganancia acumulada vs retiros) ──
+function _resultadoRangoSync(iniStr,finStr){
+  try{
+    const V=_rmCalcVentas(iniStr,finStr,_rmCostoRealBolsaMap(finStr));
+    const vig=gastosFijosDelMes(iniStr,finStr);
+    const fijos=r2(vig.reduce((s,g)=>{const real=_gastoFijoRealMes(g,iniStr,finStr);return s+(real>0?real:(parseFloat(g.monto_mensual)||0));},0));
+    const op=r2((C.compras_gastos||[]).filter(c=>c.afecta_resultado&&c.fecha&&String(c.fecha)>=iniStr&&String(c.fecha)<=finStr&&!_comprasEsDeFijo(c,vig)).reduce((s,c)=>s+(parseFloat(c.total)||0),0));
+    const deuda=deudaGastoDelMes(iniStr,finStr).total;
+    const cl=_costoLaboralMes(iniStr,finStr);
+    return r2(V.margen-fijos-op-deuda-cl.monto);
+  }catch(e){return 0;}
+}
+function _gananciaAcum(desdeYm){
+  const hoy=localDate().slice(0,7);
+  let acc=0,ym=desdeYm,guard=0;
+  while(ym<=hoy&&guard<60){
+    const r=_rmMesRange(ym);
+    acc+=_resultadoRangoSync(r.iniStr,r.finStr);
+    let a=ym.split('-').map(Number),y=a[0],m=a[1];m++;if(m>12){m=1;y++;}ym=y+'-'+String(m).padStart(2,'0');guard++;
+  }
+  return r2(acc);
+}
+function _retirosSocios(desdeYm){
+  const desde=desdeYm+'-01';
+  return r2((C.compras_gastos||[]).filter(c=>c.categoria==='retiro_socios'&&c.fecha&&String(c.fecha)>=desde).reduce((s,c)=>s+(parseFloat(c.total)||0),0));
+}
+function _retirosSemaforoHtml(){
+  const desde='2026-06';
+  const gan=_gananciaAcum(desde), ret=_retirosSocios(desde), disp=r2(gan-ret);
+  const rojo=ret>gan+1;
+  const pct=gan>0?Math.min(100,ret/gan*100):(ret>0?100:0);
+  let h='<div style="margin-top:24px;border-top:1px solid var(--border);padding-top:16px;max-width:980px;">';
+  h+='<div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text2);margin-bottom:10px;">💸 Retiros de socios · desde junio 2026</div>';
+  h+='<div class="stats" style="margin-bottom:10px;">'
+    +'<div class="stat"><div class="stat-lbl">Ganancia acumulada</div><div class="stat-val" style="color:'+(gan>=0?'var(--green)':'var(--red)')+'">$'+gan.toLocaleString('es-AR')+'</div></div>'
+    +'<div class="stat"><div class="stat-lbl">Retirado (vos + tu hermana)</div><div class="stat-val" style="color:#a855f7;">$'+ret.toLocaleString('es-AR')+'</div></div>'
+    +'<div class="stat"><div class="stat-lbl">'+(rojo?'⚠ Te pasaste':'Podés retirar')+'</div><div class="stat-val" style="color:'+(rojo?'var(--red)':'var(--green)')+'">$'+Math.abs(disp).toLocaleString('es-AR')+'</div></div>'
+  +'</div>';
+  h+='<div style="height:10px;background:var(--bg3);border-radius:6px;overflow:hidden;"><div style="height:100%;width:'+pct+'%;background:'+(rojo?'var(--red)':(pct>80?'var(--amber)':'var(--green)'))+';transition:width .3s;"></div></div>';
+  h+='<div style="font-size:11px;color:'+(rojo?'var(--red)':'var(--text3)')+';margin-top:6px;">'+(rojo?'Estás retirando MÁS de lo que ganó la empresa desde junio — le estás sacando capital, no ganancia. Ojo con esto.':'Los retiros van dentro de la ganancia. Son los retiros por encima de tu sueldo (el sueldo va por el módulo de Sueldos y sí es costo).')+'</div>';
+  h+='</div>';
+  return h;
+}
+
 function _rmMesRange(ym){
   const parts=ym.split('-');const y=parseInt(parts[0]);const m=parseInt(parts[1]);
   const iniStr=ym+'-01';
@@ -19795,6 +19915,308 @@ function dfEditarGuardar(id){
 // matinal de 5 minutos. No tiene tablas propias: resume y enlaza a las
 // pantallas que originan cada número (Principio 1: saldo derivado).
 // ════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+// DERIVADOR CANÓNICO: cargas de corte (P1) — fix 8/7/2026
+// La carga de bobina (orden_corte_bobinas) es el evento atómico del corte.
+// fecha_asignacion es timestamp real → se convierte a fecha LOCAL Argentina
+// (el slice(0,10) del string UTC corría al día siguiente las cargas de la noche).
+// kg prorrateados por metros usados (hoy siempre 100%, correcto por diseño).
+// Este es EL derivador de "kg cortados": tablero y Análisis de corte lo usan.
+// Antes el tablero imputaba por fecha_completada de la OC, lo que corría kg
+// entre meses y dejaba invisibles las OCs completadas sin fecha.
+// ═══════════════════════════════════════════════════════════════════
+function _cargasCorteRango(iniStr,finStr){
+  const out=[];
+  // Máquina inferida para el histórico: OC con exactamente 1 máquina asignada
+  const maqUnica={};
+  (C.ord_corte||[]).forEach(oc=>{
+    const ms=(oc.orden_corte_maquinas||[]);
+    if(ms.length===1)maqUnica[oc.id]=ms[0].maquina_id;
+  });
+  (C.ord_corte||[]).forEach(oc=>{
+    const prod=oc.productos||C.productos.find(p=>p.id===oc.producto_id);
+    const mxb=parseFloat(prod?.metros_por_bolsa)||0;
+    (oc.orden_corte_bobinas||[]).forEach(ocb=>{
+      if(!ocb.fecha_asignacion)return;
+      const d=new Date(ocb.fecha_asignacion);
+      if(isNaN(d))return;
+      const fecha=localDate(d);
+      if(fecha<iniStr||fecha>finStr)return;
+      const bp=ocb.bobinas_producidas;
+      const mReal=parseFloat(bp?.metros_reales)||0;
+      const mUsados=parseFloat(ocb.metros_usados)||mReal;
+      const kg=(mReal>0?(parseFloat(bp?.kg_reales)||0)*mUsados/mReal:0);
+      out.push({
+        fecha, ts:d.getTime(), ocId:oc.id, ocNum:oc.numero_orden, cliente:oc.cliente||'',
+        prodId:oc.producto_id, prodDesc:prod?.descripcion||'',
+        maquinaId:ocb.maquina_id||maqUnica[oc.id]||null,
+        empleadoId:ocb.empleado_id||null,
+        metros:mUsados, kg:r2(kg),
+        bolsas:mxb>0?Math.round(mUsados/mxb):0,
+        bobinaNum:bp?.numero_bobina||''
+      });
+    });
+  });
+  out.sort((a,b)=>a.ts-b.ts);
+  return out;
+}
+function _kgCortadosRango(iniStr,finStr){
+  return r2(_cargasCorteRango(iniStr,finStr).reduce((s,c)=>s+c.kg,0));
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ANÁLISIS DE CORTE — kg/bolsas × día × máquina, cadencia de cargas,
+// rendimiento y costo por operario. Usa SOLO el derivador canónico
+// _cargasCorteRango (P1). El costo laboral viene del presupuesto de
+// nómina (_presupEmpMes) — mismo derivador que Sueldos, sin duplicar.
+// ═══════════════════════════════════════════════════════════════════
+function acMesNav(dir){
+  const inp=document.getElementById('ac-mes');
+  if(!inp)return;
+  const ym=inp.value||localDate().slice(0,7);
+  let y=parseInt(ym.slice(0,4)),m=parseInt(ym.slice(5,7))+dir;
+  if(m===0){m=12;y--;} if(m===13){m=1;y++;}
+  inp.value=y+'-'+String(m).padStart(2,'0');
+  renderAnalisisCorte();
+}
+
+// Agrupa cargas consecutivas de la misma máquina con <2 min de diferencia en un
+// solo EVENTO de carga (la cortadora corre 1-4 bobinas en paralelo: se escanean
+// juntas). El intervalo entre eventos = ciclo real de la máquina.
+function _acEventosDeCarga(cargas){
+  const ev=[];
+  cargas.forEach(c=>{
+    const last=ev[ev.length-1];
+    if(last&&(c.ts-last.tsFin)<120000){
+      last.tsFin=c.ts;last.kg=r2(last.kg+c.kg);last.bolsas+=c.bolsas;last.metros+=c.metros;last.n++;
+      if(c.empleadoId)last.empleadoId=c.empleadoId;
+    }else{
+      ev.push({ts:c.ts,tsFin:c.ts,fecha:c.fecha,kg:c.kg,bolsas:c.bolsas,metros:c.metros,n:1,empleadoId:c.empleadoId,ocNum:c.ocNum});
+    }
+  });
+  return ev;
+}
+function _acMediana(arr){
+  if(!arr.length)return 0;
+  const s=[...arr].sort((a,b)=>a-b);
+  const m=Math.floor(s.length/2);
+  return s.length%2?s[m]:(s[m-1]+s[m])/2;
+}
+function _acFmtMin(ms){
+  const min=Math.round(ms/60000);
+  if(min<60)return min+' min';
+  return Math.floor(min/60)+'h '+String(min%60).padStart(2,'0')+'m';
+}
+function _acHora(ts){const d=new Date(ts);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
+
+function renderAnalisisCorte(){
+  const root=document.getElementById('ac-root');
+  if(!root)return;
+  const inp=document.getElementById('ac-mes');
+  if(inp&&!inp.value)inp.value=localDate().slice(0,7);
+  const ym=inp?.value||localDate().slice(0,7);
+  const{iniStr,finStr,label}=_rmMesRange(ym);
+  const cargas=_cargasCorteRango(iniStr,finStr);
+  const fmtN=n=>Math.round(n||0).toLocaleString('es-AR');
+  const fmt$=n=>'$'+Math.round(n||0).toLocaleString('es-AR');
+
+  if(!cargas.length){
+    root.innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Sin cargas de bobinas en '+label+'.</div>';
+    return;
+  }
+
+  const maqs=(C.maq_corte||[]);
+  const maqNom=id=>maqs.find(m=>m.id===id)?.nombre||'Sin máquina';
+
+  // ── Agregados por día × máquina ──
+  const dias=[...new Set(cargas.map(c=>c.fecha))].sort();
+  const maqIds=[...new Set(cargas.map(c=>c.maquinaId))].sort((a,b)=>(a||9999)-(b||9999));
+  const dm={}; // dm[fecha][maq]={kg,bolsas,cargas}
+  cargas.forEach(c=>{
+    const f=c.fecha,m=c.maquinaId||0;
+    dm[f]=dm[f]||{};
+    dm[f][m]=dm[f][m]||{kg:0,bolsas:0,n:0};
+    dm[f][m].kg+=c.kg;dm[f][m].bolsas+=c.bolsas;dm[f][m].n++;
+  });
+
+  // ── KPIs del mes ──
+  const totKg=r2(cargas.reduce((s,c)=>s+c.kg,0));
+  const totBolsas=cargas.reduce((s,c)=>s+c.bolsas,0);
+  const kgDia=dias.length?totKg/dias.length:0;
+  let html='<div class="stats">'
+    +'<div class="stat"><div class="stat-lbl">Kg cortados</div><div class="stat-val">'+fmtN(totKg)+' kg</div></div>'
+    +'<div class="stat"><div class="stat-lbl">Bolsas (est. por metros)</div><div class="stat-val">'+fmtN(totBolsas)+'</div></div>'
+    +'<div class="stat"><div class="stat-lbl">Cargas de bobina</div><div class="stat-val">'+cargas.length+'</div></div>'
+    +'<div class="stat"><div class="stat-lbl">Días con actividad</div><div class="stat-val">'+dias.length+'</div></div>'
+    +'<div class="stat"><div class="stat-lbl">Kg / día activo</div><div class="stat-val">'+fmtN(kgDia)+' kg</div></div>'
+  +'</div>';
+
+  // ── Tabla día × máquina ──
+  const promKgDia=kgDia;
+  html+='<div class="tw"><div class="tw-bar"><span class="tw-title">Kg y bolsas por día y máquina · '+label+'</span></div>'
+    +'<div style="overflow-x:auto;"><table style="width:100%;font-size:11.5px;">'
+    +'<thead><tr><th style="text-align:left;">Día</th>'
+    +maqIds.map(m=>'<th colspan="3" style="text-align:center;border-left:1px solid var(--border);">'+escapeHtml(maqNom(m))+'</th>').join('')
+    +'<th colspan="2" style="text-align:center;border-left:2px solid var(--border);">Total día</th></tr>'
+    +'<tr><th></th>'+maqIds.map(()=>'<th style="text-align:right;border-left:1px solid var(--border);">kg</th><th style="text-align:right;">bolsas</th><th style="text-align:right;">cargas</th>').join('')
+    +'<th style="text-align:right;border-left:2px solid var(--border);">kg</th><th style="text-align:right;">bolsas</th></tr></thead><tbody>';
+  const totMaq={};
+  dias.forEach(f=>{
+    const dd=new Date(f+'T12:00:00');
+    const dow=['dom','lun','mar','mié','jue','vie','sáb'][dd.getDay()];
+    let rowKg=0,rowB=0;
+    let row='<td style="white-space:nowrap;">'+dow+' '+f.slice(8,10)+'/'+f.slice(5,7)+(_esFeriado(f)?' <span style="color:var(--amber);">🎌</span>':'')+'</td>';
+    maqIds.forEach(m=>{
+      const x=dm[f][m];
+      totMaq[m]=totMaq[m]||{kg:0,bolsas:0,n:0};
+      if(x){totMaq[m].kg+=x.kg;totMaq[m].bolsas+=x.bolsas;totMaq[m].n+=x.n;rowKg+=x.kg;rowB+=x.bolsas;}
+      row+='<td style="text-align:right;border-left:1px solid var(--border);font-family:monospace;">'+(x?fmtN(x.kg):'·')+'</td>'
+        +'<td style="text-align:right;font-family:monospace;color:var(--text2);">'+(x?fmtN(x.bolsas):'')+'</td>'
+        +'<td style="text-align:right;font-family:monospace;color:var(--text3);">'+(x?x.n:'')+'</td>';
+    });
+    const flojo=rowKg<promKgDia*0.4;
+    row+='<td style="text-align:right;border-left:2px solid var(--border);font-family:monospace;font-weight:700;'+(flojo?'color:var(--amber);':'')+'">'+fmtN(rowKg)+(flojo?' ⚠':'')+'</td>'
+      +'<td style="text-align:right;font-family:monospace;font-weight:600;">'+fmtN(rowB)+'</td>';
+    html+='<tr>'+row+'</tr>';
+  });
+  html+='<tr style="border-top:2px solid var(--border);font-weight:800;"><td>Total mes</td>'
+    +maqIds.map(m=>{const t=totMaq[m]||{kg:0,bolsas:0,n:0};
+      return '<td style="text-align:right;border-left:1px solid var(--border);font-family:monospace;">'+fmtN(t.kg)+'</td><td style="text-align:right;font-family:monospace;">'+fmtN(t.bolsas)+'</td><td style="text-align:right;font-family:monospace;color:var(--text3);">'+t.n+'</td>';}).join('')
+    +'<td style="text-align:right;border-left:2px solid var(--border);font-family:monospace;">'+fmtN(totKg)+'</td><td style="text-align:right;font-family:monospace;">'+fmtN(totBolsas)+'</td></tr>';
+  html+='</tbody></table></div>'
+    +'<div style="font-size:10.5px;color:var(--text3);padding:6px 10px;">Bolsas estimadas = metros cargados ÷ metros por bolsa del producto de cada OC. ⚠ = día con menos del 40% del kg promedio. Las cargas sin máquina registrada aparecen en "Sin máquina".</div>'
+  +'</div>';
+
+  // ── Cadencia de cargas por máquina ──
+  html+='<div class="tw"><div class="tw-bar"><span class="tw-title">Cadencia de cargas por máquina</span>'
+    +'<span style="font-size:10.5px;color:var(--text3);margin-left:10px;">Cargas con menos de 2 min de diferencia se agrupan como un solo evento (la cortadora corre hasta 4 bobinas en paralelo). El intervalo entre eventos es el ciclo real de la máquina.</span></div>'
+    +'<div style="overflow-x:auto;"><table style="width:100%;font-size:11.5px;">'
+    +'<thead><tr><th style="text-align:left;">Máquina</th><th style="text-align:left;">Día</th><th style="text-align:right;">Eventos</th><th style="text-align:right;">Bobinas</th><th>1ª carga</th><th>Última</th><th style="text-align:right;">Ciclo mediano</th><th style="text-align:right;">Ciclo máx.</th><th style="text-align:left;">Anomalías (paradas largas)</th></tr></thead><tbody>';
+  const anomaliasMes=[];
+  maqIds.filter(m=>m).forEach(mId=>{
+    const cm=cargas.filter(c=>c.maquinaId===mId);
+    const porDia={};
+    cm.forEach(c=>{(porDia[c.fecha]=porDia[c.fecha]||[]).push(c);});
+    // mediana mensual del ciclo (para calibrar anomalías)
+    const todosIntervalos=[];
+    Object.keys(porDia).sort().forEach(f=>{
+      const ev=_acEventosDeCarga(porDia[f]);
+      for(let i=1;i<ev.length;i++)todosIntervalos.push(ev[i].ts-ev[i-1].tsFin);
+    });
+    const medMes=_acMediana(todosIntervalos);
+    Object.keys(porDia).sort().forEach(f=>{
+      const ev=_acEventosDeCarga(porDia[f]);
+      const ints=[];
+      const anoms=[];
+      for(let i=1;i<ev.length;i++){
+        const gap=ev[i].ts-ev[i-1].tsFin;
+        ints.push(gap);
+        // Anomalía: parada mayor a 3× la mediana del mes y de al menos 45 min
+        if(medMes>0&&gap>Math.max(45*60000,medMes*3)){
+          anoms.push(_acHora(ev[i-1].tsFin)+'→'+_acHora(ev[i].ts)+' ('+_acFmtMin(gap)+')');
+          anomaliasMes.push({maq:maqNom(mId),fecha:f,desde:ev[i-1].tsFin,hasta:ev[i].ts,gap});
+        }
+      }
+      const med=_acMediana(ints);
+      const max=ints.length?Math.max(...ints):0;
+      const dd=new Date(f+'T12:00:00');
+      const dow=['dom','lun','mar','mié','jue','vie','sáb'][dd.getDay()];
+      html+='<tr><td style="font-weight:600;">'+escapeHtml(maqNom(mId))+'</td>'
+        +'<td style="white-space:nowrap;">'+dow+' '+f.slice(8,10)+'/'+f.slice(5,7)+'</td>'
+        +'<td style="text-align:right;font-family:monospace;">'+ev.length+'</td>'
+        +'<td style="text-align:right;font-family:monospace;color:var(--text3);">'+porDia[f].length+'</td>'
+        +'<td style="text-align:center;font-family:monospace;">'+_acHora(ev[0].ts)+'</td>'
+        +'<td style="text-align:center;font-family:monospace;">'+_acHora(ev[ev.length-1].tsFin)+'</td>'
+        +'<td style="text-align:right;font-family:monospace;">'+(med?_acFmtMin(med):'—')+'</td>'
+        +'<td style="text-align:right;font-family:monospace;'+(max>Math.max(45*60000,medMes*3)?'color:var(--red);font-weight:700;':'')+'">'+(max?_acFmtMin(max):'—')+'</td>'
+        +'<td style="font-size:10.5px;color:'+(anoms.length?'var(--red)':'var(--text3)')+';">'+(anoms.length?anoms.join(' · '):'—')+'</td></tr>';
+    });
+    if(medMes>0){
+      html+='<tr style="border-bottom:2px solid var(--border);"><td colspan="9" style="font-size:10.5px;color:var(--text2);padding:2px 8px 8px;">'+escapeHtml(maqNom(mId))+' — ciclo mediano del mes: <strong>'+_acFmtMin(medMes)+'</strong> entre cargas ('+todosIntervalos.length+' intervalos medidos)</td></tr>';
+    }
+  });
+  html+='</tbody></table></div></div>';
+
+  // ── Resumen de anomalías del mes ──
+  if(anomaliasMes.length){
+    anomaliasMes.sort((a,b)=>b.gap-a.gap);
+    html+='<div class="tw"><div class="tw-bar"><span class="tw-title" style="color:var(--red);">⚠ Paradas largas detectadas · '+anomaliasMes.length+'</span></div>'
+      +'<div style="padding:8px 12px;font-size:11.5px;color:var(--text2);">'
+      +anomaliasMes.slice(0,15).map(a=>'<div style="padding:2px 0;"><strong>'+escapeHtml(a.maq)+'</strong> · '+a.fecha.slice(8,10)+'/'+a.fecha.slice(5,7)+' · '+_acHora(a.desde)+' → '+_acHora(a.hasta)+' — <span style="color:var(--red);font-weight:700;">'+_acFmtMin(a.gap)+'</span> sin cargas</div>').join('')
+      +(anomaliasMes.length>15?'<div style="color:var(--text3);margin-top:4px;">… y '+(anomaliasMes.length-15)+' más</div>':'')
+      +'<div style="font-size:10.5px;color:var(--text3);margin-top:6px;">Criterio: intervalo mayor a 3× el ciclo mediano del mes de esa máquina y de al menos 45 minutos, dentro de un día con actividad. Puede ser cambio de producto, mantenimiento, falta de bobinas o parada no registrada.</div>'
+    +'</div></div>';
+  }
+
+  // ── Por operario (empleados del módulo Sueldos) ──
+  const conEmp=cargas.filter(c=>c.empleadoId);
+  html+='<div class="tw"><div class="tw-bar"><span class="tw-title">Rendimiento y costo por operario · '+label+'</span></div>';
+  if(!conEmp.length){
+    html+='<div style="padding:14px;font-size:12px;color:var(--text3);">Todavía no hay cargas con operario registrado. Desde ahora, cada carga en Confección y en el Panel de corte guarda el empleado y la máquina — este panel se puebla solo con el uso.</div></div>';
+  }else{
+    const porEmp={};
+    conEmp.forEach(c=>{
+      const e=(porEmp[c.empleadoId]=porEmp[c.empleadoId]||{dias:{},kg:0,bolsas:0,n:0});
+      e.kg+=c.kg;e.bolsas+=c.bolsas;e.n++;
+      const d=(e.dias[c.fecha]=e.dias[c.fecha]||{kg:0,bolsas:0,n:0});
+      d.kg+=c.kg;d.bolsas+=c.bolsas;d.n++;
+    });
+    // Días previstos del mes para prorratear el costo mensual de nómina a costo/día:
+    // usa el mismo motor de Sueldos (_presupEmpMes → _horasPrevistasMes). Si el
+    // empleado no tiene categoría (régimen dirección), se usan los días hábiles L-V.
+    let habilesLV=0;
+    {const y=parseInt(ym.slice(0,4)),m=parseInt(ym.slice(5,7)),ld=new Date(y,m,0).getDate();
+     for(let d=1;d<=ld;d++){const f=ym+'-'+String(d).padStart(2,'0');const dw=new Date(f+'T12:00:00').getDay();if(dw>=1&&dw<=5&&!_esFeriado(f))habilesLV++;}}
+    html+='<div style="overflow-x:auto;"><table style="width:100%;font-size:11.5px;">'
+      +'<thead><tr><th style="text-align:left;">Operario</th><th style="text-align:right;">Días activos</th><th style="text-align:right;">Cargas</th><th style="text-align:right;">Kg</th><th style="text-align:right;">Bolsas</th><th style="text-align:right;">Kg/día</th><th style="text-align:right;">Costo/día (presup.)</th><th style="text-align:right;">Costo asignado</th><th style="text-align:right;">Costo/kg</th></tr></thead><tbody>';
+    let detHtml='';
+    Object.keys(porEmp).forEach(eid=>{
+      const emp=(C.empleados||[]).find(x=>x.id===parseInt(eid));
+      const nom=emp?(emp.apellido_nombre||('Empleado #'+eid)):('Empleado #'+eid);
+      const st=porEmp[eid];
+      const diasAct=Object.keys(st.dias).length;
+      let costoDia=0,base='';
+      if(emp){
+        const p=_presupEmpMes(emp,ym);
+        const diasPrev=(p.horas&&p.horas.dias)?p.horas.dias:habilesLV;
+        costoDia=diasPrev>0?p.costo/diasPrev:0;
+        base=p.base;
+      }
+      const costoAsig=r2(costoDia*diasAct);
+      const costoKg=st.kg>0?costoAsig/st.kg:0;
+      html+='<tr><td style="font-weight:600;">'+escapeHtml(nom)+(base?' <span style="font-size:9.5px;color:var(--text3);">('+base+')</span>':'')+'</td>'
+        +'<td style="text-align:right;font-family:monospace;">'+diasAct+'</td>'
+        +'<td style="text-align:right;font-family:monospace;">'+st.n+'</td>'
+        +'<td style="text-align:right;font-family:monospace;font-weight:700;">'+fmtN(st.kg)+'</td>'
+        +'<td style="text-align:right;font-family:monospace;">'+fmtN(st.bolsas)+'</td>'
+        +'<td style="text-align:right;font-family:monospace;">'+fmtN(diasAct?st.kg/diasAct:0)+'</td>'
+        +'<td style="text-align:right;font-family:monospace;">'+(costoDia?fmt$(costoDia):'—')+'</td>'
+        +'<td style="text-align:right;font-family:monospace;">'+(costoAsig?fmt$(costoAsig):'—')+'</td>'
+        +'<td style="text-align:right;font-family:monospace;font-weight:700;color:var(--accent);">'+(costoKg?fmt$(costoKg):'—')+'</td></tr>';
+      // Detalle por día
+      Object.keys(st.dias).sort().forEach(f=>{
+        const d=st.dias[f];
+        const cKg=d.kg>0&&costoDia>0?costoDia/d.kg:0;
+        detHtml+='<tr><td>'+escapeHtml(nom)+'</td><td style="white-space:nowrap;font-family:monospace;">'+f.slice(8,10)+'/'+f.slice(5,7)+'</td>'
+          +'<td style="text-align:right;font-family:monospace;">'+d.n+'</td>'
+          +'<td style="text-align:right;font-family:monospace;font-weight:600;">'+fmtN(d.kg)+'</td>'
+          +'<td style="text-align:right;font-family:monospace;">'+fmtN(d.bolsas)+'</td>'
+          +'<td style="text-align:right;font-family:monospace;">'+(costoDia?fmt$(costoDia):'—')+'</td>'
+          +'<td style="text-align:right;font-family:monospace;color:var(--accent);">'+(cKg?fmt$(cKg):'—')+'</td></tr>';
+      });
+    });
+    html+='</tbody></table></div>'
+      +'<div style="font-size:10.5px;color:var(--text3);padding:6px 10px;">Costo/día = costo laboral mensual presupuestado (bruto + contribuciones, motor de Sueldos) ÷ días previstos del mes. Costo asignado = costo/día × días con cargas. Es una imputación por presupuesto: cuando el módulo de fichajes tenga horas reales, se puede afinar.</div>'
+    +'</div>';
+    html+='<div class="tw"><div class="tw-bar"><span class="tw-title">Detalle por operario y día</span></div>'
+      +'<div style="overflow-x:auto;max-height:420px;overflow-y:auto;"><table style="width:100%;font-size:11px;">'
+      +'<thead><tr style="position:sticky;top:0;background:var(--bg3);"><th style="text-align:left;">Operario</th><th style="text-align:left;">Día</th><th style="text-align:right;">Cargas</th><th style="text-align:right;">Kg</th><th style="text-align:right;">Bolsas</th><th style="text-align:right;">Costo día</th><th style="text-align:right;">Costo/kg</th></tr></thead>'
+      +'<tbody>'+detHtml+'</tbody></table></div></div>';
+  }
+
+  root.innerHTML=html;
+}
+
 async function renderTablero(){
   const wrap=document.getElementById('tablero-wrap');
   if(!wrap)return;
@@ -19931,12 +20353,9 @@ async function renderTablero(){
   // Kg extrusión: bobinas producidas en el mes
   let kgExtrusion=0;
   (C.bobinas_prod||[]).forEach(b=>{if(enMes(b.fecha_produccion))kgExtrusion+=parseFloat(b.kg_reales)||0;});
-  // Kg corte: OCs completadas en el mes, kg de las bobinas que consumieron
-  let kgCorte=0;
-  (C.ord_corte||[]).forEach(o=>{
-    if(o.estado!=='Completada'||!enMes(o.fecha_completada))return;
-    (o.orden_corte_bobinas||[]).forEach(ocb=>{kgCorte+=parseFloat(ocb.bobinas_producidas?.kg_reales)||0;});
-  });
+  // Kg corte (derivador canónico): bobinas CARGADAS en el mes por fecha_asignacion
+  // en hora local, kg prorrateados por metros usados — ver _cargasCorteRango.
+  const kgCorte=_kgCortadosRango(pIni,pFin);
   // Kg vendidos: remitos del mes, unidades × peso_por_bolsa del producto
   let kgVendido=0,paqVendido=0;
   (C.remitos||[]).forEach(r=>{
@@ -20270,6 +20689,7 @@ async function renderResultadoMes(){
     html+='<div class="empty" style="padding:30px;text-align:center;color:var(--text3);">No hay remitos en '+label+'. Sin ventas, el resultado del mes es −gastos fijos'+(difInvOk&&difInvA?' ± diferencias de inventario':'')+'.</div>';
   }
   html+='<div style="font-size:11px;color:var(--text3);margin-top:14px;max-width:980px;">📐 Método: la venta sale de los remitos del mes (estado distinto de anulado, ambos planos). El costo es el real promedio por bolsa de cada producto según sus OCs completadas de los últimos 120 días (consumo real de bobinas × precio de lotes, sin GG); si no hay OCs en esa ventana se usa el histórico del producto. Las diferencias de inventario excluyen los ajustes de sistema (errores de software no son resultado del negocio).</div>';
+  html+=_retirosSemaforoHtml();
   wrap.innerHTML=html;
 }
 
@@ -31958,7 +32378,17 @@ function _pintarPanelCorte(){
   const root=document.getElementById('pcorte-root');
   if(!root)return;
   const ahora=new Date();
-  const opActual=window._pcorteOperario||'';
+  // Restaurar última selección de esta terminal (cada PC de planta suele
+  // acompañar una máquina fija)
+  if(window._pcorteEmpleadoId===undefined){
+    try{window._pcorteEmpleadoId=parseInt(localStorage.getItem('conf_last_emp'))||null;}catch(e){window._pcorteEmpleadoId=null;}
+    if(window._pcorteEmpleadoId&&!(C.empleados||[]).some(e=>e.id===window._pcorteEmpleadoId&&e.activo))window._pcorteEmpleadoId=null;
+    window._pcorteOperario=window._pcorteEmpleadoId?_empNombre(window._pcorteEmpleadoId):'';
+  }
+  if(window._pcorteMaquinaId===undefined){
+    try{window._pcorteMaquinaId=parseInt(localStorage.getItem('conf_last_maq'))||null;}catch(e){window._pcorteMaquinaId=null;}
+    if(window._pcorteMaquinaId&&!(C.maq_corte||[]).some(m=>m.id===window._pcorteMaquinaId))window._pcorteMaquinaId=null;
+  }
   // Schedule de corte REAL (mismo motor que el Gantt y la Torre): ordena la cola por
   // cuándo cada OC va a poder cortar de verdad, no por prioridad teórica. Una OC con
   // prioridad alta pero sin material aparece donde realmente le toca, no primera.
@@ -31983,7 +32413,7 @@ function _pintarPanelCorte(){
         +'<div style="font-size:15px;font-weight:700;white-space:nowrap;">📷 Operario:</div>'
         +'<select id="pcorte-op-sel" onchange="_pcorteSetOperario(this.value)" style="min-width:180px;font-size:15px;padding:6px;">'
           +'<option value="">— elegí tu nombre —</option>'
-          +(C.operarios||[]).map(o=>'<option value="'+escapeHtml(o.nombre)+'"'+(o.nombre===opActual?' selected':'')+'>'+escapeHtml(o.nombre)+'</option>').join('')
+          +(C.empleados||[]).filter(e=>e.activo).map(e=>'<option value="'+e.id+'"'+(String(e.id)===String(window._pcorteEmpleadoId||'')?' selected':'')+'>'+escapeHtml(e.apellido_nombre||('Empleado #'+e.id))+'</option>').join('')
         +'</select>'
         +'<input id="pcorte-pistola-input" type="text" autocomplete="off" placeholder="Escaneá el QR de la OC o de una bobina..." '
           +'onkeydown="onPcortePistolaKey(event)" onblur="reFocoPcortePistola()" '
@@ -31994,7 +32424,7 @@ function _pintarPanelCorte(){
       +'<div style="margin-top:8px;font-size:13px;font-weight:700;padding:6px 10px;border-radius:8px;'
         +(_ocObjetivo?'background:rgba(99,179,237,.12);color:var(--accent);':(_enProcCount>1?'background:rgba(245,158,11,.14);color:var(--amber);':'background:var(--bg3);color:var(--text3);'))+'">'
         +(_ocObjetivo
-            ?'📦 Las bobinas que escanees se cargan a: <strong>'+escapeHtml(_ocObjNum)+'</strong>'
+            ?'📦 Bobinas → <strong>'+escapeHtml(_ocObjNum)+'</strong>'+(window._pcorteMaquinaId?' · ✂️ <strong>'+escapeHtml(C.maq_corte.find(m=>m.id===window._pcorteMaquinaId)?.nombre||'')+'</strong>':' · <span style="color:var(--amber);">tocá «📷 Cargar bobinas acá» en tu máquina para fijarla</span>')
             :(_enProcCount>1
                 ?'⚠ Hay '+_enProcCount+' OC en proceso. Tocá "📷 Cargar bobinas acá" en la que estás cortando antes de escanear bobinas.'
                 :'Escaneá el QR de una OC para empezar; después las bobinas se cargan a esa OC.'))
@@ -32029,13 +32459,16 @@ function _pintarPanelCorte(){
       html+='<div style="text-align:center;padding:24px 0;color:var(--red);"><div style="font-size:32px;margin-bottom:8px;">🔧</div><div style="font-weight:700;font-size:15px;">FUERA DE SERVICIO</div>'+(maq.motivo_fuera_servicio?'<div style="font-size:12px;color:var(--text2);margin-top:4px;">'+escapeHtml(maq.motivo_fuera_servicio)+'</div>':'')+'</div>';
     } else if(enProc){
       const prod=enProc.productos||C.productos.find(p=>p.id===enProc.producto_id);
-      const esObjetivo=enProc.id===_ocObjetivo;
+      // "Bobinas acá" está fijado en ESTA tarjeta si coincide la OC objetivo Y la
+      // máquina fijada. Así, si la misma OC corre en 2 cortadoras, el badge verde
+      // aparece solo en la que elegiste, no en las dos.
+      const esObjetivo=enProc.id===_ocObjetivo&&(window._pcorteMaquinaId==null||window._pcorteMaquinaId===maq.id);
       html+='<div style="background:rgba(34,197,94,.06);border:1px solid var(--green);border-radius:10px;padding:14px;margin-bottom:12px;">'
         +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">'
           +'<div style="font-size:12px;color:var(--green);font-weight:700;text-transform:uppercase;letter-spacing:.05em;">▶ Cortando ahora</div>'
           +(esObjetivo
-              ?'<div style="font-size:11px;font-weight:800;color:var(--accent);background:rgba(99,179,237,.15);padding:2px 8px;border-radius:6px;">📦 Bobinas acá</div>'
-              :'<button class="btn btn-sm" style="padding:2px 9px;font-size:11px;font-weight:700;color:var(--accent);border-color:var(--accent);" onclick="_pcorteSetOCobjetivo('+enProc.id+')" title="Las bobinas que escanees se cargan a esta OC">📷 Cargar bobinas acá</button>')
+              ?'<div style="font-size:11px;font-weight:800;color:var(--accent);background:rgba(99,179,237,.15);padding:4px 10px;border-radius:6px;">📦 Bobinas acá · '+escapeHtml(maq.nombre)+'</div>'
+              :'<button class="btn btn-sm" style="padding:6px 14px;font-size:13px;font-weight:800;color:var(--accent);border-color:var(--accent);border-width:2px;" onclick="_pcorteSetOCobjetivo('+enProc.id+','+maq.id+')" title="Las bobinas que escanees o cargues se asignan a esta OC y a '+escapeHtml(maq.nombre)+'">📷 Cargar bobinas acá</button>')
         +'</div>'
         +'<div style="font-size:24px;font-weight:800;margin:6px 0;">'+escapeHtml(enProc.numero_orden)+'</div>'
         +'<div style="font-size:16px;font-weight:600;">'+escapeHtml(prod?(prod.descripcion||prod.codigo||''):'—')+'</div>'
@@ -32047,7 +32480,7 @@ function _pintarPanelCorte(){
         +'<button class="btn" style="flex:1;padding:16px;font-size:15px;font-weight:700;color:var(--green);border-color:var(--green);" onclick="panelcTerminoCorte('+enProc.id+')">✓ Terminó de cortar</button>'
       +'</div>'
       +'<div style="font-size:11px;color:var(--text3);margin-top:8px;text-align:center;">Terminar acá NO cierra la orden — el dueño la cierra con bolsones y scrap.</div>'
-      +_pcorteBobinasHTML(enProc);
+      +_pcorteBobinasHTML(enProc,maq.id);
     } else {
       html+='<div style="text-align:center;padding:18px 0;color:var(--text3);font-size:14px;">Sin orden en proceso<br><span style="font-size:12px;">Escaneá el QR de una OC para empezar</span></div>';
     }
@@ -32081,7 +32514,7 @@ function _pintarPanelCorte(){
 // Sección de bobinas para la OC en proceso en el panel de corte.
 // Muestra DOS bloques separados: (1) ya asociadas (lo que el operario ya cargó),
 // (2) disponibles del tipo (para buscar/separar y agregar a mano si no usa el lector).
-function _pcorteBobinasHTML(oc){
+function _pcorteBobinasHTML(oc,maqId){
   if(!oc)return '';
   const tipoBobinaId=oc.productos?.bobina_id||C.productos.find(p=>p.id===oc.producto_id)?.bobina_id||0;
   const oeAsociadaId=oc.orden_extrusion_id||null;
@@ -32112,7 +32545,7 @@ function _pcorteBobinasHTML(oc){
       +'<span style="font-family:monospace;font-weight:600;color:'+colNum+';">'+escapeHtml(b.numero_bobina||'—')+'</span>'
       +'<span style="font-family:monospace;font-weight:700;">'+m.toLocaleString('es-AR')+' m</span>'
       +'<span style="color:var(--text3);font-size:11px;">'+fecha+oeTxt+'</span>'
-      +'<button class="btn btn-sm" style="margin-left:auto;padding:3px 12px;font-size:12px;font-weight:700;color:'+colNum+';border-color:'+colNum+';" onclick="_pcorteCargarBobina('+oc.id+','+b.id+')">+ Cargar</button>'
+      +'<button class="btn" style="margin-left:auto;padding:9px 18px;font-size:14px;font-weight:800;color:'+colNum+';border-color:'+colNum+';border-width:2px;" onclick="_pcorteCargarBobina('+oc.id+','+b.id+','+(maqId||'null')+')">+ Cargar</button>'
     +'</div>';
   };
   const header=(txt,color,subtitle)=>
@@ -32178,7 +32611,7 @@ function _pcorteBobinasHTML(oc){
 // Cargar una bobina a mano desde el panel: hace LO MISMO que escanearla
 // (asocia a la OC, la saca del stock, registra el movimiento). Reusa la
 // validación y el insert tal como Confección.
-async function _pcorteCargarBobina(ocId,bobId){
+async function _pcorteCargarBobina(ocId,bobId,maquinaId){
   const oc=C.ord_corte.find(x=>x.id===ocId);
   const b=C.bobinas_prod.find(x=>x.id===bobId);
   if(!oc||!b){_pcorteFeedback('✕ No encontré la orden o la bobina.','var(--red)','error');return;}
@@ -32186,17 +32619,27 @@ async function _pcorteCargarBobina(ocId,bobId){
   if((oc.orden_corte_bobinas||[]).some(x=>x.bobina_producida_id===bobId)){
     _pcorteFeedback('La bobina '+b.numero_bobina+' ya está en esta orden.','var(--amber)','error');return;
   }
-  // Validar mismo tipo
+  // Validar mismo tipo (candado que ya existía: no se carga bobina de otro tipo)
   const tipoBobinaId=oc.productos?.bobina_id||C.productos.find(p=>p.id===oc.producto_id)?.bobina_id;
   if(tipoBobinaId&&(b.bobina_tipo_id??b.bobinas?.id)!==tipoBobinaId){
     _pcorteFeedback('✕ La bobina '+b.numero_bobina+' no es del tipo de esta orden.','var(--red)','error');return;
   }
   const opNom=(window._pcorteOperario||'').trim();
+  const empId=window._pcorteEmpleadoId||null;
+  if(!empId){_pcorteFeedback('⚠ Elegí tu nombre arriba antes de cargar bobinas.','var(--amber)','error');return;}
+  // Máquina: cuando cargás con el botón "+ Cargar" de una tarjeta, viene la de esa
+  // máquina. Cuando escaneás con la pistola no viene ninguna → usamos la última
+  // usada en esta terminal; si nunca se usó, pedimos elegir (no cargamos a ciegas).
+  const maqId=(maquinaId!=null?maquinaId:window._pcorteMaquinaId)||null;
+  if(!maqId){_pcorteFeedback('⚠ Elegí en qué máquina estás cortando (tocá "+ Cargar" en la tarjeta de esa máquina, o elegila arriba) antes de escanear.','var(--amber)','error');return;}
+  window._pcorteMaquinaId=maqId; // recordar para los próximos escaneos de la pistola
+  try{localStorage.setItem('conf_last_maq',String(maqId));}catch(e){}
   // Ejecuta la asociación real (mismo efecto que escanear)
   const ejecutar=async()=>{
     try{
       const{error:e1}=await sb.from('orden_corte_bobinas').insert({
-        orden_corte_id:ocId,bobina_producida_id:bobId,metros_usados:b.metros_reales
+        orden_corte_id:ocId,bobina_producida_id:bobId,metros_usados:b.metros_reales,
+        empleado_id:empId,maquina_id:maqId
       });
       if(e1)throw e1;
       await sb.from('bobinas_producidas').update({en_stock:false,reservada_oc_id:null}).eq('id',bobId);
@@ -32205,7 +32648,8 @@ async function _pcorteCargarBobina(ocId,bobId){
         orden_corte:oc.numero_orden,metros:b.metros_reales,kg:b.kg_reales,operario:opNom||null
       });
       await reload();
-      _pcorteFeedback('+ Bobina '+b.numero_bobina+' cargada a '+oc.numero_orden+' ('+(parseFloat(b.metros_reales)||0).toLocaleString('es-AR')+' m)','var(--green)','ok');
+      const maqNom=maqId?(C.maq_corte.find(m=>m.id===maqId)?.nombre||''):'';
+      _pcorteFeedback('+ Bobina '+b.numero_bobina+' → '+(maqNom?maqNom+' · ':'')+oc.numero_orden+' ('+(parseFloat(b.metros_reales)||0).toLocaleString('es-AR')+' m)','var(--green)','ok');
       _pintarPanelCorte();
     }catch(e){
       _pcorteFeedback(e&&e.code==='23505'?'La bobina '+b.numero_bobina+' ya estaba asociada a la orden — no se duplica.':'✕ Error cargando la bobina: '+(e.message||e),'var(--red)','error');
@@ -32222,8 +32666,12 @@ async function _pcorteCargarBobina(ocId,bobId){
   await ejecutar();
 }
 
-function _pcorteSetOperario(nom){
-  window._pcorteOperario=nom;
+function _pcorteSetOperario(id){
+  window._pcorteEmpleadoId=parseInt(id)||null;
+  // _pcorteOperario guarda el NOMBRE: lo siguen usando las marcas de auditoría
+  // en observaciones ("Iniciada por...", "Pausada...") y stock_movimientos.operario.
+  window._pcorteOperario=window._pcorteEmpleadoId?_empNombre(window._pcorteEmpleadoId):'';
+  try{if(window._pcorteEmpleadoId)localStorage.setItem('conf_last_emp',String(window._pcorteEmpleadoId));}catch(e){}
   setTimeout(()=>document.getElementById('pcorte-pistola-input')?.focus(),50);
 }
 
@@ -32292,10 +32740,17 @@ function _pcorteResolverOCobjetivo(){
 }
 
 // Elegir manualmente a qué OC en proceso se cargan las bobinas escaneadas.
-function _pcorteSetOCobjetivo(id){
+function _pcorteSetOCobjetivo(id,maqId){
   window._pcorteOCobjetivo=id;
+  // "Cargar bobinas acá" fija la OC Y la máquina de esa tarjeta juntas: de ahí en más,
+  // todo lo que escanees o cargues va a esa OC en esa cortadora.
+  if(maqId!=null){
+    window._pcorteMaquinaId=parseInt(maqId)||null;
+    try{if(window._pcorteMaquinaId)localStorage.setItem('conf_last_maq',String(window._pcorteMaquinaId));}catch(e){}
+  }
   const oc=C.ord_corte.find(o=>o.id===id);
-  _pcorteFeedback('🎯 Las bobinas que escanees ahora se cargan a '+(oc?.numero_orden||('OC '+id)),'var(--accent)');
+  const maqNom=window._pcorteMaquinaId?(C.maq_corte.find(m=>m.id===window._pcorteMaquinaId)?.nombre||''):'';
+  _pcorteFeedback('🎯 Bobinas → '+(oc?.numero_orden||('OC '+id))+(maqNom?' · '+maqNom:''),'var(--accent)');
   _pintarPanelCorte();
 }
 
@@ -40471,11 +40926,19 @@ const BANK_RULES=[
   {id:'segded',    cod:['02499'], re:/Debito Automatico Directo|FEDERACION PATRO/i, tipo:'gasto', cat:'servicios', afecta:true, lbl:'Débito automático (seguro/servicio)'},
   {id:'arca',      cod:['00401'], re:/DEB\. AUTOM\. DE SERV|Recaudaciones en Pesos|PLANRG|DEB\. AUTOM/i, tipo:'deuda', deudaTipo:'arca', lbl:'Pago de plan ARCA'},
   {id:'cuotaprest',cod:['03264'], re:/Nuevo Sistema de Creditos|CTAS CREDITOS|AMORT\.?\s*S\/PRESTAMO|AMORTIZACION.*PRESTAMO/i, tipo:'deuda', deudaTipo:'prestamo', lbl:'Cuota de préstamo'},
-  {id:'transfprop',cod:['00926','01273'], re:/cuentas propias|Igual Tit|CUENTA PROPIA|TRANSF INMED CP|TRANSF\.?\s*PROP|TRANSFERENCIA ENTRE CUENTAS/i, tipo:'match', kind:'transfer', lbl:'Transferencia entre cuentas propias'},
+  {id:'transfprop',cod:['00926','01273'], re:/cuentas propias|Igual Tit|CUENTA PROPIA|TRANSF INMED CP|TRANSF\.?\s*PROP|TRANSFERENCIA ENTRE CUENTAS|MISMA TITULARIDAD|CASH MISMA/i, tipo:'match', kind:'transfer', lbl:'Transferencia entre cuentas propias'},
   {id:'acred',     cod:['AVGUV'], re:/Acreditacion Valores|Valores Camara/i, tipo:'match', kind:'ingreso', lbl:'Acreditación de cheque depositado'},
   {id:'chprop',    cod:['00020'], re:/Pago Cheque por Caja/i, tipo:'match', kind:'egreso', lbl:'Pago de cheque propio'},
   {id:'cobro',     cod:['01872','01874'], re:/TERCEROS|COELSA/i, tipo:'match', kind:'ingreso', lbl:'Cobro de cliente'},
   {id:'pago',      cod:['01274','00271'], re:/PROVEED|Distinto Titular|Dist\. Titular|Dist Tit/i, tipo:'match', kind:'auto', lbl:'Pago / transferencia a tercero'},
+  {id:'periodico', cod:['00518'], re:/Suscripcion al Periodico|Periodico Accion/i, tipo:'gasto', cat:'financiero', afecta:true, lbl:'Suscripción Periódico Acción'},
+  {id:'servacred', cod:['00356'], re:/Servicio acreditaciones|SERV ACRED/i, tipo:'gasto', cat:'financiero', afecta:true, lbl:'Servicio acreditaciones automáticas'},
+  {id:'modpyme',   cod:['01507'], re:/Modulo Pyme|Pyme y Agro/i, tipo:'gasto', cat:'financiero', afecta:true, lbl:'Servicio Módulo Pyme y Agro'},
+  {id:'leasing',   cod:['00046','00028'], re:/Aranceles Leasing|Recupero de gastos|LEASING/i, tipo:'gasto', cat:'financiero', afecta:true, lbl:'Gastos de leasing'},
+  {id:'clearing',  cod:['01572'], re:/Cheque Pagado por Clearing|CLEARING/i, tipo:'gasto', cat:'financiero', afecta:true, lbl:'Comisión clearing'},
+  {id:'servcta',   re:/COMISION SERVICIO DE CUENTA|SERVICIO DE CUENTA/i, tipo:'gasto', cat:'financiero', afecta:true, lbl:'Comisión servicio de cuenta'},
+  {id:'chcamara',  cod:['00002'], re:/Cheque de Camara/i, tipo:'match', kind:'egreso', lbl:'Pago de cheque (cámara)'},
+  {id:'retirocaja',cod:['00021'], re:/Retiro en Efvo|Retiro en Efectivo/i, tipo:'match', kind:'egreso', lbl:'Retiro en efectivo por caja'},
 ];
 function ccImpBancoEs(){ // 'credicoop' | 'galicia' | 'patagonia' | 'otro' segun el nombre de la cuenta elegida
   const c=(C.cuentas_caja||[]).find(x=>x.id===CC.cuenta);
@@ -40584,16 +41047,17 @@ function ccImpClasificar(m){
   return {regla:r.id, tipo:r.tipo, cat:r.cat, afecta:r.afecta, kind, deudaTipo:r.deudaTipo, lbl:r.lbl};
 }
 // busca un movimiento del sistema (no conciliado) que matchee por importe y fecha
+function _ccMatchMov(x,m){
+  const mf=ccMontoFirmado(x);
+  if(Math.abs(Math.abs(mf)-m.monto)>1)return false;
+  if(m.fecha&&x.fecha){const dd=Math.abs((new Date(m.fecha+'T00:00:00')-new Date(x.fecha+'T00:00:00'))/86400000);if(dd>6)return false;}
+  if(m.signo==='+'&&mf<0)return false;
+  if(m.signo==='-'&&mf>0)return false;
+  return true;
+}
 function ccImpBuscarMatch(m, usados){
-  const movs=ccMovsCuentaRango().filter(x=>!x.conciliado&&!usados.has(x.key));
-  return movs.find(x=>{
-    const mf=ccMontoFirmado(x);
-    if(Math.abs(Math.abs(mf)-m.monto)>1)return false;
-    if(m.fecha&&x.fecha){const dd=Math.abs((new Date(m.fecha+'T00:00:00')-new Date(x.fecha+'T00:00:00'))/86400000);if(dd>6)return false;}
-    if(m.signo==='+'&&mf<0)return false;
-    if(m.signo==='-'&&mf>0)return false;
-    return true;
-  });
+  const todos=ccMovsCuentaRango().filter(x=>!usados.has(x.key));
+  return todos.find(x=>!x.conciliado&&_ccMatchMov(x,m)) || todos.find(x=>x.conciliado&&_ccMatchMov(x,m)) || null;
 }
 // busca una cuota de deuda (prestamo/arca) que matchee el importe
 // busca una cuota PENDIENTE que corresponda al débito: el banco debita >= la cuota
@@ -40651,11 +41115,19 @@ function ccImpPreparar(txtOpt){
   const movs=ccImpParse(txt);
   const usados=new Set();
   const plan=movs.map(m=>{
+    // ¿ya existe un movimiento del sistema CONCILIADO que corresponde (mismo importe/fecha/signo)?
+    // Si sí, este debito del extracto ya lo trabajaste (gasto creado, cuota saldada, etc.): no repetir.
+    const yaConc=ccMovsCuentaRango().find(x=>x.conciliado&&!usados.has(x.key)&&_ccMatchMov(x,m));
+    if(yaConc){ usados.add(yaConc.key); return Object.assign({},m,ccImpClasificar(m),{incluir:false,accion:'conciliado',matchKey:yaConc.key,matchDesc:yaConc.concepto||'ya conciliado'}); }
     const cl=ccImpClasificar(m);
     const row=Object.assign({},m,cl,{incluir:true,matchKey:null,cuotaRef:null});
     if(cl.tipo==='match'){
       const hit=ccImpBuscarMatch(m,usados);
-      if(hit){row.matchKey=hit.key;usados.add(hit.key);row.accion='conciliar';row.matchDesc=hit.concepto;}
+      if(hit){
+        row.matchKey=hit.key;usados.add(hit.key);row.matchDesc=hit.concepto;
+        if(hit.conciliado){row.accion='conciliado';row.incluir=false;} // ya estaba conciliado
+        else {row.accion='conciliar';}
+      }
       else {row.accion='revisar';row.incluir=false;}
     } else if(cl.tipo==='deuda'){
       const yaPag=ccImpBuscarCuotaPagada(m);
@@ -40688,7 +41160,8 @@ function ccImpSetCat(i,v){ if(CC.imp&&CC.imp.plan[i]){CC.imp.plan[i].cat=v;rende
 // resuelve a mano una fila "revisar": la convierte en gasto, egreso o ingreso
 function ccImpResolver(i,modo){
   const r=CC.imp&&CC.imp.plan[i]; if(!r)return;
-  if(modo==='gasto'){ r.accion='crear'; r.cat=r.cat||'otros'; r.afecta=true; r.incluir=true; }
+  if(modo&&modo.indexOf('gasto:')===0){ r.accion='crear'; r.cat=modo.slice(6); r.afecta=true; r.incluir=true; }
+  else if(modo==='gasto'){ r.accion='crear'; r.cat=r.cat||'otros'; r.afecta=true; r.incluir=true; }
   else if(modo==='egreso'){ r.accion='crear_mov'; r.movTipo='egreso'; r.signo='-'; r.incluir=true; }
   else if(modo==='ingreso'){ r.accion='crear_mov'; r.movTipo='ingreso'; r.signo='+'; r.incluir=true; }
   else { r.accion='revisar'; r.incluir=false; r.movTipo=null; }
@@ -40852,6 +41325,7 @@ function renderConciliacion(){
   html+='<div class="stats" style="margin-bottom:1.2rem;">'
     +'<div class="stat"><div class="stat-lbl">Saldo según sistema (al '+(CC.hasta||'hoy')+')</div><div class="stat-val" style="color:'+(saldoSis>=0?'var(--text1)':'var(--red)')+'">'+fmt(saldoSis)+'</div></div>'
     +'<div class="stat"><div class="stat-lbl">✅ Saldo conciliado ('+concil.length+' mov · base '+fmt(saldoIni)+')</div><div class="stat-val" style="font-size:18px;color:var(--green)">'+fmt(saldoConc)+'</div></div>'
+    +'<div class="stat"><div class="stat-lbl">📅 Conciliado hasta</div><div class="stat-val" style="font-size:18px;">'+(concil.length?concil.map(function(m){return String(m.fecha||'');}).filter(Boolean).sort().slice(-1)[0]:'—')+'</div><div style="font-size:10px;color:var(--text3);">tu punto de corte</div></div>'
     +'<div class="stat"><div class="stat-lbl">⏳ Sin conciliar ('+pend.length+')</div><div class="stat-val" style="font-size:18px;color:var(--amber,#f59e0b)">'+fmt(totPend)+'</div></div>'
     +(saldoBanco!=null?'<div class="stat"><div class="stat-lbl">Diferencia vs banco</div><div class="stat-val" style="font-size:18px;color:'+(Math.abs(difBanco)<1?'var(--green)':'var(--red)')+'">'+(Math.abs(difBanco)<1?'✓ cuadra':fmt(difBanco))+'</div></div>':(CC.procesado?'<div class="stat"><div class="stat-lbl">📄 Extracto: sin correspondencia</div><div class="stat-val" style="font-size:18px;color:'+(sinCorr.length?'var(--red)':'var(--green)')+'">'+sinCorr.length+' / '+CC.extracto.length+'</div></div>':''))
   +'</div>';
@@ -40920,7 +41394,7 @@ function renderConciliacion(){
         +'<td>'+(
             editable?'<select onchange="ccImpSetCat('+i+',this.value)" style="font-size:11px;padding:2px;max-width:150px;">'+catOpts(r.cat)+'</select>'
             :r.accion==='deuda'?'<button class="btn btn-sm btn-primary" onclick="ccImpSaldarCuota('+i+')" style="font-size:10px;padding:2px 8px;">Saldar cuota</button>'
-            :r.accion==='revisar'?'<select onchange="ccImpResolver('+i+',this.value)" style="font-size:11px;padding:2px;"><option value="nada">— resolver —</option><option value="gasto">Es un gasto</option><option value="egreso">Salió plata (egreso)</option><option value="ingreso">Entró plata (ingreso)</option></select>'
+            :r.accion==='revisar'?'<select onchange="ccImpResolver('+i+',this.value)" style="font-size:11px;padding:2px;max-width:190px;"><option value="nada">— resolver —</option><optgroup label="Es un gasto — elegí categoría">'+(C.categorias_gasto||[]).filter(c=>c.activa!==false).map(c=>'<option value="gasto:'+c.codigo+'">'+(c.icono||'🗂')+' '+escapeHtml(c.nombre)+'</option>').join('')+'</optgroup><option value="egreso">Salió plata (egreso, no gasto)</option><option value="ingreso">Entró plata (ingreso)</option></select>'
             :r.accion==='crear_mov'?'<span style="font-size:10px;color:var(--green);">'+(r.movTipo==='ingreso'?'ingreso a mano':'egreso a mano')+'</span> <a href="#" onclick="ccImpResolver('+i+',\'nada\');return false;" style="font-size:11px;color:var(--text3);text-decoration:none;" title="deshacer">↺</a>'
             :'<span style="font-size:10px;color:var(--text3);">'+(r.cat?cgCatLabel(r.cat):'—')+'</span>'
           )+'</td>'
