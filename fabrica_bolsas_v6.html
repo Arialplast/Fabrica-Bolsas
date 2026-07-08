@@ -1020,6 +1020,8 @@ body.pext-on .main{margin-left:0!important;}
 
     <!-- PANEL CORTE (pantalla de planta, fullscreen) -->
     <div class="page" id="page-panel-corte">
+      <style>#fich-fab{display:none;position:fixed;bottom:22px;right:22px;z-index:9000;background:var(--accent);color:#fff;border:none;border-radius:30px;padding:14px 22px;font-size:16px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.45);cursor:pointer;align-items:center;gap:8px;}body.pcorte-on #fich-fab,body.pext-on #fich-fab{display:flex;}</style>
+      <button id="fich-fab" onclick="abrirFichajeRapido()">🕐 Fichar</button>
       <div id="pcorte-root"></div>
     </div>
 
@@ -11642,49 +11644,81 @@ function imprimirRV(rvId){
   if(!rv)return;
   const lineas=rv.rv_lineas||[];
   const cli=C.clientes.find(c=>c.id===rv.cliente_id);
-  const empresa_rs=getCfg('empresa_razon_social','Mi Fábrica');
-
+  const emp={
+    rs:getCfg('empresa_razon_social','Mi Fábrica'),
+    cuit:getCfg('empresa_cuit',''),
+    dir:getCfg('empresa_direccion',''),
+    loc:getCfg('empresa_localidad',''),
+    iibb:getCfg('empresa_iibb',''),
+    iva:getCfg('empresa_condicion_iva','Responsable Inscripto')
+  };
+  const money=(n)=>'$ '+(parseFloat(n)||0).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
   const win=window.open('','_blank','width=900,height=1200');
-  const lineasHtml=lineas.map(l=>{
-    return '<tr>'
-      +'<td style="text-align:center">'+(l.cantidad||'')+' '+(l.unidad||'')+'</td>'
-      +'<td>'+escapeHtml(l.descripcion||'')+'</td>'
-      +'<td style="text-align:right" class="mono">$ '+(parseFloat(l.precio_unitario)||0).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:4})+'</td>'
-      +'<td style="text-align:right" class="mono">$ '+(parseFloat(l.subtotal)||0).toLocaleString('es-AR',{minimumFractionDigits:2})+'</td>'
-      +'</tr>';
-  }).join('');
-
-  win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>RV '+(rv.numero||'')+'</title>'
-    +'<style>@page{size:A4;margin:10mm;}body{font-family:Arial;font-size:12px;color:#111;}'
-    +'.box{border:2px solid #9333ea;page-break-inside:avoid;margin-bottom:6mm;}'
-    +'.warn{background:#fef3c7;border-bottom:1px solid #fbbf24;padding:6px 12px;font-size:10px;color:#92400e;text-align:center;font-weight:600;}'
-    +'.hdr{display:flex;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #ccc;}'
-    +'.hdr h1{margin:0;font-size:20px;color:#9333ea;}'
-    +'.cli{padding:8px 14px;background:#faf5ff;font-size:11px;}'
-    +'table{width:100%;border-collapse:collapse;}'
-    +'th,td{padding:5px 8px;border-bottom:1px solid #ccc;font-size:11px;}th{background:#f3e8ff;text-align:left;}'
-    +'.tot{padding:10px 14px;text-align:right;font-weight:bold;font-size:14px;border-top:2px solid #9333ea;}'
-    +'.copia{text-align:center;font-size:10px;color:#666;background:#f0f0f0;padding:3px;font-weight:bold;}'
-    +'</style></head><body>');
-
-  ['ORIGINAL','DUPLICADO'].forEach(copia=>{
-    win.document.write(
-      '<div class="box">'
-      +'<div class="copia">'+copia+'</div>'
-      +'<div class="warn">⚠ DOCUMENTO INTERNO — NO VÁLIDO COMO FACTURA ANTE AFIP</div>'
-      +'<div class="hdr">'
-        +'<div><strong style="font-size:14px;">'+escapeHtml(empresa_rs)+'</strong></div>'
-        +'<div style="text-align:right;"><h1>REMITO VALORIZADO</h1>'
-        +'<div><strong>Nº '+(rv.numero||'')+'</strong> · '+rv.fecha+'</div></div>'
-      +'</div>'
-      +'<div class="cli"><strong>Cliente:</strong> '+escapeHtml(cli?.razon_social||cli?.nombre||'')+' · '+escapeHtml(cli?.localidad||'')+'</div>'
-      +'<table><thead><tr><th style="width:90px;text-align:center">Cant.</th><th>Descripción</th><th style="width:90px;text-align:right">P. Unit.</th><th style="width:100px;text-align:right">Subtotal</th></tr></thead>'
-      +'<tbody>'+lineasHtml+'</tbody></table>'
-      +'<div class="tot">TOTAL: $ '+(parseFloat(rv.total)||0).toLocaleString('es-AR',{minimumFractionDigits:2})+'</div>'
-      +(rv.observaciones?'<div style="padding:6px 12px;border-top:1px solid #ccc;font-size:11px;"><strong>Obs:</strong> '+escapeHtml(rv.observaciones)+'</div>':'')
-      +'</div>'
-    );
-  });
+  const lineasHtml=lineas.map((l,idx)=>
+    '<tr>'
+    +'<td class="c">'+(idx+1)+'</td>'
+    +'<td>'+escapeHtml(l.descripcion||'')+'</td>'
+    +'<td class="c">'+((l.cantidad||'')+' '+(l.unidad||'')).trim()+'</td>'
+    +'<td class="r mono">'+money(l.precio_unitario)+'</td>'
+    +'<td class="r mono">'+money(l.subtotal)+'</td>'
+    +'</tr>').join('');
+  let vacias='';
+  for(let z=lineas.length;z<10;z++)vacias+='<tr><td class="c">&nbsp;</td><td></td><td></td><td></td><td></td></tr>';
+  const cuerpo=
+    '<div class="hoja">'
+    +'<div class="cabecera">'
+      +'<div class="emp"><div class="rs">'+escapeHtml(emp.rs)+'</div>'
+        +(emp.dir?'<div>'+escapeHtml(emp.dir)+(emp.loc?', '+escapeHtml(emp.loc):'')+'</div>':'')
+        +(emp.cuit?'<div>CUIT: '+escapeHtml(emp.cuit)+'</div>':'')
+        +(emp.iibb?'<div>IIBB: '+escapeHtml(emp.iibb)+'</div>':'')
+        +'<div>'+escapeHtml(emp.iva)+'</div></div>'
+      +'<div class="tipobox"><div class="letra">R.V.</div><div class="tipolbl">USO INTERNO</div></div>'
+      +'<div class="comp"><div class="titulo">REMITO VALORIZADO</div>'
+        +'<div class="nro">Nº '+escapeHtml(rv.numero||'')+'</div>'
+        +'<div>Fecha: '+escapeHtml(rv.fecha||'')+'</div></div>'
+    +'</div>'
+    +'<div class="warn">⚠ DOCUMENTO INTERNO — NO VÁLIDO COMO FACTURA ANTE ARCA/AFIP</div>'
+    +'<div class="cli">'
+      +'<div><span class="lbl">Cliente:</span> <b>'+escapeHtml(cli?cli.razon_social||cli.nombre||'':'')+'</b></div>'
+      +'<div>'+((cli&&cli.cuit)?'<span class="lbl">CUIT:</span> '+escapeHtml(cli.cuit)+' &nbsp; ':'')
+        +((cli&&cli.condicion_iva)?'<span class="lbl">Cond. IVA:</span> '+escapeHtml(cli.condicion_iva):'')+'</div>'
+      +((cli&&(cli.direccion||cli.localidad))?'<div>'+escapeHtml([cli.direccion,cli.localidad].filter(Boolean).join(', '))+'</div>':'')
+    +'</div>'
+    +'<table><thead><tr><th class="c" style="width:30px;">#</th><th>Descripción</th>'
+      +'<th class="c" style="width:90px;">Cantidad</th><th class="r" style="width:110px;">P. Unitario</th>'
+      +'<th class="r" style="width:120px;">Subtotal</th></tr></thead>'
+      +'<tbody>'+lineasHtml+vacias+'</tbody></table>'
+    +'<div class="spacer"></div>'
+    +'<div class="tots"><table class="tt">'
+      +'<tr><td class="lbl">Subtotal</td><td class="r mono">'+money(rv.total)+'</td></tr>'
+      +'<tr class="grand"><td class="lbl">TOTAL</td><td class="r mono">'+money(rv.total)+'</td></tr></table></div>'
+    +(rv.observaciones?'<div class="obs"><b>Observaciones:</b> '+escapeHtml(rv.observaciones)+'</div>':'')
+    +'<div class="firmas"><div class="firma">Recibí conforme</div><div class="firma">Firma y aclaración</div></div>'
+    +'<div class="pie">Comprobante de uso interno · no reemplaza la factura legal.</div>'
+    +'</div>';
+  win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>RV '+(rv.numero||'')+'</title><style>'
+    +'@page{size:A4;margin:12mm;}html,body{height:100%;}*{box-sizing:border-box;}'
+    +'body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#1a1a1a;margin:0;}'
+    +'.mono{font-variant-numeric:tabular-nums;}.c{text-align:center;}.r{text-align:right;}'
+    +'.hoja{border:1.5px solid #6d28d9;min-height:271mm;display:flex;flex-direction:column;}'
+    +'.cabecera{display:grid;grid-template-columns:1fr 92px 1fr;border-bottom:1.5px solid #6d28d9;}'
+    +'.emp{padding:14px 18px;font-size:11px;line-height:1.5;}.emp .rs{font-size:18px;font-weight:700;color:#111;margin-bottom:4px;}'
+    +'.tipobox{border-left:1.5px solid #6d28d9;border-right:1.5px solid #6d28d9;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f5f3ff;}'
+    +'.tipobox .letra{font-size:26px;font-weight:800;color:#6d28d9;line-height:1;}.tipobox .tipolbl{font-size:7px;color:#6d28d9;letter-spacing:.05em;margin-top:3px;}'
+    +'.comp{padding:14px 18px;text-align:right;font-size:11px;line-height:1.5;}.comp .titulo{font-size:16px;font-weight:700;color:#6d28d9;}'
+    +'.comp .nro{font-size:15px;font-weight:700;}'
+    +'.warn{background:#fef3c7;border-bottom:1px solid #fbbf24;padding:7px 12px;font-size:10px;color:#92400e;text-align:center;font-weight:700;}'
+    +'.cli{padding:12px 18px;background:#faf5ff;font-size:12px;line-height:1.7;border-bottom:1px solid #ddd;}.cli .lbl{color:#666;}'
+    +'table{width:100%;border-collapse:collapse;}thead th{background:#ede9fe;color:#4c1d95;text-align:left;padding:8px 12px;font-size:11px;border-bottom:1.5px solid #6d28d9;}'
+    +'tbody td{padding:7px 12px;border-bottom:1px solid #eee;font-size:12px;}'
+    +'.spacer{flex:1 1 auto;}'
+    +'.tots{display:flex;justify-content:flex-end;padding:10px 18px;}.tt{min-width:280px;}.tt td{padding:6px 12px;}.tt .lbl{text-align:right;color:#444;}'
+    +'.tt .grand td{font-size:17px;font-weight:800;color:#111;border-top:2px solid #6d28d9;padding-top:9px;}'
+    +'.obs{padding:10px 18px;border-top:1px solid #ddd;font-size:11px;}'
+    +'.firmas{display:flex;justify-content:space-around;padding:22px 18px 10px;gap:40px;}'
+    +'.firma{flex:1;border-top:1px solid #999;text-align:center;font-size:10px;color:#666;padding-top:5px;max-width:260px;}'
+    +'.pie{padding:8px 18px 12px;font-size:9px;color:#999;text-align:center;}'
+    +'</style></head><body>'+cuerpo);
   win.document.write('<script>window.onload=()=>{setTimeout(()=>window.print(),400);}<\/script></body></html>');
   win.document.close();
 }
@@ -18371,6 +18405,24 @@ let FICH={ultimo:null};
 function _hhmmss(t){return t?String(t).slice(0,8):'';}
 function _minutosT(hhmmss){const p=String(hhmmss).split(':');return parseInt(p[0])*60+parseInt(p[1])+((parseInt(p[2]||0))/60);}
 
+function _fichUI(){
+  if(document.getElementById('fichaje-wrap'))renderFichaje();
+  const fb=document.getElementById('fichrap-feedback'); if(fb)fb.innerHTML=_fichFeedbackHtml(FICH.ultimo);
+  const inp=document.getElementById('fichrap-input'); if(inp){inp.value='';inp.focus();}
+}
+function abrirFichajeRapido(){
+  FICH.ultimo=null;
+  document.getElementById('fichrap-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="fichrap-modal"><div class="modal-card" style="max-width:440px;text-align:center;">'
+    +'<div class="modal-title">🕐 Fichar entrada / salida</div>'
+    +'<div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Escaneá tu carnet o tipeá tu legajo y Enter</div>'
+    +'<input id="fichrap-input" type="text" autocomplete="off" onkeydown="if(event.key===\'Enter\'){fichajeScan(this.value);this.value=\'\';event.preventDefault();}" placeholder="Escaneá el carnet…" style="width:100%;font-size:22px;padding:14px;text-align:center;border:2px solid var(--accent);border-radius:var(--rl);background:var(--bg2);color:var(--text1);box-sizing:border-box;">'
+    +'<div id="fichrap-feedback" style="min-height:70px;margin-top:14px;">'+_fichFeedbackHtml(null)+'</div>'
+    +'<div class="btn-grp" style="margin-top:8px;justify-content:center;"><button class="btn btn-sm" onclick="document.getElementById(\'fichrap-modal\').remove()">Cerrar</button></div>'
+    +'</div></div>');
+  setTimeout(function(){var i=document.getElementById('fichrap-input');if(i)i.focus();},120);
+}
 function renderFichaje(){
   const wrap=document.getElementById('fichaje-wrap'); if(!wrap)return;
   const hoy=localDate();
@@ -18408,7 +18460,7 @@ function fichajeScan(raw){
   const code=String(raw||'').trim(); if(!code)return;
   const emp=(C.empleados||[]).find(e=>e.activo&&(String(e.legajo||'')===code||String(e.cuil||'')===code))
     ||(C.empleados||[]).find(e=>e.activo&&String(e.id)===code);
-  if(!emp){FICH.ultimo={error:'Carnet no reconocido ('+code+')'};renderFichaje();return;}
+  if(!emp){FICH.ultimo={error:'Carnet no reconocido ('+code+')'};_fichUI();return;}
   const hoy=localDate();
   const fsHoy=(C.fichajes||[]).filter(f=>f.empleado_id===emp.id&&String(f.fecha)===hoy).slice().sort((a,b)=>String(a.hora).localeCompare(String(b.hora)));
   const ultimo=fsHoy[fsHoy.length-1];
@@ -18422,10 +18474,10 @@ function fichajeScan(raw){
   }
   (async()=>{
     const{data,error}=await sb.from('fichajes').insert({empleado_id:emp.id,fecha:hoy,hora:hora,tipo:tipo,origen:'qr',turno_id:td.turno?td.turno.id:null}).select().single();
-    if(error){FICH.ultimo={error:error.message};renderFichaje();return;}
+    if(error){FICH.ultimo={error:error.message};_fichUI();return;}
     if(data)C.fichajes=[data,...(C.fichajes||[])];
     FICH.ultimo={nombre:emp.apellido_nombre,tipo:tipo,hora:_hhmmss(hora).slice(0,5),turno:td.turno?td.turno.nombre:null,tardanza:tardanza};
-    renderFichaje();
+    _fichUI();
   })();
 }
 
@@ -32403,6 +32455,7 @@ function _pintarPanelCorte(){
       +'<div style="font-size:22px;font-weight:800;">✂️ Panel corte</div>'
       +'<div style="font-size:13px;color:var(--text3);">'+ahora.toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long'})+' · '+ahora.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})+'</div>'
       +'<div style="margin-left:auto;display:flex;gap:8px;align-items:center;">'
+        +'<button class="btn btn-sm" onclick="abrirFichajeRapido()" style="background:var(--accent);color:#fff;">🕐 Fichar</button>'
         +'<button class="btn btn-sm" onclick="_pintarPanelCorte()">↻ Actualizar</button>'
         +'<button class="btn btn-sm" onclick="_salirFullscreenCorte()" style="color:var(--text3);">✕ Salir</button>'
       +'</div>'
