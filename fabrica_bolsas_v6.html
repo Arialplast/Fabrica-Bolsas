@@ -422,6 +422,27 @@ body.pext-on .main{margin-left:0!important;}
 #page-torre-entregas *{font-family:'JetBrains Mono',ui-monospace,'DM Mono',monospace !important;}
 #page-torre-entregas .page-title{color:#fff;letter-spacing:.02em;text-shadow:0 0 18px rgba(43,255,136,.25);}
 #page-torre-entregas .page-sub{color:var(--text2);}
+/* ===== ANALISIS DE DEUDAS — estilo industrial ===== */
+#page-analisis-deudas{
+  --ad-green:#2bff88;--ad-amber:#ffe600;--ad-red:#ff5b5b;--ad-cyan:#38bdf8;--ad-purple:#a78bfa;
+  background:
+    linear-gradient(rgba(56,189,248,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(56,189,248,.035) 1px,transparent 1px);
+  background-size:28px 28px;
+}
+#page-analisis-deudas *{font-family:'JetBrains Mono',ui-monospace,'DM Mono',monospace !important;}
+#page-analisis-deudas .page-title{color:#fff;letter-spacing:.02em;text-shadow:0 0 18px rgba(255,91,91,.28);}
+#page-analisis-deudas .page-sub{color:var(--text2);}
+#page-analisis-deudas .ad-kpi{background:#0b1017;border:1px solid rgba(56,189,248,.18);border-radius:10px;padding:12px 14px;position:relative;overflow:hidden;}
+#page-analisis-deudas .ad-kpi .lbl{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
+#page-analisis-deudas .ad-kpi .val{font-size:20px;font-weight:800;letter-spacing:.01em;}
+#page-analisis-deudas .ad-kpi .sub{font-size:10px;color:var(--text3);margin-top:4px;}
+#page-analisis-deudas .ad-led{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle;}
+#page-analisis-deudas .ad-card{background:#0b1017;border:1px solid rgba(56,189,248,.14);border-radius:10px;padding:14px;margin-bottom:14px;}
+#page-analisis-deudas .ad-card .ttl{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ad-cyan);margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+#page-analisis-deudas table{font-size:11.5px;}
+#page-analisis-deudas .ad-bar{height:14px;border-radius:3px;box-shadow:0 0 10px rgba(56,189,248,.15);}
+
 #page-torre-entregas .page-hdr{border-bottom:1px solid var(--border);padding-bottom:14px;}
 
 /* RADAR DE CAPACIDAD — mismo lenguaje industrial que la Torre. Solo CSS scoped. */
@@ -705,6 +726,7 @@ body.pext-on .main{margin-left:0!important;}
         <div class="nav-item" onclick="go('facturacion')"><div class="nav-dot" style="background:var(--green)"></div>Facturación</div>
         <div class="nav-item" onclick="go('ventas-informales')"><div class="nav-dot" style="background:#9333ea"></div>Ventas informales</div>
         <div class="nav-item" onclick="go('cuenta-corriente')"><div class="nav-dot" style="background:var(--amber)"></div>Cuenta corriente</div>
+        <div class="nav-item" onclick="go('analisis-deudas')"><div class="nav-dot" style="background:var(--red)"></div>📈 Análisis de deudas</div>
         <div class="nav-item" onclick="go('compensaciones')"><div class="nav-dot" style="background:#06b6d4"></div>Compensaciones</div>
       </div>
     </div>
@@ -1861,6 +1883,19 @@ body.pext-on .main{margin-left:0!important;}
     </div>
 
     <!-- TORRE DE CONTROL DE ENTREGAS -->
+    <div class="page" id="page-analisis-deudas">
+      <div class="page-hdr">
+        <div><div class="page-title">📈 Análisis de deudas</div><div class="page-sub">Cómo se comportan las deudas que tienen conmigo · evolución, medios de pago, y a quién cobrar esta semana</div></div>
+        <div class="btn-grp">
+          <select id="ad-rango" class="st-sel" onchange="renderAnalisisDeudas()">
+            <option value="60">Últimos 60 días</option>
+            <option value="90" selected>Últimos 90 días</option>
+            <option value="180">Últimos 180 días</option>
+          </select>
+        </div>
+      </div>
+      <div id="ad-wrap"></div>
+    </div>
     <div class="page" id="page-torre-entregas">
       <div class="page-hdr">
         <div><div class="page-title">🗼 Torre de Control de Entregas</div><div class="page-sub">¿Voy a entregar los pedidos a tiempo? · Cada pedido con su diagnóstico: qué lo frena y cuánto atrasa</div></div>
@@ -3540,6 +3575,7 @@ body.pext-on .main{margin-left:0!important;}
           </div>
           <div class="fg"><label>Cuenta (medio de pago)</label>
             <select id="npag-cuenta" onchange="onNpagCuenta()"></select>
+            <div id="npag-cross-hint" style="font-size:11px;color:#f59e0b;margin-top:4px;"></div>
           </div>
           <div class="fg"><label>Fecha</label><input id="npag-fecha" type="date"></div>
         </div>
@@ -7878,6 +7914,7 @@ function go(name){
   if(ni)ni.classList.add('active');
   if(name==='nueva'){poblarSelects();limpiarFormOrden();}
   if(name==='gantt')renderGantt();
+  if(name==='analisis-deudas')renderAnalisisDeudas();
   if(name==='capacidad')renderCap();
   if(name==='carga-bobinas'){poblarCargaSelects();initCarga();resetLocks();}
   if(name==='stock'){renderStock();poblarConfSelects();poblarFiltroOrden();}
@@ -18158,15 +18195,32 @@ function initNuevoPago(){
 }
 function _npagRenderCuentas(){
   const sel=document.getElementById('npag-cuenta'); if(!sel)return;
-  const ctas=(C.cuentas_caja||[]).filter(x=>x.activa!==false && !x.es_conciliacion && (x.plano||'blanco')===_pagCtx.plano);
-  const defP=ctas.find(x=>x.default_pagos)?.id;
-  sel.innerHTML=ctas.length
-    ? ctas.map(x=>'<option value="'+x.id+'"'+(x.id===defP?' selected':'')+'>'+escapeHtml(x.nombre||'cuenta')+' · '+escapeHtml(x.tipo||'')+'</option>').join('')
-    : '<option value="">— no hay cuentas '+_pagCtx.plano+' (cargá una en el Libro de caja) —</option>';
+  // Mostramos TODAS las cuentas (no solo las del plano de la deuda): pagar una
+  // deuda con una cuenta de otro circuito es un CRUCE valido que pasa por
+  // CONCILIACION (guardarPago arma las patas). Default = cuenta del mismo plano
+  // para no cambiar el flujo normal; las del otro circuito quedan abajo con aviso.
+  const ctas=(C.cuentas_caja||[]).filter(x=>x.activa!==false && !x.es_conciliacion);
+  const mismas=ctas.filter(x=>(x.plano||'blanco')===_pagCtx.plano);
+  const otras =ctas.filter(x=>(x.plano||'blanco')!==_pagCtx.plano);
+  const ordenadas=[...mismas,...otras];
+  const defP=(mismas.find(x=>x.default_pagos)||mismas[0]||ordenadas[0])?.id;
+  sel.innerHTML=ordenadas.length
+    ? ordenadas.map(x=>'<option value="'+x.id+'"'+(x.id===defP?' selected':'')+'>'+escapeHtml(x.nombre||'cuenta')+' · '+escapeHtml(x.tipo||'')+' '+((x.plano||'blanco')==='negro'?'⚫':'⚪')+'</option>').join('')
+    : '<option value="">— no hay cuentas (cargá una en el Libro de caja) —</option>';
   _pagCtx.cuenta_id=parseInt(sel.value)||null;
+  _npagCrossHint();
+}
+// Aviso de cruce: si la cuenta elegida es de otro circuito que la deuda.
+function _npagCrossHint(){
+  const hint=document.getElementById('npag-cross-hint'); if(!hint)return;
+  const cid=parseInt((document.getElementById('npag-cuenta')||{}).value)||null;
+  const cuenta=(C.cuentas_caja||[]).find(x=>x.id===cid);
+  if(cuenta && (cuenta.plano||'blanco')!==_pagCtx.plano)
+    hint.textContent='↔ Cruce: pago '+_pagCtx.plano+' desde cuenta '+(cuenta.plano||'blanco')+' ('+(cuenta.nombre||'')+') → el efectivo/transferencia pasa por CONCILIACIÓN.';
+  else hint.textContent='';
 }
 function onNpagPlano(){ _pagCtx.plano=document.getElementById('npag-plano').value||'blanco'; _npagRenderCuentas(); onNpagChange(); }
-function onNpagCuenta(){ _pagCtx.cuenta_id=parseInt(document.getElementById('npag-cuenta').value)||null; }
+function onNpagCuenta(){ _pagCtx.cuenta_id=parseInt(document.getElementById('npag-cuenta').value)||null; _npagCrossHint(); }
 function onNpagChange(){
   const pid=parseInt(document.getElementById('npag-prov').value);
   if(!pid){document.getElementById('npag-wrap').style.display='none';return;}
@@ -18292,6 +18346,17 @@ async function guardarPago(){
       } else { msg.style.color='var(--amber)'; msg.textContent='⚠ Cheque de otro circuito pero no existe la cuenta CONCILIACIÓN (corré el SQL). El cruce no se registró en caja.'; }
     }
   }
+  // ---- CRUCE del EFECTIVO/TRANSFERENCIA (resto): si la cuenta real es de otro
+  // circuito que la deuda, el resto pasa por CONCILIACIÓN (dos patas que cierran
+  // en cero). Sin esto, una deuda negra pagada con cuenta blanca quedaria sin puente.
+  if(resto>0.01 && cuenta && (cuenta.plano||'blanco')!==plano){
+    if(conc){
+      await sb.from('movimientos_caja').insert([
+        {fecha,cuenta_id:conc.id,tipo:'ingreso',monto:r2(resto),concepto:'Pago '+numero+' — '+(cuenta.plano||'blanco')+' ('+(cuenta.nombre||'')+') acreditado en conciliación (cruce '+(cuenta.plano||'blanco')+'→'+plano+')',origen_tipo:'pago_cruce',origen_id:pg.id},
+        {fecha,cuenta_id:conc.id,tipo:'egreso',monto:r2(resto),concepto:'Pago deuda '+(plano==='negro'?'negra':'blanca')+' desde conciliación · '+lcProvNombre(_pagCtx.proveedor_id),origen_tipo:'pago_cruce',origen_id:pg.id}
+      ]);
+    } else { msg.style.color='var(--amber)'; msg.textContent='⚠ Pago de otro circuito pero no existe la cuenta CONCILIACIÓN. El cruce no se registró en caja.'; }
+  }
   for(const l of lineas){
     const cg=(C.compras_gastos||[]).find(c=>c.id===l.compra_gasto_id);
     const pagado=(C.pagos_proveedores||[]).filter(p=>p.compra_gasto_id===l.compra_gasto_id).reduce((s,p)=>s+(parseFloat(p.monto)||0),0)+l.monto;
@@ -18315,6 +18380,8 @@ function anularPago(id){
       await sb.from('movimientos_caja').delete().eq('origen_tipo','cheque_endoso').eq('origen_id',ch.id);
     }
     await sb.from('pagos_proveedores').delete().eq('pago_id',id);
+    // borrar las patas de conciliacion del cruce de efectivo/transferencia (si las hubo)
+    await sb.from('movimientos_caja').delete().eq('origen_tipo','pago_cruce').eq('origen_id',id);
     await sb.from('pagos').update({estado:'anulado',fecha_anulacion:new Date().toISOString(),motivo_anulacion:motivo}).eq('id',id);
     for(const l of lineas){
       const cg=(C.compras_gastos||[]).find(c=>c.id===l.compra_gasto_id);
@@ -18642,6 +18709,7 @@ function renderSueldos(){
   wrap.innerHTML='<div class="btn-grp" style="margin-bottom:16px;">'
     +tabBtn('empleados','👷 Empleados')
     +tabBtn('turnos','🕐 Turnos')
+    +tabBtn('resumen','📋 Resumen')
     +tabBtn('quincena','💵 Quincena')
     +tabBtn('recibos','🧾 Recibos')
     +tabBtn('cargas','🏛 F.931 / Cargas')
@@ -18651,6 +18719,7 @@ function renderSueldos(){
     +'</div><div id="su-body"></div>';
   if(tab==='empleados')_suRenderEmpleados();
   else if(tab==='turnos')_suRenderTurnos();
+  else if(tab==='resumen')_suRenderResumen();
   else if(tab==='quincena')_suRenderQuincena();
   else if(tab==='recibos')_suRenderRecibos();
   else if(tab==='cargas')_suRenderCargas();
@@ -19469,6 +19538,276 @@ function suqTraerTodoFichaje(){
     toast('✓ '+ok+' empleado(s) actualizados desde fichaje','green');
     await reload();renderSueldos();
   })();
+}
+
+// ============================================================
+//  RESUMEN DE HORARIOS Y HORAS (día / semana / mes)
+//  Todo DERIVADO de los fichajes (P1). Lectura + arreglos protegidos.
+// ============================================================
+let RES={modo:'dia',fecha:localDate()};
+
+function _resNombreDia(fechaStr){
+  return ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'][new Date(fechaStr+'T12:00:00').getDay()];
+}
+function _mesNombre(mm){return ['','Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'][mm]||'';}
+function _fmtFecha(fechaStr){return String(fechaStr).slice(0,10).split('-').reverse().join('/');}
+function _fmtH(h){
+  if(h==null||isNaN(h))return '—';
+  const v=Math.round(h*100)/100;
+  if(v%1===0)return v.toFixed(0)+'h';
+  let s=v.toFixed(2); if(s.endsWith('0'))s=s.slice(0,-1);
+  return s+'h';
+}
+// fs: fichajes del día ordenados asc -> {entrada, salida, abierto}
+function _resEntradaSalida(fs){
+  const ent=fs.find(f=>f.tipo==='entrada');
+  let sal=null; for(let i=fs.length-1;i>=0;i--){ if(fs[i].tipo==='salida'){sal=fs[i];break;} }
+  return {entrada:ent?_hhmm(ent.hora):'—', salida:sal?_hhmm(sal.hora):'—', abierto:fs.length%2!==0};
+}
+// Empleados activos + los que tengan fichajes en el período (aunque estén inactivos)
+function _resEmpleados(fechas){
+  const fset=new Set(fechas.map(String));
+  const conFichaje=new Set((C.fichajes||[]).filter(f=>fset.has(String(f.fecha))).map(f=>f.empleado_id));
+  return (C.empleados||[]).filter(e=>e.activo||conFichaje.has(e.id))
+    .sort((a,b)=>String(a.apellido_nombre||'').localeCompare(String(b.apellido_nombre||'')));
+}
+
+function _suRenderResumen(){
+  const body=document.getElementById('su-body'); if(!body)return;
+  const modoBtn=(id,lbl)=>'<button class="btn btn-sm" onclick="resModo(\''+id+'\')" style="'+(RES.modo===id?'background:var(--accent);color:#fff;border-color:var(--accent);':'')+'">'+lbl+'</button>';
+  let html='<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;">'
+    +'<div class="btn-grp">'+modoBtn('dia','📅 Día')+modoBtn('semana','🗓 Semana')+modoBtn('mes','📆 Mes')+'</div>';
+  if(RES.modo==='mes'){
+    html+='<label style="font-size:12px;color:var(--text2);">Mes: <input type="month" value="'+RES.fecha.slice(0,7)+'" onchange="if(this.value){RES.fecha=this.value+\'-01\';renderSueldos();}" class="st-sel" style="width:150px;"></label>';
+    html+='<div class="btn-grp"><button class="btn btn-sm" onclick="resMover(-1)">◀ Mes ant.</button><button class="btn btn-sm" onclick="resHoy()">Este mes</button><button class="btn btn-sm" onclick="resMover(1)">Mes sig. ▶</button></div>';
+  }else{
+    html+='<label style="font-size:12px;color:var(--text2);">Fecha: <input type="date" value="'+RES.fecha+'" onchange="if(this.value){RES.fecha=this.value;renderSueldos();}" class="st-sel" style="width:150px;"></label>';
+    html+='<div class="btn-grp"><button class="btn btn-sm" onclick="resMover(-1)">◀</button><button class="btn btn-sm" onclick="resHoy()">Hoy</button><button class="btn btn-sm" onclick="resMover(1)">▶</button></div>';
+  }
+  html+='</div><div id="res-body"></div>';
+  body.innerHTML=html;
+  if(RES.modo==='dia')_resDia();
+  else if(RES.modo==='semana')_resSemana();
+  else _resMes();
+}
+function resModo(m){RES.modo=m;renderSueldos();}
+function resHoy(){RES.fecha=localDate();renderSueldos();}
+function resMover(n){
+  if(RES.modo==='mes'){
+    const yy=parseInt(RES.fecha.slice(0,4)),mm=parseInt(RES.fecha.slice(5,7));
+    const d=new Date(yy,mm-1+n,1); RES.fecha=localDate(d);
+  }else{
+    const paso=RES.modo==='semana'?7:1;
+    const d=new Date(RES.fecha+'T12:00:00'); d.setDate(d.getDate()+n*paso); RES.fecha=localDate(d);
+  }
+  renderSueldos();
+}
+
+// ---------- Vista DÍA ----------
+function _resDia(){
+  const c=document.getElementById('res-body'); if(!c)return;
+  const f=RES.fecha;
+  const emps=_resEmpleados([f]);
+  const filas=emps.map(e=>({e,h:_fichHorasDia(e,f)})).filter(x=>x.h.fichajes.length>0);
+  let html='<div style="font-size:13px;font-weight:700;margin-bottom:6px;">'+_resNombreDia(f)+' '+_fmtFecha(f)+(_esFeriado(f)?' · <span style="color:var(--amber);">feriado</span>':'')+'</div>';
+  if(!filas.length){ c.innerHTML=html+'<div class="empty" style="padding:30px;text-align:center;color:var(--text3);">Nadie fichó este día.</div>'; return; }
+  let tTrab=0,tExtra=0;
+  html+='<div style="overflow-x:auto;"><table style="width:100%;font-size:12px;border-collapse:collapse;">'
+    +'<tr style="text-align:left;color:var(--text3);font-size:10px;text-transform:uppercase;"><th style="padding:6px;">Empleado</th><th style="text-align:center;">Turno esperado</th><th style="text-align:center;">Entrada</th><th style="text-align:center;">Salida</th><th style="text-align:center;">Marcas del día</th><th style="text-align:center;">Hs trab.</th><th style="text-align:center;">Normales</th><th style="text-align:center;">Extra</th><th style="text-align:center;">Tardanza</th><th></th></tr>';
+  filas.forEach(({e,h})=>{
+    const es=_resEntradaSalida(h.fichajes);
+    tTrab+=h.trabajadas; tExtra+=h.extra;
+    const turnoTxt=h.turno?_hhmm(h.turno.hora_entrada)+'–'+_hhmm(h.turno.hora_salida):(h.franco?'franco':'—');
+    const marcas=h.fichajes.map(fx=>'<span style="color:'+(fx.tipo==='entrada'?'var(--green)':'#3b82f6')+';" title="'+(fx.tipo==='entrada'?'entrada':'salida')+'">'+_hhmm(fx.hora)+'</span>').join(' ');
+    html+='<tr style="border-top:1px solid var(--border);">'
+      +'<td style="padding:7px 6px;font-weight:600;">'+escapeHtml(e.apellido_nombre||'')+'</td>'
+      +'<td style="text-align:center;font-size:11px;color:var(--text2);">'+turnoTxt+'</td>'
+      +'<td style="text-align:center;font-family:monospace;">'+es.entrada+'</td>'
+      +'<td style="text-align:center;font-family:monospace;">'+(es.abierto?'<span style="color:var(--amber);" title="Sin salida (jornada abierta)">— abierto</span>':es.salida)+'</td>'
+      +'<td style="text-align:center;font-family:monospace;font-size:11px;">'+marcas+'</td>'
+      +'<td style="text-align:center;font-family:monospace;font-weight:700;">'+_fmtH(h.trabajadas)+'</td>'
+      +'<td style="text-align:center;font-family:monospace;">'+_fmtH(h.normales)+'</td>'
+      +'<td style="text-align:center;font-family:monospace;color:'+(h.extra>0?'var(--accent)':'var(--text3)')+';">'+(h.extra>0?_fmtH(h.extra):'—')+'</td>'
+      +'<td style="text-align:center;font-family:monospace;color:'+(h.tardanza>0?'var(--amber)':'var(--text3)')+';">'+(h.tardanza>0?Math.round(h.tardanza)+'′':'—')+'</td>'
+      +'<td style="text-align:right;white-space:nowrap;"><button class="btn btn-sm" onclick="resArreglar('+e.id+',\''+f+'\')" title="Corregir fichajes de este día">🔧</button></td>'
+    +'</tr>';
+  });
+  html+='<tr style="border-top:2px solid var(--border);font-weight:700;background:var(--bg3);"><td style="padding:7px 6px;">Total ('+filas.length+')</td><td></td><td></td><td></td><td></td><td style="text-align:center;font-family:monospace;">'+_fmtH(tTrab)+'</td><td></td><td style="text-align:center;font-family:monospace;color:var(--accent);">'+(tExtra>0?_fmtH(tExtra):'—')+'</td><td></td><td></td></tr>';
+  html+='</table></div>';
+  html+='<div style="font-size:11px;color:var(--text3);margin-top:8px;">Marcas: <span style="color:var(--green);">entrada</span> · <span style="color:#3b82f6;">salida</span>. 🔧 = corregir los fichajes del día (pide clave admin).</div>';
+  c.innerHTML=html;
+}
+
+// ---------- Vista SEMANA ----------
+function _resSemana(){
+  const c=document.getElementById('res-body'); if(!c)return;
+  const lun=_lunesDeStr(RES.fecha);
+  const dias=[];for(let i=0;i<7;i++){const d=new Date(lun+'T12:00:00');d.setDate(d.getDate()+i);dias.push(localDate(d));}
+  const nomDia=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+  const emps=_resEmpleados(dias);
+  let html='<div style="font-size:13px;font-weight:700;margin-bottom:8px;">Semana del '+_fmtFecha(lun)+' al '+_fmtFecha(dias[6])+'</div>';
+  if(!emps.length){ c.innerHTML=html+'<div class="empty" style="padding:30px;text-align:center;color:var(--text3);">No hay empleados ni fichajes en esta semana.</div>'; return; }
+  html+='<div style="overflow-x:auto;"><table style="width:100%;font-size:11px;border-collapse:collapse;">';
+  html+='<tr style="color:var(--text3);font-size:10px;text-transform:uppercase;"><th style="text-align:left;padding:5px;">Empleado</th>';
+  dias.forEach((d,i)=>{html+='<th style="text-align:center;padding:5px;'+(d===RES.fecha?'background:rgba(99,102,241,.12);':'')+'">'+nomDia[i]+'<br><span style="font-weight:400;">'+d.slice(8,10)+'/'+d.slice(5,7)+'</span></th>';});
+  html+='<th style="text-align:center;padding:5px;">Total</th></tr>';
+  const totCol=dias.map(()=>0); let granTot=0;
+  emps.forEach(e=>{
+    let semTot=0;
+    let row='<tr style="border-top:1px solid var(--border);"><td style="padding:5px;font-weight:600;">'+escapeHtml(e.apellido_nombre||'')+'</td>';
+    dias.forEach((d,i)=>{
+      const h=_fichHorasDia(e,d);
+      const hoy=(d===RES.fecha?'background:rgba(99,102,241,.08);':'');
+      if(h.fichajes.length){
+        const es=_resEntradaSalida(h.fichajes);
+        semTot+=h.trabajadas; totCol[i]+=h.trabajadas; granTot+=h.trabajadas;
+        row+='<td style="text-align:center;padding:4px;cursor:pointer;'+hoy+'" title="Corregir fichajes" onclick="resArreglar('+e.id+',\''+d+'\')">'
+          +'<div style="font-family:monospace;font-weight:700;'+(es.abierto?'color:var(--amber);':'')+'">'+(es.abierto?'abierto':_fmtH(h.trabajadas))+'</div>'
+          +'<div style="font-family:monospace;font-size:9px;color:var(--text3);">'+es.entrada+'–'+(es.abierto?'··':es.salida)+'</div>'
+          +(h.extra>0?'<div style="font-size:9px;color:var(--accent);">+'+_fmtH(h.extra)+'</div>':'')
+          +'</td>';
+      } else {
+        const dow=new Date(d+'T12:00:00').getDay();
+        row+='<td style="text-align:center;padding:4px;color:var(--text3);'+hoy+'">'+(dow===0?'—':'·')+'</td>';
+      }
+    });
+    row+='<td style="text-align:center;padding:5px;font-family:monospace;font-weight:700;">'+_fmtH(semTot)+'</td></tr>';
+    html+=row;
+  });
+  html+='<tr style="border-top:2px solid var(--border);font-weight:700;background:var(--bg3);"><td style="padding:5px;">Total</td>';
+  totCol.forEach(t=>{html+='<td style="text-align:center;padding:5px;font-family:monospace;">'+(t>0?_fmtH(t):'—')+'</td>';});
+  html+='<td style="text-align:center;padding:5px;font-family:monospace;">'+_fmtH(granTot)+'</td></tr>';
+  html+='</table></div>';
+  html+='<div style="font-size:11px;color:var(--text3);margin-top:8px;">Cada celda: horas trabajadas · entrada–salida abajo · <span style="color:var(--accent);">+extra</span>. Tocá una celda para corregir ese día.</div>';
+  c.innerHTML=html;
+}
+
+// ---------- Vista MES ----------
+function _resMes(){
+  const c=document.getElementById('res-body'); if(!c)return;
+  const ym=RES.fecha.slice(0,7);
+  const yy=parseInt(ym.slice(0,4)),mm=parseInt(ym.slice(5,7));
+  const ld=new Date(yy,mm,0).getDate();
+  const dias=[];for(let d=1;d<=ld;d++)dias.push(ym+'-'+String(d).padStart(2,'0'));
+  const emps=_resEmpleados(dias);
+  let html='<div style="font-size:13px;font-weight:700;margin-bottom:8px;">'+_mesNombre(mm)+' '+yy+'</div>';
+  const filas=[];
+  emps.forEach(e=>{
+    let dTrab=0,tTrab=0,tNorm=0,tExtra=0,tFer=0,tTard=0;
+    dias.forEach(d=>{ const h=_fichHorasDia(e,d); if(h.fichajes.length){ if(h.trabajadas>0)dTrab++; tTrab+=h.trabajadas;tNorm+=h.normales;tExtra+=h.extra;tFer+=h.feriado;tTard+=h.tardanza; } });
+    if(dTrab>0||tTrab>0)filas.push({e,dTrab,tTrab,tNorm,tExtra,tFer,tTard});
+  });
+  if(!filas.length){ c.innerHTML=html+'<div class="empty" style="padding:30px;text-align:center;color:var(--text3);">Nadie fichó este mes.</div>'; return; }
+  let sT=0,sN=0,sE=0,sF=0;
+  html+='<div style="overflow-x:auto;"><table style="width:100%;font-size:12px;border-collapse:collapse;">'
+    +'<tr style="text-align:left;color:var(--text3);font-size:10px;text-transform:uppercase;"><th style="padding:6px;">Empleado</th><th style="text-align:center;">Días</th><th style="text-align:center;">Hs trab.</th><th style="text-align:center;">Normales</th><th style="text-align:center;">Extra</th><th style="text-align:center;">Feriado</th><th style="text-align:center;">Tardanza</th><th></th></tr>';
+  filas.forEach(({e,dTrab,tTrab,tNorm,tExtra,tFer,tTard})=>{
+    sT+=tTrab;sN+=tNorm;sE+=tExtra;sF+=tFer;
+    html+='<tr style="border-top:1px solid var(--border);">'
+      +'<td style="padding:7px 6px;font-weight:600;">'+escapeHtml(e.apellido_nombre||'')+'</td>'
+      +'<td style="text-align:center;">'+dTrab+'</td>'
+      +'<td style="text-align:center;font-family:monospace;font-weight:700;">'+_fmtH(tTrab)+'</td>'
+      +'<td style="text-align:center;font-family:monospace;">'+_fmtH(tNorm)+'</td>'
+      +'<td style="text-align:center;font-family:monospace;color:'+(tExtra>0?'var(--accent)':'var(--text3)')+';">'+(tExtra>0?_fmtH(tExtra):'—')+'</td>'
+      +'<td style="text-align:center;font-family:monospace;">'+(tFer>0?_fmtH(tFer):'—')+'</td>'
+      +'<td style="text-align:center;font-family:monospace;color:'+(tTard>0?'var(--amber)':'var(--text3)')+';">'+(tTard>0?Math.round(tTard)+'′':'—')+'</td>'
+      +'<td style="text-align:right;"><button class="btn btn-sm" onclick="resDetalleMes('+e.id+')" title="Ver día por día">🔎</button></td>'
+    +'</tr>';
+  });
+  html+='<tr style="border-top:2px solid var(--border);font-weight:700;background:var(--bg3);"><td style="padding:7px 6px;">Total ('+filas.length+')</td><td></td><td style="text-align:center;font-family:monospace;">'+_fmtH(sT)+'</td><td style="text-align:center;font-family:monospace;">'+_fmtH(sN)+'</td><td style="text-align:center;font-family:monospace;color:var(--accent);">'+(sE>0?_fmtH(sE):'—')+'</td><td style="text-align:center;font-family:monospace;">'+(sF>0?_fmtH(sF):'—')+'</td><td></td><td></td></tr>';
+  html+='</table></div>';
+  html+='<div style="font-size:11px;color:var(--text3);margin-top:8px;">🔎 = ver el detalle día por día del empleado. Horas del mes derivadas de los fichajes.</div>';
+  c.innerHTML=html;
+}
+function resDetalleMes(empId){
+  const e=(C.empleados||[]).find(x=>x.id===empId); if(!e)return;
+  const ym=RES.fecha.slice(0,7);
+  const yy=parseInt(ym.slice(0,4)),mm=parseInt(ym.slice(5,7));
+  const ld=new Date(yy,mm,0).getDate();
+  const nomDia=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  let rows='';
+  for(let d=1;d<=ld;d++){
+    const f=ym+'-'+String(d).padStart(2,'0');
+    const h=_fichHorasDia(e,f);
+    if(!h.fichajes.length)continue;
+    const es=_resEntradaSalida(h.fichajes);
+    const dow=new Date(f+'T12:00:00').getDay();
+    rows+='<tr style="border-top:1px solid var(--border);"><td style="padding:5px 6px;">'+nomDia[dow]+' '+String(d).padStart(2,'0')+'</td>'
+      +'<td style="text-align:center;font-family:monospace;">'+es.entrada+'</td>'
+      +'<td style="text-align:center;font-family:monospace;">'+(es.abierto?'<span style="color:var(--amber);">abierto</span>':es.salida)+'</td>'
+      +'<td style="text-align:center;font-family:monospace;font-weight:700;">'+_fmtH(h.trabajadas)+'</td>'
+      +'<td style="text-align:center;font-family:monospace;color:'+(h.extra>0?'var(--accent)':'var(--text3)')+';">'+(h.extra>0?_fmtH(h.extra):'—')+'</td>'
+      +'<td style="text-align:center;"><button class="btn btn-sm" onclick="document.getElementById(\'res-det-modal\').remove();resArreglar('+empId+',\''+f+'\')" title="Corregir">🔧</button></td></tr>';
+  }
+  document.getElementById('res-det-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="res-det-modal"><div class="modal-card" style="max-width:520px;">'
+    +'<div class="modal-title">📆 Detalle · '+escapeHtml(e.apellido_nombre||'')+'</div>'
+    +'<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">'+_mesNombre(mm)+' '+yy+'</div>'
+    +'<div style="max-height:60vh;overflow:auto;"><table style="width:100%;font-size:12px;border-collapse:collapse;"><tr style="text-align:left;color:var(--text3);font-size:10px;text-transform:uppercase;"><th style="padding:5px 6px;">Día</th><th style="text-align:center;">Entrada</th><th style="text-align:center;">Salida</th><th style="text-align:center;">Hs</th><th style="text-align:center;">Extra</th><th></th></tr>'+(rows||'<tr><td colspan="6" style="padding:16px;text-align:center;color:var(--text3);">Sin fichajes este mes.</td></tr>')+'</table></div>'
+    +'<div class="btn-grp" style="margin-top:14px;"><button class="btn btn-sm" onclick="document.getElementById(\'res-det-modal\').remove()">Cerrar</button></div>'
+    +'</div></div>');
+}
+
+// ---------- ARREGLOS: corregir / borrar / agregar marcas de un día ----------
+function _resArrFila(f){
+  const hora=f?String(f.hora).slice(0,8):localTime();
+  const tipo=f?f.tipo:'entrada';
+  const id=f?f.id:'new';
+  return '<div class="res-arr-row" data-id="'+id+'" style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">'
+    +'<input type="time" step="1" class="ra-hora" value="'+hora+'" style="flex:1;padding:6px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg2);color:var(--text1);">'
+    +'<select class="ra-tipo" style="padding:6px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg2);color:var(--text1);"><option value="entrada"'+(tipo==='entrada'?' selected':'')+'>▶ entrada</option><option value="salida"'+(tipo==='salida'?' selected':'')+'>◀ salida</option></select>'
+    +'<button class="btn btn-sm btn-del" onclick="this.closest(\'.res-arr-row\').remove()" title="Quitar esta marca">🗑</button>'
+    +'</div>';
+}
+function resArreglar(empId,fecha){
+  const e=(C.empleados||[]).find(x=>x.id===empId); if(!e)return;
+  const fs=(C.fichajes||[]).filter(f=>f.empleado_id===empId&&String(f.fecha)===fecha).slice().sort((a,b)=>String(a.hora).localeCompare(String(b.hora)));
+  document.getElementById('res-arr-modal')?.remove();
+  const rows=fs.map(f=>_resArrFila(f)).join('');
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="res-arr-modal"><div class="modal-card" style="max-width:480px;">'
+    +'<div class="modal-title">🔧 Corregir fichajes</div>'
+    +'<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">'+escapeHtml(e.apellido_nombre||'')+' · '+_resNombreDia(fecha)+' '+_fmtFecha(fecha)+'</div>'
+    +'<div style="font-size:11px;color:var(--text3);margin-bottom:10px;">Corregí la hora o el tipo de cada marca, borrá las de prueba o agregá una que falte. Al guardar se recalculan las horas.</div>'
+    +'<div id="res-arr-list">'+(rows||'<div id="res-arr-empty" style="font-size:12px;color:var(--text3);padding:8px 0;">No hay fichajes este día. Agregá las marcas que correspondan.</div>')+'</div>'
+    +'<button class="btn btn-sm" onclick="resArrAgregar()" style="margin-top:8px;">➕ Agregar marca</button>'
+    +'<div class="btn-grp" style="margin-top:14px;"><button class="btn btn-primary btn-sm" onclick="resArrGuardar('+empId+',\''+fecha+'\')">💾 Guardar cambios</button><button class="btn btn-sm" onclick="document.getElementById(\'res-arr-modal\').remove()">Cancelar</button></div>'
+    +'</div></div>');
+}
+function resArrAgregar(){
+  const list=document.getElementById('res-arr-list'); if(!list)return;
+  document.getElementById('res-arr-empty')?.remove();
+  list.insertAdjacentHTML('beforeend',_resArrFila(null));
+}
+function resArrGuardar(empId,fecha){
+  const rows=[...document.querySelectorAll('#res-arr-list .res-arr-row')];
+  const desired=rows.map(r=>{
+    let hora=r.querySelector('.ra-hora').value; if(!hora)return null;
+    if(hora.length===5)hora+=':00';
+    return {id:r.dataset.id==='new'?null:parseInt(r.dataset.id),hora:hora,tipo:r.querySelector('.ra-tipo').value};
+  }).filter(Boolean);
+  const orig=(C.fichajes||[]).filter(f=>f.empleado_id===empId&&String(f.fecha)===fecha);
+  const desiredIds=new Set(desired.filter(d=>d.id).map(d=>d.id));
+  const toDelete=orig.filter(f=>!desiredIds.has(f.id)).map(f=>f.id);
+  pedirAdminYEjecutar(()=>{ (async()=>{
+    try{
+      const e=(C.empleados||[]).find(x=>x.id===empId);
+      const turnoId=e?((_turnoDelDia(e,fecha).turno||{}).id||null):null;
+      for(const id of toDelete){ const{error}=await sb.from('fichajes').delete().eq('id',id); if(error)throw error; }
+      for(const d of desired){
+        if(d.id){
+          const o=orig.find(f=>f.id===d.id);
+          if(o&&(String(o.hora).slice(0,8)!==d.hora||o.tipo!==d.tipo)){ const{error}=await sb.from('fichajes').update({hora:d.hora,tipo:d.tipo}).eq('id',d.id); if(error)throw error; }
+        }else{
+          const{error}=await sb.from('fichajes').insert({empleado_id:empId,fecha:fecha,hora:d.hora,tipo:d.tipo,origen:'manual',turno_id:turnoId}); if(error)throw error;
+        }
+      }
+      toast('✓ Fichajes corregidos','green');
+      document.getElementById('res-arr-modal')?.remove();
+      await reload(); renderSueldos();
+    }catch(err){ toast('Error: '+(err.message||err),'red'); }
+  })(); });
 }
 
 // ---------- CARNET QR ----------
@@ -41369,6 +41708,251 @@ function fcCobrosPendientes(){
   });
   return out.filter(o=>!((o.tipo==='factura'||o.tipo==='rv'||o.tipo==='si'||o.tipo==='remito')&&o.clase==='cobro'&&o.saldo<=0.01));
 }
+// ============================================================
+// ANALISIS DE DEUDAS — pantalla industrial.
+// P1: todo derivado de documentos y movimientos via derivadores canonicos
+// (_saldoFactura/_saldoRV/_saldoInicial/_saldoND). El objetivo semanal reusa
+// fcPagosPendientes() (compras_gastos: incluye ARCA, nomina, prestamos, todo
+// lo documentado). Nada se lee de saldos guardados.
+// ============================================================
+function _adFmt(n){return '$'+Math.round(n).toLocaleString('es-AR');}
+function _adFmtK(n){const a=Math.abs(n);if(a>=1e6)return '$'+(n/1e6).toLocaleString('es-AR',{maximumFractionDigits:1})+'M';if(a>=1e3)return '$'+Math.round(n/1e3)+'K';return '$'+Math.round(n);}
+// Precio de referencia del kg de MP: promedio ponderado (por kg) de los lotes
+// ingresados en los ultimos 90 dias; si no hay, de todos los lotes con precio.
+function _adPrecioMPKg(){
+  const hoy=new Date();const lim=dStr(addDays(hoy,-90));
+  let lotes=(C.lotes_mp||[]).filter(l=>(parseFloat(l.precio_kg)||0)>0&&String(l.fecha_ingreso||'')>=lim);
+  if(!lotes.length)lotes=(C.lotes_mp||[]).filter(l=>(parseFloat(l.precio_kg)||0)>0);
+  if(!lotes.length)return 0;
+  let kg=0,val=0;
+  lotes.forEach(l=>{const k=parseFloat(l.kg_ingresados)||0;kg+=k;val+=k*(parseFloat(l.precio_kg)||0);});
+  return kg>0?r2(val/kg):r2(lotes.reduce((s,l)=>s+parseFloat(l.precio_kg),0)/lotes.length);
+}
+// Documentos PENDIENTES por cliente con saldo canonico y antiguedad en dias.
+function _adDocsPendientes(){
+  const hoy=new Date();const out=[];
+  const dias=f=>{const d=new Date(String(f)+'T12:00:00');return isNaN(d)?0:Math.max(0,Math.round((hoy-d)/86400000));};
+  (C.facturas||[]).forEach(f=>{if(f.estado==='anulada')return;const s=_saldoFactura(f);if(s>0.01)out.push({cliente_id:f.cliente_id,plano:'formal',tipo:'Factura',ref:f.numero||'',saldo:s,dias:dias(f.fecha),fecha:f.fecha});});
+  (C.rvs||[]).forEach(rv=>{if(rv.estado==='anulada')return;const s=_saldoRV(rv);if(s>0.01)out.push({cliente_id:rv.cliente_id,plano:'informal',tipo:'RV',ref:rv.numero||'',saldo:s,dias:dias(rv.fecha),fecha:rv.fecha});});
+  (C.saldos_iniciales||[]).forEach(si=>{const s=_saldoInicial(si);if(s>0.01){const f=String(si.created_at||'').slice(0,10);out.push({cliente_id:si.cliente_id,plano:si.plano||'formal',tipo:'Saldo ini',ref:si.concepto||'',saldo:s,dias:dias(f),fecha:f});}});
+  (C.notas_debito||[]).forEach(nd=>{if(nd.anulada||nd.tipo_entidad!=='cliente')return;const s=_saldoND(nd);if(s>0.01)out.push({cliente_id:nd.entidad_id,plano:nd.plano||'formal',tipo:'ND',ref:nd.numero||'',saldo:s,dias:dias(nd.fecha),fecha:nd.fecha});});
+  return out;
+}
+// Serie diaria de deuda total, ANCLADA en el saldo canonico de hoy y
+// reconstruida hacia atras: deuda(d-1) = deuda(d) - emitido(d) + cobrado(d).
+// Asi el punto de hoy siempre coincide exacto con los derivadores canonicos.
+function _adSerieDeuda(nDias){
+  const docs=_adDocsPendientes();
+  let curF=0,curI=0;docs.forEach(d=>{if(d.plano==='informal')curI+=d.saldo;else curF+=d.saldo;});
+  const debe={},haber={};// por fecha y plano
+  const add=(map,f,plano,m)=>{if(!f||!m)return;const k=String(f).slice(0,10);if(!map[k])map[k]={formal:0,informal:0};map[k][plano==='informal'?'informal':'formal']+=m;};
+  (C.facturas||[]).forEach(f=>{if(f.estado!=='anulada')add(debe,f.fecha,'formal',parseFloat(f.total)||0);});
+  (C.rvs||[]).forEach(rv=>{if(rv.estado!=='anulada')add(debe,rv.fecha,'informal',parseFloat(rv.total)||0);});
+  (C.saldos_iniciales||[]).forEach(si=>add(debe,String(si.created_at||'').slice(0,10),si.plano||'formal',parseFloat(si.monto)||0));
+  (C.notas_debito||[]).forEach(nd=>{if(!nd.anulada&&nd.tipo_entidad==='cliente')add(debe,nd.fecha,nd.plano||'formal',parseFloat(nd.monto)||0);});
+  (C.recibos||[]).forEach(r=>{
+    if(r.estado==='anulado')return;const f=r.fecha;
+    (r.recibo_facturas||[]).forEach(a=>add(haber,f,'formal',parseFloat(a.monto_aplicado)||0));
+    (r.recibo_rvs||[]).forEach(a=>add(haber,f,'informal',parseFloat(a.monto_aplicado)||0));
+    (r.recibo_saldos_iniciales||[]).forEach(a=>{const si=(C.saldos_iniciales||[]).find(x=>x.id===a.saldo_inicial_id);add(haber,f,si?.plano||'formal',parseFloat(a.monto_aplicado)||0);});
+    (r.recibo_notas_debito||[]).forEach(a=>{const nd=(C.notas_debito||[]).find(x=>x.id===a.nota_debito_id);add(haber,f,nd?.plano||'formal',parseFloat(a.monto_aplicado)||0);});
+  });
+  (C.notas_credito||[]).forEach(nc=>{if(nc.estado!=='anulada')add(haber,nc.fecha,nc.plano||'formal',parseFloat(nc.total)||0);});
+  (C.compensaciones||[]).forEach(c=>{(c.comp_aplicaciones||[]).forEach(a=>{if(a.rv_id)add(haber,String(c.fecha||c.created_at||'').slice(0,10),'informal',parseFloat(a.monto_aplicado)||0);});});
+  const hoy=new Date();const pts=[];
+  let f=curF,i=curI;
+  for(let k=0;k<nDias;k++){
+    const d=dStr(addDays(hoy,-k));
+    pts.push({f:d,formal:Math.max(0,r2(f)),informal:Math.max(0,r2(i)),total:Math.max(0,r2(f+i))});
+    const e=debe[d]||{formal:0,informal:0},h=haber[d]||{formal:0,informal:0};
+    f=f-e.formal+h.formal;i=i-e.informal+h.informal;
+  }
+  return pts.reverse();
+}
+// Comportamiento de pago por cliente: dias promedio (ponderado por monto)
+// entre la fecha del documento y la fecha del recibo que lo pago.
+function _adCompPago(){
+  const acc={};// cliente_id -> {peso, suma}
+  const reg=(cli,dDoc,fRec,m)=>{
+    if(!cli||!dDoc||!fRec||!m)return;
+    const dd=new Date(String(dDoc)+'T12:00:00'),dr=new Date(String(fRec)+'T12:00:00');
+    if(isNaN(dd)||isNaN(dr))return;
+    const dias=Math.max(0,(dr-dd)/86400000);
+    if(!acc[cli])acc[cli]={peso:0,suma:0};
+    acc[cli].peso+=m;acc[cli].suma+=m*dias;
+  };
+  (C.recibos||[]).forEach(r=>{
+    if(r.estado==='anulado')return;
+    (r.recibo_facturas||[]).forEach(a=>{const doc=(C.facturas||[]).find(x=>x.id===a.factura_id);if(doc)reg(r.cliente_id,doc.fecha,r.fecha,parseFloat(a.monto_aplicado)||0);});
+    (r.recibo_rvs||[]).forEach(a=>{const doc=(C.rvs||[]).find(x=>x.id===a.rv_id);if(doc)reg(r.cliente_id,doc.fecha,r.fecha,parseFloat(a.monto_aplicado)||0);});
+  });
+  const out={};Object.keys(acc).forEach(k=>{if(acc[k].peso>0)out[k]={dias:Math.round(acc[k].suma/acc[k].peso),peso:acc[k].peso};});
+  return out;
+}
+function _adNombreCli(id){const c=(C.clientes||[]).find(x=>x.id===id);return c?(c.nombre||c.razon_social||('cliente '+id)):('cliente '+id);}
+// Grafico de linea SVG (industrial) para la serie de deuda.
+function _adLineChart(pts){
+  if(!pts.length)return '<div class="empty">Sin datos.</div>';
+  const W=1000,H=240,padL=64,padR=12,padT=12,padB=26;
+  const max=Math.max(...pts.map(p=>p.total),1)*1.08;
+  const x=i=>padL+(W-padL-padR)*(i/(pts.length-1||1));
+  const y=v=>padT+(H-padT-padB)*(1-v/max);
+  const line=(key)=>pts.map((p,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+y(p[key]).toFixed(1)).join(' ');
+  let grid='';for(let g=1;g<=4;g++){const v=max*g/4;const yy=y(v);grid+='<line x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'" stroke="rgba(56,189,248,.12)" stroke-dasharray="3 4"/><text x="'+(padL-8)+'" y="'+(yy+4)+'" text-anchor="end" font-size="11" fill="#5b6b7d">'+_adFmtK(v)+'</text>';}
+  let xl='';const step=Math.max(1,Math.round(pts.length/6));
+  for(let i=0;i<pts.length;i+=step){const d=pts[i].f.slice(5).split('-');xl+='<text x="'+x(i)+'" y="'+(H-6)+'" text-anchor="middle" font-size="10" fill="#5b6b7d">'+d[1]+'/'+d[0]+'</text>';}
+  const area=line('total')+' L'+x(pts.length-1)+' '+y(0)+' L'+x(0)+' '+y(0)+' Z';
+  return '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block;">'
+    +grid+xl
+    +'<path d="'+area+'" fill="rgba(255,91,91,.08)"/>'
+    +'<path d="'+line('total')+'" fill="none" stroke="#ff5b5b" stroke-width="2.4" style="filter:drop-shadow(0 0 6px rgba(255,91,91,.5))"/>'
+    +'<path d="'+line('formal')+'" fill="none" stroke="#2bff88" stroke-width="1.6" opacity=".9"/>'
+    +'<path d="'+line('informal')+'" fill="none" stroke="#a78bfa" stroke-width="1.6" opacity=".9"/>'
+    +'</svg>'
+    +'<div style="display:flex;gap:16px;font-size:10.5px;color:var(--text3);margin-top:4px;">'
+    +'<span><span class="ad-led" style="background:#ff5b5b"></span>TOTAL</span>'
+    +'<span><span class="ad-led" style="background:#2bff88"></span>FORMAL</span>'
+    +'<span><span class="ad-led" style="background:#a78bfa"></span>INFORMAL</span></div>';
+}
+function renderAnalisisDeudas(){
+  const wrap=document.getElementById('ad-wrap');if(!wrap)return;
+  const nDias=parseInt(document.getElementById('ad-rango')?.value)||90;
+  const hoyStr=localDate();
+  const docs=_adDocsPendientes();
+  const precioMP=_adPrecioMPKg();
+  const comp=_adCompPago();
+
+  // ---- KPIs ----
+  let dF=0,dI=0,pesoDias=0,montoTot=0,venc30=0;
+  docs.forEach(d=>{if(d.plano==='informal')dI+=d.saldo;else dF+=d.saldo;montoTot+=d.saldo;pesoDias+=d.saldo*d.dias;if(d.dias>30)venc30+=d.saldo;});
+  const total=r2(dF+dI);
+  const antigProm=montoTot>0?Math.round(pesoDias/montoTot):0;
+  const kgEq=precioMP>0?Math.round(total/precioMP):0;
+  const lim30=dStr(addDays(new Date(),-30));
+  const cobrado30=r2((C.recibos||[]).filter(r=>r.estado!=='anulado'&&String(r.fecha)>=lim30).reduce((s,r)=>s+(parseFloat(r.total_cobrado)||0),0));
+  const facturado30=r2(
+    (C.facturas||[]).filter(f=>f.estado!=='anulada'&&String(f.fecha)>=lim30).reduce((s,f)=>s+(parseFloat(f.total)||0),0)
+    +(C.rvs||[]).filter(v=>v.estado!=='anulada'&&String(v.fecha)>=lim30).reduce((s,v)=>s+(parseFloat(v.total)||0),0));
+  const ratio=facturado30>0?cobrado30/facturado30:1;
+  const ratioCol=ratio>=0.95?'var(--ad-green)':(ratio>=0.7?'var(--ad-amber)':'var(--ad-red)');
+  const pct30=total>0?Math.round(venc30/total*100):0;
+  const kpis='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px;">'
+    +'<div class="ad-kpi"><div class="lbl">Deuda total</div><div class="val" style="color:var(--ad-red)">'+_adFmt(total)+'</div><div class="sub">formal '+_adFmtK(dF)+' · informal '+_adFmtK(dI)+'</div></div>'
+    +'<div class="ad-kpi"><div class="lbl">Equivale en MP</div><div class="val" style="color:var(--ad-cyan)">'+kgEq.toLocaleString('es-AR')+' kg</div><div class="sub">1 kg ≈ '+_adFmt(precioMP)+' (lotes últimos 90d)</div></div>'
+    +'<div class="ad-kpi"><div class="lbl">Antigüedad promedio</div><div class="val" style="color:'+(antigProm>45?'var(--ad-red)':antigProm>25?'var(--ad-amber)':'var(--ad-green)')+'">'+antigProm+' días</div><div class="sub">ponderada por monto</div></div>'
+    +'<div class="ad-kpi"><div class="lbl">Vieja (+30 días)</div><div class="val" style="color:'+(pct30>50?'var(--ad-red)':pct30>25?'var(--ad-amber)':'var(--ad-green)')+'">'+pct30+'%</div><div class="sub">'+_adFmtK(venc30)+' con más de 30 días</div></div>'
+    +'<div class="ad-kpi"><div class="lbl">Cobrado / facturado 30d</div><div class="val" style="color:'+ratioCol+'"><span class="ad-led" style="background:'+ratioCol+';box-shadow:0 0 8px '+ratioCol+'"></span>'+Math.round(ratio*100)+'%</div><div class="sub">cobré '+_adFmtK(cobrado30)+' de '+_adFmtK(facturado30)+' emitido</div></div>'
+    +'</div>';
+
+  // ---- Evolución ----
+  const serie=_adSerieDeuda(nDias);
+  const evol='<div class="ad-card"><div class="ttl">📉 Evolución de la deuda · día a día · últimos '+nDias+' días</div>'+_adLineChart(serie)+'</div>';
+
+  // ---- Facturado vs cobrado por mes (6 meses) ----
+  const meses=[];const hoyD=new Date();
+  for(let m=5;m>=0;m--){const d=new Date(hoyD.getFullYear(),hoyD.getMonth()-m,1);meses.push({k:d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'),lbl:d.toLocaleDateString('es-AR',{month:'short'}),fact:0,cob:0});}
+  const mIdx={};meses.forEach(m=>mIdx[m.k]=m);
+  (C.facturas||[]).forEach(f=>{if(f.estado==='anulada')return;const k=String(f.fecha||'').slice(0,7);if(mIdx[k])mIdx[k].fact+=parseFloat(f.total)||0;});
+  (C.rvs||[]).forEach(v=>{if(v.estado==='anulada')return;const k=String(v.fecha||'').slice(0,7);if(mIdx[k])mIdx[k].fact+=parseFloat(v.total)||0;});
+  (C.recibos||[]).forEach(r=>{if(r.estado==='anulado')return;const k=String(r.fecha||'').slice(0,7);if(mIdx[k])mIdx[k].cob+=parseFloat(r.total_cobrado)||0;});
+  const maxM=Math.max(...meses.map(m=>Math.max(m.fact,m.cob)),1);
+  let barras='<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;align-items:end;height:150px;">';
+  meses.forEach(m=>{
+    barras+='<div style="display:flex;flex-direction:column;justify-content:flex-end;height:100%;gap:0;">'
+      +'<div style="display:flex;gap:3px;align-items:flex-end;height:120px;">'
+      +'<div title="Emitido '+_adFmt(m.fact)+'" style="flex:1;background:linear-gradient(180deg,rgba(255,230,0,.9),rgba(255,230,0,.4));height:'+Math.max(2,m.fact/maxM*100)+'%;border-radius:3px 3px 0 0;"></div>'
+      +'<div title="Cobrado '+_adFmt(m.cob)+'" style="flex:1;background:linear-gradient(180deg,rgba(43,255,136,.9),rgba(43,255,136,.4));height:'+Math.max(2,m.cob/maxM*100)+'%;border-radius:3px 3px 0 0;"></div>'
+      +'</div><div style="text-align:center;font-size:10px;color:var(--text3);margin-top:6px;text-transform:uppercase;">'+m.lbl+'<br><span style="color:'+(m.cob>=m.fact?'var(--ad-green)':'var(--ad-red)')+'">'+(m.fact>0?Math.round(m.cob/m.fact*100)+'%':'—')+'</span></div></div>';
+  });
+  barras+='</div><div style="display:flex;gap:16px;font-size:10.5px;color:var(--text3);margin-top:6px;"><span><span class="ad-led" style="background:#ffe600"></span>EMITIDO (fact+RV)</span><span><span class="ad-led" style="background:#2bff88"></span>COBRADO (recibos)</span></div>';
+  const factVsCob='<div class="ad-card"><div class="ttl">📊 Emitido vs cobrado · últimos 6 meses</div>'+barras+'</div>';
+
+  // ---- Medios de pago (90d) ----
+  const lim90=dStr(addDays(new Date(),-90));
+  const medios={};let totMedios=0,hayValores=false;
+  (C.recibos||[]).forEach(r=>{
+    if(r.estado==='anulado'||String(r.fecha)<lim90)return;
+    (r.recibo_valores||[]).forEach(v=>{hayValores=true;const k=v.metodo_nombre||'Otro';const m=parseFloat(v.monto)||0;medios[k]=(medios[k]||0)+m;totMedios+=m;});
+  });
+  let mediosHtml='';
+  if(!hayValores)mediosHtml='<div class="empty" style="font-size:11px;">Sin detalle de valores en los recibos cargados.</div>';
+  else{
+    Object.entries(medios).sort((a,b)=>b[1]-a[1]).forEach(([k,v])=>{
+      const pct=totMedios>0?v/totMedios*100:0;
+      mediosHtml+='<div style="display:grid;grid-template-columns:130px 1fr 90px 46px;gap:8px;align-items:center;margin-bottom:6px;">'
+        +'<div style="font-size:11px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+k+'</div>'
+        +'<div style="background:rgba(56,189,248,.08);border-radius:3px;"><div class="ad-bar" style="width:'+Math.max(1,pct)+'%;background:linear-gradient(90deg,#38bdf8,#a78bfa);"></div></div>'
+        +'<div style="text-align:right;font-size:11px;">'+_adFmtK(v)+'</div>'
+        +'<div style="text-align:right;font-size:11px;color:var(--text3);">'+pct.toFixed(0)+'%</div></div>';
+    });
+  }
+  const mediosCard='<div class="ad-card"><div class="ttl">💳 Con qué me pagan · últimos 90 días</div>'+mediosHtml+'</div>';
+
+  // ---- Aging ----
+  const buckets=[{lbl:'0–30 días',min:0,max:30,c:'#2bff88'},{lbl:'31–60 días',min:31,max:60,c:'#ffe600'},{lbl:'61–90 días',min:61,max:90,c:'#ff9f43'},{lbl:'+90 días',min:91,max:99999,c:'#ff5b5b'}];
+  let agingHtml='';
+  buckets.forEach(b=>{
+    const m=docs.filter(d=>d.dias>=b.min&&d.dias<=b.max).reduce((s,d)=>s+d.saldo,0);
+    const pct=total>0?m/total*100:0;
+    agingHtml+='<div style="display:grid;grid-template-columns:90px 1fr 100px 46px;gap:8px;align-items:center;margin-bottom:6px;">'
+      +'<div style="font-size:11px;color:var(--text2);">'+b.lbl+'</div>'
+      +'<div style="background:rgba(56,189,248,.08);border-radius:3px;"><div class="ad-bar" style="width:'+Math.max(1,pct)+'%;background:'+b.c+';box-shadow:0 0 10px '+b.c+'55;"></div></div>'
+      +'<div style="text-align:right;font-size:11px;">'+_adFmtK(m)+'</div>'
+      +'<div style="text-align:right;font-size:11px;color:var(--text3);">'+pct.toFixed(0)+'%</div></div>';
+  });
+  const agingCard='<div class="ad-card"><div class="ttl">⏳ Antigüedad de la deuda</div>'+agingHtml+'</div>';
+
+  // ---- 🎯 A quién cobrar esta semana ----
+  let obligs=[];try{obligs=fcPagosPendientes();}catch(e){}
+  const en7=dStr(addDays(new Date(),7)),en14=dStr(addDays(new Date(),14));
+  const oblVenc=r2(obligs.filter(o=>String(o.fEf)<hoyStr).reduce((s,o)=>s+o.saldo,0));
+  const obl7=r2(obligs.filter(o=>String(o.fEf)>=hoyStr&&String(o.fEf)<=en7).reduce((s,o)=>s+o.saldo,0));
+  const obl14=r2(obligs.filter(o=>String(o.fEf)>en7&&String(o.fEf)<=en14).reduce((s,o)=>s+o.saldo,0));
+  const objetivo=r2(oblVenc+obl7);
+  // por cliente: total, madura (docs que superan su comportamiento historico o 30d), max dias
+  const porCli={};
+  docs.forEach(d=>{
+    if(!porCli[d.cliente_id])porCli[d.cliente_id]={total:0,madura:0,maxDias:0};
+    const e=porCli[d.cliente_id];e.total+=d.saldo;e.maxDias=Math.max(e.maxDias,d.dias);
+    const ref=comp[d.cliente_id]?comp[d.cliente_id].dias:30;
+    if(d.dias>=Math.min(ref,60)*0.8)e.madura+=d.saldo;
+  });
+  const ranking=Object.entries(porCli).map(([cid,e])=>{const o={cid:parseInt(cid)};Object.assign(o,e);o.compDias=comp[cid]?comp[cid].dias:null;return o;})
+    .sort((a,b)=>b.madura-a.madura||b.total-a.total);
+  let acum=0;const sugeridos=[];
+  for(const rr of ranking){if(acum>=objetivo&&sugeridos.length>=1)break;if(rr.madura<=0)continue;sugeridos.push(rr);acum+=rr.madura;}
+  const kgObjetivo=precioMP>0?Math.round(objetivo/precioMP):0;
+  const kgAcum=precioMP>0?Math.round(acum/precioMP):0;
+  let cobrarHtml='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:12px;">'
+    +'<div class="ad-kpi"><div class="lbl">Vencido a pagar</div><div class="val" style="color:var(--ad-red)">'+_adFmt(oblVenc)+'</div><div class="sub">obligaciones ya vencidas</div></div>'
+    +'<div class="ad-kpi"><div class="lbl">Vence en 7 días</div><div class="val" style="color:var(--ad-amber)">'+_adFmt(obl7)+'</div><div class="sub">+ '+_adFmtK(obl14)+' entre día 8 y 14</div></div>'
+    +'<div class="ad-kpi"><div class="lbl">🎯 Objetivo semana</div><div class="val" style="color:var(--ad-cyan)">'+_adFmt(objetivo)+'</div><div class="sub">≈ '+kgObjetivo.toLocaleString('es-AR')+' kg de MP</div></div>'
+    +'</div>';
+  if(!sugeridos.length){
+    cobrarHtml+='<div class="empty" style="font-size:12px;">No hay deuda "madura" para salir a cobrar'+(objetivo>0?' — el objetivo habría que cubrirlo con caja u otras fuentes.':'.')+'</div>';
+  }else{
+    cobrarHtml+='<table style="width:100%;"><thead><tr><th style="text-align:left;">Cliente</th><th style="text-align:right;">Deuda total</th><th style="text-align:right;">Cobrable ya</th><th style="text-align:right;">Suele pagar a</th><th style="text-align:right;">Doc más viejo</th></tr></thead><tbody>';
+    sugeridos.forEach(s=>{
+      cobrarHtml+='<tr><td style="font-weight:700;">'+_adNombreCli(s.cid)+'</td>'
+        +'<td style="text-align:right;">'+_adFmt(s.total)+'</td>'
+        +'<td style="text-align:right;color:var(--ad-green);font-weight:700;">'+_adFmt(s.madura)+'</td>'
+        +'<td style="text-align:right;color:var(--text2);">'+(s.compDias!=null?s.compDias+' días':'sin historial')+'</td>'
+        +'<td style="text-align:right;color:'+(s.maxDias>60?'var(--ad-red)':s.maxDias>30?'var(--ad-amber)':'var(--text2)')+'">'+s.maxDias+' días</td></tr>';
+    });
+    cobrarHtml+='</tbody></table>';
+    const cubre=acum>=objetivo;
+    cobrarHtml+='<div style="margin-top:10px;padding:10px 12px;border:1px solid '+(cubre?'rgba(43,255,136,.4)':'rgba(255,230,0,.4)')+';border-radius:8px;background:'+(cubre?'rgba(43,255,136,.06)':'rgba(255,230,0,.05)')+';font-size:12px;">'
+      +(cubre?'✅':'⚠')+' Cobrando lo "cobrable ya" de estos '+sugeridos.length+' clientes juntás <b>'+_adFmt(acum)+'</b> ≈ <b>'+kgAcum.toLocaleString('es-AR')+' kg de MP</b>'
+      +(objetivo>0?(cubre?' — cubrís el objetivo de la semana.':' — te faltarían '+_adFmt(Math.max(0,objetivo-acum))+' para el objetivo.'):' (no hay obligaciones cargadas esta semana).')
+      +'</div>';
+  }
+  cobrarHtml+='<div style="font-size:10px;color:var(--text3);margin-top:8px;">"Cobrable ya" = documentos que ya superaron los días que ese cliente históricamente tarda en pagar (o 30 días si no hay historial). Objetivo = compras/gastos documentados vencidos + próximos 7 días (incluye ARCA, nómina, préstamos y todo lo cargado en Compras y gastos).</div>';
+  const cobrarCard='<div class="ad-card" style="border-color:rgba(255,91,91,.35);"><div class="ttl" style="color:var(--ad-red);">🎯 A quién cobrar esta semana</div>'+cobrarHtml+'</div>';
+
+  wrap.innerHTML=kpis+cobrarCard+evol
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">'+factVsCob+agingCard+'</div>'
+    +mediosCard;
+}
 function fcPagosPendientes(){
   return (C.compras_gastos||[]).filter(c=>cgEstadoPago(c)!=='pagado'&&cgSaldoDoc(c)>0.01).map(c=>({
     clase:'pago',tipo:'compra',id:c.id,proveedor_id:c.proveedor_id,plano:c.plano,ref:cgCatLabel(c.categoria)+' · '+cgProvNombre(c.proveedor_id),saldo:cgSaldoDoc(c),fEf:String(c.fecha_estimada_pago||c.fecha||localDate()),editable:true}));
@@ -42799,6 +43383,8 @@ async function ccMarcarUno(m,valor){
   if(m.origen==='recibo')return sb.from('recibos').update({conciliado:valor,fecha_conciliacion:fecha}).eq('id',m.origen_id);
   if(m.origen==='pago')return sb.from('pagos_proveedores').update({conciliado:valor,fecha_conciliacion:fecha}).eq('id',m.origen_id);
   if(m.origen==='pago_grupo')return sb.from('pagos').update({conciliado:valor,fecha_conciliacion:fecha}).eq('id',m.origen_id);
+  if(m.origen==='pago_sueldo')return sb.from('pagos_sueldo').update({conciliado:valor,fecha_conciliacion:fecha}).eq('id',m.origen_id);
+  if(m.origen==='pago_carga_social')return sb.from('pagos_carga_social').update({conciliado:valor,fecha_conciliacion:fecha}).eq('id',m.origen_id);
   if(m.origen==='deuda'){
     const d=(C.deudas_financieras||[]).find(x=>x.id===m.origen_id);
     if(d){const cuotas=(d.cuotas||[]).map(c=>c.nro===m.cuotaNro?Object.assign({},c,{conciliado:valor,fecha_conciliacion:fecha}):c);
@@ -43270,7 +43856,7 @@ function renderConciliacion(){
   html+='<div class="an-section">Movimientos del sistema · '+ccCuentaNombre(CC.cuenta)+'</div>';
   html+='<div style="overflow-x:auto"><table><thead><tr><th style="width:34px;text-align:center;">✓</th><th>Fecha</th><th>Concepto</th><th>Origen</th><th style="text-align:right">Importe</th><th style="text-align:center">Extracto</th></tr></thead><tbody>';
   if(!movs.length)html+='<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:14px;">Sin movimientos en este rango.</td></tr>';
-  const origLbl={manual:'manual',recibo:'cobro',pago:'pago',deuda:'deuda'};
+  const origLbl={manual:'manual',recibo:'cobro',pago:'pago',pago_grupo:'pago',pago_sueldo:'sueldo',pago_carga_social:'F.931',deuda:'deuda'};
   movs.forEach(m=>{
     const mf=ccMontoFirmado(m);
     const enExtracto=usados.has(m.key);
