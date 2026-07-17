@@ -4627,6 +4627,30 @@ async function _traerBobinasRecientes(){
   return {data:todas,error:null};
 }
 
+// Trae TODAS las filas de una tabla en chunks de 1000 para sortear el límite
+// duro de Supabase (PostgREST corta en 1000 por request). Devuelve {data,error}
+// con el mismo shape que sb.from(...).select(...). Ordena por una columna estable
+// (por defecto 'id') para que el paginado con range() sea consistente.
+async function _traerPaginado(tabla, sel, orderCol){
+  orderCol=orderCol||'id';
+  const todas=[];
+  const tope=100000;      // techo de seguridad
+  const chunk=1000;       // límite de Supabase
+  let desde=0;
+  while(desde<tope){
+    const{data,error}=await sb.from(tabla)
+      .select(sel)
+      .order(orderCol,{ascending:true})
+      .range(desde,desde+chunk-1);
+    if(error)return {data:todas,error};
+    if(!data||!data.length)break;
+    todas.push(...data);
+    if(data.length<chunk)break;   // última página
+    desde+=chunk;
+  }
+  return {data:todas,error:null};
+}
+
 // ============================================================
 // Carga BLINDADA de recibos. Si un embed rompe la query (como paso con
 // recibo_notas_debito), en vez de dejar C.recibos vacio en silencio y
@@ -4717,7 +4741,7 @@ async function reload(){
     sb.from('lista_precios_items').select('*, productos(*), listas_precios(nombre)').then(r=>r).catch(()=>({data:[]})),
     sb.from('cliente_precios_especiales').select('*, productos(*), listas_precios(nombre)').then(r=>r).catch(()=>({data:[]})),
     sb.from('pedidos').select('*, pedido_lineas(*, productos(*)), pedido_cobros(*), pedido_ordenes_corte(*, ordenes_corte(numero_orden,estado,fecha_completada))').order('created_at',{ascending:false}),
-    sb.from('stock_bolsas').select('*, productos(*), ordenes_corte(numero_orden)').then(r=>r).catch(()=>({data:[]})),
+    _traerPaginado('stock_bolsas','*, productos(*), ordenes_corte(numero_orden)','id').catch(()=>({data:[]})),
     sb.from('remitos').select('*, remito_lineas(*, productos!remito_lineas_producto_id_fkey(*), stock_bolsas(*))').order('created_at',{ascending:false}).then(async r=>{
       if(r.error){
         console.error('Carga de remitos falló con relación desambiguada:',r.error.message,'— reintento sin productos anidado');
@@ -4748,7 +4772,7 @@ async function reload(){
     sb.from('bancos').select('*').order('orden').then(r=>r).catch(()=>({data:[]})),
     sb.from('motivos_ajuste').select('*').eq('activo',true).order('id').then(r=>r).catch(()=>({data:[]})),
     sb.from('pagos').select('*').order('fecha',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
-    sb.from('consumos_mp_bobina').select('bobina_producida_id,kg_consumidos,precio_kg,costo_parcial').then(r=>r).catch(()=>({data:[]})),
+    _traerPaginado('consumos_mp_bobina','id,bobina_producida_id,kg_consumidos,precio_kg,costo_parcial','id').catch(()=>({data:[]})),
     sb.from('empleados').select('*').order('apellido_nombre').then(r=>r).catch(()=>({data:[]})),
     sb.from('sueldo_conceptos').select('*').order('orden').then(r=>r).catch(()=>({data:[]})),
     sb.from('recibos_sueldo').select('*, recibo_sueldo_conceptos(*)').order('periodo',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
