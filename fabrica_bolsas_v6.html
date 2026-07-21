@@ -3023,7 +3023,6 @@ body.pext-on .main{margin-left:0!important;}
           <div class="page-sub">Historial cronológico de movimientos de stock con saldo paso a paso</div>
         </div>
         <div class="btn-grp">
-          <button class="btn btn-sm" id="kx-sanear-btn" onclick="sanearReservasBtn()" title="Libera a disponible lo reservado por encima de lo pendiente de cada pedido">🧹 Liberar reservas de más</button>
           <button class="btn btn-sm" onclick="abrirAjusteStock()">🛠 Ajustar stock</button>
           <button class="btn btn-sm" onclick="renderKardex()">🔄 Refrescar</button>
         </div>
@@ -5040,8 +5039,6 @@ async function reload(){
   window.J_INI=cfg.extrusion_hora_inicio;
   window.J_FIN=cfg.extrusion_hora_fin;
   }
-  // Producido por OC (del libro) — para que las cargas parciales no "desaparezcan" al entregar
-  try{C.mov_prod_por_oc=await _cargarProdPorOC();}catch(e){console.warn('mov_prod_por_oc:',e);C.mov_prod_por_oc=C.mov_prod_por_oc||{};}
   updateStats();renderDash();renderOrdenes();renderBobinas();renderExtrusoras();renderClientes();renderOperarios();renderGantt();renderCap();renderStock();renderConfHistorial();renderCargaHist();poblarSelects();poblarCargaSelects();poblarConfSelects();poblarFiltroOrden();
   // Refresh panel operario if active
   const panelActive=document.getElementById('page-panel-operario');
@@ -9031,24 +9028,9 @@ function renderStockBolsas(){
   tbl.innerHTML=html;
 }
 
-// Paquetes YA ENTREGADOS de un producto a un pedido: filas 'entregado' de stock_bolsas
-// + campo entregado de las líneas (cargas históricas) + entregas con producto sustituto.
-// Misma fórmula que usa la pantalla de remitos para calcular lo pendiente.
-function _paqEntregadosAPedido(pedidoId, productoId){
-  const p=C.pedidos.find(x=>x.id===pedidoId);
-  const st=(C.stock_bolsas||[]).filter(s=>s.producto_id===productoId&&s.pedido_id===pedidoId&&s.estado==='entregado')
-    .reduce((a,x)=>a+(parseFloat(x.cantidad_paquetes)||0),0);
-  let campo=0,sust=0;
-  ((p?.pedido_lineas)||[]).filter(l=>l.producto_id===productoId&&!_lineaCancelada(l)).forEach(l=>{
-    campo+=parseFloat(l.entregado)||0;
-    if(typeof _entregadoSustituto==='function')sust+=_entregadoSustituto(pedidoId,l);
-  });
-  return st+campo+sust;
-}
-
 // Al cerrar una OC, acreditar stock automáticamente
 // + RESERVA AL PEDIDO: si la OC viene de un pedido, marca el stock como 'reservado'
-//   hasta cubrir lo PENDIENTE (pedido − ya entregado); el excedente queda 'disponible' (libre).
+//   hasta cubrir lo solicitado; el excedente queda 'disponible' (libre).
 // Paquetes ya PRODUCIDOS/acreditados para una OC, leídos del LIBRO (mov_bolsas), no del
 // stock actual. Robusto a entregas: si un parcial ya se entregó, su fila de stock_bolsas
 // queda en 0 (o cambia), pero el libro conserva el movimiento de producción. Evita el doble
@@ -9057,25 +9039,6 @@ async function _ocPaquetesProducidos(ocId){
   const{data,error}=await sb.from('mov_bolsas').select('paquetes').eq('orden_corte_id',ocId).eq('tipo','produccion');
   if(error){console.error('_ocPaquetesProducidos:',error.message);return 0;}
   return (data||[]).reduce((s,m)=>s+(parseFloat(m.paquetes)||0),0);
-}
-// Mapa OC → paquetes producidos (del LIBRO mov_bolsas). Se usa para que los badges y
-// alertas de "carga parcial" NO desaparezcan cuando el parcial ya se entregó: el stock
-// actual (stock_bolsas) pierde esas filas al pasar a 'entregado', pero el libro las
-// conserva. Se carga una vez por reload. Paginado por el tope de 1000 de Supabase.
-async function _cargarProdPorOC(){
-  const map={};
-  let from=0;const page=1000;
-  while(true){
-    const{data,error}=await sb.from('mov_bolsas').select('orden_corte_id,paquetes').eq('tipo','produccion').range(from,from+page-1);
-    if(error){console.error('_cargarProdPorOC:',error.message);break;}
-    (data||[]).forEach(m=>{
-      if(!m.orden_corte_id)return;
-      map[m.orden_corte_id]=(map[m.orden_corte_id]||0)+(parseFloat(m.paquetes)||0);
-    });
-    if(!data||data.length<page)break;
-    from+=page;
-  }
-  return map;
 }
 async function acreditarStockDesdeOC(ocId){
   const o=C.ord_corte.find(x=>x.id===ocId);if(!o||!o.producto_id){console.warn('acreditarStockDesdeOC: OC sin producto',ocId);return;}
@@ -9146,11 +9109,7 @@ async function acreditarStockDesdeOC(ocId){
   console.log('acreditarStockDesdeOC',o.numero_orden,'· paqReales:',paqReales,'· pedidoId:',pedidoId,'· paqPedidos:',paqPedidos,'· paqYaReservados:',paqYaReservados);
 
   if(pedidoId && paqPedidos>0){
-    // Reservar solo hasta lo PENDIENTE: lo pedido MENOS lo ya entregado y lo ya reservado.
-    // (Antes no se descontaba lo entregado → se reservaba de más y el excedente quedaba
-    //  "atrapado" en la reserva del propio pedido, invisible como stock libre.)
-    const entregadosPed=_paqEntregadosAPedido(pedidoId,o.producto_id);
-    const faltaReservar=Math.max(0, paqPedidos - entregadosPed - paqYaReservados);
+    const faltaReservar=Math.max(0, paqPedidos - paqYaReservados);
     const reservar=Math.min(paqReales, faltaReservar);
     const excedente=paqReales - reservar;
     if(reservar>0){
@@ -9226,7 +9185,7 @@ async function reservarStockOCalPedido(ocId){
       paqYaReservados+=parseFloat(s.cantidad_paquetes)||0;
     }
   });
-  const faltaReservar=Math.max(0,paqPedidos-_paqEntregadosAPedido(pedido.id,o.producto_id)-paqYaReservados);
+  const faltaReservar=Math.max(0,paqPedidos-paqYaReservados);
   const aReservar=Math.min(paqDisp,faltaReservar);
   const aDejarDisp=paqDisp-aReservar;
   console.log('Falta reservar:',faltaReservar,'· A reservar ahora:',aReservar,'· Quedará disp:',aDejarDisp);
@@ -9257,104 +9216,6 @@ async function reservarStockOCalPedido(ocId){
   }
   await reload();
   console.log('✓ Reasignación completa');
-}
-
-// ── Saneo de reservas de más ────────────────────────────────────────────────
-// Libera a 'disponible' lo reservado a un pedido POR ENCIMA de lo pendiente
-// (cantidad pedida − ya entregado). Pasa a libre lo "atrapado" en reservas de
-// pedidos ya entregados o sobre-reservados. Idempotente: correrla dos veces no
-// cambia nada. Si se pasa pedidoId, sanea solo ese pedido.
-async function sanearReservasExcedentes(opts){
-  opts=opts||{};
-  const grupos={};
-  (C.stock_bolsas||[]).forEach(s=>{
-    if(s.estado!=='reservado'||!s.pedido_id||(parseFloat(s.cantidad_paquetes)||0)<=0)return;
-    if(opts.pedidoId&&s.pedido_id!==opts.pedidoId)return;
-    const k=s.pedido_id+'|'+s.producto_id;
-    (grupos[k]=grupos[k]||[]).push(s);
-  });
-  let liberados=0;const detalle=[];
-  for(const k of Object.keys(grupos)){
-    const [pedId,prodId]=k.split('|').map(Number);
-    const p=C.pedidos.find(x=>x.id===pedId);
-    // Liberar primero los lotes más nuevos (los viejos suelen ser la reserva "legítima")
-    const lotes=grupos[k].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
-    let pendiente=0;
-    if(p&&p.estado!=='Cancelado'&&p.estado!=='Anulado'){
-      const cant=(p.pedido_lineas||[]).filter(l=>l.producto_id===prodId&&!_lineaCancelada(l))
-        .reduce((a,l)=>a+(parseFloat(l.cantidad)||0),0);
-      pendiente=Math.max(0,cant-_paqEntregadosAPedido(pedId,prodId));
-    }
-    const reservado=lotes.reduce((a,s)=>a+(parseFloat(s.cantidad_paquetes)||0),0);
-    let exceso=Math.max(0,reservado-pendiente);
-    if(exceso<=0)continue;
-    const liberadoGrupo=exceso;
-    for(const s of lotes){
-      if(exceso<=0)break;
-      const q=parseFloat(s.cantidad_paquetes)||0;
-      const uniPorPaq=q>0?(parseFloat(s.cantidad_unidades)||0)/q:0;
-      const sacar=Math.min(q,exceso);
-      if(sacar>=q){
-        const{error}=await sb.from('stock_bolsas').update({estado:'disponible',pedido_id:null}).eq('id',s.id);
-        if(error){console.error('sanearReservas update:',error.message);continue;}
-        s.estado='disponible';s.pedido_id=null;
-      } else {
-        const{error:eU}=await sb.from('stock_bolsas').update({
-          cantidad_paquetes:q-sacar,cantidad_unidades:Math.round((q-sacar)*uniPorPaq)
-        }).eq('id',s.id);
-        if(eU){console.error('sanearReservas split-update:',eU.message);continue;}
-        s.cantidad_paquetes=q-sacar;s.cantidad_unidades=Math.round((q-sacar)*uniPorPaq);
-        const{data:nuevo,error:eI}=await sb.from('stock_bolsas').insert({
-          producto_id:prodId,cantidad_paquetes:sacar,
-          cantidad_unidades:Math.round(sacar*uniPorPaq),
-          orden_corte_id:s.orden_corte_id||null,estado:'disponible'
-        }).select().single();
-        if(eI){console.error('sanearReservas insert:',eI.message);}
-        else if(nuevo)C.stock_bolsas.push(nuevo);
-      }
-      exceso-=sacar;liberados+=sacar;
-    }
-    const prod=C.productos.find(x=>x.id===prodId);
-    detalle.push((prod?.codigo||('prod '+prodId))+': '+liberadoGrupo.toLocaleString('es-AR')+' paq de '+(p?.numero_pedido||('pedido '+pedId)));
-  }
-  if(liberados>0){
-    console.log('🧹 sanearReservasExcedentes: liberados',liberados,'paq →',detalle.join(' · '));
-    if(!opts.silencioso)toast('🧹 '+liberados.toLocaleString('es-AR')+' paq liberados a stock disponible ('+detalle.length+' reserva'+(detalle.length===1?'':'s')+' de más)','green');
-  } else if(!opts.silencioso){
-    toast('✓ No hay reservas de más — todo consistente','green');
-  }
-  return liberados;
-}
-
-// Botón del Kardex: sanear y refrescar la vista
-async function sanearReservasBtn(){
-  const btn=document.getElementById('kx-sanear-btn');
-  if(btn){btn.disabled=true;btn.textContent='🧹 Revisando...';}
-  try{
-    const n=await sanearReservasExcedentes({silencioso:false});
-    if(n>0){await reload();if(typeof renderKardex==='function')renderKardex();}
-  }finally{
-    if(btn){btn.disabled=false;btn.textContent='🧹 Liberar reservas de más';}
-  }
-}
-
-// Saneo contextual al abrir un pedido en Nuevo remito: si ese pedido tiene
-// reservado de más (p.ej. por producciones cargadas después de entregas),
-// se libera y se re-renderiza para que el excedente aparezca como stock libre.
-const _saneoPedidoHecho={};
-async function _sanearReservasPedidoRemito(pedId){
-  if(!pedId||_saneoPedidoHecho[pedId])return;
-  _saneoPedidoHecho[pedId]=true;
-  try{
-    const n=await sanearReservasExcedentes({pedidoId:pedId,silencioso:true});
-    if(n>0){
-      toast('🧹 Este pedido tenía '+n.toLocaleString('es-AR')+' paq reservados de más — se liberaron como stock disponible','green');
-      await reload();
-      // Re-render solo si el usuario sigue parado en el mismo pedido
-      const sel=document.getElementById('nr-pedido');
-      if(sel&&parseInt(sel.value)===pedId)onNrPedidoChange();
-    }
-  }catch(e){console.error('_sanearReservasPedidoRemito:',e);}
 }
 
 // ===== CARGA PARCIAL DE OC (entrega antes de cerrar) =====
@@ -9626,9 +9487,7 @@ async function confirmarCargaParcial(ocId){
 
     // 3) Crear registros en stock_bolsas
     if(pedidoId&&paqPedidos>0){
-      // Reservar solo hasta lo PENDIENTE (descuenta lo ya entregado al pedido)
-      const entregadosPed=_paqEntregadosAPedido(pedidoId,o.producto_id);
-      const faltaReservar=Math.max(0,paqPedidos-entregadosPed-paqYaReservados);
+      const faltaReservar=Math.max(0,paqPedidos-paqYaReservados);
       const reservar=Math.min(paqEsta,faltaReservar);
       const excedente=paqEsta-reservar;
       console.log('Parcial vinculado a pedido · paqPedidos:',paqPedidos,'· paqYaReservados:',paqYaReservados,'· reservar:',reservar,'· excedente:',excedente);
@@ -9912,8 +9771,6 @@ function onNrPedidoChange(){
   html+='<div id="nr-ped-total" style="text-align:right;font-size:14px;font-weight:800;padding:8px 14px;border-top:1.5px solid var(--border);margin-top:4px;">Total: $0</div>';
   if(!html)html='<div class="empty">Este pedido no tiene líneas activas.</div>';
   if(lineasDiv)lineasDiv.innerHTML=html;
-  // Saneo contextual: si este pedido tiene reservas de más, liberarlas y re-renderizar
-  _sanearReservasPedidoRemito(pedId);
 }
 
 function calcNrLinea(lineaId){
@@ -24604,11 +24461,9 @@ function renderOrdenesCorte(){
     const s=sched[o.id];const m0=o.orden_corte_maquinas?.[0];
     const ini=s&&m0?fmtDt(s[m0.maquina_id]?.inicio):'—';
     const fin=s&&m0?fmtDt(s[m0.maquina_id]?.fin):'—';
-    // ¿Tiene cargas parciales? Solo aplica si está En Proceso.
-    // Se lee del LIBRO (produccion), no del stock actual: así el badge no desaparece
-    // cuando el parcial ya se entregó al cliente (el stock pasa a 'entregado').
+    // ¿Tiene cargas parciales? Solo aplica si está En Proceso
     const paqYaCargados=(o.estado==='En proceso'||o.estado==='Pendiente empaque')
-      ?(C.mov_prod_por_oc?.[o.id]||0)
+      ?(C.stock_bolsas||[]).filter(sb=>sb.orden_corte_id===o.id&&sb.estado!=='entregado').reduce((s,l)=>s+(l.cantidad_paquetes||0),0)
       :0;
     const tieneParcial=paqYaCargados>0;
     const totalPaqOC=o.cantidad_paquetes||0;
@@ -28523,7 +28378,7 @@ async function _fetchMovBolsas(productoId){
   if(!productoId)return [];
   let out=[],from=0;const page=1000;
   while(true){
-    const{data,error}=await sb.from('mov_bolsas').select('*').eq('producto_id',productoId).order('fecha',{ascending:true}).order('id',{ascending:true}).range(from,from+page-1);
+    const{data,error}=await sb.from('mov_bolsas').select('*').eq('producto_id',productoId).order('fecha').range(from,from+page-1);
     if(error){console.error('mov_bolsas:',error.message);break;}
     out=out.concat(data||[]);
     if(!data||data.length<page)break;
@@ -28571,7 +28426,7 @@ function _kardexMovimientos(movRows){
       id:m.id,fecha,paq,tipo:m.tipo,motivo,origen,color,icono,
       impacta:!!m.impacta_result,oc,ped,raw:m
     };
-  }).sort((a,b)=>(new Date(a.fecha)-new Date(b.fecha))||((a.id||0)-(b.id||0)));
+  }).sort((a,b)=>new Date(a.fecha)-new Date(b.fecha));
 }
 
 async function renderKardex(){
@@ -28648,10 +28503,8 @@ async function renderKardex(){
     const h=new Date(hasta+'T23:59:59').getTime();
     movsFiltrados=movsFiltrados.filter(m=>new Date(m.fecha).getTime()<=h);
   }
-  // Orden cronológico inverso (más reciente arriba). Desempate por id para que
-  // dos movimientos con la MISMA fecha/hora salgan en el orden real en que se
-  // registraron (si no, el saldo parece "saltar": p.ej. −320→715 arriba de −320→1035).
-  movsFiltrados.sort((a,b)=>(new Date(b.fecha)-new Date(a.fecha))||((b.id||0)-(a.id||0)));
+  // Orden cronológico inverso (más reciente arriba)
+  movsFiltrados.sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
 
   if(countEl)countEl.textContent=' — '+movsFiltrados.length+' movimiento'+(movsFiltrados.length===1?'':'s')+(desde||hasta?' (filtrados)':' (todos)');
 
@@ -30585,9 +30438,10 @@ function abrirCierreOrdenCorte(id){
   const mtsNecesarios=o.metros_necesarios||r2(mtsTeoricosPlan*(1+merma/100));
   const nBobinas=o.orden_corte_bobinas?.length||0;
 
-  // Calcular paquetes ya cargados via parciales — del LIBRO (produccion), robusto a
-  // entregas (el stock actual pierde los parciales ya entregados y mostraría de menos).
-  const parcialesPaq=(C.mov_prod_por_oc?.[id]||0);
+  // Calcular paquetes ya cargados via parciales
+  const parcialesPaq=(C.stock_bolsas||[])
+    .filter(s=>s.orden_corte_id===id&&s.estado!=='entregado')
+    .reduce((s,l)=>s+(parseFloat(l.cantidad_paquetes)||0),0);
   const parcialesBultos=Math.floor(parcialesPaq/paqPorBolson);
   const parcialesSueltos=parcialesPaq-(parcialesBultos*paqPorBolson);
 
@@ -36702,11 +36556,12 @@ function _pedidoInfoProduccion(p){
     const paqPorBolson=o.paquetes_por_bolson||prod?.paquetes_por_bolson||1;
     // paq producidos = cierre (bolsones_reales) + cargas parciales en stock
     const paqRealesCierre=(o.bolsones_reales||0)*paqPorBolson+(o.paquetes_sueltos_reales||0);
-    // Si está En proceso, sumar también lo cargado como parcial — del LIBRO (produccion),
-    // robusto a entregas (no cae el % de avance cuando el parcial se entrega).
+    // Si está En proceso, sumar también lo cargado como parcial en stock_bolsas
     let paqParciales=0;
     if(o.estado==='En proceso'){
-      paqParciales=(C.mov_prod_por_oc?.[o.id]||0);
+      paqParciales=(C.stock_bolsas||[])
+        .filter(s=>s.orden_corte_id===o.id&&s.estado!=='entregado')
+        .reduce((s,l)=>s+(parseFloat(l.cantidad_paquetes)||0),0);
     }
     const paqReales=Math.max(paqRealesCierre,paqParciales); // el mayor de los dos
     const paqOC=o.cantidad_paquetes||0;
@@ -43059,6 +42914,8 @@ function _snapCalcular(){
   try{S.cuotas_margen=_sfCuotasVsMargen();}catch(e){S.cuotas_margen=null;}
   // Pronóstico estadístico de ingresos (capa informativa — no suma a aire ni cobertura)
   try{S.pronostico=_sfPronResumen();}catch(e){S.pronostico=null;}
+  // Ratios financieros clásicos (liquidez, ácida, capital de trabajo, meses de deuda)
+  try{S.ratios=_sfRatios();}catch(e){S.ratios=null;}
   return S;
 }
 async function _snapAutoGuardar(){
@@ -43240,6 +43097,195 @@ function _sfPronostico(){
 function _sfPronResumen(){
   try{const P=_sfPronostico();return{esp_30d:P.total30,dormidos:P.dormidos.length,con_patron:P.clientes.filter(c=>c.frec).length};}
   catch(e){return null;}
+}
+// --- Evolución de la deuda: ¿la estoy subiendo o bajando? ---
+// La deuda financiera se reconstruye con datos REALES (cuotas con fecha_pago),
+// así funciona desde el día uno sin esperar historia de snapshots.
+// La deuda total (con proveedores y tarjeta) se compara contra las fotos guardadas.
+function _sfDeudaEvolucion(){
+  const hoy=localDate();
+  const h30=dStr(addDays(new Date(),-30));
+  let pendHoy=0,pagado30=0,cap30=0,int30=0,cuotas30=0,deudaNueva30=0;
+  const pagadasDet=[],nuevasDet=[];
+  (C.deudas_financieras||[]).forEach(d=>{
+    const nC=(d.cuotas||[]).length;
+    (d.cuotas||[]).forEach(q=>{
+      const m=parseFloat(q.monto)||0;
+      if(q.estado==='pagada'){
+        const fp=String(q.fecha_pago||'').slice(0,10);
+        if(fp&&fp>h30&&fp<=hoy){
+          pagado30=r2(pagado30+m);cap30=r2(cap30+(parseFloat(q.capital)||0));int30=r2(int30+(parseFloat(q.interes)||0));cuotas30++;
+          pagadasDet.push({acreedor:d.acreedor||'Deuda',nro:(q.nro||'?')+'/'+nC,monto:m,capital:r2(parseFloat(q.capital)||0),interes:r2(parseFloat(q.interes)||0),fecha:fp});
+        }
+      }else if(d.estado!=='cancelado'){pendHoy=r2(pendHoy+m);}
+    });
+    // deuda tomada DENTRO de la ventana (para no mentir la comparación)
+    const fc=String(d.created_at||'').slice(0,10);
+    if(fc&&fc>h30){
+      let tot=0;(d.cuotas||[]).forEach(q=>{tot=r2(tot+(parseFloat(q.monto)||0));});
+      deudaNueva30=r2(deudaNueva30+tot);
+      if(tot>0)nuevasDet.push({acreedor:d.acreedor||'Deuda',total:tot,fecha:fc,cuotas:(d.cuotas||[]).length});
+    }
+  });
+  pagadasDet.sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)));
+  const hace30=r2(pendHoy+pagado30-deudaNueva30);
+  const fin={hoy:pendHoy,hace30,pagado30,cap30,int30,cuotas30,nueva30:deudaNueva30,delta:r2(pendHoy-hace30),pagadasDet,nuevasDet};
+  // Deuda total hoy por componente (misma vara que el snapshot: compras + deudas + tarjeta)
+  let totHoy=null,comps=null;
+  try{
+    const compras=r2(fcPagosPendientes().reduce((s,x)=>s+x.saldo,0));
+    const tarj=(typeof tjDeudaTotal==='function')?tjDeudaTotal():0;
+    totHoy=r2(compras+pendHoy+tarj);
+    comps={compras,financiera:pendHoy,tarjeta:r2(tarj)};
+  }catch(e){}
+  // Contra las fotos: la anterior y la más cercana a 30 días atrás (con componentes para saber QUÉ subió)
+  let prev=null,m30=null;
+  try{
+    const asc=_sfSnapsAsc().filter(s=>String(s.fecha)<hoy&&s.datos?.por_pagar?.total!=null);
+    if(asc.length){
+      const p=asc[asc.length-1];
+      prev={fecha:String(p.fecha),total:p.datos.por_pagar.total,compras:p.datos.por_pagar.compras,financiera:p.datos.por_pagar.deudas_financieras,tarjeta:p.datos.por_pagar.tarjeta};
+      const viejos=asc.filter(s=>String(s.fecha)<=h30);
+      const v=viejos.length?viejos[viejos.length-1]:asc[0];
+      if(String(v.fecha)!==prev.fecha)m30={fecha:String(v.fecha),total:v.datos.por_pagar.total,compras:v.datos.por_pagar.compras,financiera:v.datos.por_pagar.deudas_financieras,tarjeta:v.datos.por_pagar.tarjeta};
+    }
+  }catch(e){}
+  return{fin,total:{hoy:totHoy,comps,prev,m30}};
+}
+// --- Bloques de detalle expandibles del informe (🔍 de dónde sale cada número) ---
+function _sfDet(resumen,contenido){
+  return '<details style="margin:3px 0;"><summary style="cursor:pointer;font-size:11px;color:var(--accent);list-style-position:inside;">🔍 '+resumen+'</summary>'
+    +'<div style="margin:4px 0 6px 14px;font-size:11px;">'+contenido+'</div></details>';
+}
+function _sfTbl(filas){
+  return '<table style="width:100%;font-size:11px;border-collapse:collapse;">'
+    +filas.map(f=>'<tr>'+f.map((c,i)=>'<td style="padding:1px 8px 1px 0;'+(i===f.length-1?'text-align:right;font-family:monospace;white-space:nowrap;':'')+'">'+c+'</td>').join('')+'</tr>').join('')+'</table>';
+}
+function _sfFecha(f){return String(f||'').split('-').reverse().slice(0,2).join('/');}
+// Cada componente del activo/pasivo, ítem por ítem
+function _sfDetCaja(){
+  const filas=[];
+  (C.cuentas_caja||[]).forEach(c=>{
+    if(c.es_conciliacion||c.activa===false)return;
+    const s=r2(ccSaldoCuentaHasta(c.id,null));
+    filas.push([escapeHtml(c.nombre||('Cuenta '+c.id))+(c.plano==='negro'?' <span style="color:var(--text3);">(B)</span>':''),fmtMoney(s)]);
+  });
+  return filas.length?_sfTbl(filas):'Sin cuentas activas.';
+}
+function _sfDetCheques(){
+  const ch=_chequesCartera();
+  if(!ch.length)return'No hay cheques en cartera.';
+  return _sfTbl(ch.slice(0,12).map(c=>[
+    escapeHtml(lcCliNombre(c.cliente_id))+(c.banco?' <span style="color:var(--text3);">'+escapeHtml(c.banco)+'</span>':''),
+    'vto '+_sfFecha(c.fecha_vto),fmtMoney(parseFloat(c.monto)||0)
+  ]))+(ch.length>12?'<div style="color:var(--text3);">… y '+(ch.length-12)+' más</div>':'');
+}
+function _sfDetClientes(){
+  const hoy=localDate();const por={};
+  try{
+    fcCobrosPendientes().filter(x=>x.tipo!=='cheque').forEach(x=>{
+      const k=x.cliente_id||0;
+      if(!por[k])por[k]={cliente:lcCliNombre(x.cliente_id),monto:0,vencido:0};
+      por[k].monto=r2(por[k].monto+x.saldo);
+      if(String(x.fEf)<hoy)por[k].vencido=r2(por[k].vencido+x.saldo);
+    });
+  }catch(e){}
+  const arr=Object.values(por).sort((a,b)=>b.monto-a.monto);
+  if(!arr.length)return'Nadie te debe nada documentado.';
+  return _sfTbl(arr.slice(0,10).map(c=>[escapeHtml(c.cliente),(c.vencido>0?'<span style="color:var(--red);">vencido '+fmtMoney(c.vencido)+'</span>':'<span style="color:var(--green);">al día</span>'),fmtMoney(c.monto)]))
+    +(arr.length>10?'<div style="color:var(--text3);">… y '+(arr.length-10)+' más</div>':'');
+}
+function _sfDetStockMP(){
+  const por={};
+  (C.lotes_mp||[]).forEach(l=>{
+    const kg=Math.max(0,parseFloat(l.kg_disponibles)||0);if(kg<=0.01)return;
+    const k=l.tipos_mp?.nombre||'MP';
+    if(!por[k])por[k]={kg:0,val:0};
+    por[k].kg=r2(por[k].kg+kg);por[k].val=r2(por[k].val+kg*(parseFloat(l.precio_kg)||0));
+  });
+  const arr=Object.entries(por).sort((a,b)=>b[1].val-a[1].val);
+  if(!arr.length)return'Sin stock de MP con costo.';
+  return _sfTbl(arr.map(([nom,v])=>[escapeHtml(nom),v.kg.toLocaleString('es-AR')+' kg',fmtMoney(v.val)]));
+}
+function _sfDetProveedores(){
+  const por={};
+  try{
+    fcPagosPendientes().forEach(x=>{
+      const k=x.ref||'—';
+      if(!por[k])por[k]={monto:0,prox:String(x.fEf)};
+      por[k].monto=r2(por[k].monto+x.saldo);
+      if(String(x.fEf)<por[k].prox)por[k].prox=String(x.fEf);
+    });
+  }catch(e){}
+  const arr=Object.entries(por).sort((a,b)=>b[1].monto-a[1].monto);
+  if(!arr.length)return'No debés nada a proveedores.';
+  return _sfTbl(arr.slice(0,10).map(([nom,v])=>[escapeHtml(nom),'vence '+_sfFecha(v.prox),fmtMoney(v.monto)]))
+    +(arr.length>10?'<div style="color:var(--text3);">… y '+(arr.length-10)+' más</div>':'');
+}
+function _sfDetCuotas12(){
+  const lim12=dStr(addDays(new Date(),365));
+  const filas=[];
+  (C.deudas_financieras||[]).forEach(d=>{
+    if(d.estado==='cancelado')return;
+    let tot=0,n=0,prox=null;
+    (d.cuotas||[]).forEach(q=>{
+      if(q.estado==='pagada')return;
+      if(String(q.vencimiento||'')>lim12)return;
+      tot=r2(tot+(parseFloat(q.monto)||0));n++;
+      if(!prox||String(q.vencimiento)<prox)prox=String(q.vencimiento);
+    });
+    if(tot>0)filas.push([escapeHtml(d.acreedor||'Deuda'),n+' cuota'+(n===1?'':'s')+' · próx. '+_sfFecha(prox),fmtMoney(tot)]);
+  });
+  return filas.length?_sfTbl(filas):'Sin cuotas de deudas en los próximos 12 meses.';
+}
+function _sfDetTarjeta(){
+  const pagos=(typeof tjPagosProyectados==='function')?tjPagosProyectados():[];
+  if(!pagos.length)return'Sin deuda de tarjeta.';
+  return _sfTbl(pagos.slice(0,8).map(t=>['Resumen '+t.periodo+(t.estimado?' <span style="color:var(--text3);">(estimado)</span>':''),'vto '+_sfFecha(t.vto),fmtMoney(t.monto)]));
+}
+// --- Ratios financieros clásicos, explicados en criollo ---
+function _sfRatios(){
+  const hoy=localDate();
+  let caja=0;(C.cuentas_caja||[]).forEach(c=>{if(c.es_conciliacion||c.activa===false)return;caja+=ccSaldoCuentaHasta(c.id,null);});
+  caja=r2(caja);
+  let cheques=0;try{cheques=r2(_chequesCartera().reduce((s,c)=>s+(parseFloat(c.monto)||0),0));}catch(e){}
+  let porCobrar=0;try{porCobrar=r2(fcCobrosPendientes().filter(x=>x.tipo!=='cheque').reduce((s,x)=>s+x.saldo,0));}catch(e){}
+  const stockMP=r2((C.lotes_mp||[]).reduce((s,l)=>s+Math.max(0,parseFloat(l.kg_disponibles)||0)*(parseFloat(l.precio_kg)||0),0));
+  let compras=0;try{compras=r2(fcPagosPendientes().reduce((s,x)=>s+x.saldo,0));}catch(e){}
+  const tarj=(typeof tjDeudaTotal==='function')?tjDeudaTotal():0;
+  const lim12=dStr(addDays(new Date(),365));
+  let cuotas12=0,cuotasTot=0;
+  (C.deudas_financieras||[]).forEach(d=>{if(d.estado==='cancelado')return;(d.cuotas||[]).forEach(q=>{
+    if(q.estado==='pagada')return;const m=parseFloat(q.monto)||0;
+    cuotasTot=r2(cuotasTot+m);
+    if(String(q.vencimiento||'')<=lim12)cuotas12=r2(cuotas12+m);
+  });});
+  const ac=r2(caja+cheques+porCobrar+stockMP);       // activo corriente (stock MP a costo; bolsas terminadas no entran)
+  const pc=r2(compras+tarj+cuotas12);                 // pasivo corriente (vence dentro de 12 meses)
+  const liquidez=pc>0?r2(ac/pc):null;
+  const acida=pc>0?r2((caja+cheques+porCobrar)/pc):null;
+  const capTrabajo=r2(ac-pc);
+  const deudaTotal=r2(compras+tarj+cuotasTot);
+  // Margen mensual promedio (últimos 3 meses cerrados con venta)
+  const ym=hoy.slice(0,7);const margs=[];
+  for(let i=1;i<=3;i++){
+    const m=tjYmAdd(ym,-i);
+    try{const A=_rmCalcVentas(m+'-01',m+'-31',_rmCostoRealBolsaMap(m+'-31'));if(A.venta>0)margs.push(A.margen);}catch(e){}
+  }
+  const margenProm=margs.length?r2(margs.reduce((a,b)=>a+b,0)/margs.length):null;
+  const mesesDeuda=(margenProm&&margenProm>0)?r2(deudaTotal/margenProm):null;
+  return{caja,cheques,por_cobrar:porCobrar,stock_mp:stockMP,activo_corriente:ac,
+    compras,tarjeta:tarj,cuotas_12m:cuotas12,pasivo_corriente:pc,
+    liquidez,acida,capital_trabajo:capTrabajo,deuda_total:deudaTotal,margen_prom:margenProm,meses_deuda:mesesDeuda};
+}
+// Semáforo de cada ratio (umbrales clásicos de análisis financiero)
+function _sfRatioSem(k,v){
+  if(v==null||isNaN(v))return'gris';
+  if(k==='liquidez')return v>=1.5?'verde':v>=1?'amarillo':'rojo';
+  if(k==='acida')return v>=1?'verde':v>=0.7?'amarillo':'rojo';
+  if(k==='capital_trabajo')return v>0?'verde':'rojo';
+  if(k==='meses_deuda')return v<=3?'verde':v<=6?'amarillo':'rojo';
+  return'gris';
 }
 // --- series para tendencias (desde snapshots) ---
 function _sfSnapsAsc(){return [...(C.indicadores_snapshot||[])].sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)));}
@@ -43444,6 +43490,100 @@ function sfInformeModal(){
   let txt='<div style="font-size:13px;line-height:1.65;">';
   txt+='<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;">Informe de salud financiera — '+hoy+'</div>';
   txt+='<div style="margin:10px 0;padding:10px 12px;border-left:3px solid '+_sfColor(da.sem)+';background:var(--bg3);border-radius:var(--r);"><b>'+_sfDot(da.sem)+' Situación de caja:</b> '+(da.dias==null?'sin datos suficientes.':(da.dias>=90?'la caja aguanta 90+ días con lo firme. Tranquilidad para planificar.':'la caja aguanta hasta el '+String(da.fecha||'').split('-').reverse().join('/')+' ('+da.dias+' días) contando solo cobros firmes.'))+'</div>';
+  // ===== Evolución de la deuda: ¿la subo o la bajo? =====
+  try{
+    const DE=_sfDeudaEvolucion();
+    const F=DE.fin;
+    const bajando=F.delta<-0.01,subiendo=F.delta>0.01;
+    const col=bajando?'var(--green)':subiendo?'var(--red)':'var(--text3)';
+    txt+='<div style="margin:10px 0;padding-top:8px;border-top:1px solid var(--border);"><b>💳 Tu deuda: ¿sube o baja?</b>';
+    txt+='<div style="margin:6px 0;padding:8px 12px;border-left:3px solid '+col+';background:var(--bg3);border-radius:var(--r);">'
+      +'<b style="color:'+col+';">'+(bajando?'▼ Estás BAJANDO la deuda financiera':subiendo?'▲ Estás SUBIENDO la deuda financiera':'= Deuda financiera sin cambios')+'</b>'
+      +'<div style="font-size:12px;margin-top:3px;">Préstamos + ARCA: hoy debés <b>'+fmtMoney(F.hoy)+'</b> · hace 30 días eran '+fmtMoney(F.hace30)
+      +(Math.abs(F.delta)>0.01?' → <b style="color:'+col+';">'+(F.delta<0?'−':'+')+fmtMoney(Math.abs(F.delta))+'</b>':'')+'</div>'
+      +(F.cuotas30>0?'<div style="font-size:11px;color:var(--text2);margin-top:2px;">En 30 días pagaste '+F.cuotas30+' cuota'+(F.cuotas30===1?'':'s')+' por '+fmtMoney(F.pagado30)
+        +((F.cap30>0||F.int30>0)?' — '+fmtMoney(F.cap30)+' fueron a bajar capital y '+fmtMoney(F.int30)+' se los llevó el interés':'')+'.</div>':'')
+      +(F.pagadasDet&&F.pagadasDet.length?_sfDet('ver cuota por cuota qué pagaste',
+        _sfTbl(F.pagadasDet.map(q=>[escapeHtml(q.acreedor)+' · cuota '+q.nro,_sfFecha(q.fecha)+((q.capital>0||q.interes>0)?' · capital '+fmtMoney(q.capital)+' + interés '+fmtMoney(q.interes):''),fmtMoney(q.monto)]))):'')
+      +(F.nueva30>0?'<div style="font-size:11px;color:var(--amber);margin-top:2px;">⚠ Tomaste deuda nueva por '+fmtMoney(F.nueva30)+' en la ventana (ya está contada en la comparación).</div>'
+        +_sfDet('ver qué deuda nueva tomaste',_sfTbl(F.nuevasDet.map(n=>[escapeHtml(n.acreedor),_sfFecha(n.fecha)+' · '+n.cuotas+' cuotas',fmtMoney(n.total)]))):'')
+      +'</div>';
+    // deuda total (con proveedores y tarjeta) contra las fotos — con desglose de QUÉ subió y QUÉ bajó
+    if(DE.total.hoy!=null){
+      let linea='Deuda total hoy (proveedores + financiera + tarjeta): <b>'+fmtMoney(DE.total.hoy)+'</b>';
+      const cmp=(ref,tag)=>{
+        if(!ref)return'';
+        const d=r2(DE.total.hoy-ref.total);
+        const c2=d<-0.01?'var(--green)':d>0.01?'var(--red)':'var(--text3)';
+        return ' · vs '+tag+' ('+_sfFecha(ref.fecha)+'): <b style="color:'+c2+';">'+(d>0.01?'▲ +':d<-0.01?'▼ −':'= ')+(Math.abs(d)>0.01?fmtMoney(Math.abs(d)):'sin cambio')+'</b>';
+      };
+      linea+=cmp(DE.total.m30,'hace ~1 mes')+cmp(DE.total.prev,'foto anterior');
+      if(!DE.total.prev)linea+=' · <span style="color:var(--text3);">todavía no hay fotos para comparar — se acumulan solas cada semana</span>';
+      txt+='<div style="font-size:12px;margin:4px 0;">'+linea+'</div>';
+      // ¿QUÉ subió / bajó? — componente por componente contra la foto de referencia
+      const refC=DE.total.m30||DE.total.prev;
+      if(refC&&DE.total.comps&&refC.compras!=null){
+        const nombres={compras:'Proveedores (compras impagas)',financiera:'Préstamos + ARCA',tarjeta:'Tarjeta corporativa'};
+        const dets=['compras','financiera','tarjeta'].map(k=>({k,nom:nombres[k],hoy:DE.total.comps[k]||0,antes:refC[k]||0,d:r2((DE.total.comps[k]||0)-(refC[k]||0))}));
+        const sub=dets.filter(x=>x.d>0.01).sort((a,b)=>b.d-a.d);
+        const baj=dets.filter(x=>x.d<-0.01).sort((a,b)=>a.d-b.d);
+        let compHtml='';
+        if(sub.length)compHtml+='<div style="color:var(--red);"><b>Qué subió:</b> '+sub.map(x=>x.nom+' +'+fmtMoney(x.d)+' ('+fmtMoney(x.antes)+' → '+fmtMoney(x.hoy)+')').join(' · ')+'</div>';
+        if(baj.length)compHtml+='<div style="color:var(--green);"><b>Qué bajó:</b> '+baj.map(x=>x.nom+' −'+fmtMoney(Math.abs(x.d))+' ('+fmtMoney(x.antes)+' → '+fmtMoney(x.hoy)+')').join(' · ')+'</div>';
+        if(!sub.length&&!baj.length)compHtml='<div style="color:var(--text3);">Ningún componente se movió más de $1 desde la foto ('+_sfFecha(refC.fecha)+').</div>';
+        compHtml+='<div style="color:var(--text3);margin-top:3px;">Comparado contra la foto del '+_sfFecha(refC.fecha)+'. Detalle de cada componente hoy:</div>'
+          +'<div style="margin-top:2px;"><b>Proveedores '+fmtMoney(DE.total.comps.compras)+'</b></div>'+_sfDetProveedores()
+          +'<div style="margin-top:4px;"><b>Tarjeta '+fmtMoney(DE.total.comps.tarjeta)+'</b></div>'+_sfDetTarjeta();
+        txt+=_sfDet('ver QUÉ subió y qué bajó, componente por componente',compHtml);
+      }
+    }
+    txt+='</div>';
+  }catch(e){console.warn('sf deuda evo:',e);}
+  // ===== Ratios financieros clásicos =====
+  try{
+    const RT=_sfRatios();
+    const prevRt=_sfPrevSnap()?.ratios||null;
+    const tend=(k,inv)=>{
+      if(!prevRt||prevRt[k]==null||RT[k]==null)return'';
+      const d=r2(RT[k]-prevRt[k]);if(Math.abs(d)<0.01)return'';
+      const mejora=inv?d<0:d>0;
+      return ' <span style="font-size:10px;font-weight:700;color:'+(mejora?'var(--green)':'var(--red)')+';">'+(d>0?'▲':'▼')+'</span>';
+    };
+    const filas=[
+      ['liquidez','Liquidez corriente',RT.liquidez!=null?RT.liquidez.toFixed(2):'—',
+       'Por cada $1 que vence en el año, tenés $'+(RT.liquidez!=null?RT.liquidez.toFixed(2).replace('.',','):'—')+' entre caja, cheques, clientes y stock MP. Sano: 1,5 o más.',false],
+      ['acida','Prueba ácida',RT.acida!=null?RT.acida.toFixed(2):'—',
+       'Lo mismo pero SIN contar el stock (que hay que vender primero): $'+(RT.acida!=null?RT.acida.toFixed(2).replace('.',','):'—')+' líquidos por cada $1 de deuda del año. Sano: 1 o más.',false],
+      ['capital_trabajo','Capital de trabajo',fmtMoney(RT.capital_trabajo),
+       (RT.capital_trabajo>0?'Te sobran '+fmtMoney(RT.capital_trabajo):'Te faltan '+fmtMoney(Math.abs(RT.capital_trabajo)))+' después de cubrir todo lo que vence en 12 meses. Es el colchón para operar sin ahogarte.',false],
+      ['meses_deuda','Peso de la deuda',RT.meses_deuda!=null?RT.meses_deuda.toFixed(1).replace('.',',')+' meses':'—',
+       RT.meses_deuda!=null?'Si dedicaras TODO el margen de un mes ('+fmtMoney(RT.margen_prom)+' promedio) solo a pagar deuda, tardarías '+RT.meses_deuda.toFixed(1).replace('.',',')+' meses en saldarla. Sano: menos de 3.':'Necesita meses cerrados con venta para calcularse.',true]
+    ];
+    txt+='<div style="margin:10px 0;padding-top:8px;border-top:1px solid var(--border);"><b>📐 Indicadores de salud (ratios):</b>';
+    txt+='<table style="width:100%;font-size:11px;margin:6px 0;border-collapse:collapse;">';
+    filas.forEach(([k,nom,val,exp,inv])=>{
+      const sem=_sfRatioSem(k,RT[k]);
+      txt+='<tr><td style="padding:3px 8px 3px 0;white-space:nowrap;vertical-align:top;">'+_sfDot(sem)+' <b>'+nom+'</b></td>'
+        +'<td style="padding:3px 8px 3px 0;font-family:monospace;font-weight:700;white-space:nowrap;vertical-align:top;color:'+_sfColor(sem)+';">'+val+tend(k,inv)+'</td>'
+        +'<td style="padding:3px 0;color:var(--text2);">'+exp+'</td></tr>';
+    });
+    txt+='</table>';
+    txt+='<div style="font-size:10px;color:var(--text3);">Activo corriente '+fmtMoney(RT.activo_corriente)+' (caja '+fmtMoney(RT.caja)+' + cheques '+fmtMoney(RT.cheques)+' + clientes '+fmtMoney(RT.por_cobrar)+' + stock MP '+fmtMoney(RT.stock_mp)+') vs pasivo a 12 meses '+fmtMoney(RT.pasivo_corriente)+' (proveedores '+fmtMoney(RT.compras)+' + tarjeta '+fmtMoney(RT.tarjeta)+' + cuotas del año '+fmtMoney(RT.cuotas_12m)+'). Las bolsas terminadas no se cuentan (criterio conservador).</div>';
+    // Desglose ítem por ítem de cada número que entra en los ratios
+    txt+='<div style="margin-top:6px;font-size:11px;"><b>De dónde sale cada número (tocá para abrir):</b></div>'
+      +'<div style="margin-left:2px;">'
+      +'<div style="margin-top:3px;font-size:11px;"><b style="color:var(--green);">LO QUE TENÉS</b></div>'
+      +_sfDet('Caja '+fmtMoney(RT.caja)+' — cuenta por cuenta',_sfDetCaja())
+      +_sfDet('Cheques en cartera '+fmtMoney(RT.cheques)+' — cheque por cheque',_sfDetCheques())
+      +_sfDet('Clientes te deben '+fmtMoney(RT.por_cobrar)+' — cliente por cliente',_sfDetClientes())
+      +_sfDet('Stock MP '+fmtMoney(RT.stock_mp)+' — por material (kg × costo)',_sfDetStockMP())
+      +'<div style="margin-top:3px;font-size:11px;"><b style="color:var(--red);">LO QUE VENCE EN 12 MESES</b></div>'
+      +_sfDet('Proveedores '+fmtMoney(RT.compras)+' — factura por factura',_sfDetProveedores())
+      +_sfDet('Tarjeta '+fmtMoney(RT.tarjeta)+' — resumen por resumen',_sfDetTarjeta())
+      +_sfDet('Cuotas de préstamos y ARCA del año '+fmtMoney(RT.cuotas_12m)+' — deuda por deuda',_sfDetCuotas12())
+      +'</div>';
+    txt+='</div>';
+  }catch(e){console.warn('sf ratios:',e);}
   if(problemas.length){
     txt+='<b>Los '+problemas.length+' temas que más importan hoy:</b><ol style="margin:6px 0 10px 18px;padding:0;">';
     problemas.forEach(p=>{
@@ -43514,7 +43654,9 @@ function sfInformeModal(){
 function sfImprimirInforme(){
   const w=window.open('','_blank');
   if(!w){toast('El navegador bloqueó la ventana de impresión','amber');return;}
-  w.document.write('<html><head><title>Informe de salud financiera</title><style>body{font-family:system-ui,sans-serif;max-width:720px;margin:24px auto;color:#111;} b{font-weight:700;} ol{margin:6px 0 10px 18px;} div,li{line-height:1.6;font-size:13px;}</style></head><body>'+(window._sfInformeHtml||'')+'</body></html>');
+  // En papel, todos los desgloses van ABIERTOS (el informe impreso es autocontenido)
+  const html=(window._sfInformeHtml||'').replace(/<details /g,'<details open ');
+  w.document.write('<html><head><title>Informe de salud financiera</title><style>body{font-family:system-ui,sans-serif;max-width:720px;margin:24px auto;color:#111;} b{font-weight:700;} ol{margin:6px 0 10px 18px;} div,li{line-height:1.6;font-size:13px;} details summary{list-style:none;color:#555;font-weight:700;} table{border-collapse:collapse;} td{padding:1px 8px 1px 0;}</style></head><body>'+html+'</body></html>');
   w.document.close();setTimeout(()=>w.print(),300);
 }
 // --- umbrales ---
