@@ -679,7 +679,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v5</div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-07-22c</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -763,6 +763,7 @@ body.pext-on .main{margin-left:0!important;}
         <div class="nav-item" onclick="goAdmin('flujo-caja')"><div class="nav-dot" style="background:var(--green)"></div>Flujo de caja 🔐</div>
         <div class="nav-item" onclick="goAdmin('salud-flujo')"><div class="nav-dot" style="background:var(--green)"></div>Salud del flujo 🩺</div>
         <div class="nav-item" onclick="goAdmin('salud-financiera')" style="background:rgba(139,92,246,.08);border:1px solid #8b5cf6;border-radius:var(--r);margin-bottom:2px;"><div class="nav-dot" style="background:#8b5cf6"></div>🩺 Salud financiera 🔐</div>
+        <div class="nav-item" onclick="go('planes')"><div class="nav-dot" style="background:#8b5cf6"></div>🗺 Sala de planes</div>
         <div class="nav-item" onclick="go('compras-gastos')"><div class="nav-dot" style="background:#f97316"></div>🛒 Compras y Gastos</div>
         <div class="nav-item" onclick="go('tarjeta')"><div class="nav-dot" style="background:#8b5cf6"></div>💳 Tarjeta corporativa</div>
         <div class="nav-item" onclick="goAdmin('deudas')"><div class="nav-dot" style="background:var(--red)"></div>💳 Deudas (ARCA/bancos) 🔐</div>
@@ -3023,6 +3024,7 @@ body.pext-on .main{margin-left:0!important;}
           <div class="page-sub">Historial cronológico de movimientos de stock con saldo paso a paso</div>
         </div>
         <div class="btn-grp">
+          <button class="btn btn-sm" id="kx-sanear-btn" onclick="sanearReservasBtn()" title="Libera a disponible lo reservado por encima de lo pendiente de cada pedido">🧹 Liberar reservas de más</button>
           <button class="btn btn-sm" onclick="abrirAjusteStock()">🛠 Ajustar stock</button>
           <button class="btn btn-sm" onclick="renderKardex()">🔄 Refrescar</button>
         </div>
@@ -4390,6 +4392,20 @@ body.pext-on .main{margin-left:0!important;}
       <div id="sf-wrap"></div>
     </div>
 
+    <div class="page" id="page-planes">
+      <div class="page-hdr">
+        <div>
+          <div class="page-title">🗺 Sala de planes</div>
+          <div class="page-sub">Plan A/B/C para cada compromiso grande · el sistema te propone la canasta · candado anti-fantasía: lo "a producir" nunca cuenta como cobertura segura</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <button class="btn btn-sm" style="background:#8b5cf6;border-color:#8b5cf6;color:#fff;font-weight:700;" onclick="plwOpen()">➕ Nuevo plan</button>
+          <button class="btn btn-sm" onclick="goAdmin('flujo-caja')">💵 Flujo de caja</button>
+        </div>
+      </div>
+      <div id="pl-wrap"></div>
+    </div>
+
     <div class="page" id="page-tarjeta">
       <div class="page-hdr">
         <div>
@@ -4849,6 +4865,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
+const APP_BUILD='2026-07-22c'; // fix P1: Tablero "¿Gané o perdí?" ahora incluye tarjeta corporativa (== Resultado del mes)
+try{console.log('%c🏭 Fábrica de Bolsas — build '+APP_BUILD+' (parciales desde el libro)','color:#22c55e;font-weight:700;font-size:13px;');}catch(e){}
 async function reload(){
   // El flag _historicasCargadas indica si el usuario pidió ver las bobinas viejas.
   // Cada reload trae solo las recientes (en stock + últimos 60 días), así que
@@ -5039,6 +5057,8 @@ async function reload(){
   window.J_INI=cfg.extrusion_hora_inicio;
   window.J_FIN=cfg.extrusion_hora_fin;
   }
+  // Producido por OC (del libro) — para que las cargas parciales no "desaparezcan" al entregar
+  try{C.mov_prod_por_oc=await _cargarProdPorOC();}catch(e){console.warn('mov_prod_por_oc:',e);C.mov_prod_por_oc=C.mov_prod_por_oc||{};}
   updateStats();renderDash();renderOrdenes();renderBobinas();renderExtrusoras();renderClientes();renderOperarios();renderGantt();renderCap();renderStock();renderConfHistorial();renderCargaHist();poblarSelects();poblarCargaSelects();poblarConfSelects();poblarFiltroOrden();
   // Refresh panel operario if active
   const panelActive=document.getElementById('page-panel-operario');
@@ -8214,6 +8234,7 @@ function go(name){
   if(name==='compras-gastos')renderComprasGastos();
   if(name==='tarjeta')renderTarjeta();
   if(name==='salud-financiera')renderSaludFinanciera();
+  if(name==='planes')renderSalaPlanes();
   if(name==='deudas')renderDeudas();
   if(name==='libro-caja')renderLibroCaja();
   if(name==='conciliacion')renderConciliacion();
@@ -9028,9 +9049,24 @@ function renderStockBolsas(){
   tbl.innerHTML=html;
 }
 
+// Paquetes YA ENTREGADOS de un producto a un pedido: filas 'entregado' de stock_bolsas
+// + campo entregado de las líneas (cargas históricas) + entregas con producto sustituto.
+// Misma fórmula que usa la pantalla de remitos para calcular lo pendiente.
+function _paqEntregadosAPedido(pedidoId, productoId){
+  const p=C.pedidos.find(x=>x.id===pedidoId);
+  const st=(C.stock_bolsas||[]).filter(s=>s.producto_id===productoId&&s.pedido_id===pedidoId&&s.estado==='entregado')
+    .reduce((a,x)=>a+(parseFloat(x.cantidad_paquetes)||0),0);
+  let campo=0,sust=0;
+  ((p?.pedido_lineas)||[]).filter(l=>l.producto_id===productoId&&!_lineaCancelada(l)).forEach(l=>{
+    campo+=parseFloat(l.entregado)||0;
+    if(typeof _entregadoSustituto==='function')sust+=_entregadoSustituto(pedidoId,l);
+  });
+  return st+campo+sust;
+}
+
 // Al cerrar una OC, acreditar stock automáticamente
 // + RESERVA AL PEDIDO: si la OC viene de un pedido, marca el stock como 'reservado'
-//   hasta cubrir lo solicitado; el excedente queda 'disponible' (libre).
+//   hasta cubrir lo PENDIENTE (pedido − ya entregado); el excedente queda 'disponible' (libre).
 // Paquetes ya PRODUCIDOS/acreditados para una OC, leídos del LIBRO (mov_bolsas), no del
 // stock actual. Robusto a entregas: si un parcial ya se entregó, su fila de stock_bolsas
 // queda en 0 (o cambia), pero el libro conserva el movimiento de producción. Evita el doble
@@ -9039,6 +9075,25 @@ async function _ocPaquetesProducidos(ocId){
   const{data,error}=await sb.from('mov_bolsas').select('paquetes').eq('orden_corte_id',ocId).eq('tipo','produccion');
   if(error){console.error('_ocPaquetesProducidos:',error.message);return 0;}
   return (data||[]).reduce((s,m)=>s+(parseFloat(m.paquetes)||0),0);
+}
+// Mapa OC → paquetes producidos (del LIBRO mov_bolsas). Se usa para que los badges y
+// alertas de "carga parcial" NO desaparezcan cuando el parcial ya se entregó: el stock
+// actual (stock_bolsas) pierde esas filas al pasar a 'entregado', pero el libro las
+// conserva. Se carga una vez por reload. Paginado por el tope de 1000 de Supabase.
+async function _cargarProdPorOC(){
+  const map={};
+  let from=0;const page=1000;
+  while(true){
+    const{data,error}=await sb.from('mov_bolsas').select('orden_corte_id,paquetes').eq('tipo','produccion').range(from,from+page-1);
+    if(error){console.error('_cargarProdPorOC:',error.message);break;}
+    (data||[]).forEach(m=>{
+      if(!m.orden_corte_id)return;
+      map[m.orden_corte_id]=(map[m.orden_corte_id]||0)+(parseFloat(m.paquetes)||0);
+    });
+    if(!data||data.length<page)break;
+    from+=page;
+  }
+  return map;
 }
 async function acreditarStockDesdeOC(ocId){
   const o=C.ord_corte.find(x=>x.id===ocId);if(!o||!o.producto_id){console.warn('acreditarStockDesdeOC: OC sin producto',ocId);return;}
@@ -9109,7 +9164,11 @@ async function acreditarStockDesdeOC(ocId){
   console.log('acreditarStockDesdeOC',o.numero_orden,'· paqReales:',paqReales,'· pedidoId:',pedidoId,'· paqPedidos:',paqPedidos,'· paqYaReservados:',paqYaReservados);
 
   if(pedidoId && paqPedidos>0){
-    const faltaReservar=Math.max(0, paqPedidos - paqYaReservados);
+    // Reservar solo hasta lo PENDIENTE: lo pedido MENOS lo ya entregado y lo ya reservado.
+    // (Antes no se descontaba lo entregado → se reservaba de más y el excedente quedaba
+    //  "atrapado" en la reserva del propio pedido, invisible como stock libre.)
+    const entregadosPed=_paqEntregadosAPedido(pedidoId,o.producto_id);
+    const faltaReservar=Math.max(0, paqPedidos - entregadosPed - paqYaReservados);
     const reservar=Math.min(paqReales, faltaReservar);
     const excedente=paqReales - reservar;
     if(reservar>0){
@@ -9185,7 +9244,7 @@ async function reservarStockOCalPedido(ocId){
       paqYaReservados+=parseFloat(s.cantidad_paquetes)||0;
     }
   });
-  const faltaReservar=Math.max(0,paqPedidos-paqYaReservados);
+  const faltaReservar=Math.max(0,paqPedidos-_paqEntregadosAPedido(pedido.id,o.producto_id)-paqYaReservados);
   const aReservar=Math.min(paqDisp,faltaReservar);
   const aDejarDisp=paqDisp-aReservar;
   console.log('Falta reservar:',faltaReservar,'· A reservar ahora:',aReservar,'· Quedará disp:',aDejarDisp);
@@ -9216,6 +9275,104 @@ async function reservarStockOCalPedido(ocId){
   }
   await reload();
   console.log('✓ Reasignación completa');
+}
+
+// ── Saneo de reservas de más ────────────────────────────────────────────────
+// Libera a 'disponible' lo reservado a un pedido POR ENCIMA de lo pendiente
+// (cantidad pedida − ya entregado). Pasa a libre lo "atrapado" en reservas de
+// pedidos ya entregados o sobre-reservados. Idempotente: correrla dos veces no
+// cambia nada. Si se pasa pedidoId, sanea solo ese pedido.
+async function sanearReservasExcedentes(opts){
+  opts=opts||{};
+  const grupos={};
+  (C.stock_bolsas||[]).forEach(s=>{
+    if(s.estado!=='reservado'||!s.pedido_id||(parseFloat(s.cantidad_paquetes)||0)<=0)return;
+    if(opts.pedidoId&&s.pedido_id!==opts.pedidoId)return;
+    const k=s.pedido_id+'|'+s.producto_id;
+    (grupos[k]=grupos[k]||[]).push(s);
+  });
+  let liberados=0;const detalle=[];
+  for(const k of Object.keys(grupos)){
+    const [pedId,prodId]=k.split('|').map(Number);
+    const p=C.pedidos.find(x=>x.id===pedId);
+    // Liberar primero los lotes más nuevos (los viejos suelen ser la reserva "legítima")
+    const lotes=grupos[k].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+    let pendiente=0;
+    if(p&&p.estado!=='Cancelado'&&p.estado!=='Anulado'){
+      const cant=(p.pedido_lineas||[]).filter(l=>l.producto_id===prodId&&!_lineaCancelada(l))
+        .reduce((a,l)=>a+(parseFloat(l.cantidad)||0),0);
+      pendiente=Math.max(0,cant-_paqEntregadosAPedido(pedId,prodId));
+    }
+    const reservado=lotes.reduce((a,s)=>a+(parseFloat(s.cantidad_paquetes)||0),0);
+    let exceso=Math.max(0,reservado-pendiente);
+    if(exceso<=0)continue;
+    const liberadoGrupo=exceso;
+    for(const s of lotes){
+      if(exceso<=0)break;
+      const q=parseFloat(s.cantidad_paquetes)||0;
+      const uniPorPaq=q>0?(parseFloat(s.cantidad_unidades)||0)/q:0;
+      const sacar=Math.min(q,exceso);
+      if(sacar>=q){
+        const{error}=await sb.from('stock_bolsas').update({estado:'disponible',pedido_id:null}).eq('id',s.id);
+        if(error){console.error('sanearReservas update:',error.message);continue;}
+        s.estado='disponible';s.pedido_id=null;
+      } else {
+        const{error:eU}=await sb.from('stock_bolsas').update({
+          cantidad_paquetes:q-sacar,cantidad_unidades:Math.round((q-sacar)*uniPorPaq)
+        }).eq('id',s.id);
+        if(eU){console.error('sanearReservas split-update:',eU.message);continue;}
+        s.cantidad_paquetes=q-sacar;s.cantidad_unidades=Math.round((q-sacar)*uniPorPaq);
+        const{data:nuevo,error:eI}=await sb.from('stock_bolsas').insert({
+          producto_id:prodId,cantidad_paquetes:sacar,
+          cantidad_unidades:Math.round(sacar*uniPorPaq),
+          orden_corte_id:s.orden_corte_id||null,estado:'disponible'
+        }).select().single();
+        if(eI){console.error('sanearReservas insert:',eI.message);}
+        else if(nuevo)C.stock_bolsas.push(nuevo);
+      }
+      exceso-=sacar;liberados+=sacar;
+    }
+    const prod=C.productos.find(x=>x.id===prodId);
+    detalle.push((prod?.codigo||('prod '+prodId))+': '+liberadoGrupo.toLocaleString('es-AR')+' paq de '+(p?.numero_pedido||('pedido '+pedId)));
+  }
+  if(liberados>0){
+    console.log('🧹 sanearReservasExcedentes: liberados',liberados,'paq →',detalle.join(' · '));
+    if(!opts.silencioso)toast('🧹 '+liberados.toLocaleString('es-AR')+' paq liberados a stock disponible ('+detalle.length+' reserva'+(detalle.length===1?'':'s')+' de más)','green');
+  } else if(!opts.silencioso){
+    toast('✓ No hay reservas de más — todo consistente','green');
+  }
+  return liberados;
+}
+
+// Botón del Kardex: sanear y refrescar la vista
+async function sanearReservasBtn(){
+  const btn=document.getElementById('kx-sanear-btn');
+  if(btn){btn.disabled=true;btn.textContent='🧹 Revisando...';}
+  try{
+    const n=await sanearReservasExcedentes({silencioso:false});
+    if(n>0){await reload();if(typeof renderKardex==='function')renderKardex();}
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='🧹 Liberar reservas de más';}
+  }
+}
+
+// Saneo contextual al abrir un pedido en Nuevo remito: si ese pedido tiene
+// reservado de más (p.ej. por producciones cargadas después de entregas),
+// se libera y se re-renderiza para que el excedente aparezca como stock libre.
+const _saneoPedidoHecho={};
+async function _sanearReservasPedidoRemito(pedId){
+  if(!pedId||_saneoPedidoHecho[pedId])return;
+  _saneoPedidoHecho[pedId]=true;
+  try{
+    const n=await sanearReservasExcedentes({pedidoId:pedId,silencioso:true});
+    if(n>0){
+      toast('🧹 Este pedido tenía '+n.toLocaleString('es-AR')+' paq reservados de más — se liberaron como stock disponible','green');
+      await reload();
+      // Re-render solo si el usuario sigue parado en el mismo pedido
+      const sel=document.getElementById('nr-pedido');
+      if(sel&&parseInt(sel.value)===pedId)onNrPedidoChange();
+    }
+  }catch(e){console.error('_sanearReservasPedidoRemito:',e);}
 }
 
 // ===== CARGA PARCIAL DE OC (entrega antes de cerrar) =====
@@ -9487,7 +9644,9 @@ async function confirmarCargaParcial(ocId){
 
     // 3) Crear registros en stock_bolsas
     if(pedidoId&&paqPedidos>0){
-      const faltaReservar=Math.max(0,paqPedidos-paqYaReservados);
+      // Reservar solo hasta lo PENDIENTE (descuenta lo ya entregado al pedido)
+      const entregadosPed=_paqEntregadosAPedido(pedidoId,o.producto_id);
+      const faltaReservar=Math.max(0,paqPedidos-entregadosPed-paqYaReservados);
       const reservar=Math.min(paqEsta,faltaReservar);
       const excedente=paqEsta-reservar;
       console.log('Parcial vinculado a pedido · paqPedidos:',paqPedidos,'· paqYaReservados:',paqYaReservados,'· reservar:',reservar,'· excedente:',excedente);
@@ -9771,6 +9930,8 @@ function onNrPedidoChange(){
   html+='<div id="nr-ped-total" style="text-align:right;font-size:14px;font-weight:800;padding:8px 14px;border-top:1.5px solid var(--border);margin-top:4px;">Total: $0</div>';
   if(!html)html='<div class="empty">Este pedido no tiene líneas activas.</div>';
   if(lineasDiv)lineasDiv.innerHTML=html;
+  // Saneo contextual: si este pedido tiene reservas de más, liberarlas y re-renderizar
+  _sanearReservasPedidoRemito(pedId);
 }
 
 function calcNrLinea(lineaId){
@@ -22326,9 +22487,14 @@ async function renderTablero(){
       difInv=r2(difInv);
     }catch(e){console.warn('Tablero P1 inventarios:',e?.message||e);}
     const clTab=_costoLaboralMes(iniStr,finStr);
-    resultado=r2(V.margen-fijos-op-deuda-clTab.monto+difInv);
+    // Gastos con tarjeta corporativa DEVENGADOS del mes (incluye retiros de socios).
+    // MISMA fuente que "Resultado del mes" (tjGastoDelMes). Sin esta línea el Tablero
+    // y Resultado del mes daban resultados DISTINTOS por el monto de la tarjeta —
+    // violaba P1 (un solo número, una sola fuente). Ver fix build 2026-07-22c.
+    const tjTab=(typeof tjGastoDelMes==='function')?tjGastoDelMes(iniStr,finStr).total:0;
+    resultado=r2(V.margen-fijos-op-deuda-tjTab-clTab.monto+difInv);
     margenPct=V.venta>0?r2(V.margen/V.venta*100):0;
-    const gastosTotales=fijos+op+deuda+clTab.monto;
+    const gastosTotales=fijos+op+deuda+tjTab+clTab.monto;
     coberturaFijos=gastosTotales>0?Math.round(V.margen/gastosTotales*100):0;
     ventaMes=V.venta;
   }catch(e){console.warn('Tablero P1:',e?.message||e);}
@@ -24461,9 +24627,11 @@ function renderOrdenesCorte(){
     const s=sched[o.id];const m0=o.orden_corte_maquinas?.[0];
     const ini=s&&m0?fmtDt(s[m0.maquina_id]?.inicio):'—';
     const fin=s&&m0?fmtDt(s[m0.maquina_id]?.fin):'—';
-    // ¿Tiene cargas parciales? Solo aplica si está En Proceso
+    // ¿Tiene cargas parciales? Solo aplica si está En Proceso.
+    // Se lee del LIBRO (produccion), no del stock actual: así el badge no desaparece
+    // cuando el parcial ya se entregó al cliente (el stock pasa a 'entregado').
     const paqYaCargados=(o.estado==='En proceso'||o.estado==='Pendiente empaque')
-      ?(C.stock_bolsas||[]).filter(sb=>sb.orden_corte_id===o.id&&sb.estado!=='entregado').reduce((s,l)=>s+(l.cantidad_paquetes||0),0)
+      ?(C.mov_prod_por_oc?.[o.id]||0)
       :0;
     const tieneParcial=paqYaCargados>0;
     const totalPaqOC=o.cantidad_paquetes||0;
@@ -25945,7 +26113,8 @@ function _renderResolucionRoboChip(oc,modo){
 // Devuelve el plan donde está, o null si no está en ninguno.
 // excluirPlanId: ID del plan a excluir de la búsqueda (el plan actual abierto).
 function _pedidoEnOtroPlan(pedidoId,excluirPlanId){
-  const planes=(C.planes_compra||[]).filter(p=>p.estado==='activo'&&p.id!==excluirPlanId);
+  // Solo las variantes ACTIVAS earmarkean (los planes B/C latentes no bloquean recursos)
+  const planes=(C.planes_compra||[]).filter(p=>p.estado==='activo'&&(p.datos_plan?.activo!==false)&&p.id!==excluirPlanId);
   for(const pl of planes){
     const pasos=pl.pasos||[];
     if(pasos.some(s=>s.tipo==='cobro'&&s.ref_pedido===pedidoId)){
@@ -28378,7 +28547,7 @@ async function _fetchMovBolsas(productoId){
   if(!productoId)return [];
   let out=[],from=0;const page=1000;
   while(true){
-    const{data,error}=await sb.from('mov_bolsas').select('*').eq('producto_id',productoId).order('fecha').range(from,from+page-1);
+    const{data,error}=await sb.from('mov_bolsas').select('*').eq('producto_id',productoId).order('fecha',{ascending:true}).order('id',{ascending:true}).range(from,from+page-1);
     if(error){console.error('mov_bolsas:',error.message);break;}
     out=out.concat(data||[]);
     if(!data||data.length<page)break;
@@ -28426,7 +28595,7 @@ function _kardexMovimientos(movRows){
       id:m.id,fecha,paq,tipo:m.tipo,motivo,origen,color,icono,
       impacta:!!m.impacta_result,oc,ped,raw:m
     };
-  }).sort((a,b)=>new Date(a.fecha)-new Date(b.fecha));
+  }).sort((a,b)=>(new Date(a.fecha)-new Date(b.fecha))||((a.id||0)-(b.id||0)));
 }
 
 async function renderKardex(){
@@ -28503,8 +28672,10 @@ async function renderKardex(){
     const h=new Date(hasta+'T23:59:59').getTime();
     movsFiltrados=movsFiltrados.filter(m=>new Date(m.fecha).getTime()<=h);
   }
-  // Orden cronológico inverso (más reciente arriba)
-  movsFiltrados.sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
+  // Orden cronológico inverso (más reciente arriba). Desempate por id para que
+  // dos movimientos con la MISMA fecha/hora salgan en el orden real en que se
+  // registraron (si no, el saldo parece "saltar": p.ej. −320→715 arriba de −320→1035).
+  movsFiltrados.sort((a,b)=>(new Date(b.fecha)-new Date(a.fecha))||((b.id||0)-(a.id||0)));
 
   if(countEl)countEl.textContent=' — '+movsFiltrados.length+' movimiento'+(movsFiltrados.length===1?'':'s')+(desde||hasta?' (filtrados)':' (todos)');
 
@@ -30438,10 +30609,9 @@ function abrirCierreOrdenCorte(id){
   const mtsNecesarios=o.metros_necesarios||r2(mtsTeoricosPlan*(1+merma/100));
   const nBobinas=o.orden_corte_bobinas?.length||0;
 
-  // Calcular paquetes ya cargados via parciales
-  const parcialesPaq=(C.stock_bolsas||[])
-    .filter(s=>s.orden_corte_id===id&&s.estado!=='entregado')
-    .reduce((s,l)=>s+(parseFloat(l.cantidad_paquetes)||0),0);
+  // Calcular paquetes ya cargados via parciales — del LIBRO (produccion), robusto a
+  // entregas (el stock actual pierde los parciales ya entregados y mostraría de menos).
+  const parcialesPaq=(C.mov_prod_por_oc?.[id]||0);
   const parcialesBultos=Math.floor(parcialesPaq/paqPorBolson);
   const parcialesSueltos=parcialesPaq-(parcialesBultos*paqPorBolson);
 
@@ -36556,12 +36726,11 @@ function _pedidoInfoProduccion(p){
     const paqPorBolson=o.paquetes_por_bolson||prod?.paquetes_por_bolson||1;
     // paq producidos = cierre (bolsones_reales) + cargas parciales en stock
     const paqRealesCierre=(o.bolsones_reales||0)*paqPorBolson+(o.paquetes_sueltos_reales||0);
-    // Si está En proceso, sumar también lo cargado como parcial en stock_bolsas
+    // Si está En proceso, sumar también lo cargado como parcial — del LIBRO (produccion),
+    // robusto a entregas (no cae el % de avance cuando el parcial se entrega).
     let paqParciales=0;
     if(o.estado==='En proceso'){
-      paqParciales=(C.stock_bolsas||[])
-        .filter(s=>s.orden_corte_id===o.id&&s.estado!=='entregado')
-        .reduce((s,l)=>s+(parseFloat(l.cantidad_paquetes)||0),0);
+      paqParciales=(C.mov_prod_por_oc?.[o.id]||0);
     }
     const paqReales=Math.max(paqRealesCierre,paqParciales); // el mayor de los dos
     const paqOC=o.cantidad_paquetes||0;
@@ -44111,7 +44280,7 @@ function renderFlujoCaja(){
     +'<label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" '+(FC.incTentativos?'checked':'')+' onchange="FC.incTentativos=this.checked;renderFlujoCaja();"> incluir tentativos</label>'
     +'<select class="st-sel" title="Capa de certeza que se muestra" style="font-size:12px;" onchange="FC.capa=this.value;renderFlujoCaja();"><option value="firme"'+(FC.capa==='firme'?' selected':'')+'>🔒 Solo firme</option><option value="producido"'+(FC.capa==='producido'?' selected':'')+'>🏭 + Producido</option><option value="aproducir"'+(FC.capa==='aproducir'?' selected':'')+'>📦 + A producir</option><option value="proyectado"'+((FC.capa||'proyectado')==='proyectado'?' selected':'')+'>🔮 + Proyectado</option></select>'
     +'<button class="btn btn-sm" onclick="fpNuevo()">➕ Presupuestar</button>'
-    +'<button class="btn btn-sm" onclick="pcobOpen()">🎯 Armar plan</button>'
+    +'<button class="btn btn-sm" onclick="go(\'planes\')" title="Los planes de cobertura viven en su propia sala — el flujo queda limpio">🗺 Sala de planes</button>'
     +'<label style="font-size:12px;color:var(--text2);margin-left:auto;">Saldo de caja hoy: <input type="number" step="0.01" value="'+FC.saldoIni+'" onchange="FC.saldoIni=parseFloat(this.value)||0;renderFlujoCaja();" style="width:120px;" class="st-sel"></label>'
     +'<label style="font-size:12px;color:var(--text2);">Avisar bajo: <input type="number" step="0.01" value="'+(FC.saldoMin||0)+'" onchange="FC.saldoMin=parseFloat(this.value)||0;renderFlujoCaja();" style="width:110px;" class="st-sel" title="El saldo acumulado se pinta ámbar si queda por debajo de este monto (pero todavía positivo)"></label>'
   +'</div>';
@@ -44181,7 +44350,7 @@ function renderFlujoCaja(){
       const fechaCell=x.editable
         ?'<input type="date" value="'+x.fEf+'" onchange="fcReprogramar(\''+x.tipo+'\','+x.id+',this.value)" style="font-size:11px;'+(venc?'color:var(--red);':'')+'" class="st-sel">'
         :'<span class="mono" style="font-size:11px;'+(venc?'color:var(--red);':'')+'">'+x.fEf+'</span>';
-      html+='<tr><td>'+fechaCell+'</td><td>'+cli(x.cliente_id)+'</td><td style="font-size:12px;">'+x.ref+(x.esPipeline?' <button class="btn btn-sm" style="padding:1px 7px;font-size:10px;" onclick="fpNuevoDesdePedido('+x.id+')" title="Fijar fecha y monto de cobro como presupuesto">📌 fijar</button>':'')+'</td><td>'+(x.plano==='informal'?'⚫':'⚪')+'</td><td class="mono" style="text-align:right;color:var(--green);font-weight:600;">$'+r2(x.saldo).toLocaleString('es-AR')+'</td></tr>';
+      html+='<tr><td>'+fechaCell+'</td><td>'+cli(x.cliente_id)+'</td><td style="font-size:12px;">'+x.ref+_plBadge(x)+(x.esPipeline?' <button class="btn btn-sm" style="padding:1px 7px;font-size:10px;" onclick="fpNuevoDesdePedido('+x.id+')" title="Fijar fecha y monto de cobro como presupuesto">📌 fijar</button>':'')+'</td><td>'+(x.plano==='informal'?'⚫':'⚪')+'</td><td class="mono" style="text-align:right;color:var(--green);font-weight:600;">$'+r2(x.saldo).toLocaleString('es-AR')+'</td></tr>';
     });
     html+='</tbody></table></div>';
   }
@@ -44194,7 +44363,7 @@ function renderFlujoCaja(){
     html+='<div style="overflow-x:auto"><table><thead><tr><th>Fecha estimada</th><th>Proveedor / concepto</th><th>Plano</th><th style="text-align:right">Monto</th></tr></thead><tbody>';
     pagosPend.forEach(x=>{
       const venc=String(x.fEf)<hoyStr;
-      html+='<tr><td>'+(x.editable?'<input type="date" value="'+x.fEf+'" onchange="fcReprogramar(\''+x.tipo+'\','+x.id+',this.value)" style="font-size:11px;'+(venc?'color:var(--red);':'')+'" class="st-sel">':'<span class="mono" style="font-size:11px;'+(venc?'color:var(--red);':'')+'">'+x.fEf+'</span>')+'</td><td style="font-size:12px;">'+(x.tipo==='manual'?'<span style="cursor:pointer;text-decoration:underline dotted;" onclick="fpEditar('+x.id+')">'+x.ref+'</span>':x.ref)+'</td><td>'+(x.plano==='negro'?'⚫':'⚪')+'</td><td class="mono" style="text-align:right;color:#f97316;font-weight:600;">$'+r2(x.saldo).toLocaleString('es-AR')+'</td></tr>';
+      html+='<tr><td>'+(x.editable?'<input type="date" value="'+x.fEf+'" onchange="fcReprogramar(\''+x.tipo+'\','+x.id+',this.value)" style="font-size:11px;'+(venc?'color:var(--red);':'')+'" class="st-sel">':'<span class="mono" style="font-size:11px;'+(venc?'color:var(--red);':'')+'">'+x.fEf+'</span>')+'</td><td style="font-size:12px;">'+(x.tipo==='manual'?'<span style="cursor:pointer;text-decoration:underline dotted;" onclick="fpEditar('+x.id+')">'+x.ref+'</span>':x.ref)+_plBadge(x)+'</td><td>'+(x.plano==='negro'?'⚫':'⚪')+'</td><td class="mono" style="text-align:right;color:#f97316;font-weight:600;">$'+r2(x.saldo).toLocaleString('es-AR')+'</td></tr>';
     });
     html+='</tbody></table></div>';
   }
@@ -44596,8 +44765,12 @@ function _pcobProgresoCobro(s){
   else estado='pendiente';
   return {planeado,saldoAct:r2(saldoAct),cobrado,estado,auto:true};
 }
-function pcobSolidez(){
-  const recs=_pcobRecursosDisponibles().filter(r=>PCob.recursos.has(r.key));
+function pcobSolidez(){return _plCalcSolidez(PCob.objetivos,PCob.recursos,PCob.cheques||[]);}
+// Motor de solidez parametrizado (lo usan el modal viejo y la Sala de planes).
+// Cheques en cartera con cambio = plata firme (el papel ya existe).
+// Plata en caja/bancos (cajas) = lo MÁS firme que hay: ya está en tu poder.
+function _plCalcSolidez(objetivos,recursosSet,cheques,cajas){
+  const recs=_pcobRecursosDisponibles().filter(r=>recursosSet.has(r.key));
   const b={firme:0,producido:0,condicionado:0,proyectado:0};
   recs.forEach(r=>{
     if(r.tier===1)b.firme+=r.saldo;
@@ -44605,7 +44778,9 @@ function pcobSolidez(){
     else if(r.tier===3)b.condicionado+=r.saldo;   // a producir → depende de comprar MP
     else b.proyectado+=r.saldo;
   });
-  const totalObj=PCob.objetivos.reduce((s,o)=>s+(parseFloat(o.monto)||0),0);
+  (cheques||[]).forEach(c=>{b.firme+=(parseFloat(c.neto)||0);});
+  (cajas||[]).forEach(c=>{b.firme+=(parseFloat(c.monto)||0);});
+  const totalObj=objetivos.reduce((s,o)=>s+(parseFloat(o.monto)||0),0);
   const segura=r2(b.firme+b.producido);
   const conCond=r2(segura+b.condicionado);
   const totalRec=r2(conCond+b.proyectado);
@@ -44751,20 +44926,23 @@ function pcobVer(id){
   document.getElementById('pcobver-modal')?.remove();
   let h='<div class="modal-title">'+(p.estado==='anulado'?'🚫 ':p.estado==='cerrado'?'✅ ':'📋 ')+escapeHtml(p.nombre||'Plan')+'</div>';
   h+='<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Objetivo a cubrir: <b>$'+r2(dp.total_objetivo||0).toLocaleString('es-AR')+'</b>'+(cerrado&&p.nota_cierre?'<br>📝 Cierre: <i>'+escapeHtml(p.nota_cierre)+'</i>':'')+'</div>';
+  try{h+=_plChipsVariantes(p);}catch(e){}
   const pasos=(p.pasos||[]).slice().sort((a,b)=>(a.orden||0)-(b.orden||0));
   h+='<div style="border:1px solid var(--border);border-radius:var(--r);overflow:hidden;"><table style="width:100%;font-size:12px;"><tbody>';
   pasos.forEach(s=>{
     const esObj=s.tipo==='objetivo';
-    const prog=(!esObj&&!cerrado)?_pcobProgresoCobro(s):null;
+    const esCheque=s.tipo==='cambio_cheque';
+    const prog=(!esObj&&!cerrado)?(esCheque?_pcobProgresoCheque(s):_pcobProgresoCobro(s)):null;
     let txtStyle='',leftExtra='',accion='';
     if(prog){
       const e=prog.estado;
       txtStyle=e==='cumplido'?'text-decoration:line-through;color:var(--text3);':(e==='fallado'?'color:var(--red);':'');
-      leftExtra=e==='cumplido'?'<br><span style="color:var(--green);font-size:11px;">✓ cobrado completo</span>'
-        :e==='parcial'?'<br><span style="color:var(--amber);font-size:11px;">🟡 parcial: cobrado $'+prog.cobrado.toLocaleString('es-AR')+' / $'+prog.planeado.toLocaleString('es-AR')+' · falta $'+r2(prog.planeado-prog.cobrado).toLocaleString('es-AR')+'</span>'
-        :e==='fallado'?'<br><span style="color:var(--red);font-size:11px;">✗ documento anulado</span>'
-        :'<br><span style="color:var(--text3);font-size:11px;">pendiente de cobro</span>';
+      leftExtra=e==='cumplido'?'<br><span style="color:var(--green);font-size:11px;">✓ '+(esCheque?'cheque cambiado':'cobrado completo')+'</span>'
+        :e==='parcial'?'<br><span style="color:var(--amber);font-size:11px;">🟡 '+(esCheque?'depositado, falta acreditar':'parcial: cobrado $'+prog.cobrado.toLocaleString('es-AR')+' / $'+prog.planeado.toLocaleString('es-AR')+' · falta $'+r2(prog.planeado-prog.cobrado).toLocaleString('es-AR'))+'</span>'
+        :e==='fallado'?'<br><span style="color:var(--red);font-size:11px;">✗ '+(esCheque?'cheque rechazado':'documento anulado')+'</span>'
+        :'<br><span style="color:var(--text3);font-size:11px;">'+(esCheque?'cheque en cartera, pendiente de cambio':'pendiente de cobro')+'</span>';
       accion='<span style="font-size:10px;color:var(--text3);">auto</span>';
+      if(p.estado==='activo'&&e==='fallado')accion+=' <button class="btn btn-sm" style="font-size:10px;padding:1px 6px;" title="Buscar el mejor recurso libre para reemplazar este paso caído" onclick="plSugerirReemplazo('+p.id+',\''+s.id+'\')">🔄 reemplazo</button>';
     } else {
       const hecho=s.estado==='hecho',fallado=s.estado==='fallado',parcial=s.estado==='parcial';
       txtStyle=hecho?'text-decoration:line-through;color:var(--text3);':(fallado?'color:var(--red);':'');
@@ -44773,16 +44951,18 @@ function pcobVer(id){
         accion='<span style="font-size:11px;color:'+(hecho?'var(--green)':parcial?'var(--amber)':fallado?'var(--red)':'var(--text3)')+';">'+lbl+'</span>';
       } else {
         accion='<span style="cursor:pointer;font-size:15px;" title="Cumplí" onclick="pcobPasoEstado('+p.id+',\''+s.id+'\',\''+(hecho?'pendiente':'hecho')+'\')">'+(hecho?'☑':'☐')+'</span> <span style="cursor:pointer;font-size:14px;color:var(--red);" title="No pude" onclick="pcobPasoEstado('+p.id+',\''+s.id+'\',\''+(fallado?'pendiente':'fallado')+'\')">'+(fallado?'✗':'·')+'</span>';
+        if(fallado&&(s.tipo==='cobro'||s.tipo==='cambio_cheque'))accion+=' <button class="btn btn-sm" style="font-size:10px;padding:1px 6px;" title="Buscar el mejor recurso libre para reemplazar este paso caído" onclick="plSugerirReemplazo('+p.id+',\''+s.id+'\')">🔄</button>';
       }
     }
-    h+='<tr style="'+(esObj?'background:rgba(249,115,22,.06);':'')+'"><td style="'+txtStyle+'">'+(esObj?'🎯 ':'💵 ')+escapeHtml(s.texto||'')+leftExtra+'</td><td style="text-align:right;width:88px;white-space:nowrap;vertical-align:top;">'+accion+'</td></tr>';
+    h+='<tr style="'+(esObj?'background:rgba(249,115,22,.06);':'')+'"><td style="'+txtStyle+'">'+(esObj?'🎯 ':esCheque?'🔁 ':s.tipo==='uso_caja'?'💰 ':'💵 ')+escapeHtml(s.texto||'')+leftExtra+'</td><td style="text-align:right;width:88px;white-space:nowrap;vertical-align:top;">'+accion+'</td></tr>';
   });
   h+='</tbody></table></div>';
   h+='<div class="btn-grp" style="margin-top:12px;">';
   if(p.estado==='activo'){h+='<button class="btn btn-sm btn-primary" onclick="pcobCerrar('+p.id+')">✅ Cerrar plan</button><button class="btn btn-sm btn-del" onclick="pcobBorrar('+p.id+')">🚫 Anular</button>';}
   else if(p.estado==='cerrado'){h+='<button class="btn btn-sm" onclick="pcobReabrir('+p.id+')">↩ Reabrir</button>';}
+  h+='<button class="btn btn-sm" onclick="plImprimirPlan('+p.id+')">🖨 Imprimir</button>';
   h+='<button class="btn btn-sm" onclick="document.getElementById(\'pcobver-modal\').remove();pcobRender();">Cerrar ventana</button></div>';
-  document.body.insertAdjacentHTML('beforeend','<div class="modal-overlay" id="pcobver-modal" style="z-index:10000;"><div class="modal-card" style="max-width:680px;width:92%;max-height:88vh;overflow:auto;">'+h+'</div></div>');
+  document.body.insertAdjacentHTML('beforeend','<div class="modal-overlay" id="pcobver-modal" style="z-index:10000;"><div class="modal-card" style="max-width:900px;width:94%;max-height:90vh;overflow:auto;">'+h+'</div></div>');
 }
 async function pcobPasoEstado(planId,pasoId,estado){
   const p=(C.planes_compra||[]).find(x=>x.id===planId);if(!p)return;
@@ -44815,6 +44995,585 @@ async function pcobReabrir(id){
   if(error){toast('Error: '+error.message,'red');return;}
   toast('✓ Plan reabierto','green');
   await reload();document.getElementById('pcobver-modal')?.remove();pcobRender();
+}
+
+// ============================================================
+// 🗺 SALA DE PLANES (Sesión C)
+// Módulo propio de planes de cobertura. REUSA el motor planes_compra
+// (clase 'cobertura', pasos jsonb, candado anti-fantasía, progreso automático).
+// Variantes A/B/C: datos_plan.variante_de = id del plan raíz del grupo;
+// datos_plan.activo = solo la variante ACTIVA earmarkea recursos.
+// Paso nuevo "cambio_cheque": cheque en cartera → efectivo con % de quita.
+// ============================================================
+function _plCob(){return (C.planes_compra||[]).filter(p=>p.clase==='cobertura');}
+function _plEsActivo(p){return p.estado==='activo'&&(p.datos_plan?.activo!==false);}
+function _plGrupoDe(p){return (p.datos_plan&&p.datos_plan.variante_de)||p.id;}
+function _plLetra(p){return (p.datos_plan&&p.datos_plan.variante)||'A';}
+// ¿Este item del flujo está en algún plan activo? → insignia 🔗 (única huella en el flujo)
+function _plBadge(x){
+  try{
+    for(const p of _plCob()){
+      if(!_plEsActivo(p))continue;
+      const dp=p.datos_plan||{};
+      const esRec=(dp.recursos||[]).some(r=>r.tipo===x.tipo&&String(r.id)===String(x.id));
+      const esObj=(dp.objetivos||[]).some(o=>o.tipo===x.tipo&&String(o.id)===String(x.id));
+      if(esRec||esObj)return ' <span title="En plan: '+escapeHtml(p.nombre||'plan')+'" style="font-size:10px;color:#8b5cf6;cursor:pointer;" onclick="event.stopPropagation();pcobVer('+p.id+')">🔗</span>';
+    }
+  }catch(e){}
+  return '';
+}
+// Plata en caja/bancos disponible para planes: saldo real de cada cuenta activa,
+// MENOS lo ya comprometido en otros planes activos (earmark por monto, no por set).
+function _plCajaEarmarked(cuentaId,excluirGrupo){
+  let tot=0;
+  _plCob().forEach(pl=>{
+    if(!_plEsActivo(pl))return;
+    if(excluirGrupo!=null&&_plGrupoDe(pl)===excluirGrupo)return;
+    (pl.datos_plan?.cajas||[]).forEach(c=>{
+      if(String(c.cuenta_id)!==String(cuentaId))return;
+      // si el paso ya se marcó cumplido, la plata ya se usó (el saldo real ya bajó) → no re-descontar
+      const paso=(pl.pasos||[]).find(s=>s.tipo==='uso_caja'&&String(s.cuenta_id)===String(c.cuenta_id));
+      if(paso&&_plEstadoPaso(paso)==='cumplido')return;
+      tot=r2(tot+(parseFloat(c.monto)||0));
+    });
+  });
+  return tot;
+}
+function _plCajaDisponibles(excluirGrupo){
+  const out=[];
+  (C.cuentas_caja||[]).forEach(c=>{
+    if(c.es_conciliacion||c.activa===false)return;
+    let saldo=0;try{saldo=r2(ccSaldoCuentaHasta(c.id,null));}catch(e){}
+    if(saldo<=0.01)return;
+    const earm=_plCajaEarmarked(c.id,excluirGrupo);
+    out.push({id:c.id,nombre:c.nombre||('Cuenta '+c.id),plano:c.plano||'blanco',saldo,earmarked:earm,disp:r2(Math.max(0,saldo-earm))});
+  });
+  return out.sort((a,b)=>b.disp-a.disp);
+}
+// Progreso automático del paso "cambio de cheque", derivado del estado real del cheque
+function _pcobProgresoCheque(s){
+  if(!s||s.tipo!=='cambio_cheque')return null;
+  const planeado=parseFloat(s.monto)||0;
+  let ch=null;try{ch=chCheques().find(c=>String(c.id)===String(s.cheque_id));}catch(e){}
+  if(!ch)return{planeado,saldoAct:planeado,cobrado:0,estado:'pendiente',auto:true};
+  const e=ch.estado||'en_cartera';
+  let estado='pendiente';
+  if(e==='rechazado')estado='fallado';
+  else if(e==='acreditado'||e==='descontado'||e==='endosado')estado='cumplido';
+  else if(e==='depositado')estado='parcial';
+  return{planeado,saldoAct:estado==='cumplido'?0:planeado,cobrado:estado==='cumplido'?planeado:0,estado,auto:true};
+}
+// Estado real de cualquier paso (auto si se puede, manual si no)
+function _plEstadoPaso(s){
+  if(s.tipo==='cambio_cheque'){const pr=_pcobProgresoCheque(s);if(pr)return pr.estado;}
+  if(s.tipo==='cobro'){const pr=_pcobProgresoCobro(s);if(pr)return pr.estado;}
+  return s.estado==='hecho'?'cumplido':(s.estado||'pendiente');
+}
+// Solidez VIVA de un plan guardado (recalculada con el estado real de cada paso)
+function _plSolidezPlan(p){
+  const dp=p.datos_plan||{};
+  const obj=r2(parseFloat(dp.total_objetivo)||0);
+  const b={firme:0,producido:0,condicionado:0,proyectado:0};
+  let cobrado=0,caidos=0;
+  (p.pasos||[]).forEach(s=>{
+    if(s.tipo!=='cobro'&&s.tipo!=='cambio_cheque'&&s.tipo!=='uso_caja')return;
+    const m=parseFloat(s.monto)||0;
+    const est=_plEstadoPaso(s);
+    if(est==='fallado'){caidos++;return;}
+    if(est==='cumplido'){b.firme+=m;cobrado+=m;return;}
+    if(s.tipo==='cambio_cheque'||s.tipo==='uso_caja'){b.firme+=m;return;}
+    if(est==='parcial'){
+      const pr=_pcobProgresoCobro(s);
+      if(pr){cobrado+=pr.cobrado;b.firme+=pr.cobrado;const rem=pr.saldoAct;const t=s.tier||1;
+        if(t<=1)b.firme+=rem;else if(t===2)b.producido+=rem;else if(t===3)b.condicionado+=rem;else b.proyectado+=rem;}
+      return;
+    }
+    const t=s.tier||1;
+    if(t<=1)b.firme+=m;else if(t===2)b.producido+=m;else if(t===3)b.condicionado+=m;else b.proyectado+=m;
+  });
+  const segura=r2(b.firme+b.producido);
+  const pct=obj>0?Math.min(100,Math.round(segura/obj*100)):0;
+  return{obj,b,segura,cobrado:r2(cobrado),caidos,pct};
+}
+// Pasos con problema: fallados o cobros atrasados (fecha efectiva ya pasó)
+function _plPasosProblema(p){
+  const hoy=localDate();
+  let pend=[];try{pend=fcCobrosPendientes();}catch(e){}
+  const out=[];
+  (p.pasos||[]).forEach(s=>{
+    if(s.tipo!=='cobro'&&s.tipo!=='cambio_cheque'&&s.tipo!=='uso_caja')return;
+    const est=_plEstadoPaso(s);
+    if(est==='fallado'){out.push({s,motivo:s.tipo==='cambio_cheque'?'cheque rechazado':'se cayó'});return;}
+    if(est==='pendiente'&&s.tipo==='cobro'){
+      const it=pend.find(x=>x.tipo===s.origen_tipo&&String(x.id)===String(s.origen_id));
+      if(it&&String(it.fEf)<hoy){
+        const dias=Math.round((new Date(hoy+'T12:00:00')-new Date(String(it.fEf)+'T12:00:00'))/86400000);
+        out.push({s,motivo:'atrasado '+dias+' día'+(dias===1?'':'s')});
+      }
+    }
+  });
+  return out;
+}
+function _plChipsVariantes(p){
+  const grupo=_plGrupoDe(p);
+  const vars=_plCob().filter(x=>x.estado==='activo'&&_plGrupoDe(x)===grupo)
+    .sort((a,b)=>_plLetra(a).localeCompare(_plLetra(b)));
+  if(vars.length<2)return'';
+  let h='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;font-size:11px;"><span style="color:var(--text3);">Variantes:</span>';
+  vars.forEach(v=>{
+    const act=_plEsActivo(v);const sol=_plSolidezPlan(v);
+    h+='<span style="border:1.5px solid '+(act?'#8b5cf6':'var(--border)')+';border-radius:12px;padding:2px 9px;cursor:pointer;'+(act?'background:rgba(139,92,246,.12);font-weight:700;':'')+(v.id===p.id?'outline:1px dashed var(--text3);':'')+'" onclick="document.getElementById(\'pcobver-modal\')?.remove();pcobVer('+v.id+')" title="'+escapeHtml(v.nombre||'')+'">'
+      +(act?'⭐ ':'')+'Plan '+_plLetra(v)+' · '+sol.pct+'%</span>';
+    if(!act)h+='<span style="cursor:pointer;color:#8b5cf6;" title="Hacer que esta variante sea la ACTIVA (earmarkea sus recursos; las otras quedan latentes)" onclick="plActivarVariante('+v.id+')">activar</span>';
+  });
+  h+='<span style="cursor:pointer;color:var(--accent);" onclick="plNuevaVariante('+JSON.stringify(grupo)+')">+ variante</span></div>';
+  return h;
+}
+async function plActivarVariante(id){
+  const p=_plCob().find(x=>x.id===id);if(!p)return;
+  const grupo=_plGrupoDe(p);
+  try{
+    for(const q of _plCob().filter(x=>x.estado==='activo'&&_plGrupoDe(x)===grupo)){
+      const dp=Object.assign({},q.datos_plan||{});dp.activo=(q.id===id);
+      const{error}=await sb.from('planes_compra').update({datos_plan:dp}).eq('id',q.id);
+      if(error)throw error;
+    }
+    toast('✓ Plan '+_plLetra(p)+' ahora es la variante activa','green');
+    await reload();
+    document.getElementById('pcobver-modal')?.remove();
+    renderSalaPlanes();
+  }catch(e){toast('Error: '+(e.message||e),'red');}
+}
+function plNuevaVariante(grupoId){
+  const base=_plCob().filter(x=>x.estado==='activo'&&_plGrupoDe(x)===grupoId);
+  const act=base.find(_plEsActivo)||base[0];
+  if(!act){toast('No encontré el plan base','amber');return;}
+  document.getElementById('pcobver-modal')?.remove();
+  plwOpen(grupoId,(act.datos_plan?.objetivos||[]).map(o=>Object.assign({},o)));
+}
+// ---------- TABLERO DE LA SALA ----------
+function renderSalaPlanes(){
+  const wrap=document.getElementById('pl-wrap');if(!wrap)return;
+  const cob=_plCob();
+  const activos=cob.filter(p=>p.estado==='activo');
+  const cerrados=cob.filter(p=>p.estado==='cerrado'||p.estado==='anulado');
+  // Agrupar por objetivo (grupo de variantes)
+  const grupos={};
+  activos.forEach(p=>{const g=_plGrupoDe(p);(grupos[g]=grupos[g]||[]).push(p);});
+  const gList=Object.entries(grupos).map(([g,vars])=>{
+    vars.sort((a,b)=>_plLetra(a).localeCompare(_plLetra(b)));
+    const act=vars.find(_plEsActivo)||vars[0];
+    return{g,vars,act,sol:_plSolidezPlan(act),prob:_plPasosProblema(act)};
+  }).sort((a,b)=>a.sol.pct-b.sol.pct);
+  let h='';
+  // KPIs
+  const objTotal=r2(gList.reduce((s,x)=>s+x.sol.obj,0));
+  const segTotal=r2(gList.reduce((s,x)=>s+Math.min(x.sol.segura,x.sol.obj),0));
+  const nProb=gList.reduce((s,x)=>s+x.prob.length,0);
+  h+='<div class="stats" style="margin-bottom:1.2rem;">'
+    +'<div class="stat"><div class="stat-lbl">Planes activos</div><div class="stat-val" style="font-size:20px;">'+gList.length+'</div></div>'
+    +'<div class="stat"><div class="stat-lbl">Objetivo bajo plan</div><div class="stat-val" style="font-size:20px;">$'+objTotal.toLocaleString('es-AR')+'</div></div>'
+    +'<div class="stat"><div class="stat-lbl">Cubierto con plata firme</div><div class="stat-val" style="font-size:20px;color:'+(objTotal>0&&segTotal>=objTotal?'var(--green)':'var(--amber)')+';">'+(objTotal>0?Math.round(segTotal/objTotal*100):0)+'%</div></div>'
+    +'<div class="stat"><div class="stat-lbl">Pasos con problema</div><div class="stat-val" style="font-size:20px;color:'+(nProb?'var(--red)':'var(--green)')+';">'+nProb+'</div></div>'
+  +'</div>';
+  if(!gList.length){
+    h+='<div class="empty" style="padding:36px;text-align:center;">'
+      +'<div style="font-size:32px;margin-bottom:8px;">🗺</div>'
+      +'<div style="font-weight:700;margin-bottom:6px;">Todavía no hay planes activos</div>'
+      +'<div style="font-size:12px;color:var(--text3);max-width:440px;margin:0 auto 14px;">Un plan responde a UNA pregunta: "¿con qué plata pago tal cosa?". Elegís el compromiso, el sistema te propone la canasta de cobros, ajustás y listo — menos de un minuto.</div>'
+      +'<button class="btn btn-primary" onclick="plwOpen()">➕ Armar el primero</button></div>';
+  }else{
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;">';
+    gList.forEach(({vars,act,sol,prob})=>{
+      const col=sol.pct>=100?'var(--green)':sol.pct>=70?'var(--amber)':'var(--red)';
+      const tot=Math.max(sol.obj,sol.b.firme+sol.b.producido+sol.b.condicionado+sol.b.proyectado,1);
+      const pctW=v=>Math.round(v/tot*100);
+      const nPasos=(act.pasos||[]).filter(s=>s.tipo==='cobro'||s.tipo==='cambio_cheque').length;
+      const nHechos=(act.pasos||[]).filter(s=>(s.tipo==='cobro'||s.tipo==='cambio_cheque')&&_plEstadoPaso(s)==='cumplido').length;
+      h+='<div class="kpi-card" style="border-top:4px solid '+col+';cursor:pointer;text-align:left;" onclick="pcobVer('+act.id+')">'
+        +'<div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;">'
+          +'<div style="font-weight:700;font-size:14px;">📋 '+escapeHtml(act.nombre||'Plan')+'</div>'
+          +'<div style="font-size:18px;font-weight:900;color:'+col+';white-space:nowrap;">'+sol.pct+'%</div>'
+        +'</div>'
+        +'<div style="font-size:11px;color:var(--text3);margin:2px 0 6px;">objetivo $'+sol.obj.toLocaleString('es-AR')+' · cobrado $'+sol.cobrado.toLocaleString('es-AR')+' · '+nHechos+'/'+nPasos+' pasos ✓</div>'
+        +'<div style="display:flex;height:14px;border-radius:5px;overflow:hidden;border:1px solid var(--border);background:var(--bg2);">'
+          +(sol.b.firme>0?'<div style="width:'+pctW(sol.b.firme)+'%;background:var(--green);" title="firme"></div>':'')
+          +(sol.b.producido>0?'<div style="width:'+pctW(sol.b.producido)+'%;background:var(--accent);" title="producido"></div>':'')
+          +(sol.b.condicionado>0?'<div style="width:'+pctW(sol.b.condicionado)+'%;background:var(--amber);" title="condicionado a producción"></div>':'')
+          +(sol.b.proyectado>0?'<div style="width:'+pctW(sol.b.proyectado)+'%;background:var(--text3);" title="proyectado"></div>':'')
+        +'</div>'
+        +(prob.length?'<div style="font-size:11px;color:var(--red);margin-top:6px;">⚠ '+prob.map(x=>escapeHtml((x.s.texto||'').replace(/^Cobrar: /,'').slice(0,34))+' ('+x.motivo+')').join(' · ')+' <span style="color:var(--accent);">→ tocá y usá 🔄 reemplazo</span></div>':'')
+        +'<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;font-size:11px;" onclick="event.stopPropagation()">'
+          +vars.map(v=>{const a=_plEsActivo(v);const sv=v.id===act.id?sol:_plSolidezPlan(v);
+            return '<span style="border:1.5px solid '+(a?'#8b5cf6':'var(--border)')+';border-radius:12px;padding:1px 8px;cursor:pointer;'+(a?'background:rgba(139,92,246,.12);font-weight:700;':'')+'" onclick="pcobVer('+v.id+')">'+(a?'⭐ ':'')+_plLetra(v)+' '+sv.pct+'%</span>';}).join('')
+          +'<span style="cursor:pointer;color:var(--accent);" onclick="plNuevaVariante('+JSON.stringify(_plGrupoDe(act))+')" title="Armar un plan B/C alternativo para el mismo objetivo">+ variante</span>'
+        +'</div>'
+      +'</div>';
+    });
+    h+='</div>';
+    h+='<div style="font-size:11px;color:var(--text3);margin-top:10px;">🟢 firme · 🔵 producido · 🟡 condicionado a producción (no cuenta como seguro) · ⚪ proyectado · Solo la variante ⭐ activa reserva recursos; las B/C quedan latentes y no se pisan.</div>';
+  }
+  if(cerrados.length){
+    h+='<details style="margin-top:16px;"><summary style="cursor:pointer;font-size:12px;color:var(--text3);">📚 Historial — '+cerrados.length+' cerrados/anulados</summary><table style="width:100%;font-size:12px;margin-top:6px;"><tbody>';
+    cerrados.slice(0,30).forEach(p=>{h+='<tr style="cursor:pointer;" onclick="pcobVer('+p.id+')"><td>'+(p.estado==='anulado'?'🚫':'✅')+' '+escapeHtml(p.nombre||'plan')+'</td><td style="text-align:right;color:var(--text3);font-size:11px;">'+(p.cerrado_el?String(p.cerrado_el).slice(0,10):p.estado)+'</td></tr>';});
+    h+='</tbody></table></details>';
+  }
+  wrap.innerHTML=h;
+}
+// ---------- WIZARD 3 PASOS (<1 minuto) ----------
+let PLW={paso:1,objetivos:[],recursos:new Set(),cheques:[],cajas:[],nombre:'',varianteDe:null,filtro:'todos',verMas:false};
+function _plObjIcono(o){return o.tipo==='deuda'?'🏦':o.tipo==='tarjeta'?'💳':o.esMP?'🧱':o.tipo==='fijo'?'📌':o.tipo==='compra'?'🛒':'💸';}
+function plwOpen(varianteDe,objetivosPre){
+  _pcobItemsCache=null;
+  PLW={paso:varianteDe?2:1,objetivos:objetivosPre||[],recursos:new Set(),cheques:[],cajas:[],nombre:'',varianteDe:varianteDe||null,filtro:'todos',verMas:false,q:''};
+  if(PLW.paso===2)plwProponer();
+  document.getElementById('plw-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="plw-modal"><div class="modal-card" style="max-width:1100px;width:96%;max-height:94vh;overflow:auto;">'
+    +'<div class="modal-title" id="plw-title"></div><div id="plw-body"></div></div></div>');
+  plwRender();
+}
+function plwClose(){document.getElementById('plw-modal')?.remove();}
+function plwRender(){
+  const t=document.getElementById('plw-title'),b=document.getElementById('plw-body');
+  if(!t||!b)return;
+  const tit={1:'1/3 · ¿Qué querés cubrir?',2:'2/3 · La canasta propuesta — ajustala si querés',3:'3/3 · Nombre y listo'};
+  t.innerHTML=(PLW.varianteDe?'🅱 Variante nueva — ':'🎯 ')+tit[PLW.paso];
+  b.innerHTML=PLW.paso===1?_plwPaso1():PLW.paso===2?_plwPaso2():_plwPaso3();
+}
+function _plwTotalObj(){return r2(PLW.objetivos.reduce((s,o)=>s+(parseFloat(o.monto)||0),0));}
+function _plwPaso1(){
+  const objs=_pcobObjetivosDisponibles().sort((a,b)=>String(a.fEf).localeCompare(String(b.fEf)));
+  const grupos=[['todos','Todos'],['deuda','🏦 Préstamos/ARCA'],['mp','🧱 Boletas MP'],['tarjeta','💳 Tarjeta'],['fijo','📌 Fijos/sueldos'],['otros','🛒 Otras compras']];
+  const enFiltro=o=>PLW.filtro==='todos'?true:PLW.filtro==='mp'?o.esMP:PLW.filtro==='otros'?(o.tipo==='compra'&&!o.esMP)||o.tipo==='manual':o.tipo===PLW.filtro;
+  let h='<div style="font-size:12px;color:var(--text3);margin-bottom:8px;">Compromisos que vienen, ordenados por fecha. Tildá lo que este plan tiene que cubrir (puede ser más de uno).</div>';
+  h+='<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;align-items:center;">'+grupos.map(([k,l])=>'<button class="btn btn-sm'+(PLW.filtro===k?' btn-primary':'')+'" style="font-size:11px;" onclick="PLW.filtro=\''+k+'\';plwRender()">'+l+'</button>').join('')
+    +'<input id="plw-q1" type="text" placeholder="🔍 buscar…" value="'+escapeHtml(PLW.q||'').replace(/"/g,'&quot;')+'" oninput="PLW.q=this.value;clearTimeout(window._plwQT);window._plwQT=setTimeout(()=>{const p=document.getElementById(\'plw-q1\');const pos=p?p.selectionStart:0;plwRender();const n=document.getElementById(\'plw-q1\');if(n){n.focus();n.setSelectionRange(pos,pos);}},250)" class="st-sel" style="margin-left:auto;width:180px;font-size:12px;"></div>';
+  const q=(PLW.q||'').toLowerCase();
+  const lista=objs.filter(enFiltro).filter(o=>!q||String(o.ref).toLowerCase().includes(q));
+  if(!lista.length)h+='<div class="empty" style="font-size:12px;">Nada en esta categoría'+(q?' que matchee "'+escapeHtml(PLW.q)+'"':'')+'.</div>';
+  else{
+    h+='<div style="font-size:10px;color:var(--text3);margin-bottom:2px;">'+lista.length+' compromiso'+(lista.length===1?'':'s')+' · total $'+r2(lista.reduce((s,o)=>s+o.saldo,0)).toLocaleString('es-AR')+'</div>';
+    h+='<div style="max-height:min(46vh,420px);overflow:auto;border:1px solid var(--border);border-radius:var(--r);"><table style="width:100%;font-size:12px;"><tbody>';
+    lista.forEach(o=>{
+      const sel=PLW.objetivos.some(x=>x.key===o.key);
+      h+='<tr style="'+(sel?'background:rgba(139,92,246,.08);':'')+'cursor:pointer;" onclick="plwToggleObj(\''+o.key+'\')">'
+        +'<td style="width:26px;text-align:center;"><input type="checkbox" '+(sel?'checked':'')+' onclick="event.stopPropagation();plwToggleObj(\''+o.key+'\')"></td>'
+        +'<td>'+_plObjIcono(o)+' '+escapeHtml(o.ref)+'<br><span style="font-size:10px;color:var(--text3);">vence '+_sfFecha(o.fEf)+'</span></td>'
+        +'<td class="mono" style="text-align:right;color:#f97316;white-space:nowrap;">$'+r2(o.saldo).toLocaleString('es-AR')+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  h+='<div style="display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap;">'
+    +'<input id="plw-libre-ref" type="text" placeholder="…o un objetivo libre (concepto)" style="flex:1;min-width:170px;" class="st-sel">'
+    +'<input id="plw-libre-monto" type="number" placeholder="$ monto" style="width:110px;" class="st-sel">'
+    +'<button class="btn btn-sm" onclick="plwObjLibre()">+ agregar</button></div>';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">'
+    +'<div style="font-weight:700;">A cubrir: <span style="color:#f97316;">$'+_plwTotalObj().toLocaleString('es-AR')+'</span>'+(PLW.objetivos.length?' <span style="font-weight:400;font-size:11px;color:var(--text3);">('+PLW.objetivos.length+')</span>':'')+'</div>'
+    +'<div class="btn-grp"><button class="btn btn-sm" onclick="plwClose()">Cancelar</button>'
+    +'<button class="btn btn-sm btn-primary" '+(PLW.objetivos.length?'':'disabled ')+'onclick="plwIrPaso2()">Proponeme la canasta →</button></div></div>';
+  return h;
+}
+function plwToggleObj(key){
+  const i=PLW.objetivos.findIndex(x=>x.key===key);
+  if(i>=0)PLW.objetivos.splice(i,1);
+  else{const o=_pcobObjetivosDisponibles().find(x=>x.key===key);if(o)PLW.objetivos.push({key:o.key,tipo:o.tipo,id:o.id,ref:o.ref,monto:o.saldo,fEf:o.fEf,esMP:o.esMP});}
+  plwRender();
+}
+function plwObjLibre(){
+  const ref=(document.getElementById('plw-libre-ref')?.value||'').trim();
+  const m=parseFloat(document.getElementById('plw-libre-monto')?.value);
+  if(!ref||!m||m<=0){toast('Poné concepto y monto','amber');return;}
+  PLW.objetivos.push({key:'libre:'+ref+':'+m,tipo:'libre',id:null,ref,monto:r2(m),fEf:localDate(),esMP:false});
+  plwRender();
+}
+function plwIrPaso2(){if(!PLW.objetivos.length)return;plwProponer();PLW.paso=2;plwRender();}
+// Recursos ya earmarkeados por variantes ACTIVAS de otros grupos
+function _plUsadosSet(excluirGrupo){
+  const usados=new Set();
+  _plCob().forEach(pl=>{
+    if(!_plEsActivo(pl))return;
+    if(excluirGrupo!=null&&_plGrupoDe(pl)===excluirGrupo)return;
+    (pl.datos_plan?.recursos||[]).forEach(r=>usados.add(r.tipo+':'+r.id));
+    (pl.datos_plan?.cheques||[]).forEach(c=>usados.add('cheque:'+c.cheque_id));
+  });
+  return usados;
+}
+// Propuesta automática: cobros libres por firmeza y fecha hasta cubrir el objetivo.
+// Candado anti-fantasía: tier 3-4 NUNCA entra a la propuesta automática.
+function plwProponer(){
+  PLW.recursos=new Set();
+  const usados=_plUsadosSet(PLW.varianteDe);
+  const totalObj=_plwTotalObj();
+  const libres=_pcobRecursosDisponibles()
+    .filter(r=>!usados.has(r.tipo+':'+r.id)&&r.tier<=2)
+    .sort((a,b)=>a.tier-b.tier||String(a.fEf).localeCompare(String(b.fEf)));
+  let acc=0;
+  for(const r of libres){
+    if(acc>=totalObj-0.01)break;
+    PLW.recursos.add(r.key);acc=r2(acc+r.saldo);
+  }
+}
+function _plwPaso2(){
+  const usados=_plUsadosSet(PLW.varianteDe);
+  const todos=_pcobRecursosDisponibles().sort((a,b)=>a.tier-b.tier||String(a.fEf).localeCompare(String(b.fEf)));
+  const sol=_plCalcSolidez(PLW.objetivos,PLW.recursos,PLW.cheques,PLW.cajas);
+  const tierBadge=t=>({1:'🔒 firme',2:'🏭 producido',3:'📦 a producir',4:'🔮 proyectado'})[t]||'';
+  const fila=(r,sel)=>{
+    const ocupado=usados.has(r.tipo+':'+r.id);
+    return '<tr style="'+(sel?'background:rgba(59,130,246,.08);':'')+'cursor:pointer;" onclick="plwToggleRec(\''+r.key+'\')">'
+      +'<td style="width:26px;text-align:center;"><input type="checkbox" '+(sel?'checked':'')+' onclick="event.stopPropagation();plwToggleRec(\''+r.key+'\')"></td>'
+      +'<td>'+escapeHtml(r.ref)+(ocupado?' <span style="color:var(--red);font-size:10px;">⚠ ya en otro plan</span>':'')+'<br><span style="font-size:10px;color:var(--text3);">'+tierBadge(r.tier)+' · '+_sfFecha(r.fEf)+'</span></td>'
+      +'<td class="mono" style="text-align:right;color:var(--green);white-space:nowrap;">$'+r2(r.saldo).toLocaleString('es-AR')+'</td></tr>';
+  };
+  let h='<div style="font-size:12px;color:var(--text2);margin-bottom:6px;">Objetivo: <b style="color:#f97316;">$'+_plwTotalObj().toLocaleString('es-AR')+'</b> · '+PLW.objetivos.map(o=>_plObjIcono(o)+' '+escapeHtml(o.ref.slice(0,28))).join(' · ')+'</div>';
+  // Barra de solidez EN VIVO
+  const tot=Math.max(sol.totalObj,sol.totalRec,1);const pctW=v=>Math.round(v/tot*100);
+  h+='<div style="display:flex;height:18px;border-radius:6px;overflow:hidden;border:1px solid var(--border);background:var(--bg2);margin-bottom:4px;">'
+    +(sol.b.firme>0?'<div style="width:'+pctW(sol.b.firme)+'%;background:var(--green);"></div>':'')
+    +(sol.b.producido>0?'<div style="width:'+pctW(sol.b.producido)+'%;background:var(--accent);"></div>':'')
+    +(sol.b.condicionado>0?'<div style="width:'+pctW(sol.b.condicionado)+'%;background:var(--amber);"></div>':'')
+    +(sol.b.proyectado>0?'<div style="width:'+pctW(sol.b.proyectado)+'%;background:var(--text3);"></div>':'')+'</div>';
+  h+='<div style="font-size:12px;font-weight:700;color:'+sol.color+';margin-bottom:10px;">'+sol.msg+'</div>';
+  // Propuesta (seleccionados) + TODOS los demás recursos (sin recortes, con buscador)
+  const q2=(PLW.q||'').toLowerCase();
+  const pasa=r=>!q2||String(r.ref).toLowerCase().includes(q2);
+  const seleccionados=todos.filter(r=>PLW.recursos.has(r.key));
+  const masFirmes=todos.filter(r=>!PLW.recursos.has(r.key)&&r.tier<=2&&pasa(r));
+  const balde=todos.filter(r=>!PLW.recursos.has(r.key)&&r.tier>=3&&pasa(r));
+  const sumar=arr=>r2(arr.reduce((s,r)=>s+r.saldo,0));
+  h+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">'
+    +'<input id="plw-q2" type="text" placeholder="🔍 buscar cliente o documento (ej: vega)…" value="'+escapeHtml(PLW.q||'').replace(/"/g,'&quot;')+'" oninput="PLW.q=this.value;clearTimeout(window._plwQT);window._plwQT=setTimeout(()=>{const p=document.getElementById(\'plw-q2\');const pos=p?p.selectionStart:0;plwRender();const n=document.getElementById(\'plw-q2\');if(n){n.focus();n.setSelectionRange(pos,pos);}},250)" class="st-sel" style="flex:1;min-width:200px;font-size:12px;">'
+    +(PLW.q?'<button class="btn btn-sm" onclick="PLW.q=\'\';plwRender()">✕ limpiar</button>':'')+'</div>';
+  h+='<div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:3px;">✅ CANASTA PROPUESTA — '+seleccionados.length+' recurso'+(seleccionados.length===1?'':'s')+' · $'+sumar(seleccionados).toLocaleString('es-AR')+' (tocá para sacar)</div>';
+  h+=seleccionados.length?'<div style="max-height:200px;overflow:auto;border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;"><table style="width:100%;font-size:12px;"><tbody>'+seleccionados.map(r=>fila(r,true)).join('')+'</tbody></table></div>':'<div class="empty" style="font-size:11px;margin-bottom:8px;">Nada seleccionado — no hay cobros firmes libres que alcancen. Mirá abajo.</div>';
+  h+='<div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:3px;">➕ TODOS los cobros firmes/producidos disponibles — '+masFirmes.length+' · $'+sumar(masFirmes).toLocaleString('es-AR')+(q2?' (filtrados por "'+escapeHtml(PLW.q)+'")':'')+'</div>';
+  h+=masFirmes.length?'<div style="max-height:min(34vh,300px);overflow:auto;border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;"><table style="width:100%;font-size:12px;"><tbody>'+masFirmes.map(r=>fila(r,false)).join('')+'</tbody></table></div>':'<div class="empty" style="font-size:11px;margin-bottom:8px;">'+(q2?'Nada matchea la búsqueda.':'No queda ningún cobro firme sin seleccionar.')+'</div>';
+  h+='<div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:3px;">📦 BALDE "CONDICIONADO A PRODUCCIÓN" — '+balde.length+' · $'+sumar(balde).toLocaleString('es-AR')+' (nunca cuenta como cobertura segura)</div>';
+  h+='<div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Acá entran SOLO los pedidos que todavía necesitan extrusión nueva (📦 a producir) y lo proyectado sin respaldo. Un pedido con el material ya extrusado cuenta como 🏭 producido (lista de arriba), y uno presupuestado en el flujo también sube de categoría — por eso este balde puede ser corto.</div>';
+  h+=balde.length?'<div style="max-height:min(26vh,220px);overflow:auto;border:1px solid var(--amberbd);border-radius:var(--r);margin-bottom:8px;"><table style="width:100%;font-size:12px;"><tbody>'+balde.map(r=>fila(r,false)).join('')+'</tbody></table></div>':'<div class="empty" style="font-size:11px;margin-bottom:8px;">Vacío: hoy no hay pedidos pendientes de producir sin otro respaldo.</div>';
+  // 💰 Plata que YA tenés en caja/bancos (lo más firme que hay — opt-in, no entra a la propuesta automática)
+  const faltan=r2(Math.max(0,sol.totalObj-sol.segura));
+  const cajasDisp=_plCajaDisponibles(PLW.varianteDe).filter(cd=>!PLW.cajas.some(x=>String(x.cuenta_id)===String(cd.id))&&cd.disp>0.01);
+  h+='<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:3px;">💰 PLATA QUE YA TENÉS EN CAJA/BANCOS — la más firme de todas (elegí cuánto usar de cada cuenta)</div>';
+  if(PLW.cajas.length){
+    h+='<table style="width:100%;font-size:12px;margin-bottom:4px;"><tbody>'+PLW.cajas.map((c,i)=>'<tr><td>💰 Usar de '+escapeHtml(c.nombre)+'</td><td class="mono" style="text-align:right;"><b style="color:var(--green);">$'+r2(c.monto).toLocaleString('es-AR')+'</b> <span style="color:var(--text3);font-size:10px;">de $'+r2(c.disp).toLocaleString('es-AR')+' disponibles</span></td><td style="width:26px;text-align:center;cursor:pointer;" onclick="PLW.cajas.splice('+i+',1);plwRender()">✕</td></tr>').join('')+'</tbody></table>';
+  }
+  if(cajasDisp.length){
+    const defMonto=r2(Math.min(cajasDisp[0].disp,faltan>0?faltan:cajasDisp[0].disp));
+    h+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
+      +'<select id="plw-caja-sel" class="st-sel" style="flex:1;min-width:200px;font-size:12px;" onchange="plwCajaDefMonto()">'
+      +cajasDisp.map(cd=>'<option value="'+cd.id+'" data-disp="'+cd.disp+'">'+(cd.plano==='negro'?'⚫ ':'🏦 ')+escapeHtml(cd.nombre)+' · disponible $'+r2(cd.disp).toLocaleString('es-AR')+(cd.earmarked>0?' (saldo $'+r2(cd.saldo).toLocaleString('es-AR')+' − $'+r2(cd.earmarked).toLocaleString('es-AR')+' en otros planes)':'')+'</option>').join('')
+      +'</select>'
+      +'<label style="font-size:11px;">usar $ <input id="plw-caja-monto" type="number" min="0" step="1000" value="'+defMonto+'" style="width:120px;" class="st-sel"></label>'
+      +'<button class="btn btn-sm" onclick="plwAddCaja()">+ agregar</button></div>'
+      +(faltan>0?'<div style="font-size:10px;color:var(--text3);margin-top:2px;">Sugerencia precargada: lo que falta para cubrir el objetivo ($'+faltan.toLocaleString('es-AR')+').</div>':'');
+  }else if(!PLW.cajas.length)h+='<div style="font-size:11px;color:var(--text3);">No hay cuentas con saldo disponible (o ya está todo comprometido en otros planes).</div>';
+  h+='</div>';
+  // Cambio de cheque
+  let chs=[];try{chs=_chequesCartera();}catch(e){}
+  const chLibres=chs.filter(c=>!_plUsadosSet(PLW.varianteDe).has('cheque:'+c.id)&&!PLW.cheques.some(x=>String(x.cheque_id)===String(c.id)));
+  h+='<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:3px;">🔁 CAMBIO DE CHEQUE (opcional) — cheque en cartera → efectivo, con quita</div>';
+  if(PLW.cheques.length){
+    h+='<table style="width:100%;font-size:12px;margin-bottom:4px;"><tbody>'+PLW.cheques.map((c,i)=>'<tr><td>🔁 '+escapeHtml(c.ref)+'</td><td class="mono" style="text-align:right;">bruto $'+r2(c.bruto).toLocaleString('es-AR')+' − '+c.quita_pct+'% = <b style="color:var(--green);">$'+r2(c.neto).toLocaleString('es-AR')+'</b></td><td style="width:26px;text-align:center;cursor:pointer;" onclick="PLW.cheques.splice('+i+',1);plwRender()">✕</td></tr>').join('')+'</tbody></table>';
+  }
+  if(chLibres.length){
+    h+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
+      +'<select id="plw-ch-sel" class="st-sel" style="flex:1;min-width:200px;font-size:12px;">'+chLibres.map(c=>'<option value="'+c.id+'">'+escapeHtml(lcCliNombre(c.cliente_id))+(c.banco?' · '+escapeHtml(c.banco):'')+' · vto '+_sfFecha(c.fecha_vto)+' · $'+r2(parseFloat(c.monto)||0).toLocaleString('es-AR')+'</option>').join('')+'</select>'
+      +'<label style="font-size:11px;">quita % <input id="plw-ch-quita" type="number" value="'+(cfg.cheque_quita_pct!=null?cfg.cheque_quita_pct:3)+'" min="0" max="30" step="0.5" style="width:64px;" class="st-sel"></label>'
+      +'<button class="btn btn-sm" onclick="plwAddCheque()">+ agregar</button></div>';
+  }else if(!PLW.cheques.length)h+='<div style="font-size:11px;color:var(--text3);">No hay cheques libres en cartera.</div>';
+  h+='</div>';
+  h+='<div style="display:flex;justify-content:space-between;margin-top:12px;"><button class="btn btn-sm" onclick="'+(PLW.varianteDe?'plwClose()':'PLW.paso=1;plwRender()')+'">← Volver</button>'
+    +'<div class="btn-grp"><button class="btn btn-sm" onclick="plwProponer();plwRender()" title="Rearmar la propuesta automática">🔁 Reproponer</button>'
+    +'<button class="btn btn-sm btn-primary" onclick="PLW.paso=3;plwRender()">Siguiente →</button></div></div>';
+  return h;
+}
+function plwToggleRec(key){
+  if(PLW.recursos.has(key)){PLW.recursos.delete(key);plwRender();return;}
+  const r=_pcobRecursosDisponibles().find(x=>x.key===key);
+  if(r&&_plUsadosSet(PLW.varianteDe).has(r.tipo+':'+r.id)){
+    if(!confirm('⚠ Este cobro ya está earmarkeado en otro plan activo.\n\nContarlo acá también es planificar la MISMA plata dos veces. ¿Agregarlo igual?'))return;
+  }
+  PLW.recursos.add(key);plwRender();
+}
+function plwCajaDefMonto(){
+  const sel=document.getElementById('plw-caja-sel');const inp=document.getElementById('plw-caja-monto');
+  if(!sel||!inp)return;
+  const disp=parseFloat(sel.selectedOptions[0]?.dataset?.disp)||0;
+  const sol=_plCalcSolidez(PLW.objetivos,PLW.recursos,PLW.cheques,PLW.cajas);
+  const faltan=r2(Math.max(0,sol.totalObj-sol.segura));
+  inp.value=r2(Math.min(disp,faltan>0?faltan:disp));
+}
+function plwAddCaja(){
+  const sel=document.getElementById('plw-caja-sel');if(!sel||!sel.value)return;
+  const cd=_plCajaDisponibles(PLW.varianteDe).find(x=>String(x.id)===String(sel.value));if(!cd)return;
+  let m=r2(parseFloat(document.getElementById('plw-caja-monto')?.value)||0);
+  if(m<=0){toast('Poné cuánto querés usar','amber');return;}
+  if(m>cd.disp+0.01){
+    if(!confirm('⚠ Querés usar $'+m.toLocaleString('es-AR')+' pero la cuenta "'+cd.nombre+'" tiene $'+r2(cd.disp).toLocaleString('es-AR')+' disponibles (saldo menos lo comprometido en otros planes).\n\n¿Agregar igual?'))return;
+  }
+  PLW.cajas.push({cuenta_id:cd.id,nombre:cd.nombre,monto:m,disp:cd.disp});
+  plwRender();
+}
+function plwAddCheque(){
+  const id=document.getElementById('plw-ch-sel')?.value;if(!id)return;
+  let ch=null;try{ch=_chequesCartera().find(c=>String(c.id)===String(id));}catch(e){}
+  if(!ch)return;
+  const quita=Math.max(0,Math.min(30,parseFloat(document.getElementById('plw-ch-quita')?.value)||0));
+  const bruto=r2(parseFloat(ch.monto)||0);
+  PLW.cheques.push({cheque_id:ch.id,ref:lcCliNombre(ch.cliente_id)+(ch.banco?' · '+ch.banco:'')+' · vto '+_sfFecha(ch.fecha_vto),bruto,quita_pct:quita,neto:r2(bruto*(1-quita/100))});
+  plwRender();
+}
+function _plwPaso3(){
+  const sol=_plCalcSolidez(PLW.objetivos,PLW.recursos,PLW.cheques,PLW.cajas);
+  const sug='Cubrir '+(PLW.objetivos[0]?PLW.objetivos[0].ref.replace(/^[^\wÁÉÍÓÚáéíóúñÑ]+/,'').slice(0,38):'objetivo')+(PLW.objetivos.length>1?' +'+(PLW.objetivos.length-1):'');
+  let letra='A';
+  if(PLW.varianteDe){const n=_plCob().filter(x=>x.estado==='activo'&&_plGrupoDe(x)===PLW.varianteDe).length;letra=String.fromCharCode(65+Math.min(n,25));}
+  let h='<div class="fg"><label>Nombre del plan</label><input id="plw-nombre" type="text" value="'+escapeHtml(PLW.nombre||sug).replace(/"/g,'&quot;')+'" style="width:100%"></div>';
+  if(PLW.varianteDe)h+='<div style="font-size:12px;color:#8b5cf6;margin:4px 0;">Se guarda como <b>Plan '+letra+'</b> (variante latente — no reserva recursos hasta que la actives con ⭐).</div>';
+  h+='<div style="font-size:13px;font-weight:700;color:'+sol.color+';margin:10px 0 6px;">'+sol.msg+'</div>';
+  const recs=_pcobRecursosDisponibles().filter(r=>PLW.recursos.has(r.key));
+  h+='<div style="border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:12px;"><table style="width:100%;font-size:12px;"><tbody>';
+  PLW.objetivos.forEach(o=>{h+='<tr style="background:rgba(249,115,22,.06);"><td>🎯 Cubrir: '+escapeHtml(o.ref)+'</td><td class="mono" style="text-align:right;">$'+r2(o.monto).toLocaleString('es-AR')+'</td></tr>';});
+  PLW.cajas.forEach(c=>{h+='<tr><td>💰 Usar de '+escapeHtml(c.nombre)+'</td><td class="mono" style="text-align:right;">$'+r2(c.monto).toLocaleString('es-AR')+'</td></tr>';});
+  recs.forEach(r=>{h+='<tr><td>💵 Cobrar: '+escapeHtml(r.ref)+'</td><td class="mono" style="text-align:right;">$'+r2(r.saldo).toLocaleString('es-AR')+'</td></tr>';});
+  PLW.cheques.forEach(c=>{h+='<tr><td>🔁 Cambiar cheque: '+escapeHtml(c.ref)+' (quita '+c.quita_pct+'%)</td><td class="mono" style="text-align:right;">$'+r2(c.neto).toLocaleString('es-AR')+'</td></tr>';});
+  h+='</tbody></table></div>';
+  h+='<div style="display:flex;justify-content:space-between;"><button class="btn btn-sm" onclick="PLW.paso=2;plwRender()">← Volver</button>'
+    +'<div class="btn-grp"><button class="btn btn-sm btn-primary" onclick="plwGuardar()">💾 Guardar plan</button><span id="plw-msg" style="font-size:11px;"></span></div></div>';
+  return h;
+}
+async function plwGuardar(){
+  const msg=document.getElementById('plw-msg');
+  PLW.nombre=(document.getElementById('plw-nombre')?.value||'').trim();
+  if(!PLW.objetivos.length){if(msg){msg.style.color='var(--red)';msg.textContent='Sin objetivos';}return;}
+  const nombre=PLW.nombre||('Plan cobertura '+localDate());
+  const sol=_plCalcSolidez(PLW.objetivos,PLW.recursos,PLW.cheques,PLW.cajas);
+  const recs=_pcobRecursosDisponibles().filter(r=>PLW.recursos.has(r.key));
+  let letra='A',activo=true;
+  if(PLW.varianteDe){
+    const n=_plCob().filter(x=>x.estado==='activo'&&_plGrupoDe(x)===PLW.varianteDe).length;
+    letra=String.fromCharCode(65+Math.min(n,25));activo=false;
+  }
+  let orden=1;const pasos=[];
+  PLW.objetivos.forEach(o=>{pasos.push({id:'c'+orden,orden:orden++,tipo:'objetivo',texto:'Cubrir: '+o.ref+' ($'+r2(o.monto).toLocaleString('es-AR')+')',monto:o.monto,estado:'pendiente',es_mp:!!o.esMP,origen_tipo:o.tipo,origen_id:o.id});});
+  PLW.cajas.forEach(c=>{pasos.push({id:'c'+orden,orden:orden++,tipo:'uso_caja',texto:'Usar de '+c.nombre+': $'+r2(c.monto).toLocaleString('es-AR'),monto:c.monto,estado:'pendiente',tier:1,cuenta_id:c.cuenta_id});});
+  recs.forEach(r=>{pasos.push({id:'c'+orden,orden:orden++,tipo:'cobro',texto:'Cobrar: '+r.ref+' ($'+r2(r.saldo).toLocaleString('es-AR')+')',monto:r.saldo,estado:'pendiente',tier:r.tier,ref_pedido:(r.tipo==='pedido'?r.id:null),origen_tipo:r.tipo,origen_id:r.id});});
+  PLW.cheques.forEach(c=>{pasos.push({id:'c'+orden,orden:orden++,tipo:'cambio_cheque',texto:'Cambiar cheque: '+c.ref+' → $'+r2(c.neto).toLocaleString('es-AR')+' (quita '+c.quita_pct+'%)',monto:c.neto,estado:'pendiente',tier:1,cheque_id:c.cheque_id,bruto:c.bruto,quita_pct:c.quita_pct});});
+  const datos_plan={total_objetivo:r2(sol.totalObj),objetivos:PLW.objetivos,
+    recursos:recs.map(r=>({key:r.key,tipo:r.tipo,id:r.id,ref:r.ref,monto:r.saldo,tier:r.tier})),
+    cheques:PLW.cheques.map(c=>({cheque_id:c.cheque_id,ref:c.ref,bruto:c.bruto,quita_pct:c.quita_pct,neto:c.neto})),
+    cajas:PLW.cajas.map(c=>({cuenta_id:c.cuenta_id,nombre:c.nombre,monto:c.monto})),
+    solidez:sol.b,veredicto:sol.estado,generado:localDate(),
+    variante_de:PLW.varianteDe||null,variante:letra,activo,creado_via:'sala'};
+  const registro={nombre,clase:'cobertura',estado:'activo',total_compra:r2(sol.totalObj),snapshot_original:{...datos_plan,pasos:JSON.parse(JSON.stringify(pasos))},datos_plan,pasos};
+  try{
+    const{error}=await sb.from('planes_compra').insert(registro);
+    if(error)throw error;
+    toast('✓ Plan guardado: '+nombre+(PLW.varianteDe?' (variante '+letra+', latente)':''),'green');
+    plwClose();
+    await reload();
+    renderSalaPlanes();
+  }catch(e){if(msg){msg.style.color='var(--red)';msg.textContent='Error: '+(e.message||e);}}
+}
+// ---------- IMPRESIÓN DEL PLAN (A4, autocontenido) ----------
+function plImprimirPlan(id){
+  const p=(C.planes_compra||[]).find(x=>x.id===id);if(!p)return;
+  const dp=p.datos_plan||{};
+  const cerrado=p.estado!=='activo';
+  const sol=_plSolidezPlan(p);
+  const estLbl={cumplido:'✔ cumplido',parcial:'◐ parcial',fallado:'✘ caído',pendiente:'· pendiente'};
+  const pasos=(p.pasos||[]).slice().sort((a,b)=>(a.orden||0)-(b.orden||0));
+  let filas='';
+  pasos.forEach(s=>{
+    const esObj=s.tipo==='objetivo';
+    const est=esObj?null:_plEstadoPaso(s);
+    const ic=esObj?'🎯':s.tipo==='cambio_cheque'?'🔁':s.tipo==='uso_caja'?'💰':'💵';
+    let extra='';
+    if(!esObj&&est==='parcial'&&s.tipo==='cobro'){const pr=_pcobProgresoCobro(s);if(pr)extra=' — cobrado $'+pr.cobrado.toLocaleString('es-AR')+', falta $'+r2(pr.planeado-pr.cobrado).toLocaleString('es-AR');}
+    filas+='<tr style="'+(esObj?'background:#fff7ed;':'')+'"><td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;'+(est==='cumplido'?'text-decoration:line-through;color:#888;':est==='fallado'?'color:#b91c1c;':'')+'">'+ic+' '+String(s.texto||'').replace(/</g,'&lt;')+extra+'</td>'
+      +'<td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;text-align:right;white-space:nowrap;font-family:monospace;">$'+r2(parseFloat(s.monto)||0).toLocaleString('es-AR')+'</td>'
+      +'<td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;text-align:right;white-space:nowrap;color:'+(est==='cumplido'?'#15803d':est==='fallado'?'#b91c1c':est==='parcial'?'#b45309':'#666')+';">'+(esObj?'objetivo':estLbl[est]||est||'')+'</td></tr>';
+  });
+  const vars=_plCob().filter(x=>x.estado==='activo'&&_plGrupoDe(x)===_plGrupoDe(p));
+  const hoy=new Date().toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const html='<html><head><title>'+String(p.nombre||'Plan').replace(/</g,'&lt;')+'</title><style>'
+    +'body{font-family:system-ui,sans-serif;max-width:760px;margin:22px auto;color:#111;font-size:13px;line-height:1.5;}'
+    +'h1{font-size:19px;margin:0 0 2px;} table{width:100%;border-collapse:collapse;font-size:12px;margin:8px 0;}'
+    +'.chip{display:inline-block;border:1px solid #999;border-radius:10px;padding:1px 8px;font-size:11px;margin-right:4px;}'
+    +'</style></head><body>'
+    +'<div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#777;">Fábrica de bolsas · Sala de planes · impreso '+hoy+'</div>'
+    +'<h1>📋 '+String(p.nombre||'Plan').replace(/</g,'&lt;')+'</h1>'
+    +'<div style="color:#555;margin-bottom:6px;">Estado: <b>'+(p.estado==='activo'?(_plEsActivo(p)?'ACTIVO ⭐':'variante latente (no reserva recursos)'):p.estado)+'</b>'
+      +(vars.length>1?' · Variante '+_plLetra(p)+' de '+vars.length+' ('+vars.map(v=>_plLetra(v)+(_plEsActivo(v)?'⭐':'')).join(', ')+')':'')
+      +(dp.generado?' · creado '+String(dp.generado).split('-').reverse().join('/'):'')+'</div>'
+    +'<div style="border:2px solid '+(sol.pct>=100?'#15803d':sol.pct>=70?'#b45309':'#b91c1c')+';border-radius:8px;padding:10px 14px;margin:10px 0;display:flex;justify-content:space-between;align-items:center;">'
+      +'<div><b>Objetivo a cubrir: $'+sol.obj.toLocaleString('es-AR')+'</b><br><span style="font-size:11px;color:#555;">cubierto seguro (firme+producido): $'+sol.segura.toLocaleString('es-AR')+' · ya cobrado: $'+sol.cobrado.toLocaleString('es-AR')+(sol.caidos?' · pasos caídos: '+sol.caidos:'')+'</span></div>'
+      +'<div style="font-size:26px;font-weight:900;">'+sol.pct+'%</div></div>'
+    +'<table><tr style="background:#f4f4f5;"><th style="text-align:left;padding:4px 8px;">Paso</th><th style="text-align:right;padding:4px 8px;">Monto</th><th style="text-align:right;padding:4px 8px;">Estado</th></tr>'+filas+'</table>'
+    +'<div style="font-size:11px;color:#555;">Capas: firme $'+r2(sol.b.firme).toLocaleString('es-AR')+' · producido $'+r2(sol.b.producido).toLocaleString('es-AR')+' · condicionado a producción $'+r2(sol.b.condicionado).toLocaleString('es-AR')+' · proyectado $'+r2(sol.b.proyectado).toLocaleString('es-AR')+'. Lo "a producir" nunca cuenta como cobertura segura (candado anti-fantasía).</div>'
+    +(cerrado&&p.nota_cierre?'<div style="margin-top:8px;font-size:12px;">📝 Nota de cierre: <i>'+String(p.nota_cierre).replace(/</g,'&lt;')+'</i></div>':'')
+    +'</body></html>';
+  const w=window.open('','_blank');
+  if(!w){toast('El navegador bloqueó la ventana de impresión','amber');return;}
+  w.document.write(html);w.document.close();setTimeout(()=>w.print(),300);
+}
+// ---------- ¿Y SI FALLA? — sugerir reemplazo para un paso caído ----------
+function plSugerirReemplazo(planId,pasoId){
+  const p=(C.planes_compra||[]).find(x=>x.id===planId);if(!p)return;
+  const s=(p.pasos||[]).find(x=>x.id===pasoId);if(!s)return;
+  _pcobItemsCache=null;
+  const pr=(s.tipo==='cobro')?_pcobProgresoCobro(s):null;
+  const falta=r2(pr?Math.max(0,(parseFloat(s.monto)||0)-pr.cobrado):(parseFloat(s.monto)||0));
+  const usados=_plUsadosSet(null); // nada de lo earmarkeado por variantes activas (incluye este plan)
+  const libres=_pcobRecursosDisponibles()
+    .filter(r=>!usados.has(r.tipo+':'+r.id)&&r.tier<=2)
+    .sort((a,b)=>a.tier-b.tier||String(a.fEf).localeCompare(String(b.fEf)));
+  // mejor candidato: el más firme y cercano que cubra solo; si no alcanza uno, greedy
+  let elegidos=[];const uno=libres.find(r=>r.saldo>=falta-0.01);
+  if(uno)elegidos=[uno];
+  else{let acc=0;for(const r of libres){elegidos.push(r);acc=r2(acc+r.saldo);if(acc>=falta-0.01)break;}}
+  const cubre=r2(elegidos.reduce((sm,r)=>sm+r.saldo,0));
+  document.getElementById('pl-reemp-modal')?.remove();
+  let h='<div class="modal-title">🔄 ¿Y si falla? — reemplazo sugerido</div>';
+  h+='<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Se cayó: <b>'+escapeHtml(s.texto||'')+'</b><br>Falta cubrir: <b style="color:var(--red);">$'+falta.toLocaleString('es-AR')+'</b></div>';
+  if(!elegidos.length){
+    h+='<div class="empty" style="font-size:12px;">No hay cobros firmes libres para reemplazarlo. Opciones: usar plata de caja/bancos (armá una variante desde la Sala), liberar un recurso de otro plan, un cambio de cheque, o esperar producción (balde condicionado).</div>';
+  }else{
+    h+='<div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:3px;">El sistema propone (lo mejor libre, sin fantasía):</div>';
+    h+='<table style="width:100%;font-size:12px;border:1px solid var(--border);border-radius:var(--r);"><tbody>';
+    elegidos.forEach(r=>{h+='<tr><td>💵 '+escapeHtml(r.ref)+'<br><span style="font-size:10px;color:var(--text3);">'+({1:'🔒 firme',2:'🏭 producido'})[r.tier]+' · '+_sfFecha(r.fEf)+'</span></td><td class="mono" style="text-align:right;color:var(--green);">$'+r2(r.saldo).toLocaleString('es-AR')+'</td></tr>';});
+    h+='</tbody></table>';
+    h+='<div style="font-size:12px;margin-top:6px;">Cubre <b style="color:'+(cubre>=falta?'var(--green)':'var(--amber)')+';">$'+cubre.toLocaleString('es-AR')+'</b>'+(cubre<falta?' — sigue faltando $'+r2(falta-cubre).toLocaleString('es-AR'):' ✓')+'</div>';
+  }
+  h+='<div class="btn-grp" style="margin-top:12px;">'
+    +(elegidos.length?'<button class="btn btn-sm btn-primary" onclick="plAplicarReemplazo('+planId+',\''+pasoId+'\','+JSON.stringify(elegidos.map(r=>r.key)).replace(/"/g,'&quot;')+')">✓ Aplicar reemplazo</button>':'')
+    +'<button class="btn btn-sm" onclick="document.getElementById(\'pl-reemp-modal\').remove()">Cerrar</button></div>';
+  document.body.insertAdjacentHTML('beforeend','<div class="modal-overlay" id="pl-reemp-modal" style="z-index:10001;"><div class="modal-card" style="max-width:560px;width:92%;">'+h+'</div></div>');
+}
+async function plAplicarReemplazo(planId,pasoId,keys){
+  const p=(C.planes_compra||[]).find(x=>x.id===planId);if(!p)return;
+  const recs=_pcobRecursosDisponibles().filter(r=>keys.includes(r.key));
+  if(!recs.length){toast('Los recursos ya no están disponibles','amber');return;}
+  const pasos=JSON.parse(JSON.stringify(p.pasos||[]));
+  const s=pasos.find(x=>x.id===pasoId);if(!s)return;
+  if(s.estado!=='fallado')s.estado='fallado';
+  s.texto=(s.texto||'')+' [reemplazado]';
+  let orden=Math.max(0,...pasos.map(x=>x.orden||0))+1;
+  recs.forEach(r=>{pasos.push({id:'c'+orden+'_'+Math.floor(orden*7919%1000),orden:orden++,tipo:'cobro',texto:'Cobrar: '+r.ref+' ($'+r2(r.saldo).toLocaleString('es-AR')+') [reemplazo]',monto:r.saldo,estado:'pendiente',tier:r.tier,ref_pedido:(r.tipo==='pedido'?r.id:null),origen_tipo:r.tipo,origen_id:r.id});});
+  const dp=Object.assign({},p.datos_plan||{});
+  dp.recursos=[...(dp.recursos||[]),...recs.map(r=>({key:r.key,tipo:r.tipo,id:r.id,ref:r.ref,monto:r.saldo,tier:r.tier,reemplazo:true}))];
+  try{
+    const{error}=await sb.from('planes_compra').update({pasos,datos_plan:dp}).eq('id',planId);
+    if(error)throw error;
+    toast('✓ Reemplazo aplicado — plan B en marcha','green');
+    await reload();
+    document.getElementById('pl-reemp-modal')?.remove();
+    document.getElementById('pcobver-modal')?.remove();
+    pcobVer(planId);
+    renderSalaPlanes();
+  }catch(e){toast('Error: '+(e.message||e),'red');}
 }
 
 // ==================== LIBRO DE CAJA / TESORERÍA MULTI-CUENTA ====================
