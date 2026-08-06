@@ -709,7 +709,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-07-30w</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-08-06a</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5171,7 +5171,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-07-30w';  // 30w: LO DESBLOQUEADO SON DOS PLATAS — German, con la pantalla en vivo: 'los datos son engañosos: compro ~6.900 kg, 2.278 son para lo ya lanzado y el resto para los borradores. Me dice que desbloqueo $11,7M y no es cierto: desbloqueo MAS, porque hay que contar las ordenes ya lanzadas que se pueden hacer, y si no compro no se pueden hacer'. TENIA RAZON: la compra destraba la cola nueva Y las OE ya lanzadas frenadas por material — y el titular solo contaba la primera, mientras cobraba el costo completo. La cuenta quedaba subestimada justo del lado del trabajo FIRME. FIX: _prgLanzadasSemana ahora valoriza lo que cada OE tiene atras (pendiente de producir de sus OCs x precio del pedido_linea, descontando lo ya producido via mov_prod_por_oc — el libro, que no depende de la compra) y expone valBloqueado/kgBloqueado = esa plata x la fraccion frenada por material. _prgCuentaCompra suma oeGana/oeKgGana/oeN y ganaTotal = gana + oeGana. El titular pasa a: '$TOTAL desbloqueados — $X de la cola nueva + $Y de las N ordenes ya lanzadas que sin esta compra no se pueden terminar (Z kg frenados)', y el ratio usa el TOTAL. El 'Ojo' de borradores deja de culpar al costo entero: ahora dice que $costoCola serian para borradores y aclara que los $costoOE de las OE lanzadas se destraban igual porque son trabajo firme. Hoja impresa e instructivo actualizados. CON EL BACKUP DEL 04/08 (que German subio hoy, ya con los dos ALTER corridos): cola $11.703.494 + OE frenadas $5.442.946 (16 OE, 2.334 kg — BIGVEF, GARCIA, VEGA, COLLINET, PAPELERA FENIX...) = $17.146.440 desbloqueados, ratio 1,7. Con el 03/08: las 4 rojas frenadas valen $1.345.564. Ademas esta sesion: banco de pruebas re-apuntado al backup del 04/08 (cli_0804.json) y NUEVO SUITE smoke_invariantes.cjs — corre contra CUALQUIER dump (MES_DATA) y verifica solo invariantes de descomposicion/conservacion, sin valores calibrados; ahora incluye gana+oeGana=ganaTotal. Verificado con smoke_producir.cjs (392 asserts) y los invariantes sobre 0803 y 0804. Sin regresiones en los otros suites. // 30v: EL PLAN DE LA SEMANA SE DA VUELTA — German, con las pantallas en vivo: 'lo que entra esta semana excluye las ordenes lanzadas, con lo cual plan de la semana no tiene sentido... las unicas que uso realmente son el Gantt y Planificar Produccion'. Tenia razon en lo central: la pantalla contestaba 'que NUEVO cabe' cuando la pregunta del que programa es 'que VA A PASAR esta semana' — y el 90% de la semana son las OE ya lanzadas, escondidas en una barrita sin detalle. AHORA: bloque nuevo ARRIBA '🏭 Lo que se va a hacer esta semana — tu orden' (_prgLanzadasSemana): las OE lanzadas en el ORDEN que el usuario armo moviendo tarjetas en Planificar Produccion (calcScheduleReal, la MISMA fuente que el Gantt — P1, ni el Gantt ni el motor se tocaron), cada una con maquina, para que cliente es, que promesa cubre (incluida la promesa por etapa del 30u) y SEMAFORO DE MATERIAL servido OE por OE en ese orden — la pregunta no es 'alcanza en total' sino 'CUAL se queda sin'. El 'falta' es por componente contra lo disponible al llegar su turno: si solo el colorante esta en cero, falta el colorante, no la formula entera. Consume _prgMPComprometida (mismo universo, P1: kgSemana == comprometidoKg exacto). La cola nueva pasa al pie como '➕ Lo que ademas podria entrar (cola nueva)'. La hoja impresa arranca por 'Lo ya lanzado, en tu orden'. Instructivo actualizado. Con el backup del 03/08: 14 OE / 3.339 kg en la semana, 4 sin material completo — exactamente las 4 ROJAS (a la primera le faltan 6,22 kg de colorante, no los 300 de la formula), ORD-05949 primera cubriendo una promesa vencida hace 5 dias de GARCIA LEONARDO. Verificado con smoke_producir.cjs (387 asserts), seccion 9n: los 14 items en orden de cronograma, kgSemana identico a comprometidoKg (invariante P1), las 4 rojas y solo ellas sin material, el falta por componente, el orden de los bloques en pantalla y la hoja impresa. Sin regresiones en los otros 13 suites. // 30u: FECHAS DE ENTREGA POR ETAPA — el diseño acordado el 02/08, construido hoy tras la confirmacion de German ('vale la pena tocar'). Un pedido escalonado ya viene partido en OCs; lo que faltaba era la fecha COMPROMETIDA de cada tanda: con una sola fecha global, el pedido entero se leia con la fecha de la ultima etapa — o salia del horizonte (y no se producia ni la tanda que vence la semana que viene) o entraba entero (y se llevaba material de dentro de dos meses). NUEVA COLUMNA ordenes_corte.fecha_entrega_comprometida (date, nullable) — SQL en alter_oc_fecha_comprometida.sql, tolerante: si falta el ALTER el guardado avisa por toast en vez de romper, y con la columna vacia TODO se comporta exactamente igual que antes (el fallback es la fecha global del pedido). CARGA: en el bloque 🚚 del detalle del pedido, cada tanda gana un input '🤝 prometida' al lado de la fecha CALCULADA por el motor — el compromiso y la proyeccion, juntos — y si la proyeccion pincha la promesa la fila avisa en rojo 'va N d tarde' / 'promesa vencida' (solo tandas sin completar). Handler ocFechaComprometida, actualiza cache y re-renderiza. COLA (_prgColaProducir): por pedido x producto, la promesa pasa a ser la MAS URGENTE de las OC de ese producto sin completar que tengan fecha propia (Completada ya cumplio: su fecha no apura; Cancelada no cuenta); fallback a pedidos.fecha_entrega_est. El dias/promesa de la fila, el diasAtraso del producto, el orden por promesa/mezcla y el HORIZONTE fluyen solos de ahi: la tanda del 15 apura aunque el resto sea para octubre, y la tanda de enero sale sola de la cola sin arrastrar a las demas. Flag promEtapa para trazabilidad. Nota al pie e instructivo explican la regla. NO se toco el Gantt ni el motor de fechas: fechaEntregaPedido sigue siendo la proyeccion; esto agrega el compromiso como dato aparte (dos preguntas distintas: que promti vs cuando va a estar). Verificado con smoke_producir.cjs (363 asserts), seccion 9m: baseline = fallback puro (el dump no trae la columna), la tanda vencida apura solo a SU producto (GONZALEZ prod 11 pasa a 14 dias sin contagiar al 18), entre varias fechas manda la del producto propio, la tanda a 5 meses sale al bloque de lejanos SIN arrastrar a los otros productos del pedido, una OC Completada con fecha no apura nada, y al limpiar todo vuelve byte-identico al comportamiento de siempre. Sin regresiones en los otros 13 suites. // 30t: AUDITORIA DEL TABLERO DE PROGRAMACION — German, con la pantalla en vivo: 'esto sigue estando mal, revisa este modulo'. Tenia razon: dos errores confirmados, los dos en «La cuenta que importa». (1) LA FRASE DEL CERO MENTIA UN NUMERO. Decia 'las N OE ya lanzadas se llevan los X kg QUE HAY EN EL DEPOSITO' usando comprometidoKg — que son los kg de BOBINA pendientes en las OE, NO el stock del deposito. Contra el backup del 03/08: las OE necesitan 3.339 kg de material y el deposito tiene 4.940. En la pantalla de German decia '38 OE se llevan los 6.042 kg que hay en el deposito' cuando 6.042 es lo que las OE NECESITAN y al deposito le faltan ~2.400 kg para cubrirlas. La frase ahora dice lo que NECESITAN, y si el deposito ni las cubre lo dice en rojo con los kg exactos. (2) EL COSTO DE LA COMPRA MEZCLABA DOS COMPRAS. `falta` incluye faltaOE (material que les falta a las OE YA lanzadas): comprarlo no agrega ni un kilo a lo que entra — hace ejecutable lo que el Gantt ya agendo. Por eso 'comprar 7.147 kg hace entrar 4.688' no se podia explicar: ~2.400 kg eran para las OE. La cuenta ahora desglosa costoOE/costoCola/kgFaltaOE ('De esa compra, $X (N kg) no es para la cola: es el material que les falta a las OE ya lanzadas') en pantalla y en la hoja impresa, y el parentesis del % de uso avisa cuando parte de lo agendado tambien depende de la compra. AUDITADO ADEMAS: calcScheduleReal excluye Suspendida (las 2 del backup no reservan material) — el conteo de OE lanzadas es EL MISMO universo que el Gantt, asi que si la pantalla dice 38 es porque el Gantt tiene 38 vivas con kg pendientes. Los invariantes de reparto/conservacion pasan todos. Verificado con smoke_producir.cjs (345 asserts): los numeros del desglose contra el backup (necesitan 3.339,39 / hay 4.939,7 / costoOE $110.137,81 = 11,82 kg de rojo), costoOE+costoCola=costo, la frase vieja eliminada del fuente, y el escenario del cero con la palabra correcta. // 30s: LA CUENTA SE EXPLICA SOLA. German: 'no entiendo, por que dice que paso de 0 kgrs a...'. Dos huecos de comunicacion en «La cuenta que importa» del Plan de la semana. (1) EL CERO NO SE EXPLICABA: 'pasa de 0 kg a X kg' es correcto pero no dice que significa. Cuando kgEntra=0 la frase ahora arranca 'Hoy no entra ni un kilo de la cola — el material libre esta en cero: las N ordenes de extrusion ya lanzadas se llevan los X kg que hay en el deposito, y esas se hacen primero', y aclara que el % de uso de las extrusoras que se ve en ese caso es SOLO lo que el Gantt ya tenia agendado (si no, un 34% al lado de 0 kg entrando se lee como que la pantalla se contradice). (2) LA COMPRA PODIA ESTAR DESBLOQUEANDO SOLO BORRADORES sin que la cuenta lo dijera: el bloque de borradores vivia mas abajo, sin conectar. _prgCuentaCompra ahora prorratea por corrida que parte de lo que destraba la compra cuelga de un pedido en borrador (kgBorrGana / valBorrGana / pctBorrGana, de b.kgBorrador x pct) y sale un aviso rojo: 'de los N kg que se destraban, M kg (P%) son de pedidos en borrador — $X. Todavia no generaron orden: si no los confirmas, esa plata no se puede facturar, y estarias poniendo $Y de la caja (contra boleta) para producir algo que nadie cerro'. Con el backup del 03/08 es el 100%: 1.952 kg y $5.780.253,14 contra una compra de $3.047.529,23. La hoja impresa lleva las dos cosas y el instructivo suma dos vinetas. Verificado con smoke_producir.cjs (334 asserts), incluida la seccion 9l que fuerza el escenario de German stubbeando _prgMPDisponible en cero: kgEntra da 0, la ocupacion es exactamente la del Gantt, aparece la explicacion del cero y desaparece el 'pasa de 0 kg' a secas. REBASE: este build sale del 30r del proyecto (lineas de produccion en corte + escala del grafico de productividad), NO de mi copia local. La letra salta de r a s a proposito: hubo un 30p mio que pisó el 30q/30r de la otra conversacion al escribir en el proyecto sin leerlo antes, y se rehizo sobre la base correcta. // 30r: UNA MAQUINA NO ES CAPACIDAD FUNGIBLE — LINEAS DE PRODUCCION. German, despues de suspender la cortadora 3: 'la cuestion con esa maquina es que corta otro tipo de bolsas no es la misma maquina que 1 y 2'. CORTE-3 es la ROLLERA 1: hace los 3 SKU de rollo (29.151 bolsas en mayo, 37.642 en junio, 0 en julio) y no puede tocar el trabajo de las confeccionadoras. Sumar sus 3.000 bolsas/h a las de ellas hacia que el uso de capacidad de confeccion diera 37% cuando sobre las maquinas que hacen ese trabajo da 50%. Suspenderla arregla el numero pero miente en el otro sentido: la saca del planificador, asi que cuando entre un pedido de rollo hay que acordarse de reactivarla a mano. FIX: maquinas_corte.linea (ver alter_maquinas_linea.sql). _lineaDeMaqCorte / _lineasCorte / _capCorteServicio(lineas) / _lineaDeOC son EL lugar donde se resuelve la linea; nadie mas se inventa el criterio (P1). Si la columna esta vacia todas las maquinas caen en una sola linea y el sistema se comporta EXACTAMENTE como antes. Consumidores actualizados: 📈 Productividad por hora (selector de linea en confeccion, capacidad y produccion filtradas con el MISMO criterio para que numerador y denominador hablen de lo mismo), la cola del cuello del tablero (ahora la espera es la de la linea mas cargada, no el promedio) y _prgCapCorte (solo cuenta lineas con trabajo pendiente: una rollera en servicio sin pedidos de rollo no es capacidad para cortar bolsa plana). BONUS: _cargasCorteRango ahora resuelve la LINEA aunque no sepa la maquina — las 146 cargas historicas sin maquina son de OC con CORTE-01+CORTE-02, o sea confeccionadoras seguro; el agujero baja de 'no se de quien es' a 'no se cual de las dos'. La pantalla ⚙ Por maquina lo muestra con su volumen y la fecha de la ultima (08/07/2026: hoy las dos vias de carga ya exigen maquina y operario). Avisos de lectura al mirar una linea secundaria: la dotacion es del AREA (los operarios pasan de una maquina a otra) y con pocas cargas la curva por hora son puntos sueltos, no un ritmo. Maquinas de corte gana la columna Linea, editable con clave de admin. 91 asserts en el smoke de productividad. // 30q: EL GRAFICO DE PRODUCTIVIDAD POR HORA AHORA TIENE ESCALA. German: 'todas las columnas parecen iguales no hay dif entre 145 kgrs y 117 kgrs'. Tenia razon: las barras se dibujaban con height:% contra .prh-col, y esa misma columna llevaba adentro el numero, la dotacion y la hora, asi que todo lo alto se desbordaba y se recortaba en el borde de arriba — 145, 144, 141 y 117 terminaban en la misma linea. FIX: la barra crece dentro de un envoltorio propio (.prh-bw) que no comparte alto con nada, el numero va posicionado ARRIBA de la barra sin robarle altura, y la dotacion y la hora bajan a una fila aparte (.prh-pies). Se agrega eje: _prhEscala(pico) redondea el maximo a 1/2/2,5/5 x potencia de 10 buscando ~4 divisiones (pico 145 -> eje a 150 de a 50; pico 6.751 -> 8.000 de a 2.000), con lineas de guia rotuladas, cero solido abajo y una linea punteada en el promedio. Ahora TODAS las barras muestran su numero, no solo las mas altas. La leyenda aclara la capacidad de las maquinas. Nada de calculo cambio: _prhCalc no se toco. // 30p: RE-MERGE — se volvió a injertar sobre el 30o la pantalla 📈 Productividad por hora con sus dos solapas (🕐 por hora del día y ⚙ por máquina), para extrusión y confección. Se había perdido porque otra sesión subió el 30o partiendo de una base anterior al injerto. Nada del 30o fue tocado: solo se agregó el módulo (bloque JS + nav + página + dispatch + CSS) y el sello de build. // 30o: FIX CONCEPTUAL — CORTAR NO ES SOPLAR. German, mirando la BOBINA 80 CM 27MIC NEGRA: 'gonzales mario la OE ya esta hecha; para mi tenes que mirar en el mismo lugar que miran los pedidos si su orden esta terminada'. Tenia razon otra vez. La cola pedia extrusion para bobinas que YA existian: el PED-05966 (GONZALEZ MARIO), producto 80X110 POLIPLAST, tiene su OC-1052600 con la OE ORD-05988 COMPLETADA (340,84 kg) — la bobina esta en el deposito — y la pantalla igual pedia 334 kg de soplado. Las otras dos OC del mismo pedido tienen OE En proceso, que YA figuran en 'ya programado (Gantt)' y con su material reservado en _prgMPComprometida: pedirlas de nuevo desde la cola era contar el mismo kilo dos veces. FIX: los kg a soplar se cuentan SOLO sobre la demanda que no tiene OE detras. Por pedido x producto se mide paqConOE (paquetes de OC que ya generaron OE, via _oesDeOC — el MISMO lugar donde el pedido mira si su orden esta lanzada, P1) y de ahi salen dos cantidades distintas: A CORTAR (falta entregar - ya producido - stock libre) y A SOPLAR (a cortar - lo que ya tiene bobina). Los kg y la plata de extrusion (valSoplar) salen de A SOPLAR; el corte sigue saliendo de A CORTAR. Un producto con toda su bobina hecha ya no genera corrida: la celda de kg dice '✓ hay bobina' y el detalle por pedido suma la columna 'A soplar'. EFECTO sobre el backup del 03/08: los kg a extrudir caen de 9.417 a 3.431 (−64%), los tipos de bobina de 20 a 8, y aparecen 16 productos (181.932 paquetes) que son CORTE PURO. La 80 CM 27MIC NEGRA baja de 367 a 32,86 kg. La compra de MP necesaria cae de $11,47M a $3,05M con un retorno de 1,94. Y EL HALLAZGO QUE DESTAPA: una vez que se dejan de pedir kg ya lanzados, los 3.431 kg que quedan por soplar son 100% PEDIDOS EN BORRADOR — todo lo firme ya tiene su OE. La cola de extrusion de la fabrica hoy es, entera, decision comercial pendiente. Verificado con smoke_producir.cjs (306 asserts) contra el backup del 03/08: seccion 9k con el caso GONZALEZ completo (incluida la OC-1052600 y su OE Completada), el caso VEGA en 0 kg, y los invariantes de descomposicion: a soplar <= a cortar, a cortar = a soplar + con bobina, kg=0 <=> paqSoplar=0, producto por producto y pedido por pedido. // 30n: FIX CONCEPTUAL — FALTA ENTREGAR NO ES FALTA PRODUCIR. German, mirando el PED-05905 de VEGA: 'solicita 90(20) pero ya estan todas extrudadas; el pedido es hibrido pero falta de otras medidas, no de 90(20)'. Tenia razon: la cola descontaba SOLO lo entregado, asi que un producto ya cortado y esperando el remito seguia pidiendo extrusion. El caso exacto: 90X120 ARIAL, faltan entregar 820 paquetes, pero YA SE PRODUJERON 980 — de los cuales 800 estan hechos y sin despachar, asi que a producir quedan 20 paquetes, no 820. La pantalla pedia 330 kg de bobina que no habia que soplar. Lo mismo con el 60X90 ARIAL de ese pedido: cero a producir. Lo que falta de verdad son las 45X60 y las 50X70, tal cual dijo el. FIX: lo ya producido se descuenta del LIBRO (mov_bolsas via C.mov_prod_por_oc, el mapa que reload ya carga con _cargarProdPorOC), que es la unica fuente que sobrevive a las entregas parciales — la fila de stock se consume al despachar, el movimiento de produccion queda. El neteo ahora es en dos pasos y sin pisarse: (1) lo YA PRODUCIDO para ese mismo pedido, (2) lo que quede se cubre con stock LIBRE sin dueño. El detalle desplegable muestra las tres cantidades por pedido: falta entregar / ya producido / a producir. En toda la cola aparecen 59.200 paquetes ($2.966.654,50) ya producidos esperando remito que antes se contaban como trabajo por hacer; los kg a extrudir caen de 10.369 a 9.417 y los productos ya cubiertos suben de 11 a 15. Verificado con smoke_producir.cjs (271 asserts) contra el backup del 03/08, incluidos el caso VEGA completo y el invariante nuevo: falta entregar = a producir + (ya producido + stock libre), producto por producto y pedido por pedido. // 30m: DOS FIX QUE CAZO GERMAN MIRANDO LA PANTALLA. (1) EL MISMO KILO DE MATERIA PRIMA SE CONTABA DOS VECES — 'si programado tiene 3.369 kg y en stock tengo 4.600, como entran 4.800 de produccion?'. Tenia razon y era imposible: el reparto le daba a la cola el STOCK ENTERO, ignorando que las OE ya lanzadas van a consumir del MISMO deposito y que la fabrica las hace PRIMERO. Ahora _prgMPComprometida() suma lo que van a consumir las 14 OE vivas (kgRestantes del schedule real: lo ya producido salio del stock cuando se cargo cada bobina, contarlo de nuevo seria descontarlo dos veces) y _prgMPDisponible() reparte a la cola SOLO el sobrante. Con el backup del 01/08: el deposito tiene 4.686,9 kg de recuperado, las OE lanzadas ya usan 3.247,13, y para la cola nueva quedan 1.439,77 — no 4.686,9. Lo que entra en la semana cae de 4.814 a 1.480 kg y las extrusoras del 45% al 21%. La tabla de MP pasa a tener cuatro columnas (hay / ya lo usan las OE lanzadas / queda libre / pide la cola) y aparece un CARTEL ROJO cuando no alcanza ni para lo lanzado: el COLORANTE ROJO esta en cero y las OE rojas ya agendadas necesitan 11,82 kg — hay ordenes en el Gantt que la fabrica no va a poder ejecutar. (2) HORIZONTE: 'pusimos en el consejo para producir un pedido que se entrega en etapas y vence dentro de 159 dias'. Nuevo selector MIRAR HASTA (30/60/90 dias/todo, default 60): lo que se entrega mas alla sale de la cola y se muestra aparte al final con su total — no compite por la materia prima ni por la maquina de esta semana. Los pedidos SIN promesa nunca se descartan (no se sabe cuando son). Con 60 dias, PED-05941 (DAG SRL, entrega 08/01/2027, 4.214 kg y $11.861.880) sale de la cola y la compra necesaria baja de $19,4 M a $12,9 M. Verificado con smoke_producir.cjs (251 asserts), incluido el invariante que estaba roto: lo que consume la cola mas lo que ya tienen reservado las OE tiene que entrar en el deposito. // 30l: LA CUENTA QUE IMPORTA, ADENTRO DE LA PANTALLA (German, comparando la solapa contra la simulacion que le habia mandado: 'pero me armaste un resumen asi? el resumen final de la ultima imagen es muy util'). Tenia razon: el Plan de la semana decia CUANTA PLATA DESTRABA comprar, pero no cuanto CUESTA ni a cuanto sube la semana — justo el bloque mas accionable del documento. Ahora: (1) la tabla de MP trae $/kg (promedio ponderado de los lotes con precio, via _prgMPPrecio) y el COSTO DE COMPRARLO por material, con total; si a una MP no le hay precio cargado en ningun lote lo AVISA en vez de contarla como gratis. El costo se calcula sobre el faltante ya redondeado, asi la cuenta de la pantalla se puede rehacer a mano. (2) Bloque LA CUENTA QUE IMPORTA con _prgCuentaCompra: cuanto cuesta comprar todo lo que falta, a cuantos kg y a cuanta plata sube la semana, cuantos pesos de entrega devuelve cada peso de compra y a cuanto sube el uso de las extrusoras. La comparacion es contra lo que ENTRA EN LA SEMANA (capacidad LIBRE, ya descontado lo que el Gantt tiene agendado), no contra la cola entera: comprar de mas no acelera nada si la maquina ya esta llena — y si sobra, lo dice. Cierra recordando que se paga CONTRA BOLETA, o sea que sale de la caja de esta semana, y que conviene mirarlo contra el cobrable ahora del tablero. (3) Boton 🖨 IMPRIMIR: hoja A4 para bajar a la planta el lunes — corridas en orden con sus OE y sus pedidos, lo que no se puede hacer y por que, la lista de compras con su total, los borradores a confirmar y las firmas de quien programo / quien recibio. Con el backup del 01/08 y la semana del 03 al 07/08: comprar los 9.639 kg que faltan cuesta $14.439.839,36 y la semana pasa de 4.814 a 12.524 kg y de $12.380.207,45 a $33.873.519,60 — $21.493.312,15 desbloqueados, 1,5 pesos de entrega por peso de compra, y las extrusoras del 45% al 100%. De esa compra, 2.058 kg quedan para la semana siguiente. Verificado con smoke_producir.cjs (215 asserts). // 30k: LA MATERIA PRIMA ENTRA A LA PANTALLA + nueva solapa 📅 PLAN DE LA SEMANA (pedido de German despues de la simulacion: 'hacelo, y yo haria una pantalla igual a la simulacion'). (1) COLUMNA MATERIAL en Que extrudir: por cada corrida dice ✓ hay material / ◐ alcanza para N% / ✖ sin material, con los kg que faltan de cada MP. LA TRAMPA QUE SE EVITO: preguntarle a cada bobina 'me alcanza?' contra el stock entero da un SI para todas, porque todas miran los mismos kilos — con los datos del 01/08, 12 bobinas dirian que tienen material y no lo tienen. _prgRepartirMP sirve el stock UNA sola vez y en el ORDEN de la cola: la primera se sirve completa, la siguiente con lo que quedo, y en algun punto se corta. Por eso el resultado depende del orden elegido, y eso NO es un defecto: es la decision que la pantalla esta pidiendo (con orden por promesa quedan $27.372.821,69 sin material; con el de mezcla, $27.997.426,42 — el orden importa justo cuando el material escasea). El reparto corre DESPUES de ordenar. (2) SOLAPA PLAN DE LA SEMANA: junta las tres restricciones que hoy viven en pantallas distintas — MAQUINA (capacidad de la semana segun los kg/hora de las extrusoras activas y la jornada, DESCONTANDO lo que el Gantt ya tiene programado adentro de la ventana via calcScheduleReal), MATERIAL (el reparto de arriba) y TRABAJO LANZADO (OE / borrador). Muestra que entra, que queda afuera y si es por material o por capacidad — que no es lo mismo: lo de material se arregla comprando, lo de capacidad priorizando. NO REPROGRAMA NADA: el cronograma real dentro de la semana lo sigue armando el Gantt combinado. Navegacion por semana, y si la semana en curso ya no tiene horas laborales por delante se pasa sola a la siguiente. Con el backup del 01/08 y la semana del 03 al 07/08: 13.950 kg de capacidad, 1.426 ya programados por el Gantt, entran 4.814,10 kg ($12.380.207,45, todo vencido) y quedan afuera 9.768,49 kg — CERO por capacidad, todo por material. Las extrusoras terminan al 45%. Verificado con smoke_producir.cjs (179 asserts), incluido el invariante de que lo posible + lo sin material = la cola entera, y que el plan nunca pise la capacidad ya agendada. // 30j: QUE PRODUCIR — la cola ahora dice si eso YA ESTA LANZADO (German: 'cuando varios pedidos tienen un mismo producto o bobina vos los agrupas, pero yo para saber que voy a extrudar tengo que saber su OE, o si son hibridos pasarlo a pedido firme'). Agrupar sin decir que parte esta lanzada invita a soplar dos veces la misma corrida. Cambios: (1) cada bobina muestra sus ORDENES DE EXTRUSION con estado (✓ completada / ⚙ en proceso / ⏳ pendiente / ⏸ suspendida) y los kg YA LANZADOS, contando solo las OE VIVAS — una OE Completada ya puso sus bobinas en el stock y contarla de nuevo seria contarla dos veces. (2) Nueva columna FALTA LANZAR: los kg que la fabrica todavia no puede tomar, sea porque el pedido no genero OC, porque la OC existe pero nadie soplo la bobina, o porque el pedido sigue en BORRADOR. (3) Los BORRADORES salen en un cartel arriba del bloque con un boton ✓ Pasar a firme por pedido (llama a confirmarPedido, el mismo camino de la lista de pedidos) y la aclaracion de que para confirmar tanda por tanda hay que ir al Simulador de OC. (4) Clic en una fila de bobina abre QUE HAY DETRAS DE ESTA CORRIDA: pedido por pedido con cliente, producto, paquetes, kg, su orden de corte y su OE, o '⚠ falta la OE' / '✖ sin lanzar'. Los kg de borrador NO se prorratean: salen de _calcularKgBorrador, la misma funcion del Simulador, que en un hibrido descuenta las tandas ya confirmadas — PED-05890 aporta sus 1.204,618 kg pendientes y no los 2.989 del pedido entero. Y se topean por lo que realmente falta producir, asi 'falta lanzar' nunca puede superar 'kg a soplar'. Con el backup del 01/08: de 14.582,58 kg de cola, 8.206,38 kg ($22.775.757,26) cuelgan de 10 pedidos en borrador — mas de la mitad de la extrusion pendiente no esta lanzada. Ademas se agrego producto_id/bobina_id a las tandas de _calcularKgBorrador (agregado puro) para poder atribuir el borrador a su bobina. Verificado con smoke_producir.cjs (126 asserts) contra el backup del dia. // 30i: TABLERO DE PROGRAMACION — nueva solapa 🏭 QUE PRODUCIR (pedido de German: 'como es una pantalla de programacion, lo que falta es saber que productos tengo que programar si quiero cobrar'). El diagnostico: la grilla muestra PEDIDOS, pero nadie programa un pedido — se programa una BOBINA (extrusion) y despues un PRODUCTO (corte). El mismo tipo de bobina aparece repartido en varios pedidos de clientes distintos y en la grilla son filas sueltas que no se suman. Ejemplo real del backup del 30/07: BOBINA 45 CM 18MIC NEGRA esta en 5 pedidos de 4 clientes = 660 kg y $1.923.511 en UNA sola corrida; BOBINA 60 CM 17MIC NEGRA junta 2 productos, 951 kg, $2.638.393 y 57 dias de promesa vencida. La solapa da vuelta los ejes: bloque 🏭 Que extrudir (por bobina: kg a soplar, cuantos ya tenes en bobinas LIBRES en stock — las reservadas a una OC se muestran aparte porque ya tienen dueño — y cuantos faltan de verdad) y bloque ✂️ Que cortar (por producto: paquetes que faltan, YA DESCONTADO lo que tenes hecho y libre en stock; si el stock alcanza la fila dice '✓ ya lo tenes': es despachar, no producir). Clic en la fila abre que pedidos la esperan, con su promesa y su plata, y salta al detalle del pedido. Tres ordenes elegibles: plata que se destraba (default — contesta la pregunta literal), promesa vencida, y mezcla = plata × (1 + atraso/30), o sea cada 30 dias de atraso duplica el peso de la plata. El KPI de plata a destrabar separa lo que se entrega dentro de 30 dias de lo mas lejano: sin ese corte, PED-05941 (DAG SRL, promesa 08/01/2027, $11.861.880) infla el numero rey y hace ver una cola mas rica de lo cobrable ya. REFACTOR P1: el universo 'pedido encarado' salio del cuerpo de renderProgramacion a _prgEncarado(p,mostrarHist), que ahora comparten la grilla y la cola — antes la definicion vivia suelta y una segunda pantalla la habria copiado. Verificado con smoke_producir.cjs (92 asserts) contra el backup, incluida la regresion dura de que el universo nuevo es IDENTICO al viejo pedido por pedido (0 diferencias en 240 pedidos), que kg = paquetes × u/paquete × metros/bolsa × (1+merma) × kg/metro en todas las filas, y que los dos bloques cierran con la misma plata y los mismos kg. // 30h: IMPRESION A4 DE LA CARTERA DE CHEQUES (pedido de German: 'ahora quiero poder imprimir los cheques en cartera'). Boton 🖨 Imprimir en la barra de la lista, al lado de Descontar lote. Imprime el ESTADO que estas mirando (en cartera, depositado, acreditado, descontado, endosado, rechazado) usando chCheques(), la misma fuente que la pantalla (P1). Para los cheques que todavia tienen vencimiento por delante (en cartera y depositados) el listado se corta por TRAMO DE VENCIMIENTO con subtotal: vencidos / dentro de 30 dias / 31-60 / 61-90 / +90 / sin fecha, que es la lectura que sirve para saber con que se cuenta y cuando. Arriba, cuatro KPIs: total, cantidad, vencidos y proximos 30 dias (en los estados sin vencimiento relevante, bancos distintos y cheque promedio). Cada fila trae vto, dias contra hoy (negativo = ya vencio), de que cliente vino con su recibo, quien lo libro con CUIT, banco, numero, circuito B/N e importe; abajo el resumen por banco y la linea de firmas para el que lo lleva. Hoy en cartera son 17 cheques por $19.126.073,74, de los cuales $500.000 ya estan vencidos sin depositar y $5.645.863,53 se acreditan dentro de 30 dias. Verificado con smoke_chprint.cjs (64 asserts) contra el backup real, incluido el invariante de que los tramos suman exactamente el total (ningun cheque se pierde ni se duplica). // 30g: IMPORTADOR DE EXTRACTO — faltaba poder decir 'esto es un traspaso a otra cuenta mia'. El resolver solo ofrecia 'es un gasto (categoria)', 'salio plata (egreso)' o 'entro plata (ingreso)': con egreso la plata SALE de la cuenta del extracto y NO ENTRA en ninguna otra, o sea desaparece del sistema y la caja total baja de mentira. Caso que lo destapo: German paga la cuota de la camioneta transfiriendole a la titular del prendario, y decidimos modelar esa cuenta como una cuenta mas del Libro de caja — la transferencia es un traspaso, no un gasto. Ahora el selector tiene el grupo '↔ Es un traspaso a otra cuenta mia' con todas las cuentas activas (menos la que se esta conciliando y CONCILIACION, y marcando las de inversion con 📈). El ejecutor arma UNA fila de tipo transferencia con cuenta_id y cuenta_destino_id, y el SENTIDO sale del signo del extracto: si en esta cuenta salio plata va de aca hacia la otra, si entro va al reves. El concepto nombra las dos cuentas. Verificado con smoke_transf.cjs (26 asserts), incluido el invariante que importa: con 'egreso' la caja total baja $986.651,16 y con 'traspaso' no cambia — que es la verdad. // 30f: FIX IMPORTANTE en el clasificador de MOVIMIENTOS INTERNOS. German conto que de los $1.270.000 que el sistema marcaba como 'no son un gasto', $1.000.000 es la CUOTA DE UNA CAMIONETA financiada hace 2 años, con 1 año de cuotas por delante. Al revisar el patron aparecio el error: 'distinto titular' estaba en la lista de patrones INTERNOS, y es justo al reves — una transferencia a distinto titular es plata que se fue a OTRA PERSONA. Con el patron viejo, la cuota (16/07, 'Transf.Inmediata e/Ctas.Dist Tit.O/Bco') figuraba como movimiento interno y el sistema ofrecia sacarla del resultado: apretar ese boton le habria regalado $1.000.000 de ganancia al mes. Ahora _dgEsInterno() distingue: interno es la transferencia entre cuentas del MISMO titular y el pago de un cheque propio de camara (cuyo gasto ya se registro al cargar la compra); 'distinto titular' es una EXCEPCION explicita. Julio pasa de 3 internos por $1.270.000 a UNO por $170.000, y $1.100.000 vuelven a gastos operativos. El resultado del mes no cambia (ya restaban): lo que cambia es que el sistema deja de ofrecer sacarlos. El cartel del Resultado del mes ahora define que es interno de verdad, pide revisar uno por uno antes de sacar, y explica que si es la cuota de algo financiado corresponde cargarlo como DEUDA FINANCIERA con sus cuotas y el casillero 'el capital NO cuenta como gasto' — asi aparece en lo que debes y en el flujo de caja, y al resultado solo le pega el interes. Verificado con smoke_interno.cjs (33 asserts), incluido que la deuda de la camioneta todavia no esta cargada (los 4 acreedores son Credicoop, Patagonia y ARCA). // 30e: CAJAS — German: 'hay movimientos en la cuenta comitente que no hice, le puse el valor inicial y no la toque mas'. ENCONTRADO Y EXPLICADO: el unico movimiento de la comitente es un egreso de $120.000 del 28/07, PAG-000008 a GASTOS GENERALES (albañil), que dejo el saldo en $4.581.530,49 en vez de $4.701.530,49. CAUSA RAIZ: la pantalla de Nuevo pago elegia la cuenta por defecto asi: la del mismo plano marcada 'pagos por defecto' y, si no habia, LA PRIMERA DE LA LISTA. La unica cuenta marcada es CAJA1, que es NEGRA, asi que todo pago BLANCO caia en 'la primera de las 5 blancas' — y como TODAS las cuentas tienen orden=0, esa 'primera' es la que Postgres devuelva ese dia. La comitente se habia creado el 25/07, tres dias antes. FIX: (1) _npagCtaDefault ya NO adivina: solo hay default si es inequivoco (cuenta marcada por defecto del mismo plano, o unica candidata real); si hay varias devuelve null y el selector arranca en '— elegi de donde sale la plata —', con aviso, y guardarPago no deja guardar sin cuenta. (2) Las cuentas de INVERSION (tipo fci/comitente/plazo fijo) nunca son default, se marcan con 📈 en el selector y en la tarjeta, y si igual pagas desde una el sistema pide confirmacion. (3) El orden de las cuentas se desempata por id, asi deja de depender de lo que devuelva la base. (4) NUEVO PANEL DE CONTROL en el Libro de caja: lista los egresos desde cuentas de inversion (con boton 🏦 para corregir de que cuenta salio el pago, admin, sin tocar importes ni imputaciones) y los MOVIMIENTOS ANTERIORES A LA APERTURA de cada cuenta — son 79, que el saldo ignora a proposito porque el saldo inicial ya los contiene, salvo en CAJA1 que abre en CERO y tiene un ingreso de $295.100 del 30/05 que no esta en ningun lado. Ese caso sale en rojo con el boton para corregir la fecha de apertura. Verificado con smoke_caja.cjs (46 asserts) sobre los datos reales. // 30d: GANTT COMBINADO, LEGIBILIDAD (pedido de German: 'si abro el grafico a las 7 de la tarde esta todo comprimido hacia la derecha' + 'estaria bueno ver 2/3 dias juntos'). (1) VENTANA DE HORAS MOVIBLE en la vista por dia: nuevo selector Jornada completa / 10 / 8 / 6 / 4 hs, con « » para correr media pantalla y un boton ⊙ Ahora que trae la vista a este momento. Cuando no la moviste a mano, la ventana se centra sola en la hora actual si el dia visible es hoy: abriendo a las 19 con ventana de 8 hs se ve 14:00-22:00 en vez de todo apretado en el ultimo cuarto. El default sigue siendo JORNADA COMPLETA, asi que quien no toque nada ve exactamente lo de antes. Los controles solo aparecen en la vista por dia. (2) VISTAS DE 2 Y 3 DIAS, ademas de las de 7/10/14/21 que ya estaban. Con 2-3 dias la noche es un tercio del ancho: si no se ve, una barra que cruza la madrugada parece produccion nocturna. Ahora las horas muertas de CADA dia y de CADA sector se rayan POR ENCIMA de las barras, con lo cual el tramo nocturno queda tachado y se lee como pausa. El cartel de jornadas tambien aparece en esas vistas. Nada de esto toca el motor de scheduling ni las formulas: es todo eje y pintura. Verificado con smoke_gantt.cjs (61 asserts), incluido el caso 'abierto a las 19 hs' y los topes de la ventana contra apertura y cierre. // 30c: GANTT COMBINADO — German: 'la extrusion arranca 6 hs de la mañana y eso no es asi, arranca a las 7 y termina a las 22, y el corte arranca a las 6'. Verificado con el motor real contra el backup: el scheduler NUNCA programa fuera de jornada (ajustarAJornada lo garantiza, 22 de 22 segmentos dentro de 7-22). El problema era de DIBUJO: el eje de la vista por horas va del minimo al maximo de las dos jornadas (6:00 porque corte abre a las 6), y una barra que venia del dia anterior se recortaba al borde izquierdo, quedando pegada a las 6:00 en el carril de EXTRUSORAS — que a esa hora no trabaja. Encima el sombreado de 'fuera de jornada' se calculaba SOLO con la jornada de corte y se pintaba en TODOS los carriles, asi que con corte 6-22 no se sombreaba nada. Ahora: (1) cada barra se recorta a la jornada de SU carril (_gcbTramo) — una OE nunca se pinta antes de las 7:00 ni despues de las 22:00, y si el tramo entero cae fuera no se dibuja; (2) la franja rayada de 'fuera de jornada' es POR SECTOR: la hora 6-7 aparece rayada en las extrusoras y libre en las cortadoras; (3) las barras recortadas se marcan con ◀ y borde punteado ('viene del dia anterior'), con la hora real de arranque en el tooltip, para que un tramo cortado no se lea como el arranque; (4) el rombo de lanzamiento ya no se pone al principio de una OC que viene de antes; (5) cartel con las dos jornadas leidas de la config. Aplica a los dos modos (por maquina y por cadena). Verificado con smoke_gantt.cjs (37 asserts) incluido el invariante sobre todos los segmentos reales en una ventana de 10 dias. // 30b: (1) FIX GRAVE DEL PANEL 🧪: leia C.formulas_bobina, C.bobinas_producidas y C.consumos_mp_bobina — los nombres de las TABLAS, no los de la cache que llena reload (C.formulas, C.bobinas_prod, C.consumos_mp). En la app salia VACIO. Y aunque acertara los nombres no alcanzaba: C.bobinas_prod trae solo las 50 ultimas bobinas y C.consumos_mp viene SIN tipo_mp_id. Ahora el panel consulta el periodo por su cuenta, paginado de a 1000 (bobinas_producidas por fecha, consumos por lote de 200 ids). El smoke test viejo tapaba el bug porque inyectaba los nombres de tabla a mano; el nuevo puebla C exactamente como reload. (2) CORRECCION MASIVA DE FORMULAS (pedido de German: 'si toco el porcentaje de antihumedad, debo tocar el porcentaje de MP principal'). Boton 🔧 en el cartel de diagnostico: se pone el % que se dosifica en la maquina y el sistema lo carga en cada formula elegida DESCONTANDO la misma cantidad del material base, con lo cual cada formula sigue sumando 100%. Muestra bobina por bobina el antes y el despues de los dos renglones (aditivo y base), tilde por fila, kg producidos en el periodo, boton para copiar la lista, y bloquea cualquier fila donde el base quedaria en cero o menos. Detras de clave de admin, y NO reescribe los consumos ya grabados. Con el antihumedad a 1,5% son 36 formulas (29 con produccion en julio, 25.685 kg): las que estan al 1,0% pasan el base de 97,80% a 97,30%. Verificado con smoke_auditformulas.cjs reescrito (60 asserts) contra el backup real, incluido el invariante aditivo+base constante en las 36 y en el sentido inverso. // 30a: REVISION A FONDO DE TODOS LOS INDICADORES DE SALUD FINANCIERA (pedido de German: 'y todos los demas indicadores estan bien, hace una revision a fondo'). Se corrio el motor real del sistema contra el backup del 30/07 y se verificaron uno por uno: te deben ($87.629.835,97), cobertura 30 dias, dias de aire, costo MP (+2,99%), concentracion top 3 (30,95%), lo que debes ($312.429.247,92 de capital), morosos, caja (da $12.846.043,12 al 26/07, EXACTO al snapshot que el sistema guardo ese dia) y los ratios. HALLAZGO GRAVE: el COSTO LABORAL de un mes SIN TURNOS CARGADOS se desploma a la suma fija no remunerativa — mayo/26 $480.000 y junio/26 $510.000 contra $9.538.044,87 reales de julio, casi 19 veces menos. No es un mes barato: es un mes vacio disfrazado de dato, y entraba a los promedios como si fuera comparable. Consecuencias: (1) 'cuotas vs margen' promediaba junio con sueldos de $510.000 y daba 45,7% AMARILLO cuando la lectura real es 61,35% ROJO; (2) 'peso de la deuda' promediaba ademas 'los ultimos 3 meses con venta' SIN el filtro de meses comparables (metia mayo, el mes de arranque) y encima sobre el margen MARGINAL, que no paga sueldos. FIX: (a) _costoLaboralMes marca sin_horas cuando ningun empleado por hora tiene dias de turno previstos; (b) nueva _costoLaboralMesEst toma la nomina del mes real mas cercano y lo DICE; (c) el criterio de mes comparable y la formula del margen disponible se extraen a _mesesComparables y _margenDisponibleMes, que ahora comparten cuotas-vs-margen y los ratios (P1: un numero, una fuente — antes eran dos reglas distintas para 'el margen del mes'); (d) Resultado del mes muestra un cartel ROJO cuando el mes no tiene turnos, con cuanto cerraria con la nomina real; (e) Detalle de gastos marca la fila de sueldos en la comparacion de periodos. Peso de la deuda pasa de 12,5 a 11,86 meses sobre el margen disponible, con la lectura marginal (7,4) como contraste. Verificado con smoke_laboral.cjs (51 asserts) sobre datos reales y sin regresiones en los otros 7 suites (370 asserts). // 29o: Salud financiera, dos correcciones que German cazo mirando la pantalla: (1) 'CUOTAS VS MARGEN' promediaba los DOS meses anteriores sin mirar si eran comparables, y metia adentro MAYO/26 — el mes en que se empezo a cargar el sistema, $22,7 M contra $96,5 M de junio. Eso tiraba el margen promedio a $24,7 M (la mitad de lo real) y el indicador mostraba 188,8% cuando la lectura correcta ronda el 76%. Ahora mira hasta 6 meses cerrados hacia atras, descarta los que facturaron menos de la MITAD DE LA MEDIANA (los cargados a medias), promedia hasta 3 y DICE en la tarjeta que meses uso y cuantos descarto. (2) La tarjeta 'RESULTADO DEL MES (PARCIAL)' calculaba su cobertura sobre los gastos SIN las diferencias de inventario: mostraba 'cobertura 99,95%' con el mes cerrando en -$1.384.531. Ahora usa el gastos_totales del snapshot (con el inventario adentro, mismo criterio que Resultado del mes y el Tablero) y da 96,8%, coherente con el rojo. Es el mismo bug del punto de equilibrio del build 29m, que sobrevivia en esta tarjeta. // 29n: (1) NUEVO PANEL 🧪 Auditoria de formulas (en Formulas de mezcla): cruza la FORMULA cargada, lo que el sistema DESCONTO del stock al producir y lo que FALTO al contar el deposito, y saca el % REAL que se esta usando de cada materia prima. Con los datos de julio detecta que el ANTIHUMEDAD se usa al 1,46% pero 27 tipos de bobina lo tienen cargado al 1,0%: son 24.656 kg producidos con medio punto menos descontado = 123 kg que aparecen como 'perdida de inventario' ($846.563 de los $1.366.063 del mes) cuando en realidad es COSTO DE PRODUCCION mal imputado — y el costo por bolsa, que es la base del precio, queda bajo. El panel lista las bobinas a corregir y explica que los consumos ya grabados no se reescriben. // (2) FIX SALUD FINANCIERA: el indicador 'cuotas vs margen' comparaba las cuotas contra el MARGEN MARGINAL (ventas - materia prima), que no descuenta sueldos, fijos ni gastos: daba 32% en VERDE cuando las cuotas se llevan el 82% de lo que realmente queda despues de operar. Ahora compara contra el margen DISPONIBLE (margen - fijos - sueldos - gastos operativos reales - tarjeta, sin descontar retiros porque no son costo de operar) y el detalle muestra las dos lecturas para que se vea la trampa. El Mapa de deuda usa la misma base ('% de lo que te queda'). // (3) El snapshot de salud financiera unifica la formula del resultado (gastos totales primero, una sola resta): era la tercera copia y ahora las tres pantallas comparten criterio. // 29m: FIX GRAVE — el punto de equilibrio contradecía al resultado: decía 'ya superaste el equilibrio' con el mes cerrando en -$1.339.602,72. Causa: la cobertura y el punto de equilibrio se calculaban sobre fijos+laboral+operativos+tarjeta+deudas pero DEJABAN AFUERA las diferencias de inventario de MP ($1.366.063,43 de pérdida en julio), que el resultado sí restaba. Ahora hay UNA sola resta (gastosTotales primero, resultado = margen - gastosTotales), con lo cual cobertura >= 100% si y solo si el mes cierra en verde, por construcción. Mismo fix en el Tablero de Dirección, que tenía la copia gemela del bug. El punto de equilibrio además usa el margen EXACTO y no el % redondeado. Julio con el fix: cobertura 96,84% y PE $95.657.011 (faltan $3,03 M de facturación). // SEGUNDO HALLAZGO de la auditoría contra el backup: $1.270.000 de 'gastos operativos' son MOVIMIENTOS INTERNOS importados del extracto (transferencias entre cuentas propias y pago de cheque de cámara) que no son un gasto y hunden el resultado; la pantalla ahora los detecta (mismo clasificador que Detalle de gastos), avisa cuánto son, los lista y ofrece sacarlos con un botón (destilda 'cuenta como gasto', no toca la caja, admin). Sin ellos julio cierra en -$69.602,72. // La cascada suma un subtotal RESULTADO OPERATIVO (antes de deuda y retiros: +$16.173.191,84 en julio) y separa en lineas propias los retiros de socios ($2.941.052) y los movimientos internos, para que se vea que la fabrica gana operando y que la deuda financiera ($13.301.742,56) es la que se come el mes. El total no cambia. Verificado con smoke_resultado.cjs (39 asserts) incluido un invariante sobre 3000 escenarios. // 29l: Proveedor 360°: GRÁFICOS. (1) Compras por mes + deuda al cierre (barras + línea, UN solo eje porque están en la misma unidad; la deuda de cada mes se reconstruye de los documentos igual que la cuenta corriente, no de una foto). (2) Cómo le pagás: barras horizontales con la plata entregada por medio — una fila por cuenta de caja/banco (usando los egresos explícitos cuando el pago salió de varias) más los cheques endosados. (3) En el tablero de todos, los mismos dos gráficos consolidados + 'quiénes se llevan tus compras' (top 8 proveedores, el resto plegado en Otros). Filtro único de 6/12/18 meses arriba que escala los tres, tabla espejo plegable con los números exactos y tooltip por marca. Paleta validada con el validador de la guía: azul #6c8ef5 + ámbar #d97706 pasan las seis pruebas contra el fondo oscuro (banda de luminosidad, croma, daltonismo ΔE 28,8 protan, visión normal 30,4 y contraste); el violeta de los cheques NO se podía usar junto al azul (ΔE 1,2 en protanopia = indistinguible). // 29k: Nuevo pago: EL EFECTIVO SE CARGA, ya no se deduce — y puede salir de VARIAS CUENTAS. Antes la pantalla no tenía dónde poner la plata: el efectivo se calculaba como (imputado − cheques), así que para decir "saqué tanto de CAJA1 y tanto de CAJA 2" había que usar la columna de imputación a facturas, y los cheques endosados quedaban ADENTRO de ese total en vez de sumarse (caso real: pago de $11.816.944 a la cooperativa registrado como $9.973.067, $1.843.877 de cheques de Muñoz perdidos y la caja descontando $7.606.123 de CAJA1 en lugar de $8.871.638,69 + $578.361,31 de CAJA 2). Ahora en 'Valores entregados' declarás el efectivo/transferencias por cuenta (➕ agregar otra cuenta, con aviso de cruce por línea) y los cheques a endosar; el TOTAL ENTREGADO es la suma, y lo que no imputás a facturas queda como crédito (calculado, ya no se escribe). Con una sola cuenta el egreso lo sigue poniendo la cabecera del pago (comportamiento histórico intacto); con varias, la cabecera va sin cuenta_id y cada egreso queda explícito en el Libro de caja (origen_tipo 'pago_efectivo', uno por cuenta, con su cruce por CONCILIACIÓN si es de otro circuito) — ccMovimientosUnificados saltea la cabecera sin cuenta para no contar doble y anularPago los borra. ⚡ Pagar automáticamente ahora reparte lo entregado de la factura más vieja a la más nueva. // 29j: Proveedor 360°: (1) CRÉDITO A IMPUTAR, espejo exacto del recibo de cliente — ahora se puede entregar plata (o endosar cheques) SIN imputarla a una factura: el remanente queda como crédito visible (pagos.total − suma de líneas, igual que total_cobrado − total_aplicado) y se imputa después con el botón → Imputar, que reparte a las facturas pendientes sin mover la caja. Antes el sistema OBLIGABA a imputar todo (bloqueaba con "los cheques superan el total") y no había ningún lugar donde ver plata entregada a cuenta. cgSaldoProv ahora resta el crédito (como _c360Saldo con los recibos), y el botón ↩ desimputa una línea para volverla a crédito. (2) Los CHEQUES ENDOSADOS ya se ven en la cuenta del proveedor: chip con N°, banco, de quién y vencimiento en cada pago, bloque propio con todos los endosados, y el medio de pago dice "cheque endosado" en vez del nombre de la caja cuando no salió plata. (3) IMPRESIÓN A4 del saldo de cuentas: resumen de todos los proveedores o resumen de cuenta de uno (KPIs, facturas pendientes, crédito, movimientos con saldo y firmas). (4) Rediseño INDUSTRIAL de la pantalla: chapa identificatoria, KPIs con reglas de color, tablas hairline con números monoespaciados tabulares, chips de circuito B/N y etiquetas técnicas. // 29i: Proveedores: (1) FIX endoso — el botón Endosar de la cartera creaba un pago SUELTO sin imputar (compra_gasto_id null): la factura seguía "pendiente" y encima generaba un egreso fantasma en el Libro de caja (caía a la cuenta default). Ahora Endosar te lleva a 💵 Nuevo pago con el cheque ya tildado, que es el camino correcto (imputa a facturas y no toca la caja). (2) Nuevo botón ↩ A cartera en los cheques endosados: deshace el endoso — borra el pago suelto (o anula el pago cabecera completo si vino de Nuevo pago) y el cheque vuelve a estar disponible. Para los dos cheques de Muñoz endosados a la cooperativa: ↩ A cartera y después registrarlos bien desde Nuevo pago. (3) Nueva pantalla 👥 Proveedor 360° (Finanzas): saldo por proveedor (compras − pagos + ND, mismo número que cgSaldoProv, P1), resumen de todos con deuda total, ficha con facturas pendientes y cuenta corriente mov por mov con saldo acumulado; los pagos sin imputar se marcan ⚠ y se pueden borrar (admin); los pagos cabecera se pueden anular desde ahí (antes anularPago no tenía botón en ninguna pantalla). // 29h: La tolerancia protege de la SANCIÓN, no de la medición: los minutos de atraso tolerado quedan registrados día por día ('2 min tolerados' en la columna Llegó tarde), se acumulan en el KPI 'Atrasos tolerados' (días + minutos) y disparan ALARMA propia cuando el uso deja de ser un imprevisto — más de 60 min o más de 8 días en el mes, los dos configurables. Filtro nuevo 🕑 Atraso tolerado para imprimir justo esos días, y aviso ámbar al fichar. Resuelve el caso 'me llega 2 minutos tarde todos los días': 0 sanciones pero 22 días y 44 min a la vista. // 29g: La tolerancia de entrada es UNA sola: los minutos que perdona para la puntualidad los perdona también para las horas (antes el sistema decía 'llegaste en horario' y a la vez 'me debés esos minutos'). El faltante del día se mide neto de lo perdonado (`saldoBruto` queda para trazabilidad) y el ✓ lleva asterisco cuando lo cubrió la tolerancia. Lo que pasa la tolerancia sigue contando entero, en horas y en puntualidad. // 29f: La tolerancia corre SOLO PARA ARRIBA (corrige el 29e): el faltante se muestra siempre, aunque sean minutos, porque si no se van antes de la hora extra PACTADA y no queda registro. Cada faltante se clasifica: ámbar 'de extra' cuando cae dentro de las horas extra pactadas (ya cumplió las 9 ordinarias) y rojo cuando no llega a cubrir la jornada. El KPI de saldo desglosa 'falta X de jornada · Y de extra pactada'. // 29e: Informe de horarios, 2 correcciones de lectura: (1) la JORNADA ABIERTA (el que está trabajando ahora, o el día al que le falta la salida) ya no cuenta en el objetivo ni genera deuda — se muestra 'en curso' y se cuenta aparte; antes el que estaba adentro aparecía debiendo su jornada entera. (2) TOLERANCIA SIMÉTRICA: la misma vara del mínimo de extra (15 min) se aplica a la deuda del día — si 14 min de más no son extra, 9 min de menos no son deuda. Nota nueva en la tabla semanal explicando por qué una semana de 5 días de 10 hs son 45 ordinarias + 5 de extra y no 2. // 29d: Turnos largos: la jornada ORDINARIA queda topeada en las 9 hs legales aunque el turno cargado sea más largo, así corregir el horario real del turno (o declarar horas extra fijas) NO borra la hora extra. El objetivo del día pasa a ser turno + extra fija (lo que tiene que estar), y la salida esperada del informe también, con lo cual 'salió antes' empieza a servir. Nuevo detector 🕒 en Turnos: compara la mediana de entrada/salida real de las últimas 8 semanas contra el turno cargado y propone las horas extra fijas con un botón (con los datos reales detecta Extrusión Mañana +1 h y Extrusión Tarde +3 hs). // 29c: Asistencia según el convenio: la hora extra vuelve a contarse POR JORNADA (ley 11.544 + dec. 16.115/33 + CCT 797/22 art. 9: hay dos límites independientes, el diario de 9 hs y el semanal de 48; la CSJN 2022 confirmó que pasarse del diario es extra aunque la semana cierre bajo 48), con un mínimo de 15 min para que un excedente cuente (el convenio exige extra pactada de antemano: los minutos del reloj no son extra). Segundo límite: lo que pase de 48 hs ordinarias en la semana también es extra. El criterio 'por semana compensado' queda como opción en ⚙ Reglas, con el aviso legal. // FIX: _turnoDelDia ignoraba rotacion_offset en los esquemas A/B — los dos extrusores recibían el MISMO turno todas las semanas. Nuevo panel 🔍 en Turnos que compara la entrada real contra el turno esperado semana por semana y corrige el desfasaje con un botón. // 29b: Asistencia: reglas configurables (configuracion.asistencia_reglas): tolerancia 5 min, tope 2 tardanzas por semana y 6 por mes con ALARMA en el informe, en el impreso y al fichar; jornada 9 hs y 45 semanales. La HORA EXTRA pasa a contarse sobre el total de la semana (no día por día): unos minutos de más un día ya no se pagan como extra si en la semana no cumplió. Columna ¿Cumplió? con el saldo del día, KPI de saldo del período y desglose semana por semana. El motor semanal alimenta también las horas de la quincena (misma fuente, P1). // 29a: Sueldos: nueva pestaña 🖨 Informe de horarios — por empleado (o todos), por semana o por mes, día por día con entrada/salida en criollo ("9 hs 30 min"), horas trabajadas/normales/extra/feriado, llegadas tarde, salidas anticipadas, ausencias y jornadas sin cerrar, con filtros por cada una e impresión A4 (una hoja por empleado, con firma). Además: la carga de fichajes ahora se pagina (superaba las 1000 filas de Supabase en pocas semanas y truncaba el informe). // 24h: Nueva pantalla 🏛 Mapa de deuda: ARCA (planes + F.931) vs bancos, evolución mes a mes reconstruida de los documentos, calendario de 12 meses cruzado con el margen, tasa mensual implícita por deuda y fecha de libertad. // 24g: F.931: fecha de pago propia (cargas_sociales.fecha_pago_estimada) editable desde el form o arrastrando en el flujo de caja; antes el arrastre decía "reprogramado" sin guardar nada. Ahora los tipos no contemplados avisan en vez de mentir. // 24f: F.931: el pago acepta un interés resarcitorio aparte — no baja la deuda declarada, se carga solo como gasto financiero del mes en que se pagó (categoría financiero) + su pago desde la misma cuenta. // 24e: F.931: botón 📋 para ver los pagos registrados de cada período, con columna "¿movió la caja?" y borrado de un pago suelto (antes solo se podía borrar el 931 entero). // 24d: F.931: los pagos se imputan a conceptos (301/351/302/352/312/028) y la lista muestra QUÉ se está debiendo, no solo cuánto. Nueva columna conceptos jsonb. // 24c: El botón 🔄 ahora cubre DOS motivos que no mueven caja: entró en un plan (no cuenta como gasto) o ya lo pagué y el egreso ya está en el libro (el gasto SÍ cuenta). Resuelve cargar F.931 viejos pagados a medias sin duplicar la salida de plata. // 24b: Deudas: el casillero de capital ahora se llama "El capital NO cuenta como gasto" con ayuda inline (cubre el caso IVA/retenciones, que nunca fueron gasto propio) y la tarjeta de la deuda muestra en verde/ámbar cómo está configurada. // 24a: Refinanciación en planes de facilidades sin egreso fantasma: las cuotas de deuda y los pagos de F.931 aceptan "🔄 Plan" (afecta_caja=false) — saldan la deuda, no mueven caja ni cuentan como gasto (el gasto lo pone el plan nuevo). Requiere ALTER TABLE en pagos_carga_social (afecta_caja, motivo); si falta, cae al insert viejo y avisa. // Salud financiera: deuda separa CAPITAL (deuda real/pasivo) de INTERÉS futuro; los ratios de solvencia (liquidez/ácida/capital de trabajo/meses de deuda) ahora usan capital, no capital+interés (meses de deuda 17→11,5). "Lo que debés" muestra deuda real vs a pagar. (Los indicadores de caja —días de aire, cuotas vs margen— siguen usando la cuota completa, que es lo que sale de caja.)
+const APP_BUILD='2026-08-06a';  // 06a: LAS BOBINAS DE LA OE YA NO DESAPARECEN CUANDO SE LE CAMBIA LA BOBINA AL PRODUCTO — German: 'no me aparecen las bobinas asociadas al pedido, pero estas fueron hechas, esto es la primera vez que pasa'. Caso real: la OC-1052645 (producto 00023, BOLSA RESIDUO VERDE 80X110 X10UND) mostraba 'DE LA OE DE ESTA ORDEN · ORD-06031 (0) sin bobinas en stock' teniendo BOB-04086 y BOB-04087 (800 m c/u, hechas el 6/8 a las 13:04 y 13:05, las dos en stock). CAUSA: al producto 00023 le cambiaron la bobina de la 176 (80 CM 30 MIC VERDE, id 108) a la 401 (80 CM 27 MIC VERDE, id 150) DESPUES de generar y extruir ORD-06031, que se hizo con la 108. Todas las pantallas filtran el stock por producto.bobina_id, nunca por la bobina de la OE: las bobinas realmente producidas quedaban invisibles y en la grilla el material de ORD-06032 aparecia como cobertura de DOS ordenes a la vez (OC-1052645 y OC-1052646 mostraban las mismas 2.750 m con tilde verde). Solo 2 OC abiertas en toda la base estaban asi, las dos del 00023. FIX EN TRES CAPAS, todas colgadas de UNA sola definicion (_ocDesalineo, P1 — nadie mas decide si hay desalineo): (1) AVISO AL EDITAR EL PRODUCTO — guardarEdicionProducto llama a _ocsAfectadasPorBobinaProducto y, antes de escribir, lista las OC abiertas que van a quedar desalineadas con su OE y su bobina; se guarda igual si se confirma, pero enterado. (2) CARTEL DE DESALINEO — en la grilla de Ordenes de corte ('OE en 176 · BOBINA 80 CM 30MIC VERDE · el producto pide 401 · BOBINA 80 CM 27MIC VERDE', visible mientras la OC siga abierta aunque no haya desglose) y en el panel de corte (cartel completo que explica que hacer). (3) LAS BOBINAS SE MUESTRAN IGUAL — _bobEsDeSuOEDesalineada deja pasar por el filtro de tipo unicamente las bobinas que hizo la OE de ESA orden y del tipo que esa OE produjo; se listan en su bloque 'De la OE de esta orden' marcadas en rojo, y al cargarlas (panel de corte, Confeccion a mano y por pistola) pide confirmacion explicita en vez de bloquear con 'no es del tipo de esta orden'. El candado para bobinas ajenas de otro tipo sigue intacto. La lectura de metros de la grilla y de Planificar Produccion tambien cuenta esas bobinas como propias: la OC-1052645 pasa de 'OE: 0m' a 'OE: 1.600m'. Verificado con smoke_desalineo.cjs (61 asserts) corriendo las funciones REALES extraidas del HTML — incluido el IIFE de la celda de la grilla — contra backup_fabrica_20260806.sql: el caso completo, que el filtro viejo daba 0, que la OC-1052646 sana no cambia en nada, que solo esas 2 OC estan desalineadas, y el invariante de que sin desalineo ninguna bobina entra por la excepcion. Entregado ademas asociar_bobinas_oc1052645.sql por si prefiere cerrarlo sin la planta. // 05b: LAS FECHAS DE LAS TANDAS AHORA QUEDAN — German, probando con PED-05980 (ENTE MUNICIPAL, hibrido 1/7, 95.000 paq en 7 tandas semanales): 'el tema de las fechas de las tandas no quedo'. Dos causas: (1) el bloque 🚚 (con el input 🤝 prometida del 30u) estaba EXCLUIDO para estado Borrador — y un hibrido sigue en Borrador aunque ya tenga tandas con OC: justo el pedido escalonado para el que se construyo. Ahora se muestra salvo cancelado/anulado, con aviso de que las tandas sin confirmar entran al confirmarlas. (2) las fechas YA ESTABAN escritas en la nota del simulador ('semana 6/8', 'seman 17/9') y se perdian. Nueva _fechaDeNotaTanda(nota,ref): lee d/m tolerando typos, año opcional, enero escrito en agosto es enero proximo, null si no reconoce — nunca inventa. Las DOS vias de confirmacion (tanda individual y pedido entero) insertan por payload sembrando fecha_entrega_comprometida desde la nota, con reintento sin la columna. Al confirmar la tanda 2/7 la OC nace prometida al 13/08 y la cola la prioriza con ESA fecha. Verificado con smoke_producir.cjs (402 asserts). REBASE: construido sobre el 2026-08-05a de la otra conversacion (Sala de planes: editar sin rehacer + cheque no contado dos veces) — verificado con project_read ANTES de escribir, que esta vez FRENO el pisado. // 05a: SALA DE PLANES — EDITAR SIN REHACER + EL MISMO CHEQUE NO SE CUENTA DOS VECES. German: 'quiero editar un plan, no cambiarlo todo; y si se eligio un cheque para descontar, que no aparezca habilitado para elegir cobrar'. LAS DOS COSAS ERAN CIERTAS Y LA SEGUNDA YA ESTABA PASANDO EN SU PLAN ACTIVO: el plan #13 (Cubrir Otros LOVERO +4, $16.901.099,39) tenia el cheque 185 (GRUPO ENSER, Credicoop, vto 12/09, $738.609,41) en datos_plan.cheques (descontar) Y ADEMAS en datos_plan.recursos como cheque:185 (cobrar) — el mismo papel contado dos veces, $738.609,41 de cobertura fantasma. (1) EDICION: plwEditar(id) carga el plan guardado en PLW (objetivos/recursos/cheques/cajas) y plwGuardar hace UPDATE en vez de INSERT. Los pasos que sobreviven CONSERVAN su estado via _plwClavePaso (cob|tipo|id, chq|id, caj|id, obj|...), asi que lo ya cobrado/cambiado no se pierde; snapshot_original NO se toca (es el historial). _plwRehidratarRecursos rematchea cada recurso guardado contra el flujo de HOY: por key exacta, o por tipo+id si le cambio la fecha efectiva; lo que ya no esta en el flujo (tipicamente ya cobrado) NO se borra en silencio — queda en PLW.recursosExtra, se muestra en un bloque propio con su ✕ y sigue sumando a la solidez (_plCalcSolidez toma 5º param). Editando NO se repropone la canasta (plwIrPaso2 saltea plwProponer; el boton 🔁 pasa a plwReproponer con confirm). _plwExcl() reemplaza a PLW.varianteDe en los earmarks: al editar se excluye el propio grupo, si no el plan se veria a si mismo como 'ya en otro plan'. Botones ✏ Editar en la ficha del plan y ✏ editar en la tarjeta de la sala. (2) CANDADO DEL CHEQUE: _plwChDescSet()/_plwEsChDesc() — un cheque en la lista de descuento SALE de la lista de cobros en las tres listas del paso 2, en plwProponer, en plwToggleRec (avisa y no agrega) y en plwGuardar (defensa final: no guarda ni el recurso ni el paso). Al reves tambien: plwAddCheque saca el cheque de PLW.recursos y avisa. (3) REPARACION DE LO YA GUARDADO: _plChequesDobles(p) detecta el doble conteo en cualquier plan guardado; sale cartel rojo en pcobVer y en la tarjeta de la sala con el monto inflado y boton para editar; al abrir la edicion el duplicado ya viene sacado con su aviso. Verificado con smoke_planedit.cjs (45 asserts) corriendo las funciones REALES contra el backup del 05/08: detecta el 185 y ningun falso positivo en los otros 12 planes, la solidez baja exactamente $738.609,41, el recurso fuera de flujo no se pierde, el candado en los 4 caminos, y el UPDATE conserva el paso ya tildado sin pisar snapshot_original.
 try{console.log('%c🏭 Fábrica de Bolsas — build '+APP_BUILD+' (parciales desde el libro)','color:#22c55e;font-weight:700;font-size:13px;');}catch(e){}
 async function reload(){
   // El flag _historicasCargadas indica si el usuario pidió ver las bobinas viejas.
@@ -6836,21 +6836,94 @@ function onConfOCChange(){
   },250);
 }
 
+// ===== DESALINEO DE BOBINA: LO QUE PIDE EL PRODUCTO vs LO QUE HIZO LA OE =====
+// Una OC se corta con las bobinas que produjo SU orden de extrusión, pero todas las
+// pantallas filtran el stock por la bobina que pide el PRODUCTO. Si alguien edita la
+// bobina del producto DESPUÉS de haber generado (o ya extruido) la OE, las bobinas
+// realmente hechas quedan invisibles: la OC aparece "sin bobinas" mientras se le
+// ofrece material de otras OEs — y el mismo material puede figurar como cobertura de
+// dos órdenes distintas. Pasó el 06/08/2026: el producto 00023 (BOLSA RESIDUO VERDE
+// 80X110 X10UND) se cambió de la bobina 176 (80 CM 30 MIC) a la 401 (80 CM 27 MIC)
+// después de generar ORD-06031, que ya había producido BOB-04086 y BOB-04087.
+// ESTA es la única función que decide si hay desalineo (P1): nadie más lo define.
+// El nombre de una bobina es su código (ej "176"); lo que se lee es la descripción
+// ("BOBINA 80 CM 30MIC VERDE"). Para un cartel de aviso hacen falta los dos.
+function _bobNombreTipo(id){
+  if(!id)return '—';
+  const b=(C.bobinas||[]).find(x=>x.id===id);
+  if(!b)return '#'+id;
+  const nom=String(b.nombre||'').trim(),desc=String(b.descripcion||'').trim();
+  if(nom&&desc)return nom+' · '+desc;
+  return nom||desc||('#'+id);
+}
+function _ocDesalineo(oc){
+  if(!oc)return null;
+  const oeId=oc.orden_extrusion_id;if(!oeId)return null;
+  const oe=(C.ordenes||[]).find(o=>o.id===oeId);if(!oe)return null;
+  const tipoProd=oc.productos?.bobina_id||(C.productos||[]).find(p=>p.id===oc.producto_id)?.bobina_id||0;
+  const tipoOE=oe.bobina_id||0;
+  if(!tipoProd||!tipoOE||tipoProd===tipoOE)return null;
+  return {oe,tipoProd,tipoOE,nomProd:_bobNombreTipo(tipoProd),nomOE:_bobNombreTipo(tipoOE)};
+}
+// ¿Esta bobina es de la OE de esta OC y del tipo que esa OE produjo? (o sea: le
+// corresponde a la orden aunque el producto hoy pida otra cosa)
+function _bobEsDeSuOEDesalineada(b,oc,des){
+  if(!des||!b||!oc)return false;
+  if(b.orden_id!==oc.orden_extrusion_id)return false;
+  return (b.bobina_tipo_id??b.bobinas?.id)===des.tipoOE;
+}
+// Cartel único de desalineo. modo: 'panel' (grande) | 'compacto' (grilla)
+function _desalineoHTML(des,modo){
+  if(!des)return '';
+  if(modo==='compacto'){
+    return '<div style="color:var(--red);font-weight:700;margin-top:2px;" title="El producto pide '+escapeHtml(des.nomProd)+' pero la OE '+escapeHtml(des.oe.numero_orden||'')+' se hizo con '+escapeHtml(des.nomOE)+'. Corregí la bobina del producto o usá igual las bobinas de la OE.">'
+      +'⚠ OE en '+escapeHtml(des.nomOE)+' · el producto pide '+escapeHtml(des.nomProd)+'</div>';
+  }
+  return '<div style="margin:8px 0;padding:8px 10px;border-left:3px solid var(--red);background:rgba(239,68,68,.08);border-radius:6px;font-size:12px;line-height:1.45;">'
+    +'<div style="font-weight:800;color:var(--red);">⚠ La bobina del producto no coincide con la que hizo su OE</div>'
+    +'<div style="color:var(--text2);margin-top:3px;">La OE <strong>'+escapeHtml(des.oe.numero_orden||'')+'</strong> se extrudió con <strong>'+escapeHtml(des.nomOE)+'</strong>, '
+    +'pero el producto de esta orden pide <strong>'+escapeHtml(des.nomProd)+'</strong>. '
+    +'Sus bobinas se muestran igual, marcadas en rojo: al cargarlas te va a pedir confirmar. '
+    +'Si el espesor correcto es el de la OE, corregí la bobina del producto en 📦 Productos.</div>'
+  +'</div>';
+}
+// Estados en los que una OC ya no espera material
+const _OC_CERRADA=new Set(['Completada','Cancelada','Anulada']);
+// Qué OC abiertas quedarían desalineadas si al producto se le pone otra bobina.
+// Lo usa el guardado del producto para avisar ANTES de escribir.
+function _ocsAfectadasPorBobinaProducto(productoId,bobinaNueva){
+  const out=[];
+  (C.ord_corte||[]).forEach(oc=>{
+    if(oc.producto_id!==productoId)return;
+    if(_OC_CERRADA.has(oc.estado))return;
+    const oeId=oc.orden_extrusion_id;if(!oeId)return;
+    const oe=(C.ordenes||[]).find(o=>o.id===oeId);
+    if(!oe||!oe.bobina_id)return;
+    if((bobinaNueva||0)===oe.bobina_id)return;
+    out.push({oc,oe,nomOE:_bobNombreTipo(oe.bobina_id)});
+  });
+  return out;
+}
+
 function renderConfBobinasList(oc){
   const list=document.getElementById('conf-bob-list');
   if(!list||!oc)return;
   const tipoBobinaId=oc.productos?.bobina_id||0;
   const oeAsociadaId=oc.orden_extrusion_id||null;
+  const des=_ocDesalineo(oc);
   const idsAsociadas=new Set((oc.orden_corte_bobinas||[]).map(b=>b.bobina_producida_id));
-  // Bobinas disponibles del mismo tipo, en stock, no fuera de rango, no ya asociadas a esta OC
+  // Bobinas disponibles del mismo tipo, en stock, no fuera de rango, no ya asociadas a esta OC.
+  // Si hay desalineo, las de SU PROPIA OE entran igual aunque el tipo no coincida:
+  // esconderlas es lo que hacía parecer que la orden no tenía material.
   const bobs=C.bobinas_prod
     .filter(b=>b.en_stock&&!b.fuera_de_rango)
     .filter(b=>!idsAsociadas.has(b.id))
-    .filter(b=>!tipoBobinaId||(b.bobina_tipo_id??b.bobinas?.id)===tipoBobinaId)
+    .filter(b=>!tipoBobinaId||(b.bobina_tipo_id??b.bobinas?.id)===tipoBobinaId||_bobEsDeSuOEDesalineada(b,oc,des))
     .sort((a,b)=>new Date(a.fecha_produccion||0)-new Date(b.fecha_produccion||0));
 
+  const avisoDes=_desalineoHTML(des,'panel');
   if(!bobs.length){
-    list.innerHTML='<div style="color:var(--text3);font-size:12px;padding:14px;text-align:center;">No hay bobinas disponibles del tipo requerido para esta orden.</div>';
+    list.innerHTML=avisoDes+'<div style="color:var(--text3);font-size:12px;padding:14px;text-align:center;">No hay bobinas disponibles del tipo requerido para esta orden.</div>';
     actualizarResumenBobinas(oc);
     return;
   }
@@ -6874,8 +6947,10 @@ function renderConfBobinasList(oc){
     const sel=_confBobSel.has(b.id);
     const qcls=b.estado_calidad==='OK'?'q-ok':(b.estado_calidad==='rechazada'?'q-err':'q-warn');
     const fechaTxt=b.fecha_produccion?new Date(b.fecha_produccion+'T00:00:00').toLocaleDateString('es-AR'):'—';
-    const bgSel=sel?(esAsoc?'rgba(34,197,94,.12)':'var(--accentbg)'):'transparent';
-    const borderSel=sel?(esAsoc?'var(--green)':'var(--accentbd)'):'transparent';
+    // Bobina de su propia OE pero de otro tipo que el que pide el producto hoy
+    const desal=!!des&&tipoBobinaId&&(b.bobina_tipo_id??b.bobinas?.id)!==tipoBobinaId;
+    const bgSel=sel?(esAsoc?'rgba(34,197,94,.12)':'var(--accentbg)'):(desal?'rgba(239,68,68,.06)':'transparent');
+    const borderSel=sel?(esAsoc?'var(--green)':'var(--accentbd)'):(desal?'rgba(239,68,68,.35)':'transparent');
     return '<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);cursor:pointer;background:'+bgSel+';border:1px solid '+borderSel+';margin-bottom:4px;font-size:13px;">'
       +'<input type="checkbox" '+(sel?'checked':'')
       +' onchange="toggleBobinaConf('+b.id+',this.checked)" style="width:16px;height:16px;flex-shrink:0;">'
@@ -6887,6 +6962,7 @@ function renderConfBobinasList(oc){
         +'<span class="'+qcls+'" style="font-size:11px;">'+b.estado_calidad+'</span>'
         +'<span style="color:var(--text3);font-size:11px;">'+fechaTxt+'</span>'
         +(b.ordenes?.numero_orden?'<span style="color:var(--text3);font-size:10px;">'+b.ordenes.numero_orden+'</span>':'')
+        +(desal?'<span style="font-size:10px;font-weight:800;color:var(--red);border:1px solid rgba(239,68,68,.4);border-radius:4px;padding:1px 5px;" title="No es el tipo que pide el producto — la hizo la OE de esta orden">⚠ no es el tipo del producto</span>':'')
       +'</div>'
     +'</label>';
   };
@@ -6897,7 +6973,7 @@ function renderConfBobinasList(oc){
       +(subtitle?'<div style="font-size:10px;color:var(--text3);font-style:italic;">'+subtitle+'</div>':'')
     +'</div>';
 
-  let html='';
+  let html=avisoDes;
 
   // 🎯 Grupo 1: OE asociada (sugerido)
   if(grupoAsociada.length){
@@ -7226,8 +7302,16 @@ function procesarEscaneoBobina(raw){
   if(tipoBobinaId&&tipoB!==tipoBobinaId){
     const reqNom=C.bobinas.find(x=>x.id===tipoBobinaId)?.nombre||'?';
     const tieneNom=C.bobinas.find(x=>x.id===tipoB)?.nombre||'?';
-    pistolaFeedback('✕ '+nro+' es tipo "'+tieneNom+'" — la orden requiere "'+reqNom+'".','var(--red)','error');
-    return;
+    // Excepción: la bobina la hizo la OE de ESTA orden. El tipo no coincide porque
+    // al producto le cambiaron la bobina después de generar la OE — no es un error
+    // del operario y el material sí le corresponde. Se permite, avisando.
+    const _desP=_ocDesalineo(oc);
+    if(_bobEsDeSuOEDesalineada(b,oc,_desP)){
+      pistolaFeedback('⚠ '+nro+' es "'+tieneNom+'" y el producto pide "'+reqNom+'", pero la hizo la OE '+(_desP.oe.numero_orden||'')+' de esta orden. Marcada — revisá antes de asociar.','var(--amber)','error');
+    } else {
+      pistolaFeedback('✕ '+nro+' es tipo "'+tieneNom+'" — la orden requiere "'+reqNom+'".','var(--red)','error');
+      return;
+    }
   }
   // Ya asociada a esta orden
   if(oc.orden_corte_bobinas?.some(x=>x.bobina_producida_id===b.id)){
@@ -7313,10 +7397,12 @@ async function asociarBobinasOrdenCorte(){
   for(const b of bobs){
     if(idsYaAsoc.has(b.id)){msg.style.color='var(--red)';msg.textContent='La bobina '+b.numero_bobina+' ya está asociada a esta orden.';return;}
   }
-  // Validar mismo tipo
+  // Validar mismo tipo. Excepción: las que hizo la OE de ESTA orden cuando al
+  // producto le cambiaron la bobina después (desalineo) — le corresponden igual.
   const tipoBobinaId=oc.productos?.bobina_id;
+  const _desA=_ocDesalineo(oc);
   if(tipoBobinaId){
-    const distinta=bobs.find(b=>(b.bobina_tipo_id??b.bobinas?.id)!==tipoBobinaId);
+    const distinta=bobs.find(b=>(b.bobina_tipo_id??b.bobinas?.id)!==tipoBobinaId&&!_bobEsDeSuOEDesalineada(b,oc,_desA));
     if(distinta){msg.style.color='var(--red)';msg.textContent='La bobina '+distinta.numero_bobina+' no es del mismo tipo que el resto. Todas deben ser del tipo de la orden.';return;}
   }
   // Validar entre las seleccionadas: todas mismo tipo
@@ -7390,6 +7476,14 @@ async function asociarBobinasOrdenCorte(){
       ejecutar();
     }
   };
+
+  // Desalineo: bobinas de SU PROPIA OE pero de otro tipo que el que pide el producto
+  // hoy. No las bloqueamos (le corresponden), pero nunca se cargan en silencio.
+  const bobsDesal=_desA?bobs.filter(b=>_bobEsDeSuOEDesalineada(b,oc,_desA)):[];
+  if(bobsDesal.length&&!confirm('⚠ Atención — la bobina del producto no coincide con la de su OE\n\n'
+    +'La OE '+(_desA.oe.numero_orden||'')+' se extrudió con "'+_desA.nomOE+'", pero el producto de '+oc.numero_orden+' pide "'+_desA.nomProd+'".\n\n'
+    +'Vas a asociar '+bobsDesal.length+' bobina'+(bobsDesal.length>1?'s':'')+' de esa OE: '+bobsDesal.map(b=>b.numero_bobina).join(', ')+'\n\n'
+    +'Si el espesor correcto es el de la OE, corregí la bobina del producto en 📦 Productos.\n\n¿Asociar igual?'))return;
 
   if(requiereConfirmacionOrigen){
     abrirModalConfirmarOrigenBobinas(oc,bobinasNoAsoc,oeAsociadaId,ejecutarConChequeoLimite);
@@ -28765,11 +28859,16 @@ function renderOrdenesCorte(){
       <td class="mono">${o.unidades_a_producir?.toLocaleString('es-AR')||'—'}</td>
       <td class="mono">${o.cantidad_paquetes?.toLocaleString('es-AR')||'—'}</td>
       <td class="mono" style="min-width:160px;">${o.metros_necesarios||'—'} m${(()=>{
+        // ⚠ Aviso de desalineo: la OE se hizo con otra bobina que la que pide el
+        // producto hoy. Se muestra SIEMPRE que la OC siga abierta, aunque abajo no
+        // haya desglose — si no, la orden aparece sin material y sin explicación.
+        const _des=_ocDesalineo(o);
+        const _desHtml=(_des&&!_OC_CERRADA.has(o.estado))?_desalineoHTML(_des,'compacto'):'';
         // Desglose de bobinas disponibles solo para Pendientes/En proceso
-        if(o.estado!=='Pendiente'&&o.estado!=='En proceso')return '';
+        if(o.estado!=='Pendiente'&&o.estado!=='En proceso')return _desHtml;
         const prod=o.productos;
         const tipoBob=prod?.bobina_id||0;
-        if(!tipoBob)return '';
+        if(!tipoBob)return _desHtml;
         const oeId=o.orden_extrusion_id;
         // Índice bobina_id → orden_corte_id que la tiene asociada (anidada en cada OC)
         const idxAsoc={};
@@ -28780,7 +28879,9 @@ function renderOrdenesCorte(){
         });
         let mtsPropias=0,mtsOtras=0,mtsRobadas=0;
         C.bobinas_prod.forEach(b=>{
-          if(b.bobina_tipo_id!==tipoBob)return;
+          // Con desalineo, las de su propia OE cuentan aunque el tipo no coincida:
+          // el material existe y es de esta orden.
+          if(b.bobina_tipo_id!==tipoBob&&!_bobEsDeSuOEDesalineada(b,o,_des))return;
           if(b.estado_calidad==='rechazada')return;
           const mts=parseFloat(b.metros_reales)||0;
           if(mts<=0)return;
@@ -28804,6 +28905,7 @@ function renderOrdenesCorte(){
         const reponer=Math.min(mtsRobadas,faltan);
         const colorTotal=totalDisp>=mtsNec?'var(--green)':totalDisp>0?'var(--amber)':'var(--red)';
         return '<div style="font-size:10px;font-weight:400;margin-top:3px;line-height:1.4;border-top:1px dashed var(--border);padding-top:3px;">'
+          +_desHtml
           +(oeId?'<div title="Bobinas producidas por la OE asociada disponibles">🟢 OE: <strong>'+r1(mtsPropias).toLocaleString('es-AR')+'m</strong></div>':'')
           +'<div title="Bobinas del mismo tipo de otras OEs">🟡 otras: <strong>'+r1(mtsOtras).toLocaleString('es-AR')+'m</strong></div>'
           +'<div style="color:'+colorTotal+';font-weight:700;">total: '+r1(totalDisp).toLocaleString('es-AR')+'m'
@@ -29079,10 +29181,13 @@ function renderPlanCardCompact(tipo,o,enProceso,maqId,globalIdx,posEnMaq){
     // Desglosar bobinas disponibles: de la OE asociada vs REPUESTAS (reservadas a ESTA
     // OC desde otra OE, vía Balance) vs de otras OEs sueltas (mismo tipo).
     const oeId=o.orden_extrusion_id;
+    const _desPlan=_ocDesalineo(o);
     let mtsPropias=0,mtsRepuestas=0,mtsOtras=0;
     if(tipoBob){
       C.bobinas_prod.forEach(b=>{
-        if(b.bobina_tipo_id!==tipoBob)return;
+        // Con desalineo (al producto le cambiaron la bobina después de la OE), las de
+        // su propia OE cuentan igual: el material está y es de esta orden.
+        if(b.bobina_tipo_id!==tipoBob&&!_bobEsDeSuOEDesalineada(b,o,_desPlan))return;
         if(!b.en_stock)return;
         if(b.estado_calidad==='rechazada')return;
         const mts=parseFloat(b.metros_reales)||0;
@@ -35420,6 +35525,21 @@ async function guardarEdicionProducto(id){
   }
   const msg=document.getElementById('msg-epr');
   if(!cod||!des||!mtsFinal){msg.style.color='var(--red)';msg.textContent='Completá código, descripción y metros/bolsa.';return;}
+  // ⚠ Cambiar la bobina de un producto deja desalineadas las OC abiertas cuya OE ya
+  // se generó (o se extrudió) con la bobina anterior: sus bobinas dejan de verse en
+  // el panel de corte. Avisamos ANTES de escribir, con la lista concreta.
+  const _pAnt=C.productos.find(x=>x.id===id);
+  if(_pAnt&&(bId||0)!==(_pAnt.bobina_id||0)){
+    const afect=_ocsAfectadasPorBobinaProducto(id,bId);
+    if(afect.length){
+      const lista=afect.slice(0,10).map(x=>'· '+(x.oc.numero_orden||'OC')+' ('+(x.oc.estado||'')+') — OE '+(x.oe.numero_orden||'')+' hecha con '+x.nomOE).join('\n');
+      const nueva=bId?_bobNombreTipo(bId):'— sin bobina —';
+      if(!confirm('⚠ Ojo: cambiás la bobina de este producto a "'+nueva+'"\n\n'
+        +afect.length+' orden'+(afect.length>1?'es':'')+' de corte abierta'+(afect.length>1?'s':'')+' quedan desalineadas — su OE se hizo con otra bobina:\n\n'
+        +lista+(afect.length>10?'\n… y '+(afect.length-10)+' más':'')
+        +'\n\nEsas órdenes van a mostrar un aviso rojo y sus bobinas se van a poder cargar igual, pidiendo confirmación.\n\n¿Guardar el cambio?'))return;
+    }
+  }
   msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Guardando...</div>';
   const upd={
     codigo:cod,descripcion:des,bobina_id:bId,
@@ -35699,6 +35819,27 @@ function _dependenciaMaterialOC(oc){
 // Cada tanda (OC) se entrega cuando termina su corte + buffer de entrega.
 // Recibe opcionalmente un schedCorte ya calculado (para no recalcular en bucles).
 // Devuelve: {tandas:[{oc, numero_orden, finCorte, fechaEntrega, estado}], fechaEntregaFinal}
+// La fecha que el usuario escribió en la NOTA de la tanda del simulador ("semana 13/8",
+// "seman 17/9", "6/8"...) → date. Tolerante a typos de texto: solo busca el d/m. Si el
+// mes ya pasó hace más de 90 días, es del año que viene (una nota "15/1" escrita en
+// agosto es enero PRÓXIMO). Devuelve null si no hay fecha reconocible: nunca inventa.
+function _fechaDeNotaTanda(nota,ref){
+  if(!nota)return null;
+  const m=/(\d{1,2})\s*[\/\-]\s*(\d{1,2})(?:\s*[\/\-]\s*(\d{2,4}))?/.exec(String(nota));
+  if(!m)return null;
+  const d=parseInt(m[1]),mo=parseInt(m[2]);
+  if(!(d>=1&&d<=31&&mo>=1&&mo<=12))return null;
+  let y=m[3]?parseInt(m[3]):null; if(y!=null&&y<100)y+=2000;
+  const refD=ref?new Date(String(ref).slice(0,10)+'T12:00:00'):new Date(localDate()+'T12:00:00');
+  if(y==null){
+    y=refD.getFullYear();
+    const cand=new Date(y,mo-1,d,12);
+    if(cand<refD&&(refD-cand)>90*86400000)y++;
+  }
+  const p2=n=>String(n).padStart(2,'0');
+  return y+'-'+p2(mo)+'-'+p2(d);
+}
+
 function fechaEntregaPedido(pedidoId,schedCorte){
   const ped=C.pedidos.find(p=>p.id===pedidoId);
   if(!ped)return {tandas:[],fechaEntregaFinal:null};
@@ -41401,12 +41542,15 @@ function _pcorteBobinasHTML(oc,maqId){
   if(!oc)return '';
   const tipoBobinaId=oc.productos?.bobina_id||C.productos.find(p=>p.id===oc.producto_id)?.bobina_id||0;
   const oeAsociadaId=oc.orden_extrusion_id||null;
+  const des=_ocDesalineo(oc);
   const asoc=oc.orden_corte_bobinas||[];
   const idsAsoc=new Set(asoc.map(b=>b.bobina_producida_id));
-  // Disponibles: en stock, no fuera de rango, mismo tipo, no ya asociadas
+  // Disponibles: en stock, no fuera de rango, mismo tipo, no ya asociadas.
+  // Con desalineo entran igual las de SU PROPIA OE: esconderlas por tipo es lo que
+  // hacía que la orden apareciera "sin bobinas" teniéndolas en el depósito.
   const disp=(C.bobinas_prod||[])
     .filter(b=>b.en_stock&&!b.fuera_de_rango&&!idsAsoc.has(b.id))
-    .filter(b=>!tipoBobinaId||(b.bobina_tipo_id??b.bobinas?.id)===tipoBobinaId)
+    .filter(b=>!tipoBobinaId||(b.bobina_tipo_id??b.bobinas?.id)===tipoBobinaId||_bobEsDeSuOEDesalineada(b,oc,des))
     .sort((a,b)=>new Date(a.fecha_produccion||0)-new Date(b.fecha_produccion||0));
 
   // Separar igual que Confección: de la OE asociada / de otras OEs / stock libre
@@ -41422,12 +41566,14 @@ function _pcorteBobinasHTML(oc,maqId){
     const fecha=b.fecha_produccion?new Date(b.fecha_produccion+'T00:00:00').toLocaleDateString('es-AR'):'';
     const oe=b.orden_id?C.ordenes.find(o=>o.id===b.orden_id):null;
     const oeTxt=oe?' · '+escapeHtml(oe.numero_orden):' · stock libre';
-    const bg=esDeOC?'rgba(34,197,94,.06)':'var(--bg3)';
-    const colNum=esDeOC?'var(--green)':'var(--accent)';
-    return '<div style="display:flex;align-items:center;gap:8px;background:'+bg+';border-radius:6px;padding:6px 10px;font-size:13px;">'
+    // Bobina de su OE pero de otro tipo que el que pide el producto: se muestra en rojo
+    const desal=!!des&&tipoBobinaId&&(b.bobina_tipo_id??b.bobinas?.id)!==tipoBobinaId;
+    const bg=desal?'rgba(239,68,68,.08)':(esDeOC?'rgba(34,197,94,.06)':'var(--bg3)');
+    const colNum=desal?'var(--red)':(esDeOC?'var(--green)':'var(--accent)');
+    return '<div style="display:flex;align-items:center;gap:8px;background:'+bg+';border-radius:6px;padding:6px 10px;font-size:13px;'+(desal?'border:1px solid rgba(239,68,68,.35);':'')+'">'
       +'<span style="font-family:monospace;font-weight:600;color:'+colNum+';">'+escapeHtml(b.numero_bobina||'—')+'</span>'
       +'<span style="font-family:monospace;font-weight:700;">'+m.toLocaleString('es-AR')+' m</span>'
-      +'<span style="color:var(--text3);font-size:11px;">'+fecha+oeTxt+'</span>'
+      +'<span style="color:var(--text3);font-size:11px;">'+fecha+oeTxt+(desal?' · <span style="color:var(--red);font-weight:800;">'+escapeHtml(des.nomOE)+'</span>':'')+'</span>'
       +'<button class="btn" style="margin-left:auto;padding:9px 18px;font-size:14px;font-weight:800;color:'+colNum+';border-color:'+colNum+';border-width:2px;" onclick="_pcorteCargarBobina('+oc.id+','+b.id+','+(maqId||'null')+')">+ Cargar</button>'
     +'</div>';
   };
@@ -41438,6 +41584,7 @@ function _pcorteBobinasHTML(oc,maqId){
     +'</div>';
 
   let html='<div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px;">';
+  html+=_desalineoHTML(des,'panel');
 
   // ── ARRIBA: bobinas en stock del tipo, separadas por origen (lo que falta cargar) ──
   html+='<div style="font-size:13px;font-weight:800;color:var(--accent);margin-bottom:4px;">📦 Bobinas del tipo en stock ('+disp.length+')</div>';
@@ -41502,10 +41649,15 @@ async function _pcorteCargarBobina(ocId,bobId,maquinaId){
   if((oc.orden_corte_bobinas||[]).some(x=>x.bobina_producida_id===bobId)){
     _pcorteFeedback('La bobina '+b.numero_bobina+' ya está en esta orden.','var(--amber)','error');return;
   }
-  // Validar mismo tipo (candado que ya existía: no se carga bobina de otro tipo)
+  // Validar mismo tipo (candado que ya existía: no se carga bobina de otro tipo).
+  // Única excepción: la hizo la OE de ESTA orden y el tipo no coincide porque al
+  // producto le cambiaron la bobina después. Ahí no se bloquea: se pide confirmar.
   const tipoBobinaId=oc.productos?.bobina_id||C.productos.find(p=>p.id===oc.producto_id)?.bobina_id;
+  const desCarga=_ocDesalineo(oc);
+  let confirmarDesal=false;
   if(tipoBobinaId&&(b.bobina_tipo_id??b.bobinas?.id)!==tipoBobinaId){
-    _pcorteFeedback('✕ La bobina '+b.numero_bobina+' no es del tipo de esta orden.','var(--red)','error');return;
+    if(_bobEsDeSuOEDesalineada(b,oc,desCarga))confirmarDesal=true;
+    else{_pcorteFeedback('✕ La bobina '+b.numero_bobina+' no es del tipo de esta orden.','var(--red)','error');return;}
   }
   const opNom=(window._pcorteOperario||'').trim();
   const empId=window._pcorteEmpleadoId||null;
@@ -41538,6 +41690,14 @@ async function _pcorteCargarBobina(ocId,bobId,maquinaId){
       _pcorteFeedback(e&&e.code==='23505'?'La bobina '+b.numero_bobina+' ya estaba asociada a la orden — no se duplica.':'✕ Error cargando la bobina: '+(e.message||e),'var(--red)','error');
     }
   };
+  // Advertencia de desalineo: es de su OE pero de otro espesor que el que pide el producto
+  if(confirmarDesal){
+    if(!confirm('⚠ Atención — el producto pide otra bobina\n\n'
+      +'La OE '+(desCarga.oe.numero_orden||'')+' de la orden '+oc.numero_orden+' se extrudió con "'+desCarga.nomOE+'", '
+      +'pero el producto pide "'+desCarga.nomProd+'".\n\n'
+      +'La bobina '+b.numero_bobina+' la hizo esa OE, así que le corresponde a esta orden.\n\n'
+      +'Si el espesor correcto es el de la OE, corregí la bobina del producto en 📦 Productos.\n\n¿Cargarla igual?'))return;
+  }
   // Advertencia si la bobina NO es de la OE asociada a esta OC (igual que Confección)
   const oeAsociadaId=oc.orden_extrusion_id||null;
   if(oeAsociadaId&&b.orden_id!==oeAsociadaId){
@@ -45423,14 +45583,23 @@ async function confirmarTandasParcial(pedidoId,tandaIdsElegidos,prioridadBase){
       const obsTanda=totalTandasOrden>0
         ?'Generada desde pedido '+nro+' · Tanda '+(idxT+1)+'/'+totalTandasOrden+(nota?' — '+nota:'')+' (parcial)'
         :'Generada desde pedido '+nro+' (parcial)';
-      const{data:ocRow,error:eOC}=await sb.from('ordenes_corte').insert({
+      // La promesa de la tanda VIAJA a la OC: si la nota trae fecha, la OC nace con su
+      // fecha_entrega_comprometida (30u) y la cola de producción la usa sin recargar nada.
+      const ocPayload={
         numero_orden:nroFinal,cliente:cliNom,
         producto_id:o.producto_id,empaque_id:o.empaque_id||null,
         bolsones_a_producir:bolsones,paquetes_por_bolson:paqPorBolson,
         cantidad_paquetes:totalPaq,unidades_a_producir:unidades,
         metros_necesarios:mts,merma_pct:o.merma||5,
         prioridad:priCursor++,estado:'Pendiente',observaciones:obsTanda
-      }).select().single();
+      };
+      const promTanda=(typeof _fechaDeNotaTanda==='function')?_fechaDeNotaTanda(nota,null):null;
+      if(promTanda)ocPayload.fecha_entrega_comprometida=promTanda;
+      let {data:ocRow,error:eOC}=await sb.from('ordenes_corte').insert(ocPayload).select().single();
+      if(eOC&&/fecha_entrega_comprometida/i.test(eOC.message||'')){
+        delete ocPayload.fecha_entrega_comprometida;
+        ({data:ocRow,error:eOC}=await sb.from('ordenes_corte').insert(ocPayload).select().single());
+      }
       if(eOC){errores.push(nroFinal+': '+eOC.message);continue;}
       if(o.maquinas?.length){
         await sb.from('orden_corte_maquinas').insert(o.maquinas.map(m=>({orden_corte_id:ocRow.id,maquina_id:m})));
@@ -45570,14 +45739,21 @@ async function confirmarPedido(pedidoId,oeModoElegido,sinConfirmar,prioridadBase
       const obsTanda=oc.tandaTotal>0
         ?'Generada desde pedido '+nro+' · Tanda '+oc.tandaIdx+'/'+oc.tandaTotal+(oc.nota?' — '+oc.nota:'')
         :'Generada desde pedido '+nro;
-      const{data:ocRow,error:eOC}=await sb.from('ordenes_corte').insert({
+      const ocPayload={
         numero_orden:nroFinal,cliente:cliNom,
         producto_id:o.producto_id,empaque_id:o.empaque_id||null,
         bolsones_a_producir:oc.bolsones,paquetes_por_bolson:paqPorBolson,
         cantidad_paquetes:totalPaq,unidades_a_producir:unidades,
         metros_necesarios:mts,merma_pct:o.merma||5,
         prioridad:oc.prioridad,estado:'Pendiente',observaciones:obsTanda
-      }).select().single();
+      };
+      const promTanda=(typeof _fechaDeNotaTanda==='function')?_fechaDeNotaTanda(oc.nota,null):null;
+      if(promTanda)ocPayload.fecha_entrega_comprometida=promTanda;
+      let {data:ocRow,error:eOC}=await sb.from('ordenes_corte').insert(ocPayload).select().single();
+      if(eOC&&/fecha_entrega_comprometida/i.test(eOC.message||'')){
+        delete ocPayload.fecha_entrega_comprometida;
+        ({data:ocRow,error:eOC}=await sb.from('ordenes_corte').insert(ocPayload).select().single());
+      }
       if(eOC){errores.push(nroFinal+': '+eOC.message);continue;}
       if(o.maquinas?.length){
         await sb.from('orden_corte_maquinas').insert(o.maquinas.map(m=>({orden_corte_id:ocRow.id,maquina_id:m})));
@@ -47030,14 +47206,18 @@ function renderDetallePedidoPagina(pedidoId){
   }
 
   // ── Fechas de entrega por tanda (calculadas por el motor) ──
+  // Un HÍBRIDO sigue en estado Borrador aunque ya tenga tandas confirmadas con su OC:
+  // el bloque de fechas tiene que mostrarse igual — es justo el pedido escalonado para
+  // el que existe. Un borrador puro no tiene OCs, así que no muestra nada solo.
   const _eBajo=(p.estado||'').toLowerCase();
-  if(_eBajo!=='borrador'&&_eBajo!=='cancelado'&&_eBajo!=='anulado'){
+  if(_eBajo!=='cancelado'&&_eBajo!=='anulado'){
     const entrega=fechaEntregaPedido(p.id);
     if(entrega.tandas.length){
       const unaSola=entrega.tandas.length===1;
       html+='<div style="margin-bottom:14px;background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--rl);padding:12px 16px;">'
         +'<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:8px;">'
-          +'🚚 '+(unaSola?'Fecha de entrega estimada':'Fechas de entrega por tanda')+'</div>';
+          +'🚚 '+(unaSola?'Fecha de entrega estimada':'Fechas de entrega por tanda')+'</div>'
+        +(_eBajo==='borrador'?'<div style="font-size:10.5px;color:var(--text3);margin:-4px 0 8px;">Las tandas sin confirmar todavía no aparecen acá: entran al confirmarlas — y si la nota de la tanda trae una fecha («semana 13/8»), la OC nace con esa promesa puesta.</div>':'');
       const _hoyT=new Date(localDate()+'T12:00:00');
       entrega.tandas.forEach((t,i)=>{
         const feTxt=t.fechaEntrega?t.fechaEntrega.toLocaleDateString('es-AR'):'—';
@@ -50708,7 +50888,7 @@ function pcobSolidez(){return _plCalcSolidez(PCob.objetivos,PCob.recursos,PCob.c
 // Motor de solidez parametrizado (lo usan el modal viejo y la Sala de planes).
 // Cheques en cartera con cambio = plata firme (el papel ya existe).
 // Plata en caja/bancos (cajas) = lo MÁS firme que hay: ya está en tu poder.
-function _plCalcSolidez(objetivos,recursosSet,cheques,cajas){
+function _plCalcSolidez(objetivos,recursosSet,cheques,cajas,extra){
   const recs=_pcobRecursosDisponibles().filter(r=>recursosSet.has(r.key));
   const b={firme:0,producido:0,condicionado:0,proyectado:0};
   recs.forEach(r=>{
@@ -50716,6 +50896,12 @@ function _plCalcSolidez(objetivos,recursosSet,cheques,cajas){
     else if(r.tier===2)b.producido+=r.saldo;
     else if(r.tier===3)b.condicionado+=r.saldo;   // a producir → depende de comprar MP
     else b.proyectado+=r.saldo;
+  });
+  // Recursos que el plan guardó pero que ya NO están en el flujo (típicamente: ya cobrados).
+  // Se conservan al editar para no borrar en silencio parte del plan.
+  (extra||[]).forEach(r=>{
+    const m=parseFloat(r.monto)||0,t=r.tier||1;
+    if(t<=1)b.firme+=m;else if(t===2)b.producido+=m;else if(t===3)b.condicionado+=m;else b.proyectado+=m;
   });
   (cheques||[]).forEach(c=>{b.firme+=(parseFloat(c.neto)||0);});
   (cajas||[]).forEach(c=>{b.firme+=(parseFloat(c.monto)||0);});
@@ -50866,6 +51052,15 @@ function pcobVer(id){
   let h='<div class="modal-title">'+(p.estado==='anulado'?'🚫 ':p.estado==='cerrado'?'✅ ':'📋 ')+escapeHtml(p.nombre||'Plan')+'</div>';
   h+='<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Objetivo a cubrir: <b>$'+r2(dp.total_objetivo||0).toLocaleString('es-AR')+'</b>'+(cerrado&&p.nota_cierre?'<br>📝 Cierre: <i>'+escapeHtml(p.nota_cierre)+'</i>':'')+'</div>';
   try{h+=_plChipsVariantes(p);}catch(e){}
+  // Un cheque no puede estar a la vez "para cobrar" y "para descontar": es el mismo papel.
+  const dobles=_plChequesDobles(p);
+  if(dobles.length&&p.estado==='activo'){
+    const mDob=r2(dobles.reduce((s2,r)=>s2+(parseFloat(r.monto)||0),0));
+    h+='<div style="border:1.5px solid var(--red);background:rgba(239,68,68,.08);border-radius:var(--r);padding:8px 10px;margin-bottom:10px;font-size:12px;">'
+      +'<b style="color:var(--red);">⚠ Hay '+dobles.length+' cheque'+(dobles.length===1?'':'s')+' contado'+(dobles.length===1?'':'s')+' dos veces</b> — figura'+(dobles.length===1?'':'n')+' como 💵 cobro y además como 🔁 cambio de cheque. Este plan se muestra $'+mDob.toLocaleString('es-AR')+' más cubierto de lo que está.'
+      +'<div style="font-size:11px;color:var(--text3);margin-top:4px;">'+dobles.map(r=>'• '+escapeHtml(String(r.ref||'').slice(0,72))).join('<br>')+'</div>'
+      +'<button class="btn btn-sm" style="margin-top:6px;" onclick="plwEditar('+p.id+')">✏ Editar el plan y arreglarlo</button></div>';
+  }
   const pasos=(p.pasos||[]).slice().sort((a,b)=>(a.orden||0)-(b.orden||0));
   h+='<div style="border:1px solid var(--border);border-radius:var(--r);overflow:hidden;"><table style="width:100%;font-size:12px;"><tbody>';
   pasos.forEach(s=>{
@@ -50897,7 +51092,7 @@ function pcobVer(id){
   });
   h+='</tbody></table></div>';
   h+='<div class="btn-grp" style="margin-top:12px;">';
-  if(p.estado==='activo'){h+='<button class="btn btn-sm btn-primary" onclick="pcobCerrar('+p.id+')">✅ Cerrar plan</button><button class="btn btn-sm btn-del" onclick="pcobBorrar('+p.id+')">🚫 Anular</button>';}
+  if(p.estado==='activo'){h+='<button class="btn btn-sm" onclick="plwEditar('+p.id+')" title="Sacar o agregar cobros, cheques y objetivos sin rehacer el plan — lo ya cumplido se conserva">✏ Editar</button><button class="btn btn-sm btn-primary" onclick="pcobCerrar('+p.id+')">✅ Cerrar plan</button><button class="btn btn-sm btn-del" onclick="pcobBorrar('+p.id+')">🚫 Anular</button>';}
   else if(p.estado==='cerrado'){h+='<button class="btn btn-sm" onclick="pcobReabrir('+p.id+')">↩ Reabrir</button>';}
   h+='<button class="btn btn-sm" onclick="plImprimirPlan('+p.id+')">🖨 Imprimir</button>';
   h+='<button class="btn btn-sm" onclick="document.getElementById(\'pcobver-modal\').remove();pcobRender();">Cerrar ventana</button></div>';
@@ -51146,7 +51341,9 @@ function renderSalaPlanes(){
           +vars.map(v=>{const a=_plEsActivo(v);const sv=v.id===act.id?sol:_plSolidezPlan(v);
             return '<span style="border:1.5px solid '+(a?'#8b5cf6':'var(--border)')+';border-radius:12px;padding:1px 8px;cursor:pointer;'+(a?'background:rgba(139,92,246,.12);font-weight:700;':'')+'" onclick="pcobVer('+v.id+')">'+(a?'⭐ ':'')+_plLetra(v)+' '+sv.pct+'%</span>';}).join('')
           +'<span style="cursor:pointer;color:var(--accent);" onclick="plNuevaVariante('+JSON.stringify(_plGrupoDe(act))+')" title="Armar un plan B/C alternativo para el mismo objetivo">+ variante</span>'
+          +'<span style="cursor:pointer;color:var(--text2);margin-left:auto;" onclick="plwEditar('+act.id+')" title="Editar este plan sin rehacerlo">✏ editar</span>'
         +'</div>'
+        +(_plChequesDobles(act).length?'<div style="font-size:11px;color:var(--red);margin-top:6px;">⚠ '+_plChequesDobles(act).length+' cheque(s) contados dos veces (cobro + descuento) — <span style="color:var(--accent);cursor:pointer;" onclick="event.stopPropagation();plwEditar('+act.id+')">arreglar</span></div>':'')
       +'</div>';
     });
     h+='</div>';
@@ -51160,11 +51357,23 @@ function renderSalaPlanes(){
   wrap.innerHTML=h;
 }
 // ---------- WIZARD 3 PASOS (<1 minuto) ----------
-let PLW={paso:1,objetivos:[],recursos:new Set(),cheques:[],cajas:[],nombre:'',varianteDe:null,filtro:'todos',verMas:false};
+let PLW={paso:1,objetivos:[],recursos:new Set(),recursosExtra:[],cheques:[],cajas:[],nombre:'',varianteDe:null,editId:null,grupoExcl:null,dobles:[],filtro:'todos',verMas:false};
 function _plObjIcono(o){return o.tipo==='deuda'?'🏦':o.tipo==='tarjeta'?'💳':o.esMP?'🧱':o.tipo==='fijo'?'📌':o.tipo==='compra'?'🛒':'💸';}
+// Grupo cuyos earmarks NO deben contar como "ocupado" mientras armamos/editamos:
+// al editar es el propio grupo del plan; al crear una variante, el grupo de la variante.
+function _plwExcl(){return PLW.editId?PLW.grupoExcl:PLW.varianteDe;}
+// Cheques elegidos para DESCONTAR en este plan (no pueden estar además como cobro).
+function _plwChDescSet(){const s=new Set();(PLW.cheques||[]).forEach(c=>s.add(String(c.cheque_id)));return s;}
+function _plwEsChDesc(r,set){return r.tipo==='cheque'&&set.has(String(r.id));}
+// Un cheque contado dos veces en un plan guardado: como cobro Y como cambio de cheque.
+function _plChequesDobles(p){
+  const dp=(p&&p.datos_plan)||{};
+  const desc=new Set((dp.cheques||[]).map(c=>String(c.cheque_id)));
+  return (dp.recursos||[]).filter(r=>r.tipo==='cheque'&&desc.has(String(r.id)));
+}
 function plwOpen(varianteDe,objetivosPre){
   _pcobItemsCache=null;
-  PLW={paso:varianteDe?2:1,objetivos:objetivosPre||[],recursos:new Set(),cheques:[],cajas:[],nombre:'',varianteDe:varianteDe||null,filtro:'todos',verMas:false,q:''};
+  PLW={paso:varianteDe?2:1,objetivos:objetivosPre||[],recursos:new Set(),recursosExtra:[],cheques:[],cajas:[],nombre:'',varianteDe:varianteDe||null,editId:null,grupoExcl:null,dobles:[],filtro:'todos',verMas:false,q:''};
   if(PLW.paso===2)plwProponer();
   document.getElementById('plw-modal')?.remove();
   document.body.insertAdjacentHTML('beforeend',
@@ -51172,12 +51381,52 @@ function plwOpen(varianteDe,objetivosPre){
     +'<div class="modal-title" id="plw-title"></div><div id="plw-body"></div></div></div>');
   plwRender();
 }
+// Rehidrata los recursos guardados contra el flujo de HOY.
+// - key exacta → se re-selecciona; si cambió la fecha efectiva, se busca por tipo+id.
+// - si ya no está en el flujo (cobrado, anulado, fuera del horizonte) NO se pierde:
+//   queda en recursosExtra y se muestra aparte para que el usuario decida.
+// - si es un cheque que también está en la lista de descuento, se saca (doble conteo).
+function _plwRehidratarRecursos(guardados,chDesc){
+  const disp=_pcobRecursosDisponibles();
+  const set=new Set(),extra=[],dobles=[];
+  (guardados||[]).forEach(g=>{
+    if(g.tipo==='cheque'&&chDesc&&chDesc.has(String(g.id))){dobles.push(g);return;}
+    const r=disp.find(x=>x.key===g.key)||disp.find(x=>x.tipo===g.tipo&&String(x.id)===String(g.id));
+    if(r)set.add(r.key);
+    else extra.push({key:g.key,tipo:g.tipo,id:g.id,ref:g.ref,monto:r2(parseFloat(g.monto)||0),tier:g.tier||1});
+  });
+  return{set,extra,dobles};
+}
+function plwEditar(id){
+  const p=(C.planes_compra||[]).find(x=>x.id===id);
+  if(!p){toast('No encontré el plan','red');return;}
+  if(p.estado!=='activo'){toast('Solo se editan planes activos — reabrilo primero','amber');return;}
+  _pcobItemsCache=null;
+  const dp=p.datos_plan||{};
+  const chDesc=new Set((dp.cheques||[]).map(c=>String(c.cheque_id)));
+  const reh=_plwRehidratarRecursos(dp.recursos||[],chDesc);
+  PLW={paso:2,
+    objetivos:(dp.objetivos||[]).map(o=>Object.assign({},o)),
+    recursos:reh.set,recursosExtra:reh.extra,dobles:reh.dobles,
+    cheques:(dp.cheques||[]).map(c=>Object.assign({},c)),
+    cajas:(dp.cajas||[]).map(c=>Object.assign({},c)),
+    nombre:p.nombre||'',varianteDe:null,editId:p.id,grupoExcl:_plGrupoDe(p),
+    filtro:'todos',verMas:false,q:''};
+  document.getElementById('pcobver-modal')?.remove();
+  document.getElementById('plw-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="plw-modal" style="z-index:10001;"><div class="modal-card" style="max-width:1100px;width:96%;max-height:94vh;overflow:auto;">'
+    +'<div class="modal-title" id="plw-title"></div><div id="plw-body"></div></div></div>');
+  plwRender();
+}
 function plwClose(){document.getElementById('plw-modal')?.remove();}
 function plwRender(){
   const t=document.getElementById('plw-title'),b=document.getElementById('plw-body');
   if(!t||!b)return;
-  const tit={1:'1/3 · ¿Qué querés cubrir?',2:'2/3 · La canasta propuesta — ajustala si querés',3:'3/3 · Nombre y listo'};
-  t.innerHTML=(PLW.varianteDe?'🅱 Variante nueva — ':'🎯 ')+tit[PLW.paso];
+  const tit=PLW.editId
+    ?{1:'1/3 · ¿Qué cubre este plan?',2:'2/3 · Con qué lo cubrís — sacá o agregá lo que quieras',3:'3/3 · Nombre y guardar'}
+    :{1:'1/3 · ¿Qué querés cubrir?',2:'2/3 · La canasta propuesta — ajustala si querés',3:'3/3 · Nombre y listo'};
+  t.innerHTML=(PLW.editId?'✏ Editando: '+escapeHtml(PLW.nombre||'plan')+' — ':PLW.varianteDe?'🅱 Variante nueva — ':'🎯 ')+tit[PLW.paso];
   b.innerHTML=PLW.paso===1?_plwPaso1():PLW.paso===2?_plwPaso2():_plwPaso3();
 }
 function _plwTotalObj(){return r2(PLW.objetivos.reduce((s,o)=>s+(parseFloat(o.monto)||0),0));}
@@ -51226,7 +51475,12 @@ function plwObjLibre(){
   PLW.objetivos.push({key:'libre:'+ref+':'+m,tipo:'libre',id:null,ref,monto:r2(m),fEf:localDate(),esMP:false});
   plwRender();
 }
-function plwIrPaso2(){if(!PLW.objetivos.length)return;plwProponer();PLW.paso=2;plwRender();}
+// Al EDITAR no se repropone: rearmar la canasta borraría lo que el usuario eligió a mano.
+function plwIrPaso2(){if(!PLW.objetivos.length)return;if(!PLW.editId)plwProponer();PLW.paso=2;plwRender();}
+function plwReproponer(){
+  if((PLW.editId||PLW.recursosExtra&&PLW.recursosExtra.length)&&!confirm('Esto rearma la canasta automática y descarta los cobros que elegiste a mano en este plan.\n\n(Los cheques a descontar y la plata de caja NO se tocan.)\n\n¿Seguir?'))return;
+  plwProponer();plwRender();
+}
 // Recursos ya earmarkeados por variantes ACTIVAS de otros grupos
 function _plUsadosSet(excluirGrupo){
   const usados=new Set();
@@ -51241,11 +51495,12 @@ function _plUsadosSet(excluirGrupo){
 // Propuesta automática: cobros libres por firmeza y fecha hasta cubrir el objetivo.
 // Candado anti-fantasía: tier 3-4 NUNCA entra a la propuesta automática.
 function plwProponer(){
-  PLW.recursos=new Set();
-  const usados=_plUsadosSet(PLW.varianteDe);
+  PLW.recursos=new Set();PLW.recursosExtra=[];
+  const usados=_plUsadosSet(_plwExcl());
+  const chDesc=_plwChDescSet();
   const totalObj=_plwTotalObj();
   const libres=_pcobRecursosDisponibles()
-    .filter(r=>!usados.has(r.tipo+':'+r.id)&&r.tier<=2)
+    .filter(r=>!usados.has(r.tipo+':'+r.id)&&r.tier<=2&&!_plwEsChDesc(r,chDesc))
     .sort((a,b)=>a.tier-b.tier||String(a.fEf).localeCompare(String(b.fEf)));
   let acc=0;
   for(const r of libres){
@@ -51254,9 +51509,12 @@ function plwProponer(){
   }
 }
 function _plwPaso2(){
-  const usados=_plUsadosSet(PLW.varianteDe);
-  const todos=_pcobRecursosDisponibles().sort((a,b)=>a.tier-b.tier||String(a.fEf).localeCompare(String(b.fEf)));
-  const sol=_plCalcSolidez(PLW.objetivos,PLW.recursos,PLW.cheques,PLW.cajas);
+  const usados=_plUsadosSet(_plwExcl());
+  const chDesc=_plwChDescSet();
+  // 🔒 REGLA: un cheque elegido para DESCONTAR sale de la lista de cobros.
+  // Es el mismo papel: contarlo en los dos lados es planificar la misma plata dos veces.
+  const todos=_pcobRecursosDisponibles().filter(r=>!_plwEsChDesc(r,chDesc)).sort((a,b)=>a.tier-b.tier||String(a.fEf).localeCompare(String(b.fEf)));
+  const sol=_plCalcSolidez(PLW.objetivos,PLW.recursos,PLW.cheques,PLW.cajas,PLW.recursosExtra);
   const tierBadge=t=>({1:'🔒 firme',2:'🏭 producido',3:'📦 a producir',4:'🔮 proyectado'})[t]||'';
   const fila=(r,sel)=>{
     const ocupado=usados.has(r.tipo+':'+r.id);
@@ -51274,6 +51532,14 @@ function _plwPaso2(){
     +(sol.b.condicionado>0?'<div style="width:'+pctW(sol.b.condicionado)+'%;background:var(--amber);"></div>':'')
     +(sol.b.proyectado>0?'<div style="width:'+pctW(sol.b.proyectado)+'%;background:var(--text3);"></div>':'')+'</div>';
   h+='<div style="font-size:12px;font-weight:700;color:'+sol.color+';margin-bottom:10px;">'+sol.msg+'</div>';
+  // Aviso: el plan guardado contaba un cheque dos veces (cobrar + descontar). Ya lo sacamos de cobros.
+  if(PLW.dobles&&PLW.dobles.length){
+    const mDob=r2(PLW.dobles.reduce((s,r)=>s+(parseFloat(r.monto)||0),0));
+    h+='<div style="border:1.5px solid var(--red);background:rgba(239,68,68,.08);border-radius:var(--r);padding:8px 10px;margin-bottom:10px;font-size:12px;">'
+      +'<b style="color:var(--red);">⚠ Este plan contaba '+PLW.dobles.length+' cheque'+(PLW.dobles.length===1?'':'s')+' dos veces</b> — figuraba'+(PLW.dobles.length===1?'':'n')+' como <b>cobro</b> y además como <b>cambio de cheque</b>. Es el mismo papel: sumaba $'+mDob.toLocaleString('es-AR')+' de más.'
+      +'<div style="font-size:11px;color:var(--text3);margin-top:4px;">'+PLW.dobles.map(r=>'• '+escapeHtml(String(r.ref||'').slice(0,70))).join('<br>')+'</div>'
+      +'<div style="font-size:11px;margin-top:4px;">Ya '+(PLW.dobles.length===1?'lo saqué':'los saqué')+' de la lista de cobros. Guardá para dejarlo arreglado.</div></div>';
+  }
   // Propuesta (seleccionados) + TODOS los demás recursos (sin recortes, con buscador)
   const q2=(PLW.q||'').toLowerCase();
   const pasa=r=>!q2||String(r.ref).toLowerCase().includes(q2);
@@ -51286,6 +51552,15 @@ function _plwPaso2(){
     +(PLW.q?'<button class="btn btn-sm" onclick="PLW.q=\'\';plwRender()">✕ limpiar</button>':'')+'</div>';
   h+='<div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:3px;">✅ CANASTA PROPUESTA — '+seleccionados.length+' recurso'+(seleccionados.length===1?'':'s')+' · $'+sumar(seleccionados).toLocaleString('es-AR')+' (tocá para sacar)</div>';
   h+=seleccionados.length?'<div style="max-height:200px;overflow:auto;border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;"><table style="width:100%;font-size:12px;"><tbody>'+seleccionados.map(r=>fila(r,true)).join('')+'</tbody></table></div>':'<div class="empty" style="font-size:11px;margin-bottom:8px;">Nada seleccionado — no hay cobros firmes libres que alcancen. Mirá abajo.</div>';
+  // Recursos del plan que ya NO están en el flujo (cobrados / anulados / fuera del horizonte).
+  // No se borran solos: se muestran para que el usuario decida sacarlos o dejarlos.
+  if((PLW.recursosExtra||[]).length){
+    h+='<div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:3px;">📌 EN EL PLAN PERO YA NO ESTÁ EN EL FLUJO — '+PLW.recursosExtra.length+' · $'+r2(PLW.recursosExtra.reduce((s,r)=>s+(parseFloat(r.monto)||0),0)).toLocaleString('es-AR')+'</div>';
+    h+='<div style="font-size:10px;color:var(--text3);margin-bottom:3px;">Normalmente es plata que <b>ya cobraste</b> (por eso desapareció de los pendientes). Se conserva para no romper el historial del plan; sacala con ✕ si ya no aplica.</div>';
+    h+='<div style="border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;"><table style="width:100%;font-size:12px;"><tbody>'
+      +PLW.recursosExtra.map((r,i)=>'<tr><td>💵 '+escapeHtml(String(r.ref||''))+'</td><td class="mono" style="text-align:right;color:var(--green);white-space:nowrap;">$'+r2(r.monto).toLocaleString('es-AR')+'</td><td style="width:26px;text-align:center;cursor:pointer;" onclick="PLW.recursosExtra.splice('+i+',1);plwRender()">✕</td></tr>').join('')
+      +'</tbody></table></div>';
+  }
   h+='<div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:3px;">➕ TODOS los cobros firmes/producidos disponibles — '+masFirmes.length+' · $'+sumar(masFirmes).toLocaleString('es-AR')+(q2?' (filtrados por "'+escapeHtml(PLW.q)+'")':'')+'</div>';
   h+=masFirmes.length?'<div style="max-height:min(34vh,300px);overflow:auto;border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;"><table style="width:100%;font-size:12px;"><tbody>'+masFirmes.map(r=>fila(r,false)).join('')+'</tbody></table></div>':'<div class="empty" style="font-size:11px;margin-bottom:8px;">'+(q2?'Nada matchea la búsqueda.':'No queda ningún cobro firme sin seleccionar.')+'</div>';
   h+='<div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:3px;">📦 BALDE "CONDICIONADO A PRODUCCIÓN" — '+balde.length+' · $'+sumar(balde).toLocaleString('es-AR')+' (nunca cuenta como cobertura segura)</div>';
@@ -51293,7 +51568,7 @@ function _plwPaso2(){
   h+=balde.length?'<div style="max-height:min(26vh,220px);overflow:auto;border:1px solid var(--amberbd);border-radius:var(--r);margin-bottom:8px;"><table style="width:100%;font-size:12px;"><tbody>'+balde.map(r=>fila(r,false)).join('')+'</tbody></table></div>':'<div class="empty" style="font-size:11px;margin-bottom:8px;">Vacío: hoy no hay pedidos pendientes de producir sin otro respaldo.</div>';
   // 💰 Plata que YA tenés en caja/bancos (lo más firme que hay — opt-in, no entra a la propuesta automática)
   const faltan=r2(Math.max(0,sol.totalObj-sol.segura));
-  const cajasDisp=_plCajaDisponibles(PLW.varianteDe).filter(cd=>!PLW.cajas.some(x=>String(x.cuenta_id)===String(cd.id))&&cd.disp>0.01);
+  const cajasDisp=_plCajaDisponibles(_plwExcl()).filter(cd=>!PLW.cajas.some(x=>String(x.cuenta_id)===String(cd.id))&&cd.disp>0.01);
   h+='<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:3px;">💰 PLATA QUE YA TENÉS EN CAJA/BANCOS — la más firme de todas (elegí cuánto usar de cada cuenta)</div>';
   if(PLW.cajas.length){
     h+='<table style="width:100%;font-size:12px;margin-bottom:4px;"><tbody>'+PLW.cajas.map((c,i)=>'<tr><td>💰 Usar de '+escapeHtml(c.nombre)+'</td><td class="mono" style="text-align:right;"><b style="color:var(--green);">$'+r2(c.monto).toLocaleString('es-AR')+'</b> <span style="color:var(--text3);font-size:10px;">de $'+r2(c.disp).toLocaleString('es-AR')+' disponibles</span></td><td style="width:26px;text-align:center;cursor:pointer;" onclick="PLW.cajas.splice('+i+',1);plwRender()">✕</td></tr>').join('')+'</tbody></table>';
@@ -51311,10 +51586,11 @@ function _plwPaso2(){
   h+='</div>';
   // Cambio de cheque
   let chs=[];try{chs=_chequesCartera();}catch(e){}
-  const chLibres=chs.filter(c=>!_plUsadosSet(PLW.varianteDe).has('cheque:'+c.id)&&!PLW.cheques.some(x=>String(x.cheque_id)===String(c.id)));
+  const chLibres=chs.filter(c=>!_plUsadosSet(_plwExcl()).has('cheque:'+c.id)&&!PLW.cheques.some(x=>String(x.cheque_id)===String(c.id)));
   h+='<div style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;"><div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:3px;">🔁 CAMBIO DE CHEQUE (opcional) — cheque en cartera → efectivo, con quita</div>';
+  h+='<div style="font-size:10px;color:var(--text3);margin-bottom:4px;">El cheque que ponés acá <b>desaparece de la lista de cobros</b>: es el mismo papel, no se puede descontar y además esperar a cobrarlo.</div>';
   if(PLW.cheques.length){
-    h+='<table style="width:100%;font-size:12px;margin-bottom:4px;"><tbody>'+PLW.cheques.map((c,i)=>'<tr><td>🔁 '+escapeHtml(c.ref)+'</td><td class="mono" style="text-align:right;">bruto $'+r2(c.bruto).toLocaleString('es-AR')+' − '+c.quita_pct+'% = <b style="color:var(--green);">$'+r2(c.neto).toLocaleString('es-AR')+'</b></td><td style="width:26px;text-align:center;cursor:pointer;" onclick="PLW.cheques.splice('+i+',1);plwRender()">✕</td></tr>').join('')+'</tbody></table>';
+    h+='<table style="width:100%;font-size:12px;margin-bottom:4px;"><tbody>'+PLW.cheques.map((c,i)=>'<tr><td>🔁 '+escapeHtml(c.ref)+'<br><span style="font-size:10px;color:var(--text3);">no figura como cobro (se descuenta)</span></td><td class="mono" style="text-align:right;">bruto $'+r2(c.bruto).toLocaleString('es-AR')+' − '+c.quita_pct+'% = <b style="color:var(--green);">$'+r2(c.neto).toLocaleString('es-AR')+'</b></td><td style="width:26px;text-align:center;cursor:pointer;" onclick="PLW.cheques.splice('+i+',1);plwRender()">✕</td></tr>').join('')+'</tbody></table>';
   }
   if(chLibres.length){
     h+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
@@ -51324,14 +51600,16 @@ function _plwPaso2(){
   }else if(!PLW.cheques.length)h+='<div style="font-size:11px;color:var(--text3);">No hay cheques libres en cartera.</div>';
   h+='</div>';
   h+='<div style="display:flex;justify-content:space-between;margin-top:12px;"><button class="btn btn-sm" onclick="'+(PLW.varianteDe?'plwClose()':'PLW.paso=1;plwRender()')+'">← Volver</button>'
-    +'<div class="btn-grp"><button class="btn btn-sm" onclick="plwProponer();plwRender()" title="Rearmar la propuesta automática">🔁 Reproponer</button>'
+    +'<div class="btn-grp"><button class="btn btn-sm" onclick="plwReproponer()" title="Rearmar la propuesta automática">🔁 Reproponer</button>'
     +'<button class="btn btn-sm btn-primary" onclick="PLW.paso=3;plwRender()">Siguiente →</button></div></div>';
   return h;
 }
 function plwToggleRec(key){
   if(PLW.recursos.has(key)){PLW.recursos.delete(key);plwRender();return;}
   const r=_pcobRecursosDisponibles().find(x=>x.key===key);
-  if(r&&_plUsadosSet(PLW.varianteDe).has(r.tipo+':'+r.id)){
+  // Un cheque que ya elegiste descontar no puede volver como cobro.
+  if(r&&_plwEsChDesc(r,_plwChDescSet())){toast('Ese cheque ya está en "cambio de cheque": no se puede cobrar además','amber');return;}
+  if(r&&_plUsadosSet(_plwExcl()).has(r.tipo+':'+r.id)){
     if(!confirm('⚠ Este cobro ya está earmarkeado en otro plan activo.\n\nContarlo acá también es planificar la MISMA plata dos veces. ¿Agregarlo igual?'))return;
   }
   PLW.recursos.add(key);plwRender();
@@ -51346,7 +51624,7 @@ function plwCajaDefMonto(){
 }
 function plwAddCaja(){
   const sel=document.getElementById('plw-caja-sel');if(!sel||!sel.value)return;
-  const cd=_plCajaDisponibles(PLW.varianteDe).find(x=>String(x.id)===String(sel.value));if(!cd)return;
+  const cd=_plCajaDisponibles(_plwExcl()).find(x=>String(x.id)===String(sel.value));if(!cd)return;
   let m=r2(parseFloat(document.getElementById('plw-caja-monto')?.value)||0);
   if(m<=0){toast('Poné cuánto querés usar','amber');return;}
   if(m>cd.disp+0.01){
@@ -51362,36 +51640,59 @@ function plwAddCheque(){
   const quita=Math.max(0,Math.min(30,parseFloat(document.getElementById('plw-ch-quita')?.value)||0));
   const bruto=r2(parseFloat(ch.monto)||0);
   PLW.cheques.push({cheque_id:ch.id,ref:lcCliNombre(ch.cliente_id)+(ch.banco?' · '+ch.banco:'')+' · vto '+_sfFecha(ch.fecha_vto),bruto,quita_pct:quita,neto:r2(bruto*(1-quita/100))});
+  // Si ese mismo cheque estaba elegido como COBRO, sale: no se descuenta y se cobra a la vez.
+  let sacado=false;
+  Array.from(PLW.recursos).forEach(k=>{const r=_pcobRecursosDisponibles().find(x=>x.key===k);if(r&&r.tipo==='cheque'&&String(r.id)===String(ch.id)){PLW.recursos.delete(k);sacado=true;}});
+  (PLW.recursosExtra||[]).slice().forEach((r,i)=>{if(r.tipo==='cheque'&&String(r.id)===String(ch.id)){PLW.recursosExtra.splice(PLW.recursosExtra.indexOf(r),1);sacado=true;}});
+  if(sacado)toast('Lo saqué de la lista de cobros: el mismo cheque no puede contarse dos veces','amber');
   plwRender();
 }
 function _plwPaso3(){
-  const sol=_plCalcSolidez(PLW.objetivos,PLW.recursos,PLW.cheques,PLW.cajas);
+  const sol=_plCalcSolidez(PLW.objetivos,PLW.recursos,PLW.cheques,PLW.cajas,PLW.recursosExtra);
   const sug='Cubrir '+(PLW.objetivos[0]?PLW.objetivos[0].ref.replace(/^[^\wÁÉÍÓÚáéíóúñÑ]+/,'').slice(0,38):'objetivo')+(PLW.objetivos.length>1?' +'+(PLW.objetivos.length-1):'');
   let letra='A';
   if(PLW.varianteDe){const n=_plCob().filter(x=>x.estado==='activo'&&_plGrupoDe(x)===PLW.varianteDe).length;letra=String.fromCharCode(65+Math.min(n,25));}
   let h='<div class="fg"><label>Nombre del plan</label><input id="plw-nombre" type="text" value="'+escapeHtml(PLW.nombre||sug).replace(/"/g,'&quot;')+'" style="width:100%"></div>';
   if(PLW.varianteDe)h+='<div style="font-size:12px;color:#8b5cf6;margin:4px 0;">Se guarda como <b>Plan '+letra+'</b> (variante latente — no reserva recursos hasta que la actives con ⭐).</div>';
+  if(PLW.editId)h+='<div style="font-size:12px;color:var(--accent);margin:4px 0;">✏ Estás <b>editando</b> el plan existente. Los pasos que ya estaban tildados (cobrado, cheque cambiado) <b>conservan su estado</b>; solo cambia lo que sacaste o agregaste.</div>';
   h+='<div style="font-size:13px;font-weight:700;color:'+sol.color+';margin:10px 0 6px;">'+sol.msg+'</div>';
   const recs=_pcobRecursosDisponibles().filter(r=>PLW.recursos.has(r.key));
   h+='<div style="border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:12px;"><table style="width:100%;font-size:12px;"><tbody>';
   PLW.objetivos.forEach(o=>{h+='<tr style="background:rgba(249,115,22,.06);"><td>🎯 Cubrir: '+escapeHtml(o.ref)+'</td><td class="mono" style="text-align:right;">$'+r2(o.monto).toLocaleString('es-AR')+'</td></tr>';});
   PLW.cajas.forEach(c=>{h+='<tr><td>💰 Usar de '+escapeHtml(c.nombre)+'</td><td class="mono" style="text-align:right;">$'+r2(c.monto).toLocaleString('es-AR')+'</td></tr>';});
   recs.forEach(r=>{h+='<tr><td>💵 Cobrar: '+escapeHtml(r.ref)+'</td><td class="mono" style="text-align:right;">$'+r2(r.saldo).toLocaleString('es-AR')+'</td></tr>';});
+  (PLW.recursosExtra||[]).forEach(r=>{h+='<tr><td>💵 Cobrar: '+escapeHtml(String(r.ref||''))+' <span style="font-size:10px;color:var(--text3);">(fuera del flujo)</span></td><td class="mono" style="text-align:right;">$'+r2(r.monto).toLocaleString('es-AR')+'</td></tr>';});
   PLW.cheques.forEach(c=>{h+='<tr><td>🔁 Cambiar cheque: '+escapeHtml(c.ref)+' (quita '+c.quita_pct+'%)</td><td class="mono" style="text-align:right;">$'+r2(c.neto).toLocaleString('es-AR')+'</td></tr>';});
   h+='</tbody></table></div>';
   h+='<div style="display:flex;justify-content:space-between;"><button class="btn btn-sm" onclick="PLW.paso=2;plwRender()">← Volver</button>'
-    +'<div class="btn-grp"><button class="btn btn-sm btn-primary" onclick="plwGuardar()">💾 Guardar plan</button><span id="plw-msg" style="font-size:11px;"></span></div></div>';
+    +'<div class="btn-grp"><button class="btn btn-sm btn-primary" onclick="plwGuardar()">💾 '+(PLW.editId?'Guardar cambios':'Guardar plan')+'</button><span id="plw-msg" style="font-size:11px;"></span></div></div>';
   return h;
+}
+// Identidad de un paso, para reconocerlo entre la versión vieja y la nueva del plan
+// y NO perder el progreso ya tildado al editar.
+function _plwClavePaso(s){
+  if(s.tipo==='objetivo')return 'obj|'+(s.origen_tipo||'')+'|'+(s.origen_id!=null?s.origen_id:(s.texto||''));
+  if(s.tipo==='cobro')return 'cob|'+(s.origen_tipo||'')+'|'+s.origen_id;
+  if(s.tipo==='cambio_cheque')return 'chq|'+s.cheque_id;
+  if(s.tipo==='uso_caja')return 'caj|'+s.cuenta_id;
+  return 'otro|'+(s.texto||'');
 }
 async function plwGuardar(){
   const msg=document.getElementById('plw-msg');
   PLW.nombre=(document.getElementById('plw-nombre')?.value||'').trim();
   if(!PLW.objetivos.length){if(msg){msg.style.color='var(--red)';msg.textContent='Sin objetivos';}return;}
   const nombre=PLW.nombre||('Plan cobertura '+localDate());
-  const sol=_plCalcSolidez(PLW.objetivos,PLW.recursos,PLW.cheques,PLW.cajas);
-  const recs=_pcobRecursosDisponibles().filter(r=>PLW.recursos.has(r.key));
+  const sol=_plCalcSolidez(PLW.objetivos,PLW.recursos,PLW.cheques,PLW.cajas,PLW.recursosExtra);
+  // Candado final: un cheque a descontar nunca puede figurar tambien como cobro.
+  const chDesc=_plwChDescSet();
+  const recs=_pcobRecursosDisponibles().filter(r=>PLW.recursos.has(r.key)&&!_plwEsChDesc(r,chDesc));
+  const extras=(PLW.recursosExtra||[]).filter(r=>!_plwEsChDesc(r,chDesc));
+  const plOrig=PLW.editId?(C.planes_compra||[]).find(x=>x.id===PLW.editId):null;
+  if(PLW.editId&&!plOrig){if(msg){msg.style.color='var(--red)';msg.textContent='No encuentro el plan que estabas editando';}return;}
+  const dpOrig=(plOrig&&plOrig.datos_plan)||{};
   let letra='A',activo=true;
-  if(PLW.varianteDe){
+  if(PLW.editId){letra=dpOrig.variante||'A';activo=dpOrig.activo!==false;}
+  else if(PLW.varianteDe){
     const n=_plCob().filter(x=>x.estado==='activo'&&_plGrupoDe(x)===PLW.varianteDe).length;
     letra=String.fromCharCode(65+Math.min(n,25));activo=false;
   }
@@ -51399,15 +51700,38 @@ async function plwGuardar(){
   PLW.objetivos.forEach(o=>{pasos.push({id:'c'+orden,orden:orden++,tipo:'objetivo',texto:'Cubrir: '+o.ref+' ($'+r2(o.monto).toLocaleString('es-AR')+')',monto:o.monto,estado:'pendiente',es_mp:!!o.esMP,origen_tipo:o.tipo,origen_id:o.id});});
   PLW.cajas.forEach(c=>{pasos.push({id:'c'+orden,orden:orden++,tipo:'uso_caja',texto:'Usar de '+c.nombre+': $'+r2(c.monto).toLocaleString('es-AR'),monto:c.monto,estado:'pendiente',tier:1,cuenta_id:c.cuenta_id});});
   recs.forEach(r=>{pasos.push({id:'c'+orden,orden:orden++,tipo:'cobro',texto:'Cobrar: '+r.ref+' ($'+r2(r.saldo).toLocaleString('es-AR')+')',monto:r.saldo,estado:'pendiente',tier:r.tier,ref_pedido:(r.tipo==='pedido'?r.id:null),origen_tipo:r.tipo,origen_id:r.id});});
+  extras.forEach(r=>{pasos.push({id:'c'+orden,orden:orden++,tipo:'cobro',texto:'Cobrar: '+r.ref+' ($'+r2(r.monto).toLocaleString('es-AR')+')',monto:r.monto,estado:'pendiente',tier:r.tier||1,ref_pedido:(r.tipo==='pedido'?r.id:null),origen_tipo:r.tipo,origen_id:r.id});});
   PLW.cheques.forEach(c=>{pasos.push({id:'c'+orden,orden:orden++,tipo:'cambio_cheque',texto:'Cambiar cheque: '+c.ref+' → $'+r2(c.neto).toLocaleString('es-AR')+' (quita '+c.quita_pct+'%)',monto:c.neto,estado:'pendiente',tier:1,cheque_id:c.cheque_id,bruto:c.bruto,quita_pct:c.quita_pct});});
+  // Al editar: los pasos que sobreviven conservan su estado (tildes manuales y cierres parciales).
+  if(plOrig){
+    const viejos={};(plOrig.pasos||[]).forEach(s=>{viejos[_plwClavePaso(s)]=s;});
+    pasos.forEach(s=>{const v=viejos[_plwClavePaso(s)];if(!v)return;
+      if(v.estado)s.estado=v.estado;
+      if(v.cobrado_final!=null)s.cobrado_final=v.cobrado_final;});
+  }
   const datos_plan={total_objetivo:r2(sol.totalObj),objetivos:PLW.objetivos,
-    recursos:recs.map(r=>({key:r.key,tipo:r.tipo,id:r.id,ref:r.ref,monto:r.saldo,tier:r.tier})),
+    recursos:recs.map(r=>({key:r.key,tipo:r.tipo,id:r.id,ref:r.ref,monto:r.saldo,tier:r.tier}))
+      .concat(extras.map(r=>({key:r.key,tipo:r.tipo,id:r.id,ref:r.ref,monto:r.monto,tier:r.tier||1,fuera_flujo:true}))),
     cheques:PLW.cheques.map(c=>({cheque_id:c.cheque_id,ref:c.ref,bruto:c.bruto,quita_pct:c.quita_pct,neto:c.neto})),
     cajas:PLW.cajas.map(c=>({cuenta_id:c.cuenta_id,nombre:c.nombre,monto:c.monto})),
     solidez:sol.b,veredicto:sol.estado,generado:localDate(),
-    variante_de:PLW.varianteDe||null,variante:letra,activo,creado_via:'sala'};
-  const registro={nombre,clase:'cobertura',estado:'activo',total_compra:r2(sol.totalObj),snapshot_original:{...datos_plan,pasos:JSON.parse(JSON.stringify(pasos))},datos_plan,pasos};
+    variante_de:PLW.editId?(dpOrig.variante_de||null):(PLW.varianteDe||null),variante:letra,activo,
+    creado_via:PLW.editId?(dpOrig.creado_via||'sala'):'sala'};
+  if(PLW.editId)datos_plan.editado=localDate();
   try{
+    if(PLW.editId){
+      // snapshot_original NO se toca: es el plan tal como se armo, el historial.
+      const{error}=await sb.from('planes_compra').update({nombre,total_compra:r2(sol.totalObj),datos_plan,pasos}).eq('id',PLW.editId);
+      if(error)throw error;
+      const idEd=PLW.editId;
+      toast('✓ Plan actualizado: '+nombre,'green');
+      plwClose();
+      await reload();
+      renderSalaPlanes();
+      pcobVer(idEd);
+      return;
+    }
+    const registro={nombre,clase:'cobertura',estado:'activo',total_compra:r2(sol.totalObj),snapshot_original:{...datos_plan,pasos:JSON.parse(JSON.stringify(pasos))},datos_plan,pasos};
     const{error}=await sb.from('planes_compra').insert(registro);
     if(error)throw error;
     toast('✓ Plan guardado: '+nombre+(PLW.varianteDe?' (variante '+letra+', latente)':''),'green');
