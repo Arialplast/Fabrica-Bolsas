@@ -709,7 +709,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-08-13b</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-08-13e</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -3217,6 +3217,10 @@ body.pext-on .main{margin-left:0!important;}
           <button class="btn btn-sm btn-primary" onclick="aumGuardarPreliminar()">💾 Guardar preliminar</button>
           <button class="btn btn-sm" onclick="aumImprimirPrevia()" title="Hoja de análisis interno: lo programado con su fecha + los borradores que estás afinando, con costo y margen">🖨 Análisis interno</button>
           <button class="btn btn-sm" onclick="aumPartirDeProgramado()" title="Traer a las filas lo que ya está programado, para seguir afinando desde ahí">↩ Partir de lo programado</button>
+          <select id="aum-orden" class="st-sel" style="width:auto;font-size:11px;" onchange="aumSetOrden()" title="El granel se cobra por bolsa y el resto por paquete de 10 o 20: separados no se confunden">
+            <option value="codigo" selected>Orden: por código · granel abajo</option>
+            <option value="kg">Orden: por kilos (el que más pesa primero)</option>
+          </select>
           <button class="btn btn-sm" onclick="aumTodosAlObjetivo()">⇧ Llevar todo al objetivo del tramo</button>
           <button class="btn btn-sm" onclick="aumDescartarBorrador()">🗑 Descartar el borrador</button>
           <div style="flex:1;min-width:120px;"></div>
@@ -5285,7 +5289,11 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-08-13b';  // 13b: EL RENGLON EN $0. German emitio la factura A 0001-00000002 y un renglon (60 paq de la 45X60 x50UND) salio en $0 mientras el mismo producto, en la linea de arriba, iba a $1.178. El precio venia en cero desde el remito, y el sistema no tenia forma de corregirlo: una factura emitida era inmutable, asi que un precio mal cargado obligaba a anular y rehacer. TRES CAMBIOS: (1) boton ✏ en el listado de Facturacion, visible SOLO mientras el comprobante no tenga CAE — una factura sin CAE no existe para ARCA, es un papel del sistema, y se corrige sin nota de credito conservando el numero; apenas ARCA autoriza, el boton desaparece solo y queda NC/ND como unico camino. Se edita el PRECIO, no la cantidad: esas bolsas ya salieron del stock con el remito. (2) La correccion BAJA al remito de origen y al pedido, porque un renglon en cero no ensucia solo el impreso: se lo comen la cuenta corriente, el pipeline de cobranza y la rentabilidad del producto. El vinculo factura->remito se reconstruye del prefijo '[Remito REM-000xx]' de la descripcion mas producto+cantidad+subtotal, consumiendo candidatos, para que dos renglones del MISMO producto en el MISMO remito (120 y 60 paq, justo este caso) no se confundan; si no hay match univoco no se toca nada y se avisa en pantalla. El total del pedido se recalcula desde sus lineas leidas de la base (P1), respetando pct_blanco y con_iva. (3) AVISO PREVENTIVO de precio en $0 al emitir factura y al guardar remito, con nombre y cantidad de cada renglon sin precio: el error se ve antes de que la mercaderia salga del deposito, no cuando el cliente paga de menos.
+const APP_BUILD='2026-08-13e';
+  // 13e: LA LISTA DEL CLIENTE MUESTRA EL PRECIO POR BULTO, NO POR UNIDAD. German: 'quiero sacar el precio por unidad, esa columna no la quiero; en su lugar poné el precio por bulto, en todas las listas'. Tiene sentido comercial: el precio por unidad es un numero de division (531,18/20 = 26,559) que no se usa para nada — nadie compra una bolsa suelta — mientras que el BULTO es la unidad real de despacho y de cotizacion, y es el numero con el que el cliente compara contra la competencia. Cambiado en los DOS lugares donde salia: la columna de la hoja A4/PDF ('Precio por unidad' -> 'Precio por bulto') y el renglon del texto de WhatsApp/Mail ('$ 26,5590 c/u' -> '$ 5.311,80 el bulto de 10 paq'). EL BULTO SE RESUELVE CON LA MISMA REGLA QUE EL RESTO DEL SISTEMA: el paq/bolson ESPECIAL del cliente le gana al del producto (un cliente puede recibir bultos de 12 donde el resto lleva 8). DECISION FINA: _aumPaqBulto devuelve 0 cuando no hay dato cargado, y ahi la celda muestra un guion. getPaqBolsonAplicable cae a 1 por defecto — util para calcular bolsones en una OC, pero en una lista de precios mostrar el precio del paquete bajo el titulo 'por bulto' seria mentirle al cliente. Debajo del precio va, en gris chico, cuantos paquetes tiene el bulto: sin eso el numero no se puede verificar de un vistazo. Los dos campos 'Precio por unidad' que quedan en el archivo son inputs de carga de pedidos y ordenes de corte, no listas: no se tocaron. smoke_aumentos.cjs: 511 + e2e (bulto: hoja A4, texto, paq/bolson especial, granel, y el caso sin bolson cargado).
+  // 13d: EL MISMO ORDEN EN LAS OTRAS DOS TABLAS DE PRECIOS. El 13c ordeno la lista del modulo de Aumentos; German pregunto por 'las listas', y las pantallas donde se cargan los precios BASE — Listas de precios (la General) y Precios por cliente — seguian mostrando C.productos crudo, con el granel mezclado entre los paquetes de 10 y 20. Es el mismo problema y en la pantalla donde mas duele: ahi se carga el precio de todos los productos de una sentada. Ahora las dos usan los helpers globales _prodOrdenados / _prodEsGranel / _prodCodNum / _prodTituloBloque, con el mismo criterio del 13c: paquete arriba, granel abajo, por codigo NUMERICO, y el granel detectado por unidades por paquete (estructural), no por el nombre. UN DETALLE QUE PODRIA HABER ROTO TODO: _prodOrdenados hace slice() ANTES de ordenar. C.productos viene ordenado por codigo desde Supabase y hay selects, buscadores y el margen global que dependen de ese orden; ordenar el array en el lugar los habria desordenado a todos en silencio. El banco e2e verifica explicitamente que C.productos NO se muta. Los colspan del titulo van 10 en Listas de precios y 13 en Precios por cliente — si se agrega o saca una columna hay que actualizarlos. Los otros cuatro C.productos.forEach del archivo no son tablas (inicializan _lpEdicion y aplican el margen global): el orden no les afecta y no se tocaron. smoke_aumentos.cjs: 511 + e2e (tablas de precios: orden, dos titulos, sin mutacion).
+  // 13c: LA LISTA SE ORDENA POR CODIGO, CON EL GRANEL EN SU PROPIO BLOQUE ABAJO. German: 'se podra ordenar por codigo del producto de menor a mayor, y el granel abajo, lo que es por 10 o por 20 que son los que confunden arriba'. La lista venia ordenada por KILOS (el producto que mas pesa primero), util para decidir donde poner el esfuerzo pero pesimo para CARGAR PRECIOS: el granel se cobra POR BOLSA y el resto por paquete de 10 o 20, asi que la columna $/paquete saltaba de $17,50 a $1.341 renglon a renglon — dos numeros pegados que no son comparables se leen como un error de carga y no hay forma de ver de un vistazo si un precio esta bien. AHORA: dos bloques con su titulo ('POR PAQUETE - se cobra el paquete de 10 o 20' y 'A GRANEL - se cobra POR BOLSA', cada uno con su cuenta de productos) y dentro de cada bloque por codigo de MENOR A MAYOR. Dos decisiones que no son obvias: (1) el orden del codigo es NUMERICO, no alfabetico — los codigos son texto con ceros a la izquierda y aunque hoy midan todos 5 caracteres, uno de 4 o de 6 romperia el orden EN SILENCIO; los productos sin codigo van al final, no al principio. (2) el criterio de granel es ESTRUCTURAL, unidades por paquete <= 1, y no el nombre: es justamente el u/paq lo que hace que los precios no se puedan comparar, y un producto sin empaque cargado tambien se cobra por bolsa, asi que cae del lado correcto solo. El orden viejo por kilos queda en un selector al lado de los botones. La hoja de analisis interno se alineo al mismo orden: si saliera distinta a la pantalla, cotejarlas seria buscar renglon por renglon. Como _aumFilas es el unico motor que arma las filas, el orden nuevo llega solo al escalonado, a lo programado, al texto de WhatsApp y a la hoja A4 del cliente. smoke_aumentos.cjs: 511.
+  // 13b: EL RENGLON EN $0. German emitio la factura A 0001-00000002 y un renglon (60 paq de la 45X60 x50UND) salio en $0 mientras el mismo producto, en la linea de arriba, iba a $1.178. El precio venia en cero desde el remito, y el sistema no tenia forma de corregirlo: una factura emitida era inmutable, asi que un precio mal cargado obligaba a anular y rehacer. TRES CAMBIOS: (1) boton ✏ en el listado de Facturacion, visible SOLO mientras el comprobante no tenga CAE — una factura sin CAE no existe para ARCA, es un papel del sistema, y se corrige sin nota de credito conservando el numero; apenas ARCA autoriza, el boton desaparece solo y queda NC/ND como unico camino. Se edita el PRECIO, no la cantidad: esas bolsas ya salieron del stock con el remito. (2) La correccion BAJA al remito de origen y al pedido, porque un renglon en cero no ensucia solo el impreso: se lo comen la cuenta corriente, el pipeline de cobranza y la rentabilidad del producto. El vinculo factura->remito se reconstruye del prefijo '[Remito REM-000xx]' de la descripcion mas producto+cantidad+subtotal, consumiendo candidatos, para que dos renglones del MISMO producto en el MISMO remito (120 y 60 paq, justo este caso) no se confundan; si no hay match univoco no se toca nada y se avisa en pantalla. El total del pedido se recalcula desde sus lineas leidas de la base (P1), respetando pct_blanco y con_iva. (3) AVISO PREVENTIVO de precio en $0 al emitir factura y al guardar remito, con nombre y cantidad de cada renglon sin precio: el error se ve antes de que la mercaderia salga del deposito, no cuando el cliente paga de menos.
   // 10z: EL BORRADOR SIEMPRE GANA AL ENTRAR DESDE EL PANORAMA. German: 'en el pdf si estan pero no en pantalla'. El PDF lee el borrador directo, asi que el borrador EXISTIA — el problema era el camino de entrada: el boton "Armar lista →" del Panorama llama aumAbrirCliente(cliente, sugerido) con el % de "Le toca", y una linea vieja decia 'el % que viene del Panorama pisa al borrador solo si de verdad trajo uno' — o sea, con sugerido > 0 (casi siempre) el borrador NO SE CARGABA y la pantalla mostraba hoy x sugerido. Todo lo armado producto por producto desaparecia de la vista, y el proximo tipeo lo pisaba en la base tambien. Era una decision deliberada de diseño y estaba mal: el sugerido es un punto de partida GENERICO, lo armado es TRABAJO HECHO. Ahora aumAbrirCliente carga siempre el borrador (o la foto pendiente, o la semilla de lo programado) y el % del panorama solo siembra a un cliente que no tiene NADA — ni borrador, ni pasos programados, ni un precio armado. El banco e2e suma dos casos: entrar por el panorama CON borrador (el borrador gana, sug ignorado) y SIN borrador (el sugerido siembra). Tambien se agrego al banco el flujo completo de PANTALLA: editar el precio en el input real de la fila, Guardar preliminar, irse a otro modulo, volver, y hasta un F5 completo — la fila tiene que volver mostrando lo armado en todos los casos. smoke_aumentos.cjs: 504 + e2e 12 casos.
   // 10y: LA PANTALLA TAMPOCO PIERDE LO TIPEADO (el 10x arreglo la mitad). German volvio con capturas: 'no lo trae de nuevo'. Esta vez se armo un banco de pruebas de NAVEGADOR REAL (Playwright + un Supabase simulado en memoria, la pagina entera corriendo) y el caso se reprodujo tal cual: tipear 14% y reabrir el cliente al toque → la BASE recibia el 14 (el 10x funciono)... pero la PANTALLA volvia a mostrar lo viejo. La causa: aumAbrirCliente/aumCambioCliente despachaban la foto pendiente ANTES de restaurar — el flush soltaba la foto de inmediato, la escritura quedaba EN VIAJE, y _aumBorrCargar leia la copia vieja de cfg (que se actualiza recien cuando el upsert aterriza). El usuario veia lo de antes, seguia trabajando sobre eso, y su proximo tipeo pisaba el 14 en la base: perdido con delay. TRES CAMBIOS: (1) _aumBorrFlush NO suelta la foto al despachar sino cuando la escritura ATERRIZA (con guarda de reentrada _aumBorrEnviando y el viaje expuesto en _aumBorrVuelo); si se tipeo algo nuevo mientras viajaba, al aterrizar se despacha lo nuevo. (2) aumAbrirCliente y aumCambioCliente ya no hacen flush ciego: despachan solo si la foto es de OTRO cliente — si es del mismo, la dejan viva para que _aumBorrCargar restaure DESDE LA FOTO, que es lo mas nuevo que existe, este el viaje en el aire o no. (3) Descartar el borrador ademas de matar la foto ESPERA la escritura en viaje, porque si aterrizara despues del borrado lo resucitaria. El banco e2e (e2e/test_borrador.cjs) queda como herramienta: los smoke tests de unidad venian diciendo que todo guardaba bien — y era cierto en el harness; el bug solo existia con la pagina entera y la latencia real de red en el medio. smoke_aumentos.cjs: 504.
   // 10x: EL DEBOUNCE YA NO PIERDE LO TIPEADO. German (con capturas): 'puse 14%, reabri, y esta el 10% de antes — ves, no lo guarda'. Tenia razon y el agujero era fino: el borrador se escribe con 700 ms de respiro, y el timer leia AUM AL DISPARAR. Cualquier cosa que pisara AUM en esos 700 ms —cambiar de cliente (aumCambioCliente resetea pct y ed), salir de la estacion y volver, o reabrir la pantalla (que RECARGA el borrador viejo encima de la memoria)— hacia que el timer escribiera lo VIEJO y el cambio muriera en silencio. Peor: reabrir la pantalla disparaba _aumBorrCargar, que pisaba el 14 con el 10 guardado, y el timer despues escribia ese 10 'fresco'. ARREGLO EN TRES PARTES. (1) La escritura pendiente viaja como FOTO tomada al tipear (_aumBorrPend = {cli,pct,red,ed}): el timer solo despacha la foto, y mutar AUM despues de tipear no cambia lo que se escribe. (2) _aumBorrFlush() despacha la foto YA, y se llama antes de todo lo que pisa la memoria: cambiar de cliente, abrir desde el panorama, recargar el borrador, salir de la estacion, y visibilitychange/pagehide como ultimo recurso ante un F5. Si la recarga es DEL MISMO cliente con foto pendiente, se restaura desde la foto (lo mas nuevo que existe), no desde la base. (3) _aumBorrEscribir RELEE el blob de la base antes de escribir y mergea: el borrador guarda TODOS los clientes en una sola clave de configuracion, y dos estaciones (oficina/planta) se pisaban el trabajo — la que escribia ultima ganaba con su copia vieja. Descartar el borrador mata tambien la foto pendiente, para que el flush no lo resucite. smoke_aumentos.cjs: 501.
@@ -17232,6 +17240,42 @@ function renderListaPrecios(){
   renderTablaLP(listaId);
 }
 // Kg por paquete = peso_por_bolsa × unidades_por_paquete
+// ---- Orden de las tablas de precios (13d) ----
+// Mismo criterio que la lista del modulo de Aumentos (13c): el granel se cobra POR
+// BOLSA y el resto por paquete de 10 o 20, asi que mezclados la columna $/paquete
+// salta de $17,50 a $1.341 renglon a renglon y no se puede leer si un precio esta
+// bien. Van en dos bloques con su titulo, y dentro por codigo.
+// DOS DETALLES QUE NO SON OBVIOS:
+//  - el codigo se compara NUMERICO: es texto con ceros a la izquierda ('00008') y
+//    un codigo de otro largo romperia el orden EN SILENCIO.
+//  - _prodOrdenados hace slice() ANTES de ordenar: C.productos viene ordenado por
+//    codigo desde Supabase y hay selects y buscadores que dependen de ese orden.
+//    Mutarlo aca los desordenaria a todos.
+function _prodEsGranel(p){
+  const emp=(C.emp||[]).find(e=>e.id===(p&&p.empaque_id));
+  return !(((emp&&emp.unidades)||0)>1);
+}
+function _prodCodNum(p){
+  const n=parseInt(String((p&&p.codigo)||'').replace(/\D/g,''),10);
+  return isNaN(n)?Number.MAX_SAFE_INTEGER:n;   // los sin codigo, al final
+}
+function _prodOrdenados(lista){
+  return (lista||[]).slice().sort((a,b)=>{
+    const ga=_prodEsGranel(a)?1:0, gb=_prodEsGranel(b)?1:0;
+    if(ga!==gb)return ga-gb;                   // paquete arriba, granel abajo
+    const na=_prodCodNum(a), nb=_prodCodNum(b);
+    if(na!==nb)return na-nb;
+    return String((a&&a.codigo)||'').localeCompare(String((b&&b.codigo)||''));
+  });
+}
+function _prodTituloBloque(esGranel,n,cols){
+  return '<tr style="background:var(--bg2);"><td colspan="'+cols+'" style="padding:5px 8px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:'
+    +(esGranel?'var(--amber)':'var(--accent)')
+    +';border-top:2px solid var(--border);border-bottom:1px solid var(--border);">'
+    +(esGranel?'▾ A granel · se cobra POR BOLSA':'▴ Por paquete · se cobra el paquete de 10 o 20')
+    +' <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3);">— '
+    +n+' producto(s)</span></td></tr>';
+}
 function lpGetKgPaq(p){
   const emp=C.emp.find(e=>e.id===p.empaque_id);
   const uniPaq=emp?.unidades||0;
@@ -17367,7 +17411,13 @@ function renderTablaLP(listaId){
       +'<th style="padding:6px 8px;text-align:center;font-size:10px">Mg. teórico %</th>'
     +'</tr></thead><tbody>';
 
-  C.productos.forEach(p=>{
+  // paquete arriba, granel abajo, por codigo — igual que la lista de Aumentos (13c)
+  const _prods=_prodOrdenados(C.productos);
+  const _nPaq=_prods.filter(x=>!_prodEsGranel(x)).length, _nGra=_prods.length-_nPaq;
+  let _blq=null;
+  _prods.forEach(p=>{
+    const _g=_prodEsGranel(p);
+    if(_g!==_blq){_blq=_g;html+=_prodTituloBloque(_g,_g?_nGra:_nPaq,10);}
     const kgPaq=lpGetKgPaq(p);
     const costoBolsaReal=lpGetCostoReal(p.id);   // $/bolsa real (igual que módulo costos)
     const costoKgReal=lpGetCostoRealKg(p.id);     // $/kg bolsa real
@@ -17658,7 +17708,13 @@ function renderTablaCP(){
       +'<th style="padding:6px 8px;text-align:center;font-size:10px">×</th>'
     +'</tr></thead><tbody>';
 
-  C.productos.forEach(p=>{
+  // paquete arriba, granel abajo, por codigo — igual que la lista de Aumentos (13c)
+  const _prodsCP=_prodOrdenados(C.productos);
+  const _nPaqCP=_prodsCP.filter(x=>!_prodEsGranel(x)).length, _nGraCP=_prodsCP.length-_nPaqCP;
+  let _blqCP=null;
+  _prodsCP.forEach(p=>{
+    const _gCP=_prodEsGranel(p);
+    if(_gCP!==_blqCP){_blqCP=_gCP;html+=_prodTituloBloque(_gCP,_gCP?_nGraCP:_nPaqCP,13);}
     const kgPaq=lpGetKgPaq(p);
     const costoBolsaReal=lpGetCostoReal(p.id);
     const costoKgReal=lpGetCostoRealKg(p.id);
@@ -17976,6 +18032,7 @@ async function borrarPrecioEspCli(prodId){
 // =================================================================
 let AUM={tab:'panorama',cli:0,meses:12,pct:0,redondeo:0,piso:30,vigencia:null,
          ed:{},quitados:{},extra:{},mostrarKg:false,ordenPan:'margen',qPan:'',
+         orden:'codigo',
          evProd:0,evCli:0,evMeses:12,cfgAbierta:false,venCob:0,b50:false,b50pct:50};
 
 // ---------------- CONFIGURACION DEL COSTO Y DE LA TANDA ----------------
@@ -18300,12 +18357,38 @@ function _aumFilas(cliId){
       prog:_aumProgDe(cliId,pid),dgDesc,dgFactor:_dgFactor(pid),
       tramo:_aumTramo(hoyKg,cp.pleno),objetivoKg:_aumObjetivoKg(hoyKg,cp.pleno)});
   });
-  filas.sort((a,b)=>{
+  filas.sort(_aumCmpFilas);
+  return filas;
+}
+// ---- El orden de la lista ----
+// German: "ordenar por codigo de menor a mayor, y el granel abajo; lo que es por 10
+// o por 20, que son los que confunden, arriba". El granel se vende POR BOLSA y el
+// resto por paquete de 10 o 20: mezclados en una sola tabla, la columna $/paquete
+// salta de $17,50 a $1.341 renglon a renglon y no se puede leer de un vistazo si un
+// precio esta bien. Por eso van en DOS BLOQUES, con su titulo, y dentro de cada uno
+// por codigo. El criterio de granel es ESTRUCTURAL (unidades por paquete), no el
+// nombre: es justamente lo que hace que los precios no se puedan comparar.
+// El orden viejo (por kilos, el que mas pesa primero) queda como opcion.
+function _aumEsGranel(f){return !((f.uniPaq||0)>1);}
+function _aumCodNum(prod){
+  const n=parseInt(String((prod&&prod.codigo)||'').replace(/\D/g,''),10);
+  return isNaN(n)?Number.MAX_SAFE_INTEGER:n;   // los sin codigo, al final
+}
+function _aumCmpFilas(a,b){
+  if(AUM.orden==='kg'){
     const ka=(a.hist?a.hist.paq:0)*(a.kgPaq||0), kb=(b.hist?b.hist.paq:0)*(b.kgPaq||0);
     if(kb!==ka)return kb-ka;
-    return String(a.prod.codigo||'').localeCompare(String(b.prod.codigo||''));
-  });
-  return filas;
+  }else{
+    const ga=_aumEsGranel(a)?1:0, gb=_aumEsGranel(b)?1:0;
+    if(ga!==gb)return ga-gb;              // paquete arriba, granel abajo
+  }
+  const na=_aumCodNum(a.prod), nb=_aumCodNum(b.prod);
+  if(na!==nb)return na-nb;                 // por codigo, NUMERICO: 00008 antes que 00073
+  return String(a.prod.codigo||'').localeCompare(String(b.prod.codigo||''));
+}
+function aumSetOrden(){
+  AUM.orden=(document.getElementById('aum-orden')||{}).value||'codigo';
+  renderAumLista();
 }
 
 // ---- Los numeros de arriba: $/kg ponderado por lo que realmente compra ----
@@ -19660,6 +19743,7 @@ function initAumentos(){
   if(AUM.cli)_aumBorrCargar(AUM.cli);
   const v=document.getElementById('aum-vigencia');if(v&&!v.value)v.value=AUM.vigencia;
   const me=document.getElementById('aum-meses');if(me)me.value=AUM.meses;
+  const or=document.getElementById('aum-orden');if(or)or.value=AUM.orden||'codigo';
   const pk=document.getElementById('aum-piso-kg');if(pk)pk.value=_aumPisoKg()||'';
   _aumCargarCompo().then(()=>{if(AUM.tab==='lista')renderAumLista();});
   _aumCargarHistorial().then(()=>{renderAumBanner();if(AUM.tab==='evolucion')renderAumEvolucion();});
@@ -20337,7 +20421,18 @@ function renderAumLista(){
       +'<th style="padding:6px 8px;text-align:center;font-size:10px;border-left:1px solid var(--border);">🗓 Programado</th>'
       +'<th style="padding:6px 8px;"></th>'
     +'</tr></thead><tbody>';
+  // Titulo de bloque cuando se pasa de PAQUETE a GRANEL: sin la linea, dos precios
+  // que no se pueden comparar quedan pegados y parece un error de carga.
+  let _bloqueGranel=null;
   filas.forEach(f=>{
+    const esGranel=_aumEsGranel(f);
+    if(AUM.orden!=='kg'&&esGranel!==_bloqueGranel){
+      _bloqueGranel=esGranel;
+      html+='<tr style="background:var(--bg2);"><td colspan="13" style="padding:5px 8px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:'+(esGranel?'var(--amber)':'var(--accent)')+';border-top:2px solid var(--border);border-bottom:1px solid var(--border);">'
+        +(esGranel?'\u25be A granel \u00b7 se cobra POR BOLSA':'\u25b4 Por paquete \u00b7 se cobra el paquete de 10 o 20')
+        +' <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3);">\u2014 '
+        +filas.filter(x=>_aumEsGranel(x)===esGranel).length+' producto(s)</span></td></tr>';
+    }
     const mg=f.mgNeto!==null?f.mgNeto:f.mgRep;
     const col=mg===null?'var(--text3)':mg<0?'var(--red)':mg<10?'var(--amber)':'var(--green)';
     const editada=AUM.ed[f.pid]!==undefined;
@@ -20664,6 +20759,17 @@ function _aumEnvioPlan(){
   });
   return {fechas,filas:out,hayFuturo:fechas.length>0};
 }
+// Paquetes por BULTO (bolson) que le aplica a este cliente: el paq/bolson especial
+// del cliente le gana al del producto — misma regla que getPaqBolsonAplicable.
+// Devuelve 0 cuando NO hay dato cargado, y ahi la lista muestra un guion en vez de
+// inventar que el bulto es un paquete: getPaqBolsonAplicable cae a 1 por defecto, y
+// mostrar el precio del paquete bajo el titulo "por bulto" seria mentirle al cliente.
+function _aumPaqBulto(pid,cliId){
+  const prod=(C.productos||[]).find(p=>p.id===pid)||{};
+  const esp=(C.cli_precios_esp||[]).find(x=>x.cliente_id===cliId&&x.producto_id===pid);
+  const n=parseInt((esp&&esp.paquetes_por_bolson)||prod.paquetes_por_bolson||0)||0;
+  return n>0?n:0;
+}
 function _aumTextoLista(){
   const cli=(C.clientes||[]).find(c=>c.id===AUM.cli)||{};
   const emp=getCfg('empresa_razon_social','')||'Nuestra fabrica';
@@ -20679,11 +20785,12 @@ function _aumTextoLista(){
   P.filas.forEach(x=>{
     const f=x.f;
     t+='• '+(f.prod.descripcion||'')+(f.uniPaq?' (paquete de '+f.uniPaq+' u)':'')+'\n';
+    const nBul=_aumPaqBulto(f.pid,AUM.cli);
     const linea=(rot,v)=>{
       if(!(v>0))return '';
-      const bolsa=f.uniPaq>0?r4(v/f.uniPaq):0;
+      const bulto=nBul>0?r2(v*nBul):0;
       let l='   '+rot+': $ '+v.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
-      if(bolsa)l+='  ($ '+bolsa.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:4})+' c/u)';
+      if(bulto)l+='  ($ '+bulto.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})+' el bulto de '+nBul+' paq)';
       if(AUM.mostrarKg&&f.kgPaq>0)l+='  ·  $ '+r2(v/f.kgPaq).toLocaleString('es-AR')+'/kg';
       return l+'\n';
     };
@@ -20760,7 +20867,8 @@ function aumImprimir(){
   const money=v=>v>0?'$ '+v.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—';
   const filasHtml=P.filas.map((x,i)=>{
     const f=x.f;
-    const bolsa=v=>(f.uniPaq>0&&v>0)?r4(v/f.uniPaq):0;
+    const nBulto=_aumPaqBulto(f.pid,AUM.cli);
+    const bulto=v=>(nBulto>0&&v>0)?r2(v*nBulto):0;
     const ultimo=P.hayFuturo?(x.pr[P.fechas[P.fechas.length-1]]||x.base):x.base;
     return '<tr>'
     +'<td style="text-align:center;color:#64748b;font-family:Courier New,monospace;font-size:9pt;">'+String(i+1).padStart(2,'0')+'</td>'
@@ -20774,7 +20882,12 @@ function aumImprimir(){
           return '<td style="text-align:right;font-family:Courier New,monospace;font-weight:'+(cambia?(k===P.fechas.length-1?'700':'600')+';':'400;color:#94a3b8;')+'">'+money(x.pr[fx])+'</td>';
         }).join('')
       :'<td style="text-align:right;font-family:Courier New,monospace;font-weight:700;">'+money(x.base)+'</td>')
-    +'<td style="text-align:right;font-family:Courier New,monospace;">'+(bolsa(ultimo)?'$ '+bolsa(ultimo).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:4}):'—')+'</td>'
+    +'<td style="text-align:right;font-family:Courier New,monospace;">'
+      +(bulto(ultimo)
+        ?'$ '+bulto(ultimo).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})
+          +'<div style="font-size:8pt;color:#94a3b8;font-family:Arial,sans-serif;">'+nBulto+' paq</div>'
+        :'—')
+    +'</td>'
     +(verKg?'<td style="text-align:right;font-family:Courier New,monospace;">'+((f.kgPaq>0&&ultimo>0)?'$ '+r2(ultimo/f.kgPaq).toLocaleString('es-AR',{minimumFractionDigits:2}):'—')+'</td>':'')
   +'</tr>';}).join('');
 
@@ -20830,7 +20943,7 @@ function aumImprimir(){
       +(P.hayFuturo
         ?P.fechas.map(fx=>'<th class="r" style="width:110px;">Desde el '+_aumFechaLarga(fx)+'</th>').join('')
         :'<th class="r" style="width:110px;">Precio por paquete</th>')
-      +'<th class="r" style="width:95px;">Precio por unidad</th>'
+      +'<th class="r" style="width:105px;">Precio por bulto</th>'
       +(verKg?'<th class="r" style="width:90px;">Precio por kg</th>':'')
     +'</tr></thead><tbody>'+filasHtml+'</tbody></table>'
     +'<div class="cond-box"><div class="t">Condiciones</div>'
@@ -20915,8 +21028,17 @@ function aumImprimirPrevia(){
       porProd[h.producto_id].pasos.push(h);
     });
     let filas='',kgCli=0,plataCli=0;
+    // mismo orden que la pantalla: paquete arriba, granel abajo, por codigo.
+    // Si la hoja saliera en otro orden, cotejarla contra la pantalla seria un
+    // trabajo de buscar renglon por renglon.
     Object.values(porProd).sort((a,b)=>{
       const pa=(C.productos||[]).find(x=>x.id===a.pid)||{},pb=(C.productos||[]).find(x=>x.id===b.pid)||{};
+      const ua=((C.emp||[]).find(e=>e.id===pa.empaque_id)||{}).unidades||0;
+      const ub=((C.emp||[]).find(e=>e.id===pb.empaque_id)||{}).unidades||0;
+      const ga=ua>1?0:1, gb=ub>1?0:1;
+      if(ga!==gb)return ga-gb;
+      const na=_aumCodNum(pa), nb=_aumCodNum(pb);
+      if(na!==nb)return na-nb;
       return String(pa.codigo||'').localeCompare(String(pb.codigo||''));}).forEach(P=>{
       const prod=(C.productos||[]).find(x=>x.id===P.pid);if(!prod)return;
       // el borrador va ULTIMO: es el ajuste mas fresco, asi que es el precio final del analisis
