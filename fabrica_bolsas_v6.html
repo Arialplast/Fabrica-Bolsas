@@ -709,7 +709,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-08-10r</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-08-13b</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -3151,6 +3151,7 @@ body.pext-on .main{margin-left:0!important;}
           <button class="btn btn-sm" id="aum-btn-lista" onclick="aumTab('lista')">✏️ Armar la lista</button>
           <button class="btn btn-sm" id="aum-btn-evolucion" onclick="aumTab('evolucion')">📈 Evolución</button>
           <button class="btn btn-sm" id="aum-btn-dg" onclick="aumTab('dg')">🪶 Bajar espesor</button>
+          <button class="btn btn-sm" id="aum-btn-eco" onclick="aumTab('eco')">✂️ Línea ECO</button>
           <button class="btn btn-sm" onclick="aumToggleCfg()">⚙ Costo y tramos</button>
         </div>
       </div>
@@ -3213,8 +3214,13 @@ body.pext-on .main{margin-left:0!important;}
       <!-- TAB armar la lista -->
       <div id="aum-tab-lista" style="display:none;">
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+          <button class="btn btn-sm btn-primary" onclick="aumGuardarPreliminar()">💾 Guardar preliminar</button>
+          <button class="btn btn-sm" onclick="aumImprimirPrevia()" title="Hoja de análisis interno: lo programado con su fecha + los borradores que estás afinando, con costo y margen">🖨 Análisis interno</button>
+          <button class="btn btn-sm" onclick="aumPartirDeProgramado()" title="Traer a las filas lo que ya está programado, para seguir afinando desde ahí">↩ Partir de lo programado</button>
           <button class="btn btn-sm" onclick="aumTodosAlObjetivo()">⇧ Llevar todo al objetivo del tramo</button>
-          <button class="btn btn-sm" onclick="aumLimpiar()">↺ Deshacer los cambios sin guardar</button>
+          <button class="btn btn-sm" onclick="aumDescartarBorrador()">🗑 Descartar el borrador</button>
+          <div style="flex:1;min-width:120px;"></div>
+          <div style="font-size:11px;color:var(--text3);align-self:center;">💾 borrador <span id="aum-borr-est">—</span></div>
         </div>
         <div id="aum-lista"><div class="empty">Elegí un cliente para armar su lista.</div></div>
       </div>
@@ -3238,6 +3244,11 @@ body.pext-on .main{margin-left:0!important;}
       <!-- TAB bajar espesor (downgauge) -->
       <div id="aum-tab-dg" style="display:none;">
         <div id="aum-dg"><div class="loading"><div class="spinner"></div></div></div>
+      </div>
+
+      <!-- TAB linea ECO (acortar la bolsa) -->
+      <div id="aum-tab-eco" style="display:none;">
+        <div id="aum-eco"><div class="loading"><div class="spinner"></div></div></div>
       </div>
     </div>
 
@@ -5274,7 +5285,17 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-08-10r';  // 10r: EL BLOQUEO POR FALTA DE MATERIA PRIMA PASA A SER DURO. El 10q habia agregado el control —no se genera el consumo del componente que falta, la bobina queda costeada de menos y en silencio— pero lo habia dejado saltear con clave de admin, con el argumento de que la planta no puede parar a las 3 de la manana. German lo saco: 'si no hay material en el stock no puedo cargar la bobina; si falta negro o caramelo, o algun componente de la formula de la bobina, no se puede continuar'. Tiene razon y la decision es suya: el que paga una linea parada es el mismo que paga un costo mal calculado, y elige parar. Ademas la asimetria es real — una linea parada se ve y se arregla en minutos; una bobina cargada sin su material NO se puede arreglar despues, porque el consumo no existe y nadie sabe que falto. AHORA: si falta CUALQUIER componente de la formula, no se escribe nada y la pantalla lo dice con nombre y kilos ('COLORANTE AMARILLO — necesita 3,6 kg, hay 0 kg'), con un boton que lleva derecho a cargar el ingreso de MP. Los datos de la bobina quedan en pantalla, asi que no se pierde la carga: se carga la MP y se vuelve a guardar. Se saco el boton 'Cargar igual', la funcion mpForzarCarga, el reintento en window y el texto de observaciones de la bobina forzada — codigo muerto que describe un camino que ya no existe es peor que no tenerlo. LA UNICA EXCEPCION que queda no es un permiso sino un modo de falla: si la CONSULTA de saldos falla (error de red), se deja pasar. Bloquear por un problema de conectividad seria frenar la planta por algo que no tiene nada que ver con el stock. smoke_stock_mp.cjs pasa a 31 asserts: los 21 del comportamiento mas 10 sobre el fuente que verifican que la puerta de salida no exista — que el control corra ANTES del insert, que corte con return, y que no queden ni el boton ni la funcion ni el reintento. Un test de comportamiento no puede probar la ausencia de un boton; por eso esas aserciones son sobre el codigo.
+const APP_BUILD='2026-08-13b';  // 13b: EL RENGLON EN $0. German emitio la factura A 0001-00000002 y un renglon (60 paq de la 45X60 x50UND) salio en $0 mientras el mismo producto, en la linea de arriba, iba a $1.178. El precio venia en cero desde el remito, y el sistema no tenia forma de corregirlo: una factura emitida era inmutable, asi que un precio mal cargado obligaba a anular y rehacer. TRES CAMBIOS: (1) boton ✏ en el listado de Facturacion, visible SOLO mientras el comprobante no tenga CAE — una factura sin CAE no existe para ARCA, es un papel del sistema, y se corrige sin nota de credito conservando el numero; apenas ARCA autoriza, el boton desaparece solo y queda NC/ND como unico camino. Se edita el PRECIO, no la cantidad: esas bolsas ya salieron del stock con el remito. (2) La correccion BAJA al remito de origen y al pedido, porque un renglon en cero no ensucia solo el impreso: se lo comen la cuenta corriente, el pipeline de cobranza y la rentabilidad del producto. El vinculo factura->remito se reconstruye del prefijo '[Remito REM-000xx]' de la descripcion mas producto+cantidad+subtotal, consumiendo candidatos, para que dos renglones del MISMO producto en el MISMO remito (120 y 60 paq, justo este caso) no se confundan; si no hay match univoco no se toca nada y se avisa en pantalla. El total del pedido se recalcula desde sus lineas leidas de la base (P1), respetando pct_blanco y con_iva. (3) AVISO PREVENTIVO de precio en $0 al emitir factura y al guardar remito, con nombre y cantidad de cada renglon sin precio: el error se ve antes de que la mercaderia salga del deposito, no cuando el cliente paga de menos.
+  // 10z: EL BORRADOR SIEMPRE GANA AL ENTRAR DESDE EL PANORAMA. German: 'en el pdf si estan pero no en pantalla'. El PDF lee el borrador directo, asi que el borrador EXISTIA — el problema era el camino de entrada: el boton "Armar lista →" del Panorama llama aumAbrirCliente(cliente, sugerido) con el % de "Le toca", y una linea vieja decia 'el % que viene del Panorama pisa al borrador solo si de verdad trajo uno' — o sea, con sugerido > 0 (casi siempre) el borrador NO SE CARGABA y la pantalla mostraba hoy x sugerido. Todo lo armado producto por producto desaparecia de la vista, y el proximo tipeo lo pisaba en la base tambien. Era una decision deliberada de diseño y estaba mal: el sugerido es un punto de partida GENERICO, lo armado es TRABAJO HECHO. Ahora aumAbrirCliente carga siempre el borrador (o la foto pendiente, o la semilla de lo programado) y el % del panorama solo siembra a un cliente que no tiene NADA — ni borrador, ni pasos programados, ni un precio armado. El banco e2e suma dos casos: entrar por el panorama CON borrador (el borrador gana, sug ignorado) y SIN borrador (el sugerido siembra). Tambien se agrego al banco el flujo completo de PANTALLA: editar el precio en el input real de la fila, Guardar preliminar, irse a otro modulo, volver, y hasta un F5 completo — la fila tiene que volver mostrando lo armado en todos los casos. smoke_aumentos.cjs: 504 + e2e 12 casos.
+  // 10y: LA PANTALLA TAMPOCO PIERDE LO TIPEADO (el 10x arreglo la mitad). German volvio con capturas: 'no lo trae de nuevo'. Esta vez se armo un banco de pruebas de NAVEGADOR REAL (Playwright + un Supabase simulado en memoria, la pagina entera corriendo) y el caso se reprodujo tal cual: tipear 14% y reabrir el cliente al toque → la BASE recibia el 14 (el 10x funciono)... pero la PANTALLA volvia a mostrar lo viejo. La causa: aumAbrirCliente/aumCambioCliente despachaban la foto pendiente ANTES de restaurar — el flush soltaba la foto de inmediato, la escritura quedaba EN VIAJE, y _aumBorrCargar leia la copia vieja de cfg (que se actualiza recien cuando el upsert aterriza). El usuario veia lo de antes, seguia trabajando sobre eso, y su proximo tipeo pisaba el 14 en la base: perdido con delay. TRES CAMBIOS: (1) _aumBorrFlush NO suelta la foto al despachar sino cuando la escritura ATERRIZA (con guarda de reentrada _aumBorrEnviando y el viaje expuesto en _aumBorrVuelo); si se tipeo algo nuevo mientras viajaba, al aterrizar se despacha lo nuevo. (2) aumAbrirCliente y aumCambioCliente ya no hacen flush ciego: despachan solo si la foto es de OTRO cliente — si es del mismo, la dejan viva para que _aumBorrCargar restaure DESDE LA FOTO, que es lo mas nuevo que existe, este el viaje en el aire o no. (3) Descartar el borrador ademas de matar la foto ESPERA la escritura en viaje, porque si aterrizara despues del borrado lo resucitaria. El banco e2e (e2e/test_borrador.cjs) queda como herramienta: los smoke tests de unidad venian diciendo que todo guardaba bien — y era cierto en el harness; el bug solo existia con la pagina entera y la latencia real de red en el medio. smoke_aumentos.cjs: 504.
+  // 10x: EL DEBOUNCE YA NO PIERDE LO TIPEADO. German (con capturas): 'puse 14%, reabri, y esta el 10% de antes — ves, no lo guarda'. Tenia razon y el agujero era fino: el borrador se escribe con 700 ms de respiro, y el timer leia AUM AL DISPARAR. Cualquier cosa que pisara AUM en esos 700 ms —cambiar de cliente (aumCambioCliente resetea pct y ed), salir de la estacion y volver, o reabrir la pantalla (que RECARGA el borrador viejo encima de la memoria)— hacia que el timer escribiera lo VIEJO y el cambio muriera en silencio. Peor: reabrir la pantalla disparaba _aumBorrCargar, que pisaba el 14 con el 10 guardado, y el timer despues escribia ese 10 'fresco'. ARREGLO EN TRES PARTES. (1) La escritura pendiente viaja como FOTO tomada al tipear (_aumBorrPend = {cli,pct,red,ed}): el timer solo despacha la foto, y mutar AUM despues de tipear no cambia lo que se escribe. (2) _aumBorrFlush() despacha la foto YA, y se llama antes de todo lo que pisa la memoria: cambiar de cliente, abrir desde el panorama, recargar el borrador, salir de la estacion, y visibilitychange/pagehide como ultimo recurso ante un F5. Si la recarga es DEL MISMO cliente con foto pendiente, se restaura desde la foto (lo mas nuevo que existe), no desde la base. (3) _aumBorrEscribir RELEE el blob de la base antes de escribir y mergea: el borrador guarda TODOS los clientes en una sola clave de configuracion, y dos estaciones (oficina/planta) se pisaban el trabajo — la que escribia ultima ganaba con su copia vieja. Descartar el borrador mata tambien la foto pendiente, para que el flush no lo resucite. smoke_aumentos.cjs: 501.
+  // 10w: LA LISTA PREVIA TAMBIEN TRAE LOS BORRADORES. German: 'si quiero hacer un solo aumento no lo guarda ni tampoco va al pdf para imprimir; solo guarda los tramos cuando aumento de a tramos'. El diagnostico: el aumento simple que se afina con 💾 Guardar preliminar queda en el BORRADOR (configuracion.aum_borrador) y no en precio_historial — y la hoja de analisis interno (aumImprimirPrevia) miraba SOLO lo programado. El escalonado en cambio programa siempre (su unico boton es 'Programar los N pasos'), por eso a German le parecia que 'solo guarda los tramos': era el unico camino que dejaba huella en la hoja. ARREGLO: la hoja ahora junta las dos cosas — lo PROGRAMADO con su fecha (como siempre) y lo que esta EN BORRADOR, marcado '✏ borrador' en violeta e italica, sin fecha, con su costo y su margen igual que el resto. Para reconstruir la lista de cada cliente desde su borrador se usa el MISMO motor de siempre (_aumFilas con el estado del borrador puesto y restaurado al salir): un solo lugar sabe calcular precios. Un borrador que dice LO MISMO que el ultimo paso programado no se duplica — es la semilla de lo programado, no trabajo nuevo. El resumen de arriba cuenta programados y borradores por separado, y la nota explica la diferencia: el borrador NO tiene fecha, para que rija hay que programarlo. Y como antes la hoja solo se alcanzaba desde el cartel de programados (que no aparece si no hay nada programado), ahora hay un boton 🖨 Analisis interno fijo en la barra de armar la lista. smoke_aumentos.cjs: 487.
+  // 10v: EL ESCALONADO VA DE 2 A 4 PASOS. German: 'el escalonado me permite 2 aumentos no 3'. Estaba clavado en dos tramos, y dos tramos alcanzan cuando el salto total es del 20%; cuando es del 30% o del 40% cada mitad sigue siendo un numero con el que no se puede entrar a la oficina del cliente. Ahora arriba del modal hay tres botones (2 / 3 / 4) y cada paso es su propio cuadro con SU fecha y SU %, presembradas cada 21 dias. El % por defecto reparte el camino en partes MULTIPLICATIVAS, no sumadas: paso = (1+total/100)^(1/N) − 1. Con +29,1% en 3 pasos da 8,9% y no 9,7%, porque los aumentos se componen. TRES REGLAS QUE NO SE MUEVEN, y que son la razon por la que esto no es un simple 'repetir el paso 2': (1) los pasos intermedios se calculan siempre sobre el precio de HOY multiplicado por el factor acumulado, no sobre el redondeado del paso anterior, asi el redondeo no se arrastra escalon a escalon; (2) el ULTIMO paso aterriza EXACTO en el destino elegido (precio de lista, objetivo del tramo, u otro %) — el destino es una decision, no el resultado de una cuenta, y no puede quedar a $3 por acumulacion; (3) un escalon nunca baja respecto del anterior, y un producto que ya llega al destino en el paso 1 no genera fila en los que siguen. El selector de destino vive en el ultimo cuadro (que se pinta en verde y dice FINAL), y el aviso de precios debajo del costo sigue mirando ESE paso y no los intermedios. _aumEscCalcular() devuelve {N,pct[],modo,fechas[],pasos[][]} y ademas p1/p2/f1/f2/paso1/paso2 apuntando al primero y al ULTIMO, para no romper lo que ya leia esos nombres. smoke_aumentos.cjs: 476.
+  // 10u.2: LA FILA PARTE DE LO PROGRAMADO, Y HAY UN GUARDAR A MANO. German: 'la captura tiene que partir de lo que programe, si no no tiene gracia; de ultima pone un boton que diga programa preliminar o algo asi para guardar, estoy afinando numeros'. Las dos cosas son la misma queja de fondo: afinar un precio es ITERATIVO y el sistema lo trataba como un acto unico. (1) Al abrir un cliente sin borrador, las filas ahora arrancan del ULTIMO paso PROGRAMADO en vez del precio de hoy — lo programado es el estado actual de la decision, no un numero al costado que haya que copiar a mano. El borrador guardado le gana a esa semilla, porque es trabajo mas nuevo; y hay un boton ↩ 'Partir de lo programado' para volver a traerlo cuando uno quiera. Efecto lateral bueno: al abrir ya no salta el aviso de desfasaje, porque lo que se ve ES lo programado. (2) 💾 'Guardar preliminar' guarda en el acto y contesta cuantos precios quedaron guardados. No hace nada que el autoguardado no haga: existe porque el autoguardado es invisible y cuando uno esta afinando numeros de los que depende la facturacion del mes quiere apretar algo y que le respondan. (3) El aviso de precios debajo del costo ahora aclara que puede ser a proposito: un escalon intermedio de un cliente al que no se le puede ir con todo el aumento de una. smoke_aumentos.cjs: 452.
+  // 10u.1 (mismo sello): PROGRAMAR AVISA SI UN PRECIO QUEDA DEBAJO DEL COSTO. Lo destapo la hoja de analisis de Quilplast: dos productos habian quedado programados con margen −7,8% y −10,9%. La pantalla lo avisaba mientras se armaba ('2 productos quedan por debajo del costo pleno'), pero el cartel de programar no decia nada — y programar es el momento en que la decision se guarda CON FECHA; el aviso de la pantalla se pudo haber leido media hora antes y con otros numeros. Ahora los dos carteles (un paso y escalonado) listan que producto queda abajo, a cuanto contra su costo y cuanto le falta. En el escalonado se mira el PASO FINAL y no el primero: que el paso 1 quede debajo del piso es el punto del escalonado, pero que el DESTINO quede debajo del costo es un error.
+  // 10u: EL BORRADOR SE GUARDA. German: 'no queda grabado los precios; puse el aumento a Quilplast, ahora reabri y me queda distinto'. Tenia razon y era el agujero de todo el flujo: AUM.ed y AUM.pct vivian SOLO en memoria. Se podia pasar una hora afinando precio por producto, cerrar la pantalla, y no quedaba nada — lo unico que persistia era lo PROGRAMADO y lo aplicado. Eso rompia el paso previo que el mismo habia pedido (armar → mirar → recien despues poner en vigencia): si el 'armar' no sobrevive a cerrar la pantalla, no hay paso previo, hay que decidir todo de una sentada. AHORA se guarda en configuracion.aum_borrador, POR CLIENTE: {pct, red, ed:{prodId: precioPaquete}, ts}. Se escribe con 700 ms de respiro (tipear dispara un render por tecla y no hace falta un viaje por cada uno), se restaura al elegir el cliente y al abrir la pantalla, y la barra muestra 'borrador guardado HH:MM' con un 🗑 para descartarlo. NO toca ningun precio de venta: es lo mismo que estaba en memoria, pero escrito. CUANDO SE LIMPIA: al APLICAR, no al programar. Si se limpiara al programar, la pantalla volveria a mostrar los precios de hoy y pareceria otra vez que se perdio el trabajo. Un borrador vacio no se escribe, y vaciarlo lo elimina, para no dejar basura en configuracion; hay tope de 60 clientes, cae el mas viejo por ts, porque configuracion.valor es un texto y no un baul. smoke_aumentos.cjs: 436.
+  // 10t.1 (mismo sello): APLICAR PASA A SER UNA DECISION, NO UN BOTON. German: 'que si quiero cancelar el segundo paso del aumento pueda; cuando llego a la fecha me tendria que decir aplicamos el segundo tramo, si o no'. Antes 'Aplicar ahora' era un confirm de todo o nada. Ahora abre la lista de lo vencido AGRUPADA por cliente + fecha + paso, con el promedio de aumento de cada grupo. Destildar POSPONE (queda programado y vuelve a aparecer); el ✕ CANCELA (borra ese paso, no se aplica nunca). Son dos cosas distintas y el cartel lo dice, porque un escalonado es una negociacion en dos tiempos y el segundo paso puede no corresponder — el cliente acepto a medias, se pacto correrlo, o se fue. Aplicar los dos automaticamente le sacaba la decision al que la tiene que tomar. // Y LA LISTA PREVIA PARA ANALISIS INTERNO (aumImprimirPrevia): German pidio 'generar una lista previa que quede registrada, y cuando apreto poner en vigencia recien queda fija, y poder imprimirla en forma previa para analisis nuestro'. Las dos primeras cosas ya existian —programar escribe en precio_historial con aplicado=false y no toca un solo precio de venta hasta aplicar— lo que faltaba era la HOJA: A4 apaisada, por cliente, con precio de hoy, los pasos programados con su fecha, el $/kg final, el COSTO PLENO y el MARGEN al lado de cada producto, los kg del periodo y cuanta plata suma cada linea por mes. Las filas que terminan debajo del costo van en rojo. Dice USO INTERNO arriba y abajo: la lista del cliente nunca lleva costos, esta si. Se llega desde el cartel de programados (🖨 Analisis) y desde el modal de aplicar. smoke_aumentos.cjs: 419.
+  // 10s.1 (mismo sello): el nombre del ECO viene PROPUESTO pero se edita. German: 'ponelo preconfigurado pero dejame que lo pueda editar si quiero'. El automatico sigue al largo mientras nadie lo toque; si se escribe uno propio se guarda en el plan y deja de seguirlo — y ahi aparece el unico control que importa: si el nombre no dice la medida que la maquina va a cortar, la fila avisa en rojo ('el nombre dice 80 y la bolsa se corta a 75'). AVISA, NO BLOQUEA: puede haber convenciones de nombre que yo no prevea. Hay un ↺ para volver al automatico, y escribir el nombre automatico a mano hace lo mismo que apretarlo — el nombre propio solo se guarda cuando DIFIERE del automatico, porque guardarlo 'por las dudas' lo congelaria en la primera medida. El cartel de creacion lista los nombres con aviso y frena si dos productos quedarian con el mismo nombre.
 try{console.log('%c🏭 Fábrica de Bolsas — build '+APP_BUILD+' (parciales desde el libro)','color:#22c55e;font-weight:700;font-size:13px;');}catch(e){}
 async function reload(){
   // El flag _historicasCargadas indica si el usuario pidió ver las bobinas viejas.
@@ -6309,6 +6330,8 @@ function elegirEstacion(tipo){
   }
 }
 function salirEstacion(){
+  // si quedo un borrador de precios a medio escribir (los 700 ms), despacharlo
+  try{if(typeof _aumBorrFlush==='function')_aumBorrFlush();}catch(e){}
   cerrarSesionRol();
   // Salir del modo planta de corte si está activo
   if(document.body.classList.contains('pcorte-on')){
@@ -10891,6 +10914,22 @@ async function guardarRemito(){
 
   if(!lineasRemito.length){msg.style.color='var(--red)';msg.textContent='Ingresá al menos un producto a entregar.';return;}
 
+  // ── AVISO DE RENGLÓN EN $0 ───────────────────────────────────────────────
+  // El precio del remito es el que después arrastra la factura, la cuenta
+  // corriente y la rentabilidad. Si sale en cero acá, sale en cero en todos
+  // lados. Mejor frenar antes de que las bolsas salgan del depósito.
+  const _remCeros=lineasRemito.filter(rl=>!((parseFloat(rl.precio_paquete)||0)>0)).map(rl=>{
+    const prod=C.productos.find(p=>p.id===rl.producto_id);
+    return '• '+(prod?.codigo?prod.codigo+' - ':'')+(prod?.descripcion||prod?.nombre||'producto')
+      +' · '+(parseFloat(rl.cantidad_paquetes)||0).toLocaleString('es-AR')+(rl.es_bobina_granel?' kg':' paq');
+  });
+  if(_remCeros.length){
+    const ok=confirm('⚠ PRECIO EN $0\n\nEstos renglones van a salir sin precio:\n\n'
+      +_remCeros.slice(0,10).join('\n')+(_remCeros.length>10?'\n… y '+(_remCeros.length-10)+' más':'')
+      +'\n\nEl remito, la factura y la rentabilidad van a mostrar $0 para esa entrega.\n\n¿Continuar igual?');
+    if(!ok){msg.textContent='';return;}
+  }
+
   // ── Guarda contra SOBRE-ENTREGA ──────────────────────────────────────────
   // No se puede entregar más físico del que existe. físico = disponible + reservado
   // de TODO el producto (la reasignación cubre lo reservado a otros pedidos; lo que
@@ -12906,6 +12945,7 @@ function renderFacturas(){
       +'<td><span style="font-weight:600;font-size:12px;color:'+estCol+'">'+(f.estado||'').toUpperCase()+'</span></td>'
       +'<td style="white-space:nowrap;">'
         +_caeBotones('factura',f)
+        +(_facturaEditable(f)?'<button class="btn btn-sm" onclick="abrirEditarFactura('+f.id+')" title="Corregir precios — solo mientras no tenga CAE">✏</button> ':'')
         +'<button class="btn btn-sm" onclick="imprimirFactura('+f.id+')">🖨</button> '
         +(_estadoFactura(f)!=='anulada' ? '<button class="btn btn-sm" onclick="abrirNotaCredito(\'factura\','+f.id+')">NC</button> ':'')
         +(_estadoFactura(f)!=='anulada' ? '<button class="btn btn-sm" onclick="abrirNotaDebito(\'factura\','+f.id+')">ND</button> ':'')
@@ -12927,6 +12967,278 @@ async function anularFactura(id){
     await reload();
     renderFacturas();
     renderRemitosPendientes();
+  });
+}
+
+// =================================================================
+// ======= EDITAR FACTURA SIN CAE — corregir precios mal puestos ====
+// =================================================================
+// Una factura SIN CAE todavía no existe para ARCA: es un papel del sistema.
+// Mientras esté en ese estado se corrige y listo. Una vez autorizada, el único
+// camino es nota de crédito/débito — por eso el botón desaparece solo.
+//
+// La CANTIDAD no se toca acá: esas bolsas ya salieron del stock con el remito.
+// Lo que se corrige es el PRECIO, que es lo que se carga mal.
+//
+// La corrección baja al remito de origen (y opcionalmente al pedido) porque un
+// renglón en $0 no ensucia solo el impreso: se lo comen la cuenta corriente, el
+// pipeline de cobranza y la rentabilidad del producto. Dos documentos que dicen
+// distinto sobre la misma entrega es exactamente lo que no puede pasar.
+
+let _efCtx={facId:null,lineas:[],map:[],calc:null};
+
+function _facturaEditable(f){
+  if(!f)return false;
+  if(f.cae)return false;                        // ya autorizada por ARCA
+  const st=_caeEstado(f);
+  if(st.cod==='procesando')return false;         // no se sabe si se emitió: verificar primero
+  if(_estadoFactura(f)==='anulada')return false;
+  return true;
+}
+
+// Reconstruye el vínculo renglón de factura → renglón de remito.
+// Las líneas se crearon con la descripción '[Remito REM-00xxx] cod - nombre', así
+// que el remito sale del texto y el renglón se busca por producto + cantidad +
+// subtotal, consumiendo candidatos para que dos renglones iguales se emparejen
+// uno a uno. Si no hay match, esa línea no se propaga y se avisa en pantalla:
+// más vale no tocar el remito que tocar el renglón equivocado.
+function _efMapearRemitos(lineas){
+  const usados={};
+  return (lineas||[]).map(l=>{
+    const m=String(l.descripcion||'').match(/^\[Remito ([^\]]+)\]/);
+    if(!m)return null;
+    const numRem=m[1].trim();
+    const rem=(C.remitos||[]).find(r=>(r.numero_remito||('#'+r.id))===numRem);
+    if(!rem)return null;
+    const cand=(rem.remito_lineas||[]).filter(rl=>
+      !usados[rl.id]
+      && String(rl.producto_id||'')===String(l.producto_id||'')
+      && Math.abs((parseFloat(rl.cantidad_paquetes)||0)-(parseFloat(l.cantidad)||0))<0.001
+      && Math.abs((parseFloat(rl.subtotal)||0)-(parseFloat(l.subtotal)||0))<0.01
+    );
+    if(!cand.length)return null;
+    usados[cand[0].id]=true;
+    return {remito:rem,linea:cand[0]};
+  });
+}
+
+function _efPedidoLinea(id){
+  if(!id)return null;
+  for(const p of (C.pedidos||[])){
+    const l=(p.pedido_lineas||[]).find(x=>x.id===id);
+    if(l)return l;
+  }
+  return null;
+}
+
+function abrirEditarFactura(facId){
+  const f=(C.facturas||[]).find(x=>x.id===facId);
+  if(!f){toast('No se encontró la factura','red');return;}
+  if(!_facturaEditable(f)){
+    toast(f.cae?'Ya tiene CAE: se corrige con nota de crédito':'No se puede editar en este estado','amber');
+    return;
+  }
+  const lineas=(f.factura_lineas||[]).slice()
+    .sort((a,b)=>(parseFloat(a.orden_visual)||0)-(parseFloat(b.orden_visual)||0));
+  if(!lineas.length){toast('La factura no tiene renglones cargados','amber');return;}
+  const map=_efMapearRemitos(lineas);
+  _efCtx={facId:facId,lineas:lineas,map:map,calc:null};
+
+  const nombre=f.razon_social_cliente||(f.clientes&&(f.clientes.razon_social||f.clientes.nombre))||'';
+  const numero=f.numero||('#'+f.id);
+  const sinMapa=map.filter(m=>!m).length;
+  const conPed=map.filter(m=>m&&m.linea&&m.linea.pedido_linea_id).length;
+  const cobrado=_aplicadoAFactura(f.id);
+
+  let h='<div class="modal-overlay" id="ef-modal"><div class="modal-card" style="max-width:820px;max-height:90vh;overflow:auto;">';
+  h+='<div class="modal-title">✏ Corregir precios — Factura '+f.tipo+' '+escapeHtml(numero)+'</div>';
+  h+='<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Cliente: <b>'+escapeHtml(nombre)+'</b> · Fecha '+escapeHtml(f.fecha||'')+' · Total actual $'+((parseFloat(f.total)||0)).toLocaleString('es-AR')+'</div>';
+  h+='<div style="font-size:11px;color:#065f46;background:#d1fae5;border-radius:6px;padding:7px 10px;margin-bottom:10px;">Esta factura <b>todavía no tiene CAE</b>: no fue declarada a ARCA, así que se puede corregir sin nota de crédito y conserva el mismo número.</div>';
+  if(cobrado>0.009)
+    h+='<div style="font-size:11px;color:#92400e;background:#fef3c7;border-radius:6px;padding:7px 10px;margin-bottom:10px;">Ojo: esta factura ya tiene $'+cobrado.toLocaleString('es-AR')+' aplicados (cobros o NC). El saldo se recalcula solo, pero revisá que el cobro siga teniendo sentido.</div>';
+
+  h+='<div style="font-size:11px;color:var(--text3);margin-bottom:6px;">La cantidad viene del remito (esas bolsas ya salieron de stock) — acá solo se corrige el precio. Si hay que cambiar cantidades, anulá la factura y corregí el remito.</div>';
+  h+='<div style="overflow-x:auto;"><table style="width:100%;font-size:12px;">'
+    +'<thead><tr style="color:var(--text3);font-size:10px;text-align:left;">'
+    +'<th>Producto</th><th style="text-align:right;">Cant.</th><th style="text-align:right;">$ unitario</th><th style="text-align:right;">Subtotal</th><th>Origen</th>'
+    +'</tr></thead><tbody>';
+  lineas.forEach((l,i)=>{
+    const pu=parseFloat(l.precio_unitario)||0;
+    const cant=parseFloat(l.cantidad)||0;
+    const m=map[i];
+    h+='<tr>'
+      +'<td style="max-width:280px;">'+escapeHtml(l.descripcion||'')
+        +'<span id="ef-warn-'+i+'" style="display:'+(pu>0?'none':'')+';color:var(--red);font-weight:700;"> · en $0</span></td>'
+      +'<td style="text-align:right;" class="mono">'+cant.toLocaleString('es-AR')+'</td>'
+      +'<td style="text-align:right;"><input type="number" id="ef-pu-'+i+'" value="'+pu+'" min="0" step="0.0001" style="width:110px;text-align:right;" oninput="efCalc()"></td>'
+      +'<td style="text-align:right;" class="mono" id="ef-sub-'+i+'">'+fmtMoney(r2(cant*pu))+'</td>'
+      +'<td style="font-size:10px;color:var(--text3);">'+(m?escapeHtml(m.remito.numero_remito||('#'+m.remito.id))+(m.linea.pedido_linea_id?' · pedido':''):'<span style="color:var(--amber)">sin vínculo</span>')+'</td>'
+      +'</tr>';
+  });
+  h+='</tbody></table></div>';
+
+  h+='<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;">';
+  h+='<div style="font-size:12px;min-width:260px;">'
+    +'<label style="display:block;margin-bottom:5px;cursor:pointer;"><input type="checkbox" id="ef-prop-rem" checked> Corregir también el <b>remito</b> de origen</label>'
+    +'<label style="display:block;margin-bottom:5px;cursor:pointer;"><input type="checkbox" id="ef-prop-ped"'+(conPed?' checked':' disabled')+'> y el <b>pedido</b> (rentabilidad y cobranza)</label>'
+    +(sinMapa?'<div style="font-size:11px;color:var(--amber);margin-top:4px;">'+sinMapa+' renglón(es) sin vínculo al remito: se corrigen solo en la factura.</div>':'')
+  +'</div>';
+  h+='<div style="min-width:250px;">'
+    +'<table style="width:100%;font-size:12px;">'
+    +'<tr><td>Neto gravado</td><td style="text-align:right;" class="mono" id="ef-neto">—</td></tr>'
+    +'<tr><td>IVA</td><td style="text-align:right;" class="mono" id="ef-iva">—</td></tr>'
+    +'<tr><td>Percepciones</td><td style="text-align:right;" class="mono" id="ef-perc">—</td></tr>'
+    +'<tr><td style="font-weight:700;font-size:15px;padding-top:6px;">TOTAL</td><td style="text-align:right;font-weight:700;font-size:15px;padding-top:6px;" class="mono" id="ef-total">—</td></tr>'
+    +'<tr><td colspan="2" style="text-align:right;font-size:11px;color:var(--text3);" id="ef-delta"></td></tr>'
+    +'</table>'
+  +'</div>';
+  h+='</div>';
+
+  h+='<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">'
+    +'<button class="btn btn-sm" onclick="document.getElementById(\'ef-modal\').remove()">Cancelar</button>'
+    +'<button class="btn btn-sm btn-primary" onclick="guardarEditarFactura()">Guardar corrección</button>'
+  +'</div>';
+  h+='<div id="ef-msg" style="font-size:12px;margin-top:8px;"></div>';
+  h+='</div></div>';
+  document.getElementById('ef-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',h);
+  efCalc();
+}
+
+function efCalc(){
+  const f=(C.facturas||[]).find(x=>x.id===_efCtx.facId);
+  if(!f)return;
+  let neto=0;
+  _efCtx.lineas.forEach((l,i)=>{
+    const el=document.getElementById('ef-pu-'+i);
+    const pu=parseFloat(el?.value);
+    const cant=parseFloat(l.cantidad)||0;
+    const sub=r2(cant*(isNaN(pu)?0:pu));
+    neto+=sub;
+    const c=document.getElementById('ef-sub-'+i); if(c)c.textContent=fmtMoney(sub);
+    const w=document.getElementById('ef-warn-'+i); if(w)w.style.display=(isNaN(pu)||pu<=0)?'':'none';
+  });
+  neto=r2(neto);
+  const alic=f.tipo==='A'?((parseFloat(f.iva_porcentaje)||21)):0;
+  const iva=r2(neto*alic/100);
+  const perc=parseFloat(f.percepciones)||0;
+  const total=r2(neto+iva+perc);
+  const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  set('ef-neto',fmtMoney(neto)); set('ef-iva',fmtMoney(iva)); set('ef-perc',fmtMoney(perc)); set('ef-total',fmtMoney(total));
+  const dif=r2(total-(parseFloat(f.total)||0));
+  const d=document.getElementById('ef-delta');
+  if(d)d.innerHTML=Math.abs(dif)<0.01?'sin cambios en el total'
+    :('<span style="color:'+(dif>0?'var(--green)':'var(--red)')+';font-weight:600;">'+(dif>0?'+':'')+fmtMoney(dif)+' vs. el total actual</span>');
+  _efCtx.calc={neto,iva,perc,total};
+}
+
+// Recalcula la cabecera del pedido desde sus líneas (P1: el total es derivado,
+// nunca un número guardado a mano). Se leen las líneas de la base, no del caché,
+// porque el caché todavía tiene los precios viejos.
+async function _efRecalcPedido(pedId){
+  const p=(C.pedidos||[]).find(x=>x.id===pedId);
+  if(!p)return;
+  const {data:ls,error}=await sb.from('pedido_lineas').select('subtotal_linea,estado_linea,observaciones').eq('pedido_id',pedId);
+  if(error)throw error;
+  const vivas=(ls||[]).filter(l=>!_lineaCancelada(l));
+  const sub=r2(vivas.reduce((s,l)=>s+(parseFloat(l.subtotal_linea)||0),0));
+  const pctB=(p.pct_blanco===null||p.pct_blanco===undefined||isNaN(parseFloat(p.pct_blanco)))?100:parseFloat(p.pct_blanco);
+  const alic=parseFloat(p.porcentaje_iva)||0;
+  const iva=p.con_iva?r2(sub*pctB/100*alic/100):0;
+  const {error:e2}=await sb.from('pedidos').update({subtotal:sub,total_iva:iva,total:r2(sub+iva)}).eq('id',pedId);
+  if(e2)throw e2;
+}
+
+async function guardarEditarFactura(){
+  const f=(C.facturas||[]).find(x=>x.id===_efCtx.facId);
+  const msg=document.getElementById('ef-msg');
+  if(!f){if(msg){msg.style.color='var(--red)';msg.textContent='No se encontró la factura.';}return;}
+  if(!_facturaEditable(f)){if(msg){msg.style.color='var(--red)';msg.textContent='La factura cambió de estado: cerrá y volvé a abrir.';}return;}
+
+  const nuevos=_efCtx.lineas.map((l,i)=>{
+    const v=parseFloat(document.getElementById('ef-pu-'+i)?.value);
+    return isNaN(v)?null:v;
+  });
+  if(nuevos.some(x=>x===null||x<0)){
+    if(msg){msg.style.color='var(--red)';msg.textContent='Hay un precio vacío o negativo.';}
+    return;
+  }
+  const cambiadas=nuevos.map((pu,i)=>Math.abs(pu-(parseFloat(_efCtx.lineas[i].precio_unitario)||0))>0.000001?i:-1).filter(i=>i>=0);
+  if(!cambiadas.length){
+    if(msg){msg.style.color='var(--amber)';msg.textContent='No cambiaste ningún precio.';}
+    return;
+  }
+  const ceros=nuevos.filter(x=>!(x>0)).length;
+  if(ceros&&!confirm('Quedan '+ceros+' renglón(es) en $0.\n\n¿Guardar igual?'))return;
+
+  efCalc();
+  const cal=_efCtx.calc;
+  const propRem=!!document.getElementById('ef-prop-rem')?.checked;
+  const propPed=!!document.getElementById('ef-prop-ped')?.checked;
+
+  pedirAdminYEjecutar(async()=>{
+    const m2=document.getElementById('ef-msg');
+    if(m2){m2.style.color='var(--text2)';m2.textContent='Guardando…';}
+    try{
+      // 1) Renglones de la factura
+      for(const i of cambiadas){
+        const l=_efCtx.lineas[i], pu=nuevos[i];
+        const cant=parseFloat(l.cantidad)||0;
+        const {error}=await sb.from('factura_lineas')
+          .update({precio_unitario:pu,subtotal:r2(cant*pu)}).eq('id',l.id);
+        if(error)throw error;
+      }
+      // 2) Cabecera de la factura. El saldo se reconstruye desde lo ya aplicado.
+      const aplicado=_aplicadoAFactura(f.id);
+      const {error:e2}=await sb.from('facturas').update({
+        subtotal:cal.neto,iva_monto:cal.iva,total:cal.total,saldo:r2(cal.total-aplicado)
+      }).eq('id',f.id);
+      if(e2)throw e2;
+
+      // 3) Remito de origen y pedido
+      let remTocados=0, pedTocadas=0, sinVinculo=0;
+      const pedidos={};
+      if(propRem){
+        for(const i of cambiadas){
+          const mp=_efCtx.map[i], pu=nuevos[i];
+          if(!mp){sinVinculo++;continue;}
+          const cantR=parseFloat(mp.linea.cantidad_paquetes)||0;
+          const {error:e3}=await sb.from('remito_lineas')
+            .update({precio_paquete:pu,subtotal:r2(cantR*pu)}).eq('id',mp.linea.id);
+          if(e3)throw e3;
+          remTocados++;
+          if(propPed&&mp.linea.pedido_linea_id){
+            const pl=_efPedidoLinea(mp.linea.pedido_linea_id);
+            if(pl){
+              const uni=parseFloat(pl.unidades_paquete)||0;
+              const cantP=parseFloat(pl.cantidad)||0;
+              const {error:e4}=await sb.from('pedido_lineas').update({
+                precio_paquete:pu,
+                precio_unitario:uni>0?(pu/uni):pu,
+                subtotal_linea:r2(cantP*pu)
+              }).eq('id',pl.id);
+              if(e4)throw e4;
+              pedTocadas++;
+              if(pl.pedido_id)pedidos[pl.pedido_id]=true;
+            }
+          }
+        }
+        for(const pid of Object.keys(pedidos)){ await _efRecalcPedido(parseInt(pid)); }
+      }
+
+      document.getElementById('ef-modal')?.remove();
+      await reload();
+      try{renderFacturas();}catch(e){}
+      try{renderRemitosPendientes();}catch(e){}
+      toast('✓ Factura '+(f.numero||('#'+f.id))+' corregida'
+        +(remTocados?' · '+remTocados+' renglón(es) del remito':'')
+        +(pedTocadas?' · '+Object.keys(pedidos).length+' pedido(s)':'')
+        +(sinVinculo?' · '+sinVinculo+' sin vínculo al remito':''),'green');
+    }catch(err){
+      const m3=document.getElementById('ef-msg');
+      if(m3){m3.style.color='var(--red)';m3.textContent='Error: '+(err&&err.message?err.message:err);}
+      else toast('Error al corregir la factura','red');
+    }
   });
 }
 
@@ -13030,6 +13342,32 @@ async function guardarFactura(){
   const msg=document.getElementById('msg-nf');
   if(!_facCtx.cliente){msg.style.color='var(--red)';msg.textContent='Falta cliente.';return;}
   if(!_facCtx.remitosSel.length){msg.style.color='var(--red)';msg.textContent='Seleccioná al menos un remito.';return;}
+
+  // ── AVISO DE RENGLÓN EN $0 ───────────────────────────────────────────────
+  // Un renglón sin precio en una factura es mercadería regalada, y no se nota
+  // hasta que el cliente paga menos de lo que salió del depósito. Se avisa
+  // ANTES de emitir, con nombre y apellido de qué producto viene en cero.
+  const _ceros=[];
+  _facCtx.remitosSel.forEach(rid=>{
+    const rem=(C.remitos||[]).find(r=>r.id===rid);
+    if(!rem)return;
+    (rem.remito_lineas||[]).forEach(l=>{
+      const cant=parseFloat(l.cantidad_paquetes)||0;
+      const pu=parseFloat(l.precio_paquete)||(cant>0?(parseFloat(l.subtotal)||0)/cant:0);
+      if(pu>0)return;
+      const prod=l.productos||C.productos.find(p=>p.id===l.producto_id);
+      _ceros.push('• '+(rem.numero_remito||('#'+rem.id))+' · '
+        +(prod?.codigo?prod.codigo+' - ':'')+(prod?.nombre||prod?.descripcion||'producto')
+        +' · '+cant.toLocaleString('es-AR')+' paq');
+    });
+  });
+  if(_ceros.length){
+    const ok=confirm('⚠ PRECIO EN $0\n\nEstos renglones van a salir facturados sin precio:\n\n'
+      +_ceros.slice(0,10).join('\n')+(_ceros.length>10?'\n… y '+(_ceros.length-10)+' más':'')
+      +'\n\nSi es un error, cancelá y corregí el precio en el remito o en el pedido.\n\n¿Emitir igual la factura?');
+    if(!ok){msg.textContent='';return;}
+  }
+
   msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Guardando…</div>';
 
   const cli=_facCtx.cliente;
@@ -13441,7 +13779,23 @@ async function _arcaInvoke(body){
   const fn=_arcaFn();
   const{data,error}=await sb.functions.invoke(fn,{body});
   if(error){
-    const m=String(error.message||error);
+    // supabase-js convierte CUALQUIER respuesta que no sea 2xx en un error
+    // genérico ("non-2xx status code") y DESCARTA el cuerpo — que es justo donde
+    // viene el motivo. Acá se recupera de error.context, que es la Response
+    // original. Un error que tapa el error obliga a adivinar, y adivinar sobre
+    // un comprobante fiscal es lo último que queremos.
+    let _cuerpo=null,_status=null;
+    try{
+      if(error.context&&typeof error.context.clone==='function'){
+        _status=error.context.status;
+        _cuerpo=await error.context.clone().json().catch(async()=>{
+          const t=await error.context.clone().text().catch(()=>null);
+          return t?{error:t.slice(0,500)}:null;
+        });
+      }
+    }catch(e){}
+    if(_cuerpo&&(_cuerpo.error||_cuerpo.ok===false)) return Object.assign({ok:false},_cuerpo);
+    const m=String(error.message||error)+(_status?' (HTTP '+_status+')':'');
     // El 404 es el error mas probable la primera vez y no se explica solo:
     // la funcion existe pero con OTRO nombre en la URL.
     if(/not found|404/i.test(m)){
@@ -13450,7 +13804,7 @@ async function _arcaInvoke(body){
         +'y escribí ESE nombre en el campo "Nombre de la función" de esta misma pantalla.'};
     }
     // Un error de transporte NO significa que no se haya emitido. Se dice así.
-    return {ok:false,error:'No se pudo hablar con la función "'+fn+'": '+m,transporte:true};
+    return {ok:false,error:'No se pudo hablar con la función "'+fn+'": '+m+'\n\nMirá el detalle en Supabase → Edge Functions → '+fn+' → Logs.',transporte:true};
   }
   return data||{ok:false,error:'La función no devolvió nada'};
 }
@@ -13496,6 +13850,7 @@ async function solicitarCAE(docTipo,docId){
     alert('OJO: el intento anterior SÍ había emitido este comprobante.\n\nSe recuperó en vez de emitir uno nuevo — no hay duplicado.\n\n'+(data.cae?('CAE '+data.cae):'(modo prueba, sin CAE)'));
   }
   if(data.aviso_total) alert(data.aviso_total);
+  if(data.aviso_sql) alert(data.aviso_sql);
 
   if(data.modo_prueba){
     toast('🧪 Comprobante de PRUEBA generado'+(data.numero?' · Nº '+data.numero:'')+' — sin CAE, sin validez fiscal','blue');
@@ -18190,6 +18545,15 @@ function _aumProgDe(cliId,prodId){
   return _aumProgPend().filter(h=>h.cliente_id===cliId&&h.producto_id===prodId)
     .sort((a,b)=>String(a.vigencia_desde).localeCompare(String(b.vigencia_desde))||((a.paso||0)-(b.paso||0)));
 }
+// ¿El precio que se esta armando en la fila coincide con el ULTIMO paso programado?
+// Solo tiene sentido preguntarlo si de verdad se armo un precio nuevo: si la fila
+// esta igual que hoy, que lo programado difiera es lo normal (es el precio futuro).
+function _aumProgDesfasado(f){
+  if(!f||!f.prog||!f.prog.length)return false;
+  if(!(f.nuevoPaq>0)||r2(f.nuevoPaq)===r2(f.hoyPaq))return false;
+  const ult=f.prog[f.prog.length-1];
+  return Math.abs(r2(ult.precio_paquete_nuevo||0)-r2(f.nuevoPaq))>0.01;
+}
 function _aumProgVencidos(){
   const hoy=localDate();
   return _aumProgPend().filter(h=>String(h.vigencia_desde)<=hoy);
@@ -18200,9 +18564,47 @@ function _aumProgProximos(){
 }
 function _aumFechaLargaSafe(d){try{return _aumFechaLarga(d);}catch(e){return String(d||'');}}
 
+// Cuantos de los precios que se van a programar quedan DEBAJO del costo pleno.
+// La pantalla ya lo avisa mientras se arma, pero programar es el momento en que la
+// decision se guarda con fecha: si no se pregunta aca, el aviso se puede haber
+// leido hace media hora y con otros numeros.
+function _aumBajoCosto(filas){
+  const malos=[];
+  (filas||[]).forEach(f=>{
+    const prod=(C.productos||[]).find(p=>p.id===f.pid);if(!prod)return;
+    const kgPaq=lpGetKgPaq(prod);if(!(kgPaq>0))return;
+    const kg=r2((parseFloat(f.paq)||0)/kgPaq);
+    const cp=_aumCostoPlenoKg(f.pid);
+    if(cp.pleno>0&&kg>0&&kg<cp.pleno)
+      malos.push({cod:String(prod.codigo||''),kg,pleno:cp.pleno,
+        falta:r1((cp.pleno/kg-1)*100)});
+  });
+  return malos;
+}
+function _aumTextoBajoCosto(malos){
+  if(!malos.length)return '';
+  return '\n\n⚠ '+malos.length+' precio(s) quedan POR DEBAJO DEL COSTO:\n'
+    +malos.slice(0,6).map(m=>'   · '+m.cod+' — $ '+m.kg.toLocaleString('es-AR')+'/kg contra un costo de $ '
+      +m.pleno.toLocaleString('es-AR')+' (le falta +'+m.falta+'%)').join('\n')
+    +(malos.length>6?'\n   ... y '+(malos.length-6)+' más':'')
+    +'\nCon esos precios cada kilo que entregás te saca plata.\n'
+    +'(Si es a propósito —un escalón intermedio de un cliente al que no le podés ir\n'
+    +' con todo el aumento de una— seguí: queda programado igual.)\n';
+}
+
 // Guardar la lista PROGRAMADA (uno o varios pasos). No escribe precios.
-async function _aumProgGuardar(cliId,pasos){
+async function _aumProgGuardar(cliId,pasos,reemplazar){
   // pasos = [{fecha, filas:[{pid, paq, kg}]}]
+  // `reemplazar`: borra las programaciones pendientes del cliente antes de escribir.
+  // Sin esto, reprogramar un cliente DEJA las viejas y quedan dos precios distintos
+  // para el mismo producto y fecha — y al aplicar gana el que el orden decida.
+  if(reemplazar){
+    const pend=_aumProgPend().filter(h=>h.cliente_id===cliId);
+    if(pend.length){
+      const{error:eDel}=await sb.from('precio_historial').delete().in('id',pend.map(h=>h.id)).eq('aplicado',false);
+      if(eDel){_aumHistErr=eDel.message;return {n:0,error:eDel.message};}
+    }
+  }
   const cli=(C.clientes||[]).find(c=>c.id===cliId)||{};
   const res=_aumResinaRef();
   const rows=[];
@@ -18249,9 +18651,91 @@ async function aumBorrarProgCliente(cliId){
 }
 
 // APLICAR lo vencido: recien acá los precios cambian de verdad.
-function aumAplicarProgramados(){pedirAdminYEjecutar(()=>_aumAplicarProgramados());}
-async function _aumAplicarProgramados(){
-  const venc=_aumProgVencidos();
+// Ya no es un boton que aplica todo: primero se abre la lista de lo que vencio,
+// agrupada por cliente + fecha + paso, y se elige QUE aplicar. Pedido de German:
+// "cuando llego a la fecha me tendria que decir aplicamos el segundo tramo, si o
+// no". Un escalonado es una negociacion en dos tiempos y el segundo paso puede
+// no corresponder — porque el cliente acepto a medias, porque se pacto correrlo,
+// o porque se fue. Aplicar los dos automaticamente le saca la decision al que la
+// tiene que tomar.
+function _aumGrupoClave(h){return h.cliente_id+'|'+h.vigencia_desde+'|'+(h.paso||1);}
+function _aumGruposVencidos(){
+  const g={};
+  _aumProgVencidos().forEach(h=>{
+    const k=_aumGrupoClave(h);
+    if(!g[k])g[k]={clave:k,cliente_id:h.cliente_id,fecha:h.vigencia_desde,
+      paso:h.paso||1,pasos:h.pasos_total||1,filas:[]};
+    g[k].filas.push(h);
+  });
+  return Object.values(g).sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha))||(a.paso-b.paso));
+}
+function aumAplicarProgramados(){aumAbrirAplicar();}
+function aumAbrirAplicar(){
+  const G=_aumGruposVencidos();
+  if(!G.length){toast('No hay precios programados para hoy','amber');return;}
+  document.getElementById('aum-apl-modal')?.remove();
+  const filas=G.map(g=>{
+    const c=(C.clientes||[]).find(x=>x.id===g.cliente_id)||{};
+    let sube=0,n=0;
+    g.filas.forEach(h=>{
+      let pv=null;try{pv=getPrecioVenta(h.producto_id,h.cliente_id);}catch(e){pv=null;}
+      const ant=pv&&pv.precio_paquete?pv.precio_paquete:(parseFloat(h.precio_paquete_ant)||0);
+      const nue=parseFloat(h.precio_paquete_nuevo)||0;
+      if(ant>0&&nue>0){sube+=(nue/ant-1)*100;n++;}
+    });
+    const prom=n>0?r1(sube/n):0;
+    return '<div style="display:flex;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--border);">'
+      +'<input type="checkbox" class="aum-apl-chk" value="'+g.clave+'" checked>'
+      +'<div style="flex:1;min-width:0;">'
+        +'<div style="font-size:13px;font-weight:600;">'+escapeHtml(c.razon_social||c.nombre||('Cliente '+g.cliente_id))
+          +(g.pasos>1?' <span style="font-size:11px;color:var(--accent);font-weight:700;">· paso '+g.paso+' de '+g.pasos+'</span>':'')+'</div>'
+        +'<div style="font-size:11px;color:var(--text3);">'+_aumFechaLargaSafe(g.fecha)+' · '+g.filas.length+' producto(s)'
+          +(prom?' · <b style="color:var(--amber);">'+(prom>0?'+':'')+prom+'%</b> promedio':'')+'</div>'
+      +'</div>'
+      +'<button class="btn btn-sm" style="color:var(--red);" title="Cancelar este paso: se borra y no se aplica nunca" '
+        +'onclick="aumCancelarGrupo(\''+g.clave+'\')">✕ cancelar</button>'
+    +'</div>';
+  }).join('');
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="aum-apl-modal"><div class="modal-card" style="max-width:640px;">'
+    +'<div class="modal-title">🗓 Precios listos para aplicar</div>'
+    +'<div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;margin-bottom:10px;font-size:12px;line-height:1.6;color:var(--text2);">'
+      +'Destildá lo que <b>todavía no</b> quieras aplicar: queda programado y te lo vuelvo a ofrecer. '
+      +'<b style="color:var(--red);">✕ cancelar</b> lo borra: ese paso no se aplica nunca más.'
+      +'<div style="color:var(--text3);font-size:11px;margin-top:4px;">Lo que apliques rige para los pedidos NUEVOS. Los pedidos ya cargados no se tocan.</div>'
+    +'</div>'
+    +'<div style="max-height:46vh;overflow:auto;">'+filas+'</div>'
+    +'<div class="btn-grp" style="margin-top:12px;">'
+      +'<button class="btn btn-sm btn-primary" onclick="aumAplicarSeleccion()">Aplicar los marcados</button>'
+      +'<button class="btn btn-sm" onclick="aumImprimirPrevia()">🖨 Imprimir para análisis</button>'
+      +'<button class="btn btn-sm" onclick="document.getElementById(\'aum-apl-modal\').remove()">Cerrar</button>'
+    +'</div></div></div>');
+}
+function aumAplicarSeleccion(){
+  const sel=Array.from(document.querySelectorAll('.aum-apl-chk')).filter(c=>c.checked).map(c=>c.value);
+  if(!sel.length){toast('No marcaste nada','amber');return;}
+  pedirAdminYEjecutar(()=>_aumAplicarProgramados(sel));
+}
+async function aumCancelarGrupo(clave){
+  const g=_aumGruposVencidos().find(x=>x.clave===clave);
+  if(!g)return;
+  const c=(C.clientes||[]).find(x=>x.id===g.cliente_id)||{};
+  if(!confirm('Cancelar '+(g.pasos>1?'el paso '+g.paso+' de ':'')+''+(c.razon_social||c.nombre||'')+'\n\n'
+    +g.filas.length+' precio(s) programados para el '+_aumFechaLargaSafe(g.fecha)+' se BORRAN y no se aplican nunca.\n'
+    +'Los precios que le estás facturando hoy no cambian.\n\n¿Sigo?'))return;
+  const{error}=await sb.from('precio_historial').delete().in('id',g.filas.map(h=>h.id)).eq('aplicado',false);
+  if(error){toast('Error: '+error.message,'red');return;}
+  await _aumCargarHistorial(true);
+  toast('Paso cancelado · '+g.filas.length+' precios borrados','green');
+  document.getElementById('aum-apl-modal')?.remove();
+  renderAumBanner();renderAumLista();
+  if(_aumGruposVencidos().length)aumAbrirAplicar();
+}
+async function _aumAplicarProgramados(claves){
+  let venc=_aumProgVencidos();
+  // Si vino una seleccion, se aplica SOLO eso. Lo no elegido queda pendiente y
+  // vuelve a aparecer: destildar es posponer, no cancelar.
+  if(claves&&claves.length){const S={};claves.forEach(k=>S[k]=true);venc=venc.filter(h=>S[_aumGrupoClave(h)]);}
   if(!venc.length){toast('No hay precios programados para hoy','amber');return;}
   // Si un cliente+producto tiene mas de un paso vencido (ej: se aplica tarde y ya
   // vencieron el paso 1 y el 2), manda el MAS NUEVO. Los anteriores se marcan
@@ -18286,6 +18770,10 @@ async function _aumAplicarProgramados(){
   });
   const{error}=await sb.from('cliente_precios_especiales').upsert(upserts,{onConflict:'cliente_id,producto_id'});
   if(error){toast('Error al aplicar: '+error.message,'red');return;}
+  document.getElementById('aum-apl-modal')?.remove();
+  // el borrador de esos clientes ya cumplio: sus precios son ahora los de venta
+  for(const cid of Object.keys(clientes))await _aumBorrBorrar(parseInt(cid));
+  if(AUM.cli&&clientes[AUM.cli]){AUM.ed={};AUM.pct=0;const pin=document.getElementById('aum-pct');if(pin)pin.value='';}
   // marcar TODO lo vencido como aplicado (incluidos los pasos superados)
   const hoy=localDate();
   for(const h of ganadores){
@@ -18317,6 +18805,7 @@ function renderAumBanner(){
       +'</div>'
       +'<button class="btn btn-primary" onclick="aumAplicarProgramados()">Aplicar ahora</button>'
       +'<button class="btn btn-sm" onclick="aumVerProgramados()">Ver el detalle</button>'
+      +'<button class="btn btn-sm" onclick="aumImprimirPrevia()">🖨 Análisis</button>'
     +'</div>';
   }
   if(prox.length){
@@ -18325,6 +18814,7 @@ function renderAumBanner(){
     html+='<div style="background:var(--bg3);border-radius:var(--rl);padding:10px 16px;margin-bottom:10px;font-size:12px;color:var(--text2);display:flex;gap:12px;align-items:center;flex-wrap:wrap;">'
       +'<div style="flex:1;min-width:280px;">📅 <b>'+prox.length+' precio(s) programados</b> para más adelante, de '+cli(prox)+' cliente(s): '+fechas+'. Todavía no rigen.</div>'
       +'<button class="btn btn-sm" onclick="aumVerProgramados()">Ver el detalle</button>'
+      +'<button class="btn btn-sm" onclick="aumImprimirPrevia()">🖨 Análisis</button>'
     +'</div>';
   }
   box.innerHTML=html;
@@ -18378,114 +18868,183 @@ function aumProgramarUnPaso(){
   const filas=_aumFilasParaProgramar();
   if(!filas.length){toast('No hay precios distintos a los de hoy para programar','amber');return;}
   const fecha=(document.getElementById('aum-vigencia')||{}).value||localDate();
+  const pendPrev=_aumProgPend().filter(h=>h.cliente_id===AUM.cli).length;
+  const malos1=_aumBajoCosto(filas.map(f=>({pid:f.pid,paq:f.nuevoPaq})));
   if(!confirm('Programar '+filas.length+' precio(s) para el '+_aumFechaLargaSafe(fecha)+'.\n\n'
     +'Hasta esa fecha NO cambia nada: los pedidos nuevos siguen saliendo al precio de hoy.\n'
-    +'Cuando llegue el día te va a aparecer un cartel para aplicarlos.\n\n¿Sigo?'))return;
+    +'Cuando llegue el día te va a aparecer un cartel para aplicarlos.\n'
+    +(pendPrev?'\n⚠ Este cliente ya tiene '+pendPrev+' precio(s) programado(s): se REEMPLAZAN por estos.\n':'')
+    +_aumTextoBajoCosto(malos1)
+    +'\n¿Sigo?'))return;
   pedirAdminYEjecutar(async()=>{
     const r=await _aumProgGuardar(AUM.cli,[{fecha,filas:filas.map(f=>({
-      pid:f.pid,paq:f.nuevoPaq,kg:f.nuevoKg,antPaq:f.hoyPaq,antKg:f.hoyKg,rep:f.rep.kg,pleno:f.pleno}))}]);
+      pid:f.pid,paq:f.nuevoPaq,kg:f.nuevoKg,antPaq:f.hoyPaq,antKg:f.hoyKg,rep:f.rep.kg,pleno:f.pleno}))}],true);
     if(r.error){toast(_aumHistFaltaTabla()?'Falta correr migracion_listas_10i.sql en Supabase':('Error: '+r.error),'red');return;}
-    AUM.ed={};AUM.pct=0;
-    const p=document.getElementById('aum-pct');if(p)p.value='';
+    // El borrador NO se borra al programar: si se borrara, la pantalla volveria a
+    // mostrar los precios de hoy y pareceria que se perdio el trabajo — que es
+    // justo lo que German reporto. Se limpia recien cuando los precios se APLICAN.
     toast('🗓 '+r.n+' precios programados para el '+_aumFechaLargaSafe(fecha),'green');
     renderAumBanner();renderAumLista();
   });
 }
-// Escalonado: dos (o más) pasos, cada uno con SU fecha, editables
+// Escalonado: N pasos (2, 3 o 4), cada uno con SU fecha, editables.
+// German: "el escalonado me permite 2 aumentos, no 3". La plomeria de abajo
+// (_aumProgGuardar, paso/pasos_total) siempre soporto N — lo que estaba fijo en 2
+// era la pantalla. Y 3 pasos no es un capricho: a un cliente que necesita +22% de
+// una, tres escalones de +7% le cambian la conversacion, y ya en el primero deja
+// de venderse por debajo del costo.
+// MODELO: el ULTIMO paso aterriza EXACTO en el destino (el precio armado o el
+// objetivo del tramo). Los intermedios son porcentajes sobre el precio de hoy,
+// acumulativos. Asi el destino nunca queda "casi": el redondeo de los intermedios
+// no se arrastra al final.
+let ESC={n:2};
 function aumAbrirEscalonado(){
   const cliId=AUM.cli;if(!cliId){toast('Elegí un cliente','amber');return;}
+  ESC.n=Math.max(2,Math.min(4,parseInt(ESC.n)||2));
+  document.getElementById('aum-esc-modal')?.remove();
   const R=_aumResumen(_aumFilas(cliId));
-  const hoy=localDate();
-  const d2=new Date(Date.now()+21*86400000);
-  const f2=d2.getFullYear()+'-'+String(d2.getMonth()+1).padStart(2,'0')+'-'+String(d2.getDate()).padStart(2,'0');
   const objetivo=R.objetivoKg||0, actual=R.kgHoy||0;
   const totalPct=actual>0&&objetivo>0?r1((objetivo/actual-1)*100):0;
-  const p1=r1(totalPct/2);
-  document.getElementById('aum-esc-modal')?.remove();
+  const hayLista=_aumFilas(cliId).some(f=>f.hoyPaq>0&&f.nuevoPaq>0&&r2(f.nuevoPaq)!==r2(f.hoyPaq));
+  // el % que reparte el camino en partes iguales: cada paso multiplica, no suma
+  const paso=totalPct>0?r1((Math.pow(1+totalPct/100,1/ESC.n)-1)*100):0;
+  const fecha=d=>{const x=new Date(Date.now()+d*86400000);
+    return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');};
+  let bloques='';
+  for(let i=0;i<ESC.n;i++){
+    const ultimo=(i===ESC.n-1);
+    bloques+='<div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px;">'
+      +'<div style="font-size:11px;font-weight:700;color:'+(ultimo?'var(--green)':'var(--accent)')+';margin-bottom:6px;">'
+        +'PASO '+(i+1)+(ultimo?' · FINAL':'')+'</div>'
+      +'<div class="fg"><label style="font-size:11px;">Rige desde</label>'
+        +'<input id="aum-esc-f'+i+'" type="date" value="'+fecha(i*21)+'"></div>'
+      +(ultimo
+        ?'<div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">Destino</label>'
+          +'<select id="aum-esc-m2">'
+            +'<option value="lista"'+(hayLista?' selected':'')+'>al precio nuevo de la lista</option>'
+            +'<option value="obj"'+(hayLista?'':' selected')+'>al objetivo del tramo</option>'
+            +'<option value="pct">otro aumento %</option></select>'
+          +'<input id="aum-esc-p'+i+'" type="number" step="0.1" placeholder="%" style="margin-top:6px;display:none;"></div>'
+        :'<div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">Aumento %</label>'
+          +'<input id="aum-esc-p'+i+'" type="number" step="0.1" value="'+paso+'"></div>')
+    +'</div>';
+  }
   document.body.insertAdjacentHTML('beforeend',
     '<div class="modal-overlay" id="aum-esc-modal">'
-    +'<div class="modal-card" style="max-width:640px;">'
+    +'<div class="modal-card" style="max-width:'+(ESC.n>2?760:640)+'px;">'
     +'<div class="modal-title">🪜 Aumento escalonado</div>'
     +'<div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;line-height:1.6;">'
       +'Este cliente está hoy en <b style="font-family:\'DM Mono\',monospace;">$ '+actual.toLocaleString('es-AR')+'/kg</b>'
       +(objetivo?' y el objetivo de su tramo es <b style="font-family:\'DM Mono\',monospace;">$ '+objetivo.toLocaleString('es-AR')+'/kg</b> (<b>+'+totalPct+'%</b> en total).':'.')
-      +'<div style="color:var(--text3);font-size:11px;margin-top:4px;">El paso 1 puede quedar por debajo del piso a propósito — es lo que hace que el salto sea aceptable. El sistema te avisa pero no te lo impide.</div>'
+      +'<div style="color:var(--text3);font-size:11px;margin-top:4px;">Los pasos intermedios pueden quedar por debajo del piso a propósito — es lo que hace que el salto sea aceptable. El sistema avisa pero no lo impide. <b>El último paso aterriza exacto en el destino.</b></div>'
     +'</div>'
-    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">'
-      +'<div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px;">'
-        +'<div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:6px;">PASO 1</div>'
-        +'<div class="fg"><label style="font-size:11px;">Rige desde</label><input id="aum-esc-f1" type="date" value="'+hoy+'"></div>'
-        +'<div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">Aumento %</label><input id="aum-esc-p1" type="number" step="0.1" value="'+p1+'"></div>'
-      +'</div>'
-      +'<div style="background:var(--bg3);border-radius:var(--r);padding:10px 12px;">'
-        +'<div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:6px;">PASO 2</div>'
-        +'<div class="fg"><label style="font-size:11px;">Rige desde</label><input id="aum-esc-f2" type="date" value="'+f2+'"></div>'
-        +'<div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">Destino</label>'
-          +'<select id="aum-esc-m2"><option value="obj">llevar al objetivo del tramo</option><option value="pct">otro aumento %</option></select>'
-          +'<input id="aum-esc-p2" type="number" step="0.1" placeholder="%" style="margin-top:6px;display:none;"></div>'
-      +'</div>'
+    +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">'
+      +'<span style="font-size:12px;color:var(--text2);">¿En cuántos pasos?</span>'
+      +[2,3,4].map(k=>'<button class="btn btn-sm'+(ESC.n===k?' btn-primary':'')+'" onclick="aumEscPasos('+k+')">'+k+'</button>').join('')
+      +'<span style="font-size:11px;color:var(--text3);margin-left:6px;">reparte el camino en partes iguales · podés pisar cada uno</span>'
     +'</div>'
+    +'<div style="display:grid;grid-template-columns:repeat('+ESC.n+',1fr);gap:10px;">'+bloques+'</div>'
     +'<div id="aum-esc-prev" style="margin-top:12px;"></div>'
     +'<div class="btn-grp" style="margin-top:12px;">'
-      +'<button class="btn btn-sm btn-primary" onclick="aumGuardarEscalonado()">🗓 Programar los dos pasos</button>'
+      +'<button class="btn btn-sm btn-primary" onclick="aumGuardarEscalonado()">🗓 Programar los '+ESC.n+' pasos</button>'
       +'<button class="btn btn-sm" onclick="aumEscPreview()">Recalcular</button>'
       +'<button class="btn btn-sm" onclick="document.getElementById(\'aum-esc-modal\').remove()">Cancelar</button>'
     +'</div></div></div>');
   const m2=document.getElementById('aum-esc-m2');
-  if(m2)m2.onchange=function(){document.getElementById('aum-esc-p2').style.display=(this.value==='pct'?'block':'none');aumEscPreview();};
-  ['aum-esc-p1','aum-esc-p2','aum-esc-f1','aum-esc-f2'].forEach(id=>{const e=document.getElementById(id);if(e)e.onchange=aumEscPreview;});
+  if(m2)m2.onchange=function(){
+    const inp=document.getElementById('aum-esc-p'+(ESC.n-1));
+    if(inp)inp.style.display=(this.value==='pct'?'block':'none');
+    aumEscPreview();};
+  for(let i=0;i<ESC.n;i++)['aum-esc-p'+i,'aum-esc-f'+i].forEach(id=>{
+    const e=document.getElementById(id);if(e)e.onchange=aumEscPreview;});
   aumEscPreview();
 }
+function aumEscPasos(n){ESC.n=Math.max(2,Math.min(4,parseInt(n)||2));aumAbrirEscalonado();}
 function _aumEscCalcular(){
-  const p1=parseFloat((document.getElementById('aum-esc-p1')||{}).value)||0;
-  const modo=(document.getElementById('aum-esc-m2')||{}).value||'obj';
-  const p2=parseFloat((document.getElementById('aum-esc-p2')||{}).value)||0;
-  const f1=(document.getElementById('aum-esc-f1')||{}).value||localDate();
-  const f2=(document.getElementById('aum-esc-f2')||{}).value||localDate();
-  const paso1=[],paso2=[];
+  const N=Math.max(2,Math.min(4,parseInt(ESC.n)||2));
+  const val=id=>{const e=document.getElementById(id);return e?e.value:'';};
+  const modo=val('aum-esc-m2')||'obj';
+  const pct=[],fechas=[];
+  for(let i=0;i<N;i++){
+    pct.push(parseFloat(val('aum-esc-p'+i))||0);
+    fechas.push(val('aum-esc-f'+i)||localDate());
+  }
+  const pasos=[];for(let i=0;i<N;i++)pasos.push([]);
   _aumFilas(AUM.cli).forEach(f=>{
     if(!(f.hoyPaq>0))return;
-    const a=_aumRedondear(f.hoyPaq*(1+p1/100));
-    let b;
-    if(modo==='obj'&&f.objetivoKg>0&&f.kgPaq>0)b=_aumRedondear(f.objetivoKg*f.kgPaq);
-    else b=_aumRedondear(a*(1+p2/100));
-    if(b<a)b=a;   // el paso 2 nunca puede quedar por debajo del paso 1
-    const kgA=f.kgPaq>0?r2(a/f.kgPaq):0, kgB=f.kgPaq>0?r2(b/f.kgPaq):0;
-    if(a!==r2(f.hoyPaq))paso1.push({pid:f.pid,paq:a,kg:kgA,antPaq:f.hoyPaq,antKg:f.hoyKg,rep:f.rep.kg,pleno:f.pleno,f});
-    if(b!==a)paso2.push({pid:f.pid,paq:b,kg:kgB,antPaq:a,antKg:kgA,rep:f.rep.kg,pleno:f.pleno,f});
+    let prevPaq=r2(f.hoyPaq), prevKg=f.hoyKg, factor=1;
+    for(let i=0;i<N;i++){
+      let v;
+      if(i===N-1){
+        // el ultimo aterriza EXACTO en el destino
+        if(modo==='lista'&&f.nuevoPaq>0)v=r2(f.nuevoPaq);
+        else if(modo==='obj'&&f.objetivoKg>0&&f.kgPaq>0)v=_aumRedondear(f.objetivoKg*f.kgPaq);
+        else v=_aumRedondear(prevPaq*(1+pct[i]/100));
+      }else{
+        factor=factor*(1+pct[i]/100);
+        v=_aumRedondear(f.hoyPaq*factor);
+      }
+      if(v<prevPaq)v=prevPaq;          // un escalon nunca baja respecto del anterior
+      const kg=f.kgPaq>0?r2(v/f.kgPaq):0;
+      if(v!==prevPaq)pasos[i].push({pid:f.pid,paq:v,kg,antPaq:prevPaq,antKg:prevKg,
+        rep:f.rep.kg,pleno:f.pleno,f});
+      prevPaq=v;prevKg=kg;
+    }
   });
-  return {p1,p2,modo,f1,f2,paso1,paso2};
+  return {N,pct,modo,fechas,pasos,
+    // compatibilidad con lo que ya existia
+    p1:pct[0],p2:pct[N-1],f1:fechas[0],f2:fechas[N-1],paso1:pasos[0],paso2:pasos[N-1]};
 }
 function aumEscPreview(){
   const box=document.getElementById('aum-esc-prev');if(!box)return;
   const E=_aumEscCalcular();
   const piso=_aumPisoKg();
-  const bajoPiso1=piso>0?E.paso1.filter(x=>x.kg>0&&x.kg<piso).length:0;
-  let html='<div style="font-size:12px;line-height:1.7;">'
-    +'<b>Paso 1</b> · '+_aumFechaLargaSafe(E.f1)+' · '+E.paso1.length+' producto(s) con +'+E.p1+'%<br>'
-    +'<b>Paso 2</b> · '+_aumFechaLargaSafe(E.f2)+' · '+E.paso2.length+' producto(s) '+(E.modo==='obj'?'al objetivo del tramo':'con +'+E.p2+'% más')
-  +'</div>';
-  if(E.f2<=E.f1)
-    html+='<div style="background:var(--redbg);border:1px solid var(--redbd);border-radius:var(--r);padding:8px 12px;margin-top:8px;font-size:11px;color:var(--red);">La fecha del paso 2 tiene que ser posterior a la del paso 1.</div>';
-  else if(bajoPiso1)
-    html+='<div style="background:var(--bg3);border-radius:var(--r);padding:8px 12px;margin-top:8px;font-size:11px;color:var(--text3);">'+bajoPiso1+' producto(s) quedan abajo del piso en el paso 1 — es lo esperado en un escalonado. El paso 2 del '+_aumFechaLargaSafe(E.f2)+' los levanta.</div>';
+  let html='<div style="font-size:12px;line-height:1.7;">';
+  for(let i=0;i<E.N;i++){
+    const ultimo=(i===E.N-1);
+    html+='<b>Paso '+(i+1)+'</b> · '+_aumFechaLargaSafe(E.fechas[i])+' · '+E.pasos[i].length+' producto(s) '
+      +(ultimo
+        ?(E.modo==='lista'?'al precio que armaste en la lista':E.modo==='obj'?'al objetivo del tramo':'con +'+E.pct[i]+'% más')
+        :'con +'+E.pct[i]+'%')
+      +'<br>';
+  }
+  html+='</div>';
+  // fechas: cada una tiene que ser posterior a la anterior
+  let mal=0;for(let i=1;i<E.N;i++)if(E.fechas[i]<=E.fechas[i-1])mal=i+1;
+  const bajoPiso=piso>0?E.pasos.slice(0,E.N-1).reduce((s,P)=>s+P.filter(x=>x.kg>0&&x.kg<piso).length,0):0;
+  if(mal)
+    html+='<div style="background:var(--redbg);border:1px solid var(--redbd);border-radius:var(--r);padding:8px 12px;margin-top:8px;font-size:11px;color:var(--red);">La fecha del paso '+mal+' tiene que ser posterior a la del paso anterior.</div>';
+  else if(bajoPiso)
+    html+='<div style="background:var(--bg3);border-radius:var(--r);padding:8px 12px;margin-top:8px;font-size:11px;color:var(--text3);">'+bajoPiso+' precio(s) quedan abajo del piso en los pasos intermedios — es a propósito, para que el salto sea aceptable.</div>';
   box.innerHTML=html;
 }
 function aumGuardarEscalonado(){
   const E=_aumEscCalcular();
-  if(E.f2<=E.f1){toast('La fecha del paso 2 tiene que ser posterior a la del paso 1','red');return;}
-  if(!E.paso1.length&&!E.paso2.length){toast('No hay cambios para programar','amber');return;}
-  if(!confirm('Programar el escalonado:\n\n· Paso 1 el '+_aumFechaLargaSafe(E.f1)+' — '+E.paso1.length+' producto(s)\n'
-    +'· Paso 2 el '+_aumFechaLargaSafe(E.f2)+' — '+E.paso2.length+' producto(s)\n\n'
-    +'Hasta el paso 1 no cambia nada. ¿Sigo?'))return;
+  for(let i=1;i<E.N;i++)
+    if(E.fechas[i]<=E.fechas[i-1]){toast('La fecha del paso '+(i+1)+' tiene que ser posterior a la del paso '+i,'red');return;}
+  const total=E.pasos.reduce((s,P)=>s+P.length,0);
+  if(!total){toast('No hay cambios para programar','amber');return;}
+  const pendPrev=_aumProgPend().filter(h=>h.cliente_id===AUM.cli).length;
+  // se mira el paso FINAL (el destino), no los intermedios: que un escalon quede
+  // debajo del piso es el punto, que el DESTINO quede debajo del costo es un error.
+  const finales={};
+  E.pasos.forEach(P=>P.forEach(x=>{finales[x.pid]={pid:x.pid,paq:x.paq};}));
+  const malos=_aumBajoCosto(Object.values(finales));
+  let txt='Programar el escalonado en '+E.N+' pasos:\n\n';
+  for(let i=0;i<E.N;i++)
+    txt+='· Paso '+(i+1)+' el '+_aumFechaLargaSafe(E.fechas[i])+' — '+E.pasos[i].length+' producto(s)'
+      +(i===E.N-1?' '+(E.modo==='lista'?'(al precio que armaste)':E.modo==='obj'?'(al objetivo del tramo)':''):'')+'\n';
+  if(pendPrev)txt+='\n⚠ Este cliente ya tiene '+pendPrev+' precio(s) programado(s): se REEMPLAZAN por estos.\n';
+  txt+=_aumTextoBajoCosto(malos);
+  txt+='\nHasta el paso 1 no cambia nada. ¿Sigo?';
+  if(!confirm(txt))return;
   pedirAdminYEjecutar(async()=>{
     const pasos=[];
-    if(E.paso1.length)pasos.push({fecha:E.f1,filas:E.paso1});
-    if(E.paso2.length)pasos.push({fecha:E.f2,filas:E.paso2});
-    const r=await _aumProgGuardar(AUM.cli,pasos);
+    for(let i=0;i<E.N;i++)if(E.pasos[i].length)pasos.push({fecha:E.fechas[i],filas:E.pasos[i]});
+    const r=await _aumProgGuardar(AUM.cli,pasos,true);
     if(r.error){toast(_aumHistFaltaTabla()?'Falta correr migracion_listas_10i.sql en Supabase':('Error: '+r.error),'red');return;}
     document.getElementById('aum-esc-modal')?.remove();
-    toast('🪜 Escalonado programado · '+r.n+' precios en 2 pasos','green');
+    toast('🪜 Escalonado programado · '+r.n+' precios en '+pasos.length+' pasos','green');
     renderAumBanner();renderAumLista();
   });
 }
@@ -18772,6 +19331,320 @@ function renderAumDG(){
   box.innerHTML=html;
 }
 
+// ============================================================
+// ✂️ LINEA ECO — acortar la bolsa a granel
+// ============================================================
+// El razonamiento de German: "acorto la bolsa para que el cliente no sienta
+// tanto el aumento". Es la misma mecanica del Plan B50 pero con el LARGO en vez
+// del espesor, y con una diferencia que cambia todo el diseno: los 2 micrones NO
+// se ven, 10 cm SI. Entonces no puede ser la misma bolsa mas barata — tiene que
+// ser un PRODUCTO NUEVO, con su medida real en el nombre y su propio codigo.
+// Por eso esta pantalla no modifica nada: CREA productos ECO al lado de los que
+// ya existen. El original sigue vivo, con su historia de pedidos y facturas
+// intacta, y el cliente elige entre los dos.
+// (La alternativa —acortar el producto existente— es exactamente el problema del
+//  00212: la ficha dice 68 cm y la maquina corta 50,4. Ahi los kilos, el costo y
+//  la capacidad del sistema quedan mal, y el cliente que mide se entera.)
+let ECO={pct:10,pasar:50,plan:{}};
+
+function _ecoPlanGuardado(){
+  const a=_aumCfgJSON('eco_plan',[]);
+  return Array.isArray(a)?a.filter(x=>x&&x.producto_id&&(parseFloat(x.largo_nuevo)||0)>0):[];
+}
+// El nombre propuesto es solo eso: una propuesta. Si German lo edita, se guarda en
+// el plan y deja de seguir al largo. Guardar SOLO cuando difiere del automatico es
+// lo que hace que el nombre siga acompañando al largo mientras nadie lo toque: un
+// nombre custom guardado "por las dudas" se congelaria en la primera medida.
+function _ecoNombreDe(prod,largoNuevo){
+  const e=_ecoDe(prod.id);
+  const auto=_ecoNombre(prod.descripcion,largoNuevo);
+  const cust=e&&typeof e.nombre==='string'?e.nombre.trim():'';
+  return {nombre:cust||auto, auto, custom:!!cust};
+}
+// El unico control que importa: que el nombre diga la medida que la maquina va a
+// cortar. Avisa, no bloquea — puede haber convenciones de nombre que no preveo.
+function _ecoNombreAviso(nombre,largoNuevo){
+  const md=_ecoMedida(nombre);
+  if(!md)return 'el nombre no tiene una medida ANCHOxLARGO: nadie va a saber qué bolsa es';
+  if(md.largo!==Math.round(largoNuevo))return 'el nombre dice '+md.largo+' y la bolsa se corta a '+Math.round(largoNuevo);
+  return null;
+}
+function _ecoDe(prodId){
+  return _ecoPlanGuardado().find(x=>parseInt(x.producto_id)===parseInt(prodId))||null;
+}
+// El largo que dice el NOMBRE (el segundo numero de "60X90"). Se lee del nombre y
+// no de metros_por_bolsa porque son cosas distintas: la 00043 se llama 60X90 y
+// tiene 0,88 m de ficha. El operario piensa en "la corto a 80", asi que el largo
+// de etiqueta es la unidad de la decision y el delta se aplica sobre los metros.
+function _ecoMedida(desc){
+  const m=String(desc||'').match(/(\d{2,3})\s*[Xx]\s*(\d{2,3})/);
+  if(!m)return null;
+  return {ancho:parseInt(m[1]),largo:parseInt(m[2]),txt:m[0],idx:m.index};
+}
+function _ecoNombre(desc,largoNuevo){
+  const md=_ecoMedida(desc);
+  // Se normalizan los espacios: varias descripciones traen dos espacios despues de
+  // la medida ("60X90  ARIAL") y al meter el ECO en el medio quedaba un hueco feo.
+  const limpio=t=>String(t||'').replace(/\s+/g,' ').trim();
+  if(!md)return limpio(desc+' ECO');
+  return limpio(String(desc).slice(0,md.idx)+md.ancho+'X'+largoNuevo+' ECO'+String(desc).slice(md.idx+md.txt.length));
+}
+// Cuanto pesa la bolsa ECO sobre la original. El peso es proporcional al largo,
+// asi que el factor sale de los metros.
+function _ecoFactor(prodId){
+  const p=(C.productos||[]).find(x=>x.id===prodId);if(!p)return 1;
+  const e=_ecoDe(prodId);if(!e)return 1;
+  const md=_ecoMedida(p.descripcion);if(!md)return 1;
+  const mts=parseFloat(p.metros_por_bolsa)||0;
+  const nuevos=r4(mts-(md.largo-(parseFloat(e.largo_nuevo)||0))/100);
+  if(!(mts>0)||!(nuevos>0)||nuevos>=mts)return 1;
+  return r4(nuevos/mts);
+}
+// Ventas del ultimo mes por producto, con la plata — el precio de referencia sale
+// de aca y no de una lista, porque cada cliente paga distinto y lo que hace falta
+// es un PORCENTAJE de descuento que sirva para todos.
+function _ecoVentas(){
+  const d=new Date(Date.now()-31*86400000);
+  const desde=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const m={};
+  _aumDocsVenta().forEach(x=>{
+    if(x.fecha<desde)return;
+    const prod=(C.productos||[]).find(p=>p.id===x.producto_id);if(!prod)return;
+    const kgPaq=lpGetKgPaq(prod);if(!(kgPaq>0))return;
+    if(!m[x.producto_id])m[x.producto_id]={kg:0,paq:0,venta:0,clientes:{}};
+    m[x.producto_id].kg+=x.paq*kgPaq;
+    m[x.producto_id].paq+=x.paq;
+    m[x.producto_id].venta+=x.paq*x.precioPaq;
+    m[x.producto_id].clientes[x.cliente_id]=true;
+  });
+  return m;
+}
+// Candidatos: granel, sin imprimir, con medida en el nombre y con venta.
+// Las impresas quedan afuera porque llevan la marca del cliente y la medida suele
+// estar especificada; y los productos de menos de 30 cm, porque acortar ahi es
+// cambiar de producto, no achicarlo.
+function _ecoFilas(){
+  const V=_ecoVentas();
+  const filas=[];
+  (C.productos||[]).forEach(p=>{
+    const d=String(p.descripcion||'');
+    if(!/GRANEL/i.test(d))return;
+    if(/IMPRES/i.test(d))return;
+    if(p.es_bobina_granel)return;                 // se vende por kilo: acortar no aplica
+    if(/\sECO(\s|$)/i.test(d))return;             // no hacer la ECO de la ECO
+    const md=_ecoMedida(d); if(!md)return;
+    const mts=parseFloat(p.metros_por_bolsa)||0; if(!(mts>0.3))return;
+    const v=V[p.id]; if(!v||!(v.kg>0))return;
+    const e=_ecoDe(p.id);
+    const largoNuevo=e?Math.round(parseFloat(e.largo_nuevo)||0)
+                     :Math.max(1,Math.round(md.largo*(1-(parseFloat(ECO.pct)||0)/100)));
+    const nuevosMts=r4(mts-(md.largo-largoNuevo)/100);
+    const factor=(nuevosMts>0&&nuevosMts<mts)?r4(nuevosMts/mts):1;
+    const kgPaq=lpGetKgPaq(p);
+    const rep=_aumCostoReposicionKg(p.id);
+    const precioRef=v.paq>0?r2(v.venta/v.paq):0;
+    const ahorroPaq=(factor<1&&rep.kg>0)?r2(kgPaq*(1-factor)*rep.kg):0;
+    const pasar=ECO.pasar===undefined?50:(parseFloat(ECO.pasar)||0);
+    const desc=(ahorroPaq>0&&precioRef>0)?r1(ahorroPaq*pasar/100/precioRef*100):0;
+    filas.push({p,cod:String(p.codigo||''),desc:d,md,mts,largoNuevo,nuevosMts,factor,
+      recorte:factor<1?r1((1-factor)*100):0,kg:r2(v.kg),paq:r2(v.paq),
+      clientes:Object.keys(v.clientes).length,kgPaq,rep:rep.kg,precioRef,ahorroPaq,
+      ahorroMes:r2(v.kg*(1-factor)*(rep.kg||0)),descPct:desc,
+      enPlan:!!e,
+      nombreNuevo:_ecoNombreDe(p,largoNuevo).nombre,
+      nombreAuto:_ecoNombreDe(p,largoNuevo).auto,
+      nombreCustom:_ecoNombreDe(p,largoNuevo).custom,
+      nombreAviso:_ecoNombreAviso(_ecoNombreDe(p,largoNuevo).nombre,largoNuevo),
+      yaExiste:(C.productos||[]).some(x=>String(x.descripcion||'').trim().toUpperCase()===_ecoNombreDe(p,largoNuevo).nombre.trim().toUpperCase())});
+  });
+  filas.sort((a,b)=>b.ahorroMes-a.ahorroMes);
+  return filas;
+}
+function _ecoResumen(filas){
+  let kg=0,kgMenos=0,plata=0,n=0;
+  filas.forEach(f=>{if(!f.enPlan||f.factor>=1)return;n++;kg+=f.kg;kgMenos+=f.kg*(1-f.factor);plata+=f.ahorroMes;});
+  return {n,kg:r2(kg),kgMenos:r2(kgMenos),plata:r2(plata)};
+}
+
+// ---- guardar el plan (no crea nada todavia) ----
+async function _ecoSet(prodId,largoNuevo,nombre){
+  const prev=_ecoDe(prodId);
+  const plan=_ecoPlanGuardado().filter(x=>parseInt(x.producto_id)!==parseInt(prodId));
+  if(largoNuevo>0){
+    const fila={producto_id:parseInt(prodId),largo_nuevo:Math.round(largoNuevo)};
+    const n=nombre===undefined?(prev&&prev.nombre):nombre;
+    if(n&&String(n).trim())fila.nombre=String(n).trim();
+    plan.push(fila);
+  }
+  const{error}=await sb.from('configuracion').upsert({clave:'eco_plan',valor:JSON.stringify(plan)},{onConflict:'clave'});
+  if(error)return error.message;
+  cfg.eco_plan=JSON.stringify(plan);
+  return null;
+}
+async function ecoToggle(prodId){
+  const f=_ecoFilas().find(x=>x.p.id===prodId);if(!f)return;
+  if(f.factor>=1&&!f.enPlan){toast('Ese largo no achica la bolsa','amber');return;}
+  const err=await _ecoSet(prodId,f.enPlan?0:f.largoNuevo);
+  if(err){toast('Error: '+err,'red');return;}
+  renderAumEco();
+}
+async function ecoSetLargo(prodId,val){
+  const largo=Math.round(parseFloat(val)||0);
+  const f=_ecoFilas().find(x=>x.p.id===prodId);if(!f)return;
+  if(!(largo>0)||largo>=f.md.largo){toast('El largo nuevo tiene que ser menor que '+f.md.largo+' cm','amber');renderAumEco();return;}
+  if(f.mts-(f.md.largo-largo)/100<=0.1){toast('Ese largo deja la bolsa en menos de 10 cm de material','red');renderAumEco();return;}
+  const err=await _ecoSet(prodId,largo);
+  if(err){toast('Error: '+err,'red');return;}
+  renderAumEco();
+}
+async function ecoSetNombre(prodId,val){
+  const f=_ecoFilas().find(x=>x.p.id===prodId);if(!f)return;
+  const v=String(val||'').trim();
+  // Si quedo igual al automatico (o vacio), se guarda vacio para que vuelva a
+  // seguir al largo. Asi el boton ↺ y "escribir el nombre automatico a mano" hacen
+  // lo mismo, que es lo que espera cualquiera.
+  const guardar=(!v||v===f.nombreAuto)?'':v;
+  const err=await _ecoSet(prodId,f.largoNuevo,guardar);
+  if(err){toast('Error: '+err,'red');return;}
+  renderAumEco();
+}
+function ecoNombreAuto(prodId){ecoSetNombre(prodId,'');}
+function ecoSetPct(){
+  ECO.pct=Math.max(0,Math.min(40,parseFloat(document.getElementById('eco-pct').value)||0));
+  renderAumEco();
+}
+function ecoSetPasar(){
+  ECO.pasar=Math.max(0,Math.min(100,parseFloat(document.getElementById('eco-pasar').value)||0));
+  renderAumEco();
+}
+
+// ---- crear los productos ECO ----
+// Se crean TODOS los marcados de una vez, con el cartel mostrando codigo y nombre
+// de cada uno antes de tocar nada. Un prompt por producto seria inmanejable con 15.
+function ecoCrear(){pedirAdminYEjecutar(_ecoCrear);}
+async function _ecoCrear(){
+  const filas=_ecoFilas().filter(f=>f.enPlan&&f.factor<1&&!f.yaExiste);
+  if(!filas.length){toast('No hay productos marcados para crear (o ya están creados)','amber');return;}
+  // codigos nuevos: el maximo numerico que exista, +1. Se respeta el ancho con ceros.
+  let max=0,ancho=5;
+  (C.productos||[]).forEach(p=>{
+    const c=String(p.codigo||'');
+    if(/^\d+$/.test(c)){const n=parseInt(c,10);if(n>max)max=n;if(c.length>ancho)ancho=c.length;}
+  });
+  const nuevos=filas.map((f,i)=>({f,codigo:String(max+1+i).padStart(ancho,'0')}));
+  const conAviso=nuevos.filter(x=>x.f.nombreAviso);
+  const dup={},repes=[];
+  nuevos.forEach(x=>{const k=x.f.nombreNuevo.trim().toUpperCase();if(dup[k])repes.push(x.f.nombreNuevo);dup[k]=true;});
+  if(repes.length){toast('Hay dos productos que se llamarían igual: '+repes[0]+'. Cambiá uno de los nombres.','red');return;}
+  if(!confirm('Se van a CREAR '+nuevos.length+' producto(s) nuevo(s):\n\n'
+    +nuevos.slice(0,10).map(x=>'· '+x.codigo+'  '+x.f.nombreNuevo+'\n   '+x.f.md.largo+' → '+x.f.largoNuevo+' cm  ('+x.f.mts+' → '+x.f.nuevosMts+' m, −'+x.f.recorte+'%)').join('\n')
+    +(nuevos.length>10?'\n... y '+(nuevos.length-10)+' más':'')
+    +(conAviso.length?'\n\n⚠ OJO con '+conAviso.length+' nombre(s):\n'+conAviso.slice(0,5).map(x=>'   · '+x.f.nombreNuevo+'\n     '+x.f.nombreAviso).join('\n'):'')
+    +'\n\nLos productos ORIGINALES no se tocan: siguen existiendo con su precio y su historia.\n'
+    +'Estos nacen SIN precio — se los ponés cliente por cliente en ✏️ Armar la lista.\n\n¿Los creo?'))return;
+  let ok=0,err=null;
+  for(const x of nuevos){
+    const f=x.f,p=f.p;
+    const ins={codigo:x.codigo,descripcion:f.nombreNuevo,bobina_id:p.bobina_id,
+      metros_por_bolsa:f.nuevosMts,
+      peso_por_bolsa:(parseFloat(p.peso_por_bolsa)||0)>0?r4(parseFloat(p.peso_por_bolsa)*f.factor):null,
+      merma_pct:p.merma_pct,empaque_id:p.empaque_id,paquetes_por_bolson:p.paquetes_por_bolson};
+    const{error}=await sb.from('productos').insert(ins);
+    if(error){err=error.message;break;}
+    ok++;
+  }
+  await reload();
+  if(err)toast('Se crearon '+ok+' y falló: '+err,'red');
+  else toast('✓ '+ok+' producto(s) ECO creados. Ahora ponéles precio en ✏️ Armar la lista.','green');
+  renderAumEco();
+}
+
+// =================== PANTALLA ✂️ ===================
+function renderAumEco(){
+  const box=document.getElementById('aum-eco');if(!box)return;
+  const filas=_ecoFilas();
+  const R=_ecoResumen(filas);
+  const pasar=ECO.pasar===undefined?50:ECO.pasar;
+  let html='';
+  html+='<div style="background:var(--accentbg);border:1px solid var(--accentbd);border-radius:var(--rl);padding:12px 16px;margin-bottom:14px;font-size:12.5px;color:var(--text2);line-height:1.6;">'
+    +'<b style="color:var(--accent);">Achicar la bolsa para que el aumento se sienta menos.</b> Es lo mismo que bajar el espesor, '
+    +'pero con el largo — y con una diferencia que cambia todo: <b>2 micrones no se ven, 10 cm sí</b>. '
+    +'Por eso acá no se modifica la bolsa que ya vendés: se <b>crea un producto nuevo</b>, con su medida real en el nombre. '
+    +'El original queda intacto y el cliente elige entre los dos.'
+  +'</div>';
+
+  html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px;">'
+    +'<div style="background:var(--accentbg);border:1px solid var(--accentbd);border-radius:var(--r);padding:12px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;">Ahorro de material</div><div style="font-size:24px;font-weight:800;font-family:\'DM Mono\',monospace;color:var(--accent);margin-top:2px;">$ '+Math.round(R.plata).toLocaleString('es-AR')+'</div><div style="font-size:11px;color:var(--text3);margin-top:2px;">por mes · '+Math.round(R.kgMenos).toLocaleString('es-AR')+' kg menos de resina</div></div>'
+    +'<div style="background:var(--bg3);border-radius:var(--r);padding:12px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;">Productos marcados</div><div style="font-size:24px;font-weight:800;margin-top:2px;">'+R.n+'</div><div style="font-size:11px;color:var(--text3);margin-top:2px;">'+Math.round(R.kg).toLocaleString('es-AR')+' kg/mes de venta</div></div>'
+    +'<div style="background:var(--bg3);border-radius:var(--r);padding:12px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;">Le paso al cliente</div><div style="font-size:24px;font-weight:800;margin-top:2px;color:var(--green);">'+pasar+'%</div><div style="font-size:11px;color:var(--text3);margin-top:2px;">$ '+Math.round(R.plata*pasar/100).toLocaleString('es-AR')+' de menor precio</div></div>'
+    +'<div style="background:var(--bg3);border-radius:var(--r);padding:12px 14px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;">Te queda</div><div style="font-size:24px;font-weight:800;font-family:\'DM Mono\',monospace;margin-top:2px;color:var(--green);">$ '+Math.round(R.plata*(100-pasar)/100).toLocaleString('es-AR')+'</div><div style="font-size:11px;color:var(--text3);margin-top:2px;">por mes, de material que no comprás</div></div>'
+  +'</div>';
+
+  html+='<div style="background:var(--bg3);border-radius:var(--rl);padding:12px 16px;margin-bottom:14px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;">'
+    +'<div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">Recorte sugerido</label><input id="eco-pct" type="number" step="1" value="'+(ECO.pct||0)+'" onchange="ecoSetPct()" style="width:70px;"> <span style="font-size:11px;color:var(--text3);">% del largo</span></div>'
+    +'<div class="fg" style="margin-bottom:0;"><label style="font-size:11px;">Le paso el</label><input id="eco-pasar" type="number" step="5" value="'+pasar+'" onchange="ecoSetPasar()" style="width:70px;"> <span style="font-size:11px;color:var(--text3);">% del ahorro</span></div>'
+    +'<div style="font-size:11px;color:var(--text3);flex:1;min-width:280px;">El <b>%</b> se aplica sobre el largo de cada bolsa, no en centímetros fijos: 10 cm en una de 1,30 m es −7,7% y en una de 0,50 m es −20%. Podés pisar el largo de cualquier fila a mano.</div>'
+  +'</div>';
+
+  html+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;min-width:1120px;">'
+    +'<thead><tr style="background:var(--bg3);">'
+    +'<th style="padding:7px 8px;text-align:center;font-size:10px;text-transform:uppercase;color:var(--text3);">Va</th>'
+    +'<th style="padding:7px 8px;text-align:left;font-size:10px;text-transform:uppercase;color:var(--text3);">Producto</th>'
+    +'<th style="padding:7px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--text3);">Largo hoy</th>'
+    +'<th style="padding:7px 8px;text-align:center;font-size:10px;text-transform:uppercase;color:var(--accent);">Largo nuevo</th>'
+    +'<th style="padding:7px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--text3);">Menos material</th>'
+    +'<th style="padding:7px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--text3);">Kg/mes</th>'
+    +'<th style="padding:7px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--green);">Ahorro/mes</th>'
+    +'<th style="padding:7px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--accent);">Precio ECO</th>'
+    +'<th style="padding:7px 8px;text-align:left;font-size:10px;text-transform:uppercase;color:var(--accent);">Se va a llamar (editable)</th>'
+    +'</tr></thead><tbody>';
+  filas.forEach(f=>{
+    const grande=f.recorte>13;
+    const dg=_dgFactor(f.p.id)<1;
+    html+='<tr style="border-bottom:1px solid var(--border);'+(f.enPlan?'background:rgba(16,185,129,.06);':'')+'">'
+      +'<td style="padding:5px 8px;text-align:center;"><input type="checkbox" '+(f.enPlan?'checked':'')+' onchange="ecoToggle('+f.p.id+')"'+(f.yaExiste?' disabled title="el producto ECO ya existe"':'')+'></td>'
+      +'<td style="padding:5px 8px;font-size:12px;"><span style="font-family:\'DM Mono\',monospace;font-weight:600;">'+escapeHtml(f.cod)+'</span>'
+        +'<div style="font-size:11px;color:var(--text2);line-height:1.35;">'+escapeHtml(f.desc)+'</div>'
+        +'<div style="font-size:10px;color:var(--text3);margin-top:2px;">'+f.clientes+' cliente'+(f.clientes===1?'':'s')+' · '+f.mts+' m/bolsa · reposición $ '+(f.rep||0).toLocaleString('es-AR')+'/kg</div></td>'
+      +'<td style="padding:5px 8px;text-align:right;font-size:12px;font-family:\'DM Mono\',monospace;">'+f.md.largo+' cm</td>'
+      +'<td style="padding:5px 8px;text-align:center;"><input type="number" step="1" value="'+f.largoNuevo+'" onchange="ecoSetLargo('+f.p.id+',this.value)" style="width:70px;text-align:right;padding:3px 5px;font-size:12px;font-family:\'DM Mono\',monospace;color:var(--accent);"></td>'
+      +'<td style="padding:5px 8px;text-align:right;font-size:12px;font-weight:600;color:'+(grande?'var(--red)':f.recorte>0?'var(--amber)':'var(--text3)')+';">'+(f.recorte>0?'−'+f.recorte+'%':'—')+(grande?'<div style="font-size:9.5px;color:var(--red);font-weight:400;">se nota</div>':'')+'</td>'
+      +'<td style="padding:5px 8px;text-align:right;font-size:11px;font-family:\'DM Mono\',monospace;color:var(--text2);">'+Math.round(f.kg).toLocaleString('es-AR')+'</td>'
+      +'<td style="padding:5px 8px;text-align:right;font-size:12px;font-weight:700;font-family:\'DM Mono\',monospace;color:'+(f.enPlan&&f.ahorroMes>0?'var(--green)':'var(--text3)')+';">'+(f.ahorroMes>0?'$ '+Math.round(f.ahorroMes).toLocaleString('es-AR'):'—')+'</td>'
+      +'<td style="padding:5px 8px;text-align:right;font-size:12px;font-family:\'DM Mono\',monospace;color:var(--accent);font-weight:700;">'+(f.descPct>0?'−'+f.descPct+'%':'—')
+        +(f.descPct>0?'<div style="font-size:9.5px;color:var(--text3);font-weight:400;">que el común</div>':'')+'</td>'
+      +'<td style="padding:5px 8px;font-size:10.5px;color:var(--text3);min-width:300px;">'
+        +'<div style="display:flex;gap:4px;align-items:center;">'
+        +'<input type="text" value="'+escapeHtml(f.nombreNuevo)+'" onchange="ecoSetNombre('+f.p.id+',this.value)" '
+          +'style="flex:1;min-width:220px;padding:3px 6px;font-size:10.5px;'+(f.nombreCustom?'border-color:var(--accent);':'')+'">'
+        +(f.nombreCustom?'<span title="volver al nombre automático" style="cursor:pointer;color:var(--accent);font-weight:700;" onclick="ecoNombreAuto('+f.p.id+')">↺</span>':'')
+        +'</div>'
+        +(f.nombreAviso?'<div style="color:var(--red);margin-top:2px;">⚠ '+escapeHtml(f.nombreAviso)+'</div>':'')
+        +(f.yaExiste?'<div style="color:var(--green);margin-top:2px;">✓ ya existe un producto con ese nombre</div>':'')
+        +(dg?'<div style="color:var(--amber);margin-top:2px;">⚠ esta bolsa también baja 2 µm: las dos cosas juntas son −'+r1((1-f.factor*_dgFactor(f.p.id))*100)+'%</div>':'')
+      +'</td>'
+    +'</tr>';
+  });
+  html+='</tbody></table></div>';
+
+  html+='<div style="background:var(--amberbg);border:1px solid var(--amberbd);border-radius:var(--rl);padding:12px 16px;margin-top:14px;font-size:12.5px;color:var(--amber);line-height:1.6;">'
+    +'<b>El “Precio ECO” es un porcentaje, no un precio.</b> Cada cliente paga distinto por la misma bolsa, así que lo que sirve es '
+    +'<b>cuánto menos</b> que el producto común: se lo aplicás al precio nuevo de ESE cliente, en ✏️ Armar la lista. '
+    +'Sale de repartir el ahorro de material al '+pasar+'%.'
+  +'</div>';
+
+  html+='<div style="background:var(--bg3);border-radius:var(--rl);padding:14px 16px;margin-top:14px;">'
+    +'<div style="font-size:13px;font-weight:700;margin-bottom:6px;">Crear los productos ECO</div>'
+    +'<div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:10px;">'
+      +'Crea los productos marcados con la medida real en el nombre, la misma bobina y el mismo empaque. '
+      +'<b>No toca los productos originales</b>: siguen existiendo, con su precio y su historia. '
+      +'Los nuevos nacen <b>sin precio</b> — se los ponés cliente por cliente en ✏️ Armar la lista.'
+    +'</div>'
+    +'<button class="btn btn-primary" onclick="ecoCrear()">✂️ Crear los productos ECO ('+_ecoFilas().filter(f=>f.enPlan&&f.factor<1&&!f.yaExiste).length+')</button>'
+  +'</div>';
+  box.innerHTML=html;
+}
+
 // =================== PANTALLA ===================
 function initAumentos(){
   if(!AUM.vigencia)AUM.vigencia=localDate();
@@ -18784,6 +19657,7 @@ function initAumentos(){
     if(actual)sel.value=actual;
     if(AUM.cli)sel.value=String(AUM.cli);
   }
+  if(AUM.cli)_aumBorrCargar(AUM.cli);
   const v=document.getElementById('aum-vigencia');if(v&&!v.value)v.value=AUM.vigencia;
   const me=document.getElementById('aum-meses');if(me)me.value=AUM.meses;
   const pk=document.getElementById('aum-piso-kg');if(pk)pk.value=_aumPisoKg()||'';
@@ -18794,13 +19668,14 @@ function initAumentos(){
 }
 function aumTab(t){
   AUM.tab=t;
-  ['panorama','lista','evolucion','dg'].forEach(k=>{
+  ['panorama','lista','evolucion','dg','eco'].forEach(k=>{
     const el=document.getElementById('aum-tab-'+k);if(el)el.style.display=(k===t?'block':'none');
     const b=document.getElementById('aum-btn-'+k);if(b)b.className='btn btn-sm'+(k===t?' btn-primary':'');
   });
   if(t==='panorama')renderAumPanorama();
   else if(t==='lista')renderAumLista();
   else if(t==='dg')renderAumDG();
+  else if(t==='eco')renderAumEco();
   else renderAumEvolucion();
 }
 
@@ -19101,20 +19976,236 @@ function renderAumPanorama(){
   +'</div>';
   box.innerHTML=html;
 }
+// ============================================================
+// EL BORRADOR: lo que se esta armando, GUARDADO
+// ============================================================
+// German: "puse el aumento a Quilplast, ahora reabri y me queda distinto".
+// Y tenia razon: AUM.ed y AUM.pct vivian SOLO en memoria. Se podia pasar una hora
+// afinando precio por producto, cerrar la pantalla, y no quedaba nada — lo unico
+// que persistia era lo PROGRAMADO (precio_historial) y lo aplicado.
+// Eso rompia el flujo que el mismo pidio: armar → mirar → recien despues poner en
+// vigencia. Si el "armar" no sobrevive a cerrar la pantalla, no hay paso previo:
+// hay que decidir todo de una sentada.
+// AHORA el borrador se guarda en configuracion.aum_borrador, por cliente:
+//   { "<cliId>": { pct, red, ed:{ "<prodId>": precioPaquete }, ts } }
+// No toca ningun precio de venta: es exactamente lo mismo que estaba en memoria,
+// pero escrito. Se limpia solo cuando los precios de ese cliente se APLICAN.
+const _AUM_BORR_MAX=60;   // clientes con borrador guardado; se cae el mas viejo
+let _aumBorrTimer=null;
+// La escritura pendiente viaja como FOTO tomada al momento de tipear, no como una
+// lectura de AUM al disparar el timer. Sin esto, cualquier cosa que pise AUM en esos
+// 700 ms (cambiar de cliente, salir de la estacion y volver, reabrir la pantalla —
+// que recarga el borrador VIEJO encima) hacia que el timer escribiera lo viejo y el
+// cambio se perdiera en silencio. Es exactamente lo que reporto German: puso 14%,
+// salio, volvio, y estaba el 10% de antes.
+let _aumBorrPend=null;
+function _aumBorrTodos(){
+  const b=_aumCfgJSON('aum_borrador',{});
+  return (b&&typeof b==='object'&&!Array.isArray(b))?b:{};
+}
+function _aumBorrDe(cliId){
+  const b=_aumBorrTodos()[String(cliId)];
+  return (b&&typeof b==='object')?b:null;
+}
+function _aumBorrHay(cliId){
+  const b=_aumBorrDe(cliId);
+  return !!(b&&((parseFloat(b.pct)||0)!==0||(b.ed&&Object.keys(b.ed).length)));
+}
+// Se escribe con un respiro: tipear un precio dispara un render por tecla y no
+// hace falta un viaje al servidor por cada uno. Pero lo que se va a escribir se
+// FOTOGRAFIA ACA, al tipear — el timer solo despacha la foto.
+function _aumBorrGuardar(){
+  if(!AUM.cli)return;
+  _aumBorrPend={cli:AUM.cli,pct:parseFloat(AUM.pct)||0,red:parseFloat(AUM.redondeo)||0,
+    ed:Object.assign({},AUM.ed)};
+  if(_aumBorrTimer)clearTimeout(_aumBorrTimer);
+  _aumBorrTimer=setTimeout(()=>{_aumBorrTimer=null;_aumBorrFlush();},700);
+}
+// Despachar YA la escritura pendiente (si hay). Se llama antes de cualquier cosa
+// que pise AUM: cambiar de cliente, recargar el borrador, guardar a mano.
+// OJO: la foto NO se suelta hasta que la escritura ATERRIZA. Si se soltara al
+// despachar, reabrir el cliente mientras el viaje esta en el aire leeria la copia
+// vieja de cfg y la pantalla mostraria lo de antes — que es exactamente lo que
+// vio German aunque el dato despues llegaba a la base.
+let _aumBorrEnviando=false,_aumBorrVuelo=null;
+function _aumBorrFlush(){
+  const s=_aumBorrPend;
+  if(!s||_aumBorrEnviando)return _aumBorrVuelo||Promise.resolve();
+  if(_aumBorrTimer){clearTimeout(_aumBorrTimer);_aumBorrTimer=null;}
+  _aumBorrEnviando=true;
+  _aumBorrVuelo=_aumBorrEscribir(s.cli,s).catch(()=>{}).then(()=>{
+    _aumBorrEnviando=false;_aumBorrVuelo=null;
+    if(_aumBorrPend===s)_aumBorrPend=null;      // nadie tipeo nada nuevo: listo
+    else if(_aumBorrPend)return _aumBorrFlush(); // se tipeo mas mientras viajaba
+  });
+  return _aumBorrVuelo;
+}
+async function _aumBorrEscribir(cliId,snap){
+  // Releer lo ULTIMO de la base antes de escribir: este blob guarda los borradores
+  // de TODOS los clientes, y otra estacion (oficina/planta) pudo haber guardado los
+  // suyos despues de que esta pantalla cargo. Sin la relectura, el que escribe
+  // ultimo pisa el trabajo del otro con su copia vieja.
+  try{
+    const{data,error}=await sb.from('configuracion').select('valor').eq('clave','aum_borrador').maybeSingle();
+    if(!error&&data&&typeof data.valor==='string')cfg.aum_borrador=data.valor;
+  }catch(e){}
+  const todos=_aumBorrTodos();
+  const src=snap||{pct:parseFloat(AUM.pct)||0,red:parseFloat(AUM.redondeo)||0,ed:AUM.ed};
+  const ed={};
+  Object.keys(src.ed||{}).forEach(k=>{const v=parseFloat(src.ed[k]);if(v>0)ed[k]=r2(v);});
+  const pct=parseFloat(src.pct)||0;
+  if(!pct&&!Object.keys(ed).length)delete todos[String(cliId)];
+  else todos[String(cliId)]={pct,red:parseFloat(src.red)||0,ed,ts:localDate()+' '+localTime()};
+  // tope de tamaño: configuracion.valor es un texto, no un baul
+  const claves=Object.keys(todos);
+  if(claves.length>_AUM_BORR_MAX){
+    claves.sort((a,b)=>String(todos[a].ts||'').localeCompare(String(todos[b].ts||'')))
+      .slice(0,claves.length-_AUM_BORR_MAX).forEach(k=>delete todos[k]);
+  }
+  const{error}=await sb.from('configuracion').upsert({clave:'aum_borrador',valor:JSON.stringify(todos)},{onConflict:'clave'});
+  if(error){toast('No pude guardar el borrador: '+error.message,'amber');return;}
+  cfg.aum_borrador=JSON.stringify(todos);
+  const el=document.getElementById('aum-borr-est');
+  if(el)el.textContent='guardado '+localTime();
+}
+// Restaurar lo que se estaba armando para ese cliente.
+function _aumBorrCargar(cliId){
+  // Si hay una escritura pendiente DE ESTE MISMO cliente (los 700 ms del debounce),
+  // eso es lo mas nuevo que existe: se restaura desde ahi y se despacha ya. Si es de
+  // otro cliente, se despacha antes de leer, para no restaurar por encima de nada.
+  if(_aumBorrPend&&_aumBorrPend.cli===cliId){
+    const s=_aumBorrPend;
+    AUM.pct=parseFloat(s.pct)||0;AUM.ed=Object.assign({},s.ed);
+    if((parseFloat(s.red)||0)>0){AUM.redondeo=parseFloat(s.red)||0;
+      const r=document.getElementById('aum-redondeo');if(r)r.value=AUM.redondeo;}
+    const p=document.getElementById('aum-pct');if(p)p.value=AUM.pct||'';
+    _aumBorrFlush();
+    return true;
+  }
+  if(_aumBorrPend)_aumBorrFlush();
+  const b=_aumBorrDe(cliId);
+  AUM.ed={};AUM.pct=0;
+  // sin borrador, se arranca de lo PROGRAMADO (si hay). Nunca del precio de hoy
+  // cuando ya hay una decision tomada esperando fecha.
+  if(!b){_aumSemillaProgramado(cliId);return false;}
+  AUM.pct=parseFloat(b.pct)||0;
+  if(b.red!==undefined&&(parseFloat(b.red)||0)>0){
+    AUM.redondeo=parseFloat(b.red)||0;
+    const r=document.getElementById('aum-redondeo');if(r)r.value=AUM.redondeo;
+  }
+  Object.keys(b.ed||{}).forEach(k=>{const v=parseFloat(b.ed[k]);if(v>0)AUM.ed[parseInt(k)]=r2(v);});
+  const p=document.getElementById('aum-pct');if(p)p.value=AUM.pct||'';
+  return true;
+}
+// Ultimo recurso: si se cierra o recarga la pestaña con la foto todavia en los
+// 700 ms, se intenta despachar. No esta garantizado que el viaje llegue (el
+// navegador puede cortar la request al descargar la pagina), pero no cuesta nada
+// y salva el caso comun de F5 inmediatamente despues de tipear.
+try{
+  if(typeof document.addEventListener==='function'){
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')_aumBorrFlush();});
+    window.addEventListener('pagehide',()=>{_aumBorrFlush();});
+  }
+}catch(e){}
+async function _aumBorrBorrar(cliId){
+  try{
+    const{data,error}=await sb.from('configuracion').select('valor').eq('clave','aum_borrador').maybeSingle();
+    if(!error&&data&&typeof data.valor==='string')cfg.aum_borrador=data.valor;
+  }catch(e){}
+  const todos=_aumBorrTodos();
+  if(todos[String(cliId)]===undefined)return;
+  delete todos[String(cliId)];
+  const{error}=await sb.from('configuracion').upsert({clave:'aum_borrador',valor:JSON.stringify(todos)},{onConflict:'clave'});
+  if(error)return;
+  cfg.aum_borrador=JSON.stringify(todos);
+}
+// Partir de lo PROGRAMADO, no del precio de hoy.
+// German: "la captura tiene que partir de lo que programé, si no no tiene gracia".
+// Tiene razon: afinar un precio es iterativo. Si al reabrir la fila vuelve al precio
+// de hoy, cada vuelta empieza de cero y lo programado queda como un numero al costado
+// que hay que copiar a mano. Lo programado es el estado actual de la decision, asi
+// que es el punto de partida del proximo ajuste.
+function _aumSemillaProgramado(cliId){
+  let n=0;
+  const porProd={};
+  _aumProgPend().filter(h=>h.cliente_id===cliId).forEach(h=>{
+    const a=porProd[h.producto_id];
+    // el ULTIMO paso es el destino: es lo que va a quedar rigiendo
+    if(!a||String(h.vigencia_desde)>String(a.vigencia_desde)||
+       (String(h.vigencia_desde)===String(a.vigencia_desde)&&(h.paso||0)>(a.paso||0)))
+      porProd[h.producto_id]=h;
+  });
+  Object.keys(porProd).forEach(k=>{
+    const v=r2(parseFloat(porProd[k].precio_paquete_nuevo)||0);
+    if(v>0){AUM.ed[parseInt(k)]=v;n++;}
+  });
+  return n;
+}
+function aumPartirDeProgramado(){
+  if(!AUM.cli){toast('Elegí un cliente','amber');return;}
+  const n=_aumSemillaProgramado(AUM.cli);
+  if(!n){toast('Este cliente no tiene precios programados','amber');return;}
+  _aumBorrGuardar();
+  toast('↩ '+n+' precio(s) traídos de lo programado — ahora seguí afinando desde ahí','green');
+  renderAumLista();
+}
+// Guardar a mano, aunque el borrador ya se guarde solo. El autoguardado es
+// invisible y cuando uno esta afinando numeros importantes quiere apretar algo y
+// que le contesten. No hace nada distinto: fuerza la escritura y avisa.
+async function aumGuardarPreliminar(){
+  if(!AUM.cli){toast('Elegí un cliente','amber');return;}
+  _aumBorrGuardar();        // foto fresca de lo que esta en pantalla
+  await _aumBorrFlush();    // y a la base YA
+  const b=_aumBorrDe(AUM.cli);
+  if(!b){toast('No hay nada para guardar: la lista está igual que hoy','amber');return;}
+  const n=Object.keys(b.ed||{}).length;
+  toast('💾 Preliminar guardado'+(n?' · '+n+' precio(s) a mano':'')+((parseFloat(b.pct)||0)?' · +'+b.pct+'% general':'')
+    +' — podés cerrar y seguir después','green');
+  renderAumLista();
+}
+async function aumDescartarBorrador(){
+  if(!AUM.cli)return;
+  if(!confirm('¿Descarto lo que armaste para este cliente?\n\nVuelve a mostrar los precios de hoy. '
+    +'Lo que ya está PROGRAMADO no se toca — para eso está la ✕ de cada fila.'))return;
+  // matar tambien la foto pendiente: si quedara viva, el flush lo resucitaria.
+  // Y esperar la escritura EN VIAJE (si hay): si aterrizara despues del borrado,
+  // tambien lo resucitaria.
+  _aumBorrPend=null;
+  if(_aumBorrTimer){clearTimeout(_aumBorrTimer);_aumBorrTimer=null;}
+  if(_aumBorrVuelo)await _aumBorrVuelo.catch(()=>{});
+  await _aumBorrBorrar(AUM.cli);
+  AUM.ed={};AUM.pct=0;
+  const p=document.getElementById('aum-pct');if(p)p.value='';
+  toast('Borrador descartado','green');
+  renderAumLista();
+}
 function aumAbrirCliente(cliId,pct){
-  AUM.cli=cliId;AUM.ed={};AUM.quitados={};AUM.extra={};AUM.pct=parseFloat(pct)||0;
+  if(_aumBorrPend&&_aumBorrPend.cli!==cliId)_aumBorrFlush();  // idem aumCambioCliente
+  AUM.cli=cliId;AUM.ed={};AUM.quitados={};AUM.extra={};AUM.pct=0;
   const s=document.getElementById('aum-cli');if(s)s.value=String(cliId);
+  // EL BORRADOR SIEMPRE GANA. Antes el % sugerido del Panorama ("Le toca") pisaba
+  // el borrador: entrar por "Armar lista →" mostraba hoy × sugerido y lo armado
+  // desaparecia de la PANTALLA (aunque seguia en la base — el PDF si lo traia).
+  // Reporte de German: "en el pdf si estan pero no en pantalla". El sugerido es
+  // un punto de partida generico; lo armado es trabajo hecho. El % del panorama
+  // solo siembra a un cliente que no tiene NADA: ni borrador, ni pasos programados.
+  const hay=_aumBorrCargar(cliId);
+  if(!hay&&!Object.keys(AUM.ed).length&&!(AUM.pct>0))AUM.pct=parseFloat(pct)||0;
   const p=document.getElementById('aum-pct');if(p)p.value=AUM.pct||'';
   aumTab('lista');
 }
 function aumCambioCliente(){
   const cliId=parseInt(document.getElementById('aum-cli').value)||0;
+  // lo tipeado en OTRO cliente se despacha ya; si la foto es de ESTE cliente se deja
+  // viva para que _aumBorrCargar restaure desde ahi (es lo mas nuevo que existe)
+  if(_aumBorrPend&&_aumBorrPend.cli!==cliId)_aumBorrFlush();
   AUM.cli=cliId;AUM.ed={};AUM.quitados={};AUM.extra={};AUM.pct=0;
-  const p=document.getElementById('aum-pct');if(p)p.value='';
+  if(cliId)_aumBorrCargar(cliId);
+  const p=document.getElementById('aum-pct');if(p)p.value=AUM.pct||'';
   if(cliId)aumTab('lista');else renderAumLista();
 }
-function aumSetPct(){AUM.pct=parseFloat(document.getElementById('aum-pct').value)||0;AUM.ed={};renderAumLista();}
-function aumSetRedondeo(){AUM.redondeo=parseFloat(document.getElementById('aum-redondeo').value)||0;renderAumLista();}
+function aumSetPct(){AUM.pct=parseFloat(document.getElementById('aum-pct').value)||0;AUM.ed={};_aumBorrGuardar();renderAumLista();}
+function aumSetRedondeo(){AUM.redondeo=parseFloat(document.getElementById('aum-redondeo').value)||0;_aumBorrGuardar();renderAumLista();}
 function aumSetMeses(){AUM.meses=parseInt(document.getElementById('aum-meses').value)||12;AUM.ed={};renderAumLista();}
 function aumSetVigencia(){AUM.vigencia=document.getElementById('aum-vigencia').value||localDate();}
 function aumBuscarPan(){AUM.qPan=document.getElementById('aum-q-pan').value||'';renderAumPanorama();}
@@ -19123,22 +20214,22 @@ function aumSetVenCob(){AUM.venCob=parseInt(document.getElementById('aum-ven-cob
 function aumToggleKg(){AUM.mostrarKg=!!document.getElementById('aum-ver-kg').checked;}
 
 // ---- edicion por fila ----
-function aumEditPaq(pid,val){const v=parseFloat(val);if(!(v>0)){delete AUM.ed[pid];}else AUM.ed[pid]=r2(v);renderAumLista();}
+function aumEditPaq(pid,val){const v=parseFloat(val);if(!(v>0)){delete AUM.ed[pid];}else AUM.ed[pid]=r2(v);_aumBorrGuardar();renderAumLista();}
 function aumEditKg(pid,val){
   const f=_aumFilas(AUM.cli).find(x=>x.pid===pid);const v=parseFloat(val);
   if(!f||!(f.kgPaq>0)||!(v>0)){delete AUM.ed[pid];}else AUM.ed[pid]=r2(v*f.kgPaq);
-  renderAumLista();
+  _aumBorrGuardar();renderAumLista();
 }
 function aumEditPct(pid,val){
   const f=_aumFilas(AUM.cli).find(x=>x.pid===pid);const v=parseFloat(val);
   if(!f||!(f.hoyPaq>0)||isNaN(v)){delete AUM.ed[pid];}else AUM.ed[pid]=_aumRedondear(f.hoyPaq*(1+v/100));
-  renderAumLista();
+  _aumBorrGuardar();renderAumLista();
 }
 function aumAlObjetivo(pid){
   const f=_aumFilas(AUM.cli).find(x=>x.pid===pid);
   if(!f||!(f.objetivoKg>0)||!(f.kgPaq>0)){toast('No puedo: a ese producto le falta el costo o el kg/paquete','amber');return;}
   AUM.ed[pid]=_aumRedondear(f.objetivoKg*f.kgPaq);
-  renderAumLista();
+  _aumBorrGuardar();renderAumLista();
 }
 function aumTodosAlObjetivo(){
   let n=0;
@@ -19148,7 +20239,7 @@ function aumTodosAlObjetivo(){
     if(obj>(f.hoyPaq||0)){AUM.ed[f.pid]=obj;n++;}   // nunca baja un precio solo
   });
   toast(n+' producto(s) llevados a su objetivo de tramo','green');
-  renderAumLista();
+  _aumBorrGuardar();renderAumLista();
 }
 async function aumQuitar(pid){
   AUM.quitados[pid]=true;delete AUM.ed[pid];renderAumLista();
@@ -19166,7 +20257,7 @@ async function aumAgregar(){
   if(err){toast(_aumCompoFaltaTabla()?'Agregado por ahora — para que quede guardado hay que correr migracion_listas_10i.sql':('No se pudo guardar: '+err),'amber');return;}
   delete AUM.extra[pid];renderAumLista();
 }
-function aumLimpiar(){AUM.ed={};AUM.pct=0;const p=document.getElementById('aum-pct');if(p)p.value='';renderAumLista();}
+function aumLimpiar(){AUM.ed={};AUM.pct=0;const p=document.getElementById('aum-pct');if(p)p.value='';_aumBorrGuardar();renderAumLista();}
 
 // ---------- TAB 2: armar la lista de un cliente ----------
 function renderAumLista(){
@@ -19272,6 +20363,12 @@ function renderAumLista(){
           ?f.prog.map(g=>'<div style="font-size:10px;white-space:nowrap;color:'+(String(g.vigencia_desde)<=localDate()?'var(--amber)':'var(--text2)')+';">'
               +(g.pasos_total>1?'<b>p'+g.paso+'</b> ':'')+g.vigencia_desde+' · <b style="font-family:\'DM Mono\',monospace;">$ '+r2(g.precio_paquete_nuevo||0).toLocaleString('es-AR')+'</b>'
               +' <span style="cursor:pointer;color:var(--text3);" title="borrar" onclick="aumBorrarProg('+g.id+')">✕</span></div>').join('')
+            // Lo programado ya esta escrito en precio_historial: NO se recalcula solo
+            // cuando se cambia el precio de la fila. Sin este aviso, uno afina el
+            // precio, se va, y el dia 18 se aplica el numero viejo.
+            +(_aumProgDesfasado(f)?'<div style="font-size:9.5px;color:var(--red);line-height:1.35;margin-top:2px;white-space:normal;">⚠ estás armando $ '
+               +r2(f.nuevoPaq).toLocaleString('es-AR')+' y lo programado termina en $ '
+               +r2(f.prog[f.prog.length-1].precio_paquete_nuevo||0).toLocaleString('es-AR')+' — volvé a programar</div>':'')
           :'<span style="font-size:10px;color:var(--text3);">—</span>')
       +'</td>'
       +'<td style="padding:5px 8px;text-align:right;white-space:nowrap;">'
@@ -19748,6 +20845,174 @@ function aumImprimir(){
     +'<scr'+'ipt>window.onload=function(){setTimeout(function(){try{window.print();}catch(e){console.error(e);}},500);};<\/scr'+'ipt>'
     +'</body></html>';
   _imprimirHTML(html,'Lista de precios');
+}
+
+// ============================================================
+// 🖨 LA LISTA PREVIA, PARA ANALISIS INTERNO
+// ============================================================
+// Pedido de German: "quiero generar una lista previa, que quede registrada, y
+// cuando apreto poner en vigencia recien queda fija — y poder imprimirla en forma
+// previa para analisis nuestro".
+// Las dos primeras cosas ya existian: programar escribe en precio_historial con
+// aplicado=false y no toca un solo precio de venta hasta que se aplica. Lo que
+// faltaba era ESTA hoja: la version para adentro, con el costo y el margen al
+// lado de cada precio. La lista del cliente NUNCA lleva costos; esta SI, y por eso
+// dice "USO INTERNO" arriba y abajo.
+function aumImprimirPrevia(){
+  const pend=_aumProgPend();
+  // Y TAMBIEN LOS BORRADORES. German: "si quiero hacer un solo aumento no lo guarda
+  // ni tampoco va al pdf; solo guarda los tramos". El aumento simple que se afina con
+  // 💾 Guardar preliminar queda en el borrador, no en precio_historial — y esta hoja
+  // miraba solo lo programado. Para el analisis interno el borrador ES parte del plan:
+  // entra marcado como "✏ borrador" para distinguirlo de lo que ya tiene fecha.
+  const filasBorr=[];
+  const _st={cli:AUM.cli,ed:AUM.ed,pct:AUM.pct,red:AUM.redondeo};
+  try{
+    const borr=_aumBorrTodos();
+    Object.keys(borr).forEach(k=>{
+      const cliId=parseInt(k);const b=borr[k];
+      if(!b||!(C.clientes||[]).find(c=>c.id===cliId))return;
+      // se reconstruye la lista de ese cliente con SU borrador, usando el mismo
+      // motor de siempre (_aumFilas): un solo lugar que sabe calcular precios.
+      AUM.ed={};AUM.pct=parseFloat(b.pct)||0;AUM.redondeo=parseFloat(b.red)||0;
+      Object.keys(b.ed||{}).forEach(pk=>{const v=parseFloat(b.ed[pk]);if(v>0)AUM.ed[parseInt(pk)]=r2(v);});
+      let filas=[];try{filas=_aumFilas(cliId);}catch(e){filas=[];}
+      filas.forEach(f=>{
+        if(!(f.nuevoPaq>0)||r2(f.nuevoPaq)===r2(f.hoyPaq))return;
+        // si el borrador dice lo mismo que el ultimo paso programado, no es trabajo
+        // nuevo: es la semilla de lo programado y ya esta en la hoja con su fecha.
+        const prog=pend.filter(h=>h.cliente_id===cliId&&h.producto_id===f.pid)
+          .sort((a,c)=>String(a.vigencia_desde).localeCompare(String(c.vigencia_desde))||((a.paso||0)-(c.paso||0)));
+        if(prog.length&&Math.abs(r2(prog[prog.length-1].precio_paquete_nuevo||0)-r2(f.nuevoPaq))<=0.01)return;
+        filasBorr.push({__borrador:true,cliente_id:cliId,producto_id:f.pid,
+          precio_paquete_nuevo:r2(f.nuevoPaq),precio_kg_nuevo:f.nuevoKg||null});
+      });
+    });
+  }catch(e){console.error('borradores en la lista previa:',e);}
+  AUM.cli=_st.cli;AUM.ed=_st.ed;AUM.pct=_st.pct;AUM.redondeo=_st.red;
+  const todas=pend.concat(filasBorr);
+  if(!todas.length){toast('No hay precios programados ni borradores para analizar','amber');return;}
+  const porCli={};
+  todas.forEach(h=>{
+    if(!porCli[h.cliente_id])porCli[h.cliente_id]={id:h.cliente_id,filas:[]};
+    porCli[h.cliente_id].filas.push(h);
+  });
+  const hoy=localDate();
+  const fmt=n=>'$ '+r2(n||0).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const fmt0=n=>'$ '+Math.round(n||0).toLocaleString('es-AR');
+  let bloques='',TkgMes=0,TplataMes=0,nFilas=0;
+  Object.values(porCli)
+    .sort((a,b)=>{
+      const ca=(C.clientes||[]).find(x=>x.id===a.id)||{},cb=(C.clientes||[]).find(x=>x.id===b.id)||{};
+      return String(ca.razon_social||ca.nombre||'').localeCompare(String(cb.razon_social||cb.nombre||''));})
+    .forEach(G=>{
+    const c=(C.clientes||[]).find(x=>x.id===G.id)||{};
+    const hist=_aumProdsDeCliente(G.id,AUM.meses||12);
+    // una fila por producto, con TODOS sus pasos en columnas
+    const porProd={};
+    G.filas.forEach(h=>{
+      if(!porProd[h.producto_id])porProd[h.producto_id]={pid:h.producto_id,pasos:[]};
+      porProd[h.producto_id].pasos.push(h);
+    });
+    let filas='',kgCli=0,plataCli=0;
+    Object.values(porProd).sort((a,b)=>{
+      const pa=(C.productos||[]).find(x=>x.id===a.pid)||{},pb=(C.productos||[]).find(x=>x.id===b.pid)||{};
+      return String(pa.codigo||'').localeCompare(String(pb.codigo||''));}).forEach(P=>{
+      const prod=(C.productos||[]).find(x=>x.id===P.pid);if(!prod)return;
+      // el borrador va ULTIMO: es el ajuste mas fresco, asi que es el precio final del analisis
+      P.pasos.sort((a,b)=>((a.__borrador?1:0)-(b.__borrador?1:0))
+        ||String(a.vigencia_desde||'').localeCompare(String(b.vigencia_desde||''))||((a.paso||0)-(b.paso||0)));
+      const kgPaq=lpGetKgPaq(prod);
+      let pv=null;try{pv=getPrecioVenta(P.pid,G.id);}catch(e){pv=null;}
+      const hoyPaq=pv&&pv.precio_paquete?r2(pv.precio_paquete):0;
+      const hoyKg=kgPaq>0&&hoyPaq>0?r2(hoyPaq/kgPaq):0;
+      const ult=P.pasos[P.pasos.length-1];
+      const finPaq=r2(parseFloat(ult.precio_paquete_nuevo)||0);
+      const finKg=kgPaq>0&&finPaq>0?r2(finPaq/kgPaq):0;
+      const cp=_aumCostoPlenoKg(P.pid);
+      const mg=finKg>0&&cp.pleno>0?r1((finKg-cp.pleno)/finKg*100):null;
+      const sube=hoyPaq>0&&finPaq>0?r1((finPaq/hoyPaq-1)*100):null;
+      const h=hist[P.pid];
+      const paqMes=h?h.paq:0;
+      const kgMes=r2(paqMes*(kgPaq||0));
+      const plata=r2(paqMes*(finPaq-hoyPaq));
+      kgCli+=kgMes;plataCli+=plata;nFilas++;
+      const bajo=cp.pleno>0&&finKg>0&&finKg<cp.pleno;
+      filas+='<tr'+(bajo?' class="malo"':'')+'>'
+        +'<td class="mono">'+escapeHtml(String(prod.codigo||''))+'</td>'
+        +'<td>'+escapeHtml(String(prod.descripcion||''))+'</td>'
+        +'<td class="r">'+(kgMes>0?Math.round(kgMes).toLocaleString('es-AR'):'—')+'</td>'
+        +'<td class="r">'+(hoyPaq?fmt(hoyPaq):'—')+'</td>'
+        +'<td class="r dim">'+(hoyKg?fmt0(hoyKg):'—')+'</td>'
+        +'<td class="r">'+P.pasos.map(x=>x.__borrador
+            ?'<div class="borr">✏ borrador '+fmt(parseFloat(x.precio_paquete_nuevo)||0)+'</div>'
+            :'<div>'+(x.pasos_total>1?'<b>p'+x.paso+'</b> ':'')
+            +String(x.vigencia_desde).slice(8)+'/'+String(x.vigencia_desde).slice(5,7)+' '
+            +fmt(parseFloat(x.precio_paquete_nuevo)||0)+'</div>').join('')+'</td>'
+        +'<td class="r fin">'+(finKg?fmt0(finKg):'—')+'</td>'
+        +'<td class="r dim">'+(cp.pleno?fmt0(cp.pleno):'—')+'</td>'
+        +'<td class="r '+(mg===null?'':mg<0?'neg':mg<10?'warn':'ok')+'">'+(mg===null?'—':mg+'%')+'</td>'
+        +'<td class="r">'+(sube===null?'—':(sube>0?'+':'')+sube+'%')+'</td>'
+        +'<td class="r">'+(plata?fmt0(plata):'—')+'</td>'
+      +'</tr>';
+    });
+    TkgMes+=kgCli;TplataMes+=plataCli;
+    bloques+='<div class="cli">'
+      +'<div class="cli-h"><div class="cli-n">'+escapeHtml(c.razon_social||c.nombre||('Cliente '+G.id))+'</div>'
+      +'<div class="cli-m">'+Object.keys(porProd).length+' producto(s) · '+Math.round(kgCli).toLocaleString('es-AR')
+        +' kg/mes · suma <b>'+fmt0(plataCli)+'</b>/mes</div></div>'
+      +'<table><thead><tr><th>Cód.</th><th>Producto</th><th class="r">Kg/mes</th>'
+      +'<th class="r">$/paq hoy</th><th class="r">$/kg hoy</th><th class="r">Programado</th>'
+      +'<th class="r">$/kg final</th><th class="r">Costo pleno</th><th class="r">Margen</th>'
+      +'<th class="r">Sube</th><th class="r">Suma/mes</th></tr></thead><tbody>'+filas+'</tbody></table></div>';
+  });
+  const html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>Lista previa — uso interno</title><style>'
+    +'@page{size:A4 landscape;margin:10mm 8mm}'
+    +'*{box-sizing:border-box;margin:0;padding:0}'
+    +'body{font-family:Segoe UI,Arial,sans-serif;color:#0f172a;font-size:9.5pt}'
+    +'.hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2.5px solid #0f172a;padding-bottom:9px;margin-bottom:12px}'
+    +'.t1{font-size:17pt;font-weight:800;letter-spacing:-.02em}'
+    +'.t2{font-size:9pt;color:#475569;margin-top:2px}'
+    +'.tag{display:inline-block;background:#b91c1c;color:#fff;padding:3px 12px;border-radius:3px;font-size:8.5pt;letter-spacing:.09em;text-transform:uppercase;font-weight:700}'
+    +'.res{background:#f1f5f9;border:1px solid #cbd5e1;border-radius:5px;padding:9px 13px;margin-bottom:12px;display:flex;gap:26px;font-size:9.5pt}'
+    +'.res b{font-size:13pt;display:block;font-family:Consolas,monospace}'
+    +'.res .l{color:#64748b;font-size:8pt;text-transform:uppercase;letter-spacing:.05em;font-weight:600}'
+    +'.cli{margin-bottom:14px;break-inside:avoid}'
+    +'.cli-h{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1.5px solid #0f172a;padding-bottom:3px;margin-bottom:5px}'
+    +'.cli-n{font-size:11.5pt;font-weight:700}.cli-m{font-size:8.5pt;color:#475569}'
+    +'table{width:100%;border-collapse:collapse}'
+    +'th{background:#1e293b;color:#fff;padding:4px 6px;font-size:7.5pt;text-align:left;text-transform:uppercase;letter-spacing:.04em;font-weight:600}'
+    +'th.r{text-align:right}td{padding:3px 6px;border-bottom:1px solid #e2e8f0;font-size:8.5pt;vertical-align:top}'
+    +'td.r{text-align:right;font-family:Consolas,monospace;white-space:nowrap}'
+    +'td.mono{font-family:Consolas,monospace}td.dim{color:#64748b}td.fin{font-weight:700}'
+    +'td.ok{color:#047857;font-weight:700}td.warn{color:#b45309;font-weight:700}td.neg{color:#b91c1c;font-weight:700}'
+    +'tr.malo td{background:#fef2f2}'
+    +'.borr{color:#6d28d9;font-style:italic}'
+    +'.nota{background:#fffbeb;border:1px solid #fde68a;border-radius:5px;padding:9px 13px;margin-top:10px;font-size:8.5pt;line-height:1.5;color:#92400e}'
+    +'.foot{margin-top:14px;padding-top:8px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:8pt;color:#94a3b8}'
+    +'</style></head><body>'
+    +'<div class="hdr"><div><div class="t1">Lista previa de precios</div>'
+      +'<div class="t2">'+escapeHtml(getCfg('empresa_razon_social','ARIALPLAST'))+' · programados y borradores, todavía SIN aplicar · emitida el '+_aumFechaLargaSafe(hoy)+'</div></div>'
+      +'<div style="text-align:right"><div class="tag">Uso interno</div>'
+      +'<div class="t2">No es la lista del cliente:<br>lleva costos y márgenes</div></div></div>'
+    +'<div class="res">'
+      +'<div><span class="l">Clientes</span><b>'+Object.keys(porCli).length+'</b></div>'
+      +'<div><span class="l">Precios programados</span><b>'+pend.length+'</b></div>'
+      +'<div><span class="l">En borrador</span><b>'+filasBorr.length+'</b></div>'
+      +'<div><span class="l">Kg/mes alcanzados</span><b>'+Math.round(TkgMes).toLocaleString('es-AR')+'</b></div>'
+      +'<div><span class="l">Suma por mes</span><b>'+fmt0(TplataMes)+'</b></div>'
+    +'</div>'
+    +bloques
+    +'<div class="nota"><b>Cómo leerla.</b> Estos precios <b>todavía no rigen</b>. Los que tienen fecha están '
+      +'<b>programados</b> y se aplican desde el cartel cuando llega el día; los marcados <b>✏ borrador</b> son los que '
+      +'se están afinando en pantalla (guardados como preliminar) y <u>todavía no tienen fecha</u> — para que rijan hay '
+      +'que programarlos. <b>Margen</b> es sobre el costo pleno (materia prima de la fórmula de su bobina + estructura '
+      +'por kilo). Las filas en rojo terminan <b>por debajo del costo</b> — revisar antes de aplicar. '
+      +'<b>Suma/mes</b> = paquetes del período × la diferencia de precio.</div>'
+    +'<div class="foot"><div>Uso interno · no entregar al cliente</div><div>'+nFilas+' precios · '+Object.keys(porCli).length+' clientes</div></div>'
+    +'<scr'+'ipt>window.onload=function(){setTimeout(function(){try{window.print();}catch(e){console.error(e);}},500);};<\/scr'+'ipt>'
+    +'</body></html>';
+  _imprimirHTML(html,'Lista previa (uso interno)');
 }
 
 // ---- Helper global: paq/bolsón aplicable ----
