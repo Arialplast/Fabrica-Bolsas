@@ -709,7 +709,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-08-13e</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-08-19a</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -1532,6 +1532,27 @@ body.pext-on .main{margin-left:0!important;}
             <div class="fg"><label>Extrusión — hora inicio</label><input id="adm-ext-ini" type="number" min="0" max="23" step="1"></div>
             <div class="fg"><label>Extrusión — hora fin</label><input id="adm-ext-fin" type="number" min="0" max="23" step="1"></div>
             <div class="fg"><label>Extrusión — días (ej: 1,2,3,4,5)</label><input id="adm-ext-dias" type="text" placeholder="1,2,3,4,5"></div>
+          </div>
+          <div class="fp" style="margin:10px 0;border-left:3px solid var(--accent);">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;">
+              <input id="adm-ext-cont" type="checkbox" onchange="admContToggle()"> 🌙 Extrusión en continuo (24 hs)
+            </label>
+            <div style="font-size:11px;color:var(--text3);margin:4px 0 10px;">Tildado, la extrusión arranca el día y la hora de abajo y <b>no para</b> hasta el cierre — el Gantt, las fechas de entrega y la capacidad semanal cuentan también las noches. Destildado, manda el horario de arriba (una franja por día hábil).</div>
+            <div id="adm-ext-cont-box" style="display:none;">
+              <div class="fgrid fgrid3">
+                <div class="fg"><label>Arranca — día</label>
+                  <select id="adm-ext-ini-dia" onchange="admContToggle()"><option value="1">Lunes</option><option value="2">Martes</option><option value="3">Miércoles</option><option value="4">Jueves</option><option value="5">Viernes</option><option value="6">Sábado</option><option value="0">Domingo</option></select></div>
+                <div class="fg"><label>Arranca — hora</label><input id="adm-ext-ini-hora" type="number" min="0" max="23" step="0.5" oninput="admContToggle()"></div>
+                <div class="fg"><label>Termina — día</label>
+                  <select id="adm-ext-fin-dia" onchange="admContToggle()"><option value="1">Lunes</option><option value="2">Martes</option><option value="3">Miércoles</option><option value="4">Jueves</option><option value="5">Viernes</option><option value="6">Sábado</option><option value="0">Domingo</option></select></div>
+              </div>
+              <div class="fgrid fgrid3">
+                <div class="fg"><label>Termina — hora</label><input id="adm-ext-fin-hora" type="number" min="0" max="24" step="0.5" oninput="admContToggle()"></div>
+                <div class="fg"><label>Ese día se sigue hasta (opcional)</label><input id="adm-ext-sab" type="number" min="0" max="24" step="0.5" placeholder="ej: 12 — vacío = no" oninput="admContToggle()">
+                  <div style="font-size:10px;color:var(--text3);margin-top:3px">El sábado que se viene a trabajar de 6 a 12: poné 12. Si esa semana no se viene, dejalo vacío.</div></div>
+                <div class="fg"><label>&nbsp;</label><div id="adm-ext-cont-prev" style="font-size:11px;color:var(--accent);padding-top:8px;"></div></div>
+              </div>
+            </div>
           </div>
           <div class="fgrid fgrid3">
             <div class="fg"><label>Corte — hora inicio</label><input id="adm-cor-ini" type="number" min="0" max="23" step="1"></div>
@@ -5100,7 +5121,11 @@ window.addEventListener('DOMContentLoaded',()=>{
 });
 
 // ===== CONSTANTS =====
-const J_INI=7,J_FIN=22,J_HS=15;
+// Envolvente de la jornada de EXTRUSIÓN (la usan los ejes de los Gantt por día).
+// Son `let` a propósito: `_sincronizarJ()` las recalcula cada vez que se carga o se
+// guarda la configuración. Antes eran `const` y los `window.J_INI=...` de la carga de
+// config no tenían ningún efecto — el eje quedaba clavado en 7–22 pasara lo que pasara.
+let J_INI=7,J_FIN=22,J_HS=15;
 const MOTIVOS=['Rotura de máquina','Falta de materia prima','Material defectuoso','Falta de personal','Problema eléctrico','Otro'];
 
 // ===== STATE =====
@@ -5128,6 +5153,16 @@ let cfg={
   extrusion_hora_inicio:7,
   extrusion_hora_fin:22,
   extrusion_dias:[1,2,3,4,5],
+  // Turno continuo de extrusión (24 hs). Si está en false, manda el horario de arriba.
+  // Si está en true, la fábrica arranca el día/hora de inicio y NO para hasta el
+  // día/hora de fin (ej: lunes 6:00 → sábado 6:00), con un tramo extra opcional
+  // el día del cierre (ej: el sábado se trabaja hasta las 12).
+  extrusion_continuo:true,  // 19/08/2026: la fábrica pasó a trabajar 24 hs
+  extrusion_ini_dia:1,      // 0=Dom 1=Lun ... 6=Sáb
+  extrusion_ini_hora:6,     // lunes 6:00
+  extrusion_fin_dia:6,
+  extrusion_fin_hora:6,     // sábado 6:00
+  extrusion_sab_hasta:null, // null = no se trabaja después del cierre (poner 12 el sábado que se viene)
   corte_hora_inicio:6,
   corte_hora_fin:22,
   corte_dias:[1,2,3,4,5],
@@ -5289,11 +5324,33 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-08-13e';
+const APP_BUILD='2026-08-19a';
+  // 19a: LA FABRICA PASA A 24 HS Y EL MOTOR DE FECHAS LO ENTIENDE. German arranco turno continuo:
+  // lunes 6:00 a sabado 6:00, y algunos sabados hasta las 12. La jornada dejo de ser UNA franja
+  // hIni-hFin repetida en los dias habiles (no puede expresar "el lunes de 6 a 24, el martes entero
+  // y el sabado de 0 a 6") y paso a ser una LISTA DE TRAMOS por dia: _jorTramosDia(j,dow) devuelve
+  // [{a,b}] en horas y ajustarAJornada / sumarHsLaborales / restarHsLaborales / hsLaboralesEntre
+  // recorren esa lista. Con el modo 'diario' la lista tiene un solo tramo: verificado contra una
+  // reimplementacion del motor viejo en 1600+ casos, CERO diferencias — prender el continuo es una
+  // decision, no un cambio que se cuela. addHs tenia su PROPIA copia del recorrido (noches + fines
+  // de semana) y ahora delega en sumarHsLaborales: dos motores de calendario en el mismo archivo era
+  // exactamente como el 24 hs iba a quedar a medias. J_INI/J_FIN eran `const` y los `window.J_INI=`
+  // de la carga de config no hacian NADA — el eje de los Gantt por dia quedaba clavado en 7-22
+  // pasara lo que pasara en la configuracion; ahora son `let` y las sincroniza _sincronizarJ().
+  // El Gantt combinado recorta y raya POR DIA (jorHull): el lunes tiene rayado 0-6, el martes nada,
+  // el domingo entero. La capacidad semanal ya no hace dias x (hFin-hIni) sino que suma hsJornadaDia
+  // dia por dia (120 hs de produccion por semana; 126 con el sabado hasta las 12). renderGanttCorteDiario
+  // usaba J_INI/J_FIN de EXTRUSION para dibujar CORTE: ahora saca su eje de la jornada de corte, si no
+  // el continuo le estiraba la pantalla a 24 columnas vacias. El corte queda igual que siempre: 6-22 L-V.
+  // 13i: MERGE DE DOS RAMAS QUE CRECIERON EN PARALELO. Dos sesiones partieron del mismo 13b y siguieron por su lado: una hizo la ANULACION DE NOTAS de credito/debito (facturacion), la otra el orden de las listas, el precio por bulto, el sugerido que se guarda, los tramos en la lista impresa y el aplicar-ahora con escalonado (precios). NINGUNA PISO A LA OTRA: el chequeo de md5 ANTES de escribir freno la segunda subida a tiempo — que es exactamente para lo que se escribio claude/REGLA_no_pisar_el_html.md, despues de que si se perdiera trabajo el 13/08. El merge se hizo con `git merge-file` a tres vias. PRIMER INTENTO CON LA BASE EQUIVOCADA: se tomo como base el 13c propio y el merge se comio _aumCmpFilas (el orden de la lista) — la otra rama no habia salido del 13c sino del 13b, asi que desde el punto de vista del merge esa funcion 'la habia borrado el otro lado'. Se detecto contando simbolos de las dos ramas en el resultado, no leyendo el diff. Con la base correcta (13b) quedaron dos conflictos, los dos en el sello y en el bloque de comentarios del APP_BUILD, donde los dos lados escriben su narrativa: se conservan las dos. OJO: hubo DOS builds distintos llamados 13c; el de la otra rama quedo renombrado a 13c.2 aca abajo para que la historia se pueda leer.
+  // 13h: APLICAR AHORA YA NO SE COME EL ESCALONADO. German: 'a Ezequiel Muñoz le puse precios escalonados pero aprete aplicar ahora y me aplico el aumento total, hay que corregirlo'. Era una trampa que armamos entre dos features buenas: desde el 10u.2 las filas PARTEN del ultimo paso programado (para poder seguir afinando desde ahi), asi que la columna 'Precio nuevo' muestra el DESTINO del escalonado; y ⚡ Aplicar ahora escribia exactamente eso como precio de venta. El cliente se comia los dos tramos juntos. Y quedaba una bomba de tiempo: los pasos programados NO se borraban, asi que el dia del paso 1 el sistema le iba a BAJAR el precio del destino al primer escalon. AHORA, si el cliente tiene pasos pendientes, Aplicar ahora abre un modal que dice cuantos pasos hay y con que fecha, aclara que lo que se ve es el DESTINO, y ofrece las dos salidas explicitas: (1) 'Aplicar solo el paso N y dejar el resto programado' — lo normal, adelantar el primer escalon; usa _aumAplicarProgramados, el MISMO camino que el cartel de vencidos, con un flag `adelantar` para poder aplicar un paso antes de su fecha (el cartel de vencidos nunca adelanta: ahi manda el calendario). (2) 'Aplicar el precio final y CANCELAR los pasos programados' — si de verdad se quiere todo de una, se borran los pasos para que despues no le bajen el precio. Sin pasos pendientes, el boton sigue aplicando directo sin molestar. smoke_aumentos.cjs: 520 + e2e/test_aplicar_ahora.cjs (los 4 caminos, con el caso real de Ezequiel: $96 hoy, p1 18/08 $102,06, p2 03/09 $108,73). De paso el shim del banco e2e ahora aplica update/delete de verdad sobre su base en memoria y registra los filtros — sin eso un test no puede distinguir 'borro los pasos' de 'no hizo nada'.
+  // 13g: LA LISTA NUEVA MUESTRA LOS TRAMOS, NO EL PRECIO VIEJO. German, con la lista de Quilplast en la mano: 'el precio de hoy en una lista nueva no tiene que estar, lo que tiene que aparecer son los dos tramos, bien claros; fijate que esta lista no esta bien y hay varias mal'. DOS PROBLEMAS, uno de forma y otro GRAVE. (1) EL BUG: _aumEnvioPlan armaba las fechas con 'vigencia_desde > hoy' — estrictamente futuras. El primer tramo de Quilplast rige desde el 13/08, o sea HOY, asi que se caia de la lista: el cliente recibia una hoja con el precio VIEJO y el del 17/09, sin el escalon del medio, que es justo lo que se habia negociado. Lo mismo le pasaba a LYME. El filtro correcto no es la fecha sino el estado: todo lo que esta en f.prog viene de _aumProgPend(), que ya filtra aplicado=false — si esta ahi es porque TODAVIA NO RIGE, tenga la fecha que tenga. Ahora entran todas. (2) FUERA EL PRECIO DE HOY: una lista nueva comunica lo que va a regir; poner el precio viejo en la columna de al lado invita a discutir el aumento renglon por renglon en vez de leer los precios nuevos. Se saco de la hoja A4 y del renglon 'Hoy' del texto de WhatsApp/Mail. Como efecto, el PRIMER tramo va siempre en negrita: sin la columna 'hoy' al lado, un precio en gris no tiene contra que compararse y se leeria como 'sin dato'. (3) De paso, el encabezado y las condiciones listaban solo DOS tramos aunque el escalonado va de 2 a 4 desde el 13c: con 3 pasos el ultimo tenia columna pero no se anunciaba arriba. Ahora se listan todos ('Precio nuevo / Segundo tramo / Tercer tramo / Cuarto tramo') y cada fecha tiene su linea en las condiciones. smoke_aumentos.cjs: 520 (la seccion 23 verificaba el comportamiento viejo y se dio vuelta; la 23b nueva cubre el tramo con fecha vencida).
+  // 13f: DEJAR EL AUMENTO SUGERIDO TAMBIEN SE GUARDA. German, revisando el analisis del backup: 'Sayavedra, Aroma, Instituto de Medicina, Julio Garcia esos clientes ya se los aumente, deje el aumento sugerido'. En la base no habia NADA de esos cuatro: ni borrador ni programado. La causa: el % sugerido del Panorama ('Le toca') se sembraba en AUM.pct al entrar por 'Armar lista →', la pantalla mostraba los precios nuevos y todo se veia cargado — pero el borrador solo se escribe cuando se TOCA algo (aumSetPct, aumEditPaq, aumEditKg...), y el que deja el sugerido tal cual no toca nada. Trabajo perdido en silencio, y encima con la peor cara posible: la pantalla decia que estaba hecho. ARREGLO: si el sugerido siembra a un cliente que no tenia nada, se guarda el borrador en el acto. Dejar el sugerido ES una decision — el usuario entro deliberadamente a armar la lista de ESE cliente, lo miro y le parecio bien — y merece el mismo trato que tipear un numero. No toca ningun precio de venta: es un borrador, y el badge '💾 borrador guardado HH:MM' se lo confirma al instante. Solo se guarda si el sugerido es > 0: abrir un cliente que ya esta en su objetivo no ensucia nada. Los cuatro clientes de German suman 2.041 kg/mes y +$0,66 M/mes con el sugerido; hay que volver a cargarlos. smoke_aumentos.cjs: 511 + e2e (test_sugerido).
   // 13e: LA LISTA DEL CLIENTE MUESTRA EL PRECIO POR BULTO, NO POR UNIDAD. German: 'quiero sacar el precio por unidad, esa columna no la quiero; en su lugar poné el precio por bulto, en todas las listas'. Tiene sentido comercial: el precio por unidad es un numero de division (531,18/20 = 26,559) que no se usa para nada — nadie compra una bolsa suelta — mientras que el BULTO es la unidad real de despacho y de cotizacion, y es el numero con el que el cliente compara contra la competencia. Cambiado en los DOS lugares donde salia: la columna de la hoja A4/PDF ('Precio por unidad' -> 'Precio por bulto') y el renglon del texto de WhatsApp/Mail ('$ 26,5590 c/u' -> '$ 5.311,80 el bulto de 10 paq'). EL BULTO SE RESUELVE CON LA MISMA REGLA QUE EL RESTO DEL SISTEMA: el paq/bolson ESPECIAL del cliente le gana al del producto (un cliente puede recibir bultos de 12 donde el resto lleva 8). DECISION FINA: _aumPaqBulto devuelve 0 cuando no hay dato cargado, y ahi la celda muestra un guion. getPaqBolsonAplicable cae a 1 por defecto — util para calcular bolsones en una OC, pero en una lista de precios mostrar el precio del paquete bajo el titulo 'por bulto' seria mentirle al cliente. Debajo del precio va, en gris chico, cuantos paquetes tiene el bulto: sin eso el numero no se puede verificar de un vistazo. Los dos campos 'Precio por unidad' que quedan en el archivo son inputs de carga de pedidos y ordenes de corte, no listas: no se tocaron. smoke_aumentos.cjs: 511 + e2e (bulto: hoja A4, texto, paq/bolson especial, granel, y el caso sin bolson cargado).
   // 13d: EL MISMO ORDEN EN LAS OTRAS DOS TABLAS DE PRECIOS. El 13c ordeno la lista del modulo de Aumentos; German pregunto por 'las listas', y las pantallas donde se cargan los precios BASE — Listas de precios (la General) y Precios por cliente — seguian mostrando C.productos crudo, con el granel mezclado entre los paquetes de 10 y 20. Es el mismo problema y en la pantalla donde mas duele: ahi se carga el precio de todos los productos de una sentada. Ahora las dos usan los helpers globales _prodOrdenados / _prodEsGranel / _prodCodNum / _prodTituloBloque, con el mismo criterio del 13c: paquete arriba, granel abajo, por codigo NUMERICO, y el granel detectado por unidades por paquete (estructural), no por el nombre. UN DETALLE QUE PODRIA HABER ROTO TODO: _prodOrdenados hace slice() ANTES de ordenar. C.productos viene ordenado por codigo desde Supabase y hay selects, buscadores y el margen global que dependen de ese orden; ordenar el array en el lugar los habria desordenado a todos en silencio. El banco e2e verifica explicitamente que C.productos NO se muta. Los colspan del titulo van 10 en Listas de precios y 13 en Precios por cliente — si se agrega o saca una columna hay que actualizarlos. Los otros cuatro C.productos.forEach del archivo no son tablas (inicializan _lpEdicion y aplican el margen global): el orden no les afecta y no se tocaron. smoke_aumentos.cjs: 511 + e2e (tablas de precios: orden, dos titulos, sin mutacion).
   // 13c: LA LISTA SE ORDENA POR CODIGO, CON EL GRANEL EN SU PROPIO BLOQUE ABAJO. German: 'se podra ordenar por codigo del producto de menor a mayor, y el granel abajo, lo que es por 10 o por 20 que son los que confunden arriba'. La lista venia ordenada por KILOS (el producto que mas pesa primero), util para decidir donde poner el esfuerzo pero pesimo para CARGAR PRECIOS: el granel se cobra POR BOLSA y el resto por paquete de 10 o 20, asi que la columna $/paquete saltaba de $17,50 a $1.341 renglon a renglon — dos numeros pegados que no son comparables se leen como un error de carga y no hay forma de ver de un vistazo si un precio esta bien. AHORA: dos bloques con su titulo ('POR PAQUETE - se cobra el paquete de 10 o 20' y 'A GRANEL - se cobra POR BOLSA', cada uno con su cuenta de productos) y dentro de cada bloque por codigo de MENOR A MAYOR. Dos decisiones que no son obvias: (1) el orden del codigo es NUMERICO, no alfabetico — los codigos son texto con ceros a la izquierda y aunque hoy midan todos 5 caracteres, uno de 4 o de 6 romperia el orden EN SILENCIO; los productos sin codigo van al final, no al principio. (2) el criterio de granel es ESTRUCTURAL, unidades por paquete <= 1, y no el nombre: es justamente el u/paq lo que hace que los precios no se puedan comparar, y un producto sin empaque cargado tambien se cobra por bolsa, asi que cae del lado correcto solo. El orden viejo por kilos queda en un selector al lado de los botones. La hoja de analisis interno se alineo al mismo orden: si saliera distinta a la pantalla, cotejarlas seria buscar renglon por renglon. Como _aumFilas es el unico motor que arma las filas, el orden nuevo llega solo al escalonado, a lo programado, al texto de WhatsApp y a la hoja A4 del cliente. smoke_aumentos.cjs: 511.
   // 13b: EL RENGLON EN $0. German emitio la factura A 0001-00000002 y un renglon (60 paq de la 45X60 x50UND) salio en $0 mientras el mismo producto, en la linea de arriba, iba a $1.178. El precio venia en cero desde el remito, y el sistema no tenia forma de corregirlo: una factura emitida era inmutable, asi que un precio mal cargado obligaba a anular y rehacer. TRES CAMBIOS: (1) boton ✏ en el listado de Facturacion, visible SOLO mientras el comprobante no tenga CAE — una factura sin CAE no existe para ARCA, es un papel del sistema, y se corrige sin nota de credito conservando el numero; apenas ARCA autoriza, el boton desaparece solo y queda NC/ND como unico camino. Se edita el PRECIO, no la cantidad: esas bolsas ya salieron del stock con el remito. (2) La correccion BAJA al remito de origen y al pedido, porque un renglon en cero no ensucia solo el impreso: se lo comen la cuenta corriente, el pipeline de cobranza y la rentabilidad del producto. El vinculo factura->remito se reconstruye del prefijo '[Remito REM-000xx]' de la descripcion mas producto+cantidad+subtotal, consumiendo candidatos, para que dos renglones del MISMO producto en el MISMO remito (120 y 60 paq, justo este caso) no se confundan; si no hay match univoco no se toca nada y se avisa en pantalla. El total del pedido se recalcula desde sus lineas leidas de la base (P1), respetando pct_blanco y con_iva. (3) AVISO PREVENTIVO de precio en $0 al emitir factura y al guardar remito, con nombre y cantidad de cada renglon sin precio: el error se ve antes de que la mercaderia salga del deposito, no cuando el cliente paga de menos.
+  // 13c.2: LA NOTA QUE IBA AL REVES. German: 'necesito anular la nota de credito, me equivoque y le tenia que hacer de debito'. La NC-X-00003 de $116.430 sobre el RV-000159 de MARISANI le BAJO la deuda cuando habia que SUBIRLA, y el sistema no tenia forma de deshacerla: una nota emitida era para siempre. AHORA hay boton 🚫 Anular en la fila de la NC y de la ND en el estado de cuenta. Anular NO borra: marca la nota como anulada (todos los calculos ya filtran por estado/anulada) y refresca el saldo-espejo del comprobante, que es un reflejo del derivado (P1) y si no se toca la pantalla de cobranza sigue mostrando el numero viejo. Como el caso tipico es justo este —NC donde iba ND— al terminar OFRECE emitir la nota de debito sobre el mismo comprobante, ya elegido. DOS COSAS NO SE ANULAN ASI, y las dos por el mismo motivo: hay algo afuera del sistema que ya cuenta con la nota. Con CAE la nota existe para ARCA y se revierte con la nota espejo, no borrandola (con el CAE en 'procesando' ni siquiera se sabe: verificar primero) — el boton directamente no aparece. Y una ND con plata imputada tiene un RECIBO que la señala: anularla dejaria ese cobro apuntando a la nada, asi que se frena y se explica que primero hay que desarmar la imputacion. En cambio el credito de una NC ya aplicado a otras facturas SI se deshace: esas aplicaciones son internas, se borran con la NC y los comprobantes que las recibieron vuelven a quedar con saldo — se avisa antes, con el monto y cuantos comprobantes.
   // 10z: EL BORRADOR SIEMPRE GANA AL ENTRAR DESDE EL PANORAMA. German: 'en el pdf si estan pero no en pantalla'. El PDF lee el borrador directo, asi que el borrador EXISTIA — el problema era el camino de entrada: el boton "Armar lista →" del Panorama llama aumAbrirCliente(cliente, sugerido) con el % de "Le toca", y una linea vieja decia 'el % que viene del Panorama pisa al borrador solo si de verdad trajo uno' — o sea, con sugerido > 0 (casi siempre) el borrador NO SE CARGABA y la pantalla mostraba hoy x sugerido. Todo lo armado producto por producto desaparecia de la vista, y el proximo tipeo lo pisaba en la base tambien. Era una decision deliberada de diseño y estaba mal: el sugerido es un punto de partida GENERICO, lo armado es TRABAJO HECHO. Ahora aumAbrirCliente carga siempre el borrador (o la foto pendiente, o la semilla de lo programado) y el % del panorama solo siembra a un cliente que no tiene NADA — ni borrador, ni pasos programados, ni un precio armado. El banco e2e suma dos casos: entrar por el panorama CON borrador (el borrador gana, sug ignorado) y SIN borrador (el sugerido siembra). Tambien se agrego al banco el flujo completo de PANTALLA: editar el precio en el input real de la fila, Guardar preliminar, irse a otro modulo, volver, y hasta un F5 completo — la fila tiene que volver mostrando lo armado en todos los casos. smoke_aumentos.cjs: 504 + e2e 12 casos.
   // 10y: LA PANTALLA TAMPOCO PIERDE LO TIPEADO (el 10x arreglo la mitad). German volvio con capturas: 'no lo trae de nuevo'. Esta vez se armo un banco de pruebas de NAVEGADOR REAL (Playwright + un Supabase simulado en memoria, la pagina entera corriendo) y el caso se reprodujo tal cual: tipear 14% y reabrir el cliente al toque → la BASE recibia el 14 (el 10x funciono)... pero la PANTALLA volvia a mostrar lo viejo. La causa: aumAbrirCliente/aumCambioCliente despachaban la foto pendiente ANTES de restaurar — el flush soltaba la foto de inmediato, la escritura quedaba EN VIAJE, y _aumBorrCargar leia la copia vieja de cfg (que se actualiza recien cuando el upsert aterriza). El usuario veia lo de antes, seguia trabajando sobre eso, y su proximo tipeo pisaba el 14 en la base: perdido con delay. TRES CAMBIOS: (1) _aumBorrFlush NO suelta la foto al despachar sino cuando la escritura ATERRIZA (con guarda de reentrada _aumBorrEnviando y el viaje expuesto en _aumBorrVuelo); si se tipeo algo nuevo mientras viajaba, al aterrizar se despacha lo nuevo. (2) aumAbrirCliente y aumCambioCliente ya no hacen flush ciego: despachan solo si la foto es de OTRO cliente — si es del mismo, la dejan viva para que _aumBorrCargar restaure DESDE LA FOTO, que es lo mas nuevo que existe, este el viaje en el aire o no. (3) Descartar el borrador ademas de matar la foto ESPERA la escritura en viaje, porque si aterrizara despues del borrado lo resucitaria. El banco e2e (e2e/test_borrador.cjs) queda como herramienta: los smoke tests de unidad venian diciendo que todo guardaba bien — y era cierto en el harness; el bug solo existia con la pagina entera y la latencia real de red en el medio. smoke_aumentos.cjs: 504.
   // 10x: EL DEBOUNCE YA NO PIERDE LO TIPEADO. German (con capturas): 'puse 14%, reabri, y esta el 10% de antes — ves, no lo guarda'. Tenia razon y el agujero era fino: el borrador se escribe con 700 ms de respiro, y el timer leia AUM AL DISPARAR. Cualquier cosa que pisara AUM en esos 700 ms —cambiar de cliente (aumCambioCliente resetea pct y ed), salir de la estacion y volver, o reabrir la pantalla (que RECARGA el borrador viejo encima de la memoria)— hacia que el timer escribiera lo VIEJO y el cambio muriera en silencio. Peor: reabrir la pantalla disparaba _aumBorrCargar, que pisaba el 14 con el 10 guardado, y el timer despues escribia ese 10 'fresco'. ARREGLO EN TRES PARTES. (1) La escritura pendiente viaja como FOTO tomada al tipear (_aumBorrPend = {cli,pct,red,ed}): el timer solo despacha la foto, y mutar AUM despues de tipear no cambia lo que se escribe. (2) _aumBorrFlush() despacha la foto YA, y se llama antes de todo lo que pisa la memoria: cambiar de cliente, abrir desde el panorama, recargar el borrador, salir de la estacion, y visibilitychange/pagehide como ultimo recurso ante un F5. Si la recarga es DEL MISMO cliente con foto pendiente, se restaura desde la foto (lo mas nuevo que existe), no desde la base. (3) _aumBorrEscribir RELEE el blob de la base antes de escribir y mergea: el borrador guarda TODOS los clientes en una sola clave de configuracion, y dos estaciones (oficina/planta) se pisaban el trabajo — la que escribia ultima ganaba con su copia vieja. Descartar el borrador mata tambien la foto pendiente, para que el flush no lo resucite. smoke_aumentos.cjs: 501.
@@ -5481,6 +5538,12 @@ async function reload(){
     if(r.clave==='extrusion_hora_inicio')cfg.extrusion_hora_inicio=parseInt(r.valor);
     if(r.clave==='extrusion_hora_fin')cfg.extrusion_hora_fin=parseInt(r.valor);
     if(r.clave==='extrusion_dias')cfg.extrusion_dias=r.valor.split(',').map(Number);
+    if(r.clave==='extrusion_continuo')cfg.extrusion_continuo=(r.valor==='true');
+    if(r.clave==='extrusion_ini_dia')cfg.extrusion_ini_dia=parseInt(r.valor);
+    if(r.clave==='extrusion_ini_hora')cfg.extrusion_ini_hora=parseFloat(r.valor);
+    if(r.clave==='extrusion_fin_dia')cfg.extrusion_fin_dia=parseInt(r.valor);
+    if(r.clave==='extrusion_fin_hora')cfg.extrusion_fin_hora=parseFloat(r.valor);
+    if(r.clave==='extrusion_sab_hasta')cfg.extrusion_sab_hasta=(r.valor===''||r.valor==='null')?null:parseFloat(r.valor);
     if(r.clave==='corte_hora_inicio')cfg.corte_hora_inicio=parseInt(r.valor);
     if(r.clave==='corte_hora_fin')cfg.corte_hora_fin=parseInt(r.valor);
     if(r.clave==='corte_dias')cfg.corte_dias=r.valor.split(',').map(Number);
@@ -5499,9 +5562,9 @@ async function reload(){
     if(r.clave==='salud_umbrales'){try{cfg.salud_umbrales=JSON.parse(r.valor);}catch(e){console.warn('salud_umbrales inválido:',e);}}
     if(r.clave==='asistencia_reglas'){try{cfg.asistencia_reglas=JSON.parse(r.valor);}catch(e){console.warn('asistencia_reglas inválido:',e);}}
   });
-  // Actualizar constantes de jornada según config
-  window.J_INI=cfg.extrusion_hora_inicio;
-  window.J_FIN=cfg.extrusion_hora_fin;
+  // Actualizar constantes de jornada según config (envolvente de la jornada de
+  // extrusión: con turno continuo son 0–24, con horario normal el hIni–hFin de siempre)
+  _sincronizarJ();
   }
   // Producido por OC (del libro) — para que las cargas parciales no "desaparezcan" al entregar
   try{C.mov_prod_por_oc=await _cargarProdPorOC();}catch(e){console.warn('mov_prod_por_oc:',e);C.mov_prod_por_oc=C.mov_prod_por_oc||{};}
@@ -5584,7 +5647,9 @@ const DIAS=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 function badge(e){const m={'Pendiente':'b-pend','En proceso':'b-prog','Completada':'b-done','Suspendida':'b-susp','Pendiente empaque':'b-empaque'};return`<span class="badge ${m[e]||'b-pend'}">${e}</span>`;}
 
 // ===== SCHEDULING =====
-function jIni(d){const r=new Date(d);r.setHours(J_INI,0,0,0);return r;}
+// Arranque de jornada de extrusión a partir de un instante: el primer momento con
+// trabajo de ahí en adelante (con turno continuo puede ser el mismo instante).
+function jIni(d){return ajustarAJornada(new Date(d),'extrusion');}
 function jFin(d){const r=new Date(d);r.setHours(J_FIN,0,0,0);return r;}
 function nextJ(d){const r=new Date(d);r.setDate(r.getDate()+1);r.setHours(J_INI,0,0,0);return r;}
 
@@ -5593,44 +5658,163 @@ function nextJ(d){const r=new Date(d);r.setDate(r.getDate()+1);r.setHours(J_INI,
 // Genéricos: sirven para extrusión y corte, leyendo horarios/días de config.
 // ============================================================
 
-// Devuelve {hIni, hFin, dias} para el tipo dado ('extrusion' o 'corte')
+// ============================================================
+// LA JORNADA ES UNA LISTA DE TRAMOS, NO UNA FRANJA (build 2026-08-19a)
+// ------------------------------------------------------------
+// Hasta acá la jornada era UNA sola franja hIni–hFin repetida en los días hábiles.
+// Eso no puede expresar "arranco el lunes a las 6 y no paro hasta el sábado a las 6":
+// el lunes se trabaja de 6 a 24, el martes entero, y el sábado de 0 a 6.
+// Ahora cada DÍA devuelve una lista de TRAMOS {a,b} en horas (0..24) y todo el motor
+// de fechas (ajustar / sumar / restar / contar) recorre esa lista.
+// Con el modo 'diario' (el de siempre) la lista tiene un solo tramo y el resultado es
+// byte por byte el mismo que antes — por eso prender el continuo es una decisión, no
+// un cambio de comportamiento que se cuela solo.
+// ============================================================
+
+// Normaliza días: la pantalla dice "7=Dom" pero getDay() usa 0=Dom.
+function _diasNorm(arr){
+  return (arr&&arr.length?arr:[1,2,3,4,5]).map(d=>parseInt(d)===7?0:parseInt(d)).filter(d=>d>=0&&d<=6);
+}
+
+// Devuelve el descriptor de jornada del tipo ('extrusion' o 'corte').
+// Siempre trae {modo, dias, hIni, hFin}: hIni/hFin son la ENVOLVENTE (la hora más
+// temprana y la más tardía de la semana), para los consumidores que solo quieren
+// saber de qué a qué hora puede haber trabajo.
 function getJornada(tipo){
   if(tipo==='corte'){
     return {
+      tipo:'corte',modo:'diario',
       hIni:cfg.corte_hora_inicio??6,
       hFin:cfg.corte_hora_fin??22,
-      dias:cfg.corte_dias||[1,2,3,4,5]
+      dias:_diasNorm(cfg.corte_dias)
     };
   }
-  return {
-    hIni:cfg.extrusion_hora_inicio??7,
-    hFin:cfg.extrusion_hora_fin??22,
-    dias:cfg.extrusion_dias||[1,2,3,4,5]
+  if(!cfg.extrusion_continuo){
+    return {
+      tipo:'extrusion',modo:'diario',
+      hIni:cfg.extrusion_hora_inicio??7,
+      hFin:cfg.extrusion_hora_fin??22,
+      dias:_diasNorm(cfg.extrusion_dias)
+    };
+  }
+  const j={
+    tipo:'extrusion',modo:'continuo',
+    ini_dia:cfg.extrusion_ini_dia??1, ini_hora:cfg.extrusion_ini_hora??6,
+    fin_dia:cfg.extrusion_fin_dia??6, fin_hora:cfg.extrusion_fin_hora??6,
+    sab_hasta:(cfg.extrusion_sab_hasta==null?null:cfg.extrusion_sab_hasta)
   };
+  const dias=[];let lo=24,hi=0;
+  for(let d=0;d<7;d++){
+    const tr=_jorTramosDia(j,d);
+    if(tr.length){dias.push(d);if(tr[0].a<lo)lo=tr[0].a;if(tr[tr.length-1].b>hi)hi=tr[tr.length-1].b;}
+  }
+  j.dias=dias;j.hIni=dias.length?lo:0;j.hFin=dias.length?hi:0;
+  return j;
 }
+
+// Une tramos superpuestos o pegados (el sábado 0–6 del continuo + el extra 6–12 = 0–12).
+function _mergeTramos(arr){
+  const s=arr.filter(t=>t.b>t.a+1e-9).sort((x,y)=>x.a-y.a),out=[];
+  s.forEach(t=>{
+    const last=out[out.length-1];
+    if(last&&t.a<=last.b+1e-9){if(t.b>last.b)last.b=t.b;}
+    else out.push({a:t.a,b:t.b});
+  });
+  return out;
+}
+
+// Tramos de trabajo de un día de la semana (0=Dom..6=Sáb) para un descriptor de jornada.
+function _jorTramosDia(j,dow){
+  if(j.modo==='continuo'){
+    const W=168;                                   // horas de una semana
+    const ini=j.ini_dia*24+j.ini_hora;
+    let fin=j.fin_dia*24+j.fin_hora;
+    if(fin<=ini)fin+=W;                            // la ventana cruza el domingo
+    const a0=dow*24,b0=a0+24,out=[];
+    for(let off=-W;off<=W;off+=W){                 // -W/0/+W cubre el envolvimiento
+      const a=Math.max(a0,ini+off),b=Math.min(b0,fin+off);
+      if(b>a)out.push({a:a-a0,b:b-a0});
+    }
+    // Tramo extra el día del cierre (el sábado que se viene a trabajar hasta las 12)
+    if(j.sab_hasta!=null&&dow===j.fin_dia&&j.sab_hasta>j.fin_hora)
+      out.push({a:j.fin_hora,b:Math.min(24,j.sab_hasta)});
+    return _mergeTramos(out);
+  }
+  if(!(j.dias||[1,2,3,4,5]).includes(dow))return [];
+  if(!(j.hFin>j.hIni))return [];
+  return [{a:j.hIni,b:j.hFin}];
+}
+
+// Tramos de una FECHA concreta, en horas del día.
+function jorTramos(fecha,tipo){
+  return _jorTramosDia(getJornada(tipo||'extrusion'),new Date(fecha).getDay());
+}
+
+// Los mismos tramos como intervalos de fecha/hora reales del día de 'fecha'.
+// Se construyen sumando milisegundos a la medianoche local: así el borde de las 24:00
+// cae limpio en la medianoche del día siguiente (setHours(24) haría lo mismo, pero
+// esto además tolera tramos con fracción de hora).
+function _jorIntervalosDia(fecha,tipo){
+  const d0=new Date(fecha);d0.setHours(0,0,0,0);
+  return _jorTramosDia(getJornada(tipo||'extrusion'),d0.getDay())
+    .map(t=>({ini:new Date(d0.getTime()+t.a*3600000),fin:new Date(d0.getTime()+t.b*3600000)}));
+}
+
+// Horas de trabajo que tiene un día concreto (suma de sus tramos).
+function hsJornadaDia(fecha,tipo){
+  return _jorIntervalosDia(fecha,tipo).reduce((s,t)=>s+(t.fin-t.ini)/3600000,0);
+}
+
+// Hora decimal → texto ("6:00", "6:30", "24:00"). Para los carteles de los Gantt.
+function _hTxt(h){
+  const hh=Math.floor(h),mm=Math.round((h-hh)*60);
+  return hh+':'+String(mm).padStart(2,'0');
+}
+
+// Texto en criollo de la jornada de un tipo, para los carteles.
+function jornadaTxt(tipo){
+  const j=getJornada(tipo);
+  const DIA=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  if(j.modo!=='continuo')return _hTxt(j.hIni)+'–'+_hTxt(j.hFin)+' hs';
+  let t='continuo '+DIA[j.ini_dia]+' '+_hTxt(j.ini_hora)+' → '+DIA[j.fin_dia]+' '+_hTxt(j.fin_hora);
+  if(j.sab_hasta!=null&&j.sab_hasta>j.fin_hora)t+=' (+ '+DIA[j.fin_dia]+' hasta '+_hTxt(j.sab_hasta)+')';
+  return t;
+}
+
+// Primera y última hora con trabajo de un día ({hIni,hFin}) o null si no se trabaja.
+// Es lo que usan los Gantt para recortar barras y rayar las horas muertas.
+function jorHull(fecha,tipo){
+  const tr=jorTramos(fecha,tipo);
+  if(!tr.length)return null;
+  return {hIni:tr[0].a,hFin:tr[tr.length-1].b};
+}
+
+// Mantiene sincronizadas las constantes J_INI/J_FIN/J_HS (ejes de los Gantt por día).
+function _sincronizarJ(){
+  const j=getJornada('extrusion');
+  J_INI=Math.floor(j.hIni);J_FIN=Math.ceil(j.hFin);J_HS=Math.max(1,J_FIN-J_INI);
+  window.J_INI=J_INI;window.J_FIN=J_FIN;window.J_HS=J_HS;
+}
+// Arranque: que el eje salga bien aunque todavía no haya llegado la config de Supabase.
+_sincronizarJ();
 
 // ¿Es día hábil según la config del tipo? (dias es array de getDay(): 0=Dom..6=Sáb)
 function esDiaHabil(fecha,dias){
-  return (dias||[1,2,3,4,5]).includes(new Date(fecha).getDay());
+  return _diasNorm(dias).includes(new Date(fecha).getDay());
 }
 
 // Ajusta un instante para que caiga dentro de la jornada laboral del tipo.
-// Si cae después del cierre o en día no hábil, salta al inicio del próximo día hábil.
+// Si cae en una hora muerta (noche, domingo, después del cierre), salta al arranque
+// del próximo tramo con trabajo.
 function ajustarAJornada(fecha,tipo){
-  const{hIni,hFin,dias}=getJornada(tipo);
-  let c=new Date(fecha);
-  // Avanzar mientras no sea día hábil
-  let guard=0;
-  while(!esDiaHabil(c,dias)&&guard<400){
-    c.setDate(c.getDate()+1);c.setHours(hIni,0,0,0);guard++;
-  }
-  // Si está antes del inicio de jornada → mover al inicio
-  if(c.getHours()<hIni){c.setHours(hIni,0,0,0);}
-  // Si está en o después del fin de jornada → próximo día hábil al inicio
-  else if(c.getHours()>=hFin){
-    c.setDate(c.getDate()+1);c.setHours(hIni,0,0,0);
-    guard=0;
-    while(!esDiaHabil(c,dias)&&guard<400){c.setDate(c.getDate()+1);c.setHours(hIni,0,0,0);guard++;}
+  let c=new Date(fecha),guard=0;
+  while(guard++<400){
+    const iv=_jorIntervalosDia(c,tipo);
+    for(let i=0;i<iv.length;i++){
+      if(c<iv[i].ini)return new Date(iv[i].ini);
+      if(c<iv[i].fin)return new Date(c);
+    }
+    c=new Date(c);c.setDate(c.getDate()+1);c.setHours(0,0,0,0);
   }
   return c;
 }
@@ -5638,25 +5822,23 @@ function ajustarAJornada(fecha,tipo){
 // Suma 'hs' horas de trabajo efectivo a partir de 'start', respetando jornada y días hábiles.
 // Devuelve el instante de fin. Sirve para extrusión y corte.
 function sumarHsLaborales(start,hs,tipo){
-  const{hIni,hFin,dias}=getJornada(tipo);
   let cur=ajustarAJornada(start,tipo);
   let rest=hs;
+  if(!(rest>1e-9))return cur;
+  let dia=new Date(cur);dia.setHours(0,0,0,0);
   let guard=0;
-  while(rest>0&&guard<2000){
-    guard++;
-    const finJornada=new Date(cur);finJornada.setHours(hFin,0,0,0);
-    const disp=(finJornada-cur)/3600000; // horas disponibles hoy
-    if(rest<=disp){
-      cur=new Date(cur.getTime()+rest*3600000);
-      rest=0;
-    } else {
-      rest-=disp;
-      // Saltar al inicio del próximo día hábil
-      cur=new Date(finJornada);
-      cur.setDate(cur.getDate()+1);cur.setHours(hIni,0,0,0);
-      let g2=0;
-      while(!esDiaHabil(cur,dias)&&g2<400){cur.setDate(cur.getDate()+1);cur.setHours(hIni,0,0,0);g2++;}
+  while(rest>1e-9&&guard++<2000){
+    const iv=_jorIntervalosDia(dia,tipo);
+    for(let i=0;i<iv.length;i++){
+      const t=iv[i];
+      if(cur>=t.fin)continue;
+      const desde=cur>t.ini?new Date(cur):new Date(t.ini);
+      const disp=(t.fin-desde)/3600000;
+      if(rest<=disp+1e-9)return new Date(desde.getTime()+rest*3600000);
+      rest-=disp;cur=new Date(t.fin);
     }
+    dia=new Date(dia);dia.setDate(dia.getDate()+1);dia.setHours(0,0,0,0);
+    if(cur<dia)cur=new Date(dia);
   }
   return cur;
 }
@@ -5676,21 +5858,23 @@ function sumarDiasHabiles(fecha,nDias,dias){
 // respetando jornada y días hábiles. Usado por el motor de corte para calcular
 // el inicio más temprano que permite terminar justo cuando la OE libera material.
 function restarHsLaborales(fecha,hs,tipo){
-  const{hIni,hFin,dias}=getJornada(tipo||'extrusion');
-  let cur=new Date(fecha),rest=hs,guard=0;
-  while(rest>0&&guard++<2000){
-    const d0=new Date(cur);d0.setHours(hIni,0,0,0);
-    const dF=new Date(cur);dF.setHours(hFin,0,0,0);
-    if(!esDiaHabil(cur,dias)||cur<=d0){
-      // Saltar al fin de jornada del día hábil anterior
-      cur=new Date(cur);cur.setDate(cur.getDate()-1);cur.setHours(hFin,0,0,0);
-      while(!esDiaHabil(cur,dias)&&guard++<2000){cur.setDate(cur.getDate()-1);}
-      continue;
+  let cur=new Date(fecha),rest=hs;
+  if(!(rest>1e-9))return cur;
+  let dia=new Date(cur);dia.setHours(0,0,0,0);
+  let guard=0;
+  while(rest>1e-9&&guard++<2000){
+    const iv=_jorIntervalosDia(dia,tipo);
+    for(let i=iv.length-1;i>=0;i--){
+      const t=iv[i];
+      if(cur<=t.ini)continue;
+      const hasta=cur<t.fin?new Date(cur):new Date(t.fin);
+      const disp=(hasta-t.ini)/3600000;
+      if(rest<=disp+1e-9)return new Date(hasta.getTime()-rest*3600000);
+      rest-=disp;cur=new Date(t.ini);
     }
-    if(cur>dF)cur=new Date(dF);
-    const dispHs=(cur-d0)/3600000;
-    if(dispHs>=rest){cur=new Date(cur.getTime()-rest*3600000);rest=0;}
-    else{rest-=dispHs;cur=new Date(d0);}
+    dia=new Date(dia);dia.setDate(dia.getDate()-1);dia.setHours(0,0,0,0);
+    const finDia=new Date(dia.getTime()+24*3600000);
+    if(cur>finDia)cur=finDia;
   }
   return cur;
 }
@@ -5700,23 +5884,16 @@ function restarHsLaborales(fecha,hs,tipo){
 // el tiempo de noches y fines de semana NO cuenta como atraso.
 function hsLaboralesEntre(desde,hasta,tipo){
   if(hasta<=desde)return 0;
-  const{hIni,hFin,dias}=getJornada(tipo||'extrusion');
-  let cur=new Date(desde);
+  const dIni=new Date(desde),dFin=new Date(hasta);
+  let dia=new Date(dIni);dia.setHours(0,0,0,0);
   let total=0,guard=0;
-  while(cur<hasta&&guard<5000){
-    guard++;
-    // Si el día no es hábil → saltar al próximo día hábil
-    if(!dias.includes(cur.getDay())){
-      cur.setDate(cur.getDate()+1);cur.setHours(hIni,0,0,0);continue;
-    }
-    const ini=new Date(cur);ini.setHours(hIni,0,0,0);
-    const fin=new Date(cur);fin.setHours(hFin,0,0,0);
-    // Recortar el tramo de hoy a la ventana [max(cur,ini), min(hasta,fin)]
-    const tramoIni=cur>ini?cur:ini;
-    const tramoFin=hasta<fin?hasta:fin;
-    if(tramoFin>tramoIni)total+=(tramoFin-tramoIni)/3600000;
-    // Avanzar al inicio del próximo día
-    cur=new Date(cur);cur.setDate(cur.getDate()+1);cur.setHours(hIni,0,0,0);
+  while(dia<dFin&&guard++<5000){
+    _jorIntervalosDia(dia,tipo).forEach(t=>{
+      // Recortar el tramo a la ventana [max(desde,ini), min(hasta,fin)]
+      const a=dIni>t.ini?dIni:t.ini, b=dFin<t.fin?dFin:t.fin;
+      if(b>a)total+=(b-a)/3600000;
+    });
+    dia=new Date(dia);dia.setDate(dia.getDate()+1);dia.setHours(0,0,0,0);
   }
   return total;
 }
@@ -5765,31 +5942,12 @@ function calcularNivelSecuencia(tipo){
 }
 
 function addHs(start,hs){
-  // Suma horas de trabajo respetando jornada Y días hábiles (extrusión).
-  // Antes solo cortaba noches; ahora también salta sábados/domingos según config.
-  const dias=cfg.extrusion_dias||[1,2,3,4,5];
-  let cur=new Date(start);
-  // Ajustar a jornada
-  if(cur.getHours()>=J_FIN)cur=nextJ(cur);
-  if(cur.getHours()<J_INI)cur.setHours(J_INI,0,0,0);
-  // Saltar día no hábil inicial
-  let g0=0;
-  while(!dias.includes(cur.getDay())&&g0<400){cur.setDate(cur.getDate()+1);cur.setHours(J_INI,0,0,0);g0++;}
-  let rest=hs,guard=0;
-  while(rest>0&&guard<2000){
-    guard++;
-    const fin=jFin(cur),avail=(fin-cur)/3600000;
-    if(rest<=avail){
-      cur=new Date(cur.getTime()+rest*3600000);rest=0;
-    } else {
-      rest-=avail;
-      cur=nextJ(cur);
-      // Saltar fines de semana / días no hábiles
-      let g2=0;
-      while(!dias.includes(cur.getDay())&&g2<400){cur.setDate(cur.getDate()+1);cur.setHours(J_INI,0,0,0);g2++;}
-    }
-  }
-  return cur;
+  // Suma horas de trabajo de EXTRUSIÓN respetando la jornada y los días hábiles.
+  // Tenía su propia copia del recorrido (noches + fines de semana); ahora delega en
+  // sumarHsLaborales, que es el único lugar donde vive el calendario de la fábrica —
+  // así el turno continuo de 24 hs no queda a medias, con un motor que lo entiende y
+  // otro que no.
+  return sumarHsLaborales(start,hs,'extrusion');
 }
 function computeSchedule(){
   // PLAN TEÓRICO de extrusión: "¿cómo quedaría la cola si la planificáramos
@@ -8709,6 +8867,16 @@ function verificarAdminPage(){
     document.getElementById('adm-ext-ini').value=cfg.extrusion_hora_inicio;
     document.getElementById('adm-ext-fin').value=cfg.extrusion_hora_fin;
     document.getElementById('adm-ext-dias').value=cfg.extrusion_dias.join(',');
+    const _ec=document.getElementById('adm-ext-cont');
+    if(_ec){
+      _ec.checked=!!cfg.extrusion_continuo;
+      document.getElementById('adm-ext-ini-dia').value=String(cfg.extrusion_ini_dia??1);
+      document.getElementById('adm-ext-ini-hora').value=cfg.extrusion_ini_hora??6;
+      document.getElementById('adm-ext-fin-dia').value=String(cfg.extrusion_fin_dia??6);
+      document.getElementById('adm-ext-fin-hora').value=cfg.extrusion_fin_hora??6;
+      document.getElementById('adm-ext-sab').value=(cfg.extrusion_sab_hasta==null?'':cfg.extrusion_sab_hasta);
+      admContToggle();
+    }
     document.getElementById('adm-cor-ini').value=cfg.corte_hora_inicio;
     document.getElementById('adm-cor-fin').value=cfg.corte_hora_fin;
     document.getElementById('adm-cor-dias').value=cfg.corte_dias.join(',');
@@ -9341,6 +9509,27 @@ async function guardarTolerancias(){
   cfg.tolerancia_advertencia_pesada_pct=advP;cfg.tolerancia_advertencia_liviana_pct=advL;
   msg.style.color='var(--green)';msg.textContent='✓ Tolerancias guardadas. OK: ±'+advP+'%/'+advL+'% · Rechazo: ±'+p+'%/'+l+'%';
 }
+// Muestra/oculta el bloque del turno continuo y arma la vista previa en criollo.
+function admContToggle(){
+  const on=!!document.getElementById('adm-ext-cont')?.checked;
+  const box=document.getElementById('adm-ext-cont-box');
+  if(box)box.style.display=on?'block':'none';
+  ['adm-ext-ini','adm-ext-fin','adm-ext-dias'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.disabled=on;el.style.opacity=on?.45:1;}
+  });
+  const prev=document.getElementById('adm-ext-cont-prev');
+  if(prev&&on){
+    const g=id=>document.getElementById(id);
+    const sab=g('adm-ext-sab')?.value;
+    const j={modo:'continuo',
+      ini_dia:parseInt(g('adm-ext-ini-dia').value),ini_hora:parseFloat(g('adm-ext-ini-hora').value)||0,
+      fin_dia:parseInt(g('adm-ext-fin-dia').value),fin_hora:parseFloat(g('adm-ext-fin-hora').value)||0,
+      sab_hasta:(sab===''||sab==null)?null:parseFloat(sab)};
+    let hs=0;for(let d=0;d<7;d++)_jorTramosDia(j,d).forEach(t=>hs+=t.b-t.a);
+    prev.textContent=r1(hs)+' hs de producción por semana';
+  } else if(prev){prev.textContent='';}
+}
 async function guardarHorarios(){
   const extIni=parseInt(document.getElementById('adm-ext-ini').value);
   const extFin=parseInt(document.getElementById('adm-ext-fin').value);
@@ -9350,20 +9539,49 @@ async function guardarHorarios(){
   const corDias=document.getElementById('adm-cor-dias').value.trim();
   const msg=document.getElementById('msg-adm-hor');
   if(isNaN(extIni)||isNaN(extFin)||isNaN(corIni)||isNaN(corFin)){msg.style.color='var(--red)';msg.textContent='Valores inválidos.';return;}
+  // Turno continuo de extrusión
+  const cont=!!document.getElementById('adm-ext-cont')?.checked;
+  const cIniD=parseInt(document.getElementById('adm-ext-ini-dia')?.value);
+  const cIniH=parseFloat(document.getElementById('adm-ext-ini-hora')?.value);
+  const cFinD=parseInt(document.getElementById('adm-ext-fin-dia')?.value);
+  const cFinH=parseFloat(document.getElementById('adm-ext-fin-hora')?.value);
+  const sabRaw=(document.getElementById('adm-ext-sab')?.value??'').trim();
+  const cSab=sabRaw===''?null:parseFloat(sabRaw);
+  if(cont){
+    if([cIniD,cIniH,cFinD,cFinH].some(v=>isNaN(v))){msg.style.color='var(--red)';msg.textContent='Completá el día y la hora de arranque y de cierre del turno continuo.';return;}
+    if(cIniD===cFinD&&cIniH===cFinH){msg.style.color='var(--red)';msg.textContent='El arranque y el cierre no pueden ser el mismo momento.';return;}
+    if(cSab!=null&&(isNaN(cSab)||cSab<0||cSab>24)){msg.style.color='var(--red)';msg.textContent='La hora extra del día de cierre tiene que estar entre 0 y 24 (o vacía).';return;}
+  }
   await sb.from('configuracion').upsert([
     {clave:'extrusion_hora_inicio',valor:String(extIni)},
     {clave:'extrusion_hora_fin',valor:String(extFin)},
     {clave:'extrusion_dias',valor:extDias},
+    {clave:'extrusion_continuo',valor:cont?'true':'false'},
+    {clave:'extrusion_ini_dia',valor:String(isNaN(cIniD)?1:cIniD)},
+    {clave:'extrusion_ini_hora',valor:String(isNaN(cIniH)?6:cIniH)},
+    {clave:'extrusion_fin_dia',valor:String(isNaN(cFinD)?6:cFinD)},
+    {clave:'extrusion_fin_hora',valor:String(isNaN(cFinH)?6:cFinH)},
+    {clave:'extrusion_sab_hasta',valor:(cSab==null?'':String(cSab))},
     {clave:'corte_hora_inicio',valor:String(corIni)},
     {clave:'corte_hora_fin',valor:String(corFin)},
     {clave:'corte_dias',valor:corDias}
   ],{onConflict:'clave'});
   cfg.extrusion_hora_inicio=extIni;cfg.extrusion_hora_fin=extFin;
   cfg.extrusion_dias=extDias.split(',').map(Number);
+  cfg.extrusion_continuo=cont;
+  if(!isNaN(cIniD))cfg.extrusion_ini_dia=cIniD;
+  if(!isNaN(cIniH))cfg.extrusion_ini_hora=cIniH;
+  if(!isNaN(cFinD))cfg.extrusion_fin_dia=cFinD;
+  if(!isNaN(cFinH))cfg.extrusion_fin_hora=cFinH;
+  cfg.extrusion_sab_hasta=cSab;
   cfg.corte_hora_inicio=corIni;cfg.corte_hora_fin=corFin;
   cfg.corte_dias=corDias.split(',').map(Number);
-  window.J_INI=extIni;window.J_FIN=extFin;
-  msg.style.color='var(--green)';msg.textContent='✓ Horarios guardados. Los Gantt se actualizarán.';
+  _sincronizarJ();
+  let hsSem=0;for(let d=0;d<7;d++)_jorTramosDia(getJornada('extrusion'),d).forEach(t=>hsSem+=t.b-t.a);
+  msg.style.color='var(--green)';
+  msg.textContent='✓ Horarios guardados. Extrusión: '+jornadaTxt('extrusion')+' ('+r1(hsSem)+' hs por semana). Los Gantt y las fechas se recalculan solos.';
+  try{renderGantt();}catch(e){}
+  try{if(typeof renderGanttCombinado==='function')renderGanttCombinado();}catch(e){}
 }
 async function guardarConfigMP(){
   const freq=parseInt(document.getElementById('adm-inv-freq').value);
@@ -12666,6 +12884,133 @@ async function guardarNotaDebito(){
   else if(typeof renderRVs==='function')renderRVs();
 }
 
+// ============================================================
+//  ANULAR UNA NOTA DE CRÉDITO / DE DÉBITO
+// ------------------------------------------------------------
+//  Una nota emitida por error no se borra: se marca ANULADA y deja de contar
+//  (todos los cálculos ya filtran por estado/anulada). El caso típico es haber
+//  hecho una NC cuando correspondía una ND —bajar la deuda cuando había que
+//  subirla—, así que al anular una NC se ofrece emitir la ND en el acto.
+//
+//  Dos cosas NO se pueden anular así, y las dos son por el mismo motivo: hay
+//  algo afuera del sistema que ya cuenta con la nota.
+//   · Con CAE, la nota existe para ARCA. Se revierte con la nota espejo, no
+//     borrándola. Y con el CAE 'procesando' ni siquiera se sabe: verificar primero.
+//   · Una ND con plata imputada tiene un RECIBO que la señala. Anularla dejaría
+//     ese cobro apuntando a la nada; primero hay que desarmar la imputación.
+//  El crédito de una NC ya aplicado a otras facturas SÍ se puede deshacer: esas
+//  aplicaciones son internas, se borran con la NC y los comprobantes que las
+//  recibieron vuelven a quedar con saldo. Se avisa antes, con el monto.
+// ============================================================
+
+// El saldo guardado en facturas/RV es un ESPEJO del derivado (P1: la verdad son
+// los movimientos). Después de anular hay que refrescarlo o la pantalla de
+// cobranza sigue mostrando el número viejo. Se llama SIEMPRE después de reload().
+async function _refrescarSaldoDoc(docTipo,docId){
+  if(!docTipo||!docId)return;
+  if(docTipo==='factura'){
+    const f=(C.facturas||[]).find(x=>x.id===docId);
+    if(f)await sb.from('facturas').update({saldo:_saldoFactura(f)}).eq('id',docId);
+  }else{
+    const rv=(C.rvs||[]).find(x=>x.id===docId);
+    if(rv)await sb.from('remitos_valorizados').update({saldo:_saldoRV(rv)}).eq('id',docId);
+  }
+}
+
+function _ncDocLabel(docTipo,docId){
+  const doc=docTipo==='factura'?(C.facturas||[]).find(f=>f.id===docId):(C.rvs||[]).find(r=>r.id===docId);
+  return (docTipo==='factura'?'Factura ':'RV ')+(doc?(doc.numero||('#'+docId)):('#'+docId));
+}
+
+async function anularNotaCredito(ncId){
+  const nc=(C.notas_credito||[]).find(x=>x.id===ncId);
+  if(!nc){toast('No se encontró la nota de crédito','red');return;}
+  if(nc.estado==='anulada'){toast('Esta nota de crédito ya está anulada','amber');return;}
+  if(nc.cae){toast('Ya tiene CAE de ARCA: no se anula, se revierte con una nota de débito','amber');return;}
+  if(nc.cae_estado==='procesando'){toast('No se sabe si ARCA la autorizó. Verificá el CAE antes de anularla.','amber');return;}
+
+  const aplic=(C.nc_aplicaciones||[]).filter(a=>a.nc_id===ncId);
+  const montoAplic=r2(aplic.reduce((s,a)=>s+(parseFloat(a.monto_aplicado)||0),0));
+  const docLbl=_ncDocLabel(nc.doc_tipo,nc.doc_id);
+  const total=parseFloat(nc.total)||0;
+
+  let txt='¿Anular la nota de crédito '+(nc.numero||('#'+nc.id))+' por '+fmtMoney(total)+'?\n\n'
+    +'La deuda de '+(nc.razon_social_cliente||'el cliente')+' vuelve a SUBIR '+fmtMoney(total)
+    +' y '+docLbl+' recupera ese saldo.';
+  if(montoAplic>0.01){
+    txt+='\n\n⚠ '+fmtMoney(montoAplic)+' de crédito de esta NC ya se aplicaron a '+aplic.length
+      +' comprobante(s). Esas aplicaciones se BORRAN y esos comprobantes vuelven a quedar con saldo.';
+  }
+  txt+='\n\nLa nota no se borra: queda marcada como ANULADA y deja de contar en la cuenta corriente.';
+  if(!confirm(txt))return;
+
+  pedirAdminYEjecutar(async()=>{
+    try{
+      if(aplic.length){
+        const {error:eA}=await sb.from('nc_aplicaciones').delete().eq('nc_id',ncId);
+        if(eA)throw eA;
+      }
+      const {error:e1}=await sb.from('notas_credito').update({estado:'anulada'}).eq('id',ncId);
+      if(e1)throw e1;
+      await reload();
+      const tocados=[{t:nc.doc_tipo,id:nc.doc_id}].concat(aplic.map(a=>({t:a.doc_tipo,id:a.doc_id})));
+      const vistos={};
+      for(const d of tocados){
+        const k=d.t+'#'+d.id;
+        if(!d.t||!d.id||vistos[k])continue;
+        vistos[k]=true;
+        await _refrescarSaldoDoc(d.t,d.id);
+      }
+      try{if(typeof renderDetalleCC==='function')renderDetalleCC();}catch(e){}
+      try{if(typeof renderFacturas==='function')renderFacturas();}catch(e){}
+      try{if(typeof renderRVs==='function')renderRVs();}catch(e){}
+      toast('✓ Nota de crédito '+(nc.numero||('#'+nc.id))+' anulada','green');
+      if(nc.doc_tipo&&nc.doc_id&&typeof abrirNotaDebito==='function'
+         &&confirm('¿Querés hacer AHORA la nota de débito sobre '+docLbl+'?\n\n'
+                  +'Se abre con el comprobante ya elegido; solo tenés que poner el monto ('
+                  +fmtMoney(total)+' si es el mismo ajuste).')){
+        abrirNotaDebito(nc.doc_tipo,nc.doc_id);
+      }
+    }catch(err){
+      toast('Error al anular: '+(err&&err.message?err.message:err),'red');
+    }
+  });
+}
+
+async function anularNotaDebito(ndId){
+  const nd=(C.notas_debito||[]).find(x=>x.id===ndId);
+  if(!nd){toast('No se encontró la nota de débito','red');return;}
+  if(nd.anulada){toast('Esta nota de débito ya está anulada','amber');return;}
+  if(nd.cae){toast('Ya tiene CAE de ARCA: no se anula, se revierte con una nota de crédito','amber');return;}
+  if(nd.cae_estado==='procesando'){toast('No se sabe si ARCA la autorizó. Verificá el CAE antes de anularla.','amber');return;}
+
+  const aplicado=_aplicadoAND(ndId);
+  if(aplicado>0.01){
+    toast('No se puede anular: ya tiene '+fmtMoney(aplicado)+' imputados desde un recibo. Desarmá esa imputación primero.','amber');
+    return;
+  }
+  const monto=parseFloat(nd.monto)||0;
+  const docLbl=nd.doc_tipo?_ncDocLabel(nd.doc_tipo,nd.doc_id):(nd.concepto||'');
+  if(!confirm('¿Anular la nota de débito '+(nd.numero||nd.numero_doc||('#'+nd.id))+' por '+fmtMoney(monto)+'?\n\n'
+      +'La deuda del cliente BAJA '+fmtMoney(monto)+'.'+(docLbl?'\nComprobante: '+docLbl:'')
+      +'\n\nLa nota no se borra: queda marcada como anulada.'))return;
+
+  pedirAdminYEjecutar(async()=>{
+    try{
+      const {error}=await sb.from('notas_debito').update({anulada:true}).eq('id',ndId);
+      if(error)throw error;
+      await reload();
+      if(nd.doc_tipo&&nd.doc_id)await _refrescarSaldoDoc(nd.doc_tipo,nd.doc_id);
+      try{if(typeof renderDetalleCC==='function')renderDetalleCC();}catch(e){}
+      try{if(typeof renderFacturas==='function')renderFacturas();}catch(e){}
+      try{if(typeof renderRVs==='function')renderRVs();}catch(e){}
+      toast('✓ Nota de débito '+(nd.numero||nd.numero_doc||('#'+nd.id))+' anulada','green');
+    }catch(err){
+      toast('Error al anular: '+(err&&err.message?err.message:err),'red');
+    }
+  });
+}
+
 function imprimirNotaDebito(ndId){
   const nd=(C.notas_debito||[]).find(x=>x.id===ndId);
   if(!nd)return;
@@ -15005,13 +15350,21 @@ function renderDetalleCC(){
       }
       estado+='</div>';
     } else if(m.tipo==='NC'){
-      estado='<button class="btn btn-sm" onclick="imprimirNotaCredito('+m.id+')" style="font-size:10px;padding:3px 6px;">🖨 NC</button>';
+      // Una NC emitida por error (el caso clásico: iba una ND) se anula desde acá.
+      // Con CAE de ARCA la nota ya existe afuera: ahí el botón no va.
+      estado='<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">'
+        +'<button class="btn btn-sm" onclick="imprimirNotaCredito('+m.id+')" style="font-size:10px;padding:3px 6px;">🖨 NC</button>';
+      if(!m.obj?.cae && m.obj?.cae_estado!=='procesando')
+        estado+='<button class="btn btn-sm btn-del" onclick="anularNotaCredito('+m.id+')" style="font-size:10px;padding:3px 6px;" title="Anular esta nota de crédito">🚫 Anular</button>';
+      estado+='</div>';
     } else if(m.tipo==='ND'){
       const sND=_saldoND(m.obj);
       estado='<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">'
         +'<button class="btn btn-sm" onclick="imprimirNotaDebito('+m.id+')" style="font-size:10px;padding:3px 6px;">🖨 ND</button>';
       if(sND>0.01)estado+='<span style="font-size:10px;color:var(--amber);">pend: '+fmtMoney(sND)+'</span>'
         +'<button class="btn btn-sm btn-primary" onclick="abrirImputar(\'NOTA_DEBITO\','+m.id+')" style="font-size:10px;padding:3px 6px;">💵 Imputar</button>';
+      if(!m.obj?.cae && m.obj?.cae_estado!=='procesando' && _aplicadoAND(m.id)<=0.01)
+        estado+='<button class="btn btn-sm btn-del" onclick="anularNotaDebito('+m.id+')" style="font-size:10px;padding:3px 6px;" title="Anular esta nota de débito">🚫 Anular</button>';
       estado+='</div>';
     } else if(m.tipo==='COMP'){
       estado='<span style="font-size:10px;color:#06b6d4;">↔ puente</span>';
@@ -18814,12 +19167,15 @@ async function aumCancelarGrupo(clave){
   renderAumBanner();renderAumLista();
   if(_aumGruposVencidos().length)aumAbrirAplicar();
 }
-async function _aumAplicarProgramados(claves){
-  let venc=_aumProgVencidos();
+async function _aumAplicarProgramados(claves,adelantar){
+  // `adelantar`: aplicar un paso ANTES de su fecha. Solo desde "⚡ Aplicar ahora",
+  // donde el usuario ya eligio ese paso a mano en un modal que le dijo la fecha.
+  // El cartel de vencidos nunca adelanta: ahi manda el calendario.
+  let venc=adelantar?_aumProgPend():_aumProgVencidos();
   // Si vino una seleccion, se aplica SOLO eso. Lo no elegido queda pendiente y
   // vuelve a aparecer: destildar es posponer, no cancelar.
   if(claves&&claves.length){const S={};claves.forEach(k=>S[k]=true);venc=venc.filter(h=>S[_aumGrupoClave(h)]);}
-  if(!venc.length){toast('No hay precios programados para hoy','amber');return;}
+  if(!venc.length){toast(adelantar?'Ese paso ya no está pendiente':'No hay precios programados para hoy','amber');return;}
   // Si un cliente+producto tiene mas de un paso vencido (ej: se aplica tarde y ya
   // vencieron el paso 1 y el 2), manda el MAS NUEVO. Los anteriores se marcan
   // aplicados igual: ya fueron superados, no se ejecutan dos veces.
@@ -20274,7 +20630,17 @@ function aumAbrirCliente(cliId,pct){
   // un punto de partida generico; lo armado es trabajo hecho. El % del panorama
   // solo siembra a un cliente que no tiene NADA: ni borrador, ni pasos programados.
   const hay=_aumBorrCargar(cliId);
-  if(!hay&&!Object.keys(AUM.ed).length&&!(AUM.pct>0))AUM.pct=parseFloat(pct)||0;
+  if(!hay&&!Object.keys(AUM.ed).length&&!(AUM.pct>0)){
+    AUM.pct=parseFloat(pct)||0;
+    // Y SE GUARDA. Dejar el sugerido tal cual ES una decision: el que entro por
+    // "Armar lista →", lo miro y le parecio bien, cargo ese aumento. Antes eso no
+    // dejaba rastro — el borrador solo se escribia si se TOCABA algo — y el cliente
+    // quedaba sin nada en la base mientras la pantalla mostraba los precios nuevos.
+    // Le paso a German con cuatro clientes (Sayavedra, Aroma, Instituto, Garcia
+    // Julio): creyo que los tenia cargados y no habia ni borrador ni programado.
+    // Guardar no toca ningun precio de venta: es un borrador, y el badge lo confirma.
+    if(AUM.pct>0)_aumBorrGuardar();
+  }
   const p=document.getElementById('aum-pct');if(p)p.value=AUM.pct||'';
   aumTab('lista');
 }
@@ -20510,7 +20876,80 @@ function renderAumLista(){
 }
 
 // ---------- guardar ----------
-function aumGuardar(){pedirAdminYEjecutar(()=>_aumGuardar());}
+// ⚡ APLICAR AHORA — con un escalonado programado en el medio, esto es una trampa.
+// German: "a Ezequiel Muñoz le puse precios escalonados pero apreté aplicar ahora y me
+// aplicó el aumento total". Y tenia razon: desde el 10u.2 las filas PARTEN del ultimo
+// paso programado (para poder seguir afinando desde ahi), asi que la columna "precio
+// nuevo" muestra el DESTINO del escalonado. Aplicar ahora tomaba eso y lo escribia
+// como precio de venta: el cliente se comia los dos tramos juntos.
+// Y quedaba peor todavia: los pasos programados NO se borraban, asi que el dia del
+// paso 1 el sistema le iba a BAJAR el precio del destino al primer escalon.
+// Ahora, si hay pasos pendientes, se pregunta ANTES y con las dos salidas explicitas.
+function aumGuardar(){
+  const pend=_aumProgPend().filter(h=>h.cliente_id===AUM.cli);
+  if(!pend.length){pedirAdminYEjecutar(()=>_aumGuardar());return;}
+  aumAbrirAplicarAhora(pend);
+}
+// Los pasos pendientes del cliente, agrupados por fecha y ordenados
+function _aumPasosPend(pend){
+  const porF={};
+  pend.forEach(h=>{(porF[h.vigencia_desde]=porF[h.vigencia_desde]||[]).push(h);});
+  return Object.keys(porF).sort().map(f=>({fecha:f,filas:porF[f],paso:porF[f][0].paso||0}));
+}
+function aumAbrirAplicarAhora(pend){
+  const pasos=_aumPasosPend(pend);
+  const cli=(C.clientes||[]).find(c=>c.id===AUM.cli)||{};
+  const filas=_aumFilas(AUM.cli).filter(f=>f.nuevoPaq>0);
+  const P1=pasos[0];
+  document.getElementById('aum-ap-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="aum-ap-modal">'
+    +'<div class="modal-card" style="max-width:640px;">'
+    +'<div class="modal-title">⚠ Este cliente tiene un escalonado programado</div>'
+    +'<div style="background:var(--amberbg);border:1px solid var(--amberbd);border-radius:var(--r);padding:11px 14px;margin-bottom:12px;font-size:12px;line-height:1.65;">'
+      +'<b>'+escapeHtml(cli.razon_social||cli.nombre||'')+'</b> tiene <b>'+pasos.length+' paso(s)</b> esperando:<br>'
+      +pasos.map((p,i)=>'&nbsp;&nbsp;<b>Paso '+(p.paso||i+1)+'</b> · desde el '+_aumFechaLargaSafe(p.fecha)+' · '+p.filas.length+' producto(s)').join('<br>')
+      +'<div style="margin-top:8px;color:var(--text2);">Lo que ves en la columna <b>Precio nuevo</b> es el <b>DESTINO</b> del escalonado — el precio del último paso. '
+      +'Si lo aplicás ahora, el cliente se come todos los tramos juntos.</div>'
+    +'</div>'
+    +'<div class="btn-grp" style="flex-direction:column;align-items:stretch;gap:8px;">'
+      +'<button class="btn btn-primary" style="text-align:left;padding:10px 14px;" onclick="aumAplicarSoloPaso1()">'
+        +'✔ Aplicar solo el <b>paso '+(P1.paso||1)+'</b> ('+P1.filas.length+' producto(s)) y dejar el resto programado'
+        +'<div style="font-size:11px;font-weight:400;opacity:.85;margin-top:2px;">Lo normal: adelantás el primer escalón y los otros siguen con su fecha.</div></button>'
+      +'<button class="btn" style="text-align:left;padding:10px 14px;" onclick="aumAplicarTodoDeUna()">'
+        +'⚡ Aplicar el <b>precio final</b> y <b>cancelar</b> los '+pend.length+' paso(s) programados'
+        +'<div style="font-size:11px;font-weight:400;color:var(--text3);margin-top:2px;">El cliente paga todo el aumento de una. Se borran los pasos para que después no le bajen el precio.</div></button>'
+      +'<button class="btn btn-sm" onclick="document.getElementById(\'aum-ap-modal\').remove()">Cancelar</button>'
+    +'</div></div></div>');
+}
+// Aplica el PRIMER paso pendiente: escribe sus precios y marca ese paso como aplicado.
+function aumAplicarSoloPaso1(){
+  const pend=_aumProgPend().filter(h=>h.cliente_id===AUM.cli);
+  const pasos=_aumPasosPend(pend);
+  if(!pasos.length)return;
+  const P1=pasos[0];
+  document.getElementById('aum-ap-modal')?.remove();
+  // reusa el mismo camino que el cartel de vencidos: una sola definicion de "aplicar"
+  pedirAdminYEjecutar(async()=>{
+    await _aumAplicarProgramados([_aumGrupoClave(P1.filas[0])],true);
+  });
+}
+// Aplica lo que hay en pantalla (el destino) y BORRA los pasos, para que no vuelvan.
+function aumAplicarTodoDeUna(){
+  const pend=_aumProgPend().filter(h=>h.cliente_id===AUM.cli);
+  document.getElementById('aum-ap-modal')?.remove();
+  pedirAdminYEjecutar(async()=>{
+    await _aumGuardar();
+    const ids=pend.map(h=>h.id);
+    if(ids.length){
+      const{error}=await sb.from('precio_historial').delete().in('id',ids).eq('aplicado',false);
+      if(error){toast('Precios aplicados, pero no pude borrar los pasos programados: '+error.message,'amber');return;}
+      await _aumCargarHistorial(true);
+      toast('Aplicado el precio final · '+ids.length+' paso(s) programado(s) cancelados','green');
+      renderAumBanner();renderAumLista();
+    }
+  });
+}
 async function _aumGuardar(){
   const cliId=AUM.cli;if(!cliId)return;
   const cli=(C.clientes||[]).find(c=>c.id===cliId)||{};
@@ -20738,7 +21177,12 @@ function _aumEnvioPlan(){
   const hoy=localDate();
   const filas=_aumFilas(AUM.cli);
   const set={};
-  filas.forEach(f=>(f.prog||[]).forEach(g=>{if(String(g.vigencia_desde)>hoy)set[g.vigencia_desde]=true;}));
+  // TODOS los pasos pendientes, incluso el que ya vencio. f.prog viene de
+  // _aumProgPend(), que ya filtra aplicado=false: si esta ahi es porque TODAVIA NO
+  // RIGE, tenga la fecha que tenga. Con el filtro viejo (> hoy) el paso del dia se
+  // caia de la lista y el cliente veia el precio viejo saltando al tramo siguiente,
+  // sin el escalon del medio — que es justo lo que se negocio.
+  filas.forEach(f=>(f.prog||[]).forEach(g=>{if(g.vigencia_desde)set[g.vigencia_desde]=true;}));
   const fechas=Object.keys(set).sort();
   const out=[];
   filas.forEach(f=>{
@@ -20777,7 +21221,11 @@ function _aumTextoLista(){
   let t='*'+emp+' — Lista de precios*\n';
   t+=(cli.razon_social||cli.nombre||'')+'\n';
   if(P.hayFuturo){
-    t+='Precios vigentes hoy y a partir de '+P.fechas.map(f=>_aumFechaLarga(f)).join(' y ')+'.\n';
+    t+=(P.fechas.length>1
+      ?(function(){const L=P.fechas.map(f=>_aumFechaLarga(f));
+          return 'Precios nuevos en '+L.length+' tramos: desde el '
+            +(L.length>2?L.slice(0,-1).join(', desde el ')+' y desde el '+L[L.length-1]:L.join(' y desde el '))+'.\n';})()
+      :'Precios nuevos desde el '+_aumFechaLarga(P.fechas[0])+'.\n');
   }else{
     t+='Vigencia: desde el '+_aumFechaLarga(AUM.vigencia||localDate())+'\n';
   }
@@ -20795,8 +21243,9 @@ function _aumTextoLista(){
       return l+'\n';
     };
     if(P.hayFuturo){
-      t+=linea('Hoy',x.base);
-      let ant=r2(x.base);
+      // idem la hoja: solo los tramos nuevos. ant=0 para que el PRIMER tramo salga
+      // siempre, aunque coincida con lo que se venia cobrando.
+      let ant=0;
       P.fechas.forEach(fx=>{
         if(r2(x.pr[fx]||0)===ant)return;   // si no cambia, no se repite el renglon
         t+=linea('Desde el '+_aumFechaLarga(fx),x.pr[fx]);
@@ -20875,10 +21324,11 @@ function aumImprimir(){
     +'<td><div style="font-weight:600;font-size:10.5pt;">'+escapeHtml(f.prod.descripcion||'')+'</div>'
       +'<div style="font-size:8.5pt;color:#64748b;margin-top:1px;">'+escapeHtml(f.prod.codigo||'')+(f.uniPaq?' · '+f.uniPaq+' unidades por paquete':'')+'</div></td>'
     +'<td style="text-align:right;font-family:Courier New,monospace;font-size:8.5pt;color:#64748b;">'+(f.uniPaq||'—')+'</td>'
-    +(P.hayFuturo?'<td style="text-align:right;font-family:Courier New,monospace;color:#64748b;">'+money(x.base)+'</td>':'')
     +(P.hayFuturo
       ?P.fechas.map((fx,k)=>{
-          const cambia=r2(x.pr[fx]||0)!==r2(k===0?x.base:(x.pr[P.fechas[k-1]]||x.base));
+          // el PRIMER tramo siempre firme: sin la columna "hoy" al lado, un precio
+          // en gris no tiene contra que compararse y se lee como "sin dato".
+          const cambia=(k===0)||r2(x.pr[fx]||0)!==r2(x.pr[P.fechas[k-1]]||x.base);
           return '<td style="text-align:right;font-family:Courier New,monospace;font-weight:'+(cambia?(k===P.fechas.length-1?'700':'600')+';':'400;color:#94a3b8;')+'">'+money(x.pr[fx])+'</td>';
         }).join('')
       :'<td style="text-align:right;font-family:Courier New,monospace;font-weight:700;">'+money(x.base)+'</td>')
@@ -20924,8 +21374,10 @@ function aumImprimir(){
       +'<div class="doc-box"><div class="doc-tag">Lista de precios</div>'
         +'<div class="doc-meta">'
           +(P.hayFuturo
-            ?'Precio nuevo: <strong>desde el '+_aumFechaLarga(P.fechas[0])+'</strong>'
-              +(P.fechas.length>1?'<br>Segundo tramo: <strong>desde el '+_aumFechaLarga(P.fechas[1])+'</strong>':'')
+            // TODOS los tramos, no solo dos: el escalonado va de 2 a 4 (13c) y con
+            // 3 pasos el ultimo quedaba sin anunciar arriba aunque tuviera columna.
+            ?P.fechas.map((fx,k)=>(k===0?'Precio nuevo: ':(k===1?'Segundo tramo: ':k===2?'Tercer tramo: ':'Cuarto tramo: '))
+                +'<strong>desde el '+_aumFechaLarga(fx)+'</strong>').join('<br>')
             :'Vigencia: <strong>desde el '+vig+'</strong>')
           +'<br>Emitida: '+fecha+'</div></div>'
     +'</div>'
@@ -20939,7 +21391,10 @@ function aumImprimir(){
       +'<th style="width:30px;text-align:center;">#</th>'
       +'<th>Producto</th>'
       +'<th class="r" style="width:60px;">u/paq</th>'
-      +(P.hayFuturo?'<th class="r" style="width:100px;">Precio hoy</th>':'')
+      // Sin "Precio hoy": una lista nueva comunica los precios NUEVOS. German:
+      // "el precio de hoy en una lista nueva no tiene que estar, lo que tiene que
+      // aparecer son los dos tramos, bien claros". Poner el viejo al lado invita a
+      // discutir el aumento renglon por renglon en vez de leer lo que va a regir.
       +(P.hayFuturo
         ?P.fechas.map(fx=>'<th class="r" style="width:110px;">Desde el '+_aumFechaLarga(fx)+'</th>').join('')
         :'<th class="r" style="width:110px;">Precio por paquete</th>')
@@ -20950,7 +21405,7 @@ function aumImprimir(){
       +'• <strong>Los precios NO incluyen IVA</strong> y estan expresados en pesos argentinos.<br>'
       +(P.hayFuturo
         ?'• Los precios nuevos rigen <strong>a partir del '+_aumFechaLarga(P.fechas[0])+'</strong>. <strong>Todo pedido confirmado antes de esa fecha se respeta al precio de hoy.</strong><br>'
-          +(P.fechas.length>1?'• A partir del <strong>'+_aumFechaLarga(P.fechas[1])+'</strong> rige el segundo tramo de la columna correspondiente.<br>':'')
+          +P.fechas.slice(1).map(fx=>'• A partir del <strong>'+_aumFechaLarga(fx)+'</strong> rige la columna de esa fecha.<br>').join('')
         :'• Vigencia a partir del <strong>'+vig+'</strong>. Sujetos a modificacion por variacion del costo de la materia prima.<br>')
       +'• La entrega se coordina al confirmar el pedido.'
     +'</div>'
@@ -41043,7 +41498,9 @@ function _cargaSemanalPlanta(nSemanas){
     semanas.push({ini,fin,ws:dStr(ini)});
   }
   const jExt=getJornada('extrusion'),jCor=getJornada('corte');
-  const hsDiaExt=jExt.hFin-jExt.hIni,hsDiaCor=jCor.hFin-jCor.hIni;
+  // Las horas de un día ya no son "hFin − hIni": con turno continuo el lunes tiene 18,
+  // el martes 24 y el sábado 6. Se piden día por día con hsJornadaDia().
+  const hsDiaExt=null,hsDiaCor=null;
 
   // Motores reales (solo lectura, con blindaje como la Torre)
   let schedOE={},schedOC={},motorError=null;
@@ -41057,7 +41514,7 @@ function _cargaSemanalPlanta(nSemanas){
   function capDefault(sem,j,hsDia,tipo){
     let full=0;
     for(let d=0;d<7;d++){
-      if(j.dias.includes(addDays(sem.ini,d).getDay()))full+=hsDia;
+      full+=hsJornadaDia(addDays(sem.ini,d),tipo);
     }
     let rest;
     if(ahora<=sem.ini)rest=full;
@@ -42857,7 +43314,7 @@ function _prgRenderPlanSemana(){
 
   h+='<div style="font-size:11px;color:var(--text3);line-height:1.55;border-top:1px solid var(--border);padding-top:10px;">'
     +'<b style="color:var(--text2);">Cómo se calcula.</b> La capacidad sale de los kg/hora cargados en las extrusoras activas y de la jornada de '
-    +'extrusión ('+(getJornada('extrusion').hIni)+'–'+(getJornada('extrusion').hFin)+' hs) de la configuración; el corte, de las bolsas/hora de las máquinas y su jornada. '
+    +'extrusión ('+escapeHtml(jornadaTxt('extrusion'))+') de la configuración; el corte, de las bolsas/hora de las máquinas y su jornada. '
     +'<b style="color:var(--text2);">Ya programado</b> es lo que el Gantt tiene puesto adentro de esta semana, así que el plan solo ofrece lo que sobra. '
     +'<b style="color:var(--text2);">El material se reparte en el orden de la cola</b> — el que elegís en 🏭 Qué producir. '
     +'Esta pantalla no reprograma nada ni toca la base: dice qué cabe, y las decisiones se siguen tomando en las órdenes.'
@@ -43457,36 +43914,42 @@ function renderGanttCombinado(){
     // así el tramo nocturno de una barra queda tachado y se lee como pausa.
     if(dias<=3){
       const ray='repeating-linear-gradient(45deg,rgba(0,0,0,.30) 0 5px,rgba(0,0,0,0) 5px 10px)';
-      _gcbNoches=(j,nom)=>{
+      // La franja muerta se pide DÍA POR DÍA: con turno continuo el lunes tiene rayado
+      // 0–6 y el martes no tiene nada, y el domingo está rayado entero.
+      _gcbNoches=(tipo,nom)=>{
         let o='';
         for(let i=0;i<dias;i++){
           const d=new Date(t0);d.setDate(d.getDate()+i);
           const base=i/dias*100,anchoDia=100/dias;
-          const tt='Fuera de jornada de '+nom+' ('+j.hIni+':00 a '+j.hFin+':00)';
-          if(j.hIni>0)o+='<div title="'+tt+'" style="position:absolute;top:0;bottom:0;left:'+base+'%;width:'+(anchoDia*j.hIni/24)+'%;background:'+ray+';z-index:3;pointer-events:none;"></div>';
-          if(j.hFin<24)o+='<div title="'+tt+'" style="position:absolute;top:0;bottom:0;left:'+(base+anchoDia*j.hFin/24)+'%;width:'+(anchoDia*(24-j.hFin)/24)+'%;background:'+ray+';z-index:3;pointer-events:none;"></div>';
+          const h=jorHull(d,tipo);
+          const tt='Fuera de jornada de '+nom+(h?' ('+_hTxt(h.hIni)+' a '+_hTxt(h.hFin)+')':' (ese día no se trabaja)');
+          const rayar=(a,b)=>{if(b<=a)return;o+='<div title="'+tt+'" style="position:absolute;top:0;bottom:0;left:'+(base+anchoDia*a/24)+'%;width:'+(anchoDia*(b-a)/24)+'%;background:'+ray+';z-index:3;pointer-events:none;"></div>';};
+          if(!h){rayar(0,24);continue;}
+          rayar(0,h.hIni);rayar(h.hFin,24);
         }
         return o;
       };
     }
   }
-  // Franja rayada para las horas en que ESE sector no trabaja.
-  const _fueraJornada=(j,nom)=>{
-    if(!vistaHoras)return _gcbNoches?_gcbNoches(j,nom):'';
+  // Franja rayada para las horas en que ESE sector no trabaja (del día visible).
+  const _fueraJornada=(tipo,nom)=>{
+    if(!vistaHoras)return _gcbNoches?_gcbNoches(tipo,nom):'';
     const ray='repeating-linear-gradient(45deg,rgba(255,255,255,.055) 0 5px,rgba(255,255,255,0) 5px 10px)';
+    const h=jorHull(gcbFecha,tipo);
     let o='';
-    const ttl='Fuera de jornada de '+nom+' ('+j.hIni+':00 a '+j.hFin+':00)';
-    if(j.hIni>hIniAxis)o+='<div title="'+ttl+'" style="position:absolute;top:0;bottom:0;left:0;width:'+((j.hIni-hIniAxis)/nCols*100)+'%;background:'+ray+';pointer-events:none;"></div>';
-    if(j.hFin<hFinAxis)o+='<div title="'+ttl+'" style="position:absolute;top:0;bottom:0;left:'+((j.hFin-hIniAxis)/nCols*100)+'%;right:0;background:'+ray+';pointer-events:none;"></div>';
+    const ttl='Fuera de jornada de '+nom+(h?' ('+_hTxt(h.hIni)+' a '+_hTxt(h.hFin)+')':' (ese día no se trabaja)');
+    if(!h)return '<div title="'+ttl+'" style="position:absolute;top:0;bottom:0;left:0;right:0;background:'+ray+';pointer-events:none;"></div>';
+    if(h.hIni>hIniAxis)o+='<div title="'+ttl+'" style="position:absolute;top:0;bottom:0;left:0;width:'+((h.hIni-hIniAxis)/nCols*100)+'%;background:'+ray+';pointer-events:none;"></div>';
+    if(h.hFin<hFinAxis)o+='<div title="'+ttl+'" style="position:absolute;top:0;bottom:0;left:'+((h.hFin-hIniAxis)/nCols*100)+'%;right:0;background:'+ray+';pointer-events:none;"></div>';
     return o;
   };
-  const capasExt=capasFondo+_fueraJornada(jExt,'extrusión');
-  const capasCor=capasFondo+_fueraJornada(jCor,'corte');
+  const capasExt=capasFondo+_fueraJornada('extrusion','extrusión');
+  const capasCor=capasFondo+_fueraJornada('corte','corte');
 
   // Cartel de jornadas: que se lea de dónde salen las franjas, sin abrir la config.
   const _lblJor=document.getElementById('gcb-jornadas');
   if(_lblJor)_lblJor.innerHTML=(vistaHoras||dias<=3)
-    ?'<span style="color:var(--text3);">Jornada · </span>🏭 extrusión '+jExt.hIni+':00–'+jExt.hFin+':00 <span style="color:var(--text3);">·</span> ✂️ corte '+jCor.hIni+':00–'+jCor.hFin+':00 <span style="color:var(--text3);">(la franja rayada es fuera de hora)</span>'
+    ?'<span style="color:var(--text3);">Jornada · </span>🏭 extrusión '+escapeHtml(jornadaTxt('extrusion'))+' <span style="color:var(--text3);">·</span> ✂️ corte '+escapeHtml(jornadaTxt('corte'))+' <span style="color:var(--text3);">(la franja rayada es fuera de hora)</span>'
       +(vistaHoras&&gcbZoom?' <span style="color:var(--amber);">· mostrando '+hIniAxis+':00 a '+hFinAxis+':00</span>':'')
     :'';
 
@@ -43670,9 +44133,13 @@ function _gcbTramo(seg,tipo,t0,t1,pos,vistaHoras){
   let a=new Date(Math.max(seg.ini.getTime(),t0.getTime()));
   let b=new Date(Math.min(seg.fin.getTime(),t1.getTime()));
   if(vistaHoras){
-    const j=getJornada(tipo);
-    const ji=new Date(t0);ji.setHours(j.hIni,0,0,0);
-    const jf=new Date(t0);jf.setHours(j.hFin,0,0,0);
+    // Recorte a la jornada DE ESE DÍA y de ese sector: con turno continuo el lunes
+    // abre a las 6 y el martes a las 0, así que la franja no puede ser fija.
+    const h=jorHull(t0,tipo);
+    if(!h)return null;                   // ese día el sector no trabaja
+    const d0=new Date(t0);d0.setHours(0,0,0,0);
+    const ji=new Date(d0.getTime()+h.hIni*3600000);
+    const jf=new Date(d0.getTime()+h.hFin*3600000);
     if(a<ji)a=new Date(ji);
     if(b>jf)b=new Date(jf);
   }
@@ -44279,6 +44746,11 @@ function _gcbRenderSinOC(schedOE){
 }
 
 function renderGanttCorteDiario(){
+  // Este Gantt es de CORTE: su eje tiene que salir de la jornada de corte, no de las
+  // constantes de extrusión (que con el turno continuo pasan a ser 0–24 y estiraban
+  // la pantalla a 24 columnas vacías).
+  const _jc=getJornada('corte');
+  const J_INI=Math.floor(_jc.hIni),J_FIN=Math.ceil(_jc.hFin);
   const schedProg=computeScheduleCorte(),schedReal=calcScheduleCorteReal();
   document.getElementById('gcd-lbl').textContent=gcdDate.toLocaleDateString('es-AR',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
   const ahora=new Date(),esHoy=dStr(gcdDate)===dStr(ahora),horaActual=ahora.getHours()+(ahora.getMinutes()/60);
