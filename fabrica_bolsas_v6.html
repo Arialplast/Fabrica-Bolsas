@@ -709,7 +709,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-08-19a</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-08-19b</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5324,7 +5324,19 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-08-19a';
+const APP_BUILD='2026-08-19b';
+  // 19b: EL DIA EN QUE SE CAMBIA EL TURNO. Con el 19a cargado, German cambio la rotacion a la nueva
+  // (Pavoni noche / Cordova mañana / Massi tarde fijo) pero el miercoles 19 la fabrica todavia venia
+  // con los turnos viejos: Cordova hizo 13-22 cuando el sistema ya le esperaba 06-16, y Massi 06-15
+  // cuando le esperaba 13-22. El informe eso lo lee como 7 hs de atraso y 7 hs de salida anticipada.
+  // La tabla `turnos_excepcion` EXISTIA y `_turnoDelDia` YA la leia primero que a la rotacion — lo
+  // unico que la escribia era el tilde de "quien viene el sabado". O sea: el sistema sabia manejar el
+  // caso y no habia ninguna pantalla para cargarlo. Ahora en 🕐 Turnos hay "Cambios de turno del mes"
+  // con ➕ Cambio de turno: empleado + dia + que hizo (cualquier turno, franco o licencia) + nota,
+  // los del mes se listan como chips con ✕ para borrarlos, y en la grilla semanal el dia cambiado va
+  // en color con un asterisco (si no, no hay forma de ver por que ese dia no sigue la rotacion).
+  // Escribe la MISMA fila que el tilde del sabado (la clave es empleado+fecha), asi que el modal
+  // avisa cuando la fecha cae sabado, y avisa el domingo porque no es jornada. Sin SQL nuevo.
   // 19a: LA FABRICA PASA A 24 HS Y EL MOTOR DE FECHAS LO ENTIENDE. German arranco turno continuo:
   // lunes 6:00 a sabado 6:00, y algunos sabados hasta las 12. La jornada dejo de ser UNA franja
   // hIni-hFin repetida en los dias habiles (no puede expresar "el lunes de 6 a 24, el martes entero
@@ -25951,7 +25963,10 @@ function _suRenderTurnos(){
         else {
           const r=_turnoDelDia(e,d);
           if(r.franco){cell=r.tipo==='licencia'?'lic':r.tipo==='feriado'?'fer':'franco';col='var(--amber)';}
-          else if(r.turno){cell=_hhmm(r.turno.hora_entrada)+'–'+_hhmm(r.turno.hora_salida);col='var(--text1)';tt=r.turno.nombre+(r.rot?' (rot. '+r.rot+')':'');const _ex=parseFloat(r.turno.horas_extra_fijas)||0;if(_ex>0)tt+=' · +'+_ex+'h extra';}
+          else if(r.turno){cell=_hhmm(r.turno.hora_entrada)+'–'+_hhmm(r.turno.hora_salida);col='var(--text1)';tt=r.turno.nombre+(r.rot?' (rot. '+r.rot+')':'');const _ex=parseFloat(r.turno.horas_extra_fijas)||0;if(_ex>0)tt+=' · +'+_ex+'h extra';
+            // Un día con cambio cargado a mano se marca: si no, no hay forma de ver por qué
+            // ese día no sigue la rotación.
+            if(r.excepcion){col='var(--accent)';cell+='*';tt+=' · cambio cargado a mano';}}
         }
         html+='<td style="text-align:center;padding:4px;font-family:monospace;color:'+col+';'+(d===SUT.fecha?'background:rgba(99,102,241,.08);':'')+'" title="'+escapeHtml(tt)+'">'+cell+'</td>';
       });
@@ -25999,8 +26014,92 @@ function _calendarioSecciones(){
     });
     h+='</table></div><div style="font-size:10px;color:var(--text3);margin-top:6px;">Cada sábado marcado = 3 hs normales + 3 hs extra en el presupuesto. Lo real lo confirma el fichaje (3 normales + el resto extra).</div>';
   }
+  // ---- Cambios de turno por día (excepciones) ----
+  // La rotación contesta "qué turno le toca esta semana". Un día suelto puede no seguirla:
+  // el día en que se cambia el esquema, un reemplazo, un franco. La tabla turnos_excepcion
+  // ya existía y `_turnoDelDia` ya la leía, pero lo único que la escribía era el tilde de los
+  // sábados: no había forma de decir "hoy este hizo el otro turno" sin tocar la base.
+  const excMes=(C.turnos_excepcion||[]).filter(x=>x.tipo!=='sabado'&&String(x.fecha).slice(0,7)===ym)
+    .sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)));
+  h+='<div style="display:flex;justify-content:space-between;align-items:center;margin:20px 0 6px;"><div style="font-size:11px;text-transform:uppercase;color:var(--accent);font-weight:700;">Cambios de turno de '+ym+'</div><button class="btn btn-sm" onclick="excAbrirForm()">➕ Cambio de turno</button></div>';
+  h+='<div style="font-size:11px;color:var(--text3);margin-bottom:8px;">Para el día suelto en que alguien hizo <b>otro turno del que le tocaba</b> por la rotación: el día en que se cambia el esquema, un reemplazo, un franco o una licencia. Manda sobre la rotación <b>solo ese día</b>, y con eso el informe deja de marcarle una llegada tarde de horas.</div>';
+  if(!excMes.length)h+='<div style="font-size:12px;color:var(--text3);">Sin cambios cargados este mes.</div>';
+  else{
+    h+='<div style="display:flex;flex-wrap:wrap;gap:6px;">';
+    excMes.forEach(x=>{
+      const em=(C.empleados||[]).find(e=>e.id===x.empleado_id);
+      const tu=x.turno_id?_turnoById(x.turno_id):null;
+      const qué=tu?(tu.nombre+' '+_hhmm(tu.hora_entrada)+'–'+_hhmm(tu.hora_salida)):(x.tipo==='licencia'?'licencia':'franco');
+      const col=tu?'var(--accent)':'var(--amber)';
+      h+='<span title="'+escapeHtml(x.obs||'')+'" style="background:var(--bg3);border:1px solid '+col+';border-radius:99px;padding:3px 10px;font-size:11px;">'
+        +String(x.fecha).slice(8,10)+'/'+String(x.fecha).slice(5,7)+' · <b>'+escapeHtml((em&&em.apellido_nombre)||'—')+'</b> · '+escapeHtml(qué)
+        +' <span onclick="excBorrar('+x.id+')" style="cursor:pointer;color:var(--red);margin-left:4px;font-weight:700;">✕</span></span>';
+    });
+    h+='</div>';
+  }
   h+='</div>';
   return h;
+}
+// ---- Excepción de turno de un día (cambio / franco / licencia) ----
+function excAbrirForm(){
+  const emps=(C.empleados||[]).filter(e=>e.activo).sort((a,b)=>String(a.apellido_nombre||'').localeCompare(String(b.apellido_nombre||'')));
+  const turnos=(C.turnos||[]).filter(t=>t.activo!==false).sort((a,b)=>(a.orden||0)-(b.orden||0)||a.id-b.id);
+  if(!emps.length){toast('No hay empleados activos','red');return;}
+  if(!turnos.length){toast('Cargá turnos primero','red');return;}
+  const hoy=SUT.fecha||localDate();
+  document.getElementById('exc-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="exc-modal"><div class="modal-card" style="max-width:460px;">'
+    +'<div class="modal-title">➕ Cambio de turno de un día</div>'
+    +'<div class="fg"><label>Empleado</label><select id="exc-emp" style="width:100%">'
+      +emps.map(e=>'<option value="'+e.id+'">'+escapeHtml(e.apellido_nombre||'')+'</option>').join('')+'</select></div>'
+    +'<div class="fg"><label>Día</label><input id="exc-fecha" type="date" value="'+hoy+'" onchange="excChk()" style="width:100%"></div>'
+    +'<div class="fg"><label>¿Qué hizo ese día?</label><select id="exc-que" style="width:100%">'
+      +turnos.map(t=>'<option value="t:'+t.id+'">'+escapeHtml(t.nombre)+' ('+_hhmm(t.hora_entrada)+'–'+_hhmm(t.hora_salida)+')</option>').join('')
+      +'<option value="franco">— Franco (no vino) —</option><option value="licencia">— Licencia —</option>'
+    +'</select></div>'
+    +'<div class="fg"><label>Nota (opcional)</label><input id="exc-obs" type="text" placeholder="ej: último día del turno viejo" style="width:100%"></div>'
+    +'<div id="exc-aviso" style="font-size:11px;color:var(--amber);margin-bottom:8px;"></div>'
+    +'<div style="font-size:11px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:6px 10px;">Solo cambia lo que el sistema <b>espera</b> ese día. Las horas siguen saliendo del fichaje: si entró y salió cuando dice el turno que ponés acá, el día cierra en verde.</div>'
+    +'<div class="btn-grp" style="margin-top:1rem;"><button class="btn btn-sm" onclick="excGuardar()">💾 Guardar</button><button class="btn btn-sm" onclick="document.getElementById(\'exc-modal\').remove()">Cancelar</button><span id="exc-msg" style="font-size:11px;margin-left:8px;"></span></div>'
+    +'</div></div>');
+  excChk();
+}
+// El tilde de los sábados vive en la MISMA fila (empleado + fecha): avisar antes de pisarlo.
+function excChk(){
+  const f=document.getElementById('exc-fecha')?.value,av=document.getElementById('exc-aviso');
+  if(!av)return;
+  const dow=f?new Date(f+'T12:00:00').getDay():-1;
+  av.textContent=dow===6?'⚠ Es un sábado: esto ocupa el mismo lugar que el tilde de "quién viene el sábado" y lo reemplaza.'
+    :(dow===0?'⚠ Es un domingo: el domingo no es jornada, así que el cambio no va a cambiar nada.':'');
+}
+function excGuardar(){
+  const empId=parseInt(document.getElementById('exc-emp')?.value);
+  const fecha=document.getElementById('exc-fecha')?.value;
+  const que=document.getElementById('exc-que')?.value||'';
+  const obs=(document.getElementById('exc-obs')?.value||'').trim();
+  const msg=document.getElementById('exc-msg');
+  if(!empId||!fecha){if(msg){msg.style.color='var(--red)';msg.textContent='Falta el empleado o el día';}return;}
+  const row={empleado_id:empId,fecha:fecha,obs:obs||null,
+    turno_id:que.indexOf('t:')===0?parseInt(que.slice(2)):null,
+    tipo:que.indexOf('t:')===0?'cambio':que};
+  (async()=>{
+    if(msg){msg.style.color='var(--text2)';msg.textContent='Guardando...';}
+    const{error}=await sb.from('turnos_excepcion').upsert(row,{onConflict:'empleado_id,fecha'});
+    if(error){if(msg){msg.style.color='var(--red)';msg.textContent='Error: '+error.message;}return;}
+    document.getElementById('exc-modal')?.remove();
+    toast('✓ Cambio de turno guardado','green');
+    await reload();renderSueldos();
+  })();
+}
+function excBorrar(id){
+  if(!confirm('¿Borrar este cambio de turno? Ese día vuelve a valer la rotación.'))return;
+  (async()=>{
+    const{error}=await sb.from('turnos_excepcion').delete().eq('id',id);
+    if(error){toast('Error: '+error.message,'red');return;}
+    toast('✓ Borrado','green');
+    await reload();renderSueldos();
+  })();
 }
 function ferAgregar(){
   const f=prompt('Fecha del feriado (AAAA-MM-DD):',(SUT.fecha||localDate()).slice(0,7)+'-01'); if(!f)return;
