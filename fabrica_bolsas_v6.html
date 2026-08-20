@@ -709,7 +709,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-08-19f</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-08-19h</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5324,7 +5324,37 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-08-19f';
+const APP_BUILD='2026-08-19h';
+  // 19h: EL CORTE YA USABA EMPLEADOS, Y BORRAR UN OPERARIO PODIA ROMPER LA HISTORIA. German:
+  // "¿y en el corte? además a Celia Araujo la borro porque me aparece para cargar bobinas".
+  // (1) EN CORTE NO HAY QUE HACER NADA: el panel de confeccion elige el nombre de una lista de
+  // EMPLEADOS activos y guarda `orden_corte_bobinas.empleado_id` — no pasa por `operarios` ni
+  // necesita vinculo. Cualquier empleado activo ya aparece ahi. Por eso en corte la atribucion por
+  // turno fue exacta desde siempre.
+  // (2) A UN OPERARIO CON HISTORIA NO HAY QUE BORRARLO, HAY QUE DESACTIVARLO: `C.operarios` se
+  // carga con `.eq('activo',true)`, asi que desactivarlo lo saca del desplegable de carga y deja
+  // intacto todo lo que firmo. Y `delOperario` tenia dos agujeros: chequeaba "¿tiene bobinas?"
+  // contra `C.bobinas_prod`, que trae SOLO LAS 50 ULTIMAS —uno con bobinas del mes pasado pasaba el
+  // control— y NO miraba el error del delete, asi que si la base lo rechazaba por clave foranea el
+  // usuario apretaba y no pasaba nada, sin ningun aviso. Ahora se le pregunta a la BASE (count
+  // exacto), y si tiene bobinas se ofrece desactivarlo en vez de borrarlo; el error se muestra.
+  // toggleOperario tambien avisa lo que hizo.
+  // (3) El desplegable de carga de bobinas muestra el AREA de cada operario ("CELIA ARAUJO ·
+  // confeccion"), que sale del empleado vinculado: el error se ve antes de cometerlo.
+  // Nota de harness: `sb` esta declarado con `let` en el nivel superior, asi que NO es propiedad de
+  // window — para stubearlo hay que asignarle a la variable. Mismo caso que J_INI en el 19a.
+  // 19g: PARA QUE MASSI PUEDA CARGAR BOBINAS. Dos cosas hacen falta y solo una tenia pantalla:
+  // (1) que exista el OPERARIO —el nombre que se elige al cargar la bobina— y eso ya se hacia en
+  // 👥 Operarios; (2) que ese operario este VINCULADO al empleado, que es lo que le permite al
+  // sistema decir que turno hizo esos kg (🌙 Por turno) y cuanto costaron (🔬 Analisis → Operarios).
+  // `empleados.operario_id` existia en la base y lo usaban las dos pantallas, pero NO habia forma de
+  // cargarlo desde la app: los tres vinculos que hay se pusieron por SQL. Otra vez el patron del 19b
+  // — un dato que el motor sabe usar y que nadie puede escribir.
+  // Ahora el formulario de empleado (👷 Sueldos → Empleados → ✎) tiene el campo "Operario de planta",
+  // que ofrece los operarios libres y BLOQUEA los que ya son de otro empleado diciendo de quien son
+  // (un operario no puede ser dos personas). Y 👥 Operarios suma la columna "Empleado vinculado",
+  // con "⚠ sin vincular" en ambar: el hueco se ve antes de que aparezca como kg sin atribuir.
+  // Verificado e2e cargando el HTML entero en Chromium y operando el formulario de verdad.
   // 19f: EL TIMELINE DEL DIA TENIA EL EJE CLAVADO EN 05→23. German: "las hs estan mal, y acordate
   // tomar el uso horario de Argentina". El eje de ⏱ Timeline del dia (en 🔬 Analisis de extrusion y
   // en el de confeccion) era `const H0=5,H1=23` con Math.min/Math.max — o sea que lo que caia afuera
@@ -6791,7 +6821,15 @@ async function poblarCargaSelects(){
   }
   const opSel=document.getElementById('cb-op-sel');
   if(opSel){
-    opSel.innerHTML='<option value="">— seleccionar operario —</option>'+C.operarios.map(o=>`<option value="${o.id}">${o.nombre}</option>`).join('');
+    // Al lado del nombre, el área del empleado vinculado: así se ve de una cuando el que
+    // está por firmar la bobina es de confección y no de extrusión.
+    const areaDe=id=>{
+      const em=(C.empleados||[]).find(e=>e.operario_id===id);
+      if(!em||!em.esquema_turno_id)return '';
+      const es=(C.esquemas_turno||[]).find(x=>x.id===em.esquema_turno_id);
+      return es&&es.area?(' · '+es.area):'';
+    };
+    opSel.innerHTML='<option value="">— seleccionar operario —</option>'+C.operarios.map(o=>`<option value="${o.id}">${o.nombre}${areaDe(o.id)}</option>`).join('');
   }
 }
 function initCarga(){
@@ -8906,16 +8944,21 @@ function renderOperarios(){
   const todos=[...C.operarios];
   // también incluir inactivos
   if(!todos.length){w.innerHTML='<div class="empty">No hay operarios.</div>';return;}
-  w.innerHTML=`<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Nombre</th><th>Estado</th><th></th></tr></thead>
-    <tbody>${todos.map((o,i)=>`<tr>
+  // Qué empleado es cada operario: sin ese vínculo, los kg que firma no se le pueden
+  // atribuir a su turno (🌙 Por turno) ni a su costo (🔬 Análisis → Operarios).
+  const empDe=id=>(C.empleados||[]).find(e=>e.operario_id===id);
+  w.innerHTML=`<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Nombre</th><th>Empleado vinculado</th><th>Estado</th><th></th></tr></thead>
+    <tbody>${todos.map((o,i)=>{const em=empDe(o.id);return `<tr>
       <td style="color:var(--text3)">${i+1}</td>
       <td style="font-weight:500">${o.nombre}</td>
+      <td style="font-size:11px;">${em?escapeHtml(em.apellido_nombre||''):'<span style="color:var(--amber);" title="Se vincula desde 👷 Sueldos → Empleados → ✎, campo Operario de planta">⚠ sin vincular</span>'}</td>
       <td>${o.activo?'<span class="badge b-prog">Activo</span>':'<span class="badge b-susp">Inactivo</span>'}</td>
       <td class="btn-grp">
         <button class="btn btn-sm" onclick="toggleOperario(${o.id},${!o.activo})">${o.activo?'Desactivar':'Activar'}</button>
         <button class="btn btn-sm btn-del" onclick="delOperario(${o.id})">×</button>
       </td>
-    </tr>`).join('')}</tbody></table></div>`;
+    </tr>`;}).join('')}</tbody></table></div>
+    <div style="font-size:10px;color:var(--text3);margin-top:6px;">El <b>operario</b> es el nombre que se elige al cargar una bobina. El <b>empleado</b> es la misma persona en 👷 Sueldos. Vincularlos (Empleados → ✎ → <b>Operario de planta</b>) es lo que le permite al sistema decir qué turno hizo esos kg y cuánto costaron.</div>`;
 }
 async function addOperario(){
   const n=document.getElementById('op-nom').value.trim();
@@ -8928,10 +8971,38 @@ async function addOperario(){
   msg.style.color='var(--green)';msg.textContent=`✓ ${n} agregado.`;
   await reload();
 }
-async function toggleOperario(id,activo){await sb.from('operarios').update({activo}).eq('id',id);await reload();}
+async function toggleOperario(id,activo){
+  const{error}=await sb.from('operarios').update({activo}).eq('id',id);
+  if(error){toast('No se pudo cambiar el estado: '+error.message,'red');return;}
+  toast(activo?'✓ Operario activado':'✓ Operario desactivado — ya no aparece al cargar bobinas','green');
+  await reload();
+}
+// Borrar un operario con historia rompe la trazabilidad de las bobinas que firmó.
+// El chequeo viejo miraba `C.bobinas_prod`, que trae SOLO LAS 50 ÚLTIMAS: un operario con
+// bobinas de hace un mes pasaba el control. Y el delete no miraba el error, así que si la
+// base lo rechazaba por clave foránea el usuario apretaba y no pasaba nada, sin aviso.
+// Ahora se pregunta a la BASE y, si tiene bobinas, se ofrece DESACTIVAR — que es lo que
+// casi siempre se quiere: sacarlo del desplegable de carga sin borrar lo que hizo.
 async function delOperario(id){
-  if(C.bobinas_prod.some(b=>b.operario_id===id)){alert('Operario en uso en bobinas producidas.');return;}
-  await sb.from('operarios').delete().eq('id',id);await reload();
+  const op=(C.operarios||[]).find(o=>o.id===id);
+  const nom=op?op.nombre:'#'+id;
+  let n=null;
+  try{
+    const{count,error}=await sb.from('bobinas_producidas').select('id',{count:'exact',head:true}).eq('operario_id',id);
+    if(!error)n=count;
+  }catch(e){}
+  if(n===null&&(C.bobinas_prod||[]).some(b=>b.operario_id===id))n=1;   // respaldo
+  if(n){
+    if(confirm('«'+nom+'» tiene '+n+' bobina(s) cargada(s) a su nombre, así que no se puede borrar sin perder esa historia.\n\n¿Lo DESACTIVO? Deja de aparecer al cargar bobinas y todo lo que hizo queda igual.')){
+      await toggleOperario(id,false);
+    }
+    return;
+  }
+  if(!confirm('¿Borrar al operario «'+nom+'»? No tiene ninguna bobina cargada.'))return;
+  const{error}=await sb.from('operarios').delete().eq('id',id);
+  if(error){toast('No se pudo borrar: '+error.message+' — probá desactivarlo','red');return;}
+  toast('✓ Operario borrado','green');
+  await reload();
 }
 
 // ===== ADMIN PAGE =====
@@ -25475,6 +25546,17 @@ function empAbrirForm(id){
       +'<div class="fg"><label>Régimen</label><select id="emp-tipo" style="width:100%"><option value="cct"'+((e?.tipo||'cct')==='cct'?' selected':'')+'>CCT (UOYEP · aportes completos)</option><option value="direccion"'+(e?.tipo==='direccion'?' selected':'')+'>Dirección (dueño/director)</option></select></div>'
       +'<div class="fg"><label>Esquema de turno</label><select id="emp-esquema" style="width:100%"><option value="">— sin turno —</option>'+(C.esquemas_turno||[]).filter(x=>x.activo!==false).map(x=>'<option value="'+x.id+'"'+(e&&e.esquema_turno_id===x.id?' selected':'')+'>'+escapeHtml(x.nombre)+'</option>').join('')+'</select></div>'
       +'<div class="fg"><label>Fase de rotación <span style="color:var(--text3);font-size:10px;">(en qué semana del ciclo arranca · 1 = primera · solo rotativos)</span></label><input id="emp-offset" type="number" min="1" value="'+((parseInt(e?.rotacion_offset)||0)+1)+'" style="width:100%"></div>'
+      // El vínculo empleado ↔ operario existía en la base (`empleados.operario_id`) y lo usan la
+      // atribución por turno y el costo por operario, pero NO había forma de cargarlo desde la app:
+      // había que tocar la base. Otra vez lo mismo — un dato que el motor sabe usar y nadie puede
+      // escribir (ver la regla del build 19b).
+      +'<div class="fg"><label>Operario de planta <span style="color:var(--text3);font-size:10px;">(el nombre con el que firma las bobinas)</span></label>'
+        +'<select id="emp-operario" style="width:100%"><option value="">— no carga producción —</option>'
+        +(C.operarios||[]).slice().sort((a,b)=>String(a.nombre||'').localeCompare(String(b.nombre||''))).map(function(op){
+          const otro=(C.empleados||[]).find(x=>x.operario_id===op.id&&(!e||x.id!==e.id));
+          return '<option value="'+op.id+'"'+(e&&e.operario_id===op.id?' selected':'')+(otro?' disabled':'')+'>'+escapeHtml(op.nombre)+(op.activo===false?' (inactivo)':'')+(otro?' — ya es '+escapeHtml(otro.apellido_nombre||''):'')+'</option>';
+        }).join('')+'</select>'
+        +'<div style="font-size:10px;color:var(--text3);margin-top:3px;">Vincula a esta persona con el operario que elige al cargar una bobina. Sin esto, sus kg no se le pueden atribuir a su turno ni a su costo. Si el nombre no está en la lista, crealo primero en <b>Operarios</b>.</div></div>'
       +'<div class="fg" style="display:flex;align-items:flex-end;"><label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;"><input id="emp-afiliado" type="checkbox"'+(e?.afiliado_sindical?' checked':'')+'> Afiliado al sindicato (cuota sindical 4105)</label></div>'
     +'</div>'
     +'<div style="border-top:1px solid var(--border);margin:12px 0 8px;padding-top:8px;font-size:11px;color:var(--text2);">📅 Presupuesto para el flujo de caja (lo que cobra por mes, se parte en 2 quincenas). Dejá 0 si no querés proyectarlo.</div>'
@@ -25502,6 +25584,7 @@ function empGuardar(){
     horas_mensuales_previstas:parseFloat(document.getElementById('emp-horas')?.value)||0,
     esquema_turno_id:parseInt(document.getElementById('emp-esquema')?.value)||null,
     rotacion_offset:Math.max(0,(parseInt(document.getElementById('emp-offset')?.value)||1)-1),
+    operario_id:parseInt(document.getElementById('emp-operario')?.value)||null,
     fecha_ingreso:document.getElementById('emp-ingreso')?.value||null,
     obra_social:document.getElementById('emp-os')?.value.trim()||null,
     tipo:document.getElementById('emp-tipo')?.value||'cct',
