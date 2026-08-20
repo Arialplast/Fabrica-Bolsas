@@ -709,7 +709,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-08-19b</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-08-19f</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5324,7 +5324,88 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-08-19b';
+const APP_BUILD='2026-08-19f';
+  // 19f: EL TIMELINE DEL DIA TENIA EL EJE CLAVADO EN 05→23. German: "las hs estan mal, y acordate
+  // tomar el uso horario de Argentina". El eje de ⏱ Timeline del dia (en 🔬 Analisis de extrusion y
+  // en el de confeccion) era `const H0=5,H1=23` con Math.min/Math.max — o sea que lo que caia afuera
+  // NO se ocultaba: SE DIBUJABA EN EL BORDE. Una bobina de las 23:36 aparecia a las 23:00 y una de
+  // las 02:00 aparecia a las 05:00. Con el turno noche eso amontona la madrugada entera contra el
+  // borde izquierdo, en una hora en la que no se produjo nada. Ahora `_acEjeDia` arma el eje con lo
+  // que REALMENTE paso ese dia (media hora antes de la primera bobina, media despues de la ultima,
+  // redondeado a la hora, minimo 6 hs, topeado al dia) y `_acEjeLabels` pone las marcas cada 1, 2 o
+  // 3 horas segun el ancho. Nada queda pegado a un borde.
+  // Y como el dia del calendario PARTE la noche en dos (la madrugada de la vuelta de ayer a la
+  // izquierda y la que arranca hoy contra la derecha), el timeline de extrusion suma el boton
+  // 🌙 VUELTA: eje de las 6 de la mañana a las 6 de la mañana siguiente, con los eventos de los dos
+  // dias, para ver una noche entera de un saque. La hora de arranque sale de la jornada configurada.
+  // SOBRE EL USO HORARIO: verificado que en este camino no se pasa por UTC en ningun lado —
+  // `hora_produccion` se graba con localTime(), el ts se arma con `fecha+'T'+hora` SIN Z (o sea hora
+  // local) y todas las lecturas son getHours()/getMinutes(), nunca getUTCHours() ni toISOString().
+  // Los dos timelines quedan con el mismo helper: una sola definicion del eje.
+  // 19e: EL MISMO ERROR ESTABA EN OTRAS DOS PANTALLAS. German mando la captura de 🔬 Analisis de
+  // extrusion: EXT-01 111%, EXT-05 121%, EXT-02 109%. El 19d arreglo 📈 Productividad pero ese modulo
+  // —y el de confeccion— tienen su PROPIA maquinaria (agrupa bobinas pesadas juntas <2 min en un
+  // evento, calcula la duracion de cada evento y recorta las paradas anomalas) y para las HORAS DE
+  // LA MAQUINA usaban el span de la primera a la ultima. Peor: las duraciones por evento YA estaban
+  // calculadas ahi mismo y las tablas por tipo de bobina y por operario YA las usaban — la de
+  // maquinas era la unica que seguia con el span. Un modulo inconsistente consigo mismo.
+  // Ahora las horas por extrusora salen de `_prhRitmoCalc`, LA MISMA funcion que ⚡ Ritmo por
+  // maquina: las dos pantallas dan el MISMO kg/h, verificado exacto en las 7 extrusoras (P1).
+  // Para que coincidan hubo que igualar tres cosas: (1) _prhRitmoCalc agrupa los eventos <2 min
+  // como hace Analisis —dos bobinas pesadas juntas dejaban un intervalo de cero que bajaba la
+  // mediana de toda la maquina—; (2) la mediana de ciclo se calcula MES POR MES y no sobre la
+  // ventana cargada, porque Analisis mira un mes; (3) en confeccion las horas por maquina pasan a
+  // ser la suma de las duraciones ya calculadas. Y 🔬 Analisis de extrusion TAMBIEN leia la cache
+  // de 50 bobinas: ahora trae el mes paginado antes de medir.
+  // Numeros de agosto, ahora iguales en las dos pantallas: EXT-01 99% · EXT-02 98% · EXT-03 85% ·
+  // EXT-04 98% · EXT-05 105% · EXT-06 59% · EXT-07 80%.
+  // 19d: EL KG/H DE CADA MAQUINA ESTABA INFLADO, Y AHORA TIENE HISTORIAL. German: "el calculo de
+  // cuantos kgrs x hs produce cada extrusora esta bien? ese es un dato muy importante; quisiera
+  // comparar contra dia anterior y contra mes anterior, e ir construyendo un grafico de historial".
+  // NO estaba bien. El tiempo de produccion se medida como el SPAN de la primera bobina a la ultima,
+  // que mide (N-1) ciclos: se come el tiempo que costo la PRIMERA. Con 4 bobinas por dia son 25% de
+  // horas de menos = kg/h 33% inflado. Con los datos reales: EXT-01 daba 33,4 kg/h contra un nominal
+  // de 30 — 111% de capacidad, imposible — y ahora da 29,6 (99%). EXT-05 pasaba de 18,3 (122%) a 15,7.
+  // Ahora cada bobina cuesta su tiempo, imputado con la MEDIANA DE HORAS POR KG de esa maquina (por kg
+  // y no por bobina, para que una grande no cuente igual que una chica), y una PARADA ANOMALA (hueco
+  // >3x lo esperado y >45 min) sale del tiempo de produccion y se cuenta aparte: si no, el numero
+  // mezcla "que tan rapido va" con "cuanto estuvo parada" y no sirve para ninguna de las dos.
+  // La mediana es la de verdad (promedio de los dos centrales si son pares): tomando el de arriba, con
+  // dos o tres ciclos UNA parada larga se volvia "lo normal" y dejaba de detectarse.
+  // Nueva pestaña ⚡ RITMO POR MAQUINA: por cada extrusora el kg/h de hoy (o del mes), el % del
+  // nominal con semaforo, el delta contra el dia/mes anterior QUE PRODUJO (un domingo sin producir no
+  // es una caida) y el historial. El grafico son SMALL MULTIPLES — un panel por maquina, una sola
+  // serie, un solo color: siete lineas juntas serian siete colores que nadie distingue, y menos bajo
+  // daltonismo. Con el nominal como linea de referencia, el eje escalado a nominal x1,25 en todos los
+  // paneles (asi el nominal queda a la misma altura y se comparan de un vistazo), un dia sin produccion
+  // CORTA la linea en vez de interpolar, tooltip por punto y tabla espejo con todos los numeros.
+  // ⚙ Por maquina usa AHORA EL MISMO calculo (P1) y suma las horas de parada. Y dejo de filtrar
+  // lunes-a-viernes: con la fabrica 24 hs y sabados de 6 a 12 eso hacia desaparecer produccion real.
+  // El "uso de capacidad" dejo de dividir por un 16 escrito a mano y usa las horas de la jornada real.
+  // LO QUE MUESTRA CON LOS DATOS DE AGOSTO: EXT-06 al 63% del nominal y EXT-07 al 80% — o el nominal
+  // esta cargado de mas o esas dos maquinas tienen algo. Eso antes no se podia ver.
+  // 19c: CONTROL POR TURNO — y el silencio que tapaba. German: "los kg por dia dejalos asi, todo lo que
+  // se hace en un dia; pero el CONTROL lo haria por turno, y por hs del dia como tenemos, y agregaria el
+  // detalle por dia". Las tres cosas en 📈 Productividad: 🕐 Por hora del dia (igual que estaba),
+  // 🌙 POR TURNO y 📅 DETALLE POR DIA. Los kg del dia calendario NO se tocan: es lo que salio por la
+  // puerta y con eso se compara la venta. Pero para controlar, el dia calendario miente — la noche
+  // empieza 22 y termina 6, partida en dos no se compara con nada — asi que la vista por turno cuenta
+  // la VUELTA entera: lo que sale a las 2 de la madrugada pertenece al turno que arranco ayer.
+  // A QUIEN LE CORRESPONDE UNA BOBINA: al que la firmo. El operario esta EN el documento (la carga lo
+  // exige desde el 08/07) y el turno sale del FICHAJE de ese dia, que guarda el turno_id con el que
+  // entro. Eso es lo que hace que el numero aguante: LA ROTACION NO GUARDA HISTORIA — German acaba de
+  // cambiar el esquema y, leyendo por rotacion, agosto entero aparecia con un turno noche que no existio
+  // (6.527 kg atribuidos a un turno que arranco anoche). Por fichaje da lo que realmente paso: mañana
+  // 6.709 kg y tarde 5.114. Cascada fichaje → rotacion → hora, y cada modo se muestra por separado
+  // porque los turnos se pisan (mañana 06-16 y tarde 13-22 comparten 3 hs) y ahi la hora no puede
+  // afirmar quien la bajo. El detalle por dia muestra las DOS lecturas, "vuelta" y "calendario", con su
+  // diferencia: tienen que dar distinto los dias con noche, y esa diferencia es la madrugada.
+  // 🔴 Y LO QUE APARECIO AL MEDIR: `_bobinasExtRango` leia `C.bobinas_prod`, que trae SOLO LAS 50
+  // ULTIMAS (limit(50) en reload). O sea que 📈 Productividad por hora venia mostrando el ultimo dia y
+  // medio rotulado como "el mes": en agosto son 482 bobinas contra 50. Ahora el periodo se consulta
+  // aparte y paginado (_prhCargarBobinas, mes actual + anterior para la comparacion por maquina) y la
+  // funcion usa esa ventana. Misma clase de bug que el panel 🧪 del 30b — la deuda estaba anotada en el
+  // doc desde entonces y nadie la habia cobrado.
   // 19b: EL DIA EN QUE SE CAMBIA EL TURNO. Con el 19a cargado, German cambio la rotacion a la nueva
   // (Pavoni noche / Cordova mañana / Massi tarde fijo) pero el miercoles 19 la fabrica todavia venia
   // con los turnos viejos: Cordova hizo 13-22 cuando el sistema ya le esperaba 06-16, y Massi 06-15
@@ -29810,6 +29891,47 @@ function _acFmtMin(ms){
 }
 function _acHora(ts){const d=new Date(ts);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');}
 
+// ════════════════════════════════════════════════════════════════
+// EJE DEL TIMELINE DEL DÍA (build 2026-08-19f)
+// ----------------------------------------------------------------
+// Estaba clavado en 05→23 y con `Math.min/Math.max`, así que todo lo que caía fuera
+// NO se recortaba de la vista: se DIBUJABA EN EL BORDE. Una bobina de las 23:36
+// aparecía a las 23:00 y una de las 02:00 aparecía a las 05:00 — o sea que con el turno
+// noche la madrugada entera se amontonaba contra el borde izquierdo, en una hora en la
+// que no se produjo nada. El eje ahora sale de lo que REALMENTE pasó ese día.
+// Todas las horas se leen con getHours()/getMinutes() sobre la hora local (Argentina):
+// `hora_produccion` se graba con localTime() y el ts se arma con `fecha+'T'+hora` sin Z,
+// así que nunca se pasa por UTC.
+// ════════════════════════════════════════════════════════════════
+function _acEjeDia(tsDia,diaStr,modo,horaVuelta){
+  const d0=new Date(diaStr+'T00:00:00').getTime();
+  const HORA=3600000;
+  if(modo==='vuelta'){
+    const t0=d0+(horaVuelta==null?6:horaVuelta)*HORA;
+    return {t0:t0,t1:t0+24*HORA,vuelta:true};
+  }
+  if(!tsDia.length)return {t0:d0+5*HORA,t1:d0+23*HORA,vuelta:false};
+  const a=Math.min.apply(null,tsDia),b=Math.max.apply(null,tsDia);
+  let t0=Math.max(d0,Math.floor((a-30*60000)/HORA)*HORA);
+  let t1=Math.min(d0+24*HORA,Math.ceil((b+30*60000)/HORA)*HORA);
+  if(t1-t0<6*HORA)t1=Math.min(d0+24*HORA,t0+6*HORA);
+  if(t1-t0<6*HORA)t0=Math.max(d0,t1-6*HORA);
+  return {t0:t0,t1:t1,vuelta:false};
+}
+// Marcas del eje: cada 1, 2 o 3 horas según lo ancho que sea el rango.
+function _acEjeLabels(E){
+  const HORA=3600000,span=(E.t1-E.t0)/HORA;
+  const paso=span<=8?1:(span<=16?2:3);
+  let o='';
+  const prim=new Date(E.t0);
+  let t=E.t0;
+  if(prim.getMinutes())t=E.t0+(60-prim.getMinutes())*60000;
+  for(;t<=E.t1;t+=paso*HORA){
+    const d=new Date(t);
+    o+='<div class="ac-tl-lbl" style="position:absolute;left:'+((t-E.t0)/(E.t1-E.t0)*100).toFixed(2)+'%;transform:translateX(-50%);">'+String(d.getHours()).padStart(2,'0')+'</div>';
+  }
+  return o;
+}
 function renderAnalisisCorte(){
   const root=document.getElementById('ac-root');
   if(!root)return;
@@ -29900,14 +30022,18 @@ function renderAnalisisCorte(){
   const totBolsas=cargas.reduce((s,c)=>s+c.bolsas,0);
   const kgDia=dias.length?totKg/dias.length:0;
 
-  // horas activas por máquina (span 1ª→última) — para kg/h global de máquina
+  // Horas activas por máquina = SUMA DE LAS DURACIONES de cada evento, no el span de la
+  // primera a la última carga. El span mide un ciclo de menos: se come el tiempo que costó
+  // la PRIMERA carga y por eso inflaba el kg/h (build 19e). Las duraciones ya estaban
+  // calculadas acá arriba —con el recorte de las paradas anómalas— y las tablas por
+  // producto ya las usaban: la de máquinas era la única que seguía con el span.
   const horasMaq={};let horasTot=0;
   maqIds.filter(m=>m).forEach(mId=>{
     let ms=0;
     dias.forEach(f=>{
       const ev=eventosMaqDia[mId+'|'+f];
       if(!ev)return;
-      ms+=(ev.length>1)?(ev[ev.length-1].tsFin-ev[0].ts):30*60000;
+      ev.forEach(e=>{ms+=(e.dur||0);});
     });
     horasMaq[mId]=ms/3600000;horasTot+=horasMaq[mId];
   });
@@ -29933,7 +30059,7 @@ function renderAnalisisCorte(){
       +kpi('KG CORTADOS',fmtN(totKg),delta(totKg,kgAnt))
       +kpi('BOLSAS EST.',fmtN(totBolsas),delta(totBolsas,bolAnt))
       +kpi('BOLSAS / H',horasTot>0?fmtN(totBolsas/horasTot):'—','sobre '+fmtN(horasTot)+' hs activas')
-      +kpi('KG / H EFECTIVO',horasTot>0?fmtN(totKg/horasTot):'—','1ª→última carga por máquina')
+      +kpi('KG / H EFECTIVO',horasTot>0?fmtN(totKg/horasTot):'—','tiempo de máquina, sin paradas anómalas')
       +kpi('KG / DÍA',fmtN(kgDia),dias.length+' días activos')
       +kpi('CARGAS',cargas.length,fmtN(cargas.length/dias.length)+' por día')
     +'</div>';
@@ -29941,16 +30067,14 @@ function renderAnalisisCorte(){
     // timeline del día
     const diaSel=(window._acDiaSel&&dias.includes(window._acDiaSel))?window._acDiaSel:dias[dias.length-1];
     window._acDiaSel=diaSel;
-    const H0=5,H1=23;
-    const pos=ts=>{const d=new Date(ts);const h=d.getHours()+d.getMinutes()/60;return Math.min(100,Math.max(0,(h-H0)/(H1-H0)*100));};
+    const E=_acEjeDia(cargas.filter(c=>c.fecha===diaSel).map(c=>c.ts),diaSel,'dia');
+    const pos=ts=>Math.min(100,Math.max(0,(ts-E.t0)/(E.t1-E.t0)*100));
     html+='<div class="ac-sec">⏱ TIMELINE DEL DÍA'
       +'<select onchange="window._acDiaSel=this.value;renderAnalisisCorte()" style="margin-left:auto;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;">'
       +dias.map(f=>'<option value="'+f+'"'+(f===diaSel?' selected':'')+'>'+['dom','lun','mar','mié','jue','vie','sáb'][new Date(f+'T12:00:00').getDay()]+' '+f.slice(8,10)+'/'+f.slice(5,7)+'</option>').join('')
       +'</select></div>';
     html+='<div class="ac-card" style="padding:12px;">';
-    html+='<div style="position:relative;height:14px;margin:0 0 6px 110px;">';
-    for(let h=H0;h<=H1;h+=2)html+='<div class="ac-tl-lbl" style="position:absolute;left:'+((h-H0)/(H1-H0)*100)+'%;transform:translateX(-50%);">'+String(h).padStart(2,'0')+'</div>';
-    html+='</div>';
+    html+='<div style="position:relative;height:14px;margin:0 0 6px 110px;">'+_acEjeLabels(E)+'</div>';
     maqIds.filter(m=>m).forEach(mId=>{
       const cs=cargas.filter(c=>c.maquinaId===mId&&c.fecha===diaSel);
       html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
@@ -30157,7 +30281,7 @@ function renderAnalisisCorte(){
 // dotación sale de _turnoDelDia + las horas extra fijas del turno, o sea
 // del mismo motor que el informe de horarios.
 // ═══════════════════════════════════════════════════════════════════
-let PRH={area:'extrusion',tab:'hora',linea:null};
+let PRH={area:'extrusion',tab:'hora',linea:null,rit:'dia'};
 
 function _prhCfg(area,linea){
   if(area==='confeccion'){
@@ -30178,7 +30302,8 @@ function _prhCfg(area,linea){
     eventos:(i,f)=>_cargasCorteRango(i,f)
       .filter(c=>!linea||c.linea===linea)
       .map(c=>({ts:c.ts,fecha:c.fecha,val:c.bolsas,kg:c.kg,
-      maqId:c.maquinaId||null,linea:c.linea||null,prodId:c.prodId||null,prodNom:c.prodDesc||('#'+c.prodId)})),
+      maqId:c.maquinaId||null,linea:c.linea||null,empId:c.empleadoId||null,ref:c.ocNum||'',
+      prodId:c.prodId||null,prodNom:c.prodDesc||('#'+c.prodId)})),
     nota:'Cada bobina que se carga a una cortadora queda con su fecha y hora. Esa es la marca que se usa acá.'
     };
   }
@@ -30192,7 +30317,8 @@ function _prhCfg(area,linea){
       .map(e=>({id:e.id,nom:e.nombre,cap:parseFloat(e.kg_por_hora)||0,servicio:e.en_servicio!==false})),
     maqLbl:'Extrusora', prodLbl:'tipo de bobina',
     eventos:(i,f)=>_bobinasExtRango(i,f).map(b=>({ts:b.ts,fecha:b.fecha,val:b.kg,kg:b.kg,
-      maqId:b.extId||null,prodId:b.tipoId||null,prodNom:b.tipoNom||('#'+b.tipoId)})),
+      maqId:b.extId||null,opId:b.opId||null,ref:b.num||'',
+      prodId:b.tipoId||null,prodNom:b.tipoNom||('#'+b.tipoId)})),
     nota:'Cada bobina se registra con su hora al sacarla de la máquina. Esa es la marca que se usa acá.'
   };
 }
@@ -30277,8 +30403,9 @@ function _prhCalc(area,ym,linea){
 function _prhPorMaquina(area,ym,linea){
   const cfg=_prhCfg(area,linea);
   const {iniStr,finStr,label}=_rmMesRange(ym);
-  const evs=cfg.eventos(iniStr,finStr).filter(x=>{
-    const d=new Date(x.fecha+'T12:00:00').getDay();return d>=1&&d<=5;});
+  // Antes se filtraba lunes a viernes. Con la fábrica trabajando 24 hs y sábados de 6 a
+  // 12, eso hacía desaparecer producción real de la tabla de máquinas, en silencio.
+  const evs=cfg.eventos(iniStr,finStr);
   const porMaq={};
   evs.forEach(x=>{
     const k=x.maqId==null?'_':String(x.maqId);
@@ -30292,16 +30419,21 @@ function _prhPorMaquina(area,ym,linea){
   const armar=(k,nom,cap,servicio)=>{
     const m=porMaq[k];
     if(!m){filas.push({nom,cap,servicio,parada:true,val:0,dias:0,hsDia:0,porHora:0,pct:0,cambios:0,nProd:0});return;}
-    let hs=0,cambios=0;
+    let cambios=0;
     const ds=Object.keys(m.dias);
     ds.forEach(f=>{
       const v=m.dias[f].slice().sort((a,b)=>a.ts-b.ts);
-      hs+=Math.max((v[v.length-1].ts-v[0].ts)/3600000,0.5);
       v.forEach((x,i)=>{if(i>0&&v[i-1].prodId!==x.prodId)cambios++;});
     });
+    // El tiempo de producción sale de _prhRitmoCalc — la MISMA definición que usa
+    // ⚡ Ritmo por máquina (P1). Antes era el span primera→última bobina, que mide un
+    // ciclo de menos y daba 111% de capacidad en la EXT-01.
+    const RC=_prhRitmoCalc([].concat.apply([],ds.map(f=>m.dias[f])));
+    let hs=0,par=0,np=0;
+    Object.keys(RC.porDia).forEach(f=>{hs+=RC.porDia[f].hs;par+=RC.porDia[f].par;np+=RC.porDia[f].np;});
     const nd=ds.length||1;
     filas.push({nom,cap,servicio,parada:false,val:m.val,dias:ds.length,
-      valDia:m.val/nd, hsDia:hs/nd, porHora:hs>0?m.val/hs:0,
+      valDia:m.val/nd, hsDia:hs/nd, porHora:hs>0?m.val/hs:0, parHs:par, nPar:np,
       pct:cap>0&&hs>0?(m.val/hs)/cap*100:null, cambios:cambios/nd,
       nProd:Object.keys(m.prods).length, n:m.n});
   };
@@ -30316,9 +30448,10 @@ function _prhPorMaquina(area,ym,linea){
     if(!pr[x.prodId])pr[x.prodId]={nom:x.prodNom,val:0,n:0};pr[x.prodId].val+=x.val;pr[x.prodId].n++;});
   const prods=Object.values(pr).sort((a,b)=>b.val-a.val);
   const tot=evs.reduce((a,x)=>a+x.val,0);
-  const dias=[...new Set(evs.map(x=>x.fecha))].length||1;
+  const diasList=[...new Set(evs.map(x=>x.fecha))].sort();
+  const dias=diasList.length||1;
   const sinMaq=evs.filter(x=>x.maqId==null);
-  return {cfg,label,filas,prods,tot,dias,nProd:prods.length,
+  return {cfg,label,filas,prods,tot,dias,diasList,nProd:prods.length,
     sinMaqVal:sinMaq.reduce((a,x)=>a+x.val,0), sinMaqN:sinMaq.length,
     sinMaqUlt:sinMaq.length?sinMaq.map(x=>x.fecha).sort().pop():null,
     top3:prods.slice(0,3).reduce((a,p)=>a+p.val,0),
@@ -30331,15 +30464,21 @@ function _prhMaquinasHtml(area,ym,linea){
   const c=R.cfg;
   if(!R.filas.length||!R.tot)return '<div class="empty" style="padding:40px;text-align:center;color:var(--text3);">No hay producción de '+c.titulo.toLowerCase()+' registrada en '+R.label+'.</div>';
   const paradas=R.filas.filter(f=>f.parada&&f.servicio&&f.cap>0);
-  const usoServicio=R.capServicio>0?R.tot/R.dias/(R.capServicio*16)*100:0;
-  const usoReal=R.capReal>0?R.tot/R.dias/(R.capReal*16)*100:0;
+  // Las horas de planta salían de un 16 escrito a mano. Con el turno continuo un día
+  // tiene 24 y el sábado 6, así que se piden a la jornada configurada (P1: getJornada).
+  const _hsJor=(R.diasList&&R.diasList.length)
+    ?R.diasList.reduce((a,f)=>a+hsJornadaDia(f,area==='corte'?'corte':(area==='confeccion'?'corte':'extrusion')),0)/R.diasList.length
+    :16;
+  const hsPlanta=_hsJor>0?_hsJor:16;
+  const usoServicio=R.capServicio>0?R.tot/R.dias/(R.capServicio*hsPlanta)*100:0;
+  const usoReal=R.capReal>0?R.tot/R.dias/(R.capReal*hsPlanta)*100:0;
   let html='';
 
   const k=(l,v,d,col)=>'<div class="ac-kpi"><div class="l">'+l+'</div><div class="v"'+(col?' style="color:'+col+'"':'')+'>'+v+'</div><div class="d">'+d+'</div></div>';
   html+='<div class="ac-kpis" style="margin-bottom:16px;">'
     +k('Producción por día',_prhN(R.tot/R.dias)+' '+c.unidadCorta,R.dias+' días hábiles')
     +k('Capacidad que anda',_prhN(R.capReal)+' '+c.unidadCorta+'/h',(paradas.length?'sin contar '+paradas.length+' parada(s)':'todas produciendo'))
-    +k('Uso de esa capacidad',_prhN(usoReal)+'%','sobre 16 hs de planta',usoReal<50?'var(--red)':(usoReal<75?'var(--amber)':'var(--green)'))
+    +k('Uso de esa capacidad',_prhN(usoReal)+'%','sobre '+_prhN(hsPlanta,1)+' hs de planta por día',usoReal<50?'var(--red)':(usoReal<75?'var(--amber)':'var(--green)'))
     +k(c.prodLbl.charAt(0).toUpperCase()+c.prodLbl.slice(1)+'s distintos',R.nProd,'el top 3 es el '+_prhN(R.top3/R.tot*100)+'% del total')
     +'</div>';
 
@@ -30417,6 +30556,470 @@ function _prhMaquinasHtml(area,ym,linea){
   return html;
 }
 
+// ════════════════════════════════════════════════════════════════
+// CONTROL POR TURNO (build 2026-08-19c)
+// ----------------------------------------------------------------
+// Los KG DEL DÍA siguen siendo los del día del calendario: es lo que salió por la
+// puerta y así se compara con la venta y con el plan. Decisión de German, y no se toca.
+// El CONTROL es otra pregunta — "¿cuánto hace cada turno?" — y ahí el día calendario
+// miente: la noche empieza a las 22 y termina a las 6 del día siguiente, así que
+// partida en dos no se puede comparar contra nada.
+//
+// A quién le corresponde una bobina: **al que la firmó, no a la hora en que salió**.
+// El operario está EN el documento (la carga de bobina lo exige desde el 08/07) y la
+// carga de corte guarda el empleado. De ahí sale el turno con `_turnoDelDia`, la MISMA
+// función que usa el informe de horarios (P1). La hora queda sólo como respaldo para lo
+// viejo o lo que no tenga operario, y lo estimado se muestra APARTE — con turnos que se
+// pisan (mañana 06–16 y tarde 13–22 comparten de 13 a 16) la hora no alcanza para saber
+// quién bajó la bobina, y un número atribuido a dedo no sirve para controlar a nadie.
+// ════════════════════════════════════════════════════════════════
+function _prhDiaStr(fecha,n){
+  const d=new Date(fecha+'T12:00:00');d.setDate(d.getDate()+n);return localDate(d);
+}
+function _prhEmpDeOperario(opId){
+  if(opId==null)return null;
+  return (C.empleados||[]).find(e=>e.operario_id!=null&&String(e.operario_id)===String(opId))||null;
+}
+function _prhTurnosArea(area){
+  return (C.turnos||[]).filter(t=>t.activo!==false&&String(t.area||'').toLowerCase()===String(area).toLowerCase())
+    .sort((a,b)=>_minutosT(a.hora_entrada)-_minutosT(b.hora_entrada));
+}
+// Respaldo por hora. Con turnos superpuestos gana el que arrancó más cerca (el último
+// que entró). Es una estimación y se rotula como tal.
+function _prhTurnoDeHora(area,min){
+  const ts=_prhTurnosArea(area);
+  let mejor=null,mejorDist=1e9;
+  ts.forEach(t=>{
+    const ini=_minutosT(t.hora_entrada);
+    let fin=_minutosT(t.hora_salida)+Math.max(0,parseFloat(t.horas_extra_fijas)||0)*60;
+    if(fin<=ini)fin+=1440;
+    [0,1440].forEach(off=>{
+      const m=min+off;
+      if(m>=ini&&m<fin&&(m-ini)<mejorDist){mejorDist=m-ini;mejor=t;}
+    });
+  });
+  return mejor;
+}
+// El turno con el que ESE empleado fichó ESE día. Es el dato histórico: el fichaje
+// guarda el `turno_id` que regía en el momento de marcar, así que sobrevive a los
+// cambios de rotación. La rotación NO guarda historia — si se edita el esquema, todos
+// los meses anteriores se recalculan con el esquema nuevo y la fábrica aparece haciendo
+// turnos que en ese momento no existían. Por eso el fichaje va primero.
+function _prhTurnoFichado(empId,fecha,min){
+  const ms=_fichMarcas(empId,fecha).filter(f=>f.tipo==='entrada'&&f.turno_id!=null);
+  let mejor=null;
+  ms.forEach(f=>{
+    const m=_minutosT(f.hora);
+    if(m<=min&&(!mejor||m>_minutosT(mejor.hora)))mejor=f;
+  });
+  return mejor?_turnoById(mejor.turno_id):null;
+}
+// Turno + FECHA DE LA VUELTA (el día en que arrancó el turno) de un evento.
+function _prhTurnoDeEvento(ev,area){
+  const d=new Date(ev.ts);
+  const min=d.getHours()*60+d.getMinutes();
+  let emp=null;
+  if(ev.empId!=null)emp=(C.empleados||[]).find(e=>e.id===ev.empId)||null;
+  if(!emp&&ev.opId!=null)emp=_prhEmpDeOperario(ev.opId);
+  if(emp){
+    const ayerF=_prhDiaStr(ev.fecha,-1);
+    // 1) lo que dice el reloj: primero la vuelta de anoche, después la de hoy
+    const fAyer=_prhTurnoFichado(emp.id,ayerF,min+1440);
+    if(fAyer&&fAyer.cruza_medianoche&&min<_minutosT(fAyer.hora_salida))
+      return {turno:fAyer,fecha:ayerF,modo:'fichaje',emp:emp};
+    const fHoy=_prhTurnoFichado(emp.id,ev.fecha,min);
+    if(fHoy)return {turno:fHoy,fecha:ev.fecha,modo:'fichaje',emp:emp};
+    // 2) si ese día no fichó (o el fichaje no guardó turno), el turno que le tocaba
+    const hoy=_turnoDelDia(emp,ev.fecha).turno;
+    const ayer=_turnoDelDia(emp,ayerF).turno;
+    if(ayer&&ayer.cruza_medianoche&&min<_minutosT(ayer.hora_salida))
+      return {turno:ayer,fecha:ayerF,modo:'rotacion',emp:emp};
+    if(hoy)return {turno:hoy,fecha:ev.fecha,modo:'rotacion',emp:emp};
+  }
+  const t=_prhTurnoDeHora(area,min);
+  if(!t)return {turno:null,fecha:ev.fecha,modo:null,emp:emp};
+  const ini=_minutosT(t.hora_entrada);
+  const f=(t.cruza_medianoche&&min<ini)?_prhDiaStr(ev.fecha,-1):ev.fecha;
+  return {turno:t,fecha:f,modo:'hora',emp:emp};
+}
+// Agregado por turno y por día de un período.
+function _prhPorTurno(area,ym,linea){
+  const cfg=_prhCfg(area,linea);
+  const {iniStr,finStr,label}=_rmMesRange(ym);
+  const evs=cfg.eventos(iniStr,finStr);
+  const porT={},porDia={},cal={};
+  let total=0,sinAsig=0,valHora=0,valRot=0;
+  evs.forEach(x=>{
+    total+=x.val;
+    cal[x.fecha]=(cal[x.fecha]||0)+x.val;
+    const r=_prhTurnoDeEvento(x,area);
+    if(!r.turno){sinAsig+=x.val;return;}
+    const k=String(r.turno.id);
+    const t=porT[k]||(porT[k]={turno:r.turno,val:0,n:0,dias:{},emps:{},estim:0,rot:0});
+    t.val+=x.val;t.n++;
+    t.dias[r.fecha]=(t.dias[r.fecha]||0)+x.val;
+    if(r.modo==='hora'){t.estim+=x.val;valHora+=x.val;}
+    if(r.modo==='rotacion'){t.rot+=x.val;valRot+=x.val;}
+    if(r.emp)t.emps[r.emp.apellido_nombre||('#'+r.emp.id)]=(t.emps[r.emp.apellido_nombre||('#'+r.emp.id)]||0)+x.val;
+    if(!porDia[r.fecha])porDia[r.fecha]={};
+    porDia[r.fecha][k]=(porDia[r.fecha][k]||0)+x.val;
+  });
+  const filas=Object.keys(porT).map(k=>{
+    const t=porT[k];
+    const jornadas=Object.keys(t.dias).length;
+    const hs=_turnoHoras(t.turno)||0;
+    return {turno:t.turno,val:t.val,n:t.n,jornadas:jornadas,estim:t.estim,rot:t.rot,
+      porJornada:jornadas?t.val/jornadas:0,
+      porHora:(jornadas&&hs)?t.val/(jornadas*hs):0,
+      hs:hs,
+      emps:Object.keys(t.emps).sort((a,b)=>t.emps[b]-t.emps[a]),
+      dias:t.dias};
+  }).sort((a,b)=>_minutosT(a.turno.hora_entrada)-_minutosT(b.turno.hora_entrada));
+  const dias=[...new Set([...Object.keys(porDia),...Object.keys(cal)])].sort();
+  return {cfg,label,iniStr,finStr,filas,porDia,cal,dias,total,sinAsig,valHora,valRot,
+    turnos:_prhTurnosArea(area),nEventos:evs.length};
+}
+function _prhTurnoHtml(R){
+  const c=R.cfg,u=c.unidadCorta;
+  if(!R.filas.length)return '<div class="empty" style="padding:40px;text-align:center;color:var(--text3);">No hay producción de '+c.titulo.toLowerCase()+' en '+R.label+'.</div>';
+  const maxV=Math.max(...R.filas.map(f=>f.val));
+  let h='<div style="font-size:12px;color:var(--text2);margin-bottom:12px;">'
+    +'<b style="color:var(--text1);">'+_prhN(R.total,c.decimales)+' '+u+'</b> en '+R.label
+    +' · '+R.nEventos+' '+(c.area==='extrusion'?'bobinas':'cargas')
+    +(R.sinAsig>0?' · <span style="color:var(--amber);">'+_prhN(R.sinAsig,c.decimales)+' '+u+' sin turno (no se pudo atribuir)</span>':'')+'</div>';
+  h+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">'
+    +'<tr style="color:var(--text3);font-size:10px;text-transform:uppercase;">'
+    +'<th style="text-align:left;padding:6px 8px;">Turno</th>'
+    +'<th style="text-align:right;padding:6px 8px;">'+u+'</th>'
+    +'<th style="text-align:left;padding:6px 8px;width:120px;">peso</th>'
+    +'<th style="text-align:right;padding:6px 8px;">jornadas</th>'
+    +'<th style="text-align:right;padding:6px 8px;">'+u+' por jornada</th>'
+    +'<th style="text-align:right;padding:6px 8px;">'+u+'/hora</th>'
+    +'<th style="text-align:left;padding:6px 8px;">quién lo hizo</th></tr>';
+  R.filas.forEach(f=>{
+    const pct=R.total>0?f.val/R.total*100:0;
+    h+='<tr style="border-top:1px solid var(--border);">'
+      +'<td style="padding:6px 8px;"><b>'+escapeHtml(f.turno.nombre)+'</b>'
+        +'<div style="font-size:10px;color:var(--text3);font-family:monospace;">'+_hhmm(f.turno.hora_entrada)+'–'+_hhmm(f.turno.hora_salida)+' · '+_prhN(f.hs,1)+' hs'+(f.turno.cruza_medianoche?' · cruza medianoche':'')+'</div></td>'
+      +'<td style="padding:6px 8px;text-align:right;font-family:monospace;font-weight:700;">'+_prhN(f.val,c.decimales)
+        +(f.rot>0?'<div style="font-size:9px;color:var(--text3);font-weight:400;" title="Ese día no hay fichaje con turno: se usó el turno que le tocaba por la rotación de hoy">'+_prhN(f.rot,c.decimales)+' por rotación</div>':'')
+        +(f.estim>0?'<div style="font-size:9px;color:var(--amber);font-weight:400;">'+_prhN(f.estim,c.decimales)+' estimado por hora</div>':'')+'</td>'
+      +'<td style="padding:6px 8px;"><div style="background:var(--bg3);border-radius:3px;height:9px;overflow:hidden;"><div style="height:100%;width:'+(maxV>0?f.val/maxV*100:0).toFixed(1)+'%;background:var(--accent);"></div></div>'
+        +'<div style="font-size:9px;color:var(--text3);font-family:monospace;">'+pct.toFixed(1)+'%</div></td>'
+      +'<td style="padding:6px 8px;text-align:right;font-family:monospace;">'+f.jornadas+'</td>'
+      +'<td style="padding:6px 8px;text-align:right;font-family:monospace;">'+_prhN(f.porJornada,c.decimales)+'</td>'
+      +'<td style="padding:6px 8px;text-align:right;font-family:monospace;font-weight:700;color:var(--accent);">'+_prhN(f.porHora,1)+'</td>'
+      +'<td style="padding:6px 8px;font-size:11px;color:var(--text2);">'+escapeHtml(f.emps.join(' · ')||'—')+'</td></tr>';
+  });
+  h+='</table></div>';
+  h+='<div style="font-size:11px;color:var(--text3);margin-top:10px;line-height:1.6;">'
+    +'<b style="color:var(--text2);">Cómo se reparte.</b> Cada '+(c.area==='extrusion'?'bobina':'carga')+' va al turno de <b>quien la firmó</b> — el operario está en el documento — y el turno sale del <b>fichaje de ese día</b>, que guarda con qué turno entró. '
+    +'Eso es lo que hace que el número aguante en el tiempo: <b>la rotación no guarda historia</b>, así que si mañana se cambia el esquema, los meses viejos se recalcularían con turnos que en ese momento no existían. El reloj sí se acuerda. '
+    +'La <b>vuelta de la noche</b> se cuenta entera: lo que sale a las 2 de la madrugada pertenece al turno que arrancó el día anterior. '
+    +'Cuando ese día no hay fichaje con turno se usa la rotación (se marca <i>por rotación</i>), y si tampoco hay operario se estima <b>por la hora</b>: los turnos se pisan (mañana y tarde comparten unas horas), así que ahí el sistema no puede afirmar quién lo hizo. '
+    +'<b style="color:var(--text2);">'+u+'/hora</b> = '+u+' del turno ÷ (jornadas × horas del turno): es la comparación justa entre un turno de 8 hs y uno de 9.'
+    +(R.sinAsig>0?'<br><span style="color:var(--amber);">Los '+_prhN(R.sinAsig,c.decimales)+' '+u+' sin turno son '+(c.area==='extrusion'?'bobinas cuyo operario no está vinculado a ningún empleado':'cargas sin empleado')+'. Se arregla poniéndole el <b>operario</b> al empleado en 👥 Empleados.</span>':'')
+    +'</div>';
+  return h;
+}
+function _prhDiaHtml(R){
+  const c=R.cfg,u=c.unidadCorta;
+  if(!R.dias.length)return '<div class="empty" style="padding:40px;text-align:center;color:var(--text3);">No hay producción de '+c.titulo.toLowerCase()+' en '+R.label+'.</div>';
+  const cols=R.filas.map(f=>f.turno);
+  const NOM=['dom','lun','mar','mié','jue','vie','sáb'];
+  let h='<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Día por día de '+R.label+'. La columna <b>vuelta</b> suma los turnos que <b>arrancaron</b> ese día (incluida la noche que termina a la mañana siguiente); <b>calendario</b> es lo que quedó fechado ese día, que es el número que usa el resto del sistema.</div>';
+  h+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">'
+    +'<tr style="color:var(--text3);font-size:10px;text-transform:uppercase;">'
+    +'<th style="text-align:left;padding:6px 8px;">Día</th>';
+  cols.forEach(t=>{h+='<th style="text-align:right;padding:6px 8px;">'+escapeHtml(t.nombre)+'<br><span style="font-weight:400;font-family:monospace;">'+_hhmm(t.hora_entrada)+'–'+_hhmm(t.hora_salida)+'</span></th>';});
+  h+='<th style="text-align:right;padding:6px 8px;">vuelta</th><th style="text-align:right;padding:6px 8px;">calendario</th><th style="text-align:right;padding:6px 8px;">dif</th></tr>';
+  const tot={};let totVuelta=0,totCal=0;
+  R.dias.forEach(f=>{
+    const dow=new Date(f+'T12:00:00').getDay();
+    const fila=R.porDia[f]||{};
+    let sv=0;
+    h+='<tr style="border-top:1px solid var(--border);'+(dow===0||dow===6?'background:rgba(255,255,255,.02);':'')+'">'
+      +'<td style="padding:6px 8px;font-family:monospace;">'+NOM[dow]+' '+f.slice(8,10)+'/'+f.slice(5,7)+'</td>';
+    cols.forEach(t=>{
+      const v=fila[String(t.id)]||0;sv+=v;tot[t.id]=(tot[t.id]||0)+v;
+      h+='<td style="padding:6px 8px;text-align:right;font-family:monospace;'+(v?'':'color:var(--text3);')+'">'+(v?_prhN(v,c.decimales):'—')+'</td>';
+    });
+    const cv=R.cal[f]||0;const dif=sv-cv;
+    totVuelta+=sv;totCal+=cv;
+    h+='<td style="padding:6px 8px;text-align:right;font-family:monospace;font-weight:700;">'+(sv?_prhN(sv,c.decimales):'—')+'</td>'
+      +'<td style="padding:6px 8px;text-align:right;font-family:monospace;">'+(cv?_prhN(cv,c.decimales):'—')+'</td>'
+      +'<td style="padding:6px 8px;text-align:right;font-family:monospace;font-size:11px;color:'+(Math.abs(dif)>0.5?'var(--amber)':'var(--text3)')+';">'+(Math.abs(dif)>0.5?(dif>0?'+':'')+_prhN(dif,c.decimales):'—')+'</td></tr>';
+  });
+  h+='<tr style="border-top:2px solid var(--border);font-weight:700;"><td style="padding:6px 8px;">TOTAL</td>';
+  cols.forEach(t=>{h+='<td style="padding:6px 8px;text-align:right;font-family:monospace;">'+_prhN(tot[t.id]||0,c.decimales)+'</td>';});
+  h+='<td style="padding:6px 8px;text-align:right;font-family:monospace;">'+_prhN(totVuelta,c.decimales)+'</td>'
+    +'<td style="padding:6px 8px;text-align:right;font-family:monospace;">'+_prhN(totCal,c.decimales)+'</td><td></td></tr>';
+  h+='</table></div>';
+  h+='<div style="font-size:11px;color:var(--text3);margin-top:10px;line-height:1.6;">'
+    +'Las dos últimas columnas <b>tienen que dar distinto</b> los días con turno noche, y esa diferencia es justamente la madrugada: no es un error de nadie. '
+    +'El total del mes coincide salvo por las puntas (la noche del último día del mes cae en el mes siguiente).</div>';
+  return h;
+}
+// ════════════════════════════════════════════════════════════════
+// RITMO REAL DE UNA MÁQUINA — kg/h (build 2026-08-19d)
+// ----------------------------------------------------------------
+// El tiempo de producción NO es "de la primera bobina a la última". Ese span mide
+// (N−1) ciclos y se come el tiempo que costó la PRIMERA bobina: con 4 bobinas por día
+// son 25% de horas de menos, o sea un kg/h **33% inflado**. Con los datos reales de
+// agosto la EXT-01 daba 33,4 kg/h contra un nominal de 30 — 111% de capacidad, que es
+// imposible — y con este cálculo da 29,7 (99%). La EXT-05 pasaba de 18,3 (122%) a 15,7.
+//
+// Cada bobina cuesta su tiempo, y ese tiempo se imputa con la **mediana de h/kg de esa
+// máquina** (h POR KG y no h a secas, para que una bobina grande no cuente lo mismo que
+// una chica). Una **parada anómala** —hueco de más de 3× lo esperado y más de 45 min—
+// no se cuenta como tiempo de producción: se separa como parada. Si no, el kg/h mezcla
+// dos preguntas distintas, "qué rápido va la máquina" y "cuánto estuvo parada", y
+// entonces no sirve para ninguna de las dos.
+// ════════════════════════════════════════════════════════════════
+function _prhRitmoCalc(evs){
+  const crudo={};
+  (evs||[]).forEach(x=>{(crudo[x.fecha]=crudo[x.fecha]||[]).push(x);});
+  // Dos bobinas pesadas juntas (menos de 2 min) son UN evento: si no, el intervalo de
+  // cero minutos entre las dos entra en la mediana y baja el ciclo típico de toda la
+  // máquina. Misma regla que 🔬 Análisis de extrusión.
+  const dias={};
+  Object.keys(crudo).forEach(f=>{
+    const cs=crudo[f].slice().sort((a,b)=>a.ts-b.ts),ev=[];
+    cs.forEach(c=>{
+      const last=ev[ev.length-1];
+      if(last&&(c.ts-last.tsFin)<120000){last.tsFin=c.ts;last.val+=c.val;last.nb++;}
+      else ev.push({ts:c.ts,tsFin:c.ts,fecha:f,val:c.val,nb:1});
+    });
+    dias[f]=ev;
+  });
+  // mediana de horas por kg, sobre los ciclos entre bobinas consecutivas del mismo día
+  const rel=[];
+  Object.keys(dias).forEach(f=>{
+    const v=dias[f];
+    for(let i=1;i<v.length;i++){
+      const d=(v[i].ts-v[i-1].tsFin)/3600000;
+      if(v[i].val>0&&d>0)rel.push(d/v[i].val);
+    }
+  });
+  rel.sort((a,b)=>a-b);
+  // Mediana propiamente dicha (promedio de los dos centrales si son pares). Tomar el de
+  // arriba hacía que, con dos o tres ciclos, UNA parada larga se convirtiera en "lo
+  // normal" y entonces ya no se detectaba como parada.
+  const hkg=rel.length?(rel.length%2?rel[(rel.length-1)/2]:(rel[rel.length/2-1]+rel[rel.length/2])/2):0;
+  const porDia={};
+  Object.keys(dias).forEach(f=>{
+    const v=dias[f];
+    let kg=0,hs=0,par=0,np=0;
+    let nb=0;
+    v.forEach((x,i)=>{
+      kg+=x.val;nb+=x.nb||1;
+      const esp=hkg*x.val;                    // lo que "debería" costar ese evento
+      if(i===0){hs+=esp;return;}              // el primero también costó tiempo
+      const d=(x.ts-v[i-1].tsFin)/3600000;
+      if(d>3*esp&&d>0.75){hs+=esp;par+=d-esp;np++;}   // parada anómala: no es producción
+      else hs+=d;
+    });
+    porDia[f]={kg:kg,hs:hs,par:par,n:nb,np:np};
+  });
+  return {hkg:hkg,porDia:porDia,ciclos:rel.length};
+}
+// Serie de kg/h por máquina, por día o por mes, con la comparación contra el período anterior.
+function _prhRitmo(area,ym,modo,linea){
+  const cfg=_prhCfg(area,linea);
+  const rr=_rmMesRange(ym);
+  let iniStr;
+  if(modo==='mes'){
+    const y=parseInt(ym.slice(0,4)),m=parseInt(ym.slice(5,7));
+    const d=new Date(y,m-12,1);
+    iniStr=localDate(d).slice(0,8)+'01';
+  } else {
+    iniStr=_rmMesRange(_rmMesAnterior(ym)).iniStr;
+  }
+  const finStr=rr.finStr;
+  const evs=cfg.eventos(iniStr,finStr);
+  const porMaq={};
+  evs.forEach(x=>{
+    if(x.maqId==null)return;
+    (porMaq[String(x.maqId)]=porMaq[String(x.maqId)]||[]).push(x);
+  });
+  const clave=f=>modo==='mes'?String(f).slice(0,7):f;
+  const NPER=modo==='mes'?12:30;
+  const filas=(cfg.maquinas||[]).map(mq=>{
+    const ev=porMaq[String(mq.id)]||[];
+    // La mediana de ciclo se calcula MES POR MES, no sobre toda la ventana cargada: así
+    // el kg/h de agosto es el mismo número que muestra 🔬 Análisis de extrusión para
+    // agosto (P1). Si se promediara la ventana entera, dos pantallas darían dos kg/h de
+    // la misma máquina y el mismo mes.
+    const porMes={};
+    ev.forEach(x=>{(porMes[String(x.fecha).slice(0,7)]=porMes[String(x.fecha).slice(0,7)]||[]).push(x);});
+    const R={porDia:{},ciclos:0,hkg:0};
+    Object.keys(porMes).forEach(mes=>{
+      const rm=_prhRitmoCalc(porMes[mes]);
+      Object.keys(rm.porDia).forEach(f=>{R.porDia[f]=rm.porDia[f];});
+      R.ciclos+=rm.ciclos;
+      if(rm.hkg>R.hkg)R.hkg=rm.hkg;
+    });
+    const agg={};
+    Object.keys(R.porDia).forEach(f=>{
+      const k=clave(f),d=R.porDia[f];
+      const a=agg[k]||(agg[k]={kg:0,hs:0,par:0,n:0,np:0,dias:0});
+      a.kg+=d.kg;a.hs+=d.hs;a.par+=d.par;a.n+=d.n;a.np+=d.np;a.dias++;
+    });
+    // `full` es todo lo cargado (incluye el mes anterior); `serie` es lo que se DIBUJA.
+    // El período anterior para comparar sale de `full`, así el primer día del mes se
+    // compara contra el último del mes pasado en vez de quedarse sin comparación.
+    const full=Object.keys(agg).sort().map(k=>({
+      k:k,kg:agg[k].kg,hs:agg[k].hs,par:agg[k].par,n:agg[k].n,np:agg[k].np,dias:agg[k].dias,
+      kgh:agg[k].hs>0?agg[k].kg/agg[k].hs:null
+    }));
+    const dentro=modo==='mes'?full:full.filter(p=>p.k.slice(0,7)===ym);
+    const serie=dentro.slice(-NPER);
+    const act=serie.length?serie[serie.length-1]:null;
+    const iAct=act?full.findIndex(p=>p.k===act.k):-1;
+    const prev=iAct>0?full[iAct-1]:null;
+    const totKg=serie.reduce((s,p)=>s+p.kg,0),totHs=serie.reduce((s,p)=>s+p.hs,0);
+    return {maq:mq,nominal:mq.cap||0,serie:serie,act:act,prev:prev,
+      kghMedio:totHs>0?totKg/totHs:null,kg:totKg,hs:totHs,
+      par:serie.reduce((s,p)=>s+p.par,0),np:serie.reduce((s,p)=>s+p.np,0),
+      ciclos:R.ciclos,hkg:R.hkg};
+  }).filter(f=>f.serie.length>0||f.maq.servicio);
+  filas.sort((a,b)=>b.kg-a.kg);
+  return {cfg,label:rr.label,modo:modo,iniStr,finStr,filas,
+    unidad:cfg.unidadCorta,decimales:cfg.decimales};
+}
+// Trae del período (y del mes anterior, que usa la comparación de máquinas) las bobinas
+// producidas, paginado. Sin esto la pantalla mide un mes con las 50 de la caché.
+async function _prhCargarBobinas(iniStr,finStr){
+  if(_PRHBOB.rows&&_PRHBOB.desde<=iniStr&&_PRHBOB.hasta>=finStr)return;
+  // La ventana CRECE, nunca se achica: si no, cambiar de pestaña (el historial mira 12
+  // meses, el resto 2) haría ir y venir la misma consulta.
+  if(_PRHBOB.rows){
+    if(_PRHBOB.desde<iniStr)iniStr=_PRHBOB.desde;
+    if(_PRHBOB.hasta>finStr)finStr=_PRHBOB.hasta;
+  }
+  const rows=[];const PASO=1000;
+  for(let i=0,d=0;i<40;i++,d+=PASO){
+    const{data,error}=await sb.from('bobinas_producidas')
+      .select('id,numero_bobina,orden_id,extrusora_id,bobina_tipo_id,metros_reales,kg_reales,kg_teoricos,fecha_produccion,hora_produccion,operario_id,fuera_de_rango,anulada')
+      .gte('fecha_produccion',iniStr).lte('fecha_produccion',finStr)
+      .order('fecha_produccion').order('id').range(d,d+PASO-1);
+    if(error)throw error;
+    rows.push(...(data||[]));
+    if(!data||data.length<PASO)break;
+  }
+  _PRHBOB={desde:iniStr,hasta:finStr,rows:rows};
+}
+// Panel de historial de UNA máquina. Small multiples: una serie por panel, un solo
+// color. Con 7 extrusoras, siete líneas en un mismo gráfico serían siete colores que
+// nadie distingue (y bajo daltonismo, menos todavía); separadas, cada una se lee sola y
+// el nominal queda a la misma altura en todos los paneles, así que se comparan de un vistazo.
+function _prhKlbl(k){
+  return k.length===7?(k.slice(5,7)+'/'+k.slice(2,4)):(k.slice(8,10)+'/'+k.slice(5,7));
+}
+function _prhSpark(f,u,dec){
+  const W=300,H=88,PL=4,PR=52,PT=10,PB=16;
+  const pts=f.serie.filter(p=>p.kgh!=null);
+  if(!pts.length)return '<div style="font-size:11px;color:var(--text3);padding:12px 0;">sin datos suficientes</div>';
+  const pico=Math.max(...pts.map(p=>p.kgh));
+  const top=Math.max(f.nominal>0?f.nominal*1.25:0,pico*1.08,0.001);
+  const n=f.serie.length;
+  const X=i=>PL+(n<2?0:(i/(n-1))*(W-PL-PR));
+  const Y=v=>PT+(1-v/top)*(H-PT-PB);
+  // tramos: un día sin producción corta la línea, no se interpola (no produjo, no es un valle)
+  let d='',abierto=false;
+  f.serie.forEach((p,i)=>{
+    if(p.kgh==null){abierto=false;return;}
+    d+=(abierto?'L':'M')+X(i).toFixed(1)+' '+Y(p.kgh).toFixed(1)+' ';
+    abierto=true;
+  });
+  const ultI=f.serie.length-1;
+  const ult=f.serie[ultI];
+  let g='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:'+H+'px;overflow:visible;" role="img">';
+  g+='<line x1="'+PL+'" y1="'+Y(0)+'" x2="'+(W-PR)+'" y2="'+Y(0)+'" stroke="var(--border)" stroke-width="1"/>';
+  const ultV=(f.serie.length&&f.serie[f.serie.length-1].kgh!=null)?f.serie[f.serie.length-1].kgh:null;
+  if(f.nominal>0&&f.nominal<=top){
+    g+='<line x1="'+PL+'" y1="'+Y(f.nominal).toFixed(1)+'" x2="'+(W-PR)+'" y2="'+Y(f.nominal).toFixed(1)+'" stroke="var(--text3)" stroke-width="1" opacity=".55"/>';
+    // la etiqueta del nominal solo si no se pisa con la del valor de hoy — el nominal
+    // ya está escrito en el encabezado de la tarjeta, así que perderla no cuesta nada
+    if(ultV==null||Math.abs(Y(f.nominal)-Y(ultV))>11)
+      g+='<text x="'+(W-PR+4)+'" y="'+(Y(f.nominal)+3).toFixed(1)+'" fill="var(--text3)" font-size="8" font-family="monospace">nom. '+_prhN(f.nominal,0)+'</text>';
+  }
+  g+='<path d="'+d+'" fill="none" stroke="#6c8ef5" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+  if(ult&&ult.kgh!=null){
+    g+='<circle cx="'+X(ultI).toFixed(1)+'" cy="'+Y(ult.kgh).toFixed(1)+'" r="4" fill="#6c8ef5" stroke="var(--bg2)" stroke-width="2"/>'
+      +'<text x="'+(W-PR+4)+'" y="'+(Y(ult.kgh)+3).toFixed(1)+'" fill="var(--text1)" font-size="10" font-weight="700" font-family="monospace">'+_prhN(ult.kgh,1)+'</text>';
+  }
+  // zona de hover por punto (más ancha que la marca) con el detalle
+  f.serie.forEach((p,i)=>{
+    const w=(W-PL-PR)/Math.max(1,n-1);
+    g+='<rect x="'+(X(i)-w/2).toFixed(1)+'" y="0" width="'+Math.max(6,w).toFixed(1)+'" height="'+H+'" fill="transparent">'
+      +'<title>'+escapeHtml(_prhKlbl(p.k))+(p.kgh!=null?' · '+_prhN(p.kgh,1)+' '+u+'/h · '+_prhN(p.kg,dec)+' '+u+' en '+_prhN(p.hs,1)+' hs'+(p.par>0.05?' · '+_prhN(p.par,1)+' hs parada':''):' · sin producción')+'</title></rect>';
+  });
+  g+='<text x="'+PL+'" y="'+(H-4)+'" fill="var(--text3)" font-size="8" font-family="monospace">'+escapeHtml(_prhKlbl(f.serie[0].k))+'</text>';
+  if(n>1)g+='<text x="'+(W-PR)+'" y="'+(H-4)+'" text-anchor="end" fill="var(--text3)" font-size="8" font-family="monospace">'+escapeHtml(_prhKlbl(ult.k))+'</text>';
+  g+='</svg>';
+  return g;
+}
+function _prhRitmoHtml(R){
+  const c=R.cfg,u=R.unidad,dec=R.decimales;
+  const con=R.filas.filter(f=>f.serie.length);
+  if(!con.length)return '<div class="empty" style="padding:40px;text-align:center;color:var(--text3);">No hay producción de '+c.titulo.toLowerCase()+' en el período.</div>';
+  const per=R.modo==='mes'?'mes':'día';
+  const bt=(m,l)=>'<button class="btn btn-sm" onclick="prhRitModo(\''+m+'\')" style="'+(R.modo===m?'background:var(--accent);color:#fff;border-color:var(--accent);':'')+'">'+l+'</button>';
+  let h='<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">'
+    +'<div class="btn-grp">'+bt('dia','Por día')+bt('mes','Por mes')+'</div>'
+    +'<div style="font-size:11.5px;color:var(--text3);">Últimos '+(R.modo==='mes'?'12 meses':'30 días con producción')+' · cada '+per+' se compara con el '+per+' anterior <b>que produjo</b> (un domingo sin producir no es una caída).</div></div>';
+  h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px;">';
+  R.filas.forEach(f=>{
+    const a=f.act,p=f.prev;
+    const dl=(a&&p&&a.kgh!=null&&p.kgh!=null&&p.kgh>0)?(a.kgh-p.kgh)/p.kgh*100:null;
+    const pct=(a&&a.kgh!=null&&f.nominal>0)?a.kgh/f.nominal*100:null;
+    const col=pct==null?'var(--text3)':(pct>=90?'var(--green)':(pct>=75?'var(--amber)':'var(--red)'));
+    h+='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;">'
+      +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">'
+        +'<div style="font-weight:700;font-size:13px;">'+escapeHtml(f.maq.nom)+(f.maq.servicio?'':' <span style="font-size:10px;color:var(--amber);font-weight:400;">fuera de servicio</span>')+'</div>'
+        +'<div style="font-size:10px;color:var(--text3);font-family:monospace;">nominal '+_prhN(f.nominal,0)+' '+u+'/h</div></div>';
+    if(!f.serie.length){h+='<div style="font-size:11px;color:var(--text3);padding:14px 0;">sin producción en el período</div></div>';return;}
+    h+='<div style="display:flex;align-items:baseline;gap:10px;margin:8px 0 2px;">'
+      +'<div style="font-size:26px;font-weight:700;line-height:1;color:'+col+';">'+(a&&a.kgh!=null?_prhN(a.kgh,1):'—')+'</div>'
+      +'<div style="font-size:11px;color:var(--text3);">'+u+'/h '+(R.modo==='mes'?'este mes':'último día')+(pct!=null?' · <b style="color:'+col+';">'+pct.toFixed(0)+'% del nominal</b>':'')+'</div></div>';
+    h+='<div style="font-size:11px;color:var(--text2);margin-bottom:6px;">'
+      +(dl!=null?'<span style="color:'+(dl>=0?'var(--green)':'var(--red)')+';font-weight:700;">'+(dl>=0?'▲ +':'▼ ')+dl.toFixed(1)+'%</span> vs '+per+' anterior ('+escapeHtml(_prhKlbl(p.k))+': '+_prhN(p.kgh,1)+')':'<span style="color:var(--text3);">sin '+per+' anterior para comparar</span>')
+      +'</div>';
+    h+=_prhSpark(f,u,dec);
+    h+='<div style="font-size:10px;color:var(--text3);margin-top:6px;font-family:monospace;">'
+      +_prhN(f.kg,dec)+' '+u+' · '+_prhN(f.hs,1)+' hs produciendo'+(f.par>0.05?' · '+_prhN(f.par,1)+' hs de parada en '+f.np+(f.np===1?' corte':' cortes'):'')+'</div>';
+    h+='</div>';
+  });
+  h+='</div>';
+  // tabla espejo: ningún número queda encerrado en el gráfico
+  h+='<details style="margin-top:14px;"><summary style="cursor:pointer;font-size:12px;color:var(--accent);">ver los números del gráfico</summary>'
+    +'<div style="overflow-x:auto;margin-top:8px;"><table style="width:100%;border-collapse:collapse;font-size:11px;">'
+    +'<tr style="color:var(--text3);font-size:10px;text-transform:uppercase;"><th style="text-align:left;padding:5px 8px;">Máquina</th><th style="text-align:left;padding:5px 8px;">'+(R.modo==='mes'?'Mes':'Día')+'</th>'
+    +'<th style="text-align:right;padding:5px 8px;">'+u+'</th><th style="text-align:right;padding:5px 8px;">hs prod</th><th style="text-align:right;padding:5px 8px;">hs parada</th>'
+    +'<th style="text-align:right;padding:5px 8px;">'+u+'/h</th><th style="text-align:right;padding:5px 8px;">% nominal</th></tr>';
+  R.filas.forEach(f=>{
+    f.serie.slice().reverse().forEach((p,i)=>{
+      const pc=(p.kgh!=null&&f.nominal>0)?p.kgh/f.nominal*100:null;
+      h+='<tr style="border-top:1px solid var(--border);">'
+        +'<td style="padding:4px 8px;color:var(--text3);">'+(i===0?escapeHtml(f.maq.nom):'')+'</td>'
+        +'<td style="padding:4px 8px;font-family:monospace;">'+escapeHtml(_prhKlbl(p.k))+'</td>'
+        +'<td style="padding:4px 8px;text-align:right;font-family:monospace;">'+_prhN(p.kg,dec)+'</td>'
+        +'<td style="padding:4px 8px;text-align:right;font-family:monospace;">'+_prhN(p.hs,1)+'</td>'
+        +'<td style="padding:4px 8px;text-align:right;font-family:monospace;'+(p.par>0.05?'color:var(--amber);':'color:var(--text3);')+'">'+(p.par>0.05?_prhN(p.par,1):'—')+'</td>'
+        +'<td style="padding:4px 8px;text-align:right;font-family:monospace;font-weight:700;">'+(p.kgh!=null?_prhN(p.kgh,1):'—')+'</td>'
+        +'<td style="padding:4px 8px;text-align:right;font-family:monospace;">'+(pc!=null?pc.toFixed(0)+'%':'—')+'</td></tr>';
+    });
+  });
+  h+='</table></div></details>';
+  h+='<div style="font-size:11px;color:var(--text3);margin-top:12px;line-height:1.6;">'
+    +'<b style="color:var(--text2);">Cómo se calcula.</b> El tiempo de producción <b>no</b> es "de la primera bobina a la última": ese span mide un ciclo de menos y se come el tiempo que costó la primera, así que infla el '+u+'/h. '
+    +'Acá cada '+(c.area==='extrusion'?'bobina':'carga')+' cuesta su tiempo, imputado con la <b>mediana de horas por kg de esa máquina</b> — por kg y no por bobina, para que una grande no cuente lo mismo que una chica. '
+    +'Una <b>parada anómala</b> (hueco de más de 3× lo esperado y más de 45 min) sale del tiempo de producción y se cuenta aparte: si no, el número mezcla <i>qué tan rápido va</i> con <i>cuánto estuvo parada</i>, y no sirve para ninguna de las dos. '
+    +'Por eso el '+u+'/h se puede comparar contra el nominal de la máquina — y si da más de 100% sostenido, el nominal está cargado bajo.</div>';
+  return h;
+}
+function prhRitModo(m){PRH.rit=m;renderProductividadHora();}
 function prhTab(t){PRH.tab=t;renderProductividadHora();}
 function prhArea(a){PRH.area=a;renderProductividadHora();}
 function prhMesNav(dir){
@@ -30450,12 +31053,27 @@ function _prhLineaActiva(){
 }
 function prhLinea(l){PRH.linea=l;renderProductividadHora();}
 
-function renderProductividadHora(){
+async function renderProductividadHora(){
   const root=document.getElementById('prh-root');if(!root)return;
   const inp=document.getElementById('prh-mes');
   if(inp&&!inp.value)inp.value=localDate().slice(0,7);
   const ym=inp?.value||localDate().slice(0,7);
   const LN=_prhLineaActiva();
+  // Traer el mes (y el anterior, que usa la comparación por máquina) antes de calcular:
+  // la caché tiene 50 bobinas y acá se mide un mes entero.
+  if(PRH.area==='extrusion'){
+    const rr=_rmMesRange(ym);
+    let ra=_rmMesRange(_rmMesAnterior(ym));
+    if(PRH.tab==='ritmo'&&(PRH.rit||'dia')==='mes'){
+      const y=parseInt(ym.slice(0,4)),m=parseInt(ym.slice(5,7));
+      ra={iniStr:localDate(new Date(y,m-12,1)).slice(0,8)+'01'};
+    }
+    if(!(_PRHBOB.rows&&_PRHBOB.desde<=ra.iniStr&&_PRHBOB.hasta>=rr.finStr)){
+      root.innerHTML='<div class="loading" style="padding:24px;"><div class="spinner"></div>Trayendo las bobinas del período…</div>';
+      try{await _prhCargarBobinas(ra.iniStr,rr.finStr);}
+      catch(e){root.innerHTML='<div class="msg-err" style="padding:14px;">No se pudieron traer las bobinas del período: '+escapeHtml(e.message||String(e))+'</div>';return;}
+    }
+  }
   const R=_prhCalc(PRH.area,ym,LN);
   const c=R.cfg;
   const btn=(a,l)=>'<button class="btn btn-sm" onclick="prhArea(\''+a+'\')" style="'+(PRH.area===a?'background:var(--accent);color:#fff;border-color:var(--accent);':'')+'">'+l+'</button>';
@@ -30463,12 +31081,18 @@ function renderProductividadHora(){
   const lb=l=>'<button class="btn btn-sm" onclick="prhLinea(\''+l.nom.replace(/'/g,"\\'")+'\')" title="'+escapeHtml(l.maquinas.map(m=>m.nombre).join(', '))+' · '+_prhN(l.capServicio)+' bolsas/h en servicio" style="'+(LN===l.nom?'background:var(--accent);color:#fff;border-color:var(--accent);':'')+'">'+escapeHtml(l.nom)+'</button>';
   let html='<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;">'
     +'<div class="btn-grp">'+btn('extrusion','🏭 Extrusión')+btn('confeccion','✂️ Confección')+'</div>'
-    +'<div class="btn-grp">'+tb('hora','🕐 Por hora del día')+tb('maquina','⚙ Por máquina')+'</div>'
+    +'<div class="btn-grp">'+tb('hora','🕐 Por hora del día')+tb('turno','🌙 Por turno')+tb('dia','📅 Detalle por día')+tb('ritmo','⚡ Ritmo por máquina')+tb('maquina','⚙ Por máquina')+'</div>'
     +(LN?'<div class="btn-grp">'+(c.lineas||[]).map(lb).join('')+'</div>':'')+'</div>';
   if(LN)html+='<div style="font-size:11.5px;color:var(--text3);margin:-6px 0 14px;">'
     +'Cada línea se mide contra su propia capacidad: la rollera y las confeccionadoras no hacen el mismo trabajo, '
     +'así que sumarlas daría un porcentaje que no le sirve a ninguna de las dos.</div>';
   if(PRH.tab==='maquina'){root.innerHTML=html+_prhMaquinasHtml(PRH.area,ym,LN);return;}
+  if(PRH.tab==='turno'||PRH.tab==='dia'){
+    const T=_prhPorTurno(PRH.area,ym,LN);
+    root.innerHTML=html+(PRH.tab==='turno'?_prhTurnoHtml(T):_prhDiaHtml(T));
+    return;
+  }
+  if(PRH.tab==='ritmo'){root.innerHTML=html+_prhRitmoHtml(_prhRitmo(PRH.area,ym,PRH.rit||'dia',LN));return;}
 
   if(!R.dias.length){
     root.innerHTML=html+'<div class="empty" style="padding:40px;text-align:center;color:var(--text3);">No hay producción de '
@@ -30621,11 +31245,20 @@ function aeMesNav(dir){
 }
 // Derivador canónico: bobinas producidas del rango (fecha_produccion es fecha local;
 // hora_produccion hora local). Excluye anuladas. kg = kg_reales.
+// ⚠ `C.bobinas_prod` trae SOLO LAS 50 ÚLTIMAS (limit(50) en reload). Una pantalla que
+// mide un MES entero contra esa caché muestra el último día y medio y lo rotula "el mes":
+// en agosto/26 son 482 bobinas contra 50. Por eso el período se consulta aparte y paginado
+// (`_prhCargarBobinas`), y esta función usa esa ventana cuando cubre el rango pedido.
+// Si no la cubre cae a la caché — el comportamiento viejo — pero deja el aviso en consola.
+let _PRHBOB={desde:null,hasta:null,rows:null};
 function _bobinasExtRango(iniStr,finStr){
   const out=[];
   const tipoNomMap={};(C.bobinas||[]).forEach(b=>{tipoNomMap[b.id]=b.nombre;});
   const oeNumMap={};(C.ordenes||[]).forEach(o=>{oeNumMap[o.id]=o.numero_orden;});
-  (C.bobinas_prod||[]).forEach(b=>{
+  let fuente=C.bobinas_prod||[];
+  if(_PRHBOB.rows&&_PRHBOB.desde<=iniStr&&_PRHBOB.hasta>=finStr)fuente=_PRHBOB.rows;
+  else if((C.bobinas_prod||[]).length>=50)console.warn('[bobinasExtRango] leyendo la caché de 50 bobinas: el total puede estar cortado');
+  fuente.forEach(b=>{
     if(b.anulada)return;
     const fecha=String(b.fecha_produccion||'').slice(0,10);
     if(!fecha||fecha<iniStr||fecha>finStr)return;
@@ -30650,13 +31283,21 @@ function _bobinasExtRango(iniStr,finStr){
   return out;
 }
 
-function renderAnalisisExtrusion(){
+async function renderAnalisisExtrusion(){
   const root=document.getElementById('ae-root');
   if(!root)return;
   const inp=document.getElementById('ae-mes');
   if(inp&&!inp.value)inp.value=localDate().slice(0,7);
   const ym=inp?.value||localDate().slice(0,7);
   const{iniStr,finStr,label}=_rmMesRange(ym);
+  // Traer el mes paginado antes de medir: `C.bobinas_prod` trae solo las 50 últimas y esta
+  // pantalla mide un mes entero (en agosto, 482 bobinas contra 50).
+  const _ra=_rmMesRange(_rmMesAnterior(ym));
+  if(!(_PRHBOB.rows&&_PRHBOB.desde<=_ra.iniStr&&_PRHBOB.hasta>=finStr)){
+    root.innerHTML='<div class="loading" style="padding:24px;"><div class="spinner"></div>Trayendo las bobinas del período…</div>';
+    try{await _prhCargarBobinas(_ra.iniStr,finStr);}
+    catch(e){root.innerHTML='<div class="msg-err" style="padding:14px;">No se pudieron traer las bobinas: '+escapeHtml(e.message||String(e))+'</div>';return;}
+  }
   const bobs=_bobinasExtRango(iniStr,finStr);
   const fmtN=n=>Math.round(n||0).toLocaleString('es-AR');
   const fmt$=n=>'$'+Math.round(n||0).toLocaleString('es-AR');
@@ -30682,9 +31323,14 @@ function renderAnalisisExtrusion(){
   });
 
   // eventos por extrusora-día (bobinas pesadas juntas <2 min = un evento) + duración atribuida
-  const eventosExtDia={};const medMesExt={};
+  // El tiempo que se le imputa a un evento cuando no hay dato (el último del día) o cuando
+  // el hueco es una parada, es la MEDIANA DE HORAS POR KG de esa extrusora × los kg del
+  // evento — la misma regla que usa ⚡ Ritmo por máquina en 📈 Productividad, para que las
+  // dos pantallas no den dos kg/h distintos de la misma máquina (P1). Por kg y no un plano:
+  // una bobina de 40 kg no cuesta lo mismo que una de 15.
+  const eventosExtDia={};const medMesExt={};const hkgExt={};
   extIds.filter(m=>m).forEach(eId=>{
-    const intsMes=[];
+    const intsMes=[],relMes=[];
     dias.forEach(f=>{
       const cs=bobs.filter(b=>b.extId===eId&&b.fecha===f);
       if(!cs.length)return;
@@ -30694,10 +31340,14 @@ function renderAnalisisExtrusion(){
         if(last&&(c.ts-last.tsFin)<120000){last.tsFin=c.ts;last.kg=r2(last.kg+c.kg);last.metros+=c.metros;last.n++;if(c.opId)last.opId=c.opId;}
         else ev.push({ts:c.ts,tsFin:c.ts,fecha:f,kg:c.kg,metros:c.metros,n:1,opId:c.opId,tipoId:c.tipoId,tipoNom:c.tipoNom,oeNum:c.oeNum});
       });
-      for(let i=1;i<ev.length;i++)intsMes.push(ev[i].ts-ev[i-1].tsFin);
+      for(let i=1;i<ev.length;i++){
+        intsMes.push(ev[i].ts-ev[i-1].tsFin);
+        if(ev[i].kg>0)relMes.push((ev[i].ts-ev[i-1].tsFin)/ev[i].kg);
+      }
       eventosExtDia[eId+'|'+f]=ev;
     });
     medMesExt[eId]=_acMediana(intsMes);
+    hkgExt[eId]=_acMediana(relMes);        // ms por kg
   });
   Object.keys(eventosExtDia).forEach(k=>{
     const eId=parseInt(k.split('|')[0]);
@@ -30706,8 +31356,10 @@ function renderAnalisisExtrusion(){
     const medDia=_acMediana(intsDia)||45*60000;
     const umbral=Math.max(45*60000,(medMesExt[eId]||0)*3);
     for(let i=0;i<ev.length;i++){
-      let d=(i<ev.length-1)?(ev[i+1].ts-ev[i].tsFin):medDia;
-      if(medMesExt[eId]>0&&d>umbral)d=medDia;
+      // lo que "debería" costar ese evento según su tamaño
+      const esp=(hkgExt[eId]>0&&ev[i].kg>0)?hkgExt[eId]*ev[i].kg:medDia;
+      let d=(i<ev.length-1)?(ev[i+1].ts-ev[i].tsFin):esp;
+      if(medMesExt[eId]>0&&d>umbral)d=esp;     // parada: se cuenta lo que costó producir, no la espera
       ev[i].dur=d;
     }
   });
@@ -30737,17 +31389,23 @@ function renderAnalisisExtrusion(){
   const kgDia=dias.length?totKg/dias.length:0;
   const kgDiaAnt=diasAnt?kgAnt/diasAnt:0;
 
-  // horas activas y utilización por extrusora
+  // Horas activas por extrusora = SUMA DE LAS DURACIONES de cada evento, no el span de la
+  // primera bobina a la última. El span mide (N−1) ciclos: se come el tiempo que costó la
+  // PRIMERA bobina, y con eso la EXT-01 daba 111% de su capacidad nominal — imposible.
+  // Las duraciones ya se calculaban acá arriba, con las paradas anómalas recortadas al
+  // ciclo mediano; las tablas por tipo de bobina y por operario ya las usaban. La de
+  // extrusoras era la única que seguía midiendo el span (build 19e).
+  // Las horas de cada extrusora salen de `_prhRitmoCalc`, LA MISMA función que usa
+  // ⚡ Ritmo por máquina en 📈 Productividad (P1: un número, una fuente). Antes acá se
+  // medía el span de la primera bobina a la última, que mide un ciclo de menos y daba
+  // 111% de capacidad en la EXT-01. Las duraciones por evento (`dur`) se siguen usando
+  // para repartir el tiempo entre tipos de bobina y operarios, que es otra pregunta.
   const horasExt={};let horasTot=0,capTot=0;
   extIds.filter(m=>m).forEach(eId=>{
-    let ms=0;
-    dias.forEach(f=>{
-      const ev=eventosExtDia[eId+'|'+f];
-      if(!ev)return;
-      ms+=(ev.length>1)?(ev[ev.length-1].tsFin-ev[0].ts):45*60000;
-    });
-    horasExt[eId]=ms/3600000;horasTot+=horasExt[eId];
-    capTot+=horasExt[eId]*extNominal(eId);
+    const RC=_prhRitmoCalc(bobs.filter(b=>b.extId===eId).map(b=>({ts:b.ts,fecha:b.fecha,val:b.kg})));
+    let hs=0;Object.keys(RC.porDia).forEach(f=>{hs+=RC.porDia[f].hs;});
+    horasExt[eId]=hs;horasTot+=hs;
+    capTot+=hs*extNominal(eId);
   });
   const utilGlobal=capTot>0?totKg/capTot*100:0;
 
@@ -30779,23 +31437,35 @@ function renderAnalisisExtrusion(){
     // timeline del día
     const diaSel=(window._aeDiaSel&&dias.includes(window._aeDiaSel))?window._aeDiaSel:dias[dias.length-1];
     window._aeDiaSel=diaSel;
-    const H0=5,H1=23;
-    const pos=ts=>{const d=new Date(ts);const h=d.getHours()+d.getMinutes()/60;return Math.min(100,Math.max(0,(h-H0)/(H1-H0)*100));};
+    // Con turno noche, el "día" del calendario parte la vuelta en dos: la madrugada de la
+    // noche que arrancó ayer queda a la izquierda y la que arranca hoy, contra el borde
+    // derecho. Por eso el timeline tiene dos lecturas — y la de la VUELTA (de las 6 de la
+    // mañana a las 6 de la mañana siguiente) es la que deja una noche entera de un saque.
+    const modoTL=(window._aeTLModo==='vuelta')?'vuelta':'dia';
+    const jExtTL=getJornada('extrusion');
+    const horaV=(jExtTL.modo==='continuo'?jExtTL.ini_hora:jExtTL.hIni)||6;
+    const E=_acEjeDia(bobs.filter(b=>b.fecha===diaSel).map(b=>b.ts),diaSel,modoTL,horaV);
+    const pos=ts=>Math.min(100,Math.max(0,(ts-E.t0)/(E.t1-E.t0)*100));
+    const enEje=ts=>ts>=E.t0&&ts<=E.t1;
+    const btnTL=(m,l,t)=>'<button title="'+t+'" onclick="window._aeTLModo=\''+m+'\';renderAnalisisExtrusion()" style="background:'+(modoTL===m?'rgba(43,255,136,.12)':'var(--bg3)')+';border:1px solid '+(modoTL===m?'var(--green)':'var(--border)')+';color:'+(modoTL===m?'var(--green)':'var(--text2)')+';border-radius:6px;padding:3px 9px;font-size:10px;font-weight:700;cursor:pointer;margin-left:6px;">'+l+'</button>';
     html+='<div class="ac-sec">⏱ TIMELINE DEL DÍA'
-      +'<select onchange="window._aeDiaSel=this.value;renderAnalisisExtrusion()" style="margin-left:auto;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;">'
+      +'<span style="margin-left:auto;">'+btnTL('dia','📅 DÍA','Del calendario: 00 a 24 del día elegido')+btnTL('vuelta','🌙 VUELTA','De las '+String(horaV).padStart(2,'0')+':00 a las '+String(horaV).padStart(2,'0')+':00 del día siguiente: la noche entera de un saque')+'</span>'
+      +'<select onchange="window._aeDiaSel=this.value;renderAnalisisExtrusion()" style="margin-left:8px;background:var(--bg3);color:#fff;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;">'
       +dias.map(f=>'<option value="'+f+'"'+(f===diaSel?' selected':'')+'>'+['dom','lun','mar','mié','jue','vie','sáb'][new Date(f+'T12:00:00').getDay()]+' '+f.slice(8,10)+'/'+f.slice(5,7)+'</option>').join('')
       +'</select></div>';
     html+='<div class="ac-card" style="padding:12px;">';
-    html+='<div style="position:relative;height:14px;margin:0 0 6px 110px;">';
-    for(let h=H0;h<=H1;h+=2)html+='<div class="ac-tl-lbl" style="position:absolute;left:'+((h-H0)/(H1-H0)*100)+'%;transform:translateX(-50%);">'+String(h).padStart(2,'0')+'</div>';
-    html+='</div>';
+    html+='<div style="position:relative;height:14px;margin:0 0 6px 110px;">'+_acEjeLabels(E)+'</div>';
+    const diaSig=_prhDiaStr(diaSel,1);
     extIds.filter(m=>m).forEach(eId=>{
-      const cs=bobs.filter(b=>b.extId===eId&&b.fecha===diaSel);
+      const cs=bobs.filter(b=>b.extId===eId&&enEje(b.ts)).sort((a,b)=>a.ts-b.ts);
       html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
         +'<div style="width:100px;font-size:11px;font-weight:700;color:var(--text2);text-align:right;flex-shrink:0;">'+escapeHtml(extNom(eId))+'</div>'
         +'<div class="ac-tl" style="flex:1;">';
-      const ev=eventosExtDia[eId+'|'+diaSel];
-      if(ev&&ev.length){
+      // en modo vuelta hay que juntar los eventos de hoy y los de mañana temprano
+      const ev=[].concat(eventosExtDia[eId+'|'+diaSel]||[],
+                         modoTL==='vuelta'?(eventosExtDia[eId+'|'+diaSig]||[]):[])
+                .filter(e=>enEje(e.ts)).sort((a,b)=>a.ts-b.ts);
+      if(ev.length){
         const umbral=Math.max(45*60000,(medMesExt[eId]||0)*3);
         html+='<div class="span" style="left:'+pos(ev[0].ts)+'%;width:'+Math.max(0.5,pos(ev[ev.length-1].tsFin)-pos(ev[0].ts))+'%;"></div>';
         for(let i=1;i<ev.length;i++){
@@ -30809,7 +31479,9 @@ function renderAnalisisExtrusion(){
         +'<div style="width:160px;font-size:10.5px;color:var(--text3);flex-shrink:0;">'+(cs.length?fmtN(cs.reduce((s,c)=>s+c.kg,0))+' kg · '+cs.length+' bob · '+_acHora(cs[0].ts)+'→'+_acHora(cs[cs.length-1].ts):'sin actividad')+'</div>'
       +'</div>';
     });
-    html+='<div style="font-size:10px;color:var(--text3);margin-left:110px;">▮ bobina bajada (pesadas juntas se agrupan) · barra celeste = jornada activa · rayado rojo = parada anómala (>3× ciclo mediano y >45 min).</div>';
+    html+='<div style="font-size:10px;color:var(--text3);margin-left:110px;">▮ bobina bajada (pesadas juntas se agrupan) · barra celeste = jornada activa · rayado rojo = parada anómala (>3× ciclo mediano y >45 min). '
+      +'El eje va de '+_acHora(E.t0)+' a '+_acHora(E.t1)+(E.vuelta?' del día siguiente':'')+', hora de acá: se arma con lo que realmente se produjo, así nada queda pegado a un borde.'
+      +((E.vuelta&&diaSig>finStr)?' <span style="color:var(--amber);">La madrugada de esta vuelta cae en el mes que viene: elegí ese mes para verla completa.</span>':'')+'</div>';
     html+='</div>';
 
     // qué se extrudió ese día
@@ -30840,7 +31512,7 @@ function renderAnalisisExtrusion(){
         +'<td>'+(medMesExt[eId]?_acFmtMin(medMesExt[eId]):'—')+'</td>'
         +'<td style="color:'+(err>=0?'var(--green)':'var(--red)')+';">'+(err>=0?'+':'−')+fmtN(Math.abs(err))+'</td></tr>';
     });
-    html+='</tbody></table><div style="font-size:10px;color:var(--text3);padding:6px 8px;">Utilización = kg reales ÷ (hs activas × kg/h nominal de la máquina). Error peso = Σ(real − teórico): + pesan de más, − de menos.</div></div>';
+    html+='</tbody></table><div style="font-size:10px;color:var(--text3);padding:6px 8px;">Hs activas = tiempo produciendo, sin las paradas anómalas: cada bobina cuesta su tiempo (mediana de horas por kg de esa máquina). Es el mismo número que ⚡ Ritmo por máquina en 📈 Productividad. Utilización = kg reales ÷ (hs activas × kg/h nominal). Error peso = Σ(real − teórico): + pesan de más, − de menos.</div></div>';
 
     html+='<div class="ac-sec">▦ KG POR DÍA Y EXTRUSORA</div><div class="ac-card"><table><thead><tr><th>Día</th>'
       +extIds.map(m=>'<th style="border-left:1px solid var(--border);">'+escapeHtml(extNom(m))+' kg</th><th>bob</th>').join('')
