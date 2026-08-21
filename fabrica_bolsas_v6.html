@@ -709,7 +709,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-08-19h</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-08-19m</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -767,6 +767,7 @@ body.pext-on .main{margin-left:0!important;}
       <div class="nav-grp-items">
         <div class="nav-item" onclick="go('stock')"><div class="nav-dot"></div>Stock bobinas</div>
         <div class="nav-item" onclick="go('stock-bolsas')"><div class="nav-dot" style="background:var(--green)"></div>Stock bolsas</div>
+        <div class="nav-item" onclick="go('conteo-bolsas')"><div class="nav-dot" style="background:var(--green)"></div>Conteo físico 📋</div>
         <div class="nav-item" onclick="go('despacho')"><div class="nav-dot" style="background:var(--green)"></div>Despacho 📦</div>
         <div class="nav-item" onclick="go('puesta-cero')"><div class="nav-dot" style="background:#6366f1"></div>Puesta a cero 🎯</div>
         <div class="nav-item" onclick="go('mp-stock')"><div class="nav-dot" style="background:var(--teal)"></div>Stock MP</div>
@@ -3277,6 +3278,37 @@ body.pext-on .main{margin-left:0!important;}
       </div>
     </div>
 
+    <!-- CONTEO FÍSICO DE BOLSAS -->
+    <div class="page" id="page-conteo-bolsas">
+      <div class="page-hdr">
+        <div><div class="page-title">📋 Conteo físico de bolsas</div><div class="page-sub">Contar lo que hay en el depósito y ajustar el sistema a la realidad — la diferencia queda en el libro con su costo</div></div>
+        <div class="btn-grp">
+          <button class="btn btn-sm" onclick="cfPlanilla()">🖨 Planilla para contar</button>
+          <button class="btn btn-sm" onclick="renderConteoBolsas()">🔄 Refrescar</button>
+        </div>
+      </div>
+      <div style="background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.3);border-radius:var(--rl);padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--text2);line-height:1.6;">
+        <b>Cómo se usa.</b> 1) Imprimí la planilla y contá en el depósito (paquetes por producto, sin mirar lo que dice el sistema). 2) Volcá acá lo contado — solo en los productos que contaste; los que quedan vacíos no se tocan. 3) <b>Aplicar diferencias</b>: cada faltante o sobrante queda asentado en el libro con su motivo y su costo marginal, así el resultado del mes dice la verdad. El conteo total (disponible + reservado) se compara contra el total del sistema.
+      </div>
+      <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:12px;">
+        <div class="fg" style="margin-bottom:0;flex:1;min-width:220px;"><label style="font-size:11px;">🔍 Buscar</label>
+          <input id="cf-search" type="text" placeholder="código o descripción" oninput="renderConteoBolsas()"></div>
+        <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="checkbox" id="cf-todos" onchange="renderConteoBolsas()">incluir productos con stock 0 en el sistema</label>
+      </div>
+      <div style="background:var(--bg3);border-radius:var(--rl);padding:10px 14px;margin-bottom:12px;">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;font-weight:700;margin-bottom:6px;">¿Qué es la diferencia?</div>
+        <label style="font-size:12px;color:var(--text2);display:flex;align-items:flex-start;gap:8px;cursor:pointer;margin-bottom:6px;">
+          <input type="radio" name="cf-modo" value="correccion" checked onchange="renderConteoBolsas()" style="margin-top:2px;">
+          <span><b>Error de registro — SIN efecto económico</b> (lo normal acá): stock que figura pero nunca se produjo (doble conteo viejo, cargas mal hechas). No se perdió plata: esas bolsas no gastaron ni materia prima ni horas. Va al libro como <i>corrección de carga</i>.</span></label>
+        <label style="font-size:12px;color:var(--text2);display:flex;align-items:flex-start;gap:8px;cursor:pointer;">
+          <input type="radio" name="cf-modo" value="real" onchange="renderConteoBolsas()" style="margin-top:2px;">
+          <span><b>Pérdida o hallazgo REAL — con costo marginal</b>: bolsas que sí existieron y se rompieron, robaron o aparecieron. Va como <i>faltante/sobrante de conteo</i> y pega en el resultado del mes.</span></label>
+      </div>
+      <div id="cf-resumen" style="margin-bottom:12px;"></div>
+      <div id="cf-tbl"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+
     <!-- STOCK DE BOLSAS TERMINADAS -->
     <div class="page" id="page-stock-bolsas">
       <div class="page-hdr">
@@ -5324,7 +5356,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-08-19h';
+const APP_BUILD='2026-08-19m';
   // 19h: EL CORTE YA USABA EMPLEADOS, Y BORRAR UN OPERARIO PODIA ROMPER LA HISTORIA. German:
   // "¿y en el corte? además a Celia Araujo la borro porque me aparece para cargar bobinas".
   // (1) EN CORTE NO HAY QUE HACER NADA: el panel de confeccion elige el nombre de una lista de
@@ -9125,6 +9157,7 @@ function go(name){
   if(name==='nuevo-pedido-v2')initNuevoPedidoV2();
   if(name==='flujo-caja')renderFlujoCaja();
   if(name==='stock-bolsas')renderStockBolsas();
+  if(name==='conteo-bolsas')renderConteoBolsas();
   if(name==='kardex')initKardex();
   if(name==='puesta-cero')renderPuestaCero();
   if(name==='audit-stock-bolsas')renderAuditStockBolsas();
@@ -10094,8 +10127,26 @@ async function acreditarStockDesdeOC(ocId){
   // Antes se leía el stock actual (stock_bolsas con estado!='entregado'); si un parcial ya
   // se había entregado, su fila quedaba en 0 y el cierre re-acreditaba el total → doble conteo.
   const yaCargadoParcial=await _ocPaquetesProducidos(ocId);
-  const paqRestantes=Math.max(0,paqReales-yaCargadoParcial);
-  if(paqRestantes<=0){console.log('acreditarStockDesdeOC: ya cargado todo via parciales para',o.numero_orden);return;}
+  const paqRestantes=paqReales-yaCargadoParcial;
+  // Parciales cargados DE MÁS: la OC cierra con menos reales de lo que los parciales
+  // acreditaron (pasó con la OC-1052662: parciales 1.750, cierre 1.600 → 150 fantasma que
+  // nadie descontaba). El exceso se quita acá mismo, con el ajuste rico del libro, y se
+  // avisa: si no, el stock queda inflado en silencio.
+  if(paqRestantes<0){
+    const exceso=-paqRestantes;
+    const{data:aj,error:eAj}=await sb.rpc('ajuste_stock_bolsas',{
+      p_producto_id:o.producto_id,p_paquetes:-exceso,p_tipo:'ajuste_neutro',
+      p_motivo_cod:'correccion',p_impacta:false,p_costo:null,
+      p_obs:'Cierre '+o.numero_orden+': los parciales acreditaron '+yaCargadoParcial+' paq y los reales son '+paqReales});
+    if(eAj||!(aj&&aj.ok!==false)){
+      console.error('acreditarStockDesdeOC: no se pudo descontar el exceso de parciales',eAj,aj);
+      toast('⚠ '+o.numero_orden+': los parciales cargaron '+exceso+' paq de más y NO se pudieron descontar ('+(eAj?.message||aj?.msg||'?')+'). Corregilo con 🛠 Ajuste manual.','red');
+    }else{
+      toast('⚠ '+o.numero_orden+': los parciales habían cargado '+exceso+' paq de más — se descontaron del stock','amber');
+    }
+    return;
+  }
+  if(paqRestantes===0){console.log('acreditarStockDesdeOC: ya cargado todo via parciales para',o.numero_orden);return;}
   paqReales=paqRestantes;
 
   const uniReales=uniPaq>0?paqReales*uniPaq:o.unidades_reales||0;
@@ -30364,7 +30415,7 @@ function renderAnalisisCorte(){
 // dotación sale de _turnoDelDia + las horas extra fijas del turno, o sea
 // del mismo motor que el informe de horarios.
 // ═══════════════════════════════════════════════════════════════════
-let PRH={area:'extrusion',tab:'hora',linea:null,rit:'dia'};
+let PRH={area:'extrusion',tab:'hora',linea:null,rit:'dia',dia:'cal'};
 
 function _prhCfg(area,linea){
   if(area==='confeccion'){
@@ -30420,26 +30471,72 @@ function _prhEmpleados(area){
 // extra fijas (la salida real), igual que el informe de horarios.
 function _prhDotacion(area,dias){
   const emps=_prhEmpleados(area);
-  const acum=new Array(24).fill(0);
-  let nd=0;
+  const acum=new Array(24).fill(0);        // persona-horas acumuladas en cada hora
+  const diasHora=new Array(24).fill(0);    // días en que ESA hora tuvo gente
+  const porDiaHora={};                     // fecha → [24] con 1 en las horas que tuvieron gente
+  // ¿Ese día el reloj estuvo en uso? Si alguien del área fichó, el reloj es la verdad de ESE
+  // día y el que no fichó no estuvo. El turno esperado sólo sirve de respaldo para los días
+  // en que NADIE fichó (el reloj todavía no se usaba). Si no, la rotación —que no guarda
+  // historia— proyecta hacia atrás turnos que en ese momento no existían: con el esquema de
+  // hoy, Pavoni "hacía la noche" los sábados 8 y 15 de agosto, y la madrugada del mes
+  // aparecía con gente en planta once días antes de que existiera el turno noche.
+  const huboReloj={};
   dias.forEach(f=>{
-    const dow=new Date(f+'T12:00:00').getDay();
-    if(dow===0||dow===6)return;
-    nd++;
+    huboReloj[f]=emps.some(e=>{try{return _fichMarcas(e.id,f).length>0;}catch(err){return false;}});
+  });
+  dias.forEach(f=>{
+    const hubo=new Array(24).fill(0);
     emps.forEach(e=>{
       const td=_turnoDelDia(e,f);
-      if(!td.turno)return;
-      const exF=Math.max(0,parseFloat(td.turno.horas_extra_fijas)||0);
-      let ini=_minutosT(td.turno.hora_entrada);
-      let fin=_minutosT(td.turno.hora_salida)+exF*60;
-      if(fin<=ini)fin+=1440;
-      for(let m=ini;m<fin;m+=1){
-        const h=Math.floor((m%1440)/60);
-        acum[h]+=1/60;
+      // Primero lo que dice el RELOJ: los pares de fichaje de ese día. Mismo criterio que la
+      // atribución por turno (19c).
+      let tramos=[];
+      try{
+        const pd=_fichParesDia(e.id,f,td.turno);
+        tramos=(pd.pares||[]).map(p=>[_minutosT(p[0].hora),_minutosT(p[1].hora)]);
+        // Entrada sin salida (todavía está adentro, o se olvidó de marcar): se cuenta hasta
+        // la salida del turno con el que entró. Sin esto, la noche que arranca a las 22 y
+        // cierra al otro día aparece SIN NADIE mientras está produciendo, y la pantalla
+        // avisa "producción fuera de todo turno" cuando el turno está y es el correcto.
+        // Una entrada colgada NO se estira a ciegas: el 6/08 alguien marcó ENTRADA a las
+        // 22:01 cuando se estaba yendo (quiso marcar salida). Estirarla hasta "la salida
+        // del turno" daba 24 horas de una persona en planta y ensuciaba todo el día.
+        // Sólo se cuenta si la salida del turno está por delante de la entrada y lo que
+        // queda es del tamaño de una jornada: si no, es un marcaje equivocado y no suma.
+        if(pd.colgada){
+          const tc=_turnoById(pd.colgada.turno_id)||td.turno;
+          if(tc){
+            const exF=Math.max(0,parseFloat(tc.horas_extra_fijas)||0);
+            const ini=_minutosT(pd.colgada.hora);
+            let fin=_minutosT(tc.hora_salida)+exF*60;
+            if(tc.cruza_medianoche&&fin<=ini)fin+=1440;
+            const dur=((_turnoHoras(tc)||0)+exF)*60;
+            if(fin>ini&&(fin-ini)<=dur+120)tramos.push([ini,fin]);
+          }
+        }
+      }catch(err){}
+      if(!tramos.length&&!huboReloj[f]&&td.turno&&!td.franco){
+        const exF=Math.max(0,parseFloat(td.turno.horas_extra_fijas)||0);
+        tramos=[[_minutosT(td.turno.hora_entrada),_minutosT(td.turno.hora_salida)+exF*60]];
       }
+      tramos.forEach(t=>{
+        let ini=t[0],fin=t[1];
+        if(fin<=ini)fin+=1440;
+        if(fin-ini>1440)fin=ini+1440;
+        for(let m=ini;m<fin;m+=1){
+          const h=Math.floor((m%1440)/60);
+          acum[h]+=1/60;hubo[h]=1;
+        }
+      });
     });
+    porDiaHora[f]=hubo;
+    for(let h=0;h<24;h++)if(hubo[h])diasHora[h]++;
   });
-  return {porHora:acum.map(v=>nd?v/nd:0),dias:nd,emps:emps.length};
+  // Cada hora se promedia sobre LOS DÍAS EN QUE ESA HORA TUVO GENTE, no sobre todos los
+  // días del mes: si la noche arrancó el 19, no tiene sentido repartir esa gente entre
+  // los 14 días del mes.
+  return {porHora:acum.map((v,h)=>diasHora[h]?v/diasHora[h]:0),acumHora:acum,diasHora:diasHora,
+          porDiaHora:porDiaHora,dias:dias.length,emps:emps.length};
 }
 
 function _prhCalc(area,ym,linea){
@@ -30449,20 +30546,30 @@ function _prhCalc(area,ym,linea){
   // días hábiles CON producción (los que no hubo actividad no promedian)
   const porDia={},porHora=new Array(24).fill(0),diasHora=new Array(24).fill(0);
   const diasSet=new Set();
+  const vistoHora={};                      // fecha|hora → ya contado
+  const porFH={};                          // fecha|hora → kg de esa hora de ese día
   let nEventos=0;
   evs.forEach(x=>{
-    const dow=new Date(x.fecha+'T12:00:00').getDay();
-    if(dow===0||dow===6)return;            // el sábado tiene otra lógica, queda afuera
+    // Antes se salteaban sábados y domingos. Con la fábrica 24 hs y sábados de 6 a 12 eso
+    // hacía desaparecer producción real de la tabla, en silencio.
     porDia[x.fecha]=(porDia[x.fecha]||0)+x.val;
     diasSet.add(x.fecha);
     nEventos++;
     const h=new Date(x.ts).getHours();
     porHora[h]+=x.val;
+    const k=x.fecha+'|'+h;
+    porFH[k]=(porFH[k]||0)+x.val;
+    if(!vistoHora[k]){vistoHora[k]=1;diasHora[h]++;}
   });
   const dias=[...diasSet].sort();
   const dot=_prhDotacion(area,dias);
   const nd=dias.length||1;
-  const media=porHora.map(v=>v/nd);
+  // 🔴 CADA HORA SE PROMEDIA SOBRE LOS DÍAS EN QUE ESA HORA SE TRABAJÓ, no sobre todos los
+  // días del mes. Dividir por todos hacía que la madrugada diera 4 kg/h: el turno noche
+  // arrancó el 19 y esos kg se repartían entre los 14 días del mes, incluidos los 13 en
+  // los que a esa hora la planta estaba cerrada. La comparación entre franjas quedaba
+  // deformada justo donde había que mirarla.
+  const media=porHora.map((v,h)=>diasHora[h]?v/diasHora[h]:0);
   const total=Object.values(porDia).reduce((a,b)=>a+b,0);
   // franjas por dotación redondeada
   const franja={};
@@ -30472,11 +30579,24 @@ function _prhCalc(area,ym,linea){
     if(!franja[k])franja[k]={n:0,val:0,horas:0};
     franja[k].n++;franja[k].val+=media[h];franja[k].horas++;
   }
+  // Producción registrada SIN NADIE FICHADO en planta a esa hora, contada día por día.
+  // Antes esto salía de la franja de dotación redondeada a 0, y una hora que tuvo gente
+  // dos noches y nadie diez días daba promedio 0,2 → "franja 0" → alarma, con el turno
+  // bien cargado. La pregunta correcta es por día: ¿ese día, a esa hora, había alguien?
+  const sinGenteDias=new Array(24).fill(0),sinGenteKg=new Array(24).fill(0);
+  Object.keys(porFH).forEach(k=>{
+    const p=k.split('|'),f=p[0],h=parseInt(p[1]);
+    const hb=dot.porDiaHora[f];
+    if(!hb||!hb[h]){sinGenteDias[h]++;sinGenteKg[h]+=porFH[k];}
+  });
   const activas=[];for(let h=0;h<24;h++)if(media[h]>0||dot.porHora[h]>0.05)activas.push(h);
   const h0=activas.length?activas[0]:6, h1=activas.length?activas[activas.length-1]:22;
-  const cobertura=dot.porHora.filter(v=>v>0.05).length;
+  // Cobertura = horas por día con gente en planta, PROMEDIADAS sobre los días del período.
+  // Contar "horas del día que alguna vez tuvieron gente" daba 24 hs apenas empezó el turno
+  // noche (una sola jornada de las 14 del mes) y hundía el uso de la capacidad de golpe.
+  const cobertura=dias.length?dot.diasHora.reduce((s,d,h)=>s+(dot.porHora[h]>0.05?d:0),0)/dias.length:0;
   return {cfg,label,iniStr,finStr,dias,nd,media,dot,total,porDia,franja,h0,h1,cobertura,nEventos,
-    porDiaProm:total/nd, pico:Math.max(...media)};
+    diasHora,sinGenteDias,sinGenteKg, porDiaProm:total/nd, pico:Math.max(...media)};
 }
 
 // ── ¿la máquina va lenta o está parada? Ventana activa, rendimiento contra el
@@ -30730,14 +30850,26 @@ function _prhPorTurno(area,ym,linea){
   const cfg=_prhCfg(area,linea);
   const {iniStr,finStr,label}=_rmMesRange(ym);
   const evs=cfg.eventos(iniStr,finStr);
-  const porT={},porDia={},cal={};
+  const porT={},porDia={},porDiaCal={},cal={};
   let total=0,sinAsig=0,valHora=0,valRot=0;
   evs.forEach(x=>{
     total+=x.val;
     cal[x.fecha]=(cal[x.fecha]||0)+x.val;
     const r=_prhTurnoDeEvento(x,area);
-    if(!r.turno){sinAsig+=x.val;return;}
+    if(!porDiaCal[x.fecha])porDiaCal[x.fecha]={};
+    if(!r.turno){
+      sinAsig+=x.val;
+      porDiaCal[x.fecha]._=(porDiaCal[x.fecha]._||0)+x.val;
+      if(!porDia[x.fecha])porDia[x.fecha]={};
+      porDia[x.fecha]._=(porDia[x.fecha]._||0)+x.val;
+      return;
+    }
     const k=String(r.turno.id);
+    // El mismo kg se anota dos veces con distinta clave de fecha: en la VUELTA (el día en
+    // que arrancó el turno) y en el DÍA CALENDARIO (la fecha con que quedó registrado).
+    // Cada lectura cierra sola: la del calendario contra los kg del día del resto del
+    // sistema, la de la vuelta contra lo que hizo cada turno de punta a punta.
+    porDiaCal[x.fecha][k]=(porDiaCal[x.fecha][k]||0)+x.val;
     const t=porT[k]||(porT[k]={turno:r.turno,val:0,n:0,dias:{},emps:{},estim:0,rot:0});
     t.val+=x.val;t.n++;
     t.dias[r.fecha]=(t.dias[r.fecha]||0)+x.val;
@@ -30759,7 +30891,7 @@ function _prhPorTurno(area,ym,linea){
       dias:t.dias};
   }).sort((a,b)=>_minutosT(a.turno.hora_entrada)-_minutosT(b.turno.hora_entrada));
   const dias=[...new Set([...Object.keys(porDia),...Object.keys(cal)])].sort();
-  return {cfg,label,iniStr,finStr,filas,porDia,cal,dias,total,sinAsig,valHora,valRot,
+  return {cfg,label,iniStr,finStr,filas,porDia,porDiaCal,cal,dias,total,sinAsig,valHora,valRot,
     turnos:_prhTurnosArea(area),nEventos:evs.length};
 }
 function _prhTurnoHtml(R){
@@ -30805,21 +30937,40 @@ function _prhTurnoHtml(R){
     +'</div>';
   return h;
 }
+function prhDiaModo(m){PRH.dia=m;renderProductividadHora();}
+// Detalle por día. Antes mostraba las dos lecturas al mismo tiempo (vuelta, calendario y
+// la diferencia entre ambas) y no se entendía nada: cada fila tenía dos totales que no
+// coincidían. Ahora se elige UNA lectura y la fila cierra sola — los turnos suman
+// exactamente el total del día. El botón dice cuál se está mirando.
 function _prhDiaHtml(R){
   const c=R.cfg,u=c.unidadCorta;
   if(!R.dias.length)return '<div class="empty" style="padding:40px;text-align:center;color:var(--text3);">No hay producción de '+c.titulo.toLowerCase()+' en '+R.label+'.</div>';
+  const modo=(PRH.dia==='vuelta')?'vuelta':'cal';
   const cols=R.filas.map(f=>f.turno);
+  const src=modo==='vuelta'?R.porDia:R.porDiaCal;
   const NOM=['dom','lun','mar','mié','jue','vie','sáb'];
-  let h='<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Día por día de '+R.label+'. La columna <b>vuelta</b> suma los turnos que <b>arrancaron</b> ese día (incluida la noche que termina a la mañana siguiente); <b>calendario</b> es lo que quedó fechado ese día, que es el número que usa el resto del sistema.</div>';
+  // ¿A qué hora arranca la vuelta? Es la entrada del primer turno del área.
+  const t0=(R.turnos||[])[0];
+  const hIni=t0?_hhmm(t0.hora_entrada):'06:00';
+  const bt=(m,l)=>'<button class="btn btn-sm" onclick="prhDiaModo(\''+m+'\')" style="'+(modo===m?'background:var(--accent);color:#fff;border-color:var(--accent);':'')+'">'+l+'</button>';
+  let h='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">'
+    +bt('cal','📅 Día calendario')+bt('vuelta','🌙 Vuelta de turno')+'</div>';
+  h+='<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">'
+    +(modo==='cal'
+      ? 'Cada kg cuenta en <b>la fecha con que quedó registrado</b> (de 00:00 a 24:00). Es el número de siempre: coincide con los kg del día del resto del sistema. Lo que hizo la noche aparece partido en dos días — la primera mitad hoy, la madrugada mañana.'
+      : 'Cada kg cuenta en <b>el día en que arrancó el turno que lo hizo</b> (la vuelta empieza a las '+hIni+'). La noche va entera al día que entró: lo que salió a las 2 de la madrugada cuenta en la jornada de ayer. Sirve para juzgar al turno; no coincide con los kg por fecha.')
+    +'</div>';
+  const hayS=R.sinAsig>0;
   h+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">'
     +'<tr style="color:var(--text3);font-size:10px;text-transform:uppercase;">'
     +'<th style="text-align:left;padding:6px 8px;">Día</th>';
   cols.forEach(t=>{h+='<th style="text-align:right;padding:6px 8px;">'+escapeHtml(t.nombre)+'<br><span style="font-weight:400;font-family:monospace;">'+_hhmm(t.hora_entrada)+'–'+_hhmm(t.hora_salida)+'</span></th>';});
-  h+='<th style="text-align:right;padding:6px 8px;">vuelta</th><th style="text-align:right;padding:6px 8px;">calendario</th><th style="text-align:right;padding:6px 8px;">dif</th></tr>';
-  const tot={};let totVuelta=0,totCal=0;
+  if(hayS)h+='<th style="text-align:right;padding:6px 8px;color:var(--amber);">sin turno</th>';
+  h+='<th style="text-align:right;padding:6px 8px;">'+(modo==='cal'?u+' del día':u+' de la vuelta')+'</th></tr>';
+  const tot={};let totS=0,totG=0;
   R.dias.forEach(f=>{
     const dow=new Date(f+'T12:00:00').getDay();
-    const fila=R.porDia[f]||{};
+    const fila=src[f]||{};
     let sv=0;
     h+='<tr style="border-top:1px solid var(--border);'+(dow===0||dow===6?'background:rgba(255,255,255,.02);':'')+'">'
       +'<td style="padding:6px 8px;font-family:monospace;">'+NOM[dow]+' '+f.slice(8,10)+'/'+f.slice(5,7)+'</td>';
@@ -30827,20 +30978,24 @@ function _prhDiaHtml(R){
       const v=fila[String(t.id)]||0;sv+=v;tot[t.id]=(tot[t.id]||0)+v;
       h+='<td style="padding:6px 8px;text-align:right;font-family:monospace;'+(v?'':'color:var(--text3);')+'">'+(v?_prhN(v,c.decimales):'—')+'</td>';
     });
-    const cv=R.cal[f]||0;const dif=sv-cv;
-    totVuelta+=sv;totCal+=cv;
-    h+='<td style="padding:6px 8px;text-align:right;font-family:monospace;font-weight:700;">'+(sv?_prhN(sv,c.decimales):'—')+'</td>'
-      +'<td style="padding:6px 8px;text-align:right;font-family:monospace;">'+(cv?_prhN(cv,c.decimales):'—')+'</td>'
-      +'<td style="padding:6px 8px;text-align:right;font-family:monospace;font-size:11px;color:'+(Math.abs(dif)>0.5?'var(--amber)':'var(--text3)')+';">'+(Math.abs(dif)>0.5?(dif>0?'+':'')+_prhN(dif,c.decimales):'—')+'</td></tr>';
+    if(hayS){
+      const vs=fila._||0;sv+=vs;totS+=vs;
+      h+='<td style="padding:6px 8px;text-align:right;font-family:monospace;color:'+(vs?'var(--amber)':'var(--text3)')+';">'+(vs?_prhN(vs,c.decimales):'—')+'</td>';
+    }
+    totG+=sv;
+    h+='<td style="padding:6px 8px;text-align:right;font-family:monospace;font-weight:700;">'+(sv?_prhN(sv,c.decimales):'—')+'</td></tr>';
   });
   h+='<tr style="border-top:2px solid var(--border);font-weight:700;"><td style="padding:6px 8px;">TOTAL</td>';
   cols.forEach(t=>{h+='<td style="padding:6px 8px;text-align:right;font-family:monospace;">'+_prhN(tot[t.id]||0,c.decimales)+'</td>';});
-  h+='<td style="padding:6px 8px;text-align:right;font-family:monospace;">'+_prhN(totVuelta,c.decimales)+'</td>'
-    +'<td style="padding:6px 8px;text-align:right;font-family:monospace;">'+_prhN(totCal,c.decimales)+'</td><td></td></tr>';
+  if(hayS)h+='<td style="padding:6px 8px;text-align:right;font-family:monospace;color:var(--amber);">'+_prhN(totS,c.decimales)+'</td>';
+  h+='<td style="padding:6px 8px;text-align:right;font-family:monospace;">'+_prhN(totG,c.decimales)+'</td></tr>';
   h+='</table></div>';
   h+='<div style="font-size:11px;color:var(--text3);margin-top:10px;line-height:1.6;">'
-    +'Las dos últimas columnas <b>tienen que dar distinto</b> los días con turno noche, y esa diferencia es justamente la madrugada: no es un error de nadie. '
-    +'El total del mes coincide salvo por las puntas (la noche del último día del mes cae en el mes siguiente).</div>';
+    +'En esta vista los turnos <b>suman exactamente</b> el total de cada fila: no hay dos números que discutan entre sí. '
+    +'Cambiando el botón de arriba se ve el mismo mes con la otra lectura; el total del mes es el mismo en las dos '
+    +'(sólo se corren las puntas: la noche del último día del mes cae en el mes siguiente).'
+    +(hayS?' <span style="color:var(--amber);">La columna <b>sin turno</b> es producción cuyo operario no está vinculado a ningún empleado — se arregla en 👥 Empleados.</span>':'')
+    +'</div>';
   return h;
 }
 // ════════════════════════════════════════════════════════════════
@@ -31192,8 +31347,8 @@ async function renderProductividadHora(){
   html+='<div class="ac-kpis" style="margin-bottom:18px;">'
     +k('Producción del mes',_prhN(R.total)+' '+c.unidadCorta,R.nd+' días hábiles con producción')
     +k('Por día',_prhN(R.porDiaProm)+' '+c.unidadCorta,'promedio de esos días')
-    +k('Cobertura de planta',R.cobertura+' hs','horas del día con gente en planta')
-    +k('Uso de la capacidad',_prhN(uso)+'%',_prhN(capDia)+' '+c.unidadCorta+' posibles en '+R.cobertura+' hs',
+    +k('Cobertura de planta',_prhN(R.cobertura,1)+' hs','horas por día con gente en planta, promedio del mes')
+    +k('Uso de la capacidad',_prhN(uso)+'%',_prhN(capDia)+' '+c.unidadCorta+' posibles en '+_prhN(R.cobertura,1)+' hs',
        uso<50?'var(--red)':(uso<75?'var(--amber)':'var(--green)'))
     +'</div>';
 
@@ -31232,7 +31387,7 @@ async function renderProductividadHora(){
   for(let h=R.h0;h<=R.h1;h++){
     const v=R.media[h],d=R.dot.porHora[h];
     const alt=esc.max>0?Math.min(100,v/esc.max*100):0;
-    const tit=h+':00 a '+(h+1)+':00 — '+_prhN(v)+' '+c.unidadCorta+' por hora · '+_prhN(d,1)+' persona(s) en planta';
+    const tit=h+':00 a '+(h+1)+':00 — '+_prhN(v)+' '+c.unidadCorta+' por hora · '+_prhN(d,1)+' persona(s) en planta · promedio de '+(R.diasHora[h]||0)+' día(s) con producción a esa hora';
     barras+='<div class="prh-col" title="'+tit+'">'
       +'<div class="prh-bw" style="height:'+alt.toFixed(2)+'%">'
       +'<div class="prh-lab">'+(v>0?_prhN(v):'')+'</div>'
@@ -31251,12 +31406,14 @@ async function renderProductividadHora(){
     +'</div></div>';
 
   // ---- aviso: producción fuera de todo turno ----
-  if(R.franja[0]&&R.franja[0].val>0){
-    const hs0=[];for(let h=0;h<24;h++)if(R.media[h]>0&&R.dot.porHora[h]<0.5)hs0.push(String(h).padStart(2,'0')+'h');
+  const kgSinGente=R.sinGenteKg.reduce((a,b)=>a+b,0);
+  if(kgSinGente>0){
+    const hs0=[];let nCasos=0;
+    for(let h=0;h<24;h++)if(R.sinGenteDias[h]){nCasos+=R.sinGenteDias[h];hs0.push(String(h).padStart(2,'0')+'h ('+R.sinGenteDias[h]+' día'+(R.sinGenteDias[h]===1?'':'s')+')');}
     html+='<div style="border-left:4px solid var(--amber);background:rgba(245,158,11,.08);border-radius:0 8px 8px 0;padding:10px 14px;margin-top:14px;">'
-      +'<div style="font-weight:700;color:var(--amber);font-size:13px;">⚠ Hay producción registrada fuera de todo turno</div>'
-      +'<div style="font-size:12px;color:var(--text2);margin-top:3px;">'+R.franja[0].horas+' hora(s) del día ('+hs0.join(', ')+') con producción pero sin nadie con turno asignado: '
-      +_prhN(R.franja[0].val)+' '+c.unidadCorta+' por día. O el turno está mal cargado, o se está registrando producción a destiempo.</div></div>';
+      +'<div style="font-weight:700;color:var(--amber);font-size:13px;">⚠ Hay producción registrada sin nadie fichado en planta</div>'
+      +'<div style="font-size:12px;color:var(--text2);margin-top:3px;">'+nCasos+' caso(s) en el mes, en '+hs0.join(', ')+': '
+      +_prhN(kgSinGente)+' '+c.unidadCorta+' en total. O alguien se olvidó de fichar, o se está registrando producción a destiempo.</div></div>';
   }
 
   // ---- rendimiento por dotación ----
@@ -31287,22 +31444,31 @@ async function renderProductividadHora(){
   // ---- detalle por hora ----
   let det='';
   for(let h=R.h0;h<=R.h1;h++){
-    const v=R.media[h],d=R.dot.porHora[h];
+    const v=R.media[h],d=R.dot.porHora[h],nh=R.diasHora[h]||0;
     det+='<tr style="border-top:1px solid var(--border);">'
       +'<td style="padding:6px;font-family:monospace;">'+String(h).padStart(2,'0')+':00</td>'
       +'<td style="text-align:center;font-weight:700;">'+_prhN(v)+'</td>'
+      +'<td style="text-align:center;color:'+(nh&&nh<3?'var(--amber)':'var(--text3)')+';">'+(nh||'—')+'</td>'
       +'<td style="text-align:center;color:var(--text2);">'+(d>0.05?_prhN(d,1):'—')+'</td>'
       +'<td style="text-align:center;color:var(--text2);">'+(d>0.05?_prhN(v/d):'—')+'</td>'
       +'<td style="text-align:center;color:var(--text3);">'+(c.capacidad>0?_prhN(v/c.capacidad*100)+'%':'—')+'</td>'
       +'</tr>';
   }
+  // Cuántos días de la ventana tuvo cada hora: si una franja arrancó a mitad de mes
+  // (la noche empezó el 19), su promedio se apoya en poquitos días y hay que decirlo.
+  const ndMax=Math.max.apply(null,R.diasHora.concat([0]));
+  const flacas=[];for(let h=R.h0;h<=R.h1;h++)if((R.diasHora[h]||0)>0&&R.diasHora[h]<3)flacas.push(String(h).padStart(2,'0')+'h');
   html+='<div class="ac-sec">🕐 HORA POR HORA</div>'
-    +'<table style="width:100%;font-size:12px;border-collapse:collapse;max-width:720px;">'
-    +'<tr style="text-align:left;color:var(--text3);font-size:10px;text-transform:uppercase;"><th style="padding:6px;">Hora</th><th style="text-align:center;">'+c.unidadCorta+' por hora</th><th style="text-align:center;">Gente</th><th style="text-align:center;">Por persona</th><th style="text-align:center;">% de la capacidad</th></tr>'
-    +det+'</table>';
+    +'<table style="width:100%;font-size:12px;border-collapse:collapse;max-width:780px;">'
+    +'<tr style="text-align:left;color:var(--text3);font-size:10px;text-transform:uppercase;"><th style="padding:6px;">Hora</th><th style="text-align:center;">'+c.unidadCorta+' por hora</th><th style="text-align:center;">Días</th><th style="text-align:center;">Gente</th><th style="text-align:center;">Por persona</th><th style="text-align:center;">% de la capacidad</th></tr>'
+    +det+'</table>'
+    +'<div style="font-size:11px;color:var(--text3);margin-top:8px;max-width:780px;">'
+    +'La columna <b>días</b> dice sobre cuántos días se sacó ese promedio: cada hora se divide por los días en que <b>esa hora</b> tuvo producción, no por los '+R.nd+' del mes. Sin eso, una hora que arrancó a mitad de mes (la noche) daba casi cero.'
+    +(flacas.length?' <span style="color:var(--amber);">Ojo con '+flacas.join(', ')+': menos de 3 días, todavía no es un promedio.</span>':'')
+    +'</div>';
 
   html+='<div style="font-size:11px;color:var(--text3);margin-top:16px;line-height:1.6;max-width:820px;">'
-    +'<b>Cómo leerlo.</b> '+c.nota+' Se promedia sobre los '+R.nd+' días hábiles con producción del mes; sábados y domingos quedan afuera. '
+    +'<b>Cómo leerlo.</b> '+c.nota+' El mes tuvo producción en '+R.nd+' día'+(R.nd===1?'':'s')+' (sábados incluidos), y cada hora se promedia sobre los días en que esa hora se trabajó — entre 1 y '+ndMax+' según la franja. '
     +'La gente en planta no se carga a mano: sale del turno esperado de cada empleado de '+c.titulo.toLowerCase()+' más las horas extra fijas del turno, el mismo motor que usa el informe de horarios — si la rotación está mal configurada, acá se nota. '
     +'La capacidad ('+_prhN(c.capacidad)+' '+c.unidadCorta+'/h) es la nominal de las máquinas en servicio: '+c.capNota+'. '
     +'Ojo con una trampa del dato: la marca de tiempo es el momento en que se registró la pieza, no la producción minuto a minuto, así que una pieza que arrancó a las 9 y se cerró a las 11 cuenta en las 11. Las primeras horas se ven algo más flojas de lo que son; la comparación entre franjas se mantiene.'
@@ -38484,6 +38650,177 @@ async function guardarAjusteStock(){
     _ajusteEnCurso=false;
     const b=document.getElementById('aj-guardar');if(b){b.disabled=false;b.textContent='Registrar ajuste';}
   }
+}
+
+// ===== CONTEO FÍSICO DE BOLSAS (build 2026-08-19m) =====
+// Por qué existe: el stock del sistema arrancó en mayo sin un conteo físico que lo valide,
+// y la época anterior al libro (19/06) tenía el bug del doble conteo al cerrar OCs con
+// parciales. Al 20/08 había 344.132 paq en filas que nadie tocaba desde antes del libro.
+// Ninguna reconciliación de datos puede decidir cuánto hay EN EL DEPÓSITO: se cuenta.
+// La diferencia se asienta por el RPC (faltante/sobrante de conteo, CON costo marginal),
+// así el resultado del mes absorbe la verdad de una vez en lugar de arrastrarla.
+let _CF={};              // producto_id → lo contado (se conserva entre re-renders)
+let _cfAplicando=false;
+function _cfCostoPaq(p){
+  // Mismo orden que las pantallas de precios: costo REAL (bolsas de los últimos 30 días)
+  // y, si el producto no se produjo hace un mes —típico del stock viejo que justamente
+  // se está contando—, el TEÓRICO (fórmula × lotes). Sin costo, el ajuste va sin valuar.
+  try{
+    const kg=lpGetKgPaq(p)||0;
+    if(!(kg>0))return 0;
+    const ckg=(lpGetCostoRealKg(p.id)||0)||(lpGetCostoTeorico(p.id)||0);
+    return ckg>0?r2(kg*ckg):0;
+  }catch(e){return 0;}
+}
+function _cfLista(){
+  const vivos={};
+  (C.stock_bolsas||[]).forEach(s=>{
+    if(s.estado!=='disponible'&&s.estado!=='reservado')return;
+    const v=parseFloat(s.cantidad_paquetes)||0;
+    if(!vivos[s.producto_id])vivos[s.producto_id]={disp:0,res:0};
+    if(s.estado==='disponible')vivos[s.producto_id].disp+=v;else vivos[s.producto_id].res+=v;
+  });
+  const todos=document.getElementById('cf-todos')?.checked;
+  const base=todos?C.productos:(C.productos||[]).filter(p=>vivos[p.id]&&(vivos[p.id].disp+vivos[p.id].res)>0);
+  return _prodOrdenados(base).map(p=>{
+    const v=vivos[p.id]||{disp:0,res:0};
+    return {p,disp:v.disp,res:v.res,vivo:r2(v.disp+v.res),costoPaq:_cfCostoPaq(p)};
+  });
+}
+function renderConteoBolsas(){
+  const root=document.getElementById('cf-tbl');if(!root)return;
+  // guardar lo tipeado antes de redibujar
+  document.querySelectorAll('[id^="cf-in-"]').forEach(i=>{
+    const pid=parseInt(i.id.slice(6));
+    if(i.value==='')delete _CF[pid];else _CF[pid]=parseFloat(i.value);
+  });
+  const q=(document.getElementById('cf-search')?.value||'').toLowerCase().trim();
+  let lista=_cfLista();
+  if(q)lista=lista.filter(({p})=>((p.codigo||'')+' '+(p.descripcion||'')).toLowerCase().includes(q));
+  let filas='',nCont=0,paqDif=0,valDif=0,sinCosto=0;
+  lista.forEach(({p,disp,res,vivo,costoPaq})=>{
+    const cont=_CF[p.id];
+    const tiene=cont!=null&&!isNaN(cont);
+    const dif=tiene?r2(cont-vivo):null;
+    if(tiene){nCont++;if(Math.abs(dif)>0.001){paqDif+=dif;valDif+=dif*costoPaq;if(!costoPaq)sinCosto++;}}
+    filas+='<tr style="border-top:1px solid var(--border);">'
+      +'<td style="padding:6px 8px;font-family:monospace;">'+escapeHtml(p.codigo||'')+'</td>'
+      +'<td style="padding:6px 8px;">'+escapeHtml(p.descripcion||'')+'</td>'
+      +'<td style="text-align:right;padding:6px 8px;font-family:monospace;">'+disp.toLocaleString('es-AR')+'</td>'
+      +'<td style="text-align:right;padding:6px 8px;font-family:monospace;color:var(--text2);">'+res.toLocaleString('es-AR')+'</td>'
+      +'<td style="text-align:right;padding:6px 8px;font-family:monospace;font-weight:700;">'+vivo.toLocaleString('es-AR')+'</td>'
+      +'<td style="padding:4px 8px;"><input id="cf-in-'+p.id+'" type="number" min="0" step="1" value="'+(tiene?cont:'')+'" oninput="cfInput('+p.id+')" style="width:110px;text-align:right;font-family:monospace;"></td>'
+      +'<td id="cf-dif-'+p.id+'" style="text-align:right;padding:6px 8px;font-family:monospace;font-weight:700;color:'+(dif==null?'var(--text3)':(Math.abs(dif)<=0.001?'var(--green)':(dif<0?'var(--red)':'var(--amber)')))+';">'
+        +(dif==null?'—':(Math.abs(dif)<=0.001?'✓':(dif>0?'+':'')+dif.toLocaleString('es-AR')))+'</td>'
+      +'<td style="text-align:right;padding:6px 8px;font-family:monospace;color:var(--text3);">'+(costoPaq?'$'+costoPaq.toLocaleString('es-AR'):'<span style="color:var(--amber)" title="Producto sin costo real calculable: la diferencia se asienta sin valuar">⚠ s/costo</span>')+'</td>'
+      +'</tr>';
+  });
+  const res=document.getElementById('cf-resumen');
+  const modo=_cfModo();
+  if(res){
+    res.innerHTML=nCont
+      ?'<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:var(--bg3);border-radius:var(--rl);padding:10px 14px;">'
+        +'<span style="font-size:12px;color:var(--text2);"><b>'+nCont+'</b> producto'+(nCont===1?'':'s')+' contado'+(nCont===1?'':'s')+'</span>'
+        +'<span style="font-size:12px;font-family:monospace;color:'+(paqDif<0?'var(--red)':'var(--amber)')+';font-weight:700;">dif '+(paqDif>0?'+':'')+r2(paqDif).toLocaleString('es-AR')+' paq</span>'
+        +(modo==='real'
+          ?'<span style="font-size:12px;font-family:monospace;color:'+(valDif<0?'var(--red)':'var(--amber)')+';">'+(valDif>0?'+':'')+'$'+r2(valDif).toLocaleString('es-AR')+' al costo marginal</span>'
+            +(sinCosto?'<span style="font-size:11px;color:var(--amber);">⚠ '+sinCosto+' sin costo (se asientan sin valuar)</span>':'')
+          :'<span style="font-size:12px;color:var(--text2);">sin efecto económico — corrección de carga</span>')
+        +'<button class="btn btn-sm" style="background:var(--accent);color:#fff;border:none;margin-left:auto;" onclick="cfAplicar()">✅ Aplicar diferencias</button>'
+      +'</div>':'';
+  }
+  root.innerHTML='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">'
+    +'<tr style="color:var(--text3);font-size:10px;text-transform:uppercase;">'
+    +'<th style="text-align:left;padding:6px 8px;">Cód</th><th style="text-align:left;padding:6px 8px;">Producto</th>'
+    +'<th style="text-align:right;padding:6px 8px;">Disp.</th><th style="text-align:right;padding:6px 8px;">Reserv.</th>'
+    +'<th style="text-align:right;padding:6px 8px;">Sistema</th><th style="text-align:left;padding:6px 8px;">Contado (paq)</th>'
+    +'<th style="text-align:right;padding:6px 8px;">Diferencia</th><th style="text-align:right;padding:6px 8px;">Costo/paq</th></tr>'
+    +filas+'</table></div>'
+    +(lista.length?'':'<div class="empty" style="padding:30px;text-align:center;color:var(--text3);">Nada que coincida con el filtro.</div>');
+}
+function _cfModo(){return document.querySelector('input[name="cf-modo"]:checked')?.value||'correccion';}
+function cfInput(pid){
+  const i=document.getElementById('cf-in-'+pid);if(!i)return;
+  if(i.value==='')delete _CF[pid];else _CF[pid]=parseFloat(i.value);
+  renderConteoBolsas();
+}
+function cfPlanilla(){
+  // Planilla A CIEGAS: sin las cantidades del sistema, para que el conteo no se contamine.
+  const lista=_cfLista();
+  let filas='';
+  lista.forEach(({p},i)=>{
+    const emp=C.emp.find(e=>e.id===p.empaque_id);
+    filas+='<tr><td style="font-family:monospace;">'+escapeHtml(p.codigo||'')+'</td>'
+      +'<td>'+escapeHtml(p.descripcion||'')+'</td>'
+      +'<td style="text-align:center;">'+(emp?.unidades||'—')+'</td>'
+      +'<td style="border:1.5px solid #333;min-width:90px;"></td><td style="min-width:140px;"></td></tr>';
+  });
+  const w=window.open('','_blank');
+  w.document.write('<html><head><title>Conteo físico de bolsas</title><style>'
+    +'body{font-family:Arial,sans-serif;font-size:11px;margin:24px;}h2{margin:0 0 2px;}table{width:100%;border-collapse:collapse;margin-top:12px;}'
+    +'th,td{border:1px solid #999;padding:5px 7px;text-align:left;}th{background:#eee;font-size:10px;text-transform:uppercase;}'
+    +'@media print{button{display:none!important;}}'
+    +'</style></head><body>'
+    +'<h2>📋 Conteo físico de bolsas — ARIALPLAST</h2>'
+    +'<div>Fecha: '+localDate()+' &nbsp;·&nbsp; Contó: ______________________ &nbsp;·&nbsp; Hoja ___ de ___</div>'
+    +'<div style="margin-top:4px;color:#555;">Contar PAQUETES por producto (bolsones × paq/bolsón + sueltos). No mirar el sistema antes de contar.</div>'
+    +'<button onclick="print()" style="margin-top:10px;">🖨 Imprimir</button>'
+    +'<table><tr><th>Cód</th><th>Producto</th><th>u/paq</th><th>CONTADO (paq)</th><th>Observaciones</th></tr>'+filas+'</table>'
+    +'</body></html>');
+  w.document.close();
+}
+async function cfAplicar(){
+  pedirAdminYEjecutar(async()=>{
+    if(_cfAplicando)return;
+    // releer lo tipeado y armar los ajustes
+    document.querySelectorAll('[id^="cf-in-"]').forEach(i=>{
+      const pid=parseInt(i.id.slice(6));
+      if(i.value==='')delete _CF[pid];else _CF[pid]=parseFloat(i.value);
+    });
+    const lista=_cfLista();
+    const ajustes=[];
+    lista.forEach(({p,vivo,costoPaq})=>{
+      const cont=_CF[p.id];
+      if(cont==null||isNaN(cont))return;
+      const dif=r2(cont-vivo);
+      if(Math.abs(dif)<=0.001)return;
+      ajustes.push({p,vivo,cont,dif,costoPaq});
+    });
+    if(!ajustes.length){toast('No hay diferencias para aplicar','amber');return;}
+    const paqDif=ajustes.reduce((s,a)=>s+a.dif,0);
+    const valDif=ajustes.reduce((s,a)=>s+a.dif*a.costoPaq,0);
+    // Modo elegido arriba. CORRECCIÓN (lo normal acá): el stock sobrante nunca se produjo —
+    // no gastó materia prima ni horas — así que NO es plata perdida y el resultado no se toca
+    // (criterio de German, 21/08: "nunca la produje, no es plata que perdí"). REAL: bolsas que
+    // sí existieron y desaparecieron/aparecieron → faltante/sobrante con costo, pega al mes.
+    const modo=_cfModo();
+    if(!confirm('Se van a asentar '+ajustes.length+' ajuste(s) de conteo:\n\n'
+      +ajustes.map(a=>'  '+(a.p.codigo||'')+' '+(a.dif>0?'+':'')+a.dif.toLocaleString('es-AR')+' paq').join('\n')
+      +'\n\nTotal: '+(paqDif>0?'+':'')+r2(paqDif).toLocaleString('es-AR')+' paq.'
+      +(modo==='real'
+        ?'\nPÉRDIDA/HALLAZGO REAL: '+(valDif>0?'+':'')+'$'+r2(valDif).toLocaleString('es-AR')+' al costo marginal — pega en el resultado del mes.'
+        :'\nERROR DE REGISTRO: corrección de carga, SIN efecto económico — el resultado del mes no se toca.')
+      +'\n¿Aplicar?'))return;
+    _cfAplicando=true;
+    let ok=0,mal=0;
+    try{
+      for(const a of ajustes){
+        const conCosto=modo==='real'&&a.costoPaq>0;
+        const{data,error}=await sb.rpc('ajuste_stock_bolsas',{
+          p_producto_id:a.p.id,p_paquetes:a.dif,
+          p_tipo:modo==='real'?(a.dif<0?'ajuste_neg':'ajuste_pos'):'ajuste_neutro',
+          p_motivo_cod:modo==='real'?(a.dif<0?'faltante':'sobrante'):'correccion',
+          p_impacta:conCosto,p_costo:conCosto?a.costoPaq:null,
+          p_obs:'Conteo físico '+localDate()+': sistema '+a.vivo.toLocaleString('es-AR')+', contado '+a.cont.toLocaleString('es-AR')+(modo==='real'?'':' · error de registro, sin efecto económico')});
+        if(error||(data&&data.ok===false)){mal++;console.error('conteo:',a.p.codigo,error?.message||data?.msg);
+          toast('⚠ '+(a.p.codigo||'')+': '+(error?.message||data?.msg||'no se pudo asentar'),'red');}
+        else{ok++;delete _CF[a.p.id];}
+      }
+    }finally{_cfAplicando=false;}
+    toast(mal?('Asentados '+ok+' · fallaron '+mal):'✅ Conteo asentado: '+ok+' ajuste(s)',mal?'amber':'green');
+    await reload();
+    renderConteoBolsas();
+  });
 }
 
 // Reconstruir movimientos desde stock_bolsas (cada registro es un evento)
