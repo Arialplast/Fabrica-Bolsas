@@ -709,7 +709,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-08-19m</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-08-26a</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5356,7 +5356,131 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-08-19m';
+const APP_BUILD='2026-08-26a';
+  // 26a: "EL PEDIDO DE BARRIENTOS TIENE DOS ORDENES DE CORTE EN ALGUNAS MEDIDAS, YO NO
+  //      QUIERO ESO". En el PED-06017 cuatro lineas (80x110 y 90x120, POLIPLAST y ARIAL)
+  //      quedaron con DOS OC y DOS OE cada una: ~11.500 m y ~407 kg de mas cargados en la
+  //      extrusora 1. El camino: a las 19:00 se confirmaron esas cuatro tandas sueltas
+  //      (confirmarTandasParcial, que SI sella _confirmada y deja el pedido en Borrador
+  //      porque quedaban tandas), y a las 19:04 se apreto "Confirmar pedido" — y
+  //      confirmarPedido recorria plan.ordenes.filter(x=>x.confirmar&&x.numero_orden) SIN
+  //      MIRAR NI EL SELLO NI LAS OC QUE YA EXISTIAN. O sea: el camino A no sabia nada de
+  //      lo que habia hecho el camino B. Se limpiaron a mano las 4 OC + 4 OE huerfanas
+  //      (limpiar_duplicados_barrientos_2026-08-26.sql) y ahora hay CANDADO en tres capas:
+  //      (1) _paqYaEnOC(pedidoId,productoId) suma los paquetes ya lanzados leyendo
+  //          pedido_ordenes_corte + ordenes_corte no canceladas — señal robusta, NO depende
+  //          del sello (los planes anteriores al 24b no lo tienen);
+  //      (2) por linea: si lo pedido ya esta cubierto, se saltea entera; si esta cubierto a
+  //          medias, se genera SOLO EL FALTANTE (pendPaq). Sin nada lanzado pendPaq queda
+  //          en Infinity y el flujo normal no cambia — el redondeo a bolson (4500 pedidos
+  //          → 4600 en OC) no dispara falsos positivos;
+  //      (3) por tanda: la que ya tiene _confirmada no se regenera.
+  //      Y la linea que el candado saltea entera TAMPOCO genera OE (si no, seguia
+  //      extrusandose material para una OC que ya existia). Los salteos se avisan en el
+  //      toast ambar, con producto, paquetes y motivo: nada se descarta en silencio.
+  //      confirmarTandasParcial tambien saltea ahora las lineas sin tandas ya confirmadas.
+  //      Verificado con smoke_dupoc.js: 17 asserts, incluido el caso real de BARRIENTOS.
+  // 25c: "NO ME APARECE LA NOTA DE DEBITO EN NUEVO RECIBO, A DONDE IMPUTO EL E-CHEQ DE 2
+  //      MILLONES". El 25b arreglo CUATRO pantallas y me faltaba LA QUINTA — justo la que
+  //      German necesitaba. Hay DOS caminos para imputar y son codigo distinto:
+  //        · abrirImputarRecibo  → 💵 Imputar sobre un recibo YA emitido (arreglado en 25b)
+  //        · Nuevo recibo        → renderComprobantesParaImputar (SEGUIA sin notas de debito)
+  //      El alta de recibo solo ofrecia FACTURA / RV / SALDO INICIAL, asi que un cliente con
+  //      una ND por cheque rechazado no tenia donde imputarle el valor de reemplazo.
+  //      REGLA: cuando dos pantallas contestan LA MISMA pregunta con codigo distinto, el fix
+  //      se aplica a las dos o no se aplico. Buscar por la PREGUNTA ("que le puedo imputar a
+  //      este cliente"), no por el nombre de la funcion — es la regla del 19e otra vez.
+  //      Ahora la ND entra en los cuatro puntos del alta: la lista (destacada en ambar, con
+  //      el porque al lado), ⚡ Imputar automaticamente (las ND van PRIMERO: plata que ya se
+  //      cayo una vez se cancela antes que una venta a plazo), el control anti-sobreaplicacion
+  //      y el guardado (recibo_notas_debito; el saldo de la ND se DERIVA, no se muta).
+  //      + imprimirRecibo mostraba solo facturas y RVs: un recibo que cancela una ND salia
+  //      cobrando de mas y aplicando de menos, y el cliente no veia donde fue su plata.
+  //      + calcularSaldosCliente sumaba las ND por MONTO pleno (mismo bug que _c360Saldo en
+  //      el 25b, en otra pantalla): ahora por _saldoND y via _ndsCliente.
+  //      + la cadena de un recibo en el 360 muestra las notas de debito que cancela.
+  // 25b: EL CHEQUE RECHAZADO QUE VOLVIA UNA DEUDA INVISIBLE. German: cambio el e-cheq
+  //      29673087 de BIGVEF ($1.265.180,44) en el GALICIA y vino RECHAZADO. El boton
+  //      Rechazar hacia bien las tres cosas de plata (ND al cliente, egreso del banco por
+  //      el nominal, cheque marcado), PERO la ND de un cheque rechazado se inserta SIN
+  //      doc_tipo (no corrige ninguna factura: nace de un hecho, no de un comprobante) y
+  //      CUATRO pantallas filtraban las ND del cliente con `&& n.doc_tipo`: saldo del 360,
+  //      cuenta corriente del 360, cuenta corriente del modulo de cobranzas y la lista de
+  //      destinos al imputar un recibo. Resultado: la deuda no aparecia por ningun lado y
+  //      NO SE PODIA COBRAR — mientras el aging y el DSO, que no filtran, SI la contaban.
+  //      El sistema se contradecia a si mismo. Nunca se habia rechazado un cheque, asi que
+  //      el agujero jamas se activo.
+  //      Fix: `_ndsCliente(cliId,plano)` es LA definicion de "las ND vivas de un cliente"
+  //      y acepta las dos procedencias — `doc_tipo` (ajuste de comprobante) u `origen`
+  //      (cheque_rechazado). Las cuatro pantallas pasan por ahi. `_ndOrigenLbl` pone el
+  //      porque a la vista ("cheque rechazado") donde antes iba el motivo del modulo de
+  //      notas, que en estas es null.
+  //      REGLA: cuando una fila puede nacer de dos caminos, el filtro que la busca no puede
+  //      pedir la marca de UNO solo. Y el sintoma a mirar: media app la cuenta y la otra
+  //      media no — eso no es un dato faltante, es un filtro que se quedo viejo.
+  //      + En la cartera, el cheque rechazado muestra SU nota de debito y cuanto falta
+  //      cobrar de ella (`chNDdeCheque`, por vinculo y con fallback por origen), y un boton
+  //      💵 Cobrar (`chCobrarRechazado`) que lleva al recibo del cliente con el importe a
+  //      imputar en el toast. No se "canjea" el cheque: el valor de reemplazo puede ser por
+  //      mas (el resto va a las facturas abiertas) o por menos (la ND queda con saldo).
+  // 25a: EL RECIBO DE COLLINET QUE APARECIA EN EL 360 DE CAGLIARDI + PASAR UN RV A BLANCO.
+  //      (1) c360VerTraza tenia UN SOLO else para todo lo que no fuera factura/remito/pedido,
+  //      y la cuenta corriente empuja filas con tipo 'rv', 'nc' y 'nd'. Click en la fila del
+  //      RV-000141 (id 142) caia en la rama de recibo y buscaba C.recibos por id 142 → el
+  //      REC-000055 de COLLINET, otro cliente. Coincidencia de ids entre dos tablas: la cadena
+  //      mostraba plata ajena en el 360 de un cliente. Ahora cada tipo tiene su rama
+  //      (_c360TrazaRV nueva) y el else de recibo es explicito; el recibo ademas muestra los
+  //      RVs que cancela (antes solo miraba recibo_facturas).
+  //      REGLA: un dispatch por tipo con un else atrapatodo miente en cuanto aparece un tipo
+  //      nuevo, y con ids autoincrementales en tablas distintas la mentira es plausible.
+  //      (2) Boton ⇄ BLANCO en la lista de RV: una venta que salio por remito valorizado y en
+  //      realidad iba en blanco. Anula el RV, libera sus remitos al plano formal, pasa los
+  //      pedidos que se pueden a circuito blanco (mismo motor _pedTotalesCircuito que ⇄
+  //      Circuito) y deja al usuario en Nueva factura con los remitos tildados. Subtotal
+  //      intacto, lo que aparece es el IVA. Bloqueado si el RV tiene plata encima (recibo,
+  //      compensacion, NC) o ND viva. Un pedido con OTRO comprobante vivo NO se voltea: se
+  //      mueven sus remitos y se avisa (el plano del remito manda para facturar, el del
+  //      pedido para el flujo de caja).
+  //      (3) Doble valorizacion: el selector de Nueva factura filtraba por factura_id pero NO
+  //      por rv_id — un remito ya valorizado en un RV vivo se podia facturar ademas. Espejo
+  //      del mismo agujero en Nuevo RV (no miraba factura_id). Los dos filtran ahora, y un
+  //      comprobante ANULADO vuelve a liberar el remito.
+  // 24b: TANDAS HUERFANAS SIN FALSOS POSITIVOS + SELLOS EN CAMINO A. Detector central
+  //      _tandasHuerfanasPedido cruza el plan contra las OCs reales del pedido (el camino A
+  //      historico no sellaba _confirmada → el boton "Recuperar a Borrador" acusaba pedidos
+  //      sanos). confirmarPedido ahora sella _confirmada y persiste plan_ordenes; recuperar
+  //      a Borrador sana sellos faltantes antes de volver (evita duplicar OC/OE); la lista
+  //      de pedidos muestra badge rojo "N tandas sin OC" en pedidos activos afectados.
+  // 24a: EL INVARIANTE DE RECIBOS APRENDIO A CONTAR LAS NOTAS DE DEBITO. La pantalla Salud del
+  // flujo acusaba en rojo "Recibo RECI-000109: total_aplicado $116.430 vs aplicaciones $0" —
+  // plata mal contada, decia. FALSA ALARMA con causa real: las aplicaciones de un recibo viven
+  // en CUATRO tablas (recibo_facturas, recibo_rvs, recibo_saldos_iniciales y
+  // recibo_notas_debito — esta ultima la escribe aplicarImputacion con destino NOTA_DEBITO,
+  // el camino 💵 Imputar de la cuenta corriente), y _saludFlujoChecks sumaba solo las tres
+  // primeras. El RECI-000109 esta perfecto: cobro $116.430 y los aplico entero a la ND de
+  // MARISANI (la del caso 13c.2, NC anulada → ND emitida). El checker era el ciego, no el dato.
+  // Fix: (1) sumApl incluye recibo_notas_debito; (2) si los recibos cargaron DEGRADADOS (la
+  // carga blindada _cargarRecibos puede omitir justamente ese embed), el chequeo NO acusa con
+  // datos incompletos: avisa en ambar que no pudo auditar y listo — un rojo de "plata mal
+  // contada" fabricado por un embed ausente es peor que no chequear. Display/chequeo puro:
+  // ningun motor de saldos tocado.
+  // 21a: LOS KG DE MP SE MUESTRAN SIEMPRE CON COMA DECIMAL VISIBLE. German, mirando el
+  // inventario fisico: reporto "error importante en stock de materia prima base" — y el error
+  // no existia: en la columna Sistema convivian "7.025" (SIETE MIL kg del lote nuevo, punto de
+  // miles) y "7,962" (OCHO kg de colorante, coma decimal), visualmente identicos. Se audito el
+  // backup del 21/08 completo antes de tocar nada: el libro de mov_mp coincide EXACTO con
+  // kg_disponibles en los 9 lotes vivos, cada bobina de agosto tiene su consumo de base (97%
+  // de los kg producidos), y la separacion negro/caramelo del 12/08 (APERTURA-NEGRO) esta bien
+  // asentada. El fix es de LECTURA, no de datos: nuevo helper global kgFmt(n) =
+  // toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:3}) — todo kg lleva
+  // coma decimal ("7.025,0" / "581,224" / "0,0"), asi el punto de miles no puede leerse como
+  // decimal. Aplicado en TODO el modulo de MP: KPIs y tabla de Stock MP, formulario de
+  // inventario (Sistema/Real/Diferencia + % en es-AR + resumen), historial de inventarios con
+  // su detalle, modal de ajuste de lote (saldo/real/diferencia), kardex del lote (kg/saldo) y
+  // trazabilidad (KPIs y tarjetas por lote). De paso la columna Diferencia del inventario, que
+  // mostraba el numero crudo de JS con PUNTO decimal ("-581.224") al lado de un Sistema con
+  // coma, quedo en es-AR — eran dos formatos contradictorios en la misma fila. Ningun calculo
+  // ni guardado cambia: kgFmt es solo presentacion.
   // 19h: EL CORTE YA USABA EMPLEADOS, Y BORRAR UN OPERARIO PODIA ROMPER LA HISTORIA. German:
   // "¿y en el corte? además a Celia Araujo la borro porque me aparece para cargar bobinas".
   // (1) EN CORTE NO HAY QUE HACER NADA: el panel de confeccion elige el nombre de una lista de
@@ -5770,6 +5894,10 @@ const r4=n=>Math.round(n*10000)/10000;
 const r1=n=>Math.round(n*10)/10;
 const r3=n=>Math.round(n*1000)/1000;
 const r6=n=>Math.round(n*1000000)/1000000;
+// kg SIEMPRE con coma decimal visible ("7.025,0" / "581,224"): sin esto, en una misma
+// columna convivían "7.025" (siete mil, punto de miles) y "7,962" (ocho kg, coma decimal)
+// y se leían igual. Pedido de German 21/08 tras confundirse en el inventario de MP.
+const kgFmt=n=>(parseFloat(n)||0).toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:3});
 function lunesDeHoy(){const d=new Date();d.setHours(0,0,0,0);const day=d.getDay();d.setDate(d.getDate()-(day===0?6:day-1));return d;}
 function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
 function dStr(d){return new Date(d).toISOString().slice(0,10);}
@@ -8158,13 +8286,21 @@ function _c360Saldo(id){
   _c360Rvs(id).forEach(r=>{s+=_saldoRV(r);});
   _c360SaldosIni(id).forEach(si=>{s+=_saldoInicial(si);});
   _c360Recibos(id).forEach(r=>{const disp=(parseFloat(r.total_cobrado)||0)+(parseFloat(r.total_retenciones)||0)-(parseFloat(r.total_aplicado)||0);if(disp>0.01)s-=disp;});
-  (C.notas_debito||[]).filter(n=>n.tipo_entidad==='cliente'&&n.entidad_id===id&&!n.anulada&&n.doc_tipo).forEach(n=>{s+=parseFloat(n.monto)||0;});
+  // La ND entra por su SALDO derivado, no por el monto (P1): las otras cuatro líneas de
+  // este saldo ya son netas de lo cobrado, y el recibo sólo descuenta acá su crédito SIN
+  // imputar — así que sumar el monto pleno dejaba adentro para siempre lo que un recibo
+  // ya había pagado de la ND. A MARISANI le inflaba el saldo en los $116.430 de la
+  // ND-X-00001, cobrada entera por RECI-000109 (el caso del 24a).
+  _ndsCliente(id).forEach(n=>{s+=_saldoND(n);});
   return r2(s);
 }
 function _c360Vencido(id){
   const hoy=localDate();let v=0;
   _c360Facturas(id).forEach(f=>{const sal=_saldoFactura(f);if(sal>0.01){const vto=f.vencimiento||f.fecha_vto||f.fecha;if(vto&&String(vto)<hoy)v+=sal;}});
   _c360Rvs(id).forEach(r=>{const sal=_saldoRV(r);if(sal>0.01){const vto=r.vencimiento||r.fecha;if(vto&&String(vto)<hoy)v+=sal;}});
+  // Una ND sin cobrar también está vencida: la del cheque rechazado es plata que ya se
+  // cayó, no una venta a plazo. Mismo criterio que las otras dos — saldo derivado y fecha.
+  _ndsCliente(id).forEach(n=>{const sal=_saldoND(n);if(sal>0.01&&n.fecha&&String(n.fecha)<hoy)v+=sal;});
   return r2(v);
 }
 // Métricas comerciales (sobre todos los remitos): kg, $, costo, $/kg, rentabilidad %
@@ -8235,7 +8371,7 @@ function _c360MovsCC(id){
   _c360SaldosIni(id).forEach(si=>M.push({fecha:si.fecha_estimada_cobro||_c360Fecha(si),ref:'Saldo inicial '+(si.concepto||''),debe:parseFloat(si.monto)||0,haber:0,tipo:null}));
   _c360Recibos(id).forEach(r=>M.push({fecha:_c360Fecha(r),ref:'Recibo '+(r.numero||'#'+r.id),debe:0,haber:parseFloat(r.total_cobrado)||0,tipo:'recibo',docId:r.id}));
   (C.notas_credito||[]).filter(n=>n.cliente_id===id&&n.estado!=='anulada').forEach(n=>M.push({fecha:n.fecha,ref:'Nota de crédito '+(n.numero||('#'+n.id)),debe:0,haber:parseFloat(n.total)||0,tipo:'nc',docId:n.id}));
-  (C.notas_debito||[]).filter(n=>n.tipo_entidad==='cliente'&&n.entidad_id===id&&!n.anulada&&n.doc_tipo).forEach(n=>M.push({fecha:n.fecha,ref:'Nota de débito '+(n.numero||n.numero_doc||('#'+n.id)),debe:parseFloat(n.monto)||0,haber:0,tipo:'nd',docId:n.id}));
+  _ndsCliente(id).forEach(n=>M.push({fecha:n.fecha,ref:'Nota de débito '+(n.numero||n.numero_doc||('#'+n.id))+' · '+_ndOrigenLbl(n),debe:parseFloat(n.monto)||0,haber:0,tipo:'nd',docId:n.id}));
   M.sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)));
   let sal=0;M.forEach(m=>{sal=r2(sal+m.debe-m.haber);m.saldo=sal;});
   return M;
@@ -8264,7 +8400,21 @@ function _c360TrazaPedido(ped){
 }
 function _c360TrazaRecibo(rec){
   const facIds=(rec.recibo_facturas||[]).map(rf=>rf.factura_id);
-  return {facturas:(C.facturas||[]).filter(f=>facIds.includes(f.id))};
+  const rvIds=(rec.recibo_rvs||[]).map(rr=>rr.rv_id);
+  const ndIds=(rec.recibo_notas_debito||[]).map(rn=>rn.nota_debito_id);
+  return {facturas:(C.facturas||[]).filter(f=>facIds.includes(f.id)),
+          rvs:(C.rvs||[]).filter(v=>rvIds.includes(v.id)),
+          nds:(C.notas_debito||[]).filter(n=>ndIds.includes(n.id))};
+}
+// La cadena de un REMITO VALORIZADO. El vínculo con los remitos vive en rv_remitos
+// (no en el remito), y lo cobran recibos vía recibo_rvs — NO vía recibo_facturas.
+function _c360TrazaRV(rv){
+  let remIds=(rv.rv_remitos||[]).map(x=>x.remito_id);
+  if(!remIds.length)remIds=(C.remitos||[]).filter(r=>String(r.rv_id)===String(rv.id)).map(r=>r.id);
+  const remitos=(C.remitos||[]).filter(r=>remIds.map(String).includes(String(r.id)));
+  const pedidos=(C.pedidos||[]).filter(p=>[...new Set(remitos.map(r=>r.pedido_id).filter(Boolean))].includes(p.id));
+  const recibos=(C.recibos||[]).filter(r=>(r.recibo_rvs||[]).some(rr=>String(rr.rv_id)===String(rv.id))&&r.estado!=='anulado');
+  return {remitos,pedidos,recibos};
 }
 function _c360Print(tipo,id){
   try{
@@ -8455,11 +8605,38 @@ function c360VerTraza(tipo,docId){
       +bloque('Remitos de entrega',tz.remitos,r=>chip('remito',r.id,'Remito '+(r.numero_remito||('#'+r.id)),_c360Fecha(r)))
       +bloque('Facturas',tz.facturas,f=>chip('factura',f.id,'Factura '+((f.tipo||'')+' '+(f.numero||('#'+f.id))),'$'+(parseFloat(f.total)||0).toLocaleString('es-AR')))
       +bloque('Órdenes de corte',tz.ocs,o=>chip(null,null,'OC '+(o.numero||('#'+o.id)),o.estado));
+  } else if(tipo==='rv'){
+    const v=(C.rvs||[]).find(x=>String(x.id)===String(docId));if(!v)return;const tz=_c360TrazaRV(v);
+    titulo='🧾 Remito valorizado '+(v.numero||('#'+v.id));
+    cuerpo=chip(null,null,'Total $'+(parseFloat(v.total)||0).toLocaleString('es-AR')+' · saldo $'+_saldoRV(v).toLocaleString('es-AR'),_c360Fecha(v)+' · '+(v.estado||''))
+      +bloque('Remitos que valoriza',tz.remitos,r=>chip('remito',r.id,'Remito '+(r.numero_remito||('#'+r.id)),_c360Fecha(r)))
+      +bloque('Pedidos de origen',tz.pedidos,p=>chip('pedido',p.id,'Pedido '+(p.numero_pedido||('#'+p.id)),p.estado))
+      +bloque('Recibos que lo cobran',tz.recibos,r=>chip('recibo',r.id,'Recibo '+(r.numero||('#'+r.id)),'$'+(parseFloat(r.total_cobrado)||0).toLocaleString('es-AR')));
+  } else if(tipo==='nc'){
+    const n=(C.notas_credito||[]).find(x=>String(x.id)===String(docId));if(!n)return;
+    const docs=n.doc_tipo==='rv'?(C.rvs||[]).filter(v=>String(v.id)===String(n.doc_id)):(C.facturas||[]).filter(f=>String(f.id)===String(n.doc_id));
+    titulo='↩️ Nota de crédito '+(n.numero||('#'+n.id));
+    cuerpo=chip(null,null,'Total $'+(parseFloat(n.total)||0).toLocaleString('es-AR'),_c360Fecha(n)+' · '+(n.estado||''))
+      +bloque('Comprobante que corrige',docs,d=>n.doc_tipo==='rv'
+          ?chip('rv',d.id,'RV '+(d.numero||('#'+d.id)),'$'+(parseFloat(d.total)||0).toLocaleString('es-AR'))
+          :chip('factura',d.id,'Factura '+((d.tipo||'')+' '+(d.numero||('#'+d.id))),'$'+(parseFloat(d.total)||0).toLocaleString('es-AR')));
+  } else if(tipo==='nd'){
+    const n=(C.notas_debito||[]).find(x=>String(x.id)===String(docId));if(!n)return;
+    const docs=n.doc_tipo==='rv'?(C.rvs||[]).filter(v=>String(v.id)===String(n.doc_id)):(C.facturas||[]).filter(f=>String(f.id)===String(n.doc_id));
+    const recibos=(C.recibos||[]).filter(r=>(r.recibo_notas_debito||[]).some(rn=>String(rn.nota_debito_id)===String(n.id))&&r.estado!=='anulado');
+    titulo='➕ Nota de débito '+(n.numero||n.numero_doc||('#'+n.id));
+    cuerpo=chip(null,null,'Monto $'+(parseFloat(n.monto)||0).toLocaleString('es-AR')+' · saldo $'+_saldoND(n).toLocaleString('es-AR'),_c360Fecha(n)+(n.concepto?' · '+n.concepto:''))
+      +bloque('Comprobante de origen',docs,d=>n.doc_tipo==='rv'
+          ?chip('rv',d.id,'RV '+(d.numero||('#'+d.id)),'$'+(parseFloat(d.total)||0).toLocaleString('es-AR'))
+          :chip('factura',d.id,'Factura '+((d.tipo||'')+' '+(d.numero||('#'+d.id))),'$'+(parseFloat(d.total)||0).toLocaleString('es-AR')))
+      +bloque('Recibos que la cobran',recibos,r=>chip('recibo',r.id,'Recibo '+(r.numero||('#'+r.id)),'$'+(parseFloat(r.total_cobrado)||0).toLocaleString('es-AR')));
   } else {
-    const r=(C.recibos||[]).find(x=>x.id===docId);if(!r)return;const tz=_c360TrazaRecibo(r);
+    const r=(C.recibos||[]).find(x=>String(x.id)===String(docId));if(!r)return;const tz=_c360TrazaRecibo(r);
     titulo='💵 Recibo '+(r.numero||('#'+r.id));
     cuerpo=chip(null,null,'Cobrado $'+(parseFloat(r.total_cobrado)||0).toLocaleString('es-AR'),_c360Fecha(r))
-      +bloque('Facturas que cancela',tz.facturas,f=>chip('factura',f.id,'Factura '+((f.tipo||'')+' '+(f.numero||('#'+f.id))),'$'+(parseFloat(f.total)||0).toLocaleString('es-AR')));
+      +bloque('Facturas que cancela',tz.facturas,f=>chip('factura',f.id,'Factura '+((f.tipo||'')+' '+(f.numero||('#'+f.id))),'$'+(parseFloat(f.total)||0).toLocaleString('es-AR')))
+      +bloque('Remitos valorizados que cancela',tz.rvs,v=>chip('rv',v.id,'RV '+(v.numero||('#'+v.id)),'$'+(parseFloat(v.total)||0).toLocaleString('es-AR')))
+      +(tz.nds&&tz.nds.length?bloque('Notas de débito que cancela',tz.nds,n=>chip('nd',n.id,'Nota de débito '+(n.numero||n.numero_doc||('#'+n.id)),_ndOrigenLbl(n))):'');
   }
   document.getElementById('c360-traza-modal')?.remove();
   document.body.insertAdjacentHTML('beforeend',
@@ -13037,6 +13214,25 @@ const ND_MOTIVOS=[
   {cod:'otro',         lbl:'Otro'}
 ];
 function _ndMotivoLbl(cod){const m=ND_MOTIVOS.find(x=>x.cod===cod);return m?m.lbl:(cod||'—');}
+// LA definición de "las notas de débito vivas de un cliente". Una ND aumenta la deuda
+// venga de donde venga: del ajuste de un comprobante (doc_tipo/doc_id) o de otro hecho
+// económico como un CHEQUE RECHAZADO (origen='cheque_rechazado', que NO tiene doc_tipo
+// porque no corrige ninguna factura). Cuatro pantallas filtraban por `&& n.doc_tipo` y
+// dejaban las de cheque rechazado invisibles — mientras el aging y el DSO sí las
+// contaban. Toda pantalla que pregunte "¿qué ND tiene este cliente?" pasa por acá.
+function _ndsCliente(cliId,plano){
+  return (C.notas_debito||[]).filter(n=>
+    n.tipo_entidad==='cliente' && String(n.entidad_id)===String(cliId) && !n.anulada
+    && (n.doc_tipo||n.origen)
+    && (plano==null || (n.plano||'formal')===plano));
+}
+// Etiqueta del porqué de una ND: el motivo del módulo de notas, o el origen si vino de otro lado.
+function _ndOrigenLbl(n){
+  if(n&&n.motivo_cod)return _ndMotivoLbl(n.motivo_cod);
+  if(n&&n.origen==='cheque_rechazado')return 'cheque rechazado';
+  if(n&&n.origen==='cheque_rechazado_endosado')return 'cheque endosado rechazado';
+  return n&&n.origen?String(n.origen).replace(/_/g,' '):'—';
+}
 function _ndDe(docTipo,docId){
   return (C.notas_debito||[]).filter(n=>n.doc_tipo===docTipo&&n.doc_id===docId&&!n.anulada);
 }
@@ -13855,6 +14051,12 @@ function onNfCliChange(){
 
   const remitos=(C.remitos||[]).filter(r=>{
     if(r.factura_id)return false;
+    // Un remito ya valorizado en un RV VIVO no se factura: sería cobrar dos veces la
+    // misma entrega. Si el RV está anulado el remito vuelve a estar disponible.
+    if(r.rv_id){
+      const _v=(C.rvs||[]).find(x=>String(x.id)===String(r.rv_id));
+      if(!_v||(_v.estado!=='anulada'&&_v.estado!=='anulado'))return false;
+    }
     if(r.estado==='anulado')return false;
     if(r.cliente_id!==id)return false;
     return planoRemito(r)==='formal';
@@ -14901,6 +15103,7 @@ function renderRVList(){
         +'<button class="btn btn-sm" onclick="imprimirRV('+rv.id+')">🖨</button> '
         +((rv.estado!=='anulado'&&rv.estado!=='anulada')?'<button class="btn btn-sm" onclick="abrirNotaCredito(\'rv\','+rv.id+')">NC</button> ':'')
         +((rv.estado!=='anulado'&&rv.estado!=='anulada')?'<button class="btn btn-sm" onclick="abrirNotaDebito(\'rv\','+rv.id+')">ND</button> ':'')
+        +_rvBotonBlanco(rv)
         +(_estadoRV(rv)!=='anulada' && _estadoRV(rv)!=='pagada' ? '<button class="btn btn-sm btn-del" onclick="anularRV('+rv.id+')">Anular</button>':'')
       +'</td>'
       +'</tr>';
@@ -14919,6 +15122,221 @@ async function anularRV(id){
     await reload();
     renderRVList();
     renderRemitosPendientesInformal();
+  });
+}
+
+// =================================================================
+// ===== PASAR UN RV DEL CIRCUITO NEGRO AL BLANCO ==================
+// =================================================================
+// Una venta que salió por remito valorizado (informal) y en realidad iba en blanco.
+// El RV no se "convierte": se ANULA y sus remitos vuelven a estar libres, ahora en
+// plano formal, para que la facturación normal los tome y salga la Factura A/B.
+// Igual que ⇄ Circuito de un pedido, esto NO toca precios ni cantidades: el subtotal
+// queda idéntico y lo que aparece es el IVA.
+// Se bloquea si el RV ya tiene plata encima (recibo, compensación, NC/ND): eso sería
+// reescribir un comprobante que alguien afuera ya usó — primero se anula esa plata.
+
+// Remitos que este RV valoriza (el vínculo vive en rv_remitos y también en remitos.rv_id).
+function _rvRemitosDe(rv){
+  const ids=new Set();
+  (rv&&rv.rv_remitos||[]).forEach(x=>ids.add(String(x.remito_id)));
+  (C.remitos||[]).forEach(r=>{if(rv&&String(r.rv_id)===String(rv.id))ids.add(String(r.id));});
+  return (C.remitos||[]).filter(r=>ids.has(String(r.id)));
+}
+// Notas de débito vivas emitidas sobre este RV (las NC ya entran por _aplicadoARV).
+function _rvNotasDebitoVivas(rv){
+  return (C.notas_debito||[]).filter(n=>n.doc_tipo==='rv'&&String(n.doc_id)===String(rv.id)&&!n.anulada);
+}
+function _rvBloqueoBlanco(rv){
+  const motivos=[];
+  if(!rv)return{bloqueado:true,motivos:['RV no encontrado'],remitos:[],pedidos:[],aplicado:0};
+  const est=_estadoRV(rv);
+  if(est==='anulada'||rv.estado==='anulado')motivos.push('el RV ya está anulado');
+  const aplicado=r2(_aplicadoARV(rv.id));
+  if(aplicado>0.01)motivos.push('ya tiene $'+aplicado.toLocaleString('es-AR')+' aplicados (recibo, compensación o nota de crédito)');
+  const nds=_rvNotasDebitoVivas(rv);
+  if(nds.length)motivos.push('tiene nota(s) de débito emitidas ('+nds.map(n=>n.numero||n.numero_doc||('#'+n.id)).join(', ')+')');
+  const remitos=_rvRemitosDe(rv).filter(r=>r.estado!=='anulado');
+  if(!remitos.length)motivos.push('no tiene remitos vivos que pasar (no hay qué facturar)');
+  const yaFacturado=remitos.filter(r=>r.factura_id);
+  if(yaFacturado.length)motivos.push('el/los remito(s) '+yaFacturado.map(r=>r.numero_remito||('#'+r.id)).join(', ')+' ya tienen factura');
+  const pedidos=(C.pedidos||[]).filter(p=>[...new Set(remitos.map(r=>r.pedido_id).filter(Boolean))].map(String).includes(String(p.id)));
+  return {bloqueado:motivos.length>0,motivos,remitos,pedidos,aplicado};
+}
+// De los pedidos del RV, cuáles se pueden pasar a blanco enteros y cuáles no.
+// El plano del REMITO es lo que manda para facturar (planoRemito lee r.plano primero);
+// el circuito del PEDIDO es lo que manda para el flujo de caja. Un pedido con OTRO
+// comprobante vivo no se toca: se dejan sus remitos en blanco y se avisa.
+function _rvPedidosParaBlanco(rv,remitos,pedidos){
+  const idsRV=new Set(remitos.map(r=>String(r.id)));
+  const flip=[],quedan=[];
+  (pedidos||[]).forEach(p=>{
+    if((p.tipo_venta||'blanco')!=='negro')return; // ya está en blanco
+    const otros=(C.remitos||[]).filter(r=>String(r.pedido_id)===String(p.id)&&r.estado!=='anulado'&&!idsRV.has(String(r.id)));
+    const conFactura=otros.filter(r=>r.factura_id);
+    const conOtroRV=otros.filter(r=>r.rv_id&&String(r.rv_id)!==String(rv.id))
+      .filter(r=>{const v=(C.rvs||[]).find(x=>String(x.id)===String(r.rv_id));return v&&v.estado!=='anulada'&&v.estado!=='anulado';});
+    const cobrado=(typeof _cobradoPedido==='function')?r2(_cobradoPedido(p)):0;
+    const m=[];
+    if(conFactura.length)m.push('tiene otro remito ya facturado');
+    if(conOtroRV.length)m.push('tiene otro remito en otro RV vivo');
+    if(cobrado>0.01)m.push('ya tiene $'+cobrado.toLocaleString('es-AR')+' cobrados');
+    if(p.es_historico)m.push('es un pedido histórico');
+    if(m.length)quedan.push({p,motivo:m.join(' · ')});else flip.push(p);
+  });
+  return {flip,quedan};
+}
+function _rvBotonBlanco(rv){
+  const b=_rvBloqueoBlanco(rv);
+  if(rv.estado==='anulada'||rv.estado==='anulado')return '';
+  if(b.bloqueado)return '<button class="btn btn-sm" style="opacity:.55;" title="No se puede: '+escapeHtml(b.motivos.join(' · '))+'" onclick="abrirPasarRVaBlanco('+rv.id+')">⇄ Blanco</button> ';
+  return '<button class="btn btn-sm" style="color:var(--accent);font-weight:700;" title="Pasar esta venta al circuito blanco y facturarla" onclick="abrirPasarRVaBlanco('+rv.id+')">⇄ Blanco</button> ';
+}
+function abrirPasarRVaBlanco(rvId){
+  const rv=(C.rvs||[]).find(x=>String(x.id)===String(rvId));
+  if(!rv){toast('RV no encontrado','red');return;}
+  const b=_rvBloqueoBlanco(rv);
+  const cli=(C.clientes||[]).find(c=>String(c.id)===String(rv.cliente_id));
+  const ped=_rvPedidosParaBlanco(rv,b.remitos,b.pedidos);
+  const sub=r2(parseFloat(rv.subtotal)||parseFloat(rv.total)||0);
+  const tipoFac=cli?(typeof tipoFacturaSegunCliente==='function'?tipoFacturaSegunCliente(cli.condicion_iva):'A'):'A';
+  const alic=parseFloat(cfg&&cfg.iva_alicuota_default)||21;
+  const discrimina=tipoFac==='A';
+  const iva=discrimina?r2(sub*alic/100):0;
+  const totalFac=r2(sub+iva);
+  const faltaCuit=!cli||!cli.cuit||String(cli.cuit).replace(/\D/g,'').length!==11;
+  const faltaDom=!cli||!cli.direccion;
+
+  const filaRem=b.remitos.length
+    ?b.remitos.map(r=>{const s=(r.remito_lineas||[]).reduce((a,l)=>a+(parseFloat(l.subtotal)||0),0);
+      return '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;"><span class="mono" style="color:var(--accent);font-weight:600;">'+escapeHtml(r.numero_remito||('#'+r.id))+'</span><span class="mono">'+fmtMoney(s)+'</span></div>';}).join('')
+    :'<div style="font-size:12px;color:var(--text3);">— sin remitos vivos —</div>';
+  const filaPed=(ped.flip.length||ped.quedan.length)
+    ?ped.flip.map(p=>'<div style="padding:3px 0;font-size:12px;"><span class="mono" style="font-weight:600;">'+escapeHtml(p.numero_pedido||('#'+p.id))+'</span> <span style="color:var(--green);">· pasa a ⚪ blanco</span></div>').join('')
+      +ped.quedan.map(q=>'<div style="padding:3px 0;font-size:12px;"><span class="mono" style="font-weight:600;">'+escapeHtml(q.p.numero_pedido||('#'+q.p.id))+'</span> <span style="color:var(--amber);">· queda en ⚫ negro ('+escapeHtml(q.motivo)+')</span></div>').join('')
+    :'<div style="font-size:12px;color:var(--text3);">Los pedidos ya están en blanco — solo se mueven los remitos.</div>';
+  const fila=(lbl,val,color)=>'<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px;">'
+    +'<span style="color:var(--text2);">'+lbl+'</span><span class="mono" style="font-weight:700;'+(color?'color:'+color+';':'')+'">'+fmtMoney(val)+'</span></div>';
+
+  document.getElementById('rvblanco-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="rvblanco-modal"><div class="modal-card" style="max-width:620px;max-height:92vh;overflow-y:auto;">'
+    +'<div class="modal-title">⇄ Pasar a blanco — '+escapeHtml(rv.numero||('#'+rv.id))+'</div>'
+    +'<div style="font-size:12px;color:var(--text2);margin-bottom:12px;">'+escapeHtml(rv.razon_social_cliente||cli?.razon_social||cli?.nombre||'—')+' · '+escapeHtml(rv.fecha||'')+'</div>'
+    +(b.bloqueado
+      ?'<div style="padding:10px 12px;border-left:3px solid var(--red);background:rgba(239,68,68,.08);border-radius:6px;font-size:12px;line-height:1.5;margin-bottom:12px;">'
+        +'<div style="font-weight:800;color:var(--red);">No se puede pasar este RV a blanco</div>'
+        +'<div style="color:var(--text2);margin-top:4px;">'+b.motivos.map(m=>'· '+escapeHtml(m)).join('<br>')+'</div>'
+        +'<div style="color:var(--text2);margin-top:6px;">Hay plata o comprobantes que ya cuentan con este RV. Anulá primero el recibo / la nota y volvé.</div>'
+      +'</div>'
+      :'<div style="padding:10px 12px;border-left:3px solid var(--amber);background:rgba(245,158,11,.08);border-radius:6px;font-size:12px;line-height:1.5;margin-bottom:12px;">'
+        +'Se <strong>anula el RV</strong>, sus remitos vuelven a quedar libres y pasan al <strong>circuito formal</strong>, listos para facturar. '
+        +'Los precios y las cantidades <strong>no se tocan</strong>: el subtotal queda igual y lo que aparece es el IVA.'
+      +'</div>')
+    +'<div style="background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--rl);padding:10px 14px;margin-bottom:12px;">'
+      +'<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Cómo queda la factura '+tipoFac+'</div>'
+      +fila('Subtotal (no cambia)',sub)
+      +fila(discrimina?('IVA '+alic+'%'):'IVA (no se discrimina en '+tipoFac+')',iva)
+      +'<div style="border-top:1px dashed var(--border);margin:5px 0;"></div>'
+      +fila('Total a facturar',totalFac,'var(--accent)')
+      +'<div style="font-size:12px;color:var(--text3);margin-top:5px;">Hoy el RV dice '+fmtMoney(parseFloat(rv.total)||0)+' y no lleva IVA.</div>'
+    +'</div>'
+    +((faltaCuit||faltaDom)&&!b.bloqueado
+      ?'<div style="padding:8px 12px;border-left:3px solid var(--amber);background:rgba(245,158,11,.08);border-radius:6px;font-size:12px;line-height:1.5;margin-bottom:12px;">'
+        +'<strong>Ojo con ARCA:</strong> a este cliente le falta '+[faltaCuit?'el CUIT':'',faltaDom?'el domicilio':''].filter(Boolean).join(' y ')+'. '
+        +'La factura se puede emitir igual, pero <strong>no va a poder sacar el CAE</strong> hasta que lo cargues en la ficha del cliente.'
+      +'</div>':'')
+    +'<div class="fp-t" style="margin-bottom:6px;">Remitos que se liberan</div>'
+    +'<div style="background:var(--bg3);border-radius:var(--r);padding:8px 12px;margin-bottom:12px;max-height:130px;overflow-y:auto;">'+filaRem+'</div>'
+    +'<div class="fp-t" style="margin-bottom:6px;">Pedidos</div>'
+    +'<div style="background:var(--bg3);border-radius:var(--r);padding:8px 12px;margin-bottom:12px;max-height:130px;overflow-y:auto;">'+filaPed+'</div>'
+    +'<div class="fg" style="margin-bottom:12px;"><label style="font-size:11px;">Motivo (queda en las notas internas del pedido)</label>'
+      +'<input id="rvb-motivo" type="text" placeholder="ej: la venta iba en blanco, se valorizó como informal por error"'+(b.bloqueado?' disabled':'')+'></div>'
+    +'<div class="btn-grp">'
+      +(b.bloqueado?'':'<button class="btn btn-primary btn-sm" onclick="guardarPasarRVaBlanco('+rv.id+')">⇄ Pasar a blanco y facturar</button>')
+      +'<button class="btn btn-sm" onclick="document.getElementById(\'rvblanco-modal\').remove()">'+(b.bloqueado?'Cerrar':'Cancelar')+'</button>'
+      +'<span id="rvb-msg" style="font-size:12px;margin-left:8px;"></span>'
+    +'</div>'
+    +'</div></div>');
+  if(!b.bloqueado)_focoEnInput('rvb-motivo');
+}
+async function guardarPasarRVaBlanco(rvId){
+  const rv=(C.rvs||[]).find(x=>String(x.id)===String(rvId));
+  const msg=document.getElementById('rvb-msg');
+  const err=t=>{if(msg){msg.style.color='var(--red)';msg.textContent=t;}};
+  if(!rv){err('RV no encontrado.');return;}
+  // Se revalida al guardar: entre que se abrió el modal y ahora pudo cobrarse
+  const b=_rvBloqueoBlanco(rv);
+  if(b.bloqueado){err('No se puede: '+b.motivos.join(' · '));return;}
+  const motivo=(document.getElementById('rvb-motivo')?.value||'').trim();
+  if(!motivo){err('Escribí el motivo del cambio.');return;}
+  const ped=_rvPedidosParaBlanco(rv,b.remitos,b.pedidos);
+  const nums=b.remitos.map(r=>r.numero_remito||('#'+r.id));
+
+  if(!confirm('⇄ Pasar '+(rv.numero||('#'+rv.id))+' al circuito BLANCO\n\n'
+    +'Se anula el RV por '+fmtMoney(parseFloat(rv.total)||0)+'\n'
+    +'Remitos que quedan libres para facturar: '+nums.join(', ')+'\n'
+    +(ped.flip.length?'Pedidos que pasan a blanco: '+ped.flip.map(p=>p.numero_pedido).join(', ')+'\n':'')
+    +(ped.quedan.length?'Pedidos que QUEDAN en negro: '+ped.quedan.map(q=>q.p.numero_pedido).join(', ')+'\n':'')
+    +'\nEl subtotal y los precios no se tocan.\n\n¿Confirmás?'))return;
+
+  pedirAdminYEjecutar(async()=>{
+    let paso='';
+    try{
+      if(msg){msg.style.color='';msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Pasando...</div>';}
+      // 1) Liberar los remitos y pasarlos al plano formal (mismo orden que anularRV:
+      //    si algo falla acá, el RV sigue vivo y visible con su botón Anular).
+      paso='liberando los remitos';
+      const idsRem=b.remitos.map(r=>r.id);
+      if(idsRem.length){
+        const{error:eR}=await sb.from('remitos')
+          .update({rv_id:null,estado:'emitido',plano:'formal',tipo_venta:'blanco'}).in('id',idsRem);
+        if(eR)throw eR;
+      }
+      // 2) Anular el RV
+      paso='anulando el RV';
+      const{error:eV}=await sb.from('remitos_valorizados').update({estado:'anulada',saldo:0}).eq('id',rv.id);
+      if(eV)throw eV;
+      // 3) Pasar los pedidos que se pueden al circuito blanco (mismo motor que ⇄ Circuito)
+      paso='pasando los pedidos a blanco';
+      const hist='[Circuito '+localDate()+': negro → blanco · '+(rv.numero||('#'+rv.id))+' anulado · '+motivo+']';
+      for(const p of ped.flip){
+        const t=_pedTotalesCircuito(p,'blanco');
+        const notas=(p.notas_internas||'').trim();
+        const upd={tipo_venta:t.tipo_venta,pct_blanco:t.pct_blanco,con_iva:t.con_iva,
+                   porcentaje_iva:t.porcentaje_iva,total_iva:t.total_iva,total:t.total,
+                   notas_internas:notas?(notas+'\n'+hist):hist};
+        let{error:eP}=await sb.from('pedidos').update(upd).eq('id',p.id);
+        if(eP&&(eP.message||'').includes('notas_internas')){
+          const re=await sb.from('pedidos').update({tipo_venta:t.tipo_venta,pct_blanco:t.pct_blanco,
+            con_iva:t.con_iva,porcentaje_iva:t.porcentaje_iva,total_iva:t.total_iva,total:t.total}).eq('id',p.id);
+          eP=re.error;
+          if(!eP)toast('⚠ Cambiado, pero no se pudo dejar la nota interna (falta la columna).','amber');
+        }
+        if(eP)throw eP;
+      }
+      toast('✓ '+(rv.numero||('#'+rv.id))+' pasó a blanco · '+idsRem.length+' remito(s) listos para facturar','green');
+      if(msg){msg.style.color='var(--green)';msg.textContent='✓ Listo';}
+      await reload();
+      const cliId=rv.cliente_id;
+      setTimeout(()=>{
+        document.getElementById('rvblanco-modal')?.remove();
+        // Llevarlo derecho a emitir la factura, con el cliente y los remitos ya tildados
+        go('nueva-factura');
+        setTimeout(()=>{
+          const sel=document.getElementById('nf-cli');
+          if(sel){sel.value=cliId;onNfCliChange();}
+          setTimeout(()=>{
+            let n=0;
+            idsRem.forEach(id=>{const chk=document.querySelector('.nf-rem-chk[data-id="'+id+'"]');if(chk){chk.checked=true;n++;}});
+            if(n)recalcFacturaTotal();
+          },160);
+        },160);
+      },700);
+    }catch(e){
+      console.error('Error pasando RV a blanco:',e);
+      err('Error '+paso+': '+(e.message||e));
+    }
   });
 }
 
@@ -14948,6 +15366,11 @@ function onNrvCliChange(){
   _rvCtx.cliente=cli;
   const remitos=(C.remitos||[]).filter(r=>{
     if(r.rv_id)return false;
+    // Espejo del filtro de facturación: un remito ya facturado no se valoriza de nuevo.
+    if(r.factura_id){
+      const _f=(C.facturas||[]).find(x=>String(x.id)===String(r.factura_id));
+      if(!_f||_f.estado!=='anulada')return false;
+    }
     if(r.estado==='anulado')return false;
     if(r.cliente_id!==id)return false;
     return planoRemito(r)==='informal';
@@ -15264,11 +15687,12 @@ function calcularSaldosCliente(cliId){
       saldoInformal+=sal; siInformal++;
     }
   });
-  // Notas de débito (cheques rechazados): vuelven a cargar al cliente
-  (C.notas_debito||[]).forEach(nd=>{
-    if(nd.tipo_entidad!=='cliente'||nd.entidad_id!==cliId||nd.anulada)return;
-    const monto=parseFloat(nd.monto)||0;
-    if(nd.plano==='informal'){saldoInformal+=monto;}else{saldoFormal+=monto;}
+  // Notas de débito (cheques rechazados): vuelven a cargar al cliente. Por su SALDO
+  // derivado, no por el monto — sino lo ya cobrado queda adentro para siempre.
+  _ndsCliente(cliId).forEach(nd=>{
+    const sal=_saldoND(nd);
+    if(sal<=0.01)return;
+    if((nd.plano||'formal')==='informal'){saldoInformal+=sal;}else{saldoFormal+=sal;}
   });
   // Crédito disponible del cliente = recibos con saldo sin imputar (de cualquier plano)
   let creditoFormal=0, creditoInformal=0;
@@ -15499,11 +15923,11 @@ function renderDetalleCC(){
       debe:0,haber:parseFloat(n.total)||0,id:n.id,obj:n,estado:'—',saldo:0});
   });
   // Notas de débito (aumentan la deuda) — DEBE
-  (C.notas_debito||[]).filter(n=>n.tipo_entidad==='cliente'&&n.entidad_id===cliId&&!n.anulada&&n.doc_tipo).forEach(n=>{
+  _ndsCliente(cliId).forEach(n=>{
     const planoND=n.plano||'formal';
     if(!(_ccTab==='consolidado' || _ccTab===planoND))return;
     movs.push({fecha:n.fecha,tipo:'ND',plano:planoND,
-      ref:'Nota de débito '+(n.numero||n.numero_doc||('#'+n.id))+' · '+_ndMotivoLbl(n.motivo_cod),
+      ref:'Nota de débito '+(n.numero||n.numero_doc||('#'+n.id))+' · '+_ndOrigenLbl(n),
       debe:parseFloat(n.monto)||0,haber:0,id:n.id,obj:n,estado:'—',saldo:0});
   });
 
@@ -15702,8 +16126,8 @@ function abrirImputarRecibo(reciboId){
     const saldoSI=_saldoInicial(si);
     if(saldoSI>0.01)destinos.push({tipo:'SALDO_INI',id:si.id,ref:'📋 Saldo inicial: '+(si.concepto||'Sin concepto'),fecha:si.fecha_estimada_cobro||'',saldo:saldoSI});
   });
-  (C.notas_debito||[]).filter(n=>n.tipo_entidad==='cliente'&&n.entidad_id===cliId&&!n.anulada&&n.doc_tipo&&(n.plano||'formal')===plano&&_saldoND(n)>0.01).forEach(n=>{
-    destinos.push({tipo:'NOTA_DEBITO',id:n.id,ref:'➕ Nota de débito '+(n.numero||n.numero_doc||('#'+n.id)),fecha:n.fecha,saldo:_saldoND(n)});
+  _ndsCliente(cliId,plano).filter(n=>_saldoND(n)>0.01).forEach(n=>{
+    destinos.push({tipo:'NOTA_DEBITO',id:n.id,ref:'➕ Nota de débito '+(n.numero||n.numero_doc||('#'+n.id))+' · '+_ndOrigenLbl(n),fecha:n.fecha,saldo:_saldoND(n)});
   });
   if(!destinos.length){
     alert('No hay facturas/RVs/saldos iniciales pendientes del plano '+plano+' para este cliente.');
@@ -16219,6 +16643,10 @@ function renderComprobantesParaImputar(){
   // Saldos iniciales del mismo plano: aparecen como un comprobante más
   (C.saldos_iniciales||[]).filter(si=>si.cliente_id===cliId && si.plano===_recCtx.plano && _saldoInicial(si)>0.01)
     .forEach(si=>comprobantes.push({tipo:'SALDOINI',ref:'📋 Saldo inicial: '+(si.concepto||'Sin concepto'),id:si.id,fecha:si.fecha_estimada_cobro||'',total:si.monto,saldo:_saldoInicial(si)}));
+  // Notas de débito con saldo: también se cobran con un recibo. La del CHEQUE RECHAZADO
+  // es el caso típico — el cliente trae otro valor y hay que imputarlo ACÁ.
+  _ndsCliente(cliId,_recCtx.plano).filter(n=>_saldoND(n)>0.01)
+    .forEach(n=>comprobantes.push({tipo:'ND',ref:'➕ Nota de débito '+(n.numero||n.numero_doc||('#'+n.id))+' · '+_ndOrigenLbl(n),id:n.id,fecha:n.fecha,total:n.monto,saldo:_saldoND(n),destacar:true}));
   comprobantes.sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
   if(!comprobantes.length){
     wrap.innerHTML='<div class="empty">Este cliente no tiene comprobantes ni saldos iniciales pendientes.</div>';
@@ -16230,8 +16658,8 @@ function renderComprobantesParaImputar(){
   comprobantes.forEach(c=>{
     const key=c.tipo+'_'+c.id;
     const imp=_recCtx.imputaciones[key]||0;
-    html+='<tr>'
-      +'<td><strong>'+c.ref+'</strong></td>'
+    html+='<tr'+(c.destacar?' style="background:rgba(245,158,11,.08);"':'')+'>'
+      +'<td><strong'+(c.destacar?' style="color:var(--amber);"':'')+'>'+c.ref+'</strong></td>'
       +'<td>'+(c.fecha||'')+'</td>'
       +'<td style="text-align:right" class="mono">'+fmtMoney(c.total)+'</td>'
       +'<td style="text-align:right;font-weight:600;" class="mono">'+fmtMoney(c.saldo)+'</td>'
@@ -16273,6 +16701,12 @@ function autoImputarRec(){
   }
   (C.saldos_iniciales||[]).filter(si=>si.cliente_id===cliId && si.plano===_recCtx.plano && _saldoInicial(si)>0.01)
     .forEach(si=>comprobantes.push({key:'SALDOINI_'+si.id,saldo:_saldoInicial(si)}));
+  // Las notas de débito entran PRIMERO al imputar automáticamente: una ND de cheque
+  // rechazado es plata que ya se cayó una vez — se cancela antes que una venta a plazo.
+  const _nds=_ndsCliente(cliId,_recCtx.plano).filter(n=>_saldoND(n)>0.01)
+    .sort((a,b)=>String(a.fecha||'').localeCompare(String(b.fecha||'')))
+    .map(n=>({key:'ND_'+n.id,saldo:_saldoND(n)}));
+  comprobantes=_nds.concat(comprobantes);
   for(const c of comprobantes){
     if(disponible<=0.01)break;
     const aplicar=Math.min(disponible,c.saldo);
@@ -16338,6 +16772,9 @@ async function guardarRecibo(){
     } else if(tipo==='SALDOINI'){
       const si=C.saldos_iniciales.find(s=>s.id===cid); const sr=_saldoInicial(si);
       if(monto>sr+0.01){msg.style.color='var(--red)';msg.textContent='No podés imputar '+fmtMoney(monto)+' al saldo inicial: su saldo real es '+fmtMoney(sr)+'.';return;}
+    } else if(tipo==='ND'){
+      const nd=(C.notas_debito||[]).find(n=>n.id===cid); const sr=nd?_saldoND(nd):0;
+      if(monto>sr+0.01){msg.style.color='var(--red)';msg.textContent='No podés imputar '+fmtMoney(monto)+' a la nota de débito '+(nd?.numero||nd?.numero_doc||('#'+cid))+': su saldo real es '+fmtMoney(sr)+'.';return;}
     }
   }
 
@@ -16402,6 +16839,10 @@ async function guardarRecibo(){
       }
     } else if(tipo==='SALDOINI'){
       await sb.from('recibo_saldos_iniciales').insert({recibo_id:rec.id,saldo_inicial_id:id,monto_aplicado:r2(monto)});
+    } else if(tipo==='ND'){
+      // El saldo de la ND se DERIVA de recibo_notas_debito (P1): no se muta la fila.
+      const{error:eND}=await sb.from('recibo_notas_debito').insert({recibo_id:rec.id,nota_debito_id:id,monto_aplicado:r2(monto)});
+      if(eND){msg.style.color='var(--red)';msg.textContent='El recibo se guardó pero no se pudo imputar a la nota de débito: '+eND.message;return;}
     }
   }
 
@@ -16419,6 +16860,7 @@ function imprimirRecibo(recId){
   const retenciones=r.recibo_retenciones||[];
   const impsFac=r.recibo_facturas||[];
   const impsRv=r.recibo_rvs||[];
+  const impsNd=r.recibo_notas_debito||[];
   const empresa_rs=getCfg('empresa_razon_social','Mi Fábrica');
   const empresa_cuit=getCfg('empresa_cuit','30-00000000-0');
   const esInformal=r.plano==='informal';
@@ -16436,6 +16878,9 @@ function imprimirRecibo(recId){
   const retHtml=retenciones.map(rr=>'<tr><td>'+escapeHtml(rr.tipo_nombre||'')+(rr.porcentaje?' ('+rr.porcentaje+'%)':'')+(rr.numero_certificado?' · '+rr.numero_certificado:'')+'</td><td style="text-align:right" class="mono">'+fmtMoney(rr.monto)+'</td></tr>').join('');
   const impFacHtml=impsFac.map(im=>{const fac=C.facturas.find(f=>f.id===im.factura_id);return '<tr><td>Factura '+(fac?.tipo||'')+' '+(fac?.numero||'#'+im.factura_id)+'</td><td style="text-align:right" class="mono">'+fmtMoney(im.monto_aplicado)+'</td></tr>';}).join('');
   const impRvHtml=impsRv.map(im=>{const rv=C.rvs.find(r=>r.id===im.rv_id);return '<tr><td>RV '+(rv?.numero||'#'+im.rv_id)+'</td><td style="text-align:right" class="mono">'+fmtMoney(im.monto_aplicado)+'</td></tr>';}).join('');
+  // Sin esto, un recibo que cancela una nota de débito se imprime cobrando de más y
+  // aplicando de menos: el cliente no ve dónde fue su plata.
+  const impNdHtml=impsNd.map(im=>{const nd=(C.notas_debito||[]).find(n=>n.id===im.nota_debito_id);return '<tr><td>Nota de débito '+(nd?.numero||nd?.numero_doc||('#'+im.nota_debito_id))+(nd?' · '+_ndOrigenLbl(nd):'')+'</td><td style="text-align:right" class="mono">'+fmtMoney(im.monto_aplicado)+'</td></tr>';}).join('');
 
   win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Recibo '+(r.numero||'')+'</title>'
     +'<style>@page{size:A4;margin:12mm;}body{font-family:Arial;font-size:12px;color:#111;}'
@@ -16466,6 +16911,7 @@ function imprimirRecibo(recId){
       +(retHtml?'<h3>Retenciones</h3><table><tbody>'+retHtml+'</tbody></table>':'')
       +(impFacHtml?'<h3>Imputación a facturas</h3><table><tbody>'+impFacHtml+'</tbody></table>':'')
       +(impRvHtml?'<h3>Imputación a RV</h3><table><tbody>'+impRvHtml+'</tbody></table>':'')
+      +(impNdHtml?'<h3>Imputación a notas de débito</h3><table><tbody>'+impNdHtml+'</tbody></table>':'')
       +'<div class="tot">TOTAL APLICADO: '+fmtMoney(r.total_aplicado)+'</div>'
       +(r.observaciones?'<div style="padding:6px 12px;border-top:1px solid #ccc;font-size:11px;"><strong>Obs:</strong> '+escapeHtml(r.observaciones)+'</div>':'')
       +'<div class="firma"><div><div class="line">Firma cobrador</div></div><div><div class="line">Firma cliente</div></div></div>'
@@ -39723,14 +40169,23 @@ function _saludFlujoChecks(){
       V.push({sev:'amber',cat:'Saldo inicial · flag cobrado_el viejo',msg:'Saldo inicial '+lcCliNombre(si.cliente_id)+' tiene cobrado_el seteado — el saldo se deriva de recibos; ese flag no se usa y puede confundir.'});
   });
   // 4) Recibo: total_aplicado vs suma de aplicaciones; total_cobrado vs suma de valores
-  recs.forEach(r=>{
+  //    Las aplicaciones viven en CUATRO tablas: recibo_facturas, recibo_rvs,
+  //    recibo_saldos_iniciales y recibo_notas_debito (aplicarImputacion NOTA_DEBITO).
+  //    Olvidar la de ND daba falso rojo en todo recibo imputado a una nota de débito
+  //    (caso testigo: RECI-000109, $116.430 aplicados a la ND de MARISANI).
+  //    Y si los recibos cargaron DEGRADADOS (sin el embed de recibo_notas_debito),
+  //    este chequeo no puede distinguir drift real de dato ausente: se avisa y no se acusa.
+  if(window._recibosDegradado){
+    V.push({sev:'amber',cat:'Recibo · invariantes sin verificar (carga degradada)',msg:'Los recibos cargaron en modo degradado ('+(window._recibosDegradado.nivel||'?')+'): falta el detalle de notas de débito, así que total_aplicado vs aplicaciones no se puede auditar en esta corrida. Refrescá la app; si persiste, revisá la consola.'});
+  } else recs.forEach(r=>{
     if(r.estado==='anulado')return;
     const sumApl=(r.recibo_facturas||[]).reduce((s,x)=>s+(parseFloat(x.monto_aplicado)||0),0)
       +(r.recibo_rvs||[]).reduce((s,x)=>s+(parseFloat(x.monto_aplicado)||0),0)
-      +(r.recibo_saldos_iniciales||[]).reduce((s,x)=>s+(parseFloat(x.monto_aplicado)||0),0);
+      +(r.recibo_saldos_iniciales||[]).reduce((s,x)=>s+(parseFloat(x.monto_aplicado)||0),0)
+      +(r.recibo_notas_debito||[]).reduce((s,x)=>s+(parseFloat(x.monto_aplicado)||0),0);
     const totApl=parseFloat(r.total_aplicado)||0;
     if(Math.abs(totApl-sumApl)>EPS)
-      V.push({sev:'red',cat:'Recibo · total_aplicado ≠ suma de aplicaciones',msg:'Recibo '+(r.numero||'#'+r.id)+': total_aplicado $'+r2(totApl).toLocaleString('es-AR')+' vs aplicaciones $'+r2(sumApl).toLocaleString('es-AR')});
+      V.push({sev:'red',cat:'Recibo · total_aplicado ≠ suma de aplicaciones',msg:'Recibo '+(r.numero||'#'+r.id)+': total_aplicado $'+r2(totApl).toLocaleString('es-AR')+' vs aplicaciones $'+r2(sumApl).toLocaleString('es-AR')+' (facturas + RVs + saldos iniciales + notas de débito)'});
     const sumVal=(r.recibo_valores||[]).reduce((s,x)=>s+(parseFloat(x.monto)||0),0);
     const totCob=parseFloat(r.total_cobrado)||0;
     if(sumVal>0&&Math.abs(totCob-sumVal)>EPS)
@@ -49257,6 +49712,20 @@ function renderPedidosLista(){
       esHibrido=nTandasConfirmadas>0&&nTandasConfirmadas<nTandasTotal;
     }
 
+    // Tandas huérfanas REALES (bug viejo: remitir un Borrador híbrido pisaba el
+    // estado y las tandas sin confirmar quedaban sin OC/OE). Detector central con
+    // cross-check contra OCs reales → sin falsos positivos por camino A.
+    // Solo pedidos activos: un pedido cerrado a propósito (Entregado/Cobrado vía
+    // "Cerrar parcial") no es un problema a corregir desde la lista.
+    let _hue=null;
+    {
+      const _eb=(p.estado||'').toLowerCase();
+      if(_eb!=='borrador'&&_eb!=='cancelado'&&_eb!=='anulado'&&_eb!=='entregado'&&!_eb.includes('cobrado')&&p.plan_ordenes?.ordenes){
+        const d=_tandasHuerfanasPedido(p);
+        if(d.huerfanas>0)_hue=d;
+      }
+    }
+
     // Info producción
     const info=_pedidoInfoProduccion(p);
     const avance=info?.avance||0;
@@ -49368,6 +49837,7 @@ function renderPedidosLista(){
       +'<td style="padding:8px;vertical-align:top;">'+(p.cliente||'—')+' '+tipoBadge+' '+badgeCobro+_chipPlan(_planDePedido(p.id))+'</td>'
       +'<td style="padding:8px;vertical-align:top;"><span style="background:'+estInfo.bg+';color:'+estInfo.color+';font-weight:700;font-size:11px;padding:3px 8px;border-radius:99px;white-space:nowrap;">'+estInfo.icono+' '+estInfo.label+'</span>'
         +(esHibrido?'<div style="margin-top:4px;"><span style="background:rgba(245,158,11,.15);color:var(--amber);border:1px solid var(--amber);font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;white-space:nowrap;" title="Pedido híbrido: '+nTandasConfirmadas+' tandas en producción, '+(nTandasTotal-nTandasConfirmadas)+' pendientes de confirmar">🔀 Híbrido '+nTandasConfirmadas+'/'+nTandasTotal+'</span></div>':'')
+        +(_hue?'<div style="margin-top:4px;"><span style="background:rgba(239,68,68,.10);color:var(--red);border:1px solid var(--red);font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;white-space:nowrap;cursor:pointer;" onclick="verDetallePedido('+p.id+')" title="Este pedido tiene '+_hue.huerfanas+' tanda(s) planificadas que nunca generaron OC/OE (bug viejo del remito sobre Borrador híbrido). Abrí el pedido y usá ⚠ Recuperar a Borrador para confirmarlas.">⚠ '+_hue.huerfanas+' tanda'+(_hue.huerfanas===1?'':'s')+' sin OC</span></div>':'')
       +'</td>'
       +'<td style="padding:8px;vertical-align:top;">'+barra+'</td>'
       +'<td style="padding:8px;vertical-align:top;">'+prodHTML+'</td>'
@@ -51579,6 +52049,25 @@ async function confirmarTandaIndividual(pedidoId,idxOE,idxTanda){
   }
 }
 
+// ===== CANDADO ANTI-DUPLICADOS DE OC (26/08) =====
+// Paquetes YA lanzados a producción para (pedido, producto): suma de las OC
+// vinculadas al pedido por pedido_ordenes_corte que no estén canceladas/anuladas.
+// Es la señal robusta — no depende de los sellos _confirmada del plan (los planes
+// viejos, anteriores al build 24b, no los tienen).
+function _paqYaEnOC(pedidoId,productoId){
+  const ped=(C.pedidos||[]).find(p=>p.id===pedidoId);
+  if(!ped)return 0;
+  let paq=0;
+  (ped.pedido_ordenes_corte||[]).forEach(poc=>{
+    const oc=(C.ord_corte||[]).find(o=>o.id===poc.orden_corte_id);
+    if(!oc)return;
+    if(oc.estado==='Cancelada'||oc.estado==='Anulada')return;
+    if(productoId!=null&&oc.producto_id!==productoId)return;
+    paq+=parseFloat(oc.cantidad_paquetes)||0;
+  });
+  return paq;
+}
+
 // ─── Camino B: confirmar solo algunas tandas de un borrador ───
 async function confirmarTandasParcial(pedidoId,tandaIdsElegidos,prioridadBase){
   const ped=C.pedidos.find(p=>p.id===pedidoId);
@@ -51617,6 +52106,7 @@ async function confirmarTandasParcial(pedidoId,tandaIdsElegidos,prioridadBase){
   planas.forEach((p,globalIdx)=>{
     if(!idxSet.has(globalIdx))return;
     if(p.seg&&p.seg._confirmada)return;   // por si quedó algún resto, no re-procesar
+    if(!p.seg&&p.orden._confirmada)return; // línea sin tandas ya confirmada (candado 26/08)
     const arr=elegidasPorOrden.get(p.orden)||[];
     arr.push(p.idxTandaEnOrden);
     elegidasPorOrden.set(p.orden,arr);
@@ -51790,6 +52280,9 @@ async function confirmarPedido(pedidoId,oeModoElegido,sinConfirmar,prioridadBase
   let ordsCreadas=0,oeCreadas=0;
   const errores=[];
   const ocsPorLinea={};   // tmpLineaId → [OCs creadas]
+  // Líneas que el candado anti-duplicados salteó enteras: tampoco les generamos OE
+  // (si no, quedaría material extrusándose para una OC que ya existe).
+  const lineasSaltadas=new Set();
 
   // ── Generar ORDENES DE CORTE ──
   for(const o of plan.ordenes.filter(x=>x.confirmar&&x.numero_orden)){
@@ -51798,12 +52291,23 @@ async function confirmarPedido(pedidoId,oeModoElegido,sinConfirmar,prioridadBase
     if(!prod){errores.push((o.numero_orden||'?')+': sin producto');continue;}
     // Venta de bobina por kg: se vende entera, SIN corte => no se genera OC.
     // La OE (mas abajo) queda linkeada al pedido por pedido_ref_id.
-    if(prod.es_bobina_granel){ocsPorLinea[o.linea_id]=[];continue;}
+    if(prod.es_bobina_granel){ocsPorLinea[o.linea_id]=[];o._confirmada=true;continue;}
     const uniPorPaq=emp?.unidades||0;
     const paqPorBolson=o.paqPorBolson||1;
     ocsPorLinea[o.linea_id]=[];
     // Cantidad de la línea (de la planificación guardada)
     const cantLinea=plan.meta?.lineas?.find(l=>l.tmpId===o.linea_id)?.cantidad||o.cantidad||0;
+    // ── CANDADO ANTI-DUPLICADOS (26/08) ──
+    // Si esta línea YA tiene OC vigentes (típico: se confirmaron algunas tandas sueltas
+    // y después se apretó "Confirmar pedido"), sólo se genera el faltante. Cuando no hay
+    // nada lanzado (caso normal), pendPaq queda en Infinity y no cambia nada.
+    const yaPaqLinea=_paqYaEnOC(pedidoId,o.producto_id);
+    let pendPaq=yaPaqLinea>0?(cantLinea-yaPaqLinea):Infinity;
+    if(yaPaqLinea>0&&pendPaq<=0){
+      errores.push((prod.codigo||o.numero_orden||'línea')+': ya tenía '+yaPaqLinea.toLocaleString('es-AR')+' paq en OC (pedidos: '+cantLinea.toLocaleString('es-AR')+') — no se generó de nuevo');
+      lineasSaltadas.add(o.linea_id);
+      continue;
+    }
     // OCs a crear: una o varias tandas. Si viene prioridadBase (confirmación desde
     // el simulador), las OC se encolan a partir de esa prioridad — así respetan
     // el orden del simulador y quedan al final de la cola existente.
@@ -51811,9 +52315,23 @@ async function confirmarPedido(pedidoId,oeModoElegido,sinConfirmar,prioridadBase
     const ocsACrear=o.dividir&&o.tandas?.length
       ? o.tandas.map((t,idx)=>({bolsones:t.bolsones||0,prioridad:pBase?(pBase+idx):(t.prioridad||(idx+1)),nota:t.nota||'',tandaIdx:idx+1,tandaTotal:o.tandas.length}))
       : [{bolsones:o.bolsones||1,prioridad:pBase||(o.prioridad||99),nota:'',tandaIdx:0,tandaTotal:0}];
+    let skipCandado=0;
     for(const oc of ocsACrear){
       if(oc.bolsones<=0)continue;
       const totalPaq=oc.bolsones*paqPorBolson;
+      // ── CANDADO ANTI-DUPLICADOS (26/08) ──
+      // 1) La tanda ya fue confirmada antes (sello del plan) → no se regenera.
+      const yaSellada=oc.tandaTotal>0?!!(o.tandas&&o.tandas[oc.tandaIdx-1]&&o.tandas[oc.tandaIdx-1]._confirmada):!!o._confirmada;
+      if(yaSellada){
+        errores.push((prod.codigo||o.numero_orden||'línea')+(oc.tandaTotal>0?' tanda '+oc.tandaIdx+'/'+oc.tandaTotal:'')+': ya estaba confirmada — no se generó de nuevo');
+        skipCandado++;continue;
+      }
+      // 2) Lo pedido ya quedo cubierto por OC que existen: no se genera mas.
+      if(pendPaq<=0){
+        errores.push((prod.codigo||o.numero_orden||'línea')+(oc.tandaTotal>0?' tanda '+oc.tandaIdx+'/'+oc.tandaTotal:'')+': lo pedido ya está cubierto por OC existentes');
+        skipCandado++;continue;
+      }
+      pendPaq-=totalPaq;
       const unidades=uniPorPaq>0?totalPaq*uniPorPaq:cantLinea;
       const mts=r2(unidades*(prod.metros_por_bolsa||0)*(1+(o.merma||5)/100));
       const nroFinal=await generarNroOC();
@@ -51846,11 +52364,20 @@ async function confirmarPedido(pedidoId,oeModoElegido,sinConfirmar,prioridadBase
       });
       ocsPorLinea[o.linea_id].push({id:ocRow.id,mts,bolsones:oc.bolsones,prioridad:oc.prioridad,nota:oc.nota});
       ordsCreadas++;
+      // Sellar la tanda como confirmada en el plan (histórico: el camino A no
+      // sellaba y el detector de tandas huérfanas necesitaba adivinar por OCs).
+      if(oc.tandaTotal>0){if(o.tandas?.[oc.tandaIdx-1])o.tandas[oc.tandaIdx-1]._confirmada=true;}
+      else o._confirmada=true;
     }
+    // Si el candado salteó TODO lo de esta línea, tampoco hay que generarle OE.
+    if(skipCandado&&!ocsPorLinea[o.linea_id].length)lineasSaltadas.add(o.linea_id);
   }
 
   // ── Generar ORDENES DE EXTRUSIÓN (donde se marcó genOE) ──
   for(const o of plan.ordenes.filter(x=>x.confirmar&&x.genOE)){
+    // Candado anti-duplicados: si la línea no generó ninguna OC porque ya estaba
+    // lanzada, su OE también existe → no se duplica el material.
+    if(lineasSaltadas.has(o.linea_id)&&!(ocsPorLinea[o.linea_id]||[]).length)continue;
     const prod=C.productos.find(p=>p.id===o.producto_id);
     const mtsInput=o._oeMts||0;
     const priInput=o._oePri||1;
@@ -51912,8 +52439,8 @@ async function confirmarPedido(pedidoId,oeModoElegido,sinConfirmar,prioridadBase
     }
   }
 
-  // ── Pedido pasa a Confirmado ──
-  await sb.from('pedidos').update({estado:'Confirmado'}).eq('id',pedidoId);
+  // ── Pedido pasa a Confirmado (y se persisten los sellos _confirmada del plan) ──
+  await sb.from('pedidos').update({estado:'Confirmado',plan_ordenes:plan}).eq('id',pedidoId);
   _ocultarOverlayConfirmar();   // ⏳ cerrar overlay
   await reload();
   if(errores.length){
@@ -52660,6 +53187,42 @@ async function confirmarCancelarLinea(pedidoId,lineaId){
   });
 }
 
+// ===== TANDAS HUÉRFANAS — detector central =====
+// Una tanda es "huérfana" cuando quedó planificada en plan_ordenes pero nunca
+// generó su OC/OE (bug viejo: remitir un Borrador híbrido pisaba el estado y
+// las tandas sin confirmar desaparecían del simulador).
+// CLAVE DEL CROSS-CHECK: el sello _confirmada recién existe desde el camino B;
+// el camino A (confirmar pedido completo) históricamente NO sellaba las tandas,
+// así que "sin sello" NO alcanza para acusar. La verdad la dan las OCs REALES
+// vinculadas al pedido (pedido_ordenes_corte): cada OC por encima de las tandas
+// selladas corresponde a una tanda generada sin sello. Solo lo que ni el sello
+// ni las OCs reales cubren es huérfano de verdad.
+// Excluye productos es_bobina_granel (se venden por kg: jamás generan OC).
+function _tandasHuerfanasPedido(p){
+  const out={huerfanas:0,cubiertas:0,pendientesPlan:0,selladas:0,total:0,ocsReales:0};
+  if(!p?.plan_ordenes?.ordenes)return out;
+  p.plan_ordenes.ordenes.forEach(o=>{
+    if(!o.confirmar)return;
+    const prod=(C.productos||[]).find(x=>x.id===o.producto_id);
+    if(prod?.es_bobina_granel)return;   // por kg: no genera OC nunca
+    if(o.dividir&&o.tandas?.length){
+      o.tandas.forEach(t=>{
+        if((t.bolsones||0)<=0)return;
+        out.total++;
+        if(t._confirmada)out.selladas++;else out.pendientesPlan++;
+      });
+    } else {
+      out.total++;
+      if(o._confirmada)out.selladas++;else out.pendientesPlan++;
+    }
+  });
+  out.ocsReales=(p.pedido_ordenes_corte||[]).length;
+  const extraOCs=Math.max(0,out.ocsReales-out.selladas);
+  out.huerfanas=Math.max(0,out.pendientesPlan-extraOCs);
+  out.cubiertas=out.total-out.huerfanas;
+  return out;
+}
+
 // ===== CERRAR PEDIDO CON ENTREGA PARCIAL ACEPTADA =====
 // Recupera a Borrador un pedido que cambió de estado por el bug viejo donde
 // al remitir un Borrador híbrido se pisaba el estado y las tandas no confirmadas
@@ -52672,18 +53235,49 @@ function recuperarPedidoABorrador(pedidoId){
   if(!p){alert('Pedido no encontrado');return;}
   if(p.estado==='Borrador'){alert('Ya es Borrador');return;}
   if(!p.plan_ordenes?.ordenes){alert('Este pedido no tiene plan_ordenes — no se puede recuperar');return;}
-  // Contar tandas huérfanas
-  let huerfanas=0,confirmadas=0;
-  p.plan_ordenes.ordenes.forEach(o=>{
-    if(!o.confirmar)return;
-    if(o.dividir&&o.tandas?.length){
-      o.tandas.forEach(t=>{
-        if((t.bolsones||0)<=0)return;
-        if(t._confirmada)confirmadas++;else huerfanas++;
-      });
-    } else if(o._confirmada)confirmadas++;else huerfanas++;
-  });
-  if(huerfanas===0){alert('No hay tandas pendientes que recuperar');return;}
+  // Contar tandas huérfanas con el detector central (cross-check contra OCs reales:
+  // una tanda sin sello pero CON su OC generada no es huérfana — camino A viejo).
+  const det=_tandasHuerfanasPedido(p);
+  const huerfanas=det.huerfanas,confirmadas=det.cubiertas;
+  if(huerfanas===0){alert('No hay tandas pendientes que recuperar: las OCs de este pedido ya fueron generadas (aunque el plan interno no tuviera el sello). No hace falta hacer nada.');return;}
+  // ── Sanar sellos faltantes ANTES de volver a Borrador ──
+  // Tandas generadas por el camino A viejo (sin sello _confirmada) que SÍ tienen
+  // OC real: hay que sellarlas ahora, sino el simulador las vuelve a ofrecer y se
+  // duplicarían las OC/OE. Se asigna por producto y en el orden del plan (el
+  // camino A generaba en ese mismo orden).
+  const _planSanar=p.plan_ordenes;
+  let _sellosSanados=0;
+  {
+    const ocsPorProd={};
+    (p.pedido_ordenes_corte||[]).forEach(poc=>{
+      const oc=(C.ord_corte||[]).find(o=>o.id===poc.orden_corte_id);
+      if(!oc||!oc.producto_id)return;
+      ocsPorProd[oc.producto_id]=(ocsPorProd[oc.producto_id]||0)+1;
+    });
+    const porProd={};
+    _planSanar.ordenes.forEach(o=>{
+      if(!o.confirmar)return;
+      const prod=(C.productos||[]).find(x=>x.id===o.producto_id);
+      if(prod?.es_bobina_granel)return;
+      const reg=porProd[o.producto_id]||(porProd[o.producto_id]={selladas:0,sinSello:[]});
+      if(o.dividir&&o.tandas?.length){
+        o.tandas.forEach(t=>{
+          if((t.bolsones||0)<=0)return;
+          if(t._confirmada)reg.selladas++;else reg.sinSello.push(t);
+        });
+      } else {
+        if(o._confirmada)reg.selladas++;else reg.sinSello.push(o);
+      }
+    });
+    Object.keys(porProd).forEach(pid=>{
+      const reg=porProd[pid];
+      let extra=Math.max(0,(ocsPorProd[pid]||0)-reg.selladas);
+      for(const t of reg.sinSello){
+        if(extra<=0)break;
+        t._confirmada=true;extra--;_sellosSanados++;
+      }
+    });
+  }
   const remitos=(C.remitos||[]).filter(r=>r.pedido_id===p.id);
   const paqEntregados=remitos.reduce((s,r)=>{
     const lineas=r.remito_lineas||[];
@@ -52704,13 +53298,15 @@ function recuperarPedidoABorrador(pedidoId){
   if(!confirm(msg))return;
   pedirAdminYEjecutar(async()=>{
     const ahora=new Date().toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
-    const obsLog='[RECUPERADO A BORRADOR '+ahora+' admin] '+huerfanas+' tanda(s) huérfanas recuperadas — estado anterior: '+p.estado;
+    const obsLog='[RECUPERADO A BORRADOR '+ahora+' admin] '+huerfanas+' tanda(s) huérfanas recuperadas — estado anterior: '+p.estado
+      +(_sellosSanados>0?' · '+_sellosSanados+' sello(s) _confirmada sanado(s) por OC ya existente':'');
     const obsNueva=(p.observaciones||'').trim()
       ? (p.observaciones+' · '+obsLog)
       : obsLog;
     const{error}=await sb.from('pedidos').update({
       estado:'Borrador',
-      observaciones:obsNueva
+      observaciones:obsNueva,
+      plan_ordenes:_planSanar
     }).eq('id',pedidoId);
     if(error){alert('Error al recuperar: '+error.message);return;}
     toast('✓ Pedido recuperado a Borrador — '+huerfanas+' tanda(s) disponibles en el simulador','green');
@@ -53378,17 +53974,13 @@ function renderDetallePedidoPagina(pedidoId){
         acc+='<button class="btn btn-sm" style="background:rgba(34,197,94,.1);color:var(--green);border-color:rgba(34,197,94,.3);" onclick="abrirCerrarPedidoParcial('+p.id+')">✅ Cerrar parcial</button>';
       }
       // Botón "Recuperar a Borrador": aparece SOLO si el pedido tiene tandas huérfanas
-      // en plan_ordenes (caso del bug viejo donde al remitir un Borrador híbrido se
-      // perdía el estado Borrador y las tandas no confirmadas quedaban sin generar OC/OE).
-      // Detección: pedido ya no es Borrador + plan_ordenes con tandas no _confirmada.
+      // REALES (caso del bug viejo donde al remitir un Borrador híbrido se perdía el
+      // estado Borrador y las tandas no confirmadas quedaban sin generar OC/OE).
+      // Usa el detector central _tandasHuerfanasPedido: cruza el plan contra las OCs
+      // reales del pedido, así un pedido confirmado entero por el camino A (que no
+      // sellaba _confirmada) NO da falso positivo.
       if(p.estado!=='Borrador'&&p.estado!=='Cancelado'&&p.plan_ordenes?.ordenes){
-        let tandasHuerfanas=0;
-        p.plan_ordenes.ordenes.forEach(o=>{
-          if(!o.confirmar)return;
-          if(o.dividir&&o.tandas?.length){
-            o.tandas.forEach(t=>{if(!t._confirmada&&(t.bolsones||0)>0)tandasHuerfanas++;});
-          } else if(!o._confirmada){tandasHuerfanas++;}
-        });
+        const tandasHuerfanas=_tandasHuerfanasPedido(p).huerfanas;
         if(tandasHuerfanas>0){
           acc+='<button class="btn btn-sm" style="background:rgba(245,158,11,.12);color:var(--amber);border:1px solid var(--amber);font-weight:700;" onclick="recuperarPedidoABorrador('+p.id+')" title="Este pedido tiene '+tandasHuerfanas+' tanda(s) sin OC/OE generada(s) por un bug anterior. Click para volverlo a Borrador y poder confirmar las tandas pendientes.">⚠ Recuperar a Borrador ('+tandasHuerfanas+')</button>';
         }
@@ -59638,12 +60230,27 @@ function renderCartera(){
     else if(c.estado==='acreditado')detalle='acreditado '+(c.fecha_acreditacion||'')+' en '+ccCuentaNombre(c.cuenta_deposito_id);
     else if(c.estado==='descontado')detalle='descontado '+(c.fecha_descuento||'')+' en '+ccCuentaNombre(c.cuenta_descuento_id)+' · neto $'+(parseFloat(c.neto_descuento)||0).toLocaleString('es-AR')+' · costo $'+(parseFloat(c.gastos_descuento)||0).toLocaleString('es-AR');
     else if(c.estado==='endosado'){detalle='endosado a '+lcProvNombre(c.proveedor_endoso_id);if(!c.pago_cabecera_id)detalle+=' · <span style="color:#f59e0b;font-weight:700;">pago suelto sin imputar a facturas ⚠</span>';}
-    else if(c.estado==='rechazado')detalle='rechazado '+(c.fecha_rechazo||'')+' · ND emitida';
+    else if(c.estado==='rechazado'){
+      // El rechazo dejó una ND al cliente: mostrar cuál y cuánto falta cobrar de ella,
+      // que es la pregunta que uno se hace mirando un cheque rechazado.
+      const _nd=chNDdeCheque(c);
+      detalle='rechazado '+(c.fecha_rechazo||'');
+      if(_nd){
+        const _s=_saldoND(_nd);
+        detalle+=' · '+escapeHtml(_nd.numero||_nd.numero_doc||('ND #'+_nd.id))
+          +(_s>0.01?' · <span style="color:var(--red);font-weight:700;">falta cobrar $'+_s.toLocaleString('es-AR')+'</span>'
+                   :' · <span style="color:var(--green);font-weight:700;">ya recuperado</span>');
+      }else detalle+=' · ND emitida';
+    }
     let acc='';
     if(c.estado==='en_cartera')acc='<button class="btn btn-sm" onclick="chEditar('+c.id+')" title="Corregir datos del cheque">✏️</button> <button class="btn btn-sm" onclick="chDepositar('+c.id+')">Depositar</button> <button class="btn btn-sm" onclick="chDescontar('+c.id+')" title="Llevar al banco y cobrar adelantado">Descontar</button> <button class="btn btn-sm" onclick="chEndosar('+c.id+')">Endosar</button> <button class="btn btn-sm btn-del" onclick="chRechazar('+c.id+')">Rechazar</button>';
     else if(c.estado==='depositado')acc='<button class="btn btn-sm" onclick="chAcreditar('+c.id+')">Acreditar</button> <button class="btn btn-sm btn-del" onclick="chRechazar('+c.id+')">Rechazar</button>';
     else if(c.estado==='endosado')acc='<button class="btn btn-sm" onclick="chEndosarRevertir('+c.id+')" title="Deshacer el endoso: borra el pago al proveedor y el cheque vuelve a estar disponible">↩ A cartera</button> <button class="btn btn-sm btn-del" onclick="chRechazar('+c.id+')">Rechazar</button>';
     else if(c.estado==='acreditado'||c.estado==='descontado')acc='<button class="btn btn-sm btn-del" onclick="chRechazar('+c.id+')">Rechazar</button>';
+    else if(c.estado==='rechazado'){
+      const _nd=chNDdeCheque(c);
+      if(_nd&&_saldoND(_nd)>0.01)acc='<button class="btn btn-sm" style="color:var(--accent);font-weight:700;" onclick="chCobrarRechazado('+c.id+')" title="Cargar el cheque o el pago con que el cliente reemplaza este rechazo">💵 Cobrar</button>';
+    }
     const emisorTxt=c.es_tercero
       ?'<span style="color:#f59e0b;">👤 '+escapeHtml(c.nombre_emisor||'tercero')+(c.cuit_emisor?'<br><span style="font-size:10px;color:var(--text3);">'+escapeHtml(c.cuit_emisor)+'</span>':'')+'</span>'
       :'<span style="color:var(--text3);font-size:11px;">propio del cliente</span>';
@@ -60009,6 +60616,33 @@ function chEndosarRevertir(id){
   });
 }
 // ---- rechazar (genera Nota de Débito) ----
+// La ND que dejó el rechazo de un cheque. Se busca primero por el vínculo guardado
+// (nota_debito_id) y si no está, por el origen — así también encuentra las de rechazos
+// viejos anteriores a que se guardara el vínculo.
+function chNDdeCheque(c){
+  if(!c)return null;
+  const nds=(C.notas_debito||[]).filter(n=>!n.anulada&&n.tipo_entidad==='cliente');
+  if(c.nota_debito_id){
+    const x=nds.find(n=>String(n.id)===String(c.nota_debito_id));
+    if(x)return x;
+  }
+  return nds.find(n=>n.origen==='cheque_rechazado'&&String(n.origen_valor_id)===String(c.id))||null;
+}
+// Cobrar el reemplazo de un cheque rechazado: es un recibo normal del cliente. El cheque
+// nuevo puede ser por MÁS que el rechazado (el resto se imputa a las facturas abiertas) o
+// por menos (la ND queda con saldo). Por eso no se "canjea" el cheque: se cobra la ND.
+function chCobrarRechazado(id){
+  const c=chCheques().find(x=>x.id===id);
+  if(!c){toast('Cheque no encontrado','red');return;}
+  const nd=chNDdeCheque(c);
+  if(!nd){toast('Este cheque no tiene nota de débito asociada','amber');return;}
+  const saldo=_saldoND(nd);
+  if(saldo<=0.01){toast('La nota de débito de este cheque ya está cobrada','green');return;}
+  document.getElementById('ch-modal')?.remove();
+  _ccCliId=c.cliente_id;
+  toast('Cargá el valor de reemplazo e imputá $'+saldo.toLocaleString('es-AR')+' a '+(nd.numero||nd.numero_doc||('ND #'+nd.id)),'amber');
+  initNuevoRecibo(nd.plano||c.plano_recibo||'formal');
+}
 function chRechazar(id){
   const c=chCheques().find(x=>x.id===id);
   const eraAcred=c.estado==='acreditado', eraEndos=c.estado==='endosado', eraDesc=c.estado==='descontado';
@@ -60020,6 +60654,8 @@ function chRechazar(id){
   document.body.insertAdjacentHTML('beforeend','<div class="modal-overlay" id="ch-modal"><div class="modal-card" style="max-width:440px;"><div class="modal-title">❌ Rechazar cheque</div>'
    +'<div style="font-size:12px;color:var(--text3);margin-bottom:8px;">N° '+(c.numero_cheque||'')+' · $'+(parseFloat(c.monto)||0).toLocaleString('es-AR')+' · '+lcCliNombre(c.cliente_id)+'</div>'
    +'<div style="font-size:12px;">Se emite una <b>Nota de Débito al cliente</b> por $'+(parseFloat(c.monto)||0).toLocaleString('es-AR')+' (vuelve a deber).</div>'+extra
+   +'<div style="font-size:11px;color:var(--text3);margin:6px 0;line-height:1.5;">Si el cliente ya te dio otro valor para reemplazarlo, después del rechazo usá <b>💵 Cobrar</b> en este mismo cheque: se carga como recibo normal y se imputa a la nota de débito. Si el valor nuevo es por más, el resto se imputa a las facturas abiertas.</div>'
+   +'<div style="font-size:11px;color:var(--amber);margin:6px 0;">Si el banco te cobró comisión por el rechazo, cargala aparte como gasto bancario cuando la veas en el resumen — acá sólo se mueve el nominal.</div>'
    +'<div class="fg" style="margin-top:8px;"><label>Fecha del rechazo</label><input id="ch-fecha" type="date" value="'+localDate()+'" style="width:100%"></div>'
    +'<div class="btn-grp" style="margin-top:1rem;"><button class="btn btn-sm btn-del" onclick="chRechGuardar('+id+')">❌ Confirmar rechazo</button><button class="btn btn-sm" onclick="document.getElementById(\'ch-modal\').remove()">Cancelar</button><span id="ch-msg" style="font-size:11px;margin-left:8px;"></span></div></div></div>');
 }
@@ -60196,8 +60832,8 @@ function renderMPStock(){
   // Alerta stock bajo
   const alertaStock=kgBase<cfg.alerta_stock_mp_kg;
   if(kpis)kpis.innerHTML='<div class="stats" style="margin-bottom:0;">'
-    +'<div class="stat"><div class="stat-lbl">Stock base (PE)</div><div class="stat-val" style="color:'+(alertaStock?'var(--red)':'inherit')+'">'+kgBase.toLocaleString('es-AR')+'</div><div class="stat-sub">'+(alertaStock?'⚠ Stock bajo':'kg disponibles')+'</div></div>'
-    +'<div class="stat"><div class="stat-lbl">Stock aditivos</div><div class="stat-val">'+kgAdit.toLocaleString('es-AR')+'</div><div class="stat-sub">kg disponibles</div></div>'
+    +'<div class="stat"><div class="stat-lbl">Stock base (PE)</div><div class="stat-val" style="color:'+(alertaStock?'var(--red)':'inherit')+'">'+kgFmt(kgBase)+'</div><div class="stat-sub">'+(alertaStock?'⚠ Stock bajo':'kg disponibles')+'</div></div>'
+    +'<div class="stat"><div class="stat-lbl">Stock aditivos</div><div class="stat-val">'+kgFmt(kgAdit)+'</div><div class="stat-sub">kg disponibles</div></div>'
     +'<div class="stat"><div class="stat-lbl">Lotes activos</div><div class="stat-val">'+lotesActivos.length+'</div></div>'
     +(esAdmin?'<div class="stat"><div class="stat-lbl">Valor en stock</div><div class="stat-val">$'+r2(lotesActivos.reduce((s,l)=>s+(l.kg_disponibles||0)*(l.precio_kg||0),0)).toLocaleString('es-AR')+'</div></div>':'')
     +'</div>';
@@ -60217,8 +60853,8 @@ function renderMPStock(){
       +'<td><span style="font-size:11px;background:var(--bg3);padding:2px 6px;border-radius:4px">'+(l.tipos_mp?.categoria||'—')+'</span></td>'
       +'<td class="mono">'+(l.numero_bigbag||'—')+'</td>'
       +'<td style="font-size:12px">'+(l.proveedores?.nombre||'—')+'</td>'
-      +'<td class="mono">'+l.kg_ingresados.toLocaleString('es-AR')+' kg</td>'
-      +'<td class="mono" style="font-weight:600;color:'+col+'">'+l.kg_disponibles.toLocaleString('es-AR')+' kg</td>'
+      +'<td class="mono">'+kgFmt(l.kg_ingresados)+' kg</td>'
+      +'<td class="mono" style="font-weight:600;color:'+col+'">'+kgFmt(l.kg_disponibles)+' kg</td>'
       +'<td><div style="display:flex;align-items:center;gap:6px"><div class="pbar" style="width:60px"><div class="pfill" style="width:'+pct+'%;background:'+col+'"></div></div><span style="font-size:11px">'+pct+'%</span></div></td>'
       +(esAdmin?'<td class="mono">$'+l.precio_kg+'/kg</td>':'')
       +'<td class="mono" style="font-size:11px">'+l.fecha_ingreso+'</td>'
@@ -60263,14 +60899,14 @@ async function verKardexLote(loteId, material){
     filas+='<tr>'
       +'<td class="mono" style="font-size:11px">'+(m.fecha||'')+'</td>'
       +'<td style="font-size:12px"><code>'+(etiqueta[m.tipo_mov]||m.tipo_mov)+'</code></td>'
-      +'<td class="mono" style="font-size:12px;text-align:right;color:'+kgCol+'">'+(m.kg>0?'+':'')+r3(m.kg)+'</td>'
-      +'<td class="mono" style="font-size:12px;text-align:right;font-weight:600">'+saldo+'</td>'
+      +'<td class="mono" style="font-size:12px;text-align:right;color:'+kgCol+'">'+(m.kg>0?'+':'')+kgFmt(m.kg)+'</td>'
+      +'<td class="mono" style="font-size:12px;text-align:right;font-weight:600">'+kgFmt(saldo)+'</td>'
       +'<td style="font-size:11px;color:var(--text2)">'+doc+'</td>'
       +'<td style="font-size:11px;color:var(--text2)">'+(m.motivo||'')+(m.impacta_resultado?' <span style="color:var(--amber)" title="Impacta resultado">·$</span>':'')+'</td>'
       +'</tr>';
   });
   if(!filas){body.innerHTML='<div style="font-size:13px;color:var(--text3);padding:20px;text-align:center">Este lote todavía no tiene movimientos en el libro de MP.</div>';return;}
-  body.innerHTML='<div style="font-size:12px;color:var(--text3);margin-bottom:8px">Saldo final: <strong style="color:var(--text1)">'+saldo+' kg</strong> · '+(movs.length)+' movimientos</div>'
+  body.innerHTML='<div style="font-size:12px;color:var(--text3);margin-bottom:8px">Saldo final: <strong style="color:var(--text1)">'+kgFmt(saldo)+' kg</strong> · '+(movs.length)+' movimientos</div>'
     +'<div style="overflow-x:auto;border:1px solid var(--border);border-radius:var(--r)"><table style="margin:0"><thead><tr style="background:var(--bg3)">'
     +'<th style="font-size:11px">Fecha</th><th style="font-size:11px">Tipo</th>'
     +'<th style="font-size:11px;text-align:right">Kg</th><th style="font-size:11px;text-align:right">Saldo</th>'
@@ -60311,9 +60947,9 @@ async function verTrazabilidadLote(loteId, material, bigbag){
         +'<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;">Precio/kg</div><div style="font-size:13px;font-weight:600;margin-top:2px;color:var(--accent);">$'+precioKg+'</div></div>'
       +'</div>'
       +'<div style="margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;">'
-        +'<div class="kpi-card"><div class="kpi-lbl">Kg ingresados</div><div class="kpi-val">'+kgIng.toLocaleString('es-AR')+' kg</div></div>'
-        +'<div class="kpi-card kpi-ext"><div class="kpi-lbl">Kg consumidos</div><div class="kpi-val">'+kgCons.toLocaleString('es-AR')+' kg</div><div style="font-size:11px;color:var(--text3);margin-top:2px;">'+pctCons+'% del lote</div></div>'
-        +'<div class="kpi-card"><div class="kpi-lbl">Kg disponibles</div><div class="kpi-val" style="color:'+(kgDisp>0?'var(--green)':'var(--text3)')+'">'+kgDisp.toLocaleString('es-AR')+' kg</div></div>'
+        +'<div class="kpi-card"><div class="kpi-lbl">Kg ingresados</div><div class="kpi-val">'+kgFmt(kgIng)+' kg</div></div>'
+        +'<div class="kpi-card kpi-ext"><div class="kpi-lbl">Kg consumidos</div><div class="kpi-val">'+kgFmt(kgCons)+' kg</div><div style="font-size:11px;color:var(--text3);margin-top:2px;">'+pctCons+'% del lote</div></div>'
+        +'<div class="kpi-card"><div class="kpi-lbl">Kg disponibles</div><div class="kpi-val" style="color:'+(kgDisp>0?'var(--green)':'var(--text3)')+'">'+kgFmt(kgDisp)+' kg</div></div>'
         +'<div class="kpi-card"><div class="kpi-lbl">Costo total compra</div><div class="kpi-val">$'+costoTotal.toLocaleString('es-AR')+'</div></div>'
       +'</div>'
       // Barra de progreso de consumo
@@ -60661,10 +61297,10 @@ function _renderTablaLotesConsumidos(consumos,titulo){
         +(lote?.fecha_ingreso?'<span style="font-size:11px;color:var(--text3);">Ingreso '+new Date(lote.fecha_ingreso+'T00:00:00').toLocaleDateString('es-AR')+'</span>':'')
       +'</div>'
       +'<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;">'
-        +'<div>⚖️ <strong style="color:var(--amber)">'+r3(kgTotal)+' kg</strong></div>'
+        +'<div>⚖️ <strong style="color:var(--amber)">'+kgFmt(kgTotal)+' kg</strong></div>'
         +'<div>💰 <strong>$'+r2(costoTotal).toLocaleString('es-AR')+'</strong></div>'
         +(precio?'<div style="color:var(--text3);">$'+precio+'/kg</div>':'')
-        +(lote?.kg_disponibles>0?'<div style="color:var(--green);font-size:11px;">Lote activo · '+r1(lote.kg_disponibles)+' kg restantes</div>':'<div style="color:var(--text3);font-size:11px;">Lote agotado</div>')
+        +(lote?.kg_disponibles>0?'<div style="color:var(--green);font-size:11px;">Lote activo · '+kgFmt(lote.kg_disponibles)+' kg restantes</div>':'<div style="color:var(--text3);font-size:11px;">Lote agotado</div>')
       +'</div>'
     +'</div>';
   });
@@ -60796,13 +61432,13 @@ function ajusteLotePreview(){
   const motId=motSel?.value;
   const motivo=(C.motivos_ajuste||[]).find(m=>m.id===parseInt(motId));
   const impacta=motivo?!!motivo.impacta_result_default:false;
-  const lbl=document.getElementById('aj-real-lbl');if(lbl)lbl.textContent=real+' kg';
+  const lbl=document.getElementById('aj-real-lbl');if(lbl)lbl.textContent=kgFmt(real)+' kg';
   if(motSel)motSel.style.borderColor=(dif!==0&&!motId)?'var(--red)':'';
   const div=document.getElementById('aj-preview');if(!div)return;
   if(dif===0){div.innerHTML='<span style="color:var(--text3)">Sin diferencia con el sistema — no se genera movimiento.</span>';return;}
   const tipoMov=!impacta?'ajuste_neutro':(dif>0?'ajuste_pos':'ajuste_neg');
   const col=dif<0?'var(--red)':'var(--green)';
-  div.innerHTML='Diferencia: <strong style="color:'+col+'">'+(dif>0?'+':'')+dif+' kg</strong> · <code style="font-size:11px">'+tipoMov+'</code>'
+  div.innerHTML='Diferencia: <strong style="color:'+col+'">'+(dif>0?'+':'')+kgFmt(dif)+' kg</strong> · <code style="font-size:11px">'+tipoMov+'</code>'
     +(motId?(' · '+(impacta?'<span style="color:var(--amber)">impacta resultado</span>':'<span style="color:var(--text3)">no impacta</span>')):' · <span style="color:var(--red)">elegí un motivo</span>');
 }
 function abrirAjusteLote(loteId, material, bigbag, kgActual){
@@ -60814,7 +61450,7 @@ function abrirAjusteLote(loteId, material, bigbag, kgActual){
     +'<div class="modal-title">⚖️ Ajustar stock del lote</div>'
     +'<div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;font-size:13px;">'
       +'<div style="font-weight:600">'+material+'</div>'
-      +'<div style="color:var(--text2);font-size:12px;margin-top:2px;">Big Bag: '+bigbag+' · Saldo sistema: <strong>'+kgActual+' kg</strong></div>'
+      +'<div style="color:var(--text2);font-size:12px;margin-top:2px;">Big Bag: '+bigbag+' · Saldo sistema: <strong>'+kgFmt(kgActual)+' kg</strong></div>'
     +'</div>'
     +'<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Contá lo que hay físicamente, igual que en el inventario:</div>'
     +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:6px;">'
@@ -61696,7 +62332,7 @@ function iniciarInventario(){
       +'<td class="mono" style="font-size:12px;white-space:nowrap">'+l.numero_lote
         +(l.numero_bigbag?'<div style="font-size:10px;color:var(--text3)">'+l.numero_bigbag+'</div>':'')+'</td>'
       +'<td style="font-size:12px">'+( l.tipos_mp?.nombre||'')+'</td>'
-      +'<td class="mono" style="font-size:12px;text-align:right;color:var(--accent);white-space:nowrap">'+l.kg_disponibles.toLocaleString('es-AR')+'</td>'
+      +'<td class="mono" style="font-size:12px;text-align:right;color:var(--accent);white-space:nowrap">'+kgFmt(l.kg_disponibles)+'</td>'
       +'<td><input type="number" step="0.1" id="inv-bb-'+l.id+'" placeholder="0" oninput="calcInvFila('+l.id+')" style="width:72px;font-size:12px;padding:4px 6px"></td>'
       +'<td><input type="number" step="0.1" id="inv-tac-'+l.id+'" placeholder="0" value="0" oninput="calcInvFila('+l.id+')" style="width:64px;font-size:12px;padding:4px 6px"></td>'
       +'<td><input type="number" step="0.1" id="inv-tol-'+l.id+'" placeholder="0" value="0" oninput="calcInvFila('+l.id+')" style="width:64px;font-size:12px;padding:4px 6px"></td>'
@@ -61722,12 +62358,12 @@ function calcInvFila(lid){
   const tol=parseFloat(document.getElementById('inv-tol-'+lid)?.value)||0;
   const real=r3(bb+tac+tol);
   const dif=r3(real-lote.kg_disponibles);
-  const realC=document.getElementById('inv-real-'+lid);if(realC)realC.textContent=real.toLocaleString('es-AR');
+  const realC=document.getElementById('inv-real-'+lid);if(realC)realC.textContent=kgFmt(real);
   const difC=document.getElementById('inv-dif-'+lid);
   if(difC){
     if(dif===0){difC.textContent='—';difC.style.color='var(--text3)';}
     else{const pct=lote.kg_disponibles>0?r2(dif/lote.kg_disponibles*100):0;
-      difC.textContent=(dif>0?'+':'')+dif+' ('+(dif>0?'+':'')+pct+'%)';
+      difC.textContent=(dif>0?'+':'')+kgFmt(dif)+' ('+(dif>0?'+':'')+pct.toLocaleString('es-AR')+'%)';
       difC.style.color=dif<0?'var(--red)':'var(--green)';}
   }
   // si hay diferencia y no eligió motivo, resaltar el selector
@@ -61750,8 +62386,8 @@ function calcInvResumen(){
   const difTotal=r3(totalReal-totalSistema);
   const resumen=document.getElementById('inv-resumen');
   if(resumen)resumen.innerHTML='<div style="background:var(--bg3);border-radius:var(--r);padding:10px 14px;font-size:12px;">'
-    +'<strong>Resumen total:</strong> Sistema: '+totalSistema.toLocaleString('es-AR')+' kg · Real: '+totalReal.toLocaleString('es-AR')+' kg · '
-    +'Diferencia: <strong style="color:'+(totalSistema&&Math.abs(difTotal/totalSistema*100)>5?'var(--red)':'var(--green)')+'">'+( difTotal>0?'+':'')+difTotal.toLocaleString('es-AR')+' kg</strong>'
+    +'<strong>Resumen total:</strong> Sistema: '+kgFmt(totalSistema)+' kg · Real: '+kgFmt(totalReal)+' kg · '
+    +'Diferencia: <strong style="color:'+(totalSistema&&Math.abs(difTotal/totalSistema*100)>5?'var(--red)':'var(--green)')+'">'+( difTotal>0?'+':'')+kgFmt(difTotal)+' kg</strong>'
     +'</div>';
 }
 async function guardarInventario(){
@@ -61888,7 +62524,7 @@ async function renderInvHist(){
       +'<td class="mono" style="font-size:12px">'+inv.fecha+' '+(inv.hora?.slice(0,5)||'')+'</td>'
       +'<td>'+(inv.realizado_por||'—')+'</td>'
       +'<td class="mono">'+det.length+' lotes</td>'
-      +'<td class="mono" style="color:'+col+'">'+(difTotal>0?'+':'')+difTotal.toLocaleString('es-AR')+' kg</td>'
+      +'<td class="mono" style="color:'+col+'">'+(difTotal>0?'+':'')+kgFmt(difTotal)+' kg</td>'
       +'<td>'+impactoStr+'</td>'
       +'<td>'+(anulado
         ?'<span style="color:var(--red);font-size:11px;font-weight:700">⛔ ANULADO</span>'
@@ -61910,10 +62546,10 @@ async function renderInvHist(){
       detRows+='<tr style="background:var(--bg2)">'
         +'<td style="font-size:12px">'+mat+'</td>'
         +'<td class="mono" style="font-size:12px">'+loteNro+'</td>'
-        +'<td class="mono" style="font-size:12px;text-align:right">'+r3(d.kg_sistema||0)+'</td>'
-        +'<td class="mono" style="font-size:11px;color:var(--text2);text-align:right">'+r3(d.kg_bigbag||0)+' / '+r3(d.kg_tachos||0)+' / '+r3(d.kg_tolvas||0)+'</td>'
-        +'<td class="mono" style="font-size:12px;text-align:right;font-weight:600">'+r3(d.kg_real_total||0)+'</td>'
-        +'<td class="mono" style="font-size:12px;text-align:right;color:'+difCol+'">'+(dif>0?'+':'')+r3(dif)+'</td>'
+        +'<td class="mono" style="font-size:12px;text-align:right">'+kgFmt(d.kg_sistema||0)+'</td>'
+        +'<td class="mono" style="font-size:11px;color:var(--text2);text-align:right">'+kgFmt(d.kg_bigbag||0)+' / '+kgFmt(d.kg_tachos||0)+' / '+kgFmt(d.kg_tolvas||0)+'</td>'
+        +'<td class="mono" style="font-size:12px;text-align:right;font-weight:600">'+kgFmt(d.kg_real_total||0)+'</td>'
+        +'<td class="mono" style="font-size:12px;text-align:right;color:'+difCol+'">'+(dif>0?'+':'')+kgFmt(dif)+'</td>'
         +'<td style="font-size:11px;color:'+movCol+'"><code>'+movTipo+'</code></td>'
         +'</tr>';
     });
