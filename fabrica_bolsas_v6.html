@@ -709,7 +709,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-08-26a</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-08-29a</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -3750,6 +3750,12 @@ body.pext-on .main{margin-left:0!important;}
           <div id="fac-tbl"></div>
         </div>
       </div>
+
+      <div class="card" style="margin-top:1rem;">
+        <div class="card-hdr"><div class="card-title">Notas de crédito y débito</div>
+          <div style="font-size:11px;color:var(--text3);">Del circuito formal — las que van a ARCA</div></div>
+        <div class="card-bd"><div id="ncnd-tbl"></div></div>
+      </div>
     </div>
 
     <!-- ============ NUEVA FACTURA ============ -->
@@ -5356,7 +5362,42 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-08-26a';
+const APP_BUILD='2026-08-29a';   // 29a: TURNO NOCHE — el reloj ya sabe que el que entra 22:00 sale 06:00 del día siguiente
+  // 28a: NOTAS DE CREDITO Y DEBITO ANTE ARCA — Y UN BUG DE PLATA QUE NO ERA DE ARCA.
+  //      German: "el tema de notas de debito, credito eso lo tenemos listo tambien" y
+  //      despues, sobre las de cheque rechazado, "eso que tiene que ver con tus facturas".
+  //      La segunda pregunta destapo un error de diseño mio: NO todo lo que vive en
+  //      notas_debito es un comprobante fiscal. Esa tabla guarda TAMBIEN los cargos por
+  //      CHEQUE RECHAZADO y las notas contra PROVEEDORES, que son movimientos internos de
+  //      cuenta corriente y no se declaran a nadie. NUEVA _arcaAplica(tipo,doc), unica
+  //      definicion (P1) que usan la botonera, el pedido de CAE y la Edge Function:
+  //      formal + no anulada + (NC/ND) que corrija una FACTURA + (ND) que sea contra un
+  //      CLIENTE. Lo que no aplica muestra "— no va a ARCA" con el motivo en el tooltip,
+  //      en vez de un boton que iba a fallar.
+  //      BUG DE PLATA, INDEPENDIENTE DE ARCA: ncCalc trataba la suma de las lineas (que
+  //      son NETAS, vienen de factura_lineas) como si fuera el TOTAL de la nota. En modo
+  //      "productos" sobre una Factura A eso acredita 21% DE MENOS y el cliente queda
+  //      debiendo un IVA que ya no existe — sobre $50.000 devueltos son $10.500. Todavia
+  //      no habia pasado (las 2 NC de la base son una informal y una por monto, las dos
+  //      correctas), pero estaba latente. Ahora ncCalc desglosa neto/IVA/total en los TRES
+  //      modos: "total" copia los importes del comprobante sin recalcular, "productos"
+  //      suma el IVA sobre el neto, y "monto" toma lo escrito como TOTAL y desglosa. Se
+  //      guarda subtotal/iva_monto de verdad (antes iva_monto era 0 siempre). Idem ndCalc,
+  //      con subtotal/iva_monto nuevos en notas_debito (guardado TOLERANTE: si falta el
+  //      ALTER, la nota se emite igual y avisa). Sin el desglose no se puede declarar la
+  //      nota a ARCA sin inventar el neto: mandar el total como si fuera neto declaraba
+  //      21% de mas, el mismo error que tenia la Factura B.
+  //      NUEVA PANTALLA: las NC/ND no tenian lista propia — se emitian desde la factura y
+  //      despues no se volvian a ver. Tarjeta "Notas de credito y debito" en Facturacion,
+  //      con el estado de ARCA y el boton de CAE por fila; las internas no aparecen y el
+  //      texto vacio explica por que. PIE FISCAL COMPARTIDO (_pieFiscalHTML +
+  //      _CSS_PIE_FISCAL): QR de ARCA, CAE y vencimiento, ahora tambien en los impresos de
+  //      NC y ND. Verificado con smoke_notas.cjs (42 asserts) corriendo ncCalc, ndCalc y
+  //      _arcaAplica REALES. REBASE: este trabajo se habia construido sobre 10z; al ir a
+  //      subirlo el proyecto ya estaba en 26a (otra conversacion). NO se piso: se
+  //      re-aplico bloque por bloque sobre 26a. PENDIENTE: nada de esto se probo contra
+  //      ARCA — el plan DEV vencio. La primera NC de prueba hay que emitirla el dia que
+  //      haya cuenta otra vez.
   // 26a: "EL PEDIDO DE BARRIENTOS TIENE DOS ORDENES DE CORTE EN ALGUNAS MEDIDAS, YO NO
   //      QUIERO ESO". En el PED-06017 cuatro lineas (80x110 y 90x120, POLIPLAST y ARIAL)
   //      quedaron con DOS OC y DOS OE cada una: ~11.500 m y ~407 kg de mas cargados en la
@@ -5854,6 +5895,120 @@ async function reload(){
   renderOrdenesCorte();renderMaqCorte();renderProductos();renderEmpaque();renderFueraDeRango();poblarSelectsCorte();
   _chequearCargaTruncada();
   checkQRTarget();
+}
+
+// ============================================================
+// ACTUALIZACIÓN QUIRÚRGICA DE LA CACHÉ (build 2026-08-28b)
+// ============================================================
+// reload() son 68 consultas en paralelo y varios MB de JSON: trae la base
+// entera. Estaba colgado de los eventos MÁS FRECUENTES del día — cada escaneo
+// de pistola en el panel de corte, cada bobina guardada, cada cambio de
+// prioridad. Unas 300 veces por día × ~100 requests cada una = los ~30.000
+// requests diarios contra Supabase que agotaron la cuota de egress el 27/08/2026
+// y dejaron el sistema sin servicio (auditoria_egress_2026-08-27.md).
+//
+// Estos helpers hacen lo mismo que hacía reload() PERO SOLO PARA EL DATO QUE
+// CAMBIÓ: o parchean la fila en C con lo que ya sabemos (0 requests), o vuelven
+// a pedir ESA ÚNICA fila con los MISMOS embeds que usa reload (1 request).
+// El resto de C queda como estaba, que es lo correcto: nadie más lo tocó.
+//
+// REGLA: en los flujos de PLANTA (alta frecuencia) se usan estos helpers.
+// reload() queda para el arranque, para el botón de refrescar y para las
+// operaciones raras que sí tocan media base (cerrar un pedido, un recálculo).
+//
+// Por qué refetch de una fila y no armarla a mano: la fila que devuelve la base
+// trae los defaults, el id y los embeds reales. Armarla en JS es adivinar, y una
+// bobina mal armada en la caché se ve igual que una bien armada hasta que
+// alguien cierra un lote con los metros equivocados.
+
+// Parchea por id una o varias listas de C a la vez. `ids` puede ser un número
+// o un array. Devuelve cuántas filas tocó (0 = la fila no estaba cacheada,
+// que es normal si es vieja y quedó fuera de la ventana de reload).
+function _cacheParchear(listas,ids,campos){
+  const set=new Set(Array.isArray(ids)?ids:[ids]);
+  let n=0;
+  (listas||[]).forEach(arr=>{
+    if(!Array.isArray(arr))return;
+    arr.forEach(r=>{ if(r&&set.has(r.id)){Object.assign(r,campos);n++;} });
+  });
+  return n;
+}
+
+// Reordena una lista igual que reload(): prioridad, después created_at, después
+// id. Sin prioridad va al fondo (y no arriba, que es lo que pasa con null).
+function _ordenarPorPrioridad(arr){
+  if(!Array.isArray(arr))return arr;
+  arr.sort((a,b)=>
+    ((a.prioridad??999999)-(b.prioridad??999999))
+    ||String(a.created_at||'').localeCompare(String(b.created_at||''))
+    ||((a.id||0)-(b.id||0)));
+  return arr;
+}
+
+// Vuelve a traer UNA orden de corte con los mismos embeds que reload (índice 13)
+// y la reemplaza en C.ord_corte. 1 request en lugar de 68.
+async function _refrescarOC(ocId){
+  try{
+    const{data,error}=await sb.from('ordenes_corte')
+      .select('*, productos(*), tipos_empaque(*), orden_corte_maquinas(*, maquinas_corte(*)), orden_corte_bobinas(*, bobinas_producidas(id,numero_bobina,metros_reales,kg_reales,orden_id,bobina_tipo_id))')
+      .eq('id',ocId).single();
+    if(error||!data){console.warn('_refrescarOC:',error?.message||'sin datos');return null;}
+    C.ord_corte=C.ord_corte||[];
+    const i=C.ord_corte.findIndex(o=>o.id===ocId);
+    if(i>=0)C.ord_corte[i]=data; else {C.ord_corte.push(data);_ordenarPorPrioridad(C.ord_corte);}
+    return data;
+  }catch(e){console.warn('_refrescarOC:',e);return null;}
+}
+
+// Vuelve a traer UNA bobina producida con los mismos embeds que
+// _traerBobinasRecientes() y la ubica donde corresponde. 1 request.
+async function _refrescarBobinaProd(bobId){
+  try{
+    const{data,error}=await sb.from('bobinas_producidas')
+      .select('*, ordenes(numero_orden,metros), bobinas(*), extrusoras(nombre), operarios(nombre)')
+      .eq('id',bobId).single();
+    if(error||!data){console.warn('_refrescarBobinaProd:',error?.message||'sin datos');return null;}
+    _ubicarBobinaEnCache(data);
+    return data;
+  }catch(e){console.warn('_refrescarBobinaProd:',e);return null;}
+}
+
+// Coloca una bobina en la lista de C que le corresponde, con el MISMO criterio
+// que reload: recientes = en stock o producida en los últimos 60 días y no
+// anulada; fuera = fuera_de_rango; hist = las últimas 50 cargadas.
+function _ubicarBobinaEnCache(b){
+  if(!b||b.id==null)return;
+  C.bobinas_prod=C.bobinas_prod||[];C.bobinas_hist=C.bobinas_hist||[];C.bobinas_fuera=C.bobinas_fuera||[];
+  const quitar=arr=>{const i=arr.findIndex(x=>x&&x.id===b.id);if(i>=0)arr.splice(i,1);};
+  const poner=arr=>{const i=arr.findIndex(x=>x&&x.id===b.id);if(i>=0)arr[i]=b;else arr.unshift(b);};
+  const h=new Date(Date.now()-60*24*3600*1000);
+  const iso=h.getFullYear()+'-'+String(h.getMonth()+1).padStart(2,'0')+'-'+String(h.getDate()).padStart(2,'0');
+  const reciente=(b.en_stock===true)||String(b.fecha_produccion||'')>=iso;
+  if(b.fuera_de_rango){quitar(C.bobinas_prod);poner(C.bobinas_fuera);}
+  else{quitar(C.bobinas_fuera);if(!b.anulada&&reciente)poner(C.bobinas_prod);else quitar(C.bobinas_prod);}
+  poner(C.bobinas_hist);
+  if(C.bobinas_hist.length>50)C.bobinas_hist.length=50;
+}
+
+// Agrega movimientos de stock a la caché sin volver a pedir la tabla. reload la
+// trae ordenada por fecha desc y limitada a 100, así que respetamos las dos cosas.
+// OJO: renderConfHistorial lee m.bobinas_producidas.numero_bobina — el que llama
+// tiene que armar ese embed, o la columna sale vacía hasta el próximo reload.
+function _cacheStockMov(rows){
+  if(!rows||!rows.length)return;
+  C.stock_mov=[...rows,...(C.stock_mov||[])];
+  if(C.stock_mov.length>100)C.stock_mov.length=100;
+}
+
+// Repinta desde la caché, sin tocar la red: es la mitad "de dibujo" de reload.
+// Cada render va aislado a propósito — si uno tira una excepción los demás
+// tienen que pintar igual. En reload() eso no importaba porque el próximo
+// reload arreglaba la pantalla; acá no hay próximo reload.
+function _repintar(...fns){
+  fns.forEach(f=>{
+    try{ const fn=(typeof f==='function')?f:window[f]; if(typeof fn==='function')fn(); }
+    catch(e){ console.warn('_repintar:',(typeof f==='function'?f.name:f),e); }
+  });
 }
 
 // ============================================================
@@ -6579,7 +6734,19 @@ function renderOrdenes(){
   renderResumenOE();
 }
 
-async function cambiarPri(id,val){await sb.from('ordenes').update({prioridad:parseInt(val)||1}).eq('id',id);await reload();}
+// Cambiar prioridad NO cambia nada más que un número y el orden de la lista.
+// Antes disparaba reload() (68 consultas) por cada tecleo confirmado, y planificar
+// la semana es justamente teclear prioridades en ráfaga.
+async function cambiarPri(id,val){
+  const p=parseInt(val)||1;
+  const{error}=await sb.from('ordenes').update({prioridad:p}).eq('id',id);
+  if(error){alert('No se pudo cambiar la prioridad: '+error.message);return;}
+  _cacheParchear([C.ordenes],id,{prioridad:p});
+  _ordenarPorPrioridad(C.ordenes);
+  // No se repuebla el filtro de órdenes: el set de órdenes es el mismo, y
+  // repoblarlo le borraría al usuario el filtro que tenía puesto.
+  _repintar(renderOrdenes,renderGantt);
+}
 async function reactivarOrden(id,tipo){
   pedirAdminYEjecutar(async()=>{
     if(tipo==='extrusion') await sb.from('ordenes').update({estado:'Pendiente'}).eq('id',id);
@@ -7210,7 +7377,9 @@ async function _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,ca
   const errKgStore=esPesada?-Math.abs(errKg):Math.abs(errKg);
   const fueraDeRango=(esPesada&&absE>cfg.tolerancia_pesada_pct)||((!esPesada)&&absE>cfg.tolerancia_liviana_pct);
   const motivoFR=esPesada?`Pesada: −${absE}% (límite −${cfg.tolerancia_pesada_pct}%)`:`Liviana: +${absE}% (límite +${cfg.tolerancia_liviana_pct}%)`;
-  const{error:e1}=await sb.from('bobinas_producidas').insert({
+  // .select('id').single() sobre el propio insert: la base nos devuelve el id
+  // en el mismo viaje. Antes había que ir a buscarlo después por numero_bobina.
+  const{data:bobIns,error:e1}=await sb.from('bobinas_producidas').insert({
     numero_bobina:nro,orden_id:ordId,extrusora_id:extId,bobina_tipo_id:bob.id,
     metros_teoricos:mtsR,metros_reales:mtsR,kg_teoricos:kgT,kg_reales:kgR,
     error_kg:errKgStore,error_pct:errPctStore,estado_calidad:calidad,
@@ -7219,11 +7388,12 @@ async function _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,ca
     fuera_de_rango:fueraDeRango,
     motivo_fuera_rango:fueraDeRango?motivoFR:null,
     operario_id:opId,operario:opNom,observaciones:obs||null
-  });
+  }).select('id').single();
   if(e1){msg.className='msg-err';msg.textContent='Error: '+e1.message;return;}
   await sb.from('contadores').update({valor:window._nextNroBobina}).eq('nombre','numero_bobina');
 
   // === CONSUMO AUTOMÁTICO DE MP ===
+  let consumosGuardados=[];   // para parchear C.consumos_mp sin volver a pedirla
   const formula=C.formulas.filter(f=>f.bobina_id===bob.id);
   if(formula.length){
     const consumos=[];
@@ -7263,9 +7433,10 @@ async function _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,ca
       }
       if(kgRestante>0.01)console.warn('Sin stock suficiente para tipo_mp_id',f.tipo_mp_id,'— faltan',kgRestante,'kg');
     }
-    const{data:bobInsertada}=await sb.from('bobinas_producidas').select('id').eq('numero_bobina',nro).single();
+    const bobInsertada=bobIns;   // ya lo devolvió el insert de arriba
     if(bobInsertada&&consumos.length){
-      await sb.from('consumos_mp_bobina').insert(consumos.map(c=>({...c,bobina_producida_id:bobInsertada.id})));
+      consumosGuardados=consumos.map(c=>({...c,bobina_producida_id:bobInsertada.id}));
+      await sb.from('consumos_mp_bobina').insert(consumosGuardados);
       // Movimientos en el libro de MP: un consumo (negativo) por lote — documento de origen = la bobina
       await sb.from('mov_mp').insert(consumos.map(c=>({
         lote_id:c.lote_id,
@@ -7285,6 +7456,7 @@ async function _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,ca
     const{data:lotesRef}=await sb.from('lotes_mp').select('*, tipos_mp(*), proveedores(nombre)').order('fecha_ingreso',{ascending:false});
     if(lotesRef)C.lotes_mp=lotesRef;
   }
+  let _oeCompletada=false;
   if(fueraDeRango){
     msg.className='msg-err';
     msg.textContent=`⚠ Bobina ${nro} registrada FUERA DE RANGO (${motivoFR}). NO se sumó a la orden. Pendiente de reasignación por admin.`;
@@ -7292,6 +7464,7 @@ async function _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,ca
     // Solo sumar metros si está dentro del rango
     if(orden&&mtsAcum>=orden.metros){
       await sb.from('ordenes').update({estado:'Completada'}).eq('id',ordId);
+      _oeCompletada=true;
       msg.className='msg-ok';msg.textContent=`✓ Bobina ${nro} guardada. ¡Orden ${orden.numero_orden} COMPLETADA!`;
     }else{
       msg.className='msg-ok';msg.textContent=`✓ Bobina ${nro} registrada — Calidad: ${calidad}`;
@@ -7307,7 +7480,20 @@ async function _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,ca
     error_pct:errPct,estado_calidad:fueraDeRango?'FUERA DE RANGO':calidad,
     operario:opNom,flexxus:'No pasada'
   });
-  await reload();
+  // Antes: await reload() — 68 consultas por CADA bobina cargada (~100/día).
+  // Ahora: 1 consulta para traer la bobina recién creada con sus embeds, y el
+  // resto de la caché se parchea con lo que ya sabemos. C.lotes_mp se refrescó
+  // más arriba, dentro del consumo de MP.
+  if(bobIns?.id)await _refrescarBobinaProd(bobIns.id);
+  if(_oeCompletada)_cacheParchear([C.ordenes],ordId,{estado:'Completada'});
+  if(consumosGuardados.length)C.consumos_mp=[...consumosGuardados,...(C.consumos_mp||[])];
+  // Analytics tiene caché propia con el histórico completo: la marcamos para que
+  // se recalcule la próxima vez que ALGUIEN ABRA la pantalla, no ahora.
+  try{anDataCache.loaded=false;}catch(e){}
+  _repintar(updateStats,renderDash,renderOrdenes,renderGantt,renderCap,
+            renderStock,renderCargaHist,renderFueraDeRango,renderConfHistorial);
+  const _panel=document.getElementById('page-panel-operario');
+  if(_panel&&_panel.classList.contains('active'))_repintar(renderPanelOperario);
   limpiarCarga();
   initCarga();
 }
@@ -7348,7 +7534,14 @@ function renderCargaHist(){
 
 // ===== STOCK =====
 
-async function cambiarFlexxus(id,val){await sb.from('bobinas_producidas').update({flexxus:val}).eq('id',id);await reload();}
+// Marcar una bobina como pasada por Flexxus toca UN campo de UNA fila. Antes
+// recargaba la base entera, y es un select por fila de la grilla de stock.
+async function cambiarFlexxus(id,val){
+  const{error}=await sb.from('bobinas_producidas').update({flexxus:val}).eq('id',id);
+  if(error){alert('No se pudo cambiar Flexxus: '+error.message);return;}
+  _cacheParchear([C.bobinas_prod,C.bobinas_hist,C.bobinas_fuera],id,{flexxus:val});
+  _repintar(renderStock,renderCargaHist,renderFueraDeRango);
+}
 
 // ===== CONFECCIÓN =====
 function poblarConfSelects(){
@@ -8104,8 +8297,17 @@ async function asociarBobinasOrdenCorte(){
     // Limpiar el mensaje del lector — quedan vencidos los warnings tipo "ya tenés 4 bobinas".
     const pistolaMsg=document.getElementById('conf-pistola-msg');
     if(pistolaMsg){pistolaMsg.textContent='';pistolaMsg.style.color='';}
-    await reload();
-    // Restaurar la orden seleccionada (reload repuebla el select y pierde el value)
+    // Antes: await reload() — 68 consultas por cada asociación, y acá se asocia
+    // con pistola, decenas de veces por hora. Ahora: 1 consulta que trae ESTA OC
+    // con sus bobinas asociadas (la base es la que manda sobre qué quedó
+    // asociado), y el resto se parchea con lo que acabamos de escribir.
+    await _refrescarOC(ocId);
+    _cacheParchear([C.bobinas_prod,C.bobinas_hist,C.bobinas_fuera],ids,{en_stock:false,reservada_oc_id:null});
+    _cacheStockMov(movs.map((m,i)=>({...m,fecha:localDate(),
+      bobinas_producidas:{numero_bobina:bobsNuevas[i]?.numero_bobina}})));
+    try{anDataCache.loaded=false;}catch(e){}
+    _repintar(renderOrdenesCorte,renderGanttCorte,renderStock,renderConfHistorial,updateStats,renderDash);
+    // Restaurar la orden seleccionada (por si algún render repobló el select)
     const sel=document.getElementById('conf-oc');
     if(sel)sel.value=ocId;
     onConfOCChange(); // refresh progreso, lista disponibles y bobinas ya asociadas
@@ -13064,7 +13266,7 @@ function abrirNotaCredito(docTipo,docId){
   if(doc.estado==='anulada'||doc.estado==='anulado'){toast('El comprobante está anulado','amber');return;}
   const saldo=docTipo==='factura'?_saldoFactura(doc):_saldoRV(doc);
   const yaNC=_ncTotalDe(docTipo,docId);
-  _ncCtx={docTipo,docId,doc,lineas:_ncLineasDoc(docTipo,doc),modo:'total',plano:docTipo==='factura'?'formal':'informal'};
+  _ncCtx={docTipo,docId,doc,lineas:_ncLineasDoc(docTipo,doc),modo:'total',plano:docTipo==='factura'?'formal':'informal',alic:docTipo==='factura'?(parseFloat(doc.iva_porcentaje)||0):0};
   const nombre=doc.razon_social_cliente||(doc.clientes&&(doc.clientes.razon_social||doc.clientes.nombre))||'';
   const numero=doc.numero||('#'+doc.id);
   const total=parseFloat(doc.total)||0;
@@ -13086,7 +13288,8 @@ function abrirNotaCredito(docTipo,docId){
   +'</div></div>';
   h+='<div id="nc-cuerpo"></div>';
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;border-top:1px solid var(--border);padding-top:10px;">'
-    +'<div style="font-size:16px;font-weight:700;">Total NC: <span id="nc-total" style="color:var(--red)">$0</span></div>'
+    +'<div><div style="font-size:16px;font-weight:700;">Total NC: <span id="nc-total" style="color:var(--red)">$0</span></div>'
+      +'<div id="nc-desglose" style="font-size:11px;color:var(--text2);margin-top:2px;"></div></div>'
     +'<div class="btn-grp"><button class="btn btn-sm" onclick="document.getElementById(\'nc-modal\').remove()">Cancelar</button>'
     +'<button class="btn btn-sm btn-primary" id="nc-guardar" onclick="guardarNotaCredito()">Emitir nota de crédito</button></div>'
   +'</div>';
@@ -13126,9 +13329,18 @@ function ncSetModo(modo){
 }
 
 function ncCalc(){
-  let total=0;
+  // El IVA de una nota de credito no se puede ignorar. Los precios de las lineas
+  // vienen NETOS (de factura_lineas), asi que en modo "productos" hay que sumarle
+  // el IVA: antes se acreditaba el neto como si fuera el total y el cliente
+  // quedaba debiendo el 21% de algo que ya no existia.
+  const alic=parseFloat(_ncCtx.alic)||0;
+  let neto=0,iva=0,total=0;
   if(_ncCtx.modo==='total'){
-    total=parseFloat(_ncCtx.doc.total)||0;
+    // Comprobante entero: se copian sus importes tal cual, sin recalcular nada.
+    neto =r2(parseFloat(_ncCtx.doc.subtotal)||0);
+    iva  =r2(parseFloat(_ncCtx.doc.iva_monto)||0);
+    total=r2(parseFloat(_ncCtx.doc.total)||0);
+    if(!neto&&total){neto=r2(total/(1+alic/100));iva=r2(total-neto);}
   } else if(_ncCtx.modo==='productos'){
     document.querySelectorAll('.nc-chk').forEach(chk=>{
       const i=parseInt(chk.dataset.i);const l=_ncCtx.lineas[i];
@@ -13136,14 +13348,18 @@ function ncCalc(){
       let sub=0;
       if(chk.checked){const cant=Math.min(parseFloat(cantEl.value)||0,l.cantidad);sub=r2(cant*l.precio_unitario);}
       const subEl=document.getElementById('nc-sub-'+i);if(subEl)subEl.textContent='$'+sub.toLocaleString('es-AR');
-      total+=sub;
+      neto+=sub;
     });
+    neto=r2(neto); iva=r2(neto*alic/100); total=r2(neto+iva);
   } else {
-    total=parseFloat(document.getElementById('nc-monto')?.value)||0;
+    // Por monto: se escribe el TOTAL a acreditar y el sistema desglosa el IVA.
+    total=r2(parseFloat(document.getElementById('nc-monto')?.value)||0);
+    neto =r2(total/(1+alic/100)); iva=r2(total-neto);
   }
-  total=r2(total);
   const el=document.getElementById('nc-total');if(el)el.textContent='$'+total.toLocaleString('es-AR');
-  _ncCtx._total=total;
+  const d=document.getElementById('nc-desglose');
+  if(d)d.textContent=alic>0?('neto $'+neto.toLocaleString('es-AR')+'  +  IVA '+alic+'%  $'+iva.toLocaleString('es-AR')):'';
+  _ncCtx._total=total;_ncCtx._neto=neto;_ncCtx._iva=iva;
 }
 
 async function guardarNotaCredito(){
@@ -13178,7 +13394,7 @@ async function guardarNotaCredito(){
     cliente_id:doc.cliente_id,razon_social_cliente:doc.razon_social_cliente||(cli&&(cli.razon_social||cli.nombre))||null,
     cuit_cliente:doc.cuit_cliente||(cli&&cli.cuit)||null,
     modo:_ncCtx.modo,motivo_cod:motivo,motivo_detalle:detalle,
-    subtotal:total,iva_monto:0,total:total,estado:'emitida'
+    subtotal:r2(_ncCtx._neto!=null?_ncCtx._neto:total),iva_monto:r2(_ncCtx._iva||0),total:total,estado:'emitida'
   };
   const{data:nc,error}=await sb.from('notas_credito').insert(row).select().single();
   if(error){if(msg){msg.style.color='var(--red)';msg.textContent='Error: '+error.message;}return;}
@@ -13245,7 +13461,7 @@ let _ndCtx={docTipo:null,docId:null,doc:null,plano:'formal'};
 function abrirNotaDebito(docTipo,docId){
   const doc=(docTipo==='factura')?(C.facturas||[]).find(f=>f.id===docId):(C.rvs||[]).find(r=>r.id===docId);
   if(!doc){toast('No se encontró el comprobante','red');return;}
-  _ndCtx={docTipo,docId,doc,plano:docTipo==='factura'?'formal':'informal'};
+  _ndCtx={docTipo,docId,doc,plano:docTipo==='factura'?'formal':'informal',alic:docTipo==='factura'?(parseFloat(doc.iva_porcentaje)||0):0};
   const nombre=doc.razon_social_cliente||(doc.clientes&&(doc.clientes.razon_social||doc.clientes.nombre))||'';
   const numero=doc.numero||('#'+doc.id);
   const total=parseFloat(doc.total)||0;
@@ -13258,7 +13474,8 @@ function abrirNotaDebito(docTipo,docId){
   h+='<div class="fg"><label>Detalle (opcional)</label><input id="nd-detalle" type="text" placeholder="Ej: se facturó a 40 y el precio era 50" style="width:100%"></div>';
   h+='<div class="fg"><label>Monto a agregar</label><input id="nd-monto" type="number" min="0" step="0.01" value="0" style="width:100%" oninput="ndCalc()"></div>';
   h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;border-top:1px solid var(--border);padding-top:10px;">'
-    +'<div style="font-size:16px;font-weight:700;">Total ND: <span id="nd-total" style="color:#2563eb">$0</span></div>'
+    +'<div><div style="font-size:16px;font-weight:700;">Total ND: <span id="nd-total" style="color:#2563eb">$0</span></div>'
+      +'<div id="nd-desglose" style="font-size:11px;color:var(--text2);margin-top:2px;"></div></div>'
     +'<div class="btn-grp"><button class="btn btn-sm" onclick="document.getElementById(\'nd-modal\').remove()">Cancelar</button>'
     +'<button class="btn btn-sm btn-primary" onclick="guardarNotaDebito()">Emitir nota de débito</button></div>'
   +'</div><div id="nd-msg" style="font-size:12px;margin-top:8px;"></div></div></div>';
@@ -13266,9 +13483,16 @@ function abrirNotaDebito(docTipo,docId){
   document.body.insertAdjacentHTML('beforeend',h);
 }
 function ndCalc(){
+  // Lo que se escribe es el TOTAL a agregar (asi lo dice la etiqueta). Para un
+  // comprobante formal con IVA hay que desglosarlo: sin el desglose no se puede
+  // declarar la nota a ARCA sin inventar el neto.
+  const alic=parseFloat(_ndCtx.alic)||0;
   const t=r2(parseFloat(document.getElementById('nd-monto')?.value)||0);
+  const neto=r2(t/(1+alic/100)), iva=r2(t-neto);
   const el=document.getElementById('nd-total');if(el)el.textContent='$'+t.toLocaleString('es-AR');
-  _ndCtx._total=t;
+  const d=document.getElementById('nd-desglose');
+  if(d)d.textContent=alic>0?('neto $'+neto.toLocaleString('es-AR')+'  +  IVA '+alic+'%  $'+iva.toLocaleString('es-AR')):'';
+  _ndCtx._total=t;_ndCtx._neto=neto;_ndCtx._iva=iva;
 }
 async function guardarNotaDebito(){
   const msg=document.getElementById('nd-msg');
@@ -13285,7 +13509,15 @@ async function guardarNotaDebito(){
     plano:_ndCtx.plano, concepto:'Ajuste s/ '+docLbl+' — '+_ndMotivoLbl(motivo)+(detalle?' · '+detalle:''),
     monto, origen:'ajuste_comprobante', doc_tipo:docTipo, doc_id:doc.id, motivo_cod:motivo, numero_doc:numero
   };
-  const{data:nd,error}=await sb.from('notas_debito').insert(row).select().single();
+  // El desglose se guarda si las columnas existen; si todavia no se corrio el
+  // ALTER, se reintenta sin ellas y la nota igual se emite.
+  let nd=null,error=null;
+  ({data:nd,error}=await sb.from('notas_debito').insert(Object.assign({},row,
+     {subtotal:r2(_ndCtx._neto!=null?_ndCtx._neto:monto),iva_monto:r2(_ndCtx._iva||0)})).select().single());
+  if(error&&/subtotal|iva_monto|column|schema cache/i.test(String(error.message||''))){
+    ({data:nd,error}=await sb.from('notas_debito').insert(row).select().single());
+    if(!error)toast('Guardada sin el desglose de IVA: falta correr migracion_arca_cae.sql','amber');
+  }
   if(error){if(msg){msg.style.color='var(--red)';msg.textContent='Error: '+error.message;}return;}
   toast('Nota de débito '+numero+' emitida','green');
   document.getElementById('nd-modal')?.remove();
@@ -13454,6 +13686,7 @@ function imprimirNotaDebito(ndId){
       +'<tr><td class="c">&nbsp;</td><td></td><td></td></tr><tr><td class="c">&nbsp;</td><td></td><td></td></tr></tbody></table>'
     +'<div class="spacer"></div>'
     +'<div class="tots"><table class="tt"><tr class="grand"><td class="lbl">TOTAL A DEBITAR</td><td class="r mono">'+money(nd.monto)+'</td></tr></table></div>'
+    +_pieFiscalHTML(nd,34)
     +'<div class="firmas"><div class="firma">Conformidad cliente</div><div class="firma">Firma y aclaración</div></div>'
     +'<div class="pie">'+(informal?'Comprobante de uso interno · no reemplaza la nota de débito legal.':'Nota de débito · aumenta el saldo del comprobante referenciado.')+'</div>'
     +'</div>';
@@ -13474,6 +13707,7 @@ function imprimirNotaDebito(ndId){
     +'tbody td{padding:7px 12px;border-bottom:1px solid #eee;font-size:12px;}'
     +'.spacer{flex:1 1 auto;}.tots{display:flex;justify-content:flex-end;padding:10px 18px;}.tt{min-width:300px;}.tt td{padding:6px 12px;}.tt .lbl{text-align:right;color:#444;}'
     +'.tt .grand td{font-size:17px;font-weight:800;color:#111;border-top:2px solid #2563eb;padding-top:9px;}'
+    +_CSS_PIE_FISCAL
     +'.firmas{display:flex;justify-content:space-around;padding:22px 18px 10px;gap:40px;}.firma{flex:1;border-top:1px solid #999;text-align:center;font-size:10px;color:#666;padding-top:5px;max-width:260px;}'
     +'.pie{padding:8px 18px 12px;font-size:9px;color:#999;text-align:center;}'
     +'</style></head><body>'+cuerpo);
@@ -13674,8 +13908,51 @@ function renderRemitosPendientes(){
   tbl.innerHTML=html;
 }
 
+// Las notas de crédito y débito no tenían ninguna pantalla propia: se emitían
+// desde la factura y después no se volvían a ver. Sin una lista no hay dónde
+// pedirles el CAE ni dónde mirar si salieron.
+function renderNotasARCA(){
+  const tbl=document.getElementById('ncnd-tbl'); if(!tbl)return;
+  const filas=[];
+  (C.notas_credito||[]).forEach(n=>filas.push({t:'nc',lbl:'Nota de crédito',doc:n,
+    fecha:n.fecha,numero:n.numero,cli:n.razon_social_cliente,total:parseFloat(n.total)||0,
+    ref:n.doc_tipo==='factura'?((C.facturas||[]).find(f=>f.id===n.doc_id)||{}).numero:null,anul:n.estado==='anulada'}));
+  (C.notas_debito||[]).forEach(n=>{
+    const c=(C.clientes||[]).find(x=>x.id===n.entidad_id)||{};
+    filas.push({t:'nd',lbl:'Nota de débito',doc:n,fecha:n.fecha,numero:n.numero||n.numero_doc,
+      cli:(n.tipo_entidad==='cliente')?(c.razon_social||c.nombre||'—'):'(proveedor)',
+      total:parseFloat(n.monto)||0,
+      ref:n.doc_tipo==='factura'?((C.facturas||[]).find(f=>f.id===n.doc_id)||{}).numero:null,anul:!!n.anulada});
+  });
+  const vivas=filas.filter(f=>_arcaAplica(f.t,f.doc).ok||f.doc.cae||f.doc.cae_estado);
+  vivas.sort((a,b)=>String(b.fecha||'').localeCompare(String(a.fecha||''))||(b.doc.id-a.doc.id));
+  if(!vivas.length){
+    tbl.innerHTML='<div style="padding:14px;color:var(--text3);font-size:12px;">No hay notas de crédito ni de débito del circuito formal.<br>'
+      +'Las notas por cheque rechazado y las de proveedores no aparecen acá: son movimientos internos de cuenta corriente, no se declaran a ARCA.</div>';
+    return;
+  }
+  let h='<div style="overflow:auto"><table class="tbl"><thead><tr>'
+    +'<th>Comprobante</th><th>Fecha</th><th>Cliente</th><th>Corrige</th>'
+    +'<th style="text-align:right">Total</th><th>ARCA</th><th></th></tr></thead><tbody>';
+  vivas.forEach(f=>{
+    const st=_caeEstado(f.doc);
+    h+='<tr'+(f.anul?' style="opacity:.5"':'')+'>'
+      +'<td><div style="font-size:11px;color:var(--text2)">'+f.lbl+'</div><strong>'+escapeHtml(f.numero||('#'+f.doc.id))+'</strong></td>'
+      +'<td>'+(f.fecha||'')+'</td>'
+      +'<td>'+escapeHtml(f.cli||'—')+'</td>'
+      +'<td>'+(f.ref?escapeHtml(f.ref):'<span style="color:var(--text3)">—</span>')+'</td>'
+      +'<td style="text-align:right" class="mono">'+fmtMoney(f.total)+'</td>'
+      +'<td><span style="font-size:11px;color:'+st.color+'">'+escapeHtml(st.lbl)+'</span></td>'
+      +'<td style="white-space:nowrap">'+_caeBotones(f.t,f.doc)
+        +'<button class="btn btn-sm" onclick="'+(f.t==='nc'?'imprimirNotaCredito':'imprimirNotaDebito')+'('+f.doc.id+')">🖨</button>'
+      +'</td></tr>';
+  });
+  tbl.innerHTML=h+'</tbody></table></div>';
+}
+
 function renderFacturas(){
   try{_arcaBanner();}catch(e){}
+  try{renderNotasARCA();}catch(e){console.warn('renderNotasARCA',e);}
   const tbl=document.getElementById('fac-tbl');
   if(!tbl)return;
   const filCli=document.getElementById('fac-fil-cli')?.value;
@@ -14498,11 +14775,65 @@ function _caeEstado(doc){
   return {cod:'sin',lbl:'sin CAE',color:'var(--text3)'};
 }
 
+// Pie fiscal de un comprobante impreso: QR de ARCA (RG 4892) + CAE y su
+// vencimiento. Lo comparten factura, nota de crédito y nota de débito — sin él
+// el papel no cumple, por más que el CAE exista en la base.
+function _pieFiscalHTML(doc,mm){
+  if(!doc||(String(doc.plano||'formal')!=='formal'))return '';
+  if(!doc.cae&&doc.cae_estado!=='prueba'&&!doc.arca_qr_url)return '';
+  const _f=v=>{const t=String(v||'').slice(0,10);const m=t.match(/^(\d{4})-(\d{2})-(\d{2})$/);return m?(m[3]+'/'+m[2]+'/'+m[1]):(t||'—');};
+  return '<div class="afip-pie">'
+    +'<div>'+(doc.arca_qr_url?_qrSVG(doc.arca_qr_url,mm||34):'<div style="font-size:9px;color:#900;width:'+(mm||34)+'mm">sin QR de ARCA</div>')+'</div>'
+    +'<div class="afip-tx">'
+      +'<div class="afip-ch">Comprobante autorizado</div>'
+      +(doc.cae?'<div><b>CAE N&ordm;:</b> '+escapeHtml(String(doc.cae))+'</div>'
+               +'<div><b>Fecha de vto. de CAE:</b> '+_f(doc.cae_vto)+'</div>'
+               +(doc.arca_numero?'<div><b>N&ordm; ARCA:</b> '+escapeHtml(String(doc.arca_numero))+'</div>':'')
+              :'<div style="color:#b45309"><b>COMPROBANTE DE PRUEBA — SIN VALIDEZ FISCAL</b></div>')
+      +'<div class="afip-leg">Esta Administración Federal no se responsabiliza por los datos ingresados en el detalle de la operación</div>'
+    +'</div></div>';
+}
+const _CSS_PIE_FISCAL="".concat(
+  '.afip-pie{display:flex;align-items:flex-start;gap:12px;padding:10px 18px;border-top:1.5px solid #111;}',
+  '.afip-pie svg{display:block;}',
+  '.afip-tx{font-size:10.5px;line-height:1.5;padding-top:2px;}',
+  '.afip-ch{font-size:9px;color:#666;letter-spacing:.4px;text-transform:uppercase;}',
+  '.afip-leg{font-size:7.8px;color:#777;margin-top:6px;max-width:340px;line-height:1.35;}');
+
+// ¿ESTE documento va a ARCA? Única definición (P1): la usan la botonera, el
+// pedido de CAE y la Edge Function. No todo lo que vive en notas_debito es un
+// comprobante fiscal: la tabla también guarda los cargos por CHEQUE RECHAZADO y
+// las notas contra PROVEEDORES, que son movimientos internos de cuenta corriente
+// y no se declaran a nadie.
+function _arcaAplica(tipo,doc){
+  if(!doc) return {ok:false,motivo:'no se encontró el comprobante'};
+  if(String(doc.plano||'formal')!=='formal')
+    return {ok:false,motivo:'es del circuito informal (negro): no va a ARCA'};
+  if(tipo==='factura'){
+    if(typeof _estadoFactura==='function'&&_estadoFactura(doc)==='anulada')
+      return {ok:false,motivo:'la factura está anulada'};
+    return {ok:true};
+  }
+  if(tipo==='nc'){
+    if(doc.estado==='anulada') return {ok:false,motivo:'la nota de crédito está anulada'};
+    if(doc.doc_tipo!=='factura') return {ok:false,motivo:'acredita un remito valorizado, no una factura'};
+    return {ok:true};
+  }
+  if(doc.anulada) return {ok:false,motivo:'la nota de débito está anulada'};
+  if(doc.tipo_entidad!=='cliente') return {ok:false,motivo:'es contra un proveedor, no un cliente'};
+  if(doc.doc_tipo!=='factura')
+    return {ok:false,motivo:'no corrige una factura (por ejemplo, un cheque rechazado): es un movimiento interno de cuenta corriente'};
+  return {ok:true};
+}
+
 // Botonera por fila. Cada estado ofrece UNA acción, y la de 'procesando' es
 // VERIFICAR, no reintentar: si el CAE salió y se perdió la respuesta, reintentar
 // emite una segunda factura fiscal que después hay que anular con nota de crédito.
 function _caeBotones(tipo,doc){
+  const ap=_arcaAplica(tipo,doc);
   const st=_caeEstado(doc);
+  if(!ap.ok&&!doc.cae&&st.cod!=='prueba')
+    return '<span style="font-size:10px;color:var(--text3);" title="'+escapeHtml(ap.motivo)+'">— no va a ARCA</span> ';
   const anulada=(tipo==='factura'&&typeof _estadoFactura==='function')?_estadoFactura(doc)==='anulada':(doc.estado==='anulada'||doc.anulada);
   const pdf=doc.arca_pdf_url?'<button class="btn btn-sm" onclick="abrirPdfArca(\''+tipo+'\','+doc.id+')" title="PDF oficial de ARCA">📄</button> ':'';
   if(st.cod==='autorizado'){
@@ -14583,7 +14914,8 @@ async function solicitarCAE(docTipo,docId){
   const doc=_arcaDoc(docTipo,docId);
   if(!doc){toast('No se encontró el comprobante','red');return;}
   if(doc.cae){toast('Este comprobante ya tiene CAE','amber');return;}
-  if(String(doc.plano||'formal')==='informal'){toast('Los comprobantes en negro no van a ARCA','amber');return;}
+  const _ap=_arcaAplica(docTipo,doc);
+  if(!_ap.ok){alert('Este comprobante no se declara a ARCA:\n\n'+_ap.motivo);return;}
   if(doc.cae_estado==='procesando'){
     if(!confirm('Este comprobante quedó SIN CONFIRMAR de un intento anterior.\n\nAntes de emitir, el sistema va a preguntarle a ARCA si ya se emitió. ¿Seguimos?'))return;
   }
@@ -14672,6 +15004,7 @@ async function abrirPdfArca(docTipo,docId){
 }
 
 function _arcaRefrescar(docTipo){
+  try{ if(typeof renderNotasARCA==='function')renderNotasARCA(); }catch(e){}
   try{
     if(docTipo==='factura'&&typeof renderFacturas==='function')renderFacturas();
     else if(typeof renderFacturacion==='function')renderFacturacion();
@@ -15533,6 +15866,7 @@ function imprimirNotaCredito(ncId){
     +'<div class="tots"><table class="tt">'
       +'<tr class="grand"><td class="lbl">TOTAL ACREDITADO</td><td class="r mono">'+money(nc.total)+'</td></tr></table></div>'
     +(nc.observaciones?'<div class="obs"><b>Observaciones:</b> '+escapeHtml(nc.observaciones)+'</div>':'')
+    +_pieFiscalHTML(nc,34)
     +'<div class="firmas"><div class="firma">Conformidad cliente</div><div class="firma">Firma y aclaración</div></div>'
     +'<div class="pie">'+(informal?'Comprobante de uso interno · no reemplaza la nota de crédito legal.':'Nota de crédito · reduce el saldo del comprobante referenciado.')+'</div>'
     +'</div>';
@@ -15556,6 +15890,7 @@ function imprimirNotaCredito(ncId){
     +'.tots{display:flex;justify-content:flex-end;padding:10px 18px;}.tt{min-width:300px;}.tt td{padding:6px 12px;}.tt .lbl{text-align:right;color:#444;}'
     +'.tt .grand td{font-size:17px;font-weight:800;color:#111;border-top:2px solid #dc2626;padding-top:9px;}'
     +'.obs{padding:10px 18px;border-top:1px solid #ddd;font-size:11px;}'
+    +_CSS_PIE_FISCAL
     +'.firmas{display:flex;justify-content:space-around;padding:22px 18px 10px;gap:40px;}'
     +'.firma{flex:1;border-top:1px solid #999;text-align:center;font-size:10px;color:#666;padding-top:5px;max-width:260px;}'
     +'.pie{padding:8px 18px 12px;font-size:9px;color:#999;text-align:center;}'
@@ -26973,8 +27308,42 @@ function _fichFeedbackHtml(u){
     +'<div style="font-size:26px;font-weight:800;color:'+col+';">'+ico+' '+(u.tipo==='entrada'?'ENTRADA':'SALIDA')+'</div>'
     +'<div style="font-size:18px;font-weight:700;margin-top:4px;">'+escapeHtml(u.nombre)+'</div>'
     +'<div style="font-size:14px;color:var(--text2);">'+escapeHtml(u.hora)+(u.turno?' · '+escapeHtml(u.turno):'')+(u.tardanza>0?' · <span style="color:var(--amber);">tarde '+u.tardanza+'′</span>':'')+'</div>'
+    +(u.jornada?'<div style="font-size:12px;color:var(--text3);margin-top:4px;">🌙 '+escapeHtml(u.jornada)+'</div>':'')
     +(u.aviso?(function(){const soft=u.tardanza===0;return '<div style="margin-top:8px;background:'+(soft?'rgba(245,158,11,.15)':'rgba(239,68,68,.15)')+';border:1px solid '+(soft?'var(--amber)':'var(--red)')+';border-radius:var(--r);padding:8px;color:'+(soft?'var(--amber)':'var(--red)')+';font-weight:700;font-size:13px;">⚠ '+escapeHtml(u.aviso)+'</div>';})():'')
     +'</div>';
+}
+// ---------- ¿ESTE ESCANEO ES ENTRADA O SALIDA? ----------
+// BUG DEL TURNO NOCHE (detectado el 29/08/2026). El que hace la noche entra a las 22 y sale
+// a las 6 de la MAÑANA SIGUIENTE. La regla vieja miraba solamente las marcas "de hoy": a las
+// 6 de la mañana el tipo no tenía ninguna, así que el reloj le ponía ENTRADA. El operario
+// veía "ENTRADA" en verde, volvía a escanear y recién ahí salía SALIDA. Resultado en la base:
+// una entrada trucha a las 06:06:22 + una salida a las 06:06:30 (8 segundos de jornada) y la
+// noche de ayer quedaba ABIERTA para siempre. Las 8 horas reales no se contaban en ningún
+// lado. Pasó todas las noches del 19/08 en adelante (Pavoni y Córdova).
+// Ahora, si no hay marcas de hoy, se mira si ANOCHE quedó una entrada abierta de un turno
+// que cruza la medianoche: si sí, este escaneo es la SALIDA de esa noche.
+function _fichJornadaAbierta(emp,fecha,hora){
+  if(!emp)return null;
+  const ay=_fichDiaMas(fecha,-1);
+  const ms=_fichMarcas(emp.id,ay);
+  const ult=ms.length?ms[ms.length-1]:null;
+  if(!ult||ult.tipo!=='entrada')return null;
+  const tAyer=_turnoDelDia(emp,ay).turno;
+  if(!tAyer||!tAyer.cruza_medianoche)return null;
+  const transc=(1440-_minutosT(ult.hora))+_minutosT(hora);   // minutos desde que entró anoche
+  // más de 14 hs adentro no es una noche: es que ayer se olvidó de marcar la salida.
+  if(transc<=0||transc>14*60)return null;
+  return {entrada:ult,turno:tAyer,fecha:ay,minutos:transc};
+}
+function _fichTipoDelScan(emp,fecha,hora){
+  // sólo las marcas ANTERIORES a este escaneo: si alguien dejó cargada a mano una marca de
+  // más tarde, no puede decidir si esto es entrada o salida.
+  const fs=_fichMarcas(emp.id,fecha).filter(function(f){return String(f.hora)<=String(hora);});
+  const ult=fs.length?fs[fs.length-1]:null;
+  if(ult)return {tipo:(ult.tipo==='salida'?'entrada':'salida'),noche:null};
+  const j=_fichJornadaAbierta(emp,fecha,hora);
+  if(j)return {tipo:'salida',noche:j};
+  return {tipo:'entrada',noche:null};
 }
 function fichajeScan(raw){
   const code=String(raw||'').trim(); if(!code)return;
@@ -26982,18 +27351,24 @@ function fichajeScan(raw){
     ||(C.empleados||[]).find(e=>e.activo&&String(e.id)===code);
   if(!emp){FICH.ultimo={error:'Carnet no reconocido ('+code+')'};_fichUI();return;}
   const hoy=localDate();
-  const fsHoy=(C.fichajes||[]).filter(f=>f.empleado_id===emp.id&&String(f.fecha)===hoy).slice().sort((a,b)=>String(a.hora).localeCompare(String(b.hora)));
-  const ultimo=fsHoy[fsHoy.length-1];
-  const tipo=(!ultimo||ultimo.tipo==='salida')?'entrada':'salida';
   const hora=localTime();
+  const sug=_fichTipoDelScan(emp,hoy,hora);
+  const tipo=sug.tipo;
   const td=_turnoDelDia(emp,hoy);
+  // El turno que se guarda con la marca: si es la SALIDA de una noche que arrancó ayer,
+  // corresponde al turno de ANOCHE (el que cruza la medianoche), no al de hoy.
+  const turnoMarca=sug.noche?sug.noche.turno:td.turno;
   let tardanza=0;
   if(tipo==='entrada'&&td.turno){
-    const er=_minutosT(hora),ee=_minutosT(td.turno.hora_entrada)+(td.turno.tolerancia_min||0);
+    const ee=_minutosT(td.turno.hora_entrada)+(td.turno.tolerancia_min||0);
+    let er=_minutosT(hora);
+    // turno noche: si entra pasada la medianoche, el reloj vuelve a 0 y sin esto una
+    // llegada a las 00:30 daba "0 minutos tarde" en vez de 2 h 30 tarde.
+    if(td.turno.cruza_medianoche&&er<ee-720)er+=1440;
     tardanza=Math.max(0,Math.round(er-ee));
   }
   (async()=>{
-    const{data,error}=await sb.from('fichajes').insert({empleado_id:emp.id,fecha:hoy,hora:hora,tipo:tipo,origen:'qr',turno_id:td.turno?td.turno.id:null}).select().single();
+    const{data,error}=await sb.from('fichajes').insert({empleado_id:emp.id,fecha:hoy,hora:hora,tipo:tipo,origen:'qr',turno_id:turnoMarca?turnoMarca.id:null}).select().single();
     if(error){FICH.ultimo={error:error.message};_fichUI();return;}
     if(data){C.fichajes=[data,...(C.fichajes||[])];window._fichIdxV=-1;}
     let aviso=null;
@@ -27017,7 +27392,8 @@ function fichajeScan(raw){
         aviso='van '+tm.dias+' día(s) de atraso tolerado este mes ('+tm.min+' min en total)';
       }
     }
-    FICH.ultimo={nombre:emp.apellido_nombre,tipo:tipo,hora:_hhmmss(hora).slice(0,5),turno:td.turno?td.turno.nombre:null,tardanza:tardanza,aviso:aviso};
+    FICH.ultimo={nombre:emp.apellido_nombre,tipo:tipo,hora:_hhmmss(hora).slice(0,5),turno:turnoMarca?turnoMarca.nombre:null,tardanza:tardanza,aviso:aviso,
+      jornada:sug.noche?('cierra la noche que arrancó '+_hhmm(sug.noche.entrada.hora)+' de ayer · '+_fmtH(sug.noche.minutos/60)+' en planta'):null};
     _fichUI();
   })();
 }
@@ -27088,33 +27464,57 @@ function _asisDesde(emp){
 // la entrada colgada de hoy se cierra con la primera salida de mañana, y la salida
 // que aparece primera hoy pertenece a la jornada de ayer (no se cuenta dos veces).
 // Para los turnos que NO cruzan medianoche el resultado es idéntico al de siempre.
-function _fichParesDia(empId,fechaStr,turno){
+// Devuelve la salida que cierra la noche dentro de las marcas de un día: normalmente es la
+// primera marca, pero si quedó la ENTRADA TRUCHA del bug del 29/08 (entrada + salida con
+// segundos de diferencia a las 6 de la mañana), la que vale es la segunda y la primera se
+// descarta. Así los días ya fichados con el bug se leen bien sin tocar la base.
+function _fichCierreNoche(fs){
+  if(!fs||!fs.length)return null;
+  if(fs[0].tipo==='salida')return {salida:fs[0],fantasma:null};
+  if(fs.length>1&&fs[0].tipo==='entrada'&&fs[1].tipo==='salida'
+     &&(_minutosT(fs[1].hora)-_minutosT(fs[0].hora))<=10)return {salida:fs[1],fantasma:fs[0]};
+  return null;
+}
+function _fichParesDia(empId,fechaStr,turno,emp){
   const fs=_fichMarcas(empId,fechaStr);
   const cruza=!!(turno&&turno.cruza_medianoche);
-  let salidaDeAyer=null;
-  if(cruza&&fs.length&&fs[0].tipo==='salida'){
-    const ay=_fichMarcas(empId,_fichDiaMas(fechaStr,-1));
-    const ult=ay.length?ay[ay.length-1]:null;
-    if(ult&&ult.tipo==='entrada')salidaDeAyer=fs[0];
+  const ayer=_fichDiaMas(fechaStr,-1);
+  const ay=_fichMarcas(empId,ayer);
+  const ultAy=ay.length?ay[ay.length-1]:null;
+  // ¿Anoche quedó una entrada abierta de un turno que cruza la medianoche? Se mira el turno
+  // de AYER, no el de hoy: el sábado a la mañana, o el lunes en que la rotación pasa a
+  // mañana, el turno de HOY no cruza y la salida de las 6 quedaba huérfana (la noche del
+  // viernes no se contaba). Se acepta también por el turno de hoy, como antes.
+  const tAyer=emp?(_turnoDelDia(emp,ayer).turno):null;
+  const ayerAbierta=!!(ultAy&&ultAy.tipo==='entrada'&&((tAyer&&tAyer.cruza_medianoche)||cruza));
+  let salidaDeAyer=null,fantasma=null;
+  if(ayerAbierta){
+    const c=_fichCierreNoche(fs);
+    if(c){salidaDeAyer=c.salida;fantasma=c.fantasma;}
   }
-  const lista=salidaDeAyer?fs.slice(1):fs;
+  const lista=fs.filter(f=>f!==salidaDeAyer&&f!==fantasma);
   const pares=[];let ent=null;
   lista.forEach(f=>{if(f.tipo==='entrada'){ent=f;}else if(f.tipo==='salida'&&ent){pares.push([ent,f]);ent=null;}});
-  let cruzada=null;
+  let cruzada=null,fantasmaManana=null;
   if(ent&&cruza){
-    const man=_fichMarcas(empId,_fichDiaMas(fechaStr,1));
-    if(man.length&&man[0].tipo==='salida'){pares.push([ent,man[0]]);cruzada=man[0];ent=null;}
+    const c=_fichCierreNoche(_fichMarcas(empId,_fichDiaMas(fechaStr,1)));
+    if(c){pares.push([ent,c.salida]);cruzada=c.salida;fantasmaManana=c.fantasma;ent=null;}
   }
-  return {fichajes:fs,pares:pares,colgada:ent,cruzada:cruzada,salidaDeAyer:salidaDeAyer};
+  return {fichajes:fs,pares:pares,colgada:ent,cruzada:cruzada,salidaDeAyer:salidaDeAyer,
+          fantasma:fantasma,fantasmaManana:fantasmaManana};
 }
 function _fichHorasDia(emp,fechaStr){
   const td=_turnoDelDia(emp,fechaStr);
-  const pd=_fichParesDia(emp.id,fechaStr,td.turno);
+  const pd=_fichParesDia(emp.id,fechaStr,td.turno,emp);
   let trabMin=0;pd.pares.forEach(p=>{let d=_minutosT(p[1].hora)-_minutosT(p[0].hora);if(d<0)d+=1440;trabMin+=d;});
-  const nMarcas=pd.fichajes.length-(pd.salidaDeAyer?1:0);
+  const nMarcas=pd.fichajes.length-(pd.salidaDeAyer?1:0)-(pd.fantasma?1:0);
   const out={fichajes:pd.fichajes,pares:pd.pares,colgada:pd.colgada||null,cruzada:pd.cruzada||null,salidaDeAyer:pd.salidaDeAyer||null,
+    fantasma:pd.fantasma||null,
     trabajadas:r2(trabMin/60),tardanza:0,normales:0,extra:0,feriado:0,esperadas:0,turno:null,
     abierto:!!pd.colgada||(nMarcas%2!==0&&!pd.cruzada)};
+  // El día que SOLO tiene el cierre de la noche de ayer (y la entrada trucha del bug) no es
+  // una jornada propia: no debe aparecer como una fila más en el resumen del día.
+  out.soloCierreDeAyer=!!pd.salidaDeAyer&&nMarcas===0;
   const trab=out.trabajadas;
   const dow=new Date(fechaStr+'T12:00:00').getDay();
   out.turno=td.turno;out.franco=td.franco;out.tipoDia=td.tipo;
@@ -27294,11 +27694,22 @@ function _fmtH(h){
   let s=v.toFixed(2); if(s.endsWith('0'))s=s.slice(0,-1);
   return s+'h';
 }
-// fs: fichajes del día ordenados asc -> {entrada, salida, abierto}
-function _resEntradaSalida(fs){
+// Recibe el objeto de _fichHorasDia (o, por compatibilidad, el array de marcas) y devuelve
+// {entrada, salida, abierto}. Usa los PARES cuando están: en el turno noche la salida es la
+// de las 6 de la mañana siguiente y con las marcas sueltas del día salía siempre "—".
+function _resEntradaSalida(h){
+  const esArr=Array.isArray(h);
+  const fs=esArr?h:((h&&h.fichajes)||[]);
+  const pares=(!esArr&&h&&h.pares)?h.pares:null;
+  if(pares&&pares.length){
+    const e=pares[0][0],s=pares[pares.length-1][1];
+    const cruzo=_minutosT(s.hora)<_minutosT(e.hora);
+    return {entrada:_hhmm(e.hora), salida:_hhmm(s.hora)+(cruzo?' +1':''), abierto:!esArr&&!!h.abierto};
+  }
   const ent=fs.find(f=>f.tipo==='entrada');
   let sal=null; for(let i=fs.length-1;i>=0;i--){ if(fs[i].tipo==='salida'){sal=fs[i];break;} }
-  return {entrada:ent?_hhmm(ent.hora):'—', salida:sal?_hhmm(sal.hora):'—', abierto:fs.length%2!==0};
+  return {entrada:ent?_hhmm(ent.hora):'—', salida:sal?_hhmm(sal.hora):'—',
+          abierto:esArr?(fs.length%2!==0):!!h.abierto};
 }
 // Empleados activos + los que tengan fichajes en el período (aunque estén inactivos)
 function _resEmpleados(fechas){
@@ -27306,6 +27717,49 @@ function _resEmpleados(fechas){
   const conFichaje=new Set((C.fichajes||[]).filter(f=>fset.has(String(f.fecha))).map(f=>f.empleado_id));
   return (C.empleados||[]).filter(e=>e.activo||conFichaje.has(e.id))
     .sort((a,b)=>String(a.apellido_nombre||'').localeCompare(String(b.apellido_nombre||'')));
+}
+
+// ---------- LIMPIEZA DE LAS MARCAS DOBLES DEL TURNO NOCHE ----------
+// Mientras estuvo el bug del 29/08 el reloj le ponía ENTRADA al que salía a las 6 de la
+// mañana; el operario escaneaba de nuevo y ahí sí salía SALIDA. Quedó una entrada trucha
+// por cada noche. El motor ya las ignora, pero conviene sacarlas de la base para que las
+// marcas del día sean lo que realmente pasó.
+function _fichMarcasDoblesNoche(){
+  const out=[];
+  try{
+    const idx=_fichIdx();
+    Object.keys(idx).forEach(function(k){
+      const i=k.indexOf('|'),empId=parseInt(k.slice(0,i)),fecha=k.slice(i+1);
+      const emp=(C.empleados||[]).find(function(e){return e.id===empId;}); if(!emp)return;
+      const fs=idx[k]; if(!fs||fs.length<2)return;
+      const c=_fichCierreNoche(fs); if(!c||!c.fantasma)return;
+      const ayer=_fichDiaMas(fecha,-1);
+      const ay=_fichMarcas(empId,ayer);
+      const ult=ay.length?ay[ay.length-1]:null;
+      if(!ult||ult.tipo!=='entrada')return;
+      const tAy=_turnoDelDia(emp,ayer).turno;
+      if(!tAy||!tAy.cruza_medianoche)return;
+      out.push({id:c.fantasma.id,nombre:emp.apellido_nombre||('#'+empId),fecha:fecha,
+                hora:c.fantasma.hora,salida:c.salida.hora});
+    });
+  }catch(e){}
+  return out.sort(function(a,b){return String(a.fecha+'|'+a.nombre).localeCompare(String(b.fecha+'|'+b.nombre));});
+}
+function fichLimpiarDoblesNoche(){
+  const list=_fichMarcasDoblesNoche();
+  if(!list.length){toast('No hay marcas dobles del turno noche','green');return;}
+  const det=list.slice(0,20).map(function(x){return '· '+x.fecha+'  '+x.nombre+'  '+_hhmm(x.hora)+' → se queda la salida '+_hhmm(x.salida);}).join('\n');
+  if(!confirm('Se van a borrar '+list.length+' marca(s) de ENTRADA que el reloj puso mal cuando el turno noche se estaba yendo.\n\n'+det+(list.length>20?'\n… y '+(list.length-20)+' más':'')+'\n\nLa SALIDA de cada una queda intacta. ¿Borrar?'))return;
+  pedirAdminYEjecutar(function(){(async function(){
+    try{
+      for(let i=0;i<list.length;i++){
+        const{error}=await sb.from('fichajes').delete().eq('id',list[i].id);
+        if(error)throw error;
+      }
+      toast('✓ '+list.length+' marca(s) doble(s) borrada(s)','green');
+      await reload(); renderSueldos();
+    }catch(e){toast('Error: '+e.message,'red');}
+  })();});
 }
 
 function _suRenderResumen(){
@@ -27320,6 +27774,8 @@ function _suRenderResumen(){
     html+='<label style="font-size:12px;color:var(--text2);">Fecha: <input type="date" value="'+RES.fecha+'" onchange="if(this.value){RES.fecha=this.value;renderSueldos();}" class="st-sel" style="width:150px;"></label>';
     html+='<div class="btn-grp"><button class="btn btn-sm" onclick="resMover(-1)">◀</button><button class="btn btn-sm" onclick="resHoy()">Hoy</button><button class="btn btn-sm" onclick="resMover(1)">▶</button></div>';
   }
+  const dob=_fichMarcasDoblesNoche().length;
+  if(dob)html+='<button class="btn btn-sm" style="border-color:var(--amber);color:var(--amber);" onclick="fichLimpiarDoblesNoche()" title="Marcas dobles del turno noche (entrada trucha + salida a los pocos segundos)">🌙 Limpiar '+dob+' marca(s) doble(s) de la noche</button>';
   html+='</div><div id="res-body"></div>';
   body.innerHTML=html;
   if(RES.modo==='dia')_resDia();
@@ -27344,17 +27800,22 @@ function _resDia(){
   const c=document.getElementById('res-body'); if(!c)return;
   const f=RES.fecha;
   const emps=_resEmpleados([f]);
-  const filas=emps.map(e=>({e,h:_fichHorasDia(e,f)})).filter(x=>x.h.fichajes.length>0);
+  const filas=emps.map(e=>({e,h:_fichHorasDia(e,f)})).filter(x=>x.h.fichajes.length>0&&!x.h.soloCierreDeAyer);
   let html='<div style="font-size:13px;font-weight:700;margin-bottom:6px;">'+_resNombreDia(f)+' '+_fmtFecha(f)+(_esFeriado(f)?' · <span style="color:var(--amber);">feriado</span>':'')+'</div>';
   if(!filas.length){ c.innerHTML=html+'<div class="empty" style="padding:30px;text-align:center;color:var(--text3);">Nadie fichó este día.</div>'; return; }
   let tTrab=0,tExtra=0;
   html+='<div style="overflow-x:auto;"><table style="width:100%;font-size:12px;border-collapse:collapse;">'
     +'<tr style="text-align:left;color:var(--text3);font-size:10px;text-transform:uppercase;"><th style="padding:6px;">Empleado</th><th style="text-align:center;">Turno esperado</th><th style="text-align:center;">Entrada</th><th style="text-align:center;">Salida</th><th style="text-align:center;">Marcas del día</th><th style="text-align:center;">Hs trab.</th><th style="text-align:center;">Normales</th><th style="text-align:center;">Extra</th><th style="text-align:center;">Tardanza</th><th></th></tr>';
   filas.forEach(({e,h})=>{
-    const es=_resEntradaSalida(h.fichajes);
+    const es=_resEntradaSalida(h);
     tTrab+=h.trabajadas; tExtra+=h.extra;
     const turnoTxt=h.turno?_hhmm(h.turno.hora_entrada)+'–'+_hhmm(h.turno.hora_salida):(h.franco?'franco':'—');
-    const marcas=h.fichajes.map(fx=>'<span style="color:'+(fx.tipo==='entrada'?'var(--green)':'#3b82f6')+';" title="'+(fx.tipo==='entrada'?'entrada':'salida')+'">'+_hhmm(fx.hora)+'</span>').join(' ');
+    const marcas=h.fichajes.map(function(fx){
+      if(h.fantasma&&fx===h.fantasma)return '<span style="color:var(--text3);text-decoration:line-through;" title="Marca doble del turno noche: el reloj la puso como entrada cuando se estaba yendo. No se cuenta.">'+_hhmm(fx.hora)+'</span>';
+      if(h.salidaDeAyer&&fx===h.salidaDeAyer)return '<span style="color:#3b82f6;opacity:.6;" title="Salida de la noche que arrancó ayer (se cuenta en el día de ayer)">'+_hhmm(fx.hora)+'↩</span>';
+      return '<span style="color:'+(fx.tipo==='entrada'?'var(--green)':'#3b82f6')+';" title="'+(fx.tipo==='entrada'?'entrada':'salida')+'">'+_hhmm(fx.hora)+'</span>';
+    }).join(' ')
+      +(h.cruzada?' <span style="color:#3b82f6;opacity:.6;" title="Salida fichada mañana a la mañana (turno noche)">'+_hhmm(h.cruzada.hora)+'↪</span>':'');
     html+='<tr style="border-top:1px solid var(--border);">'
       +'<td style="padding:7px 6px;font-weight:600;">'+escapeHtml(e.apellido_nombre||'')+'</td>'
       +'<td style="text-align:center;font-size:11px;color:var(--text2);">'+turnoTxt+'</td>'
@@ -27394,8 +27855,8 @@ function _resSemana(){
     dias.forEach((d,i)=>{
       const h=_fichHorasDia(e,d);
       const hoy=(d===RES.fecha?'background:rgba(99,102,241,.08);':'');
-      if(h.fichajes.length){
-        const es=_resEntradaSalida(h.fichajes);
+      if(h.fichajes.length&&!h.soloCierreDeAyer){
+        const es=_resEntradaSalida(h);
         semTot+=h.trabajadas; totCol[i]+=h.trabajadas; granTot+=h.trabajadas;
         row+='<td style="text-align:center;padding:4px;cursor:pointer;'+hoy+'" title="Corregir fichajes" onclick="resArreglar('+e.id+',\''+d+'\')">'
           +'<div style="font-family:monospace;font-weight:700;'+(es.abierto?'color:var(--amber);':'')+'">'+(es.abierto?'abierto':_fmtH(h.trabajadas))+'</div>'
@@ -27430,7 +27891,7 @@ function _resMes(){
   const filas=[];
   emps.forEach(e=>{
     let dTrab=0,tTrab=0,tNorm=0,tExtra=0,tFer=0,tTard=0;
-    dias.forEach(d=>{ const h=_fichHorasDia(e,d); if(h.fichajes.length){ if(h.trabajadas>0)dTrab++; tTrab+=h.trabajadas;tNorm+=h.normales;tExtra+=h.extra;tFer+=h.feriado;tTard+=h.tardanza; } });
+    dias.forEach(d=>{ const h=_fichHorasDia(e,d); if(h.fichajes.length&&!h.soloCierreDeAyer){ if(h.trabajadas>0)dTrab++; tTrab+=h.trabajadas;tNorm+=h.normales;tExtra+=h.extra;tFer+=h.feriado;tTard+=h.tardanza; } });
     if(dTrab>0||tTrab>0)filas.push({e,dTrab,tTrab,tNorm,tExtra,tFer,tTard});
   });
   if(!filas.length){ c.innerHTML=html+'<div class="empty" style="padding:30px;text-align:center;color:var(--text3);">Nadie fichó este mes.</div>'; return; }
@@ -27465,8 +27926,8 @@ function resDetalleMes(empId){
   for(let d=1;d<=ld;d++){
     const f=ym+'-'+String(d).padStart(2,'0');
     const h=_fichHorasDia(e,f);
-    if(!h.fichajes.length)continue;
-    const es=_resEntradaSalida(h.fichajes);
+    if(!h.fichajes.length||h.soloCierreDeAyer)continue;
+    const es=_resEntradaSalida(h);
     const dow=new Date(f+'T12:00:00').getDay();
     rows+='<tr style="border-top:1px solid var(--border);"><td style="padding:5px 6px;">'+nomDia[dow]+' '+String(d).padStart(2,'0')+'</td>'
       +'<td style="text-align:center;font-family:monospace;">'+es.entrada+'</td>'
@@ -27506,6 +27967,9 @@ function resArreglar(empId,fecha){
     +'<div class="modal-title">🔧 Corregir fichajes</div>'
     +'<div style="font-size:12px;color:var(--text2);margin-bottom:4px;">'+escapeHtml(e.apellido_nombre||'')+' · '+_resNombreDia(fecha)+' '+_fmtFecha(fecha)+'</div>'
     +'<div style="font-size:11px;color:var(--text3);margin-bottom:10px;">Corregí la hora o el tipo de cada marca, borrá las de prueba o agregá una que falte. Al guardar se recalculan las horas.</div>'
+    +(_turnoDelDia(e,fecha).turno?.cruza_medianoche
+      ?'<div style="font-size:11px;color:var(--amber);background:rgba(245,158,11,.12);border:1px solid var(--amber);border-radius:var(--r);padding:6px 9px;margin-bottom:10px;">🌙 Turno noche: la <b>entrada</b> de esta jornada va acá (22:00) y la <b>salida</b> queda fichada el día siguiente (06:00). Si falta la salida, corregila en el día de mañana, no en éste.</div>'
+      :'')
     +'<div id="res-arr-list">'+(rows||'<div id="res-arr-empty" style="font-size:12px;color:var(--text3);padding:8px 0;">No hay fichajes este día. Agregá las marcas que correspondan.</div>')+'</div>'
     +'<button class="btn btn-sm" onclick="resArrAgregar()" style="margin-top:8px;">➕ Agregar marca</button>'
     +'<div class="btn-grp" style="margin-top:14px;"><button class="btn btn-primary btn-sm" onclick="resArrGuardar('+empId+',\''+fecha+'\')">💾 Guardar cambios</button><button class="btn btn-sm" onclick="document.getElementById(\'res-arr-modal\').remove()">Cancelar</button></div>'
@@ -30938,7 +31402,7 @@ function _prhDotacion(area,dias){
       // atribución por turno (19c).
       let tramos=[];
       try{
-        const pd=_fichParesDia(e.id,f,td.turno);
+        const pd=_fichParesDia(e.id,f,td.turno,e);
         tramos=(pd.pares||[]).map(p=>[_minutosT(p[0].hora),_minutosT(p[1].hora)]);
         // Entrada sin salida (todavía está adentro, o se olvidó de marcar): se cuenta hasta
         // la salida del turno con el que entró. Sin esto, la noche que arranca a las 22 y
@@ -41166,7 +41630,15 @@ function verDetalleOrdenCorte(id){
   </div>`);
 }
 
-async function cambiarPriCorte(id,val){await sb.from('ordenes_corte').update({prioridad:parseInt(val)||1}).eq('id',id);await reload();}
+// Ídem cambiarPri, del lado de corte.
+async function cambiarPriCorte(id,val){
+  const p=parseInt(val)||1;
+  const{error}=await sb.from('ordenes_corte').update({prioridad:p}).eq('id',id);
+  if(error){alert('No se pudo cambiar la prioridad: '+error.message);return;}
+  _cacheParchear([C.ord_corte],id,{prioridad:p});
+  _ordenarPorPrioridad(C.ord_corte);
+  _repintar(renderOrdenesCorte,renderGanttCorte);
+}
 
 async function cambiarEstadoCorte(id,estado){
   if(estado==='Completada'){pedirAdminYEjecutar(async()=>{await sb.from('ordenes_corte').update({estado}).eq('id',id);await reload();});return;}
@@ -48214,11 +48686,18 @@ async function _pcorteCargarBobina(ocId,bobId,maquinaId){
       });
       if(e1)throw e1;
       await sb.from('bobinas_producidas').update({en_stock:false,reservada_oc_id:null}).eq('id',bobId);
-      await sb.from('stock_movimientos').insert({
-        bobina_producida_id:bobId,tipo:'salida',motivo:'corte_confeccion',
-        orden_corte:oc.numero_orden,metros:b.metros_reales,kg:b.kg_reales,operario:opNom||null
-      });
-      await reload();
+      const _mov={bobina_producida_id:bobId,tipo:'salida',motivo:'corte_confeccion',
+        orden_corte:oc.numero_orden,metros:b.metros_reales,kg:b.kg_reales,operario:opNom||null};
+      await sb.from('stock_movimientos').insert(_mov);
+      // Antes: await reload() — 68 consultas EN CADA ESCANEO DE PISTOLA. Este era
+      // el peor de todos: es el evento más repetido de la fábrica, y el operario
+      // esperaba a que bajara media base para que el panel le respondiera.
+      // Ahora: 1 consulta que trae ESTA OC con sus bobinas asociadas.
+      await _refrescarOC(ocId);
+      _cacheParchear([C.bobinas_prod,C.bobinas_hist,C.bobinas_fuera],bobId,{en_stock:false,reservada_oc_id:null});
+      _cacheStockMov([{..._mov,fecha:localDate(),bobinas_producidas:{numero_bobina:b.numero_bobina}}]);
+      try{anDataCache.loaded=false;}catch(e){}
+      _repintar(renderOrdenesCorte,renderGanttCorte,renderStock,renderConfHistorial);
       const maqNom=maqId?(C.maq_corte.find(m=>m.id===maqId)?.nombre||''):'';
       _pcorteFeedback('+ Bobina '+b.numero_bobina+' → '+(maqNom?maqNom+' · ':'')+oc.numero_orden+' ('+(parseFloat(b.metros_reales)||0).toLocaleString('es-AR')+' m)','var(--green)','ok');
       _pintarPanelCorte();
