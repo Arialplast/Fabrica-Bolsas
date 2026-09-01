@@ -709,7 +709,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-08-29a</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-01b</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5362,7 +5362,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-08-29a';   // 29a: TURNO NOCHE — el reloj ya sabe que el que entra 22:00 sale 06:00 del día siguiente
+const APP_BUILD='2026-09-01b';   // 01b: 🔴 BORRAR UN GASTO PAGADO ya no deja la cabecera del pago huérfana drenando el banco (caso PAG-000020 $37.975,24): ahora avisa y anula la cabecera que quedaría sin imputar, o explica que sigue pagando otros documentos. Un pago sin imputar se marca «sin imputar (crédito a cuenta)» en libro y conciliación. Sobre el 01a: tenencia FCI
   // 28a: NOTAS DE CREDITO Y DEBITO ANTE ARCA — Y UN BUG DE PLATA QUE NO ERA DE ARCA.
   //      German: "el tema de notas de debito, credito eso lo tenemos listo tambien" y
   //      despues, sobre las de cheque rechazado, "eso que tiene que ver con tus facturas".
@@ -8404,11 +8404,319 @@ function calcKgm(){
   box.style.display='block';
   box.innerHTML=`(${a}×${e}×0.184)/10000 = <span class="res">${kgm} kg/m</span>`;
 }
+// --- kg/m teórico de una bobina a partir de sus medidas ---
+// Misma fórmula que usa el alta manual y el import de Excel: es tubo (dos capas),
+// ancho en cm × espesor en µm × 0,184 / 10000 = kg por metro lineal.
+function _bobKgmTeorico(b){
+  const a=parseFloat(b&&b.ancho)||0, e=parseFloat(b&&b.espesor)||0;
+  if(!(a>0)||!(e>0))return null;
+  return r4((a*e*0.184)/10000);
+}
+// Una bobina está "desalineada" cuando el kg/m guardado no se corresponde con su
+// espesor. Pasa cuando se le bajó el espesor y el kg/m quedó con el valor viejo:
+// el sistema sigue creyendo que cada metro pesa más de lo que pesa. Devuelve el
+// kg/m que le correspondería y el espesor que el kg/m guardado está diciendo.
+function _bobDesalineada(b){
+  const teo=_bobKgmTeorico(b);
+  const act=parseFloat(b&&b.kg_por_metro)||0;
+  if(teo===null||!(act>0))return null;
+  if(Math.abs(act-teo)<=Math.max(0.00005,teo*0.005))return null;
+  const a=parseFloat(b.ancho)||0;
+  // 1 decimal: el kg/m está redondeado a 4 decimales, así que el espesor que se
+  // deduce de él trae ruido (20,02 en vez de 20) y confunde más de lo que aporta.
+  return {teo,act,espImplicito:Math.round(act*10000/(a*0.184)*10)/10,esp:parseFloat(b.espesor)||0};
+}
 function renderBobinas(){
   const w=document.getElementById('bob-tbl');if(!w)return;
   if(!C.bobinas.length){w.innerHTML='<div class="empty">No hay bobinas.</div>';return;}
-  w.innerHTML=`<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Nombre</th><th>Descripción</th><th>Ancho</th><th>Largo</th><th>Espesor</th><th>Kg/m</th><th></th></tr></thead>
-    <tbody>${C.bobinas.map((b,i)=>`<tr><td style="color:var(--text3)">${i+1}</td><td style="font-weight:500">${b.nombre}</td><td style="color:var(--text2)">${b.descripcion||'—'}</td><td class="mono">${b.ancho??'—'}</td><td class="mono">${b.largo??'—'}</td><td class="mono">${b.espesor??'—'}</td><td class="mono">${b.kg_por_metro}</td><td><button class="btn btn-sm btn-del" onclick="delBobina(${b.id})">×</button></td></tr>`).join('')}</tbody></table></div>`;
+  const desal=C.bobinas.map(b=>_bobDesalineada(b)).filter(Boolean).length;
+  const aviso=desal?`<div style="background:var(--amber-bg,rgba(245,158,11,.12));border:1px solid var(--amber,#f59e0b);border-radius:8px;padding:10px 12px;margin-bottom:10px;font-size:12px;line-height:1.5;">
+      <b>⚠ ${desal} bobina${desal>1?'s':''} con el kg/m desalineado del espesor.</b><br>
+      Son bobinas a las que se les bajó el espesor pero el <b>kg/m quedó con el valor viejo</b>: el sistema
+      calcula los kg teóricos de la orden como si el metro pesara más de lo que pesa.
+      No toca nada de lo ya producido — sí lo que se calcule de acá en adelante.
+      <div style="margin-top:8px;"><button class="btn btn-primary btn-sm" onclick="alinearBobinasKgm()">🔧 Alinear las ${desal} con su espesor</button>
+      <span style="margin-left:8px;color:var(--text3);">o una por una con el <b>✏</b> de la fila</span></div>
+    </div>`:'';
+  w.innerHTML=aviso+`<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Nombre</th><th>Descripción</th><th>Ancho</th><th>Largo</th><th>Espesor</th><th>Kg/m</th><th></th></tr></thead>
+    <tbody>${C.bobinas.map((b,i)=>{
+      const d=_bobDesalineada(b);
+      const kgmTd=d
+        ? `<td class="mono" style="color:var(--amber,#f59e0b);font-weight:600;" title="El kg/m guardado corresponde a un espesor de ${d.espImplicito} µm, no a los ${d.esp} µm de la bobina. Debería ser ${d.teo}.">${b.kg_por_metro} ⚠</td>`
+        : `<td class="mono">${b.kg_por_metro}</td>`;
+      return `<tr><td style="color:var(--text3)">${i+1}</td><td style="font-weight:500">${escapeHtml(String(b.nombre||''))}</td><td style="color:var(--text2)">${escapeHtml(String(b.descripcion||'—'))}</td><td class="mono">${b.ancho??'—'}</td><td class="mono">${b.largo??'—'}</td><td class="mono">${b.espesor??'—'}</td>${kgmTd}<td style="white-space:nowrap"><button class="btn btn-sm" onclick="editBobina(${b.id})" title="Editar medidas y espesor">✏</button> <button class="btn btn-sm btn-del" onclick="delBobina(${b.id})">×</button></td></tr>`;
+    }).join('')}</tbody></table></div>`;
+}
+
+// ===== ALINEAR EL KG/M DE TODAS LAS BOBINAS DESALINEADAS =====
+// Pone en cada bobina el kg/m que le corresponde a su espesor. NO toca
+// bobinas_producidas, ni los kg teóricos ya guardados, ni ningún informe: sólo
+// el maestro, o sea lo que el sistema calcule de acá en adelante.
+// El peso por bolsa de un producto se toca SÓLO si venía derivado del kg/m viejo
+// (clasificación 'auto' de _bobFilasProdPara). Los que ya están bien —el caso de
+// las bobinas que pasaron por 🪶 Bajar espesor, donde el peso sí se había
+// bajado— quedan intactos: si no, se les bajaría el peso dos veces.
+function _bobFilasAlinear(){
+  const out=[];
+  (C.bobinas||[]).forEach(b=>{
+    const d=_bobDesalineada(b);if(!d)return;
+    const prods=_bobFilasProdPara(b,d.teo);
+    out.push({b,act:d.act,teo:d.teo,espImplicito:d.espImplicito,esp:d.esp,
+      prods,auto:prods.filter(x=>x.estado==='auto'),
+      granel:prods.filter(x=>x.estado==='granel'&&x.mtsNuevo>0)});
+  });
+  out.sort((x,y)=>String(x.b.nombre||'').localeCompare(String(y.b.nombre||''),'es',{numeric:true}));
+  return out;
+}
+function alinearBobinasKgm(){pedirAdminYEjecutar(()=>_alinearBobinasModal());}
+function _alinearBobinasModal(){
+  const filas=_bobFilasAlinear();
+  if(!filas.length){toast('No hay bobinas desalineadas','green');return;}
+  const nProds=filas.reduce((s,f)=>s+f.auto.length,0);
+  const nGranel=filas.reduce((s,f)=>s+f.granel.length,0);
+  document.getElementById('alinbob-modal')?.remove();
+  const html='<div class="modal-overlay" id="alinbob-modal">'
+    +'<div class="modal-card" style="max-width:760px;">'
+    +'<div class="modal-title">🔧 Alinear el kg/m con el espesor</div>'
+    +'<div style="font-size:12px;color:var(--text2);line-height:1.55;margin-bottom:12px;">'
+    +'A cada bobina se le pone el kg/m que le corresponde a su espesor '
+    +'(<span class="mono">ancho × espesor × 0,184 / 10000</span>).<br>'
+    +'<b>No se toca ninguna bobina hecha en la extrusora</b>: ni sus kg teóricos, ni sus kg reales, '
+    +'ni su error, ni el estado de calidad, ni ningún informe cerrado. Cambia lo que el sistema '
+    +'calcule <b>de acá en adelante</b>.'
+    +(nProds?'<br><b style="color:var(--amber,#f59e0b);">'+nProds+' producto(s)</b> tienen el peso por bolsa derivado del kg/m viejo y se actualizan también.'
+            :'<br>Ningún producto cambia de peso: los pesos por bolsa ya están bien (🪶 Bajar espesor sí los había bajado).')
+    +(nGranel?'<br><b style="color:var(--accent);">'+nGranel+' producto(s) granel NO se tocan acá</b>: se venden por kilo, el peso es fijo y lo que les cambia son los metros que hacen ese kilo. Se corrigen de a uno con el ✏ de la bobina.':'')
+    +'</div>'
+    +'<div style="max-height:340px;overflow:auto;border:1px solid var(--border);border-radius:8px;">'
+    +'<table style="font-size:12px;"><thead><tr><th>Bobina</th><th class="mono">Espesor</th><th class="mono">kg/m hoy</th><th class="mono">kg/m nuevo</th><th class="mono">Dif.</th><th>Productos</th></tr></thead><tbody>'
+    +filas.map(f=>{
+      const dif=f.teo>0&&f.act>0?Math.round((f.teo/f.act-1)*1000)/10:0;
+      return '<tr>'
+      +'<td style="font-weight:500;">'+escapeHtml(String(f.b.nombre||f.b.id))+(f.b.descripcion?' <span style="color:var(--text3);">'+escapeHtml(String(f.b.descripcion).slice(0,22))+'</span>':'')+'</td>'
+      +'<td class="mono">'+f.esp+' µm</td>'
+      +'<td class="mono" style="color:var(--text3);">'+f.act+'</td>'
+      +'<td class="mono" style="color:var(--green);font-weight:600;">'+f.teo+'</td>'
+      +'<td class="mono" style="color:var(--red);">'+dif+'%</td>'
+      +'<td style="color:var(--text2);">'+(f.auto.length?f.auto.length+' cambian':f.prods.length+' ya OK')
+      +(f.granel.length?' <span style="color:var(--accent);">· '+f.granel.length+' granel sin tocar</span>':'')+'</td></tr>';
+    }).join('')
+    +'</tbody></table></div>'
+    +'<div class="btn-grp" style="margin-top:14px;">'
+    +'<button class="btn btn-primary btn-sm" onclick="_alinearBobinasEjecutar()">Alinear las '+filas.length+'</button>'
+    +'<button class="btn btn-sm" onclick="document.getElementById(\'alinbob-modal\').remove()">Cancelar</button>'
+    +'<span id="alinbob-msg" style="font-size:12px;"></span>'
+    +'</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+async function _alinearBobinasEjecutar(){
+  const filas=_bobFilasAlinear();
+  if(!filas.length)return;
+  const msg=document.getElementById('alinbob-msg');
+  if(msg){msg.style.color='var(--text2)';msg.textContent='Alineando…';}
+  // foto del antes: bobina por bobina, con lo que valía y lo que pasa a valer
+  const foto=filas.map(f=>({bobina_id:f.b.id,nombre:f.b.nombre,espesor:f.esp,
+    kgm_ant:f.act,kgm_nuevo:f.teo,
+    productos:f.auto.map(x=>({id:x.p.id,codigo:x.p.codigo,peso_ant:x.act,peso_nuevo:x.nuevo})),
+    granel_sin_tocar:f.granel.map(x=>({id:x.p.id,codigo:x.p.codigo,mts:x.mts,mts_sugerido:x.mtsNuevo}))}));
+  const{error:eFoto}=await sb.from('configuracion').upsert(
+    {clave:'bobinas_alineado_'+localDate(),valor:JSON.stringify(foto)},{onConflict:'clave'});
+  if(eFoto){if(msg){msg.style.color='var(--red)';msg.textContent='No pude guardar la foto del antes: '+eFoto.message;}return;}
+  let okB=0,okP=0,err=null;
+  for(const f of filas){
+    const r=await sb.from('bobinas').update({kg_por_metro:f.teo}).eq('id',f.b.id);
+    if(r.error){err='bobina '+(f.b.nombre||f.b.id)+': '+r.error.message;break;}
+    okB++;
+    for(const x of f.auto){
+      const rp=await sb.from('productos').update({peso_por_bolsa:x.nuevo}).eq('id',x.p.id);
+      if(rp.error){err='producto '+(x.p.codigo||x.p.id)+': '+rp.error.message;break;}
+      okP++;
+    }
+    if(err)break;
+  }
+  document.getElementById('alinbob-modal')?.remove();
+  if(err)toast('Se alinearon '+okB+' bobinas y '+okP+' productos, y falló: '+err,'red');
+  else toast('✓ '+okB+' bobinas alineadas'+(okP?' y '+okP+' producto(s) con peso nuevo':' · ningún producto cambió de peso')+'. La foto del antes quedó guardada.','green');
+  await reload();
+}
+
+// ===== EDITAR UNA BOBINA (medidas + espesor) =====
+// El espesor se le cambia a la BOBINA, no al producto: una bobina alimenta a
+// varios productos. Por eso el modal muestra a quiénes arrastra y qué peso por
+// bolsa les quedaría, y deja elegir cuáles se actualizan.
+let EDBOB=null;
+function editBobina(id){pedirAdminYEjecutar(()=>_editBobinaModal(id));}
+function _editBobinaModal(id){
+  const b=C.bobinas.find(x=>x.id===id);
+  if(!b){toast('No encuentro esa bobina','red');return;}
+  EDBOB={id,b};
+  document.getElementById('edbob-modal')?.remove();
+  const d=_bobDesalineada(b);
+  const html='<div class="modal-overlay" id="edbob-modal">'
+    +'<div class="modal-card" style="max-width:720px;">'
+    +'<div class="modal-title">✏ Editar bobina '+escapeHtml(String(b.nombre||''))+(b.descripcion?' — '+escapeHtml(String(b.descripcion)):'')+'</div>'
+    +(d?'<div style="background:rgba(245,158,11,.12);border:1px solid #f59e0b;border-radius:8px;padding:9px 11px;margin-bottom:12px;font-size:12px;line-height:1.5;">'
+        +'<b>⚠ El kg/m guardado no coincide con el espesor.</b><br>'
+        +'Dice <b>'+d.act+' kg/m</b>, que es el de una bobina de <b>'+d.espImplicito+' µm</b>, pero la bobina figura con <b>'+d.esp+' µm</b>. '
+        +'Le correspondería <b>'+d.teo+' kg/m</b>. Guardando con “recalcular” tildado se corrige.'
+      +'</div>':'')
+    +'<div class="fgrid fgrid3">'
+    +'<div class="fg"><label>Nombre / código</label><input id="edbob-nom" type="text" value="'+escapeHtml(String(b.nombre||''))+'"></div>'
+    +'<div class="fg"><label>Descripción</label><input id="edbob-des" type="text" value="'+escapeHtml(String(b.descripcion||''))+'"></div>'
+    +'<div class="fg"><label>Largo (cm)</label><input id="edbob-largo" type="number" step="0.1" value="'+(b.largo??'')+'"></div>'
+    +'</div>'
+    +'<div class="fgrid fgrid3">'
+    +'<div class="fg"><label>Ancho (cm)</label><input id="edbob-ancho" type="number" step="0.1" value="'+(b.ancho??'')+'" oninput="edbobRecalc()"></div>'
+    +'<div class="fg"><label>Espesor (micrones)</label><input id="edbob-esp" type="number" step="0.1" value="'+(b.espesor??'')+'" oninput="edbobRecalc()"></div>'
+    +'<div class="fg"><label>Kg/metro</label><input id="edbob-kgm" type="number" step="0.0001" value="'+(b.kg_por_metro??'')+'" oninput="edbobPintarProds()"></div>'
+    +'</div>'
+    +'<label style="display:flex;align-items:center;gap:7px;font-size:12px;margin:2px 0 12px;cursor:pointer;">'
+    +'<input type="checkbox" id="edbob-auto" checked onchange="edbobRecalc()"> '
+    +'Recalcular el kg/m solo, con ancho × espesor × 0,184 / 10000</label>'
+    +'<div id="edbob-formula" style="font-size:12px;color:var(--text2);margin-bottom:12px;"></div>'
+    +'<div id="edbob-prods"></div>'
+    +'<div class="btn-grp" style="margin-top:14px;">'
+    +'<button class="btn btn-primary btn-sm" onclick="guardarBobinaEdit()">Guardar</button>'
+    +'<button class="btn btn-sm" onclick="document.getElementById(\'edbob-modal\').remove()">Cancelar</button>'
+    +'<span id="edbob-msg" style="font-size:12px;"></span>'
+    +'</div></div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+  edbobRecalc();
+}
+function _edbobKgmNuevo(){
+  return parseFloat(document.getElementById('edbob-kgm')?.value)||0;
+}
+function edbobRecalc(){
+  const auto=document.getElementById('edbob-auto')?.checked;
+  const a=parseFloat(document.getElementById('edbob-ancho')?.value)||0;
+  const e=parseFloat(document.getElementById('edbob-esp')?.value)||0;
+  const f=document.getElementById('edbob-formula');
+  if(auto&&a>0&&e>0){
+    const kgm=r4((a*e*0.184)/10000);
+    document.getElementById('edbob-kgm').value=kgm;
+    if(f)f.innerHTML='('+a+' × '+e+' × 0,184) / 10000 = <b>'+kgm+' kg/m</b>';
+  } else if(auto){
+    if(f)f.textContent='Cargá ancho y espesor para que lo calcule solo.';
+  } else {
+    if(f)f.textContent='kg/m a mano — no se recalcula con las medidas.';
+  }
+  edbobPintarProds();
+}
+// Productos que cuelgan de esta bobina y qué peso por bolsa les quedaría.
+// Cada uno se clasifica solo:
+//   ok     → el peso que tiene ya se corresponde con el kg/m NUEVO: no hay nada que hacer
+//   auto   → el peso venía derivado del kg/m VIEJO: se propone actualizarlo (tildado)
+//   manual → el peso no sale de ninguno de los dos (lo tocaron a mano): NO se toca solo
+function _edbobFilasProd(){
+  if(!EDBOB)return [];
+  return _bobFilasProdPara(EDBOB.b,_edbobKgmNuevo());
+}
+// LA definición (P1) de "qué le pasa al peso por bolsa de los productos de esta
+// bobina si su kg/m pasa a valer kgmN". La usan el modal de edición y el
+// alineado masivo: si la clasificación viviera dos veces, uno de los dos
+// terminaría pisando pesos que ya estaban bien.
+function _bobFilasProdPara(bob,kgmN){
+  if(!bob)return [];
+  const kgmV=parseFloat(bob.kg_por_metro)||0;
+  return (C.productos||[]).filter(p=>p.bobina_id===bob.id).map(p=>{
+    const mts=parseFloat(p.metros_por_bolsa)||0;
+    const act=parseFloat(p.peso_por_bolsa)||0;
+    const nuevo=(mts>0&&kgmN>0)?r6(kgmN*mts):0;
+    const viejoTeo=(mts>0&&kgmV>0)?r6(kgmV*mts):0;
+    const cerca=(x,y)=>x>0&&y>0&&Math.abs(x-y)<=Math.max(0.0000005,y*0.005);
+    // Un producto GRANEL se vende por kilo: su peso por bolsa es una constante
+    // del empaque (1 kg), no algo derivado del kg/m. Lo que le cambia cuando
+    // cambia el kg/m son los METROS que hacen ese kilo. Recalcularle el peso
+    // sería romperlo — y el caso es traicionero: el 00309 tiene 10,0604 m ×
+    // 0,0994 kg/m = 1,000004, así que "parece" un peso autocalculado.
+    const granel=!!p.es_bobina_granel;
+    const mtsNuevo=(granel&&act>0&&kgmN>0)?r4(act/kgmN):0;
+    let estado='manual';
+    if(granel)estado='granel';
+    else if(!(mts>0)||!(nuevo>0))estado='sin';
+    else if(cerca(act,nuevo))estado='ok';
+    else if(cerca(act,viejoTeo))estado='auto';
+    return {p,mts,act,nuevo,estado,granel,mtsNuevo};
+  }).sort((x,y)=>String(x.p.codigo||'').localeCompare(String(y.p.codigo||'')));
+}
+function edbobPintarProds(){
+  const w=document.getElementById('edbob-prods');if(!w||!EDBOB)return;
+  const filas=_edbobFilasProd();
+  if(!filas.length){w.innerHTML='<div style="font-size:12px;color:var(--text2);">Ningún producto usa esta bobina.</div>';return;}
+  const nAuto=filas.filter(f=>f.estado==='auto').length;
+  const badge={ok:'<span style="color:var(--green);font-size:11px;">ya coincide</span>',
+    auto:'<span style="color:var(--amber,#f59e0b);font-size:11px;">se actualiza</span>',
+    manual:'<span style="color:var(--text3);font-size:11px;">peso a mano</span>',
+    sin:'<span style="color:var(--text3);font-size:11px;">sin metros/bolsa</span>',
+    granel:'<span style="color:var(--accent);font-size:11px;">granel · cambian los metros</span>'};
+  w.innerHTML='<div style="font-size:12px;font-weight:600;margin-bottom:6px;">Productos que usan esta bobina ('+filas.length+')</div>'
+    +'<div style="font-size:11px;color:var(--text2);margin-bottom:8px;line-height:1.5;">'
+    +'El peso por bolsa sale de <b>kg/m × metros por bolsa</b>. Se propone actualizar sólo los que hoy están derivados del kg/m viejo. '
+    +'Los que ya coinciden con el kg/m nuevo, y los que tienen un peso puesto a mano, quedan sin tildar.<br>'
+    +'Un producto <b>granel</b> se vende por kilo: su peso es fijo y lo que cambia son los <b>metros</b> que hacen ese kilo. '
+    +'Va sin tildar — tildalo sólo si querés corregirle los metros.</div>'
+    +'<div style="max-height:260px;overflow:auto;border:1px solid var(--border);border-radius:8px;">'
+    +'<table style="font-size:12px;"><thead><tr><th style="width:28px;"></th><th>Código</th><th>Producto</th><th class="mono">m/bolsa</th><th class="mono">Peso hoy</th><th class="mono">Queda en</th><th></th></tr></thead><tbody>'
+    +filas.map(f=>'<tr>'
+      +'<td style="text-align:center;"><input type="checkbox" id="edbob-p-'+f.p.id+'"'+(f.estado==='auto'?' checked':'')+(f.estado==='ok'||f.estado==='sin'||(f.estado==='granel'&&!(f.mtsNuevo>0))?' disabled':'')+'></td>'
+      +'<td class="mono">'+escapeHtml(String(f.p.codigo||f.p.id))+'</td>'
+      +'<td style="color:var(--text2);">'+escapeHtml(String(f.p.descripcion||'').slice(0,34))+'</td>'
+      +'<td class="mono"'+(f.estado==='granel'&&f.mtsNuevo>0?' style="color:var(--accent);font-weight:600;" title="metros que hacen '+f.act+' kg con el kg/m nuevo"':'')+'>'+(f.estado==='granel'&&f.mtsNuevo>0?f.mts+' → '+f.mtsNuevo:(f.mts||'—'))+'</td>'
+      +'<td class="mono">'+(f.act||'—')+'</td>'
+      +'<td class="mono"'+(f.estado==='auto'?' style="color:var(--amber,#f59e0b);font-weight:600;"':'')+'>'+(f.estado==='granel'?f.act+' (fijo)':(f.nuevo||'—'))+'</td>'
+      +'<td>'+(badge[f.estado]||'')+'</td></tr>').join('')
+    +'</tbody></table></div>'
+    +(nAuto?'<div style="font-size:11px;color:var(--text2);margin-top:6px;">'+nAuto+' producto(s) se van a actualizar al guardar.</div>':'');
+}
+async function guardarBobinaEdit(){
+  if(!EDBOB)return;
+  const msg=document.getElementById('edbob-msg');
+  const nom=document.getElementById('edbob-nom').value.trim();
+  const des=document.getElementById('edbob-des').value.trim();
+  const anc=parseFloat(document.getElementById('edbob-ancho').value);
+  const lar=parseFloat(document.getElementById('edbob-largo').value);
+  const esp=parseFloat(document.getElementById('edbob-esp').value);
+  const kgm=parseFloat(document.getElementById('edbob-kgm').value);
+  if(!nom){msg.style.color='var(--red)';msg.textContent='Falta el nombre.';return;}
+  if(!(kgm>0)){msg.style.color='var(--red)';msg.textContent='El kg/m tiene que ser mayor que cero.';return;}
+  const filas=_edbobFilasProd();
+  const aTocar=filas.filter(f=>(f.granel?f.mtsNuevo>0:f.nuevo>0)&&document.getElementById('edbob-p-'+f.p.id)?.checked);
+  const espV=parseFloat(EDBOB.b.espesor)||0, kgmV=parseFloat(EDBOB.b.kg_por_metro)||0;
+  if(!confirm('Bobina '+(EDBOB.b.nombre||EDBOB.id)+'\n\n'
+    +'Espesor: '+(espV||'—')+' → '+(esp||'—')+' µm\n'
+    +'Kg/m:    '+(kgmV||'—')+' → '+kgm+'\n\n'
+    +(aTocar.length?aTocar.length+' producto(s) cambian:\n'
+      +aTocar.slice(0,8).map(f=>f.granel
+        ?'  · '+(f.p.codigo||f.p.id)+' (granel): '+f.mts+' → '+f.mtsNuevo+' m por '+f.act+' kg'
+        :'  · '+(f.p.codigo||f.p.id)+': '+f.act+' → '+f.nuevo+' kg/bolsa').join('\n')
+      +(aTocar.length>8?'\n  ... y '+(aTocar.length-8)+' más':'')+'\n\n'
+      :'Ningún producto cambia.\n\n')
+    +'Esto NO toca ninguna bobina ya producida ni ningún informe cerrado:\n'
+    +'cambia lo que el sistema calcule de acá en adelante.\n\n¿Guardo?'))return;
+  // foto del antes, por si hay que volver
+  const foto={bobina_id:EDBOB.id,nombre:EDBOB.b.nombre,cuando:localDate()+' '+localTime(),
+    ancho_ant:EDBOB.b.ancho,largo_ant:EDBOB.b.largo,espesor_ant:EDBOB.b.espesor,kgm_ant:EDBOB.b.kg_por_metro,
+    ancho_nue:isNaN(anc)?null:anc,largo_nue:isNaN(lar)?null:lar,espesor_nue:isNaN(esp)?null:esp,kgm_nue:kgm,
+    productos:aTocar.map(f=>f.granel
+      ?{id:f.p.id,codigo:f.p.codigo,granel:true,mts_ant:f.mts,mts_nuevo:f.mtsNuevo}
+      :{id:f.p.id,codigo:f.p.codigo,peso_ant:f.act,peso_nuevo:f.nuevo})};
+  await sb.from('configuracion').upsert({clave:'bobina_edit_'+EDBOB.id+'_'+localDate(),valor:JSON.stringify(foto)},{onConflict:'clave'});
+  const up=await sb.from('bobinas').update({nombre:nom,descripcion:des||null,
+    ancho:isNaN(anc)?null:anc,largo:isNaN(lar)?null:lar,espesor:isNaN(esp)?null:esp,
+    kg_por_metro:kgm}).eq('id',EDBOB.id);
+  if(up.error){msg.style.color='var(--red)';msg.textContent='Error: '+up.error.message;return;}
+  let okP=0;
+  for(const f of aTocar){
+    // granel: el peso es fijo (se vende por kilo), lo que se corrige son los metros
+    const campo=f.granel?{metros_por_bolsa:f.mtsNuevo}:{peso_por_bolsa:f.nuevo};
+    const r=await sb.from('productos').update(campo).eq('id',f.p.id);
+    if(r.error){msg.style.color='var(--red)';msg.textContent='Bobina guardada, falló un producto: '+r.error.message;break;}
+    okP++;
+  }
+  document.getElementById('edbob-modal')?.remove();
+  EDBOB=null;
+  toast('✓ Bobina actualizada'+(okP?' y '+okP+' producto(s) con peso nuevo':'')+'. La foto del antes quedó guardada.','green');
+  await reload();
 }
 async function addBobina(){
   const n=document.getElementById('b-nom').value.trim(),d=document.getElementById('b-des').value.trim(),kgm=parseFloat(document.getElementById('b-kgm').value),a=parseFloat(document.getElementById('b-ancho').value)||null,l=parseFloat(document.getElementById('b-largo').value)||null,e=parseFloat(document.getElementById('b-esp').value)||null;
@@ -20570,6 +20878,16 @@ function _dgFilas(){
   filas.sort((a,b)=>b.kg-a.kg||String(a.b.nombre||'').localeCompare(String(b.b.nombre||'')));
   return filas;
 }
+// kg/m que le corresponde a la bobina con el espesor nuevo.
+// Si tiene el ancho cargado se usa la fórmula (es la verdad, y de paso endereza
+// una bobina que hubiera quedado con el kg/m viejo); si no, se escala el kg/m
+// actual por el mismo factor de espesor.
+function _dgKgmNuevo(f){
+  const teo=_bobKgmTeorico({ancho:f.b.ancho,espesor:f.nuevo});
+  if(teo!==null)return teo;
+  const act=parseFloat(f.b.kg_por_metro)||0;
+  return act>0?r4(act*f.factor):act;
+}
 function _dgResumen(filas){
   let kg=0,ahKg=0,ahPlata=0,n=0,prods=0;
   filas.forEach(f=>{if(!f.enPlan||f.factor>=1)return;n++;kg+=f.kg;ahKg+=f.ahorroKg;ahPlata+=f.ahorroPlata;prods+=f.conVenta;});
@@ -20617,19 +20935,24 @@ async function _dgAplicar(){
   const prods=[];filas.forEach(f=>f.prods.forEach(p=>prods.push({p,f})));
   if(!confirm('⚠ ESTO CAMBIA LA PRODUCCIÓN Y TODOS LOS KILOS DEL SISTEMA.\n\n'
     +filas.length+' bobina(s) y '+prods.length+' producto(s):\n'
-    +filas.slice(0,6).map(f=>'· '+(f.b.nombre||f.bobina_id)+(f.b.descripcion?' — '+f.b.descripcion:'')+': '+f.esp+' → '+f.nuevo+' µm\n'
+    +filas.slice(0,6).map(f=>'· '+(f.b.nombre||f.bobina_id)+(f.b.descripcion?' — '+f.b.descripcion:'')+': '+f.esp+' → '+f.nuevo+' µm'
+       +'  ·  kg/m '+(f.b.kg_por_metro||'—')+' → '+_dgKgmNuevo(f)+'\n'
        +f.prods.map(p=>'    '+(p.codigo||p.id)+' '+(p.descripcion||'')).join('\n')).join('\n')
     +(filas.length>6?'\n... y '+(filas.length-6)+' más':'')
     +'\n\nHacelo el MISMO DÍA que la planta empieza a soplar con el espesor nuevo.\n'
     +'Si lo hacés antes o después, los kg, los costos y los informes quedan mal.\n\n¿Sigo?'))return;
   // foto previa: queda el espesor y el peso viejos por si hay que volver
   const foto=filas.map(f=>({bobina_id:f.bobina_id,nombre:f.b.nombre,espesor_ant:f.esp,espesor_nuevo:f.nuevo,
+    kgm_ant:f.b.kg_por_metro,kgm_nuevo:_dgKgmNuevo(f),
     productos:f.prods.map(p=>({id:p.id,codigo:p.codigo,peso_ant:p.peso_por_bolsa,
       peso_nuevo:r4((parseFloat(p.peso_por_bolsa)||0)*f.factor)}))}));
   await sb.from('configuracion').upsert({clave:'downgauge_foto_'+localDate(),valor:JSON.stringify(foto)},{onConflict:'clave'});
   let okB=0,okP=0,err=null;
   for(const f of filas){
-    const r=await sb.from('bobinas').update({espesor:f.nuevo}).eq('id',f.bobina_id);
+    // El kg/m es proporcional al espesor: si se baja el espesor y no se baja el
+    // kg/m, el sistema sigue calculando los kg teóricos de cada OE con el metro
+    // viejo (más pesado) y toda bobina producida sale "liviana" contra el teórico.
+    const r=await sb.from('bobinas').update({espesor:f.nuevo,kg_por_metro:_dgKgmNuevo(f)}).eq('id',f.bobina_id);
     if(r.error){err=r.error.message;break;}
     okB++;
     for(const p of f.prods){
@@ -20756,7 +21079,7 @@ function renderAumDG(){
   html+='<div style="background:var(--redbg);border:1px solid var(--redbd);border-radius:var(--rl);padding:14px 16px;margin-top:16px;">'
     +'<div style="font-size:13px;font-weight:700;color:var(--red);margin-bottom:6px;">Aplicar el cambio a la producción</div>'
     +'<div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:10px;">'
-      +'Esto escribe el espesor nuevo en las bobinas y recalcula el peso de cada bolsa. '
+      +'Esto escribe el espesor nuevo en las bobinas, les recalcula el kg/m y recalcula el peso de cada bolsa. '
       +'<b>Va el mismo día que la planta empieza a soplar más fino</b> — ni antes ni después. '
       +'Si se hace en otro momento, todos los kilos, los costos y los informes del sistema quedan mal desde ese día. '
       +'Antes de tocar el botón queda guardada una foto del espesor y los pesos viejos.'
@@ -24897,15 +25220,55 @@ function cgPagoGuardar(){
     await reload();renderComprasGastos();_pv360RefreshSiActiva();
   })();
 }
+// ── Borrar un gasto NO es lo mismo que deshacer su pago ──────────────────
+// El gasto (compras_gastos) es la DEUDA; la cabecera del pago (pagos) es la
+// PLATA QUE SALIÓ, y es la cabecera la que mueve la caja (total − cheques),
+// no la imputación. Borrar el gasto borrando sólo la línea dejaba la cabecera
+// viva y huérfana: el banco seguía figurando $X menos y el proveedor quedaba
+// con un "crédito a cuenta" fantasma. Caso real: PAG-000020 · GASTOS
+// GENERALES $37.975,24 del 31/08 (build 01b).
+// Ahora se mira documento por documento qué cabeceras toca y se pregunta,
+// porque devolver la plata es una decisión de plata, no de pantalla:
+//   · cabecera que quedaría SIN NINGUNA imputación → se ofrece anularla
+//     (la plata vuelve a la cuenta, los cheques a cartera)
+//   · cabecera que sigue pagando OTROS documentos → se saca sólo esta línea
+//     y el resto queda como crédito a imputar del proveedor (la plata salió)
+function _cgCabecerasDe(id){
+  const lineas=(C.pagos_proveedores||[]).filter(p=>p.compra_gasto_id===id);
+  const map={};
+  lineas.forEach(l=>{
+    if(l.pago_id==null)return;
+    const pg=(C.pagos||[]).find(p=>String(p.id)===String(l.pago_id));
+    if(!pg||pg.estado==='anulado')return;
+    const k=String(pg.id);
+    if(!map[k])map[k]={pago:pg,monto:0,otras:(C.pagos_proveedores||[]).filter(x=>String(x.pago_id)===k&&x.compra_gasto_id!==id).length};
+    map[k].monto=r2(map[k].monto+(parseFloat(l.monto)||0));
+  });
+  return Object.values(map);
+}
 function cgBorrar(id){
   const cg=(C.compras_gastos||[]).find(x=>x.id===id);if(!cg)return;
-  if(!confirm('¿Borrar este '+cgCatLabel(cg.categoria)+' de '+fmtMoney(cg.total)+'?\n\nSe borran también sus pagos registrados.'))return;
+  const cabs=_cgCabecerasDe(id);
+  const solas=cabs.filter(c=>c.otras===0);     // quedarían sin ninguna imputación
+  const compartidas=cabs.filter(c=>c.otras>0); // siguen pagando otros documentos
+  let txt='¿Borrar este '+cgCatLabel(cg.categoria)+' de '+fmtMoney(cg.total)+'?';
+  if(!cabs.length)txt+='\n\nSe borran también sus pagos registrados.';
+  else{
+    txt+='\n\nOJO: este documento fue pagado. Borrar el gasto NO devuelve la plata por sí solo — la cabecera del pago es la que mueve la caja.';
+    if(solas.length)txt+='\n\nSe va a ANULAR '+solas.map(c=>(c.pago.numero||'#'+c.pago.id)+' ('+fmtMoney(c.pago.total)+' de '+ccCuentaNombre(c.pago.cuenta_id)+')').join(', ')+': la plata vuelve a la cuenta'+(solas.some(c=>_pvChequesPago(c.pago.id).length)?' y los cheques endosados vuelven a cartera':'')+'.';
+    if(compartidas.length)txt+='\n\n'+compartidas.map(c=>(c.pago.numero||'#'+c.pago.id)).join(', ')+' paga además otros documentos, así que NO se anula: la plata ya salió y '+(compartidas.length===1?'queda':'quedan')+' como crédito a imputar del proveedor.';
+  }
+  if(!confirm(txt))return;
   pedirAdminYEjecutar(async()=>{
+    for(const c of solas){
+      const{error}=await _pagAnularCabecera(c.pago.id,'Se borró el '+cgCatLabel(cg.categoria)+' que pagaba',id);
+      if(error){toast('Error al anular '+(c.pago.numero||'')+': '+error.message,'red');return;}
+    }
     await sb.from('pagos_proveedores').delete().eq('compra_gasto_id',id);
     const{error}=await sb.from('compras_gastos').delete().eq('id',id);
     if(error){toast('Error: '+error.message,'red');return;}
-    toast('✓ Borrado','green');
-    await reload();renderComprasGastos();
+    toast(solas.length?('✓ Borrado · '+solas.length+' pago'+(solas.length===1?'':'s')+' anulado'+(solas.length===1?'':'s')):'✓ Borrado','green');
+    await reload();renderComprasGastos();_pv360RefreshSiActiva();
   });
 }
 
@@ -25212,31 +25575,44 @@ async function guardarPago(){
   if(aCuenta>0.01){PV360.id=_pagCtx.proveedor_id;go('prov360');}
   else go('compras-gastos');
 }
+// EL TRABAJO DE BASE de anular una cabecera de pago, aparte de la UI, para que
+// cgBorrar pueda usar exactamente el mismo camino (build 01b).
+// Anular una cabecera = devolver la plata: se borran sus líneas, sus cheques
+// endosados vuelven a cartera y se limpian las patas de cruce y los egresos
+// explícitos multi-cuenta. `saltearDoc` es el documento que se está borrando
+// (no tiene sentido recalcularle el estado).
+async function _pagAnularCabecera(id,motivo,saltearDoc){
+  const lineas=(C.pagos_proveedores||[]).filter(p=>p.pago_id===id);
+  const chs=chCheques().filter(c=>c.pago_cabecera_id===id);
+  for(const ch of chs){
+    await sb.from('recibo_valores').update({estado:'en_cartera',proveedor_endoso_id:null,pago_cabecera_id:null}).eq('id',ch.id);
+    await sb.from('movimientos_caja').delete().eq('origen_tipo','cheque_endoso').eq('origen_id',ch.id);
+  }
+  await sb.from('pagos_proveedores').delete().eq('pago_id',id);
+  // borrar las patas de conciliacion del cruce de efectivo/transferencia (si las hubo)
+  await sb.from('movimientos_caja').delete().eq('origen_tipo','pago_cruce').eq('origen_id',id);
+  // y los egresos explícitos si el efectivo salió de varias cuentas (build 29k)
+  await sb.from('movimientos_caja').delete().eq('origen_tipo','pago_efectivo').eq('origen_id',id);
+  const{error}=await sb.from('pagos').update({estado:'anulado',fecha_anulacion:new Date().toISOString(),motivo_anulacion:motivo}).eq('id',id);
+  if(error)return{error};
+  for(const l of lineas){
+    if(l.compra_gasto_id==null)continue;
+    if(saltearDoc!=null&&String(l.compra_gasto_id)===String(saltearDoc))continue;
+    const cg=(C.compras_gastos||[]).find(c=>c.id===l.compra_gasto_id);
+    const restantes=(C.pagos_proveedores||[]).filter(p=>p.compra_gasto_id===l.compra_gasto_id && p.pago_id!==id).reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
+    const est=restantes>=(parseFloat(cg?.total)||0)-0.01&&restantes>0?'pagado':(restantes>0?'parcial':'pendiente');
+    await sb.from('compras_gastos').update({estado_pago:est}).eq('id',l.compra_gasto_id);
+  }
+  return{error:null};
+}
 function anularPago(id){
   const pg=(C.pagos||[]).find(p=>p.id===id); if(!pg)return;
   if(pg.estado==='anulado'){toast('Ese pago ya está anulado','amber');return;}
   const motivo=prompt('Motivo de la anulación del pago '+(pg.numero||'#'+id)+':\n(las compras/gastos que pagó vuelven a quedar pendientes)','Error de carga');
   if(motivo===null)return;
   pedirAdminYEjecutar(async()=>{
-    const lineas=(C.pagos_proveedores||[]).filter(p=>p.pago_id===id);
-    // revertir cheques endosados de este pago (vuelven a cartera) + patas de conciliación del cruce
-    const chs=chCheques().filter(c=>c.pago_cabecera_id===id);
-    for(const ch of chs){
-      await sb.from('recibo_valores').update({estado:'en_cartera',proveedor_endoso_id:null,pago_cabecera_id:null}).eq('id',ch.id);
-      await sb.from('movimientos_caja').delete().eq('origen_tipo','cheque_endoso').eq('origen_id',ch.id);
-    }
-    await sb.from('pagos_proveedores').delete().eq('pago_id',id);
-    // borrar las patas de conciliacion del cruce de efectivo/transferencia (si las hubo)
-    await sb.from('movimientos_caja').delete().eq('origen_tipo','pago_cruce').eq('origen_id',id);
-    // y los egresos explícitos si el efectivo salió de varias cuentas (build 29k)
-    await sb.from('movimientos_caja').delete().eq('origen_tipo','pago_efectivo').eq('origen_id',id);
-    await sb.from('pagos').update({estado:'anulado',fecha_anulacion:new Date().toISOString(),motivo_anulacion:motivo}).eq('id',id);
-    for(const l of lineas){
-      const cg=(C.compras_gastos||[]).find(c=>c.id===l.compra_gasto_id);
-      const restantes=(C.pagos_proveedores||[]).filter(p=>p.compra_gasto_id===l.compra_gasto_id && p.pago_id!==id).reduce((s,p)=>s+(parseFloat(p.monto)||0),0);
-      const est=restantes>=(parseFloat(cg?.total)||0)-0.01&&restantes>0?'pagado':(restantes>0?'parcial':'pendiente');
-      await sb.from('compras_gastos').update({estado_pago:est}).eq('id',l.compra_gasto_id);
-    }
+    const{error}=await _pagAnularCabecera(id,motivo);
+    if(error){toast('Error: '+error.message,'red');return;}
     toast('✓ Pago anulado','green');
     await reload(); renderComprasGastos(); _pv360RefreshSiActiva();
   });
@@ -59232,7 +59608,13 @@ function ccMovimientosUnificados(){
     // (origen_tipo 'pago_efectivo'). Si lo contáramos acá también, saldría doble.
     if(!pg.cuenta_id)return;
     const cta=pg.cuenta_id;
-    out.push({key:'pg'+pg.id,fecha:pg.fecha,tipo:'egreso',cuenta_id:cta,monto,concepto:'Pago '+(pg.numero||'')+' · '+lcProvNombre(pg.proveedor_id),conciliado:!!pg.conciliado,fecha_conciliacion:pg.fecha_conciliacion||null,origen:'pago_grupo',origen_id:pg.id,editable:false,sinCuenta:!cta});
+    // Si la cabecera no imputa NADA, decilo en el concepto: puede ser un pago a
+    // cuenta legítimo, pero también una cabecera huérfana (se borró el gasto que
+    // pagaba). Sin esta marca, en el libro y en la conciliación se ve igual que
+    // un pago normal y la plata parece salir por un gasto que ya no existe.
+    const _imp=(C.pagos_proveedores||[]).filter(l=>l.pago_id!=null&&String(l.pago_id)===String(pg.id)).reduce((s,l)=>s+(parseFloat(l.monto)||0),0);
+    const _sinImp=_imp<=0.01?' · sin imputar (crédito a cuenta)':'';
+    out.push({key:'pg'+pg.id,fecha:pg.fecha,tipo:'egreso',cuenta_id:cta,monto,concepto:'Pago '+(pg.numero||'')+' · '+lcProvNombre(pg.proveedor_id)+_sinImp,conciliado:!!pg.conciliado,fecha_conciliacion:pg.fecha_conciliacion||null,origen:'pago_grupo',origen_id:pg.id,editable:false,sinCuenta:!cta});
   });
   (C.deudas_financieras||[]).forEach(d=>{
     if(d.estado==='cancelado')return;
@@ -59999,7 +60381,7 @@ function ccConcInit(){
   if(!CC.cuenta&&bancos.length)CC.cuenta=(bancos.find(c=>c.tipo==='banco')||bancos[0]).id;
   if(!CC.desde||!CC.hasta){const hoy=new Date();CC.desde=localDate(new Date(hoy.getFullYear(),hoy.getMonth(),1));CC.hasta=localDate(new Date(hoy.getFullYear(),hoy.getMonth()+1,0));}
 }
-function ccConcSetCuenta(v){CC.cuenta=parseInt(v)||null;CC.procesado=false;CC.extracto=[];renderConciliacion();}
+function ccConcSetCuenta(v){CC.cuenta=parseInt(v)||null;CC.procesado=false;CC.extracto=[];CC.fci=null;renderConciliacion();}
 function ccConcSetFecha(campo,v){CC[campo]=v||null;renderConciliacion();}
 function ccConcSetSaldoBanco(v){CC.saldoBanco=(v===''||v==null)?null:v;renderConciliacion();}
 // ==================== IMPORTADOR INTELIGENTE DE EXTRACTO (Fase 1) ====================
@@ -60372,43 +60754,185 @@ async function ccImpEjecutar(){
   await reload();renderConciliacion();
 }
 // carga un PDF de extracto y vuelca el texto (reconstruido por renglones) en el textarea
+// núcleo compartido PDF → texto (extracto y tenencia FCI): agrupa items por fila
+// visual (coordenada Y) y devuelve {txt, paginas, renglones}
+async function _ccPdfATexto(file,setM){
+  setM('Cargando lector…');
+  if(!window.pdfjsLib){
+    await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';s.onload=res;s.onerror=()=>rej(new Error('No se pudo cargar el lector de PDF (revisá la conexión)'));document.head.appendChild(s);});
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+  setM('Leyendo PDF…');
+  const buf=await file.arrayBuffer();
+  const pdf=await window.pdfjsLib.getDocument({data:buf}).promise;
+  const renglones=[];
+  for(let p=1;p<=pdf.numPages;p++){
+    const page=await pdf.getPage(p);
+    const tc=await page.getTextContent();
+    // agrupar items por coordenada Y (misma fila visual), ordenar por X
+    const filas={};
+    tc.items.forEach(it=>{
+      if(!it.str||!it.str.trim())return;
+      const y=Math.round((it.transform[5]||0)/2)*2; // tolerancia ~2px
+      const x=it.transform[4]||0;
+      (filas[y]=filas[y]||[]).push({x,s:it.str});
+    });
+    Object.keys(filas).map(Number).sort((a,b)=>b-a).forEach(y=>{
+      const linea=filas[y].sort((a,b)=>a.x-b.x).map(o=>o.s).join(' ').replace(/\s+/g,' ').trim();
+      if(linea)renglones.push(linea);
+    });
+  }
+  return {txt:renglones.join('\n'),paginas:pdf.numPages,renglones:renglones.length};
+}
 async function ccImpCargarPDF(input){
   const file=input&&input.files&&input.files[0]; if(!file)return;
   const msg=document.getElementById('conc-pdf-msg');
   const setM=(t,c)=>{if(msg){msg.style.color=c||'var(--text3)';msg.textContent=t;}};
   try{
-    setM('Cargando lector…');
-    if(!window.pdfjsLib){
-      await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';s.onload=res;s.onerror=()=>rej(new Error('No se pudo cargar el lector de PDF (revisá la conexión)'));document.head.appendChild(s);});
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    }
-    setM('Leyendo PDF…');
-    const buf=await file.arrayBuffer();
-    const pdf=await window.pdfjsLib.getDocument({data:buf}).promise;
-    const renglones=[];
-    for(let p=1;p<=pdf.numPages;p++){
-      const page=await pdf.getPage(p);
-      const tc=await page.getTextContent();
-      // agrupar items por coordenada Y (misma fila visual), ordenar por X
-      const filas={};
-      tc.items.forEach(it=>{
-        if(!it.str||!it.str.trim())return;
-        const y=Math.round((it.transform[5]||0)/2)*2; // tolerancia ~2px
-        const x=it.transform[4]||0;
-        (filas[y]=filas[y]||[]).push({x,s:it.str});
-      });
-      Object.keys(filas).map(Number).sort((a,b)=>b-a).forEach(y=>{
-        const linea=filas[y].sort((a,b)=>a.x-b.x).map(o=>o.s).join(' ').replace(/\s+/g,' ').trim();
-        if(linea)renglones.push(linea);
-      });
-    }
-    const txt=renglones.join('\n');
+    const r=await _ccPdfATexto(file,setM);
     const ta=document.getElementById('conc-extracto');
-    if(ta)ta.value=txt;
+    if(ta)ta.value=r.txt;
     CC.extracto=[];CC.procesado=false;CC.imp=null;
-    setM('✓ '+pdf.numPages+' pág · '+renglones.length+' renglones. Tocá «Importar automático».','var(--green)');
+    setM('✓ '+r.paginas+' pág · '+r.renglones+' renglones. Tocá «Importar automático».','var(--green)');
     toast('✓ PDF leído','green');
   }catch(e){ setM('Error: '+(e.message||e),'var(--red)'); toast('No se pudo leer el PDF','red'); }
+}
+// ==================== TENENCIA FCI (valorización Credicoop) ====================
+// El reporte "Consultas de Saldos de Cuentas Comitentes FCI" NO es un extracto:
+// no tiene movimientos, es una FOTO del valor de los fondos a una fecha. Acá la
+// conciliación es de SALDO: total valorizado del banco vs saldo de la cuenta
+// comitente en el sistema a esa fecha. Con las suscripciones y rescates ya
+// cargados como transferencias banco↔FCI, la diferencia es el rendimiento (o
+// pérdida) del período, y entra como MOVIMIENTO — tipo 'interes' si es ganancia,
+// 'ajuste' negativo si es pérdida — nunca editando el saldo (P1).
+// número del reporte FCI: Credicoop muestra hasta 4 decimales, y a veces el
+// copiado pierde la coma ("1.309.998.5600"). Regla: con coma, la coma es el
+// decimal; solo con puntos, el último punto es decimal salvo que su grupo sea
+// de 3 cifras (entonces todos son miles).
+function _fciNum(s){
+  if(s==null)return null;
+  s=String(s).trim().replace(/[^0-9.,-]/g,'');
+  const neg=s.indexOf('-')>=0; s=s.replace(/-/g,'');
+  if(!s)return null;
+  let n;
+  if(s.indexOf(',')>=0)n=parseFloat(s.replace(/\./g,'').replace(',','.'));
+  else{
+    const parts=s.split('.');
+    if(parts.length===1)n=parseFloat(s);
+    else if(parts[parts.length-1].length===3)n=parseFloat(parts.join(''));
+    else n=parseFloat(parts.slice(0,-1).join('')+'.'+parts[parts.length-1]);
+  }
+  if(n==null||isNaN(n))return null;
+  return neg?-n:n;
+}
+// parsea el texto pegado/subido del reporte de tenencia -> {fondos:[{nombre,valor}],total,fecha}
+// Separado del DOM para poder smoke-testearlo con el reporte real.
+function ccFciParse(txt){
+  const fondos=[];let fecha=null;
+  // fecha del encabezado ("31/08/2026 - 19:00")
+  const mf=String(txt||'').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(mf)fecha=mf[3]+'-'+String(mf[2]).padStart(2,'0')+'-'+String(mf[1]).padStart(2,'0');
+  String(txt||'').split(/\r?\n/).forEach(l=>{
+    l=l.trim();if(!l)return;
+    if(/derechos reservados|p[aá]gina|adherente|operador|cuenta|consultas|cuotapartes|moneda|banca internet|credicoop/i.test(l))return;
+    const toks=l.match(/\d[\d.,]*/g)||[];
+    const nums=toks.map(_fciNum).filter(n=>n!=null);
+    if(nums.length<3)return;                     // fila de fondo: cuotapartes + valor + saldo (+código 1810)
+    const valor=nums[nums.length-1];             // última columna = Saldo disponible Valorizado
+    if(!(valor>0))return;
+    const nombre=(l.split(/\s+ARS\s+/i)[0]||l).replace(/\s+/g,' ').trim();
+    fondos.push({nombre,valor:r2(valor)});
+  });
+  return {fondos,total:r2(fondos.reduce((s,f)=>s+f.valor,0)),fecha};
+}
+function ccFciLeer(){
+  const txt=document.getElementById('fci-txt')?.value||'';
+  const r=ccFciParse(txt);
+  if(!r.fondos.length){toast('No encontré filas de fondos en lo pegado. Pegá las filas de la tabla (fondo, cuotapartes, valor, saldo) o escribí el total a mano.','amber');return;}
+  CC.fci={raw:txt,fondos:r.fondos,total:r.total,fecha:r.fecha||(CC.fci&&CC.fci.fecha)||CC.hasta||localDate()};
+  renderConciliacion();
+}
+async function ccFciCargarPDF(input){
+  const file=input&&input.files&&input.files[0]; if(!file)return;
+  const msg=document.getElementById('fci-pdf-msg');
+  const setM=(t,c)=>{if(msg){msg.style.color=c||'var(--text3)';msg.textContent=t;}};
+  try{
+    const r=await _ccPdfATexto(file,setM);
+    const p=ccFciParse(r.txt);
+    if(!p.fondos.length){
+      const ta=document.getElementById('fci-txt');if(ta)ta.value=r.txt;
+      setM('Leí el PDF pero no reconocí filas de fondos: revisá el texto y tocá «Σ Leer tenencia» o escribí el total a mano.','var(--amber,#f59e0b)');
+      return;
+    }
+    CC.fci={raw:r.txt,fondos:p.fondos,total:p.total,fecha:p.fecha||(CC.fci&&CC.fci.fecha)||CC.hasta||localDate()};
+    toast('✓ Tenencia leída: '+p.fondos.length+' fondos','green');
+    renderConciliacion();
+  }catch(e){ setM('Error: '+(e.message||e),'var(--red)'); toast('No se pudo leer el PDF','red'); }
+}
+function ccFciSetTotal(v){
+  const n=(v===''||v==null)?null:(parseFloat(v)||0);
+  CC.fci=Object.assign({raw:'',fondos:[],fecha:CC.hasta||localDate()},CC.fci||{},{total:n==null?null:r2(n)});
+  renderConciliacion();
+}
+function ccFciSetFecha(v){
+  CC.fci=Object.assign({raw:'',fondos:[],total:null},CC.fci||{},{fecha:v||localDate()});
+  renderConciliacion();
+}
+function ccFciRegistrarRendimiento(){
+  const f=CC.fci;if(!f||f.total==null)return;
+  const fecha=f.fecha||localDate();
+  const dif=r2(f.total-ccSaldoCuentaHasta(CC.cuenta,fecha));
+  if(Math.abs(dif)<1){toast('Ya cuadra: no hay rendimiento para registrar','green');return;}
+  const fAr=String(fecha).split('-').reverse().join('/');
+  if(!confirm((dif>0?'Registrar RENDIMIENTO de +$':'Registrar PÉRDIDA de −$')+Math.abs(dif).toLocaleString('es-AR')+' en '+ccCuentaNombre(CC.cuenta)+' con fecha '+fAr+'.\n\nAntes fijate que las suscripciones y rescates del período estén cargados como transferencias banco↔FCI: si falta alguno, esta diferencia NO es todo rendimiento.\n\n¿Confirmás?'))return;
+  (async()=>{
+    const row=dif>0
+      ?{tipo:'interes',monto:dif,concepto:'Rendimiento FCI s/ tenencia valorizada Credicoop al '+fAr}
+      :{tipo:'ajuste',monto:dif,concepto:'Pérdida FCI s/ tenencia valorizada Credicoop al '+fAr};
+    Object.assign(row,{cuenta_id:CC.cuenta,fecha,origen_tipo:'fci_valorizacion',conciliado:true,fecha_conciliacion:localDate()});
+    const{error}=await sb.from('movimientos_caja').insert(row);
+    if(error){toast('Error: '+error.message,'red');return;}
+    toast('✓ '+(dif>0?'Rendimiento registrado':'Pérdida registrada')+' y conciliado','green');
+    await reload();renderConciliacion();
+  })();
+}
+// bloque HTML de la sección (solo para cuentas de inversión)
+function _ccFciHtml(ctaSel){
+  const fmt=v=>(v<0?'−':'')+'$'+Math.abs(r2(v)).toLocaleString('es-AR');
+  const f=CC.fci;
+  let html='<div style="background:rgba(139,92,246,.06);border:1.5px solid #8b5cf6;border-radius:var(--r);padding:14px 16px;margin-bottom:1.2rem;">';
+  html+='<div style="font-weight:800;font-size:13.5px;color:#8b5cf6;margin-bottom:4px;">📈 Tenencia FCI · conciliación de saldo</div>';
+  html+='<div style="font-size:11.5px;color:var(--text3);max-width:900px;line-height:1.5;margin-bottom:10px;">El reporte de fondos del banco («Saldos de Cuentas Comitentes FCI») no tiene movimientos: es una foto del valor. Subí el PDF o pegá las filas, y el sistema suma el total valorizado, lo compara con el saldo de esta cuenta y te propone registrar la diferencia como rendimiento. Hacelo una vez por mes, al cierre.</div>';
+  html+='<div class="btn-grp" style="margin-bottom:8px;flex-wrap:wrap;gap:6px;"><input type="file" id="fci-pdf" accept="application/pdf,.pdf" style="display:none;" onchange="ccFciCargarPDF(this)"><button class="btn btn-sm" onclick="document.getElementById(\'fci-pdf\').click()">📄 Subir PDF de tenencia</button><span id="fci-pdf-msg" style="font-size:11px;color:var(--text3);"></span></div>';
+  html+='<textarea id="fci-txt" placeholder="Pegá las filas del reporte, ej:\nFCRV 1810 RENTA VARIABLE ARGENTINA ARS 566.000 2.314,4851 1.309.998,5600\nFCAD 1810 AHORRO ARS 2.054,0000 236,4814 485.732,7800" style="width:100%;max-width:900px;min-height:80px;font-family:monospace;font-size:11.5px;padding:8px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg2);color:var(--text1);">'+escapeHtml(f&&f.raw?f.raw:'')+'</textarea>';
+  html+='<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin-top:8px;">'
+    +'<button class="btn btn-sm btn-primary" onclick="ccFciLeer()">Σ Leer tenencia</button>'
+    +'<div class="fg" style="margin:0;"><label>Fecha de la valorización</label><input type="date" value="'+((f&&f.fecha)||CC.hasta||localDate())+'" onchange="ccFciSetFecha(this.value)"></div>'
+    +'<div class="fg" style="margin:0;"><label>Total valorizado (o escribilo a mano)</label><input type="number" step="0.01" value="'+(f&&f.total!=null?f.total:'')+'" onchange="ccFciSetTotal(this.value)" style="min-width:170px;"></div>'
+    +(f?'<button class="btn btn-sm" onclick="CC.fci=null;renderConciliacion();">Limpiar</button>':'')
+  +'</div>';
+  if(f&&f.fondos&&f.fondos.length){
+    html+='<div style="overflow-x:auto;margin-top:10px;"><table style="max-width:560px;"><thead><tr><th>Fondo</th><th style="text-align:right">Saldo valorizado</th></tr></thead><tbody>';
+    f.fondos.forEach(x=>{html+='<tr><td style="font-size:11.5px;">'+escapeHtml(x.nombre)+'</td><td class="mono" style="text-align:right;font-size:12px;">'+fmt(x.valor)+'</td></tr>';});
+    html+='<tr><td style="font-weight:800;">Total</td><td class="mono" style="text-align:right;font-weight:800;">'+fmt(f.total||0)+'</td></tr>';
+    html+='</tbody></table></div>';
+  }
+  if(f&&f.total!=null){
+    const fecha=f.fecha||localDate();
+    const saldoSis=ccSaldoCuentaHasta(CC.cuenta,fecha);
+    const dif=r2(f.total-saldoSis);
+    html+='<div class="stats" style="margin-top:10px;margin-bottom:0;">'
+      +'<div class="stat"><div class="stat-lbl">Saldo según sistema (al '+fecha+')</div><div class="stat-val" style="font-size:18px;">'+fmt(saldoSis)+'</div></div>'
+      +'<div class="stat"><div class="stat-lbl">Total según banco</div><div class="stat-val" style="font-size:18px;">'+fmt(f.total)+'</div></div>'
+      +'<div class="stat"><div class="stat-lbl">Diferencia (rendimiento)</div><div class="stat-val" style="font-size:18px;color:'+(Math.abs(dif)<1?'var(--green)':(dif>0?'var(--green)':'var(--red)'))+'">'+(Math.abs(dif)<1?'✓ cuadra':fmt(dif))+'</div></div>'
+    +'</div>';
+    if(Math.abs(dif)>=1){
+      html+='<div style="font-size:11px;color:var(--text3);margin-top:6px;max-width:900px;">Si las suscripciones y rescates del período ya están cargados como transferencias banco↔FCI, esta diferencia es el '+(dif>0?'rendimiento':'resultado negativo')+' de los fondos.</div>'
+        +'<div class="btn-grp" style="margin-top:8px;"><button class="btn btn-sm btn-primary" onclick="ccFciRegistrarRendimiento()">➕ Registrar '+(dif>0?'rendimiento':'pérdida')+' de '+fmt(Math.abs(dif))+'</button></div>';
+    }
+  }
+  html+='</div>';
+  return html;
 }
 function renderConciliacion(){
   const wrap=document.getElementById('conc-wrap');if(!wrap)return;
@@ -60443,6 +60967,8 @@ function renderConciliacion(){
     +(saldoBanco!=null?'<div class="stat"><div class="stat-lbl">Diferencia vs banco</div><div class="stat-val" style="font-size:18px;color:'+(Math.abs(difBanco)<1?'var(--green)':'var(--red)')+'">'+(Math.abs(difBanco)<1?'✓ cuadra':fmt(difBanco))+'</div></div>':(CC.procesado?'<div class="stat"><div class="stat-lbl">📄 Extracto: sin correspondencia</div><div class="stat-val" style="font-size:18px;color:'+(sinCorr.length?'var(--red)':'var(--green)')+'">'+sinCorr.length+' / '+CC.extracto.length+'</div></div>':''))
   +'</div>';
   if(saldoBanco!=null&&Math.abs(difBanco)>=1)html+='<div style="font-size:11px;color:var(--text3);margin:-8px 0 12px;max-width:900px;">La diferencia de '+fmt(difBanco)+' es lo que el banco tiene y vos todavía no conciliaste (o al revés). Conciliá los movimientos pendientes de abajo hasta que diga «cuadra».</div>';
+  // ---- tenencia FCI (solo cuentas de inversión: acá se concilia el SALDO, no movimientos)
+  if(_ccEsInversion(ctaSel))html+=_ccFciHtml(ctaSel);
   // ---- acciones lote
   html+='<div class="btn-grp" style="margin-bottom:10px;flex-wrap:wrap;gap:6px;">';
   if(CC.procesado)html+='<button class="btn btn-sm btn-primary" onclick="ccConcLote(\'matcheados\')">✓ Conciliar los que matchean el extracto</button>';
