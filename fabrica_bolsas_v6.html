@@ -709,7 +709,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-01b</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-02d</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5362,7 +5362,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-09-01b';   // 01b: 🔴 BORRAR UN GASTO PAGADO ya no deja la cabecera del pago huérfana drenando el banco (caso PAG-000020 $37.975,24): ahora avisa y anula la cabecera que quedaría sin imputar, o explica que sigue pagando otros documentos. Un pago sin imputar se marca «sin imputar (crédito a cuenta)» en libro y conciliación. Sobre el 01a: tenencia FCI
+const APP_BUILD='2026-09-02d';   // 02d: FACTURA FORMAL CONSOLIDADA: un renglón por producto+precio (nunca promediado), remitos en el encabezado del impreso, y vínculo REAL renglón→renglones de remito (tabla factura_linea_remitos) que reemplaza el parseo de '[Remito …]' en el ✏ (con fallback para facturas viejas). Requiere crear_factura_linea_remitos.sql. 02c: 📊 Hoy vs. el aumento anterior en Evolución (último aumento por cliente×producto contra la lista de hoy, con resina ese día→hoy) + 🗑 Deshacer la foto de hoy + las fotos se ocultan del registro por defecto. 02b: fix _efRecalcPedido pedía la columna observaciones (no existe en pedido_lineas) → la corrección de precios de remito/factura quedaba a medias; ahora sin cambios + tilde pedido recalcula la cabecera. 02a: ✏ Precios en remitos NO facturados (lista Remitos y pendientes de facturar): corregir $/paq por renglón antes de emitir, con $/kg por renglón y «llevar todo a X $/kg»; propaga opcionalmente al pedido; admin. Sobre el 01b: 🔴 BORRAR UN GASTO PAGADO ya no deja la cabecera del pago huérfana drenando el banco (caso PAG-000020 $37.975,24): ahora avisa y anula la cabecera que quedaría sin imputar, o explica que sigue pagando otros documentos. Un pago sin imputar se marca «sin imputar (crédito a cuenta)» en libro y conciliación. Sobre el 01a: tenencia FCI
   // 28a: NOTAS DE CREDITO Y DEBITO ANTE ARCA — Y UN BUG DE PLATA QUE NO ERA DE ARCA.
   //      German: "el tema de notas de debito, credito eso lo tenemos listo tambien" y
   //      despues, sobre las de cheque rechazado, "eso que tiene que ver con tus facturas".
@@ -5771,6 +5771,9 @@ async function reload(){
     sb.from('tarjeta_consumos').select('*').order('fecha',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
     sb.from('tarjeta_resumenes').select('*').order('periodo',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
     sb.from('indicadores_snapshot').select('*').order('fecha',{ascending:false}).limit(60).then(r=>r).catch(()=>({data:[]})),
+    // 02d: vínculo REAL renglón de factura → renglones de remito (reemplaza el parseo de '[Remito …]').
+    // Si la tabla todavía no existe, queda vacío y el ✏ cae al parseo viejo.
+    _traerPaginado('factura_linea_remitos','*','id').catch(()=>({data:[]})),
   ]);
   const d=r=>results[r].status==='fulfilled'?results[r].value.data||[]:[];
   C.bobinas=d(0);C.extrusoras=d(1);C.ordenes=d(2);
@@ -5833,6 +5836,7 @@ async function reload(){
   C.tarjeta_consumos=d(66)||[];
   C.tarjeta_resumenes=d(67)||[];
   C.indicadores_snapshot=d(68)||[];
+  C.fac_linea_rem=d(69)||[];
   _costoBobinaIdx=null; // invalidar índice de costo real por bobina al recargar
   const rcfg=results[8].status==='fulfilled'?results[8].value:null;
   if(rcfg?.data){rcfg.data.forEach(r=>{
@@ -13336,6 +13340,39 @@ async function anularRemito(remId){
   await reload();
   if(typeof renderRemitos==='function')renderRemitos();
 }
+// ===== FACTURA: RENGLONES CONSOLIDADOS + VÍNCULO A REMITOS (02d) =====
+// Agrupa los renglones de los remitos elegidos por producto + precio unitario.
+// Devuelve grupos ordenados por código de producto; cada grupo conserva los
+// renglones de remito que lo componen (para el vínculo y para el ✏).
+function _facConsolidarRemitos(remIds){
+  const map={};const orden=[];
+  (remIds||[]).forEach(remId=>{
+    const rem=(C.remitos||[]).find(r=>r.id===remId);
+    if(!rem)return;
+    (rem.remito_lineas||[]).forEach(l=>{
+      const prod=l.productos||(C.productos||[]).find(p=>p.id===l.producto_id);
+      const cant=parseFloat(l.cantidad_paquetes)||0;
+      const sub=parseFloat(l.subtotal)||0;
+      const pu=r2(parseFloat(l.precio_paquete)||(cant>0?sub/cant:0));
+      const k=String(l.producto_id||'sin')+'|'+pu.toFixed(4);
+      if(!map[k]){
+        map[k]={producto_id:l.producto_id||null,codigo:prod?.codigo||'',
+          desc:(prod?.codigo?prod.codigo+' - ':'')+(prod?.nombre||prod?.descripcion||'Producto'),
+          pu:pu,cant:0,sub:0,remLineas:[],remitos:[]};
+        orden.push(k);
+      }
+      const g=map[k];
+      g.cant+=cant; g.sub=r2(g.sub+sub); g.remLineas.push(l);
+      const nr=rem.numero_remito||('#'+rem.id); if(g.remitos.indexOf(nr)<0)g.remitos.push(nr);
+    });
+  });
+  return orden.map(k=>map[k]).sort((a,b)=>String(a.codigo).localeCompare(String(b.codigo))||(a.pu-b.pu));
+}
+// Números de remito de una factura, del vínculo de cabecera (factura_remitos) — P1: se deriva, no se guarda.
+function _facRemitosDe(f){
+  const ids=(f&&f.factura_remitos||[]).map(x=>x.remito_id);
+  return ids.map(id=>{const r=(C.remitos||[]).find(x=>x.id===id);return r?(r.numero_remito||('#'+r.id)):null;}).filter(Boolean);
+}
 function facturarDesdeRemito(remId){
   const rem=(C.remitos||[]).find(r=>r.id===remId);
   if(!rem)return;
@@ -13406,7 +13443,8 @@ function renderRemitos(){
         +'<button class="btn btn-sm" onclick="imprimirRemito('+r.id+')">🖨️ Imprimir</button>'
         +(r.estado==='anulado'
            ? ' <span class="badge" style="background:var(--red);color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;">ANULADO</span>'
-           : ((!r.factura_id && planoRemito(r)==='formal')?' <button class="btn btn-sm btn-primary" onclick="facturarDesdeRemito('+r.id+')">🧾 Facturar</button>':'')
+           : (_remitoPrecioEditable(r)?' <button class="btn btn-sm" onclick="abrirEditarRemitoPrecios('+r.id+')" title="Corregir precios antes de facturar">✏ Precios</button>':'')
+             +((!r.factura_id && planoRemito(r)==='formal')?' <button class="btn btn-sm btn-primary" onclick="facturarDesdeRemito('+r.id+')">🧾 Facturar</button>':'')
              +((!r.rv_id && planoRemito(r)==='informal')?' <button class="btn btn-sm btn-primary" onclick="rvDesdeRemito('+r.id+')">🧾 Facturar (RV)</button>':'')
              +' <button class="btn btn-sm" onclick="anularRemito('+r.id+')" style="color:var(--red);border-color:var(--red);">✕ Anular</button>')
       +'</td>'
@@ -13498,6 +13536,200 @@ function imprimirRemito(remitoId){
   _imprimirHTML(html,'Remito '+r.numero_remito);
 }
 
+// ===== CORREGIR PRECIOS DE UN REMITO (antes de facturar) =====
+// El precio de la factura sale del remito (guardarFactura copia precio_paquete/subtotal
+// de remito_lineas), así que si el precio hay que tocarlo, el lugar es el remito, ANTES
+// de emitir: después queda la factura con el precio viejo y hay que corregirla aparte.
+// Mismo criterio que ✏ Corregir precios de la factura: la cantidad no se toca (esas
+// bolsas ya salieron de stock), sólo el precio; opcionalmente se propaga al pedido.
+// Muestra el $/kg por renglón y permite llevar todo el remito a un $/kg objetivo.
+let _erCtx=null;
+function _remitoPrecioEditable(r){
+  if(!r)return false;
+  if(r.estado==='anulado')return false;
+  if(r.factura_id)return false;                  // ya facturado: se corrige desde la factura
+  if(r.rv_id){
+    const v=(C.rvs||[]).find(x=>String(x.id)===String(r.rv_id));
+    if(v&&v.estado!=='anulada'&&v.estado!=='anulado')return false;
+  }
+  return true;
+}
+function _erKgPaq(l){
+  const p=l.productos||(C.productos||[]).find(x=>x.id===l.producto_id);
+  return p&&typeof lpGetKgPaq==='function'?(parseFloat(lpGetKgPaq(p))||0):0;
+}
+function abrirEditarRemitoPrecios(remId){
+  const r=(C.remitos||[]).find(x=>x.id===remId);
+  if(!r){toast('No se encontró el remito','red');return;}
+  if(!_remitoPrecioEditable(r)){toast(r.factura_id?'Ya está facturado: corregí el precio desde la factura (✏)':'Este remito no se puede editar','amber');return;}
+  const lineas=(r.remito_lineas||[]).slice();
+  if(!lineas.length){toast('El remito no tiene renglones','amber');return;}
+  _erCtx={remId:remId,lineas:lineas};
+  const ped=(C.pedidos||[]).find(p=>p.id===r.pedido_id);
+  const conPed=lineas.filter(l=>l.pedido_linea_id).length;
+  const totalAct=r2(lineas.reduce((s,l)=>s+(parseFloat(l.subtotal)||0),0));
+
+  let h='<div class="modal-overlay" id="er-modal"><div class="modal-card" style="max-width:860px;max-height:90vh;overflow:auto;">';
+  h+='<div class="modal-title">✏ Corregir precios — Remito '+escapeHtml(r.numero_remito||('#'+r.id))+'</div>';
+  h+='<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Cliente: <b>'+escapeHtml(r.cliente||'')+'</b> · Fecha '+escapeHtml(r.fecha||'')+(ped?' · Pedido '+escapeHtml(ped.numero_pedido||''):'')+' · Total actual $'+totalAct.toLocaleString('es-AR')+'</div>';
+  h+='<div style="font-size:11px;color:#065f46;background:#d1fae5;border-radius:6px;padding:7px 10px;margin-bottom:10px;">Este remito <b>todavía no está facturado</b>: la factura va a salir con los precios que dejes acá.</div>';
+  h+='<div style="font-size:11px;color:var(--text3);margin-bottom:6px;">La cantidad no se toca (esas bolsas ya salieron de stock) — acá sólo se corrige el precio por paquete.</div>';
+  h+='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:12px;">'
+    +'<span>Llevar todo el remito a</span><input type="number" id="er-kg-obj" min="0" step="1" placeholder="$/kg" style="width:100px;text-align:right;">'
+    +'<span>$/kg</span><button class="btn btn-sm" onclick="erAplicarKg()">Aplicar a todos</button>'
+    +'<span style="color:var(--text3);font-size:11px;">(precio = kg/paq × $/kg, redondeado a 2 decimales)</span></div>';
+  h+='<div style="overflow-x:auto;"><table style="width:100%;font-size:12px;">'
+    +'<thead><tr style="color:var(--text3);font-size:10px;text-align:left;">'
+    +'<th>Producto</th><th style="text-align:right;">Paq.</th><th style="text-align:right;">kg/paq</th><th style="text-align:right;">$ paquete</th><th style="text-align:right;">$/kg</th><th style="text-align:right;">Subtotal</th><th>Origen</th>'
+    +'</tr></thead><tbody>';
+  lineas.forEach((l,i)=>{
+    const p=l.productos||(C.productos||[]).find(x=>x.id===l.producto_id);
+    const cant=parseFloat(l.cantidad_paquetes)||0;
+    const pu=parseFloat(l.precio_paquete)||(cant>0?(parseFloat(l.subtotal)||0)/cant:0);
+    const kgp=_erKgPaq(l);
+    h+='<tr>'
+      +'<td style="max-width:260px;">'+escapeHtml((p?.codigo?p.codigo+' - ':'')+(p?.nombre||p?.descripcion||'producto'))
+        +'<span id="er-warn-'+i+'" style="display:'+(pu>0?'none':'')+';color:var(--red);font-weight:700;"> · en $0</span></td>'
+      +'<td style="text-align:right;" class="mono">'+cant.toLocaleString('es-AR')+'</td>'
+      +'<td style="text-align:right;" class="mono">'+(kgp?kgp.toLocaleString('es-AR',{maximumFractionDigits:4}):'—')+'</td>'
+      +'<td style="text-align:right;"><input type="number" id="er-pu-'+i+'" value="'+r2(pu)+'" min="0" step="0.01" style="width:100px;text-align:right;" oninput="erCalc()"></td>'
+      +'<td style="text-align:right;" class="mono" id="er-kg-'+i+'">—</td>'
+      +'<td style="text-align:right;" class="mono" id="er-sub-'+i+'">—</td>'
+      +'<td style="font-size:10px;color:var(--text3);">'+(l.pedido_linea_id?'pedido':'venta directa')+'</td>'
+      +'</tr>';
+  });
+  h+='</tbody></table></div>';
+  h+='<div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px;display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;">';
+  h+='<div style="font-size:12px;min-width:260px;">'
+    +'<label style="display:block;margin-bottom:5px;cursor:pointer;"><input type="checkbox" id="er-prop-ped"'+(conPed?' checked':' disabled')+'> Corregir también el <b>pedido</b> (rentabilidad y cobranza)</label>'
+    +(conPed?'<div style="font-size:11px;color:var(--text3);">Cambia el precio de la línea completa del pedido, no sólo lo entregado en este remito.</div>':'')
+  +'</div>';
+  h+='<div style="min-width:250px;"><table style="width:100%;font-size:12px;">'
+    +'<tr><td style="font-weight:700;font-size:15px;">TOTAL</td><td style="text-align:right;font-weight:700;font-size:15px;" class="mono" id="er-total">—</td></tr>'
+    +'<tr><td>$/kg promedio</td><td style="text-align:right;" class="mono" id="er-kgprom">—</td></tr>'
+    +'<tr><td colspan="2" style="text-align:right;font-size:11px;color:var(--text3);" id="er-delta"></td></tr>'
+    +'</table></div>';
+  h+='</div>';
+  h+='<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">'
+    +'<button class="btn btn-sm" onclick="document.getElementById(\'er-modal\').remove()">Cancelar</button>'
+    +'<button class="btn btn-sm btn-primary" onclick="guardarEditarRemitoPrecios()">Guardar precios</button>'
+  +'</div>';
+  h+='<div id="er-msg" style="font-size:12px;margin-top:8px;"></div>';
+  h+='</div></div>';
+  document.getElementById('er-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',h);
+  erCalc();
+}
+function erCalc(){
+  if(!_erCtx)return;
+  const r=(C.remitos||[]).find(x=>x.id===_erCtx.remId);
+  let total=0,kgTot=0;
+  _erCtx.lineas.forEach((l,i)=>{
+    const v=parseFloat(document.getElementById('er-pu-'+i)?.value);
+    const pu=isNaN(v)?0:v;
+    const cant=parseFloat(l.cantidad_paquetes)||0;
+    const kgp=_erKgPaq(l);
+    const sub=r2(cant*pu);
+    total+=sub; kgTot+=cant*kgp;
+    const s=document.getElementById('er-sub-'+i); if(s)s.textContent=fmtMoney(sub);
+    const k=document.getElementById('er-kg-'+i); if(k)k.textContent=kgp>0?'$'+r2(pu/kgp).toLocaleString('es-AR'):'—';
+    const w=document.getElementById('er-warn-'+i); if(w)w.style.display=pu>0?'none':'';
+  });
+  total=r2(total);
+  const act=r?r2((r.remito_lineas||[]).reduce((s,l)=>s+(parseFloat(l.subtotal)||0),0)):0;
+  const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  set('er-total',fmtMoney(total));
+  set('er-kgprom',kgTot>0?'$'+r2(total/kgTot).toLocaleString('es-AR')+' · '+r2(kgTot).toLocaleString('es-AR')+' kg':'—');
+  const dif=r2(total-act);
+  const d=document.getElementById('er-delta');
+  if(d)d.innerHTML=Math.abs(dif)<0.01?'sin cambios en el total'
+    :('<span style="color:'+(dif>0?'var(--green)':'var(--red)')+';font-weight:600;">'+(dif>0?'+':'')+fmtMoney(dif)+' vs. el total actual</span>');
+}
+function erAplicarKg(){
+  if(!_erCtx)return;
+  const obj=parseFloat(document.getElementById('er-kg-obj')?.value);
+  if(isNaN(obj)||obj<=0){toast('Ingresá un $/kg objetivo','amber');return;}
+  let sinKg=0;
+  _erCtx.lineas.forEach((l,i)=>{
+    const kgp=_erKgPaq(l);
+    const el=document.getElementById('er-pu-'+i);
+    if(!el)return;
+    if(!(kgp>0)){sinKg++;return;}
+    el.value=r2(kgp*obj);
+  });
+  erCalc();
+  if(sinKg)toast(sinKg+' renglón(es) sin kg/paq conocido: quedaron como estaban','amber');
+}
+async function guardarEditarRemitoPrecios(){
+  if(!_erCtx)return;
+  const r=(C.remitos||[]).find(x=>x.id===_erCtx.remId);
+  const msg=document.getElementById('er-msg');
+  if(!r||!_remitoPrecioEditable(r)){if(msg){msg.style.color='var(--red)';msg.textContent='El remito cambió de estado: cerrá y volvé a abrir.';}return;}
+  const nuevos=_erCtx.lineas.map((l,i)=>{const v=parseFloat(document.getElementById('er-pu-'+i)?.value);return isNaN(v)?null:v;});
+  if(nuevos.some(x=>x===null||x<0)){if(msg){msg.style.color='var(--red)';msg.textContent='Hay un precio vacío o negativo.';}return;}
+  const cambiadas=nuevos.map((pu,i)=>{
+    const l=_erCtx.lineas[i];const cant=parseFloat(l.cantidad_paquetes)||0;
+    const act=parseFloat(l.precio_paquete)||(cant>0?(parseFloat(l.subtotal)||0)/cant:0);
+    return Math.abs(pu-act)>0.000001?i:-1;
+  }).filter(i=>i>=0);
+  const propPed=!!document.getElementById('er-prop-ped')?.checked;
+  if(!cambiadas.length){
+    // Sin cambios de precio. Si está tildado el pedido, igual se recalcula su cabecera
+    // desde las líneas (P1): sirve para cerrar una corrección que quedó a medias.
+    const pids=[...new Set(_erCtx.lineas.filter(l=>l.pedido_linea_id).map(l=>_efPedidoLinea(l.pedido_linea_id)?.pedido_id).filter(Boolean))];
+    if(propPed&&pids.length){
+      pedirAdminYEjecutar(async()=>{
+        try{for(const pid of pids){await _efRecalcPedido(pid);}
+          document.getElementById('er-modal')?.remove();_erCtx=null;await reload();
+          try{renderRemitos();}catch(e){}
+          toast('Precios sin cambios · cabecera de '+pids.length+' pedido(s) recalculada','green');
+        }catch(err){const m3=document.getElementById('er-msg');if(m3){m3.style.color='var(--red)';m3.textContent='Error: '+(err&&err.message?err.message:err);}}
+      });
+      return;
+    }
+    if(msg){msg.style.color='var(--amber)';msg.textContent='No cambiaste ningún precio.';}return;
+  }
+  const ceros=nuevos.filter(x=>!(x>0)).length;
+  if(ceros&&!confirm('Quedan '+ceros+' renglón(es) en $0.\n\n¿Guardar igual?'))return;
+  pedirAdminYEjecutar(async()=>{
+    const m2=document.getElementById('er-msg');
+    if(m2){m2.style.color='var(--text2)';m2.textContent='Guardando…';}
+    try{
+      let pedTocadas=0;const pedidos={};
+      for(const i of cambiadas){
+        const l=_erCtx.lineas[i], pu=nuevos[i];
+        const cant=parseFloat(l.cantidad_paquetes)||0;
+        const {error}=await sb.from('remito_lineas').update({precio_paquete:pu,subtotal:r2(cant*pu)}).eq('id',l.id);
+        if(error)throw error;
+        if(propPed&&l.pedido_linea_id){
+          const pl=_efPedidoLinea(l.pedido_linea_id);
+          if(pl){
+            const uni=parseFloat(pl.unidades_paquete)||0;
+            const cantP=parseFloat(pl.cantidad)||0;
+            const {error:e4}=await sb.from('pedido_lineas').update({
+              precio_paquete:pu,precio_unitario:uni>0?(pu/uni):pu,subtotal_linea:r2(cantP*pu)
+            }).eq('id',pl.id);
+            if(e4)throw e4;
+            pedTocadas++;
+            if(pl.pedido_id)pedidos[pl.pedido_id]=true;
+          }
+        }
+      }
+      for(const pid of Object.keys(pedidos)){ await _efRecalcPedido(parseInt(pid)); }
+      document.getElementById('er-modal')?.remove();
+      _erCtx=null;
+      await reload();
+      try{renderRemitos();}catch(e){}
+      try{renderRemitosPendientes();}catch(e){}
+      toast('✓ Remito '+(r.numero_remito||('#'+r.id))+': '+cambiadas.length+' precio(s) corregido(s)'
+        +(pedTocadas?' · '+Object.keys(pedidos).length+' pedido(s)':''),'green');
+    }catch(err){
+      const m3=document.getElementById('er-msg');
+      if(m3){m3.style.color='var(--red)';m3.textContent='Error: '+(err&&err.message?err.message:err);}
+      else toast('Error al corregir el remito','red');
+    }
+  });
+}
 
 
 // ============================================================
@@ -14197,7 +14429,7 @@ function renderRemitosPendientes(){
   });
   if(!lista.length){tbl.innerHTML='<div class="empty">No hay remitos pendientes de facturar.</div>';return;}
   let html='<div style="overflow-x:auto"><table><thead><tr>'
-    +'<th>Remito</th><th>Fecha</th><th>Cliente</th><th>Pedido</th><th style="text-align:right">Subtotal</th>'
+    +'<th>Remito</th><th>Fecha</th><th>Cliente</th><th>Pedido</th><th style="text-align:right">Subtotal</th><th></th>'
     +'</tr></thead><tbody>';
   lista.forEach(r=>{
     const cli=C.clientes.find(c=>c.id===r.cliente_id);
@@ -14210,6 +14442,8 @@ function renderRemitosPendientes(){
       +'<td>'+(cli?.razon_social||cli?.nombre||r.cliente||'—')+'</td>'
       +'<td>'+(ped?.numero_pedido||(r.pedido_id?'#'+r.pedido_id:'—'))+'</td>'
       +'<td style="text-align:right" class="mono">'+fmtMoney(subtotal)+'</td>'
+      +'<td style="white-space:nowrap"><button class="btn btn-sm" onclick="abrirEditarRemitoPrecios('+r.id+')" title="Corregir precios antes de facturar">✏ Precios</button> '
+        +'<button class="btn btn-sm btn-primary" onclick="facturarDesdeRemito('+r.id+')">🧾 Facturar</button></td>'
       +'</tr>';
   });
   html+='</tbody></table></div>';
@@ -14352,8 +14586,18 @@ function _facturaEditable(f){
 // uno a uno. Si no hay match, esa línea no se propaga y se avisa en pantalla:
 // más vale no tocar el remito que tocar el renglón equivocado.
 function _efMapearRemitos(lineas){
+  // 02d: primero el vínculo REAL (factura_linea_remitos). Un renglón consolidado
+  // apunta a VARIOS renglones de remito. Si no hay vínculo (facturas anteriores
+  // al 02d, o tabla sin crear), cae al parseo de '[Remito …]' de siempre.
   const usados={};
+  const porRemLinea={};
+  (C.remitos||[]).forEach(r=>(r.remito_lineas||[]).forEach(rl=>{porRemLinea[rl.id]={remito:r,linea:rl};}));
   return (lineas||[]).map(l=>{
+    const vinc=(C.fac_linea_rem||[]).filter(v=>v.factura_linea_id===l.id);
+    if(vinc.length){
+      const items=vinc.map(v=>porRemLinea[v.remito_linea_id]).filter(Boolean);
+      return items.length?{items:items}:null;
+    }
     const m=String(l.descripcion||'').match(/^\[Remito ([^\]]+)\]/);
     if(!m)return null;
     const numRem=m[1].trim();
@@ -14367,8 +14611,15 @@ function _efMapearRemitos(lineas){
     );
     if(!cand.length)return null;
     usados[cand[0].id]=true;
-    return {remito:rem,linea:cand[0]};
+    return {items:[{remito:rem,linea:cand[0]}]};
   });
+}
+// Etiqueta de origen de un renglón mapeado: 'REM-00373' o 'REM-00373, REM-00380 · pedido'
+function _efOrigenTxt(m){
+  if(!m)return '<span style="color:var(--amber)">sin vínculo</span>';
+  const rems=[];m.items.forEach(it=>{const n=it.remito.numero_remito||('#'+it.remito.id);if(rems.indexOf(n)<0)rems.push(n);});
+  const ped=m.items.some(it=>it.linea.pedido_linea_id);
+  return escapeHtml(rems.join(', '))+(ped?' · pedido':'');
 }
 
 function _efPedidoLinea(id){
@@ -14396,7 +14647,7 @@ function abrirEditarFactura(facId){
   const nombre=f.razon_social_cliente||(f.clientes&&(f.clientes.razon_social||f.clientes.nombre))||'';
   const numero=f.numero||('#'+f.id);
   const sinMapa=map.filter(m=>!m).length;
-  const conPed=map.filter(m=>m&&m.linea&&m.linea.pedido_linea_id).length;
+  const conPed=map.filter(m=>m&&m.items.some(it=>it.linea.pedido_linea_id)).length;
   const cobrado=_aplicadoAFactura(f.id);
 
   let h='<div class="modal-overlay" id="ef-modal"><div class="modal-card" style="max-width:820px;max-height:90vh;overflow:auto;">';
@@ -14421,7 +14672,7 @@ function abrirEditarFactura(facId){
       +'<td style="text-align:right;" class="mono">'+cant.toLocaleString('es-AR')+'</td>'
       +'<td style="text-align:right;"><input type="number" id="ef-pu-'+i+'" value="'+pu+'" min="0" step="0.0001" style="width:110px;text-align:right;" oninput="efCalc()"></td>'
       +'<td style="text-align:right;" class="mono" id="ef-sub-'+i+'">'+fmtMoney(r2(cant*pu))+'</td>'
-      +'<td style="font-size:10px;color:var(--text3);">'+(m?escapeHtml(m.remito.numero_remito||('#'+m.remito.id))+(m.linea.pedido_linea_id?' · pedido':''):'<span style="color:var(--amber)">sin vínculo</span>')+'</td>'
+      +'<td style="font-size:10px;color:var(--text3);">'+_efOrigenTxt(m)+'</td>'
       +'</tr>';
   });
   h+='</tbody></table></div>';
@@ -14487,7 +14738,11 @@ function efCalc(){
 async function _efRecalcPedido(pedId){
   const p=(C.pedidos||[]).find(x=>x.id===pedId);
   if(!p)return;
-  const {data:ls,error}=await sb.from('pedido_lineas').select('subtotal_linea,estado_linea,observaciones').eq('pedido_id',pedId);
+  // 02a: pedido_lineas NO tiene columna observaciones (PostgREST tiraba «column
+  // pedido_lineas.observaciones does not exist» y la corrección quedaba a medias:
+  // renglones ya actualizados, cabecera del pedido sin recalcular). La cancelación
+  // se detecta por estado_linea, que es lo que _lineaCancelada mira primero.
+  const {data:ls,error}=await sb.from('pedido_lineas').select('subtotal_linea,estado_linea').eq('pedido_id',pedId);
   if(error)throw error;
   const vivas=(ls||[]).filter(l=>!_lineaCancelada(l));
   const sub=r2(vivas.reduce((s,l)=>s+(parseFloat(l.subtotal_linea)||0),0));
@@ -14551,24 +14806,26 @@ async function guardarEditarFactura(){
         for(const i of cambiadas){
           const mp=_efCtx.map[i], pu=nuevos[i];
           if(!mp){sinVinculo++;continue;}
-          const cantR=parseFloat(mp.linea.cantidad_paquetes)||0;
-          const {error:e3}=await sb.from('remito_lineas')
-            .update({precio_paquete:pu,subtotal:r2(cantR*pu)}).eq('id',mp.linea.id);
-          if(e3)throw e3;
-          remTocados++;
-          if(propPed&&mp.linea.pedido_linea_id){
-            const pl=_efPedidoLinea(mp.linea.pedido_linea_id);
-            if(pl){
-              const uni=parseFloat(pl.unidades_paquete)||0;
-              const cantP=parseFloat(pl.cantidad)||0;
-              const {error:e4}=await sb.from('pedido_lineas').update({
-                precio_paquete:pu,
-                precio_unitario:uni>0?(pu/uni):pu,
-                subtotal_linea:r2(cantP*pu)
-              }).eq('id',pl.id);
-              if(e4)throw e4;
-              pedTocadas++;
-              if(pl.pedido_id)pedidos[pl.pedido_id]=true;
+          for(const it of mp.items){
+            const cantR=parseFloat(it.linea.cantidad_paquetes)||0;
+            const {error:e3}=await sb.from('remito_lineas')
+              .update({precio_paquete:pu,subtotal:r2(cantR*pu)}).eq('id',it.linea.id);
+            if(e3)throw e3;
+            remTocados++;
+            if(propPed&&it.linea.pedido_linea_id){
+              const pl=_efPedidoLinea(it.linea.pedido_linea_id);
+              if(pl){
+                const uni=parseFloat(pl.unidades_paquete)||0;
+                const cantP=parseFloat(pl.cantidad)||0;
+                const {error:e4}=await sb.from('pedido_lineas').update({
+                  precio_paquete:pu,
+                  precio_unitario:uni>0?(pu/uni):pu,
+                  subtotal_linea:r2(cantP*pu)
+                }).eq('id',pl.id);
+                if(e4)throw e4;
+                pedTocadas++;
+                if(pl.pedido_id)pedidos[pl.pedido_id]=true;
+              }
             }
           }
         }
@@ -14757,25 +15014,32 @@ async function guardarFactura(){
   }).select().single();
   if(e1){msg.style.color='var(--red)';msg.textContent='Error: '+e1.message;return;}
 
-  const lineasInsert=[];
-  let orden=0;
-  for(const remId of _facCtx.remitosSel){
-    const rem=C.remitos.find(r=>r.id===remId);
-    if(!rem)continue;
-    (rem.remito_lineas||[]).forEach(l=>{
-      const prod=l.productos||C.productos.find(p=>p.id===l.producto_id);
-      const desc=(prod?.codigo?prod.codigo+' - ':'')+(prod?.nombre||prod?.descripcion||'Producto');
-      const cant=parseFloat(l.cantidad_paquetes)||0;
-      const sub=parseFloat(l.subtotal)||0;
-      const pu=parseFloat(l.precio_paquete)||(cant>0?sub/cant:0);
-      lineasInsert.push({
-        factura_id:fac.id,producto_id:l.producto_id||null,
-        descripcion:'[Remito '+(rem.numero_remito||'#'+rem.id)+'] '+desc,
-        cantidad:cant,unidad:'paq',precio_unitario:r2(pu),subtotal:r2(sub),orden_visual:orden++
-      });
+  // 02d: RENGLONES CONSOLIDADOS por producto + precio (nunca por producto solo:
+  // un precio promediado no existe en ningún documento — P1). El cliente recibe
+  // un renglón por artículo con la cantidad total; el detalle remito por remito
+  // queda en factura_linea_remitos, que es el vínculo real (antes vivía en el
+  // texto '[Remito …]' de la descripción). Los remitos se listan en el encabezado.
+  const grupos=_facConsolidarRemitos(_facCtx.remitosSel);
+  const lineasInsert=grupos.map((g,i)=>({
+    factura_id:fac.id,producto_id:g.producto_id,
+    descripcion:g.desc,
+    cantidad:g.cant,unidad:'paq',precio_unitario:r2(g.pu),subtotal:r2(g.sub),orden_visual:i
+  }));
+  if(lineasInsert.length){
+    const {data:lins,error:eL}=await sb.from('factura_lineas').insert(lineasInsert).select();
+    if(eL){msg.style.color='var(--red)';msg.textContent='Error en renglones: '+eL.message;return;}
+    // vínculo renglón → renglones de remito (se empareja por orden_visual)
+    const vinc=[];
+    (lins||[]).forEach(li=>{
+      const g=grupos[li.orden_visual];
+      if(!g)return;
+      g.remLineas.forEach(rl=>vinc.push({factura_linea_id:li.id,remito_linea_id:rl.id,cantidad_paquetes:parseFloat(rl.cantidad_paquetes)||0}));
     });
+    if(vinc.length){
+      const {error:eV}=await sb.from('factura_linea_remitos').insert(vinc);
+      if(eV){console.warn('factura_linea_remitos:',eV.message);toast('La factura salió, pero no se pudo guardar el vínculo renglón→remito (¿falta correr crear_factura_linea_remitos.sql?)','amber');}
+    }
   }
-  if(lineasInsert.length){await sb.from('factura_lineas').insert(lineasInsert);}
 
   const vincInsert=_facCtx.remitosSel.map(rid=>({factura_id:fac.id,remito_id:rid}));
   if(vincInsert.length){
@@ -15500,7 +15764,8 @@ function imprimirFactura(facId){
     ini:getCfg('empresa_inicio_actividades','')
   };
   const cli=(C.clientes||[]).find(c=>c.id===f.cliente_id)||{};
-  const rem=(_ad&&Array.isArray(_ad.remitos))?_ad.remitos:[];
+  // 02d: sin detalle declarado (factura sin CAE) los remitos salen del vínculo de cabecera.
+  const rem=(_ad&&Array.isArray(_ad.remitos)&&_ad.remitos.length)?_ad.remitos:_facRemitosDe(f);
   const letra=f.tipo||'A', cod={A:'01',B:'06',C:'11'}[letra]||'00';
   const conIva=(letra==='A');
   const dias=parseInt(cli.dias_credito||0)||0;
@@ -22315,6 +22580,104 @@ function aumVerEvolucion(prodId){AUM.evProd=prodId;AUM.evCli=AUM.cli||0;aumTab('
 function aumEvSetProd(){AUM.evProd=parseInt(document.getElementById('aum-ev-prod').value)||0;renderAumEvolucion();}
 function aumEvSetCli(){AUM.evCli=parseInt(document.getElementById('aum-ev-cli').value)||0;renderAumEvolucion();}
 function aumEvSetMeses(){AUM.evMeses=parseInt(document.getElementById('aum-ev-meses').value)||12;renderAumEvolucion();}
+function aumEvToggleFotos(){AUM.evFotos=!AUM.evFotos;renderAumEvolucion();}
+
+// ===== HOY vs. EL AUMENTO ANTERIOR (02c) =====
+// German apretó 📸 Foto por error queriendo COMPARAR con el aumento anterior. Dos cosas:
+// (1) la foto se puede deshacer (borra sólo las filas origen='foto' de HOY, nunca un aumento);
+// (2) la comparación existe como bloque propio: por cliente × producto, el último aumento
+// registrado (antes → después, resina ese día) contra el precio de la lista de HOY.
+function _aumFotoHoyRows(){
+  const hoy=localDate();
+  return (_aumHistCache||[]).filter(h=>h.origen==='foto'&&String(h.fecha||'').slice(0,10)===hoy);
+}
+function aumDeshacerFoto(){
+  const rows=_aumFotoHoyRows();
+  if(!rows.length){toast('No hay foto de hoy para deshacer','amber');return;}
+  if(!confirm('🗑 DESHACER LA FOTO DE HOY\n\nSe borran '+rows.length+' líneas de base guardadas hoy con 📸 Foto.\nNo se toca ningún precio ni ningún aumento registrado.\n\n¿Borrar?'))return;
+  pedirAdminYEjecutar(async()=>{
+    const ids=rows.map(h=>h.id).filter(Boolean);
+    for(let i=0;i<ids.length;i+=200){
+      const {error}=await sb.from('precio_historial').delete().in('id',ids.slice(i,i+200));
+      if(error){toast('Error: '+error.message,'red');return;}
+    }
+    _aumHistCache=null;await _aumCargarHistorial(true);
+    toast('🗑 Foto de hoy deshecha ('+ids.length+' líneas)','green');
+    renderAumEvolucion();
+  });
+}
+// Filas de comparación. Para cada par cliente×producto con al menos un AUMENTO aplicado
+// (origen≠'foto', aplicado≠false) toma el último y lo enfrenta al precio vigente de hoy.
+function _aumCompAumAnterior(prodId,cliId){
+  const hist=_aumHistDe(prodId||null,cliId||null).filter(h=>h.origen!=='foto');
+  const ult={};
+  hist.forEach(h=>{ult[h.cliente_id+'|'+h.producto_id]=h;});   // _aumHistDe viene ordenado por fecha,id
+  const res=_aumResinaRef();
+  const resHoy=res?parseFloat(res.precio)||0:0;
+  const out=[];
+  Object.keys(ult).forEach(k=>{
+    const h=ult[k];
+    const cli=(C.clientes||[]).find(c=>c.id===h.cliente_id);
+    const prod=(C.productos||[]).find(p=>p.id===h.producto_id);
+    if(!cli||!prod)return;
+    const kgPaq=lpGetKgPaq(prod)||0;
+    let pv=null;try{pv=getPrecioVenta(prod.id,cli.id);}catch(e){pv=null;}
+    const hoyPaq=pv&&pv.precio_paquete?r2(pv.precio_paquete):0;
+    const antes=parseFloat(h.precio_paquete_ant)||0, desp=parseFloat(h.precio_paquete_nuevo)||0;
+    const resDia=parseFloat(h.mp_ref_precio)||0;
+    out.push({
+      cli:cli.razon_social||cli.nombre||('Cliente '+cli.id),prod:(prod.codigo?prod.codigo+' · ':'')+(prod.descripcion||''),
+      fecha:String(h.fecha||'').slice(0,10),antes,desp,hoyPaq,
+      varAum:antes>0&&desp>0?r1((desp/antes-1)*100):null,
+      varHoy:desp>0&&hoyPaq>0?r1((hoyPaq/desp-1)*100):null,
+      hoyKg:kgPaq>0&&hoyPaq>0?r2(hoyPaq/kgPaq):0,
+      despKg:kgPaq>0&&desp>0?r2(desp/kgPaq):0,
+      resDia,resHoy,varRes:resDia>0&&resHoy>0?r1((resHoy/resDia-1)*100):null
+    });
+  });
+  out.sort((a,b)=>a.cli.localeCompare(b.cli)||a.prod.localeCompare(b.prod));
+  return out;
+}
+function _aumCompHtml(){
+  const filas=_aumCompAumAnterior(AUM.evProd||0,AUM.evCli||0);
+  let html='<div style="margin-top:16px;"><div style="font-size:12px;font-weight:700;margin-bottom:4px;">📊 Hoy vs. el aumento anterior</div>'
+    +'<div style="font-size:11px;color:var(--text3);margin-bottom:6px;">Por cliente y producto: el último aumento registrado (antes → después, y la resina ese día) contra el precio que tiene la lista <b>hoy</b>. Si «hoy vs. después» da 0 %, desde ese aumento no se tocó el precio.</div>';
+  if(!filas.length){
+    html+='<div style="font-size:11px;color:var(--text3);">No hay aumentos registrados para este filtro (las 📸 fotos no cuentan: son línea de base, no aumento).</div></div>';
+    return html;
+  }
+  const varTxt=v=>v===null?'—':(v>0?'+':'')+v+'%';
+  const varCol=v=>v===null?'var(--text3)':v>0?'var(--green)':v<0?'var(--red)':'var(--text2)';
+  html+='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;min-width:900px;">'
+    +'<thead><tr style="background:var(--bg3);">'
+    +'<th style="padding:6px 8px;text-align:left;font-size:10px;text-transform:uppercase;color:var(--text3);">Cliente</th>'
+    +'<th style="padding:6px 8px;text-align:left;font-size:10px;text-transform:uppercase;color:var(--text3);">Producto</th>'
+    +'<th style="padding:6px 8px;text-align:left;font-size:10px;text-transform:uppercase;color:var(--text3);">Último aumento</th>'
+    +'<th style="padding:6px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--text3);">Antes $/paq</th>'
+    +'<th style="padding:6px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--text3);">Después $/paq</th>'
+    +'<th style="padding:6px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--text3);">Aumento</th>'
+    +'<th style="padding:6px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--accent);">Hoy $/paq</th>'
+    +'<th style="padding:6px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--accent);">Hoy $/kg</th>'
+    +'<th style="padding:6px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--text3);">Hoy vs. después</th>'
+    +'<th style="padding:6px 8px;text-align:right;font-size:10px;text-transform:uppercase;color:var(--amber);">Resina: ese día → hoy</th>'
+    +'</tr></thead><tbody>';
+  filas.slice(0,400).forEach(f=>{
+    html+='<tr style="border-bottom:1px solid var(--border);">'
+      +'<td style="padding:5px 8px;font-size:11px;">'+escapeHtml(f.cli)+'</td>'
+      +'<td style="padding:5px 8px;font-size:11px;">'+escapeHtml(f.prod)+'</td>'
+      +'<td style="padding:5px 8px;font-size:11px;font-family:\'DM Mono\',monospace;">'+f.fecha+'</td>'
+      +'<td style="padding:5px 8px;text-align:right;font-size:11px;font-family:\'DM Mono\',monospace;color:var(--text2);">'+(f.antes?'$ '+f.antes.toLocaleString('es-AR'):'—')+'</td>'
+      +'<td style="padding:5px 8px;text-align:right;font-size:11px;font-family:\'DM Mono\',monospace;">'+(f.desp?'$ '+f.desp.toLocaleString('es-AR'):'—')+'</td>'
+      +'<td style="padding:5px 8px;text-align:right;font-size:11px;font-weight:600;color:'+varCol(f.varAum)+';">'+varTxt(f.varAum)+'</td>'
+      +'<td style="padding:5px 8px;text-align:right;font-size:12px;font-weight:700;font-family:\'DM Mono\',monospace;color:var(--accent);">'+(f.hoyPaq?'$ '+f.hoyPaq.toLocaleString('es-AR'):'—')+'</td>'
+      +'<td style="padding:5px 8px;text-align:right;font-size:11px;font-family:\'DM Mono\',monospace;color:var(--accent);">'+(f.hoyKg?'$ '+f.hoyKg.toLocaleString('es-AR'):'—')+'</td>'
+      +'<td style="padding:5px 8px;text-align:right;font-size:11px;font-weight:600;color:'+varCol(f.varHoy)+';">'+varTxt(f.varHoy)+'</td>'
+      +'<td style="padding:5px 8px;text-align:right;font-size:11px;font-family:\'DM Mono\',monospace;color:var(--amber);">'+(f.resDia?'$ '+r2(f.resDia).toLocaleString('es-AR'):'—')+' → '+(f.resHoy?'$ '+r2(f.resHoy).toLocaleString('es-AR'):'—')+(f.varRes!==null?' <span style="font-weight:600;">('+varTxt(f.varRes)+')</span>':'')+'</td>'
+    +'</tr>';
+  });
+  html+='</tbody></table></div>'+(filas.length>400?'<div style="font-size:11px;color:var(--text3);margin-top:4px;">Se muestran 400 de '+filas.length+' — filtrá por cliente o producto.</div>':'')+'</div>';
+  return html;
+}
 
 // Grafico: columnas = kilos vendidos (contexto) · linea azul = $/kg cobrado ·
 // linea ambar = costo de reposicion. Paleta validada del proyecto (#6c8ef5 / #d97706):
@@ -22438,9 +22801,18 @@ function renderAumEvolucion(){
   });
   html+='</tbody></table></div></details>';
 
+  // hoy vs. el aumento anterior (02c)
+  html+=_aumCompHtml();
+
   // registro de cambios de lista
-  const hist=_aumHistDe(AUM.evProd||null,AUM.evCli||null);
-  html+='<div style="margin-top:16px;"><div style="font-size:12px;font-weight:700;margin-bottom:6px;">📋 Cambios de lista registrados</div>';
+  const histTodo=_aumHistDe(AUM.evProd||null,AUM.evCli||null);
+  const hist=AUM.evFotos?histTodo:histTodo.filter(h=>h.origen!=='foto');
+  const nFotos=histTodo.length-histTodo.filter(h=>h.origen!=='foto').length;
+  const fotoHoy=_aumFotoHoyRows().length;
+  html+='<div style="margin-top:16px;"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:6px;"><div style="font-size:12px;font-weight:700;">📋 Cambios de lista registrados</div>'
+    +(nFotos?'<label style="font-size:11px;color:var(--text2);cursor:pointer;"><input type="checkbox" '+(AUM.evFotos?'checked':'')+' onchange="aumEvToggleFotos()"> mostrar las 📸 fotos ('+nFotos+')</label>':'')
+    +(fotoHoy?'<button class="btn btn-sm" onclick="aumDeshacerFoto()" title="Borra sólo las líneas de base guardadas hoy con 📸 Foto">🗑 Deshacer la foto de hoy ('+fotoHoy+')</button>':'')
+    +'</div>';
   if(!hist.length){
     html+='<div style="font-size:11px;color:var(--text3);">Todavía no hay cambios registrados para este filtro. El registro arranca con la <b>📸 foto de los precios de hoy</b> y con el primer aumento que guardes.</div>';
   }else{
