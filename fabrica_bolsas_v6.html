@@ -709,7 +709,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-02d</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-03a</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -2273,6 +2273,7 @@ body.pext-on .main{margin-left:0!important;}
         <button onclick="ventasTab('flujo')" id="vtab-flujo" class="vtab">💰 Flujo proyectado</button>
         <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
           <button class="btn btn-primary btn-sm" onclick="go('nuevo-pedido')">+ Nuevo pedido</button>
+          <button class="btn btn-sm btn-del" onclick="abrirAnularLote()" title="Anular varios pedidos de una, con sus OC y OE">⛔ Anular en lote</button>
         </div>
       </div>
 
@@ -5362,7 +5363,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-09-02d';   // 02d: FACTURA FORMAL CONSOLIDADA: un renglón por producto+precio (nunca promediado), remitos en el encabezado del impreso, y vínculo REAL renglón→renglones de remito (tabla factura_linea_remitos) que reemplaza el parseo de '[Remito …]' en el ✏ (con fallback para facturas viejas). Requiere crear_factura_linea_remitos.sql. 02c: 📊 Hoy vs. el aumento anterior en Evolución (último aumento por cliente×producto contra la lista de hoy, con resina ese día→hoy) + 🗑 Deshacer la foto de hoy + las fotos se ocultan del registro por defecto. 02b: fix _efRecalcPedido pedía la columna observaciones (no existe en pedido_lineas) → la corrección de precios de remito/factura quedaba a medias; ahora sin cambios + tilde pedido recalcula la cabecera. 02a: ✏ Precios en remitos NO facturados (lista Remitos y pendientes de facturar): corregir $/paq por renglón antes de emitir, con $/kg por renglón y «llevar todo a X $/kg»; propaga opcionalmente al pedido; admin. Sobre el 01b: 🔴 BORRAR UN GASTO PAGADO ya no deja la cabecera del pago huérfana drenando el banco (caso PAG-000020 $37.975,24): ahora avisa y anula la cabecera que quedaría sin imputar, o explica que sigue pagando otros documentos. Un pago sin imputar se marca «sin imputar (crédito a cuenta)» en libro y conciliación. Sobre el 01a: tenencia FCI
+const APP_BUILD='2026-09-03a';   // 03a: ✏️ EDITAR LOTE DE MP (Stock MP, botón ✏️ en cada lote): corrige material, proveedor, remito, bolsones, kg, precio y fecha de un lote ya cargado, con clave admin. Nació de LOTE-2026-116 y 117, que entraron como COLORANTE NEGRO y eran ROJO y AMARILLO, sin forma de arreglarlo desde el sistema. 🔴 Material, kg y precio SÓLO se editan si el lote está INTACTO (cero consumos y ningún movimiento que no sea el ingreso): apenas salió un kilo, ese consumo ya quedó costeado en consumos_mp_bobina con el material y el precio de ese momento, y cambiarlos después dejaría bobinas costeadas con un material que nunca usaron. En un lote en uso se editan igual proveedor, remito, bolsones, fecha y observaciones; los kilos se mueven con ⚖️ Ajustar. Si la consulta de consumos falla, se bloquea igual (modo seguro de fallar). Cambiar el material repunta también mov_mp del lote para que el libro de MP cuente la misma historia. // 02g: 🔴 fix del cierre por entregado: escribía estado_linea='Cancelada' y la constraint pedido_lineas_estado_linea_check sólo acepta 'Pendiente'|'Entregado'|'Parcial'|'Cancelado' (masculino), así que el cierre de PED-05932/05997/05952 reventaba DESPUÉS de haber despegado las OE y cancelado las OC. Ahora va 'Cancelado' y, si igual lo rechazan, reintenta sin ese campo (cantidad_cancelada + subtotal 0 ya alcanzan) y lo avisa en el log. Re-ejecutar el lote es idempotente. // 02f: fix del diagnóstico de anulación en lote. (a) La producción de cada OE se contaba contra C.bobinas_prod, que es una CACHÉ PARCIAL (sólo bobinas en stock o de los últimos 60 días): una OE vieja que sí produjo daba cero y podía aparecer como «no arrancó, la cancelo». Ahora _alContarBobinas pide el conteo real a bobinas_producidas (1 request cada 200 OE, sin las anuladas) y avisa en ámbar si no pudo. (b) El cartel decía «N OE siguen corriendo» metiendo en la misma bolsa las OE ya COMPLETADAS: ahora _alClaseOe/_alClaseOc separan cancelar / ya hechas / en máquina / ya canceladas, en el resumen y en las columnas OC y OE de la tabla. Una OE Completada o En proceso NUNCA se cancela: sólo se despega del pedido. // 02e: ⛔ ANULAR PEDIDOS EN LOTE (Ventas → botón junto a + Nuevo pedido): se pegan los números, el sistema diagnostica cada uno (entregado real derivado de remito_lineas, facturas/RV vivos, cobrado, OC y OE con su producción, stock reservado) y propone camino: sin entregas → ANULAR entero; con entregas → CERRAR por lo entregado (remanente a cantidad_cancelada y total recalculado renglón por renglón, nunca prorrateado). Cierra el agujero del anularPedido de a uno, que NO tocaba las OE (quedaban con pedido_ref_id muerto ocupando cronograma) ni miraba remitos. OE sin bobinas producidas → Cancelada; OE con producción o compartida → se desvincula y sigue corriendo. OC activas → Canceladas; completadas → reserva liberada a stock disponible. Nada compartido con un pedido fuera del lote se cancela. // 02d: FACTURA FORMAL CONSOLIDADA: un renglón por producto+precio (nunca promediado), remitos en el encabezado del impreso, y vínculo REAL renglón→renglones de remito (tabla factura_linea_remitos) que reemplaza el parseo de '[Remito …]' en el ✏ (con fallback para facturas viejas). Requiere crear_factura_linea_remitos.sql. 02c: 📊 Hoy vs. el aumento anterior en Evolución (último aumento por cliente×producto contra la lista de hoy, con resina ese día→hoy) + 🗑 Deshacer la foto de hoy + las fotos se ocultan del registro por defecto. 02b: fix _efRecalcPedido pedía la columna observaciones (no existe en pedido_lineas) → la corrección de precios de remito/factura quedaba a medias; ahora sin cambios + tilde pedido recalcula la cabecera. 02a: ✏ Precios en remitos NO facturados (lista Remitos y pendientes de facturar): corregir $/paq por renglón antes de emitir, con $/kg por renglón y «llevar todo a X $/kg»; propaga opcionalmente al pedido; admin. Sobre el 01b: 🔴 BORRAR UN GASTO PAGADO ya no deja la cabecera del pago huérfana drenando el banco (caso PAG-000020 $37.975,24): ahora avisa y anula la cabecera que quedaría sin imputar, o explica que sigue pagando otros documentos. Un pago sin imputar se marca «sin imputar (crédito a cuenta)» en libro y conciliación. Sobre el 01a: tenencia FCI
   // 28a: NOTAS DE CREDITO Y DEBITO ANTE ARCA — Y UN BUG DE PLATA QUE NO ERA DE ARCA.
   //      German: "el tema de notas de debito, credito eso lo tenemos listo tambien" y
   //      despues, sobre las de cheque rechazado, "eso que tiene que ver con tus facturas".
@@ -53792,6 +53793,434 @@ async function confirmarAnulacion(id){
 }
 
 
+// ===== ANULACIÓN EN LOTE DE PEDIDOS =====
+// German pidió anular 10 pedidos de una, "juntos con sus OC y OE". El anularPedido
+// de a uno NO tocaba las OE (quedaban con pedido_ref_id apuntando a un pedido muerto,
+// ocupando cronograma) y NO miraba remitos: anular un pedido ya entregado rompía
+// facturación y cuenta corriente.
+// Reglas (decididas con él el 02/09/2026):
+//  · Pedido SIN nada entregado           → ANULAR (estado Cancelado).
+//  · Pedido CON entregas (remitos vivos) → CERRAR por lo entregado: lo entregado
+//    queda facturable/cobrable, el remanente pasa a cantidad_cancelada y el total
+//    se recalcula renglón por renglón (entregado × precio_paquete), nunca prorrateado.
+//  · OE sin bobinas producidas → Cancelada. OE con producción → se desvincula y
+//    sigue corriendo (la bobina va a stock libre). Nunca inventa kg perdidos.
+//  · OC activas → Canceladas. OC completadas → se libera la reserva a stock disponible.
+//  · Lo compartido con OTRO pedido que no está en el lote NUNCA se cancela: se desvincula.
+// P1: lo entregado se deriva de remito_lineas (documentos), no del campo li.entregado.
+let _alDiag=null;
+
+function _alNum(s){const d=String(s||'').replace(/\D/g,'');return d?parseInt(d,10):null;}
+function _alMoney(n){return '$'+Math.round(parseFloat(n)||0).toLocaleString('es-AR');}
+
+// Remitos vivos del pedido (los anulados no entregaron nada)
+function _alRemitosDe(p){
+  return (C.remitos||[]).filter(r=>String(r.pedido_id)===String(p.id)&&r.estado!=='anulado');
+}
+// Paquetes entregados por línea de pedido, derivados de remito_lineas.
+// Fallback a los campos legacy y a stock_bolsas 'entregado' para pedidos migrados.
+function _alEntregadoPorLinea(p){
+  const out={};
+  (p.pedido_lineas||[]).forEach(li=>{out[li.id]=0;});
+  let huboDoc=false;
+  _alRemitosDe(p).forEach(r=>{
+    (r.remito_lineas||[]).forEach(rl=>{
+      if(rl.pedido_linea_id===undefined||rl.pedido_linea_id===null)return;
+      if(!(rl.pedido_linea_id in out))return;
+      out[rl.pedido_linea_id]+=parseFloat(rl.cantidad_paquetes)||0;
+      huboDoc=true;
+    });
+  });
+  if(!huboDoc){
+    (p.pedido_lineas||[]).forEach(li=>{
+      const leg=parseFloat(li.entregado)||parseFloat(li.remitido)||parseFloat(li.facturado)||0;
+      let st=0;
+      (C.stock_bolsas||[]).forEach(s=>{
+        if(s.producto_id===li.producto_id&&String(s.pedido_id)===String(p.id)&&s.estado==='entregado')st+=parseFloat(s.cantidad_paquetes)||0;
+      });
+      out[li.id]=leg+st;
+    });
+  }
+  return out;
+}
+// OCs del pedido, con la marca de si además sirven a otro pedido
+function _alOcsDe(p){
+  return (p.pedido_ordenes_corte||[])
+    .map(poc=>C.ord_corte.find(o=>o.id===poc.orden_corte_id))
+    .filter(o=>o)
+    .map(o=>{
+      const otros=(C.pedidos||[]).filter(x=>String(x.id)!==String(p.id)
+        &&(x.pedido_ordenes_corte||[]).some(q=>q.orden_corte_id===o.id));
+      return {oc:o,compartida:otros.length>0,otros:otros.map(x=>x.numero_pedido)};
+    });
+}
+// OEs del pedido: por pedido_ref_id, por las OC vinculadas y (legacy) por observaciones.
+function _alOesDe(p,ocs){
+  const idsOc=new Set(ocs.map(x=>x.oc.orden_extrusion_id).filter(v=>v!==null&&v!==undefined).map(String));
+  const nro=String(p.numero_pedido||'');
+  const vistos=new Set(),out=[];
+  (C.ordenes||[]).forEach(oe=>{
+    const porRef=String(oe.pedido_ref_id||'')===String(p.id);
+    const porOc=idsOc.has(String(oe.id));
+    const porObs=!!nro&&String(oe.observaciones||'').includes(nro);
+    if(!porRef&&!porOc&&!porObs)return;
+    if(vistos.has(oe.id))return;vistos.add(oe.id);
+    // ¿La comparte otro pedido que NO está en el lote?
+    const otros=new Set();
+    (C.pedidos||[]).forEach(x=>{
+      if(String(x.id)===String(p.id))return;
+      const suya=String(oe.pedido_ref_id||'')===String(x.id)
+        ||(x.pedido_ordenes_corte||[]).some(q=>{const o=C.ord_corte.find(y=>y.id===q.orden_corte_id);return o&&String(o.orden_extrusion_id||'')===String(oe.id);});
+      if(suya)otros.add(x.numero_pedido);
+    });
+    let bobinas=0,metros=0;
+    (C.bobinas_prod||[]).forEach(b=>{if(String(b.orden_id)===String(oe.id)){bobinas++;metros+=parseFloat(b.metros_reales)||0;}});
+    out.push({oe,bobinas,metros:r2(metros),compartida:otros.size>0,otros:[...otros],porRef,porOc,porObs});
+  });
+  return out;
+}
+
+// 🔴 C.bobinas_prod es una caché PARCIAL (reload trae sólo las en stock o de los
+// últimos 60 días). Contar producción de una OE vieja contra esa caché da CERO y
+// una OE que sí produjo aparecería como "no arrancó, la cancelo". Por eso el
+// diagnóstico pide el conteo real a la base: 1 request cada 200 OE.
+async function _alContarBobinas(oeIds){
+  const cache={};oeIds.forEach(i=>{cache[i]=0;});
+  (C.bobinas_prod||[]).forEach(b=>{if(b&&b.orden_id!=null&&(b.orden_id in cache)&&!b.anulada)cache[b.orden_id]++;});
+  if(!oeIds.length)return {mapa:cache,exacto:true};
+  const real={};oeIds.forEach(i=>{real[i]=0;});
+  try{
+    for(let i=0;i<oeIds.length;i+=200){
+      const{data,error}=await sb.from('bobinas_producidas').select('orden_id,anulada').in('orden_id',oeIds.slice(i,i+200));
+      if(error)throw error;
+      (data||[]).forEach(r=>{if(!r.anulada&&(r.orden_id in real))real[r.orden_id]++;});
+    }
+    return {mapa:real,exacto:true};
+  }catch(e){
+    console.warn('No pude contar bobinas en la base, uso la caché parcial:',e);
+    return {mapa:cache,exacto:false};
+  }
+}
+
+// Qué le pasa a cada OE / OC. 'cancelar' es el ÚNICO caso que cancela algo.
+// 'hecha' = ya Completada: no se toca, sólo se desvincula del pedido.
+function _alClaseOe(x){
+  const e=x.oe.estado;
+  if(e==='Cancelada')return 'cancelada';
+  if(e==='Completada')return 'hecha';
+  if(x.compartida)return 'compartida';
+  if(x.bobinas>0||e==='En proceso')return 'corriendo';
+  return 'cancelar';
+}
+function _alClaseOc(x){
+  const e=x.oc.estado;
+  if(e==='Cancelada')return 'cancelada';
+  if(e==='Completada')return 'hecha';
+  if(x.compartida)return 'compartida';
+  return 'cancelar';
+}
+
+// Diagnóstico completo de un pedido. NO escribe nada.
+// `pre` (opcional) trae ocs/oes ya calculados y el conteo REAL de bobinas por OE.
+function _alDiagPedido(p,pre){
+  const lineas=(p.pedido_lineas||[]);
+  const entregado=_alEntregadoPorLinea(p);
+  let paqPed=0,paqEnt=0,montoEnt=0,montoPed=0;
+  const detLineas=lineas.map(li=>{
+    const yaCanc=_lineaCancelada(li);
+    const cant=parseFloat(li.cantidad)||0;
+    const cancPrev=parseFloat(li.cantidad_cancelada)||0;
+    const ent=Math.min(cant,parseFloat(entregado[li.id])||0);
+    const precio=parseFloat(li.precio_paquete)||(cant>0?(parseFloat(li.subtotal_linea)||0)/cant:0);
+    if(!yaCanc){paqPed+=Math.max(0,cant-cancPrev);paqEnt+=ent;montoEnt+=ent*precio;montoPed+=parseFloat(li.subtotal_linea)||0;}
+    return {li,cant,cancPrev,ent,precio,yaCanc,pendiente:Math.max(0,cant-cancPrev-ent)};
+  });
+  const rems=_alRemitosDe(p);
+  const facIds=[...new Set(rems.map(r=>r.factura_id).filter(v=>v))];
+  const facturas=facIds.map(id=>(C.facturas||[]).find(f=>String(f.id)===String(id))).filter(f=>f&&f.estado!=='anulada');
+  const rvIds=[...new Set(rems.map(r=>r.rv_id).filter(v=>v))];
+  const rvs=rvIds.map(id=>(C.rvs||[]).find(v=>String(v.id)===String(id))).filter(v=>v&&v.estado!=='anulada'&&v.estado!=='anulado');
+  const conCae=facturas.filter(f=>f.cae);
+  const ocs=pre&&pre.ocs?pre.ocs:_alOcsDe(p);
+  const oes=pre&&pre.oes?pre.oes:_alOesDe(p,ocs);
+  if(pre&&pre.bob)oes.forEach(x=>{if(x.oe.id in pre.bob)x.bobinas=pre.bob[x.oe.id];});
+  oes.forEach(x=>{x.clase=_alClaseOe(x);});
+  ocs.forEach(x=>{x.clase=_alClaseOc(x);});
+  const reservas=(C.stock_bolsas||[]).filter(s=>String(s.pedido_id)===String(p.id)&&s.estado==='reservado');
+  const paqReserv=reservas.reduce((s,l)=>s+(parseFloat(l.cantidad_paquetes)||0),0);
+  const cobrado=_cobradoPedido(p);
+  const cobrosPend=(p.pedido_cobros||[]).filter(c=>!c.cobrado).length;
+  const yaCancelado=p.estado==='Cancelado'||p.estado==='Anulado';
+
+  const via=yaCancelado?'nada':(paqEnt>0?'cerrar':'anular');
+  const avisos=[];
+  if(yaCancelado)avisos.push('Ya está cancelado — se saltea.');
+  if(conCae.length)avisos.push('Tiene '+conCae.length+' factura'+(conCae.length===1?'':'s')+' con CAE: lo entregado NO se toca, sólo se cierra el remanente.');
+  if(cobrado>0&&paqEnt===0)avisos.push('🔴 Tiene '+_alMoney(cobrado)+' cobrados y CERO entregado: al anular queda saldo a favor del cliente.');
+  if(cobrosPend)avisos.push(cobrosPend+' cobro'+(cobrosPend===1?'':'s')+' programado'+(cobrosPend===1?'':'s')+' sin cobrar: se borra'+(cobrosPend===1?'':'n')+'.');
+  ocs.filter(x=>x.compartida).forEach(x=>avisos.push('OC '+x.oc.numero_orden+' también sirve a '+x.otros.join(', ')+': sólo se desvincula.'));
+  oes.filter(x=>x.compartida).forEach(x=>avisos.push('OE '+x.oe.numero_orden+' también sirve a '+x.otros.join(', ')+': sólo se desvincula.'));
+
+  return {p,detLineas,paqPed,paqEnt,paqPend:Math.max(0,paqPed-paqEnt),montoEnt:r2(montoEnt),montoPed:r2(montoPed),
+    rems,facturas,rvs,conCae,ocs,oes,reservas,paqReserv,cobrado,cobrosPend,yaCancelado,via,avisos};
+}
+
+function abrirAnularLote(){
+  document.getElementById('al-modal')?.remove();
+  _alDiag=null;
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="al-modal">'
+    +'<div class="modal-card" style="max-width:1080px;width:96vw;max-height:94vh;overflow-y:auto;">'
+    +'<div class="modal-title" style="color:var(--red)">⛔ Anular pedidos en lote</div>'
+    +'<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Pegá los números de pedido (uno por línea, o separados por coma/espacio). Sirve <code>5858</code>, <code>PED-05858</code> o <code>05858</code>.</div>'
+    +'<div class="fg"><textarea id="al-nros" rows="3" placeholder="5858, 5905, 5920..." style="width:100%;font-family:monospace;resize:vertical;"></textarea></div>'
+    +'<div class="btn-grp" style="margin-top:8px;">'
+      +'<button class="btn btn-sm btn-primary" onclick="alAnalizar()">🔎 Analizar</button>'
+      +'<button class="btn btn-sm" onclick="document.getElementById(\'al-modal\').remove()">Cerrar</button>'
+    +'</div>'
+    +'<div id="al-res" style="margin-top:14px;"></div>'
+    +'</div></div>'
+  );
+}
+
+async function alAnalizar(){
+  const txt=document.getElementById('al-nros')?.value||'';
+  const pedidos=[],faltan=[],dup=new Set();
+  txt.split(/[\s,;]+/).filter(t=>t.trim()).forEach(tok=>{
+    const n=_alNum(tok);
+    if(n===null){faltan.push(tok);return;}
+    const p=(C.pedidos||[]).find(x=>_alNum(x.numero_pedido)===n);
+    if(!p){faltan.push(tok);return;}
+    if(dup.has(p.id))return;dup.add(p.id);
+    pedidos.push(p);
+  });
+  const box=document.getElementById('al-res');
+  if(!pedidos.length&&!faltan.length){if(box)box.innerHTML='<div class="alert alert-warn" style="font-size:12px;">Pegá al menos un número.</div>';return;}
+  if(box)box.innerHTML='<div style="font-size:12px;color:var(--text2);"><span class="spinner" style="width:12px;height:12px;display:inline-block;"></span> Analizando '+pedidos.length+' pedidos y contando la producción real de sus OE...</div>';
+  const ctx=pedidos.map(p=>{const ocs=_alOcsDe(p);return {p,ocs,oes:_alOesDe(p,ocs)};});
+  const oeIds=[...new Set(ctx.flatMap(c=>c.oes.map(x=>x.oe.id)))];
+  const {mapa,exacto}=await _alContarBobinas(oeIds);
+  _alDiag={filas:ctx.map(c=>_alDiagPedido(c.p,{ocs:c.ocs,oes:c.oes,bob:mapa})),faltan,bobExacto:exacto};
+  alRenderDiag();
+}
+
+function alRenderDiag(){
+  const box=document.getElementById('al-res');if(!box||!_alDiag)return;
+  const filas=_alDiag.filas;
+  const nAnular=filas.filter(f=>f.via==='anular').length;
+  const nCerrar=filas.filter(f=>f.via==='cerrar').length;
+  const nNada=filas.filter(f=>f.via==='nada').length;
+  const totPend=r2(filas.reduce((s,f)=>s+(f.via==='cerrar'?(f.montoPed-f.montoEnt):(f.via==='anular'?f.montoPed:0)),0));
+  const totEnt=r2(filas.filter(f=>f.via==='cerrar').reduce((s,f)=>s+f.montoEnt,0));
+  const totReserv=filas.reduce((s,f)=>s+f.paqReserv,0);
+  const cnt=(sel,cl)=>filas.reduce((s,f)=>s+f[sel].filter(x=>x.clase===cl).length,0);
+  const oeCancel=cnt('oes','cancelar'),oeHechas=cnt('oes','hecha'),oeCorriendo=cnt('oes','corriendo')+cnt('oes','compartida');
+  const ocCancel=cnt('ocs','cancelar'),ocHechas=cnt('ocs','hecha');
+
+  let h='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px;">'
+    +'<div style="background:rgba(239,68,68,.08);border:1px solid var(--red);border-radius:var(--r);padding:8px 12px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;font-weight:700;">A anular entero</div><div style="font-size:20px;font-weight:800;color:var(--red);">'+nAnular+'</div></div>'
+    +'<div style="background:rgba(139,92,246,.08);border:1px solid #8b5cf6;border-radius:var(--r);padding:8px 12px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;font-weight:700;">A cerrar por entregado</div><div style="font-size:20px;font-weight:800;color:#8b5cf6;">'+nCerrar+'</div></div>'
+    +'<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;font-weight:700;">Venta que se cae</div><div style="font-size:20px;font-weight:800;">'+_alMoney(totPend)+'</div></div>'
+    +'<div style="background:rgba(16,185,129,.08);border:1px solid var(--green);border-radius:var(--r);padding:8px 12px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;font-weight:700;">Entregado que se salva</div><div style="font-size:20px;font-weight:800;color:var(--green);">'+_alMoney(totEnt)+'</div></div>'
+    +'</div>';
+
+  h+='<div style="background:var(--bg3);border-radius:var(--r);padding:8px 12px;margin-bottom:12px;font-size:12px;">'
+    +'<strong>Efecto en planta:</strong> se cancelan <strong>'+oeCancel+' OE</strong> (las únicas que no arrancaron) y <strong>'+ocCancel+' OC</strong>. '
+    +'<span style="color:var(--text2);">Ya estaban terminadas '+oeHechas+' OE y '+ocHechas+' OC: no se tocan, sólo se despegan del pedido. '
+    +(oeCorriendo?oeCorriendo+' OE siguen en máquina (ya arrancaron o las pide otro pedido) y su bobina va a stock libre. ':'')
+    +Math.round(totReserv).toLocaleString('es-AR')+' paq reservados vuelven a stock libre.'
+    +(nNada?' '+nNada+' pedidos ya estaban cancelados.':'')+'</span>'
+    +'</div>'
+    +(_alDiag.bobExacto===false?'<div class="alert alert-warn" style="font-size:11px;margin-bottom:10px;">⚠ No pude consultar la producción real de las OE en la base; usé la caché del navegador, que sólo trae bobinas en stock o de los últimos 60 días. Una OE vieja que sí produjo podría figurar como «no arrancó». Recargá y volvé a analizar antes de ejecutar.</div>':'');
+
+  if(_alDiag.faltan.length){
+    h+='<div class="alert alert-warn" style="font-size:12px;margin-bottom:10px;">No encontré: <strong>'+_alDiag.faltan.map(escapeHtml).join(', ')+'</strong></div>';
+  }
+
+  h+='<div style="overflow-x:auto;"><table style="width:100%;font-size:12px;border-collapse:collapse;">'
+    +'<thead><tr style="text-align:left;color:var(--text3);font-size:10px;text-transform:uppercase;">'
+    +'<th style="padding:6px 4px;">Pedido</th><th>Cliente</th><th style="text-align:right;">Paq ped.</th><th style="text-align:right;">Entregado</th><th style="text-align:right;">$ que se cae</th><th>OC</th><th>OE</th><th>Qué hago</th></tr></thead><tbody>';
+  filas.forEach((f,i)=>{
+    const est=_labelEstadoOp(_estadoOperativoPedido(f.p));
+    const resumen=(arr)=>{
+      if(!arr.length)return '—';
+      const c=k=>arr.filter(x=>x.clase===k).length;
+      const partes=[];
+      if(c('cancelar'))partes.push('<span style="color:var(--red);font-weight:700;">'+c('cancelar')+' cancelo</span>');
+      if(c('hecha'))partes.push('<span style="color:var(--text3);">'+c('hecha')+' ya hechas</span>');
+      if(c('corriendo')+c('compartida'))partes.push('<span style="color:var(--amber);">'+(c('corriendo')+c('compartida'))+' en máquina</span>');
+      if(c('cancelada'))partes.push('<span style="color:var(--text3);">'+c('cancelada')+' ya canc.</span>');
+      return partes.join('<br>');
+    };
+    const ocTxt=resumen(f.ocs),oeTxt=resumen(f.oes);
+    const cae=r2(f.via==='cerrar'?(f.montoPed-f.montoEnt):(f.via==='anular'?f.montoPed:0));
+    h+='<tr style="border-top:1px solid var(--border);">'
+      +'<td style="padding:6px 4px;font-family:monospace;font-weight:700;color:var(--accent);">'+escapeHtml(f.p.numero_pedido||'')+'<div style="font-size:10px;color:'+est.color+';font-family:inherit;font-weight:600;">'+est.icono+' '+est.label+'</div></td>'
+      +'<td>'+escapeHtml((f.p.cliente||'—').substring(0,26))+'</td>'
+      +'<td style="text-align:right;">'+Math.round(f.paqPed).toLocaleString('es-AR')+'</td>'
+      +'<td style="text-align:right;'+(f.paqEnt>0?'color:#8b5cf6;font-weight:700;':'color:var(--text3);')+'">'+Math.round(f.paqEnt).toLocaleString('es-AR')+(f.rems.length?' <span style="font-size:10px;">('+f.rems.length+' rem)</span>':'')+'</td>'
+      +'<td style="text-align:right;font-weight:700;">'+_alMoney(cae)+'</td>'
+      +'<td style="font-size:11px;">'+ocTxt+'</td>'
+      +'<td style="font-size:11px;">'+oeTxt+'</td>'
+      +'<td>'+(f.yaCancelado
+        ?'<span style="font-size:11px;color:var(--text3);">ya cancelado</span>'
+        :'<select id="al-via-'+i+'" style="font-size:11px;padding:3px 6px;">'
+          +'<option value="anular"'+(f.via==='anular'?' selected':'')+'>⛔ Anular entero</option>'
+          +'<option value="cerrar"'+(f.via==='cerrar'?' selected':'')+'>✂ Cerrar por entregado</option>'
+          +'<option value="saltear">↷ Saltear</option>'
+        +'</select>')
+      +'</td></tr>';
+    if(f.avisos.length){
+      h+='<tr><td colspan="8" style="padding:0 4px 8px 4px;"><div style="font-size:11px;color:var(--amber);">'+f.avisos.map(a=>'• '+escapeHtml(a)).join('<br>')+'</div></td></tr>';
+    }
+  });
+  h+='</tbody></table></div>';
+
+  h+='<div class="fg" style="margin-top:12px;"><label style="font-size:12px;font-weight:600;color:var(--red);">Motivo (obligatorio, va a los tres documentos)</label>'
+    +'<input id="al-motivo" type="text" placeholder="ej: cliente canceló / reprogramación de septiembre" style="width:100%;"></div>';
+  h+='<label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-top:8px;cursor:pointer;"><input type="checkbox" id="al-ok"> Entiendo que esto es irreversible y ya revisé la tabla de arriba.</label>';
+  h+='<div class="btn-grp" style="margin-top:12px;">'
+    +'<button class="btn btn-sm btn-del" onclick="alEjecutar()">Ejecutar el lote</button>'
+    +'<button class="btn btn-sm" onclick="alAnalizar()">↻ Re-analizar</button>'
+    +'<span id="al-msg" style="font-size:12px;margin-left:8px;"></span></div>';
+  h+='<div id="al-log" style="margin-top:10px;font-family:monospace;font-size:11px;max-height:220px;overflow-y:auto;"></div>';
+  box.innerHTML=h;
+}
+
+function _alLog(txt,color){
+  const l=document.getElementById('al-log');if(!l)return;
+  l.insertAdjacentHTML('beforeend','<div style="color:'+(color||'var(--text2)')+';">'+escapeHtml(txt)+'</div>');
+  l.scrollTop=l.scrollHeight;
+}
+
+async function alEjecutar(){
+  if(!_alDiag)return;
+  const motivo=document.getElementById('al-motivo')?.value.trim()||'';
+  const msg=document.getElementById('al-msg');
+  if(!motivo){if(msg){msg.style.color='var(--red)';msg.textContent='⚠ El motivo es obligatorio';}return;}
+  if(!document.getElementById('al-ok')?.checked){if(msg){msg.style.color='var(--red)';msg.textContent='⚠ Marcá la casilla de confirmación';}return;}
+  const planes=_alDiag.filas.map((f,i)=>({f,via:f.yaCancelado?'saltear':(document.getElementById('al-via-'+i)?.value||f.via)}))
+    .filter(x=>x.via==='anular'||x.via==='cerrar');
+  if(!planes.length){if(msg){msg.style.color='var(--amber)';msg.textContent='No hay nada marcado para ejecutar';}return;}
+
+  pedirAdminYEjecutar(async()=>{
+    if(msg){msg.style.color='var(--text2)';msg.innerHTML='<span class="spinner" style="width:12px;height:12px;display:inline-block;"></span> Procesando '+planes.length+' pedidos...';}
+    const errores=[];
+    for(const {f,via} of planes){
+      const p=f.p,nro=p.numero_pedido||('#'+p.id);
+      try{
+        _alLog('▶ '+nro+' — '+(via==='anular'?'anular entero':'cerrar por entregado'));
+        // 1) Stock reservado → disponible
+        for(const r of f.reservas){
+          const{error}=await sb.from('stock_bolsas').update({estado:'disponible',pedido_id:null}).eq('id',r.id);
+          if(error)throw error;
+        }
+        if(f.paqReserv>0)_alLog('   🔓 '+Math.round(f.paqReserv).toLocaleString('es-AR')+' paq liberados a stock libre','var(--green)');
+
+        // 2) OCs
+        for(const x of f.ocs){
+          const oc=x.oc;
+          if(x.clase==='cancelar'){
+            const{error}=await sb.from('ordenes_corte').update({
+              estado:'Cancelada',motivo_cancelacion:motivo,fecha_cancelacion:new Date().toISOString()
+            }).eq('id',oc.id);
+            if(error)throw error;
+            _alLog('   ⛔ OC '+oc.numero_orden+' cancelada','var(--red)');
+          }
+          const{error:eDel}=await sb.from('pedido_ordenes_corte').delete().eq('pedido_id',p.id).eq('orden_corte_id',oc.id);
+          if(eDel)throw eDel;
+        }
+
+        // 3) OEs
+        for(const x of f.oes){
+          const oe=x.oe;
+          const obs=(oe.observaciones||'')+' [Pedido '+nro+' '+(via==='anular'?'anulado':'cerrado')+': '+motivo+']';
+          if(x.clase==='cancelar'){
+            const{error}=await sb.from('ordenes').update({
+              estado:'Cancelada',motivo_cancelacion:motivo,fecha_cancelacion:new Date().toISOString(),
+              kg_perdidos:0,pedido_ref_id:null,observaciones:obs
+            }).eq('id',oe.id);
+            if(error)throw error;
+            _alLog('   ⛔ OE '+oe.numero_orden+' cancelada (no arrancó)','var(--red)');
+          }else{
+            const upd={observaciones:obs};
+            if(String(oe.pedido_ref_id||'')===String(p.id))upd.pedido_ref_id=null;
+            const{error}=await sb.from('ordenes').update(upd).eq('id',oe.id);
+            if(error)throw error;
+            const porQue=x.clase==='hecha'?'ya estaba terminada'
+              :x.clase==='cancelada'?'ya estaba cancelada'
+              :x.clase==='compartida'?'la pide '+x.otros.join(', ')
+              :x.bobinas+' bobinas ya producidas → stock libre';
+            _alLog('   🔓 OE '+oe.numero_orden+' se despega del pedido ('+porQue+')','var(--amber)');
+          }
+        }
+
+        if(via==='anular'){
+          // 4a) Pedido entero a Cancelado
+          const{error}=await sb.from('pedidos').update({
+            estado:'Cancelado',
+            observaciones:(p.observaciones||'')+' [Anulado en lote '+localDate()+': '+motivo+']'
+          }).eq('id',p.id);
+          if(error)throw error;
+          const{error:eC}=await sb.from('pedido_cobros').delete().eq('pedido_id',p.id).eq('cobrado',false);
+          if(eC)throw eC;
+          _alLog('   ✓ '+nro+' CANCELADO — '+_alMoney(f.montoPed)+' de venta dada de baja','var(--green)');
+        }else{
+          // 4b) Cerrar por lo entregado: renglón por renglón, sin prorrateo
+          let sub=0;
+          for(const d of f.detLineas){
+            if(d.yaCanc)continue;
+            const aCancelar=Math.max(0,d.cant-d.ent);
+            const nuevoSub=r2(d.ent*d.precio);
+            // 🔴 La constraint pedido_lineas_estado_linea_check acepta SOLO
+            // 'Pendiente' | 'Entregado' | 'Parcial' | 'Cancelado' (masculino).
+            // El 02f escribía 'Cancelada' y reventaba el cierre a mitad de camino.
+            const upd={cantidad_cancelada:aCancelar,subtotal_linea:nuevoSub};
+            if(d.ent<=0)upd.estado_linea='Cancelado';
+            let{error}=await sb.from('pedido_lineas').update(upd).eq('id',d.li.id);
+            if(error&&upd.estado_linea&&/estado_linea/.test(error.message||'')){
+              // Reintento sin el estado: cantidad_cancelada + subtotal 0 ya alcanzan
+              // para que _lineaCancelada y el estado operativo la den por cerrada.
+              console.warn('estado_linea rechazado por la BD, reintento sin ese campo:',error.message);
+              delete upd.estado_linea;
+              const r2=await sb.from('pedido_lineas').update(upd).eq('id',d.li.id);
+              error=r2.error;
+              if(!error)_alLog('   ⚠ Renglón '+(d.li.descripcion||d.li.id)+' cerrado sin estado_linea (la BD lo rechazó)','var(--amber)');
+            }
+            if(error)throw error;
+            if(d.ent>0)sub+=nuevoSub;
+          }
+          sub=r2(sub);
+          const pctB=(p.pct_blanco===null||p.pct_blanco===undefined||isNaN(parseFloat(p.pct_blanco)))?100:parseFloat(p.pct_blanco);
+          const alic=parseFloat(p.porcentaje_iva)||0;
+          const iva=p.con_iva?r2(sub*pctB/100*alic/100):0;
+          const{error}=await sb.from('pedidos').update({
+            estado:'Entregado',subtotal:sub,total_iva:iva,total:r2(sub+iva),
+            observaciones:(p.observaciones||'')+' [Cerrado por lo entregado '+localDate()+': '+motivo+']'
+          }).eq('id',p.id);
+          if(error)throw error;
+          const{error:eC}=await sb.from('pedido_cobros').delete().eq('pedido_id',p.id).eq('cobrado',false);
+          if(eC)throw eC;
+          _alLog('   ✓ '+nro+' CERRADO — queda '+_alMoney(r2(sub+iva))+' entregado, se cae '+_alMoney(r2(f.montoPed-f.montoEnt)),'var(--green)');
+        }
+      }catch(err){
+        console.error('Anulación en lote — '+nro,err);
+        errores.push(nro+': '+(err.message||err));
+        _alLog('   ✗ ERROR en '+nro+': '+(err.message||err),'var(--red)');
+      }
+    }
+    await reload();
+    if(errores.length){
+      if(msg){msg.style.color='var(--red)';msg.textContent='Terminó con '+errores.length+' error(es) — mirá el detalle';}
+      toast('Lote terminado con '+errores.length+' error(es)','amber');
+    }else{
+      if(msg){msg.style.color='var(--green)';msg.textContent='✓ '+planes.length+' pedidos procesados';}
+      toast('✓ '+planes.length+' pedidos procesados','green');
+    }
+    if(typeof renderPedidos==='function')renderPedidos();
+  });
+}
+
 // ===== DUPLICAR PEDIDO =====
 // Abre el formulario v2 precargado con los datos del pedido original
 function duplicarPedido(pedidoId){
@@ -62237,6 +62666,7 @@ function renderMPStock(){
       +'<td class="mono" style="font-size:11px">'+l.fecha_ingreso+'</td>'
       +'<td><span style="color:'+(l.kg_disponibles>0?'var(--green)':'var(--text3)')+'">'+( l.kg_disponibles>0?'Disponible':'Agotado')+'</span></td>'
       +'<td style="white-space:nowrap">'
+        +'<button class="btn btn-sm" onclick="abrirEditarLote('+l.id+')" title="Editar datos del lote (material, proveedor, precio…)">✏️</button> '
         +'<button class="btn btn-sm" onclick="imprimirEtiquetaLote('+l.id+')" title="Imprimir etiqueta">🏷️</button> '
         +'<button class="btn btn-sm" onclick="verTrazabilidadLote('+l.id+',\''+( l.tipos_mp?.nombre||'').replace(/'/g,'')+'\',\''+String(l.numero_bigbag||'').replace(/'/g,'')+'\')" title="Trazabilidad (consumos por bobina)">🔍</button> '
         +'<button class="btn btn-sm" onclick="verKardexLote('+l.id+',\''+( l.tipos_mp?.nombre||'').replace(/'/g,'')+'\')" title="Libro de movimientos (kardex)">📒</button> '
@@ -62893,6 +63323,203 @@ async function confirmarAjusteLote(loteId, kgAnterior){
     msg.style.color='var(--green)';msg.textContent='✓ Ajuste registrado ('+(dif>0?'+':'')+dif+' kg · '+tipoMov+')';
     await reload();
     setTimeout(()=>{document.getElementById('ajuste-lote-modal')?.remove();renderMPStock();},1200);
+  });
+}
+
+// ===== EDITAR LOTE DE MP =====
+// Corrige los DATOS de un lote ya cargado: material, proveedor, remito, bolsones,
+// kg ingresados, precio y fecha. Nació de un caso real: LOTE-2026-116 y LOTE-2026-117
+// entraron como COLORANTE NEGRO y eran ROJO y AMARILLO, y no había forma de arreglarlo
+// desde el sistema.
+//
+// 🔴 LA REGLA: material, kg y precio SOLO se editan si el lote está INTACTO
+// (cero consumos y ningún movimiento que no sea el ingreso). Apenas se consumió un
+// kilo, ese consumo YA quedó costeado en consumos_mp_bobina con el material y el
+// precio de ese momento: cambiarlos después dejaría bobinas costeadas con un material
+// que nunca usaron y a un precio que nadie pagó, y nadie se enteraría. Para un lote en
+// uso, los kilos se mueven con ⚖️ Ajustar, que deja movimiento en el libro (P1).
+//
+// Si la consulta de consumos FALLA, se trata como "tiene consumo": el modo seguro de
+// fallar es no dejar editar.
+async function _elEstadoLote(loteId){
+  try{
+    const c=await sb.from('consumos_mp_bobina').select('id',{count:'exact',head:true}).eq('lote_id',loteId);
+    if(c.error)return{ok:false,err:c.error.message};
+    const m=await sb.from('mov_mp').select('id',{count:'exact',head:true}).eq('lote_id',loteId).neq('tipo_mov','ingreso');
+    if(m.error)return{ok:false,err:m.error.message};
+    return{ok:true,consumos:c.count||0,movs:m.count||0};
+  }catch(e){return{ok:false,err:String((e&&e.message)||e)};}
+}
+function _elIntacto(est){return !!(est&&est.ok&&est.consumos===0&&est.movs===0);}
+function _elBigbagTxt(n){const b=parseInt(n);return(!isNaN(b)&&b>0)?(b+' bolson'+(b===1?'':'es')):null;}
+function _elBolsones(txt){const n=parseInt(String(txt||'').replace(/[^0-9]/g,''));return isNaN(n)?'':n;}
+function _elNombreTipo(id){return (C.tipos_mp||[]).find(t=>String(t.id)===String(id))?.nombre||'—';}
+function _elNombreProv(id){return (C.proveedores||[]).find(p=>String(p.id)===String(id))?.nombre||'—';}
+
+// PURA (testeable): decide QUÉ se escribe. No toca la base ni el DOM.
+//   lote    = fila de C.lotes_mp
+//   f       = lo que puso el usuario en el formulario
+//   intacto = si se permiten los campos sensibles
+// Devuelve {err} o {patch (lotes_mp), patchMovTipo, patchIngreso, cambios[]}.
+function _elCambios(lote, f, intacto){
+  const out={patch:{},patchMovTipo:null,patchIngreso:null,cambios:[],err:''};
+  const tipo    = intacto ? parseInt(f.tipo_mp_id)||null   : lote.tipo_mp_id;
+  const kg      = intacto ? parseFloat(f.kg_ingresados)    : parseFloat(lote.kg_ingresados);
+  const precio  = intacto ? parseFloat(f.precio_kg)        : parseFloat(lote.precio_kg);
+  const prov    = parseInt(f.proveedor_id)||null;
+  const remito  = (f.numero_remito||'').trim()||null;
+  const bigbag  = _elBigbagTxt(f.bolsones);
+  const fecha   = (f.fecha_ingreso||'').trim();
+  const obs     = (f.observaciones||'').trim()||null;
+  if(!tipo){out.err='Elegí el material.';return out;}
+  if(!fecha){out.err='Poné la fecha de ingreso.';return out;}
+  if(intacto){
+    if(!(kg>0)){out.err='Los kg ingresados tienen que ser mayores que cero.';return out;}
+    if(!(precio>=0)||isNaN(precio)){out.err='El precio por kilo no puede quedar vacío.';return out;}
+  }
+  const dif=(a,b)=>String(a===undefined||a===null?'':a)!==String(b===undefined||b===null?'':b);
+  if(dif(lote.tipo_mp_id,tipo)){
+    out.patch.tipo_mp_id=tipo; out.patchMovTipo=tipo;
+    out.cambios.push('Material: '+_elNombreTipo(lote.tipo_mp_id)+' → '+_elNombreTipo(tipo));
+  }
+  if(dif(lote.proveedor_id,prov)){
+    out.patch.proveedor_id=prov;
+    out.cambios.push('Proveedor: '+_elNombreProv(lote.proveedor_id)+' → '+(prov?_elNombreProv(prov):'—'));
+  }
+  if(dif(lote.numero_remito,remito)){
+    out.patch.numero_remito=remito;
+    out.cambios.push('Remito: '+(lote.numero_remito||'—')+' → '+(remito||'—'));
+  }
+  if(dif(lote.numero_bigbag,bigbag)){
+    out.patch.numero_bigbag=bigbag;
+    out.cambios.push('Bolsones: '+(lote.numero_bigbag||'—')+' → '+(bigbag||'—'));
+  }
+  if(dif(lote.fecha_ingreso,fecha)){
+    out.patch.fecha_ingreso=fecha;
+    out.cambios.push('Fecha: '+(lote.fecha_ingreso||'—')+' → '+fecha);
+  }
+  if(dif(lote.observaciones,obs)){
+    out.patch.observaciones=obs;
+    out.cambios.push('Observaciones');
+  }
+  if(intacto&&r3(kg)!==r3(parseFloat(lote.kg_ingresados)||0)){
+    // Lote intacto ⇒ los kg disponibles son exactamente los ingresados, y el único
+    // movimiento del libro es el ingreso: se corrigen los tres juntos o ninguno.
+    out.patch.kg_ingresados=r3(kg);
+    out.patch.kg_disponibles=r3(kg);
+    out.cambios.push('Kg ingresados: '+kgFmt(lote.kg_ingresados)+' → '+kgFmt(r3(kg)));
+  }
+  if(intacto&&r2(precio)!==r2(parseFloat(lote.precio_kg)||0)){
+    out.patch.precio_kg=r2(precio);
+    out.cambios.push('Precio: $'+(parseFloat(lote.precio_kg)||0).toLocaleString('es-AR')+'/kg → $'+r2(precio).toLocaleString('es-AR')+'/kg');
+  }
+  if(intacto&&(out.patch.kg_ingresados!==undefined||out.patch.precio_kg!==undefined||out.patchMovTipo!==null)){
+    out.patchIngreso={};
+    if(out.patch.kg_ingresados!==undefined)out.patchIngreso.kg=out.patch.kg_ingresados;
+    if(out.patch.precio_kg!==undefined)out.patchIngreso.precio_kg=out.patch.precio_kg;
+    if(out.patchMovTipo!==null)out.patchIngreso.tipo_mp_id=out.patchMovTipo;
+  }
+  return out;
+}
+
+async function abrirEditarLote(loteId){
+  document.getElementById('editar-lote-modal')?.remove();
+  const lote=C.lotes_mp.find(l=>l.id===loteId);
+  if(!lote){toast('No se encontró el lote','red');return;}
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="editar-lote-modal">'
+    +'<div class="modal-card" style="max-width:580px;width:94vw;max-height:92vh;overflow-y:auto;">'
+    +'<div class="modal-title" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">✏️ Editar lote'
+      +'<span style="font-size:13px;color:var(--text2);font-weight:600;">· '+escapeHtml(lote.numero_lote||('#'+loteId))+'</span></div>'
+    +'<div id="el-body"><div class="loading" style="padding:2rem;display:flex;justify-content:center;"><div class="spinner"></div></div></div>'
+    +'</div></div>'
+  );
+  const est=await _elEstadoLote(loteId);
+  const body=document.getElementById('el-body');if(!body)return;
+  const intacto=_elIntacto(est);
+  const dis=intacto?'':' disabled';
+  const tipoOpts=(C.tipos_mp||[]).map(t=>'<option value="'+t.id+'"'+(String(t.id)===String(lote.tipo_mp_id)?' selected':'')+'>'+escapeHtml(t.nombre)+' ('+escapeHtml(t.categoria||'')+')</option>').join('');
+  const provOpts='<option value="">— sin proveedor —</option>'+(C.proveedores||[]).map(p=>'<option value="'+p.id+'"'+(String(p.id)===String(lote.proveedor_id)?' selected':'')+'>'+escapeHtml(p.nombre)+'</option>').join('');
+  let aviso='';
+  if(!est.ok){
+    aviso='<div class="alert alert-warn" style="font-size:12px;margin-bottom:12px;">No se pudo comprobar si el lote tiene consumos'
+      +(est.err?' ('+escapeHtml(est.err)+')':'')+'. Por las dudas, <strong>material, kg y precio quedan bloqueados</strong>. Probá de nuevo con conexión.</div>';
+  }else if(!intacto){
+    aviso='<div class="alert alert-warn" style="font-size:12px;margin-bottom:12px;">Este lote <strong>ya está en uso</strong> ('
+      +est.consumos+' consumo'+(est.consumos===1?'':'s')+(est.movs?' · '+est.movs+' movimiento'+(est.movs===1?'':'s')+' de ajuste':'')+'). '
+      +'Se pueden corregir proveedor, remito, bolsones, fecha y observaciones, pero <strong>no el material, los kg ni el precio</strong>: '
+      +'cada kilo que salió ya quedó costeado con el material y el precio de ese momento, y cambiarlos ahora dejaría bobinas costeadas mal sin que nadie se entere. '
+      +'Los kilos se mueven con ⚖️ Ajustar.</div>';
+  }else{
+    aviso='<div style="font-size:12px;color:var(--text2);background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:8px 12px;margin-bottom:12px;">'
+      +'Lote <strong>intacto</strong> (sin consumos ni ajustes): se puede corregir todo, incluido el material. '
+      +'El ingreso del libro de MP se corrige junto con el lote.</div>';
+  }
+  body.innerHTML=aviso
+    +'<div class="fg" style="margin-bottom:10px;"><label>Material'+(intacto?'':' <span style="color:var(--text3);font-size:11px">(bloqueado)</span>')+'</label>'
+      +'<select id="el-tipo"'+dis+'>'+tipoOpts+'</select></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">'
+      +'<div class="fg" style="margin:0"><label>Proveedor</label><select id="el-prov">'+provOpts+'</select></div>'
+      +'<div class="fg" style="margin:0"><label>N° remito</label><input type="text" id="el-remito" value="'+escapeHtml(lote.numero_remito||'')+'"></div>'
+    +'</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">'
+      +'<div class="fg" style="margin:0"><label>Bolsones</label><input type="number" min="0" step="1" id="el-bols" value="'+_elBolsones(lote.numero_bigbag)+'"></div>'
+      +'<div class="fg" style="margin:0"><label>Kg ingresados'+(intacto?'':' 🔒')+'</label><input type="number" step="0.1" id="el-kg" value="'+(parseFloat(lote.kg_ingresados)||0)+'"'+dis+'></div>'
+      +'<div class="fg" style="margin:0"><label>Precio $/kg'+(intacto?'':' 🔒')+'</label><input type="number" step="0.01" id="el-precio" value="'+(parseFloat(lote.precio_kg)||0)+'"'+dis+'></div>'
+    +'</div>'
+    +'<div class="fg" style="margin-bottom:10px;"><label>Fecha de ingreso</label><input type="date" id="el-fecha" value="'+escapeHtml(lote.fecha_ingreso||'')+'"></div>'
+    +'<div class="fg" style="margin-bottom:12px;"><label>Observaciones</label><input type="text" id="el-obs" value="'+escapeHtml(lote.observaciones||'')+'"></div>'
+    +'<div class="btn-grp">'
+      +'<button class="btn btn-primary btn-sm" onclick="guardarEdicionLote('+loteId+')">Guardar cambios (requiere admin)</button>'
+      +'<button class="btn btn-sm" onclick="document.getElementById(\'editar-lote-modal\').remove()">Cancelar</button>'
+      +'<span id="el-msg" style="font-size:12px;margin-left:8px;"></span>'
+    +'</div>';
+}
+
+async function guardarEdicionLote(loteId){
+  const msg=document.getElementById('el-msg');
+  const setMsg=(t,c)=>{if(msg){msg.style.color=c||'var(--text3)';msg.textContent=t;}};
+  const lote=C.lotes_mp.find(l=>l.id===loteId);
+  if(!lote){setMsg('No se encontró el lote.','var(--red)');return;}
+  // Se vuelve a preguntar por los consumos JUSTO ANTES de escribir: el modal pudo
+  // quedar abierto mientras alguien producía una bobina con este lote.
+  setMsg('Comprobando el lote…');
+  const est=await _elEstadoLote(loteId);
+  const intacto=_elIntacto(est);
+  const f={
+    tipo_mp_id:document.getElementById('el-tipo')?.value,
+    proveedor_id:document.getElementById('el-prov')?.value,
+    numero_remito:document.getElementById('el-remito')?.value,
+    bolsones:document.getElementById('el-bols')?.value,
+    kg_ingresados:document.getElementById('el-kg')?.value,
+    precio_kg:document.getElementById('el-precio')?.value,
+    fecha_ingreso:document.getElementById('el-fecha')?.value,
+    observaciones:document.getElementById('el-obs')?.value
+  };
+  const cb=_elCambios(lote,f,intacto);
+  if(cb.err){setMsg(cb.err,'var(--red)');return;}
+  if(!cb.cambios.length){setMsg('No cambiaste nada.','var(--text3)');return;}
+  if(!intacto&&(String(f.tipo_mp_id||lote.tipo_mp_id)!==String(lote.tipo_mp_id))){
+    setMsg('El lote ya tiene consumo: el material no se puede cambiar.','var(--red)');return;
+  }
+  setMsg('');
+  pedirAdminYEjecutar(async()=>{
+    if(msg)msg.innerHTML='<div class="loading" style="display:inline-flex;gap:4px;align-items:center"><div class="spinner" style="width:12px;height:12px"></div></div>';
+    const{error:eL}=await sb.from('lotes_mp').update(cb.patch).eq('id',loteId);
+    if(eL){setMsg('Error al guardar el lote: '+eL.message,'var(--red)');return;}
+    // El libro de MP tiene que quedar contando la misma historia que el lote.
+    if(cb.patchMovTipo!==null){
+      const{error:eM}=await sb.from('mov_mp').update({tipo_mp_id:cb.patchMovTipo}).eq('lote_id',loteId);
+      if(eM){setMsg('Lote guardado, pero el libro de MP quedó con el material viejo: '+eM.message,'var(--amber)');return;}
+    }
+    if(cb.patchIngreso){
+      const{error:eI}=await sb.from('mov_mp').update(cb.patchIngreso).eq('lote_id',loteId).eq('tipo_mov','ingreso');
+      if(eI){setMsg('Lote guardado, pero el ingreso del libro quedó con los números viejos: '+eI.message,'var(--amber)');return;}
+    }
+    setMsg('✓ '+cb.cambios.length+' cambio'+(cb.cambios.length===1?'':'s')+' guardado'+(cb.cambios.length===1?'':'s'),'var(--green)');
+    toast('✓ '+(lote.numero_lote||'Lote')+' corregido · '+cb.cambios.join(' · '),'green');
+    await reload();
+    setTimeout(()=>{document.getElementById('editar-lote-modal')?.remove();renderMPStock();},900);
   });
 }
 
