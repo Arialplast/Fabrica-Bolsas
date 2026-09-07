@@ -675,7 +675,7 @@ body.pext-on .main{margin-left:0!important;}
 #page-analisis-corte th:first-child, #page-analisis-extrusion th:first-child{text-align:left;}
 #page-analisis-corte td, #page-analisis-extrusion td{padding:5px 8px;border-bottom:1px solid rgba(120,150,190,.07);text-align:right;font-variant-numeric:tabular-nums;}
 #page-analisis-corte td:first-child, #page-analisis-extrusion td:first-child{text-align:left;}
-#page-analisis-corte .ac-card, #page-analisis-extrusion .ac-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:4px 6px 8px;overflow-x:auto;}
+#page-analisis-corte .ac-card, #page-analisis-extrusion .ac-card, #page-productividad-hora .ac-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:4px 6px 8px;overflow-x:auto;}
 #page-analisis-corte .ac-tl, #page-analisis-extrusion .ac-tl{position:relative;height:34px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:6px;}
 #page-analisis-corte .ac-tl .ev, #page-analisis-extrusion .ac-tl .ev{position:absolute;top:4px;bottom:4px;width:3px;background:var(--green);box-shadow:0 0 6px rgba(43,255,136,.6);border-radius:2px;}
 #page-analisis-corte .ac-tl .gap, #page-analisis-extrusion .ac-tl .gap{position:absolute;top:11px;height:12px;background:repeating-linear-gradient(45deg,rgba(255,91,91,.55),rgba(255,91,91,.55) 4px,transparent 4px,transparent 8px);border:1px solid var(--red);border-radius:3px;}
@@ -709,7 +709,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-03a</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-05d</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -1015,7 +1015,7 @@ body.pext-on .main{margin-left:0!important;}
               <div class="fg"><label>Fecha producción</label><input id="cb-fecha" type="date" readonly></div>
             </div>
             <div class="fgrid">
-              <div class="fg"><label>Hora</label><input id="cb-hora" type="time" readonly></div>
+              <div class="fg"><label>Hora</label><input id="cb-hora" type="time" readonly><span style="font-size:10px;color:var(--text3);margin-top:2px;">🕐 reloj en vivo · la hora se sella al apretar Registrar</span></div>
               <div class="fg"><label>Tipo bobina (de la orden)</label><input id="cb-tipo" type="text" readonly placeholder="Auto"></div>
             </div>
             <div class="fp-t" style="margin-top:4px;">Medición real</div>
@@ -5363,7 +5363,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-09-03a';   // 03a: ✏️ EDITAR LOTE DE MP (Stock MP, botón ✏️ en cada lote): corrige material, proveedor, remito, bolsones, kg, precio y fecha de un lote ya cargado, con clave admin. Nació de LOTE-2026-116 y 117, que entraron como COLORANTE NEGRO y eran ROJO y AMARILLO, sin forma de arreglarlo desde el sistema. 🔴 Material, kg y precio SÓLO se editan si el lote está INTACTO (cero consumos y ningún movimiento que no sea el ingreso): apenas salió un kilo, ese consumo ya quedó costeado en consumos_mp_bobina con el material y el precio de ese momento, y cambiarlos después dejaría bobinas costeadas con un material que nunca usaron. En un lote en uso se editan igual proveedor, remito, bolsones, fecha y observaciones; los kilos se mueven con ⚖️ Ajustar. Si la consulta de consumos falla, se bloquea igual (modo seguro de fallar). Cambiar el material repunta también mov_mp del lote para que el libro de MP cuente la misma historia. // 02g: 🔴 fix del cierre por entregado: escribía estado_linea='Cancelada' y la constraint pedido_lineas_estado_linea_check sólo acepta 'Pendiente'|'Entregado'|'Parcial'|'Cancelado' (masculino), así que el cierre de PED-05932/05997/05952 reventaba DESPUÉS de haber despegado las OE y cancelado las OC. Ahora va 'Cancelado' y, si igual lo rechazan, reintenta sin ese campo (cantidad_cancelada + subtotal 0 ya alcanzan) y lo avisa en el log. Re-ejecutar el lote es idempotente. // 02f: fix del diagnóstico de anulación en lote. (a) La producción de cada OE se contaba contra C.bobinas_prod, que es una CACHÉ PARCIAL (sólo bobinas en stock o de los últimos 60 días): una OE vieja que sí produjo daba cero y podía aparecer como «no arrancó, la cancelo». Ahora _alContarBobinas pide el conteo real a bobinas_producidas (1 request cada 200 OE, sin las anuladas) y avisa en ámbar si no pudo. (b) El cartel decía «N OE siguen corriendo» metiendo en la misma bolsa las OE ya COMPLETADAS: ahora _alClaseOe/_alClaseOc separan cancelar / ya hechas / en máquina / ya canceladas, en el resumen y en las columnas OC y OE de la tabla. Una OE Completada o En proceso NUNCA se cancela: sólo se despega del pedido. // 02e: ⛔ ANULAR PEDIDOS EN LOTE (Ventas → botón junto a + Nuevo pedido): se pegan los números, el sistema diagnostica cada uno (entregado real derivado de remito_lineas, facturas/RV vivos, cobrado, OC y OE con su producción, stock reservado) y propone camino: sin entregas → ANULAR entero; con entregas → CERRAR por lo entregado (remanente a cantidad_cancelada y total recalculado renglón por renglón, nunca prorrateado). Cierra el agujero del anularPedido de a uno, que NO tocaba las OE (quedaban con pedido_ref_id muerto ocupando cronograma) ni miraba remitos. OE sin bobinas producidas → Cancelada; OE con producción o compartida → se desvincula y sigue corriendo. OC activas → Canceladas; completadas → reserva liberada a stock disponible. Nada compartido con un pedido fuera del lote se cancela. // 02d: FACTURA FORMAL CONSOLIDADA: un renglón por producto+precio (nunca promediado), remitos en el encabezado del impreso, y vínculo REAL renglón→renglones de remito (tabla factura_linea_remitos) que reemplaza el parseo de '[Remito …]' en el ✏ (con fallback para facturas viejas). Requiere crear_factura_linea_remitos.sql. 02c: 📊 Hoy vs. el aumento anterior en Evolución (último aumento por cliente×producto contra la lista de hoy, con resina ese día→hoy) + 🗑 Deshacer la foto de hoy + las fotos se ocultan del registro por defecto. 02b: fix _efRecalcPedido pedía la columna observaciones (no existe en pedido_lineas) → la corrección de precios de remito/factura quedaba a medias; ahora sin cambios + tilde pedido recalcula la cabecera. 02a: ✏ Precios en remitos NO facturados (lista Remitos y pendientes de facturar): corregir $/paq por renglón antes de emitir, con $/kg por renglón y «llevar todo a X $/kg»; propaga opcionalmente al pedido; admin. Sobre el 01b: 🔴 BORRAR UN GASTO PAGADO ya no deja la cabecera del pago huérfana drenando el banco (caso PAG-000020 $37.975,24): ahora avisa y anula la cabecera que quedaría sin imputar, o explica que sigue pagando otros documentos. Un pago sin imputar se marca «sin imputar (crédito a cuenta)» en libro y conciliación. Sobre el 01a: tenencia FCI
+const APP_BUILD='2026-09-05d';   // 05d: aviso de CONFECCIÓN en todas las pestañas de 📈 Productividad por hora. Revisando si el reloj congelado del 05c también pasaba en corte: NO pasa — `orden_corte_bobinas` no manda `fecha_asignacion` en el insert, así que la sella la base con `now()` y no se puede congelar. Pero apareció algo distinto y peor para las curvas por hora: esa marca es cuándo el operario ASOCIÓ la bobina a la orden de corte, y el 51 % de las asociaciones entran en tandas de menos de un minuto (1.929 de 3.783 desde junio). O sea que 🕐 Por hora del día, 🕑 Bandas de 2 hs y 📉 Historial de ritmo, en el área de confección, muestran cuándo se cargó el papeleo y no el ritmo de la cortadora — los totales por día y por mes sí son correctos. El aviso lo dice en pantalla. Para medir confección de verdad hay que ir por orden completa (de la primera bobina asignada a `fecha_completada`): 479 órdenes tienen las dos puntas, ventana promedio 26 h. Módulo pendiente. Auditados de paso todos los inserts con fecha/hora: fichajes usa localDate()/localTime() en el momento del scan, mezclas, inventarios y movimientos de stock sellan al insertar, y los documentos (facturas, remitos, pagos, recibos) llevan la fecha que elige el usuario a propósito. La carga de bobinas era el único caso del reloj congelado. // 05c: 🔴 EL RELOJ DE LA CARGA DE BOBINAS ESTABA CONGELADO. `initCarga()` escribía fecha y hora UNA SOLA VEZ (al abrir la pantalla y después de cada bobina guardada) y `guardarBobina()` leía ESOS campos. Si el operario dejaba la pantalla abierta al lado de la balanza —que es lo normal— la bobina se guardaba con la hora de cuando se abrió: German reportó 2 hs de diferencia. Dos bobinas de la misma sesión de pantalla podían quedar con la MISMA hora, y ahí el kg/h de esa máquina da cualquier cosa porque el intervalo entre las dos es cero (esos son los picos absurdos tipo 180 kg/h en una máquina de 40). Peor con la FECHA: pasada la medianoche la producción de la madrugada se guardaba con el día anterior, y con la fábrica en 24 hs eso pasaba todas las noches. ARREGLO EN DOS PARTES: (1) el reloj de la pantalla se refresca solo cada 20 s mientras está a la vista y el timer se apaga cuando la pantalla deja de estar visible; (2) 🔴 la que manda: fecha y hora se SELLAN EN EL MOMENTO DE GUARDAR con `_cbSellarAhora()` y ya no se leen del campo, así el registro sale bien aunque el navegador congele el timer en una pestaña de fondo. Los campos siguen readonly: corregir una hora mal cargada es trabajo de la pantalla de admin de bobinas, que deja rastro. MEDIDO sobre las 5.278 bobinas del backup del 05/09 comparando `created_at` (que lo pone la base al insertar) contra la fecha+hora declarada: 78 % dentro de 5 min, 832 bobinas con 5-20 min, 290 con más de 20 min, 5 con más de 1 h. El desfase NO empeoró con el tiempo (mediana 1,2-1,7 min pareja de junio a septiembre), así que no explica la caída de kg/h de EXT-03/EXT-07 — esa sigue siendo real. Verificado con smoke_reloj.cjs (18 asserts, incluye el caso de las 2 hs y el cruce de medianoche). // 05b: 📉 HISTORIAL DE RITMO (📈 Productividad por hora → nueva pestaña): la curva diaria de kg/h por máquina sobre 30/60/90/180 días, con la mediana móvil de 7 días y el nominal. Nació del análisis del 05/09 de EXT-03 y EXT-07, donde la caída sólo se vio poniendo tres meses juntos. 🔴 LO QUE APORTA ES EL CORTE POR kg/m: en película fina el caudal NO lo pone el extrusor sino la burbuja y el tiro, así que la máquina podría dar más y nadie se lo pide; en película gruesa sí se le pide todo al tornillo. Por eso los productos de kg/m ≥ 0,035 son EL TECHO REAL DEL EXTRUSOR y ahí un deterioro mecánico se ve primero —o sólo ahí—: EXT-03 perdió 6 % en 14–20 µ y 32 % en 46–60 µ, y el promedio de la máquina apenas se movía. El techo se mide SÓLO con ventanas medidas entre dos pesajes (se descarta la primera bobina del día y la posterior a una parada, cuya duración se imputa con una mediana que mezcla finos y gruesos y le bajaría el techo a una bobina gruesa sin que pase nada en planta); la serie de TODOS los productos sí las incluye porque tiene que dar el mismo número que ⚡ Ritmo por máquina (P1, verificado día por día). Mediana móvil y no promedio: un día flojo de dos bobinas no arrastra la tendencia; los días sin producción cortan la línea en vez de interpolarse. 🔴 La escala usa el PERCENTIL 90 y no el máximo: dos bobinas pesadas casi juntas dan un kg/h absurdo (180 en una máquina de 40) que aplastaba 70 días contra el piso; lo que queda arriba se dibuja recortado en el borde con un triángulo y su valor real en el tooltip. La comparación de puntas exige 8 días con techo (con 4 es ruido) y si no alcanza lo dice. `_prhRitmoCalc` ahora arrastra `prodId` en cada ventana. Verificado con smoke_hist.cjs (50 asserts, incluye el invariante P1 y la reproducción del caso EXT-03) y render con los datos reales. // 05a: 🕒 BANDAS DE 2 HS (📈 Productividad por hora → nueva pestaña): el kg/h de cada máquina abierto en 12 bandas de 2 horas, para contestar no sólo «qué tan rápido va» sino «a qué hora afloja». 🔴 La única marca de tiempo que existe es la del PESAJE de la bobina (cuándo terminó): contar los kg enteros en la hora del pesaje —lo que hace 🕐 Por hora del día, avisado ahí— es falso en bandas cortas, porque una bobina que arrancó a las 9 y cerró a las 13 le pone el 100% de sus kg a la banda 12–14 y CERO a las dos en que la máquina estuvo tirando; con 4 o 5 bobinas por día el error es más grande que la señal. Acá cada bobina se REPARTE sobre su ventana de producción (pesaje − duración → pesaje) y cada banda se queda con su parte de kg Y de horas; el kg/h de la banda es kg÷horas repartidas, nunca promedio de promedios. P1: la duración NO se calcula acá — _prhRitmoCalc ahora devuelve también las `ventanas` de cada evento, con la misma mediana de h/kg y la misma regla de paradas anómalas, así que las 12 bandas suman EXACTAMENTE el kg/h de ⚡ Ritmo por máquina (verificado con 67 asserts en smoke_bandas.cjs, incluida la regresión de que _prhRitmoCalc da lo mismo que antes en 20 días inventados con paradas y pesajes juntos). Las bandas arrancan a las 6 y no a medianoche: cada una cae entera adentro de un turno y la noche no queda partida entre dos días (mismo criterio que el eje 🌙 VUELTA). El color compara contra el PROPIO promedio de esa máquina (índice 100 = su ritmo normal), no contra el nominal, que es un dato cargado a mano. EL LÍMITE, DICHO EN PANTALLA: cuando la duración se midió entre dos bobinas la ventana es real; cuando se imputó (la primera del día, y la posterior a una parada) la ubicación en el reloj es una estimación — de ahí la columna «ubicación medida», el KPI y el ≈ en las celdas mayormente estimadas. Para que todas las ventanas sean medidas hay que cargar la HORA DE ARRANQUE de la bobina (pendiente). Selector de todo el mes o un día suelto, con cartel de que un día son pocas bobinas y no alcanza para conclusiones. // 03a: ✏️ EDITAR LOTE DE MP (Stock MP, botón ✏️ en cada lote): corrige material, proveedor, remito, bolsones, kg, precio y fecha de un lote ya cargado, con clave admin. Nació de LOTE-2026-116 y 117, que entraron como COLORANTE NEGRO y eran ROJO y AMARILLO, sin forma de arreglarlo desde el sistema. 🔴 Material, kg y precio SÓLO se editan si el lote está INTACTO (cero consumos y ningún movimiento que no sea el ingreso): apenas salió un kilo, ese consumo ya quedó costeado en consumos_mp_bobina con el material y el precio de ese momento, y cambiarlos después dejaría bobinas costeadas con un material que nunca usaron. En un lote en uso se editan igual proveedor, remito, bolsones, fecha y observaciones; los kilos se mueven con ⚖️ Ajustar. Si la consulta de consumos falla, se bloquea igual (modo seguro de fallar). Cambiar el material repunta también mov_mp del lote para que el libro de MP cuente la misma historia. // 02g: 🔴 fix del cierre por entregado: escribía estado_linea='Cancelada' y la constraint pedido_lineas_estado_linea_check sólo acepta 'Pendiente'|'Entregado'|'Parcial'|'Cancelado' (masculino), así que el cierre de PED-05932/05997/05952 reventaba DESPUÉS de haber despegado las OE y cancelado las OC. Ahora va 'Cancelado' y, si igual lo rechazan, reintenta sin ese campo (cantidad_cancelada + subtotal 0 ya alcanzan) y lo avisa en el log. Re-ejecutar el lote es idempotente. // 02f: fix del diagnóstico de anulación en lote. (a) La producción de cada OE se contaba contra C.bobinas_prod, que es una CACHÉ PARCIAL (sólo bobinas en stock o de los últimos 60 días): una OE vieja que sí produjo daba cero y podía aparecer como «no arrancó, la cancelo». Ahora _alContarBobinas pide el conteo real a bobinas_producidas (1 request cada 200 OE, sin las anuladas) y avisa en ámbar si no pudo. (b) El cartel decía «N OE siguen corriendo» metiendo en la misma bolsa las OE ya COMPLETADAS: ahora _alClaseOe/_alClaseOc separan cancelar / ya hechas / en máquina / ya canceladas, en el resumen y en las columnas OC y OE de la tabla. Una OE Completada o En proceso NUNCA se cancela: sólo se despega del pedido. // 02e: ⛔ ANULAR PEDIDOS EN LOTE (Ventas → botón junto a + Nuevo pedido): se pegan los números, el sistema diagnostica cada uno (entregado real derivado de remito_lineas, facturas/RV vivos, cobrado, OC y OE con su producción, stock reservado) y propone camino: sin entregas → ANULAR entero; con entregas → CERRAR por lo entregado (remanente a cantidad_cancelada y total recalculado renglón por renglón, nunca prorrateado). Cierra el agujero del anularPedido de a uno, que NO tocaba las OE (quedaban con pedido_ref_id muerto ocupando cronograma) ni miraba remitos. OE sin bobinas producidas → Cancelada; OE con producción o compartida → se desvincula y sigue corriendo. OC activas → Canceladas; completadas → reserva liberada a stock disponible. Nada compartido con un pedido fuera del lote se cancela. // 02d: FACTURA FORMAL CONSOLIDADA: un renglón por producto+precio (nunca promediado), remitos en el encabezado del impreso, y vínculo REAL renglón→renglones de remito (tabla factura_linea_remitos) que reemplaza el parseo de '[Remito …]' en el ✏ (con fallback para facturas viejas). Requiere crear_factura_linea_remitos.sql. 02c: 📊 Hoy vs. el aumento anterior en Evolución (último aumento por cliente×producto contra la lista de hoy, con resina ese día→hoy) + 🗑 Deshacer la foto de hoy + las fotos se ocultan del registro por defecto. 02b: fix _efRecalcPedido pedía la columna observaciones (no existe en pedido_lineas) → la corrección de precios de remito/factura quedaba a medias; ahora sin cambios + tilde pedido recalcula la cabecera. 02a: ✏ Precios en remitos NO facturados (lista Remitos y pendientes de facturar): corregir $/paq por renglón antes de emitir, con $/kg por renglón y «llevar todo a X $/kg»; propaga opcionalmente al pedido; admin. Sobre el 01b: 🔴 BORRAR UN GASTO PAGADO ya no deja la cabecera del pago huérfana drenando el banco (caso PAG-000020 $37.975,24): ahora avisa y anula la cabecera que quedaría sin imputar, o explica que sigue pagando otros documentos. Un pago sin imputar se marca «sin imputar (crédito a cuenta)» en libro y conciliación. Sobre el 01a: tenencia FCI
   // 28a: NOTAS DE CREDITO Y DEBITO ANTE ARCA — Y UN BUG DE PLATA QUE NO ERA DE ARCA.
   //      German: "el tema de notas de debito, credito eso lo tenemos listo tambien" y
   //      despues, sobre las de cheque rechazado, "eso que tiene que ver con tus facturas".
@@ -7164,10 +7164,56 @@ async function poblarCargaSelects(){
     opSel.innerHTML='<option value="">— seleccionar operario —</option>'+C.operarios.map(o=>`<option value="${o.id}">${o.nombre}${areaDe(o.id)}</option>`).join('');
   }
 }
+// ════════════════════════════════════════════════════════════════
+// 🔴 EL RELOJ DE LA CARGA DE BOBINAS TIENE QUE ESTAR VIVO
+// ----------------------------------------------------------------
+// Hasta el build 05c la fecha y la hora se escribían UNA SOLA VEZ, al abrir la pantalla
+// (y otra vez después de cada bobina guardada). Si el operario dejaba la pantalla abierta
+// —que es lo normal: la deja abierta al lado de la balanza— la bobina se guardaba con la
+// hora de cuando se abrió, no con la de cuando se pesó. Dos bobinas cargadas en la misma
+// sesión de pantalla podían quedar con la MISMA hora, y con eso el kg/h de esa máquina da
+// cualquier cosa: el intervalo entre las dos es cero.
+//
+// Peor todavía con la FECHA: pasada la medianoche, la producción de la madrugada se
+// guardaba con el día anterior. Con la fábrica corriendo 24 hs eso pasa todas las noches.
+//
+// Medido sobre las 5.278 bobinas del backup del 05/09 (comparando `created_at`, que lo
+// pone la base al insertar, contra la fecha+hora declarada): 78 % dentro de los 5 minutos,
+// 832 bobinas con 5–20 min de desfase, 290 con más de 20 min y 5 con más de una hora.
+//
+// EL ARREGLO TIENE DOS PARTES, y la segunda es la que manda:
+//  1. El reloj de la pantalla se refresca solo cada 20 segundos mientras está a la vista,
+//     así el operario VE la hora real y no una foto vieja.
+//  2. 🔴 La fecha y la hora se SELLAN EN EL MOMENTO DE GUARDAR, no se leen del campo.
+//     Esto es lo que arregla el bug de verdad: aunque el navegador congele el timer
+//     (los browsers frenan los setInterval de las pestañas en segundo plano), el registro
+//     sale con la hora del insert igual. El campo de pantalla es informativo; la verdad
+//     se toma en `_cbSellarAhora()` adentro de `guardarBobina()`.
+// Los dos campos siguen siendo `readonly`: corregir una hora mal cargada es trabajo de
+// ✏️ la pantalla de admin de bobinas, que ya existe y deja rastro.
+// ════════════════════════════════════════════════════════════════
+let _cbRelojTimer=null;
+function _cbSellarAhora(){
+  const fecha=localDate(), hora=localTime().slice(0,5);
+  const fd=document.getElementById('cb-fecha');if(fd)fd.value=fecha;
+  const fh=document.getElementById('cb-hora');if(fh)fh.value=hora;
+  return {fecha:fecha,hora:hora};
+}
+function _cbRelojVivo(){
+  if(_cbRelojTimer){clearInterval(_cbRelojTimer);_cbRelojTimer=null;}
+  _cbRelojTimer=setInterval(()=>{
+    const pg=document.getElementById('page-carga-bobinas');
+    // si la pantalla dejó de estar a la vista, el timer se apaga solo (no hace falta
+    // engancharse a la navegación desde acá)
+    if(!pg||!(pg.classList.contains('active')||pg.classList.contains('carga-embed'))){
+      clearInterval(_cbRelojTimer);_cbRelojTimer=null;return;
+    }
+    _cbSellarAhora();
+  },20000);
+}
 function initCarga(){
-  const hoy=new Date();
-  const fd=document.getElementById('cb-fecha');if(fd)fd.value=localDate(hoy);
-  const fh=document.getElementById('cb-hora');if(fh)fh.value=hoy.toTimeString().slice(0,5);
+  _cbSellarAhora();
+  _cbRelojVivo();
   generarNroBobina();
   renderCargaHist();
   setupMedicionField('cb-mts','lock-mts');
@@ -7316,8 +7362,11 @@ async function guardarBobina(){
   const nro=document.getElementById('cb-nbob').value;
   const ordId=parseInt(document.getElementById('cb-orden').value);
   const extId=parseInt(document.getElementById('cb-ext').value);
-  const fecha=document.getElementById('cb-fecha').value;
-  const hora=document.getElementById('cb-hora').value;
+  // 🔴 La fecha y la hora NO se leen del campo: se sellan ACÁ, en el instante de guardar.
+  // El campo puede estar viejo si la pantalla quedó abierta (ver el banner de _cbSellarAhora).
+  const _sello=_cbSellarAhora();
+  const fecha=_sello.fecha;
+  const hora=_sello.hora;
   const mtsR=parseFloat(document.getElementById('cb-mts').value);
   const kgR=parseFloat(document.getElementById('cb-kg').value);
   const opId=parseInt(document.getElementById('cb-op-sel').value)||null;
@@ -32074,7 +32123,7 @@ function renderAnalisisCorte(){
 // dotación sale de _turnoDelDia + las horas extra fijas del turno, o sea
 // del mismo motor que el informe de horarios.
 // ═══════════════════════════════════════════════════════════════════
-let PRH={area:'extrusion',tab:'hora',linea:null,rit:'dia',dia:'cal'};
+let PRH={area:'extrusion',tab:'hora',linea:null,rit:'dia',dia:'cal',bdia:null,hdias:60};
 
 function _prhCfg(area,linea){
   if(area==='confeccion'){
@@ -32685,7 +32734,7 @@ function _prhRitmoCalc(evs){
     cs.forEach(c=>{
       const last=ev[ev.length-1];
       if(last&&(c.ts-last.tsFin)<120000){last.tsFin=c.ts;last.val+=c.val;last.nb++;}
-      else ev.push({ts:c.ts,tsFin:c.ts,fecha:f,val:c.val,nb:1});
+      else ev.push({ts:c.ts,tsFin:c.ts,fecha:f,val:c.val,nb:1,prodId:c.prodId});
     });
     dias[f]=ev;
   });
@@ -32704,6 +32753,14 @@ function _prhRitmoCalc(evs){
   // normal" y entonces ya no se detectaba como parada.
   const hkg=rel.length?(rel.length%2?rel[(rel.length-1)/2]:(rel[rel.length/2-1]+rel[rel.length/2])/2):0;
   const porDia={};
+  // VENTANAS: además de las horas del día, dónde CAE cada rato de producción en el reloj.
+  // Es la misma duración que se suma a `hs` — no un cálculo paralelo (P1): la vista de
+  // bandas de 2 hs reparte estos mismos kg y estas mismas horas, así que si se suman las
+  // 12 bandas tiene que dar exactamente el kg/h de ⚡ Ritmo por máquina.
+  // `imput` marca la ventana cuya duración NO se midió entre dos bobinas y se imputó con
+  // la mediana: la primera del día (no hay bobina anterior) y la que vino después de una
+  // parada anómala. Ahí la ubicación en el reloj es una estimación, y la pantalla lo dice.
+  const ventanas=[];
   Object.keys(dias).forEach(f=>{
     const v=dias[f];
     let kg=0,hs=0,par=0,np=0;
@@ -32711,14 +32768,19 @@ function _prhRitmoCalc(evs){
     v.forEach((x,i)=>{
       kg+=x.val;nb+=x.nb||1;
       const esp=hkg*x.val;                    // lo que "debería" costar ese evento
-      if(i===0){hs+=esp;return;}              // el primero también costó tiempo
-      const d=(x.ts-v[i-1].tsFin)/3600000;
-      if(d>3*esp&&d>0.75){hs+=esp;par+=d-esp;np++;}   // parada anómala: no es producción
-      else hs+=d;
+      let dur,imput;
+      if(i===0){dur=esp;imput=true;}          // el primero también costó tiempo
+      else{
+        const d=(x.ts-v[i-1].tsFin)/3600000;
+        if(d>3*esp&&d>0.75){dur=esp;imput=true;par+=d-esp;np++;}  // parada anómala: no es producción
+        else{dur=d;imput=false;}
+      }
+      hs+=dur;
+      ventanas.push({fecha:f,fin:x.ts,ini:x.ts-dur*3600000,dur:dur,val:x.val,nb:x.nb||1,imput:imput,prodId:x.prodId});
     });
     porDia[f]={kg:kg,hs:hs,par:par,n:nb,np:np};
   });
-  return {hkg:hkg,porDia:porDia,ciclos:rel.length};
+  return {hkg:hkg,porDia:porDia,ciclos:rel.length,ventanas:ventanas};
 }
 // Serie de kg/h por máquina, por día o por mes, con la comparación contra el período anterior.
 function _prhRitmo(area,ym,modo,linea){
@@ -32916,6 +32978,465 @@ function _prhRitmoHtml(R){
     +'Por eso el '+u+'/h se puede comparar contra el nominal de la máquina — y si da más de 100% sostenido, el nominal está cargado bajo.</div>';
   return h;
 }
+// ════════════════════════════════════════════════════════════════
+// BANDAS DE 2 HORAS — ¿EN QUÉ MOMENTO DEL DÍA AFLOJA LA MÁQUINA?
+// ----------------------------------------------------------------
+// ⚡ Ritmo por máquina contesta "a qué velocidad va la máquina" con UN número por día.
+// Esto contesta "¿y a qué hora?": el mismo kg/h, abierto en 12 bandas de 2 horas.
+//
+// 🔴 LA TRAMPA QUE HAY QUE EVITAR. La única marca de tiempo que existe es la hora en que
+// se PESÓ la bobina, o sea cuándo TERMINÓ. Contar los kg enteros en la hora del pesaje
+// —que es lo que hace 🕐 Por hora del día, y está avisado ahí— es directamente falso en
+// bandas cortas: una bobina que arrancó a las 9 y cerró a las 13 le pondría el 100% de
+// sus kg a la banda 12–14 y CERO a las dos bandas en que la máquina estuvo tirando.
+// Con 4 o 5 bobinas por día, cada bobina tapa varias horas: el error es más grande que
+// la señal que se está buscando.
+//
+// LO QUE SE HACE ACÁ. Cada bobina se reparte sobre su ventana real de producción
+// —desde `hora de pesaje − duración` hasta `hora de pesaje`— y cada banda se queda con
+// la parte que le tocó, tanto de kg como de horas. El kg/h de la banda es
+// `kg repartidos ÷ horas repartidas`, nunca un promedio de promedios.
+//
+// P1: la duración de cada ventana NO se calcula acá. Sale de `_prhRitmoCalc`, la MISMA
+// función que usan ⚡ Ritmo por máquina y 🔬 Análisis de extrusión, con la misma mediana
+// de h/kg y la misma regla de paradas anómalas. Por eso, sumadas las 12 bandas, el kg/h
+// da exactamente el mismo número que ⚡ Ritmo: son dos cortes del mismo dato, no dos
+// cuentas distintas.
+//
+// EL LÍMITE, DICHO EN LA PANTALLA. Cuando la duración se midió entre dos bobinas
+// consecutivas, la ventana es real. Cuando se imputó con la mediana —la PRIMERA bobina
+// del día, que no tiene anterior, y la que vino después de una parada anómala— la
+// ubicación en el reloj es una estimación: esa bobina se apoya hacia atrás desde su
+// pesaje. Por eso cada banda muestra qué porcentaje de sus kg está medido, y las bandas
+// mayormente estimadas se marcan con ≈. Para que TODAS las ventanas sean medidas hace
+// falta cargar la hora de arranque de la bobina; hasta entonces, esto es lo más cerca
+// que se llega con el dato que hay.
+//
+// LAS BANDAS ARRANCAN A LAS 6, no a medianoche: así cada banda cae entera adentro de un
+// turno y la noche no queda partida entre dos días de calendario (mismo criterio que el
+// eje 🌙 VUELTA del Gantt de extrusión).
+// ════════════════════════════════════════════════════════════════
+const PRH_BANDA_H0=6;     // hora en que arranca la primera banda
+const PRH_NBANDAS=12;     // 12 bandas de 2 horas cubren el día entero
+
+function _prhBandaDe(ts){const h=new Date(ts).getHours();return Math.floor(((h-PRH_BANDA_H0+24)%24)/2);}
+function _prhBandaLbl(b){const h=(PRH_BANDA_H0+b*2)%24;
+  return String(h).padStart(2,'0')+'–'+String((h+2)%24).padStart(2,'0');}
+// 'sáb 30/08' — con T12:00:00 para no pasar por UTC y perder un día.
+function _prhFLbl(f){return ['dom','lun','mar','mié','jue','vie','sáb'][new Date(f+'T12:00:00').getDay()]+' '+f.slice(8,10)+'/'+f.slice(5,7);}
+
+// Reparte una ventana [ini, fin] entre las bandas que toca, llamando cb(banda, fracción).
+// Camina de borde a borde: una ventana de 5 horas que arranca 4:30 pasa por 4–6, 6–8 y
+// 8–10 con 30, 120 y 150 minutos. Las fracciones suman 1 siempre (por eso los totales
+// cierran contra ⚡ Ritmo). Cruzar medianoche no es un caso especial: los bordes se
+// arman con el Date local y JS rueda solo al día siguiente. Sin hora (duración cero,
+// que pasa cuando la máquina tiene una sola bobina en todo el período y no hay mediana)
+// los kg van enteros a la banda del pesaje.
+function _prhRepartir(w,cb){
+  const tot=w.fin-w.ini;
+  if(!(tot>0)){cb(_prhBandaDe(w.fin),1);return;}
+  let t=w.ini,g=0;
+  while(t<w.fin&&g++<400){
+    const d=new Date(t),hh=d.getHours();
+    const borde=new Date(d.getFullYear(),d.getMonth(),d.getDate(),
+      hh-(((hh-PRH_BANDA_H0+24)%24)%2)+2,0,0,0).getTime();
+    const hasta=Math.min(borde,w.fin);
+    if(hasta<=t)break;
+    cb(_prhBandaDe(t),(hasta-t)/tot);
+    t=hasta;
+  }
+}
+
+// Matriz máquina × banda. `dia` null = todo el mes; con fecha, sólo ese día (la mediana
+// de h/kg se sigue calculando sobre el MES, que es donde tiene sentido medirla).
+function _prhBandas(area,ym,dia,linea){
+  const cfg=_prhCfg(area,linea);
+  const rr=_rmMesRange(ym);
+  const evs=cfg.eventos(rr.iniStr,rr.finStr);
+  const dias=[...new Set(evs.map(x=>x.fecha))].sort();
+  if(dia&&dias.indexOf(dia)<0)dia=null;      // cambió de mes: vuelve a todo el mes
+  const porMaq={};
+  evs.forEach(x=>{if(x.maqId==null)return;(porMaq[String(x.maqId)]=porMaq[String(x.maqId)]||[]).push(x);});
+  const nueva=()=>{const a=[];for(let i=0;i<PRH_NBANDAS;i++)a.push({kg:0,hs:0,kgImp:0,n:0,dias:{}});return a;};
+  const tot=nueva();
+  const filas=(cfg.maquinas||[]).map(mq=>{
+    const ev=porMaq[String(mq.id)]||[];
+    if(!ev.length)return null;
+    const R=_prhRitmoCalc(ev);
+    const bandas=nueva();
+    let kg=0,hs=0,kgImp=0,nb=0;const dsMaq={};
+    (R.ventanas||[]).forEach(w=>{
+      if(dia&&w.fecha!==dia)return;
+      kg+=w.val;hs+=w.dur;nb+=w.nb;dsMaq[w.fecha]=1;
+      if(w.imput)kgImp+=w.val;
+      _prhRepartir(w,(b,fr)=>{
+        const B=bandas[b],T=tot[b];
+        B.kg+=w.val*fr;B.hs+=w.dur*fr;B.dias[w.fecha]=1;
+        T.kg+=w.val*fr;T.hs+=w.dur*fr;T.dias[w.fecha]=1;
+        if(w.imput){B.kgImp+=w.val*fr;T.kgImp+=w.val*fr;}
+      });
+      const bp=_prhBandaDe(w.fin);bandas[bp].n+=w.nb;tot[bp].n+=w.nb;
+    });
+    if(!(kg>0))return null;
+    return {maq:mq,nominal:mq.cap||0,bandas:bandas,kg:kg,hs:hs,kgImp:kgImp,n:nb,
+      nd:Object.keys(dsMaq).length,kgh:hs>0?kg/hs:null,hkg:R.hkg,ciclos:R.ciclos};
+  }).filter(Boolean);
+  filas.sort((a,b)=>b.kg-a.kg);
+  const kgT=filas.reduce((s,f)=>s+f.kg,0),hsT=filas.reduce((s,f)=>s+f.hs,0);
+  return {cfg,label:rr.label,ym:ym,dia:dia,dias:dias,filas:filas,tot:tot,
+    kg:kgT,hs:hsT,kgh:hsT>0?kgT/hsT:null,
+    kgImp:filas.reduce((s,f)=>s+f.kgImp,0),n:filas.reduce((s,f)=>s+f.n,0)};
+}
+
+// El color compara la banda contra el PROPIO promedio de esa máquina en el período
+// (índice 100 = su ritmo normal), no contra el nominal: el nominal es un dato cargado a
+// mano que puede estar viejo, y la pregunta acá es "¿esta franja rinde menos que lo que
+// esta misma máquina rinde el resto del día?". El % del nominal está igual, abajo.
+function _prhIdxCol(ix){
+  if(ix==null)return {bg:'transparent',col:'var(--text3)'};
+  if(ix>=110)return {bg:'rgba(74,222,128,0.20)',col:'var(--green)'};
+  if(ix>=100)return {bg:'rgba(74,222,128,0.10)',col:'var(--green)'};
+  if(ix>=92) return {bg:'transparent',col:'var(--text2)'};
+  if(ix>=80) return {bg:'rgba(251,191,36,0.14)',col:'var(--amber)'};
+  return {bg:'rgba(248,113,113,0.20)',col:'var(--red)'};
+}
+
+function prhBandaDia(v){PRH.bdia=v||null;renderProductividadHora();}
+
+function _prhBandasHtml(B){
+  const c=B.cfg,u=c.unidadCorta,dec=c.decimales;
+  const th='padding:6px 5px;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;';
+  let h='';
+
+  // ---- selector de día ----
+  h+='<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">'
+    +'<span style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;">Ventana</span>'
+    +'<select class="st-sel" onchange="prhBandaDia(this.value)">'
+    +'<option value=""'+(!B.dia?' selected':'')+'>Todo el mes — '+escapeHtml(B.label)+'</option>'
+    +B.dias.map(f=>'<option value="'+f+'"'+(B.dia===f?' selected':'')+'>'+_prhFLbl(f)+'</option>').join('')
+    +'</select></div>';
+
+  if(!B.filas.length){
+    return h+'<div class="empty" style="padding:40px;text-align:center;color:var(--text3);">'
+      +'No hay producción registrada en '+(B.dia?_prhFLbl(B.dia):B.label)+'.</div>';
+  }
+
+  // ---- KPIs: la mejor y la peor banda del conjunto ----
+  const idxT=B.tot.map(t=>(t.hs>0.05&&B.kgh>0)?(t.kg/t.hs)/B.kgh*100:null);
+  let bMax=null,bMin=null;
+  idxT.forEach((ix,i)=>{
+    if(ix==null||B.tot[i].hs<0.5)return;
+    if(bMax==null||ix>idxT[bMax])bMax=i;
+    if(bMin==null||ix<idxT[bMin])bMin=i;
+  });
+  const medido=B.kg>0?(1-B.kgImp/B.kg)*100:0;
+  const k=(l,v,d,col)=>'<div class="ac-kpi"><div class="l">'+l+'</div><div class="v"'+(col?' style="color:'+col+'"':'')+'>'+v+'</div><div class="d">'+d+'</div></div>';
+  h+='<div class="ac-kpis" style="margin-bottom:16px;">'
+    +k('Ritmo del período',_prhN(B.kgh||0,1)+' '+u+'/h',_prhN(B.kg,dec)+' '+u+' en '+_prhN(B.hs,1)+' hs de producción')
+    +(bMax!=null?k('Mejor banda',_prhBandaLbl(bMax),_prhN(B.tot[bMax].kg/B.tot[bMax].hs,1)+' '+u+'/h · índice '+idxT[bMax].toFixed(0),'var(--green)'):'')
+    +(bMin!=null?k('Banda más floja',_prhBandaLbl(bMin),_prhN(B.tot[bMin].kg/B.tot[bMin].hs,1)+' '+u+'/h · índice '+idxT[bMin].toFixed(0),'var(--red)'):'')
+    +k('Ubicación medida',_prhN(medido,0)+'% de los '+u,'el resto se apoyó hacia atrás desde el pesaje',medido>=70?'var(--green)':(medido>=45?'var(--amber)':'var(--red)'))
+    +'</div>';
+
+  if(B.dia){
+    h+='<div style="font-size:11.5px;color:var(--amber);background:var(--amberbg);border:1px solid var(--amberbd);border-radius:var(--r);padding:9px 12px;margin-bottom:14px;line-height:1.55;">'
+      +'<b>Un día suelto son pocas bobinas.</b> Sirve para reconstruir qué pasó ese día en particular — a qué hora se cayó una máquina, cuándo arrancó de nuevo — pero <b>no</b> para sacar conclusiones sobre el ritmo de una franja. Para eso mirá el mes entero: ahí cada banda junta 20 o 30 días y el ruido se va.</div>';
+  }
+
+  // ---- HEATMAP máquina × banda ----
+  h+='<div class="ac-card" style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:940px;">'
+    +'<tr><th style="'+th+'text-align:left;position:sticky;left:0;background:var(--bg2);">'+escapeHtml(c.maqLbl)+'</th>';
+  for(let i=0;i<PRH_NBANDAS;i++)h+='<th style="'+th+'text-align:center;font-family:monospace;">'+_prhBandaLbl(i)+'</th>';
+  h+='<th style="'+th+'text-align:right;">'+u+'/h del período</th></tr>';
+
+  const cel=(bd,ref)=>{
+    if(!(bd.hs>0.03)||!(bd.kg>0))return '<td style="text-align:center;color:var(--text3);">·</td>';
+    const kgh=bd.kg/bd.hs;
+    const ix=(ref>0)?kgh/ref*100:null;
+    const C=_prhIdxCol(ix);
+    const estim=bd.kg>0&&(bd.kgImp/bd.kg)>0.6;
+    const flaca=bd.hs<0.5;
+    return '<td style="text-align:center;padding:5px 4px;background:'+C.bg+';border-radius:4px;'+(flaca?'opacity:.5;':'')+'" '
+      +'title="'+_prhN(bd.kg,dec)+' '+u+' en '+_prhN(bd.hs,1)+' hs · '+Object.keys(bd.dias).length+' día(s) con producción en esta banda'
+      +(ix!=null?' · índice '+ix.toFixed(0):'')+(estim?' · ubicación mayormente estimada':'')+'">'
+      +'<div style="font-family:monospace;font-weight:700;color:'+C.col+';">'+_prhN(kgh,1)+(estim?'<span style="font-weight:400;opacity:.7;"> ≈</span>':'')+'</div>'
+      +(ix!=null?'<div style="font-size:9px;color:var(--text3);">'+ix.toFixed(0)+'</div>':'')+'</td>';
+  };
+
+  B.filas.forEach(f=>{
+    h+='<tr style="border-top:1px solid var(--border);">'
+      +'<td style="padding:5px 6px;font-weight:700;white-space:nowrap;position:sticky;left:0;background:var(--bg2);">'+escapeHtml(f.maq.nom)
+      +'<div style="font-size:9px;color:var(--text3);font-weight:400;">'+f.n+' bobina'+(f.n===1?'':'s')+' · '+f.nd+' día'+(f.nd===1?'':'s')+(f.nominal>0?' · nominal '+_prhN(f.nominal,dec):'')+'</div></td>';
+    f.bandas.forEach(bd=>{h+=cel(bd,f.kgh);});
+    h+='<td style="text-align:right;padding:5px 6px;font-family:monospace;font-weight:700;">'+(f.kgh!=null?_prhN(f.kgh,1):'—')
+      +(f.nominal>0&&f.kgh!=null?'<div style="font-size:9px;color:var(--text3);font-weight:400;">'+(f.kgh/f.nominal*100).toFixed(0)+'% del nominal</div>':'')+'</td></tr>';
+  });
+
+  h+='<tr style="border-top:2px solid var(--border2);background:rgba(255,255,255,0.02);">'
+    +'<td style="padding:6px;font-weight:700;position:sticky;left:0;background:var(--bg3);">TODAS</td>';
+  B.tot.forEach(t=>{h+=cel(t,B.kgh);});
+  h+='<td style="text-align:right;padding:6px;font-family:monospace;font-weight:800;">'+(B.kgh!=null?_prhN(B.kgh,1):'—')+'</td></tr>';
+  h+='</table></div>';
+
+  h+='<div style="font-size:11px;color:var(--text3);margin:8px 0 18px;line-height:1.6;">'
+    +'El número grande es <b>'+u+'/h de esa banda</b>; el chico de abajo es el <b>índice contra el promedio de esa misma máquina</b> en el período (100 = su ritmo normal). '
+    +'Verde: rinde más que su promedio. Rojo: menos. <b>≈</b> marca la banda cuyos '+u+' vinieron mayormente de ventanas estimadas. '
+    +'Las celdas con menos de media hora de producción se muestran apagadas: son una bobina rozando la banda, no un ritmo.</div>';
+
+  // ---- detalle por banda, todas las máquinas juntas ----
+  const nomTot=B.filas.reduce((s,f)=>s+(f.maq.servicio?f.nominal:0),0);
+  h+='<details style="margin-bottom:14px;"><summary style="cursor:pointer;font-size:12px;color:var(--accent);">Detalle banda por banda</summary>'
+    +'<div class="ac-card" style="margin-top:8px;overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">'
+    +'<tr><th style="'+th+'text-align:left;">Banda</th><th style="'+th+'text-align:right;">'+u+'</th>'
+    +'<th style="'+th+'text-align:right;">Horas</th><th style="'+th+'text-align:right;">'+u+'/h</th>'
+    +'<th style="'+th+'text-align:right;">Índice</th><th style="'+th+'text-align:right;">% del nominal</th>'
+    +'<th style="'+th+'text-align:right;">Días</th><th style="'+th+'text-align:right;">Ubicación medida</th></tr>';
+  B.tot.forEach((t,i)=>{
+    if(!(t.kg>0))return;
+    const kgh=t.hs>0?t.kg/t.hs:null,ix=idxT[i];
+    const C=_prhIdxCol(ix);
+    const med=t.kg>0?(1-t.kgImp/t.kg)*100:0;
+    h+='<tr style="border-top:1px solid var(--border);">'
+      +'<td style="padding:4px 6px;font-family:monospace;font-weight:600;">'+_prhBandaLbl(i)+'</td>'
+      +'<td style="padding:4px 6px;text-align:right;font-family:monospace;">'+_prhN(t.kg,dec)+'</td>'
+      +'<td style="padding:4px 6px;text-align:right;font-family:monospace;">'+_prhN(t.hs,1)+'</td>'
+      +'<td style="padding:4px 6px;text-align:right;font-family:monospace;font-weight:700;color:'+C.col+';">'+(kgh!=null?_prhN(kgh,1):'—')+'</td>'
+      +'<td style="padding:4px 6px;text-align:right;font-family:monospace;color:'+C.col+';">'+(ix!=null?ix.toFixed(0):'—')+'</td>'
+      +'<td style="padding:4px 6px;text-align:right;font-family:monospace;color:var(--text3);">'+((nomTot>0&&kgh!=null)?(kgh/nomTot*100).toFixed(0)+'%':'—')+'</td>'
+      +'<td style="padding:4px 6px;text-align:right;font-family:monospace;color:var(--text3);">'+Object.keys(t.dias).length+'</td>'
+      +'<td style="padding:4px 6px;text-align:right;font-family:monospace;color:'+(med>=70?'var(--green)':(med>=45?'var(--amber)':'var(--red)'))+';">'+med.toFixed(0)+'%</td></tr>';
+  });
+  h+='</table></div></details>';
+
+  h+='<div style="font-size:11px;color:var(--text3);line-height:1.6;">'
+    +'<b style="color:var(--text2);">Cómo se calcula.</b> La única hora que graba el sistema es la del <b>pesaje</b> de la bobina, o sea cuándo terminó. '
+    +'Contar los '+u+' enteros en la hora del pesaje sería falso en bandas de 2 hs: una bobina que arrancó a las 9 y cerró a las 13 le pondría todo a la banda 12–14 y nada a las dos en que la máquina estuvo tirando. '
+    +'Acá cada bobina se <b>reparte sobre su ventana de producción</b> —de <i>pesaje − duración</i> a <i>pesaje</i>— y cada banda se queda con su parte de '+u+' y de horas. '
+    +'La duración es la misma que usa ⚡ Ritmo por máquina (mediana de horas por kg de esa máquina, con las paradas anómalas separadas), así que <b>las 12 bandas suman exactamente el '+u+'/h de ⚡ Ritmo</b>: son dos cortes del mismo dato. '
+    +'<b style="color:var(--text2);">El límite.</b> Cuando la duración se midió entre dos bobinas consecutivas, la ventana es real; cuando se imputó —la primera bobina del día, que no tiene anterior, y la que vino después de una parada larga— la ubicación en el reloj es una estimación. '
+    +'Por eso está la columna «ubicación medida»: si en una banda es baja, el número dice de dónde salen los '+u+', no a qué hora se hicieron. '
+    +'Para que todas las ventanas sean medidas hay que empezar a cargar la <b>hora de arranque</b> de la bobina — con eso, además, los huecos entre el fin de una y el arranque de la siguiente pasan a ser paradas con hora y duración.'
+    +'</div>';
+  return h;
+}
+
+// ════════════════════════════════════════════════════════════════
+// HISTORIAL DE RITMO — LA CURVA QUE MUESTRA SI LA MÁQUINA SE ESTÁ CAYENDO
+// ----------------------------------------------------------------
+// ⚡ Ritmo por máquina muestra los últimos 30 días y compara contra el día anterior.
+// Eso contesta "¿hoy anduvo bien?". Esta pantalla contesta otra cosa: "¿la máquina
+// viene cayéndose hace semanas y no nos dimos cuenta?". Nació del análisis del 05/09
+// sobre EXT-03 y EXT-07, donde la caída sólo se vio al poner tres meses juntos y
+// separar los productos por espesor.
+//
+// 🔴 POR QUÉ SE SEPARAN LOS PRODUCTOS GRUESOS. En película fina el caudal NO lo pone
+// el extrusor: lo ponen la burbuja, el enfriamiento y el tiro. La máquina podría dar
+// mucho más y nadie se lo pide. En película gruesa sí se le pide todo al tornillo.
+// Por eso los kg/h de los productos gruesos son EL TECHO REAL DEL EXTRUSOR, y un
+// deterioro mecánico se ve ahí primero — o sólo ahí. Mezclar todo en un promedio
+// esconde exactamente el dato que importa: en agosto de 2026 EXT-03 perdió 6 % en
+// 14–20 µ y 32 % en 46–60 µ, y el promedio de la máquina apenas se movía.
+//
+// El umbral es kg/m (ancho × espesor), no espesor solo: lo que le cuesta al tornillo
+// es el peso por metro, no el micronaje.
+//
+// P1: los kg y las horas de cada día salen de `_prhRitmoCalc` — LA MISMA función de
+// ⚡ Ritmo por máquina y 🕑 Bandas de 2 hs. La serie "todos los productos" de esta
+// pantalla y el número de ⚡ Ritmo del mismo día son el MISMO número. Lo único nuevo
+// es el corte por kg/m, que se hace sobre las mismas ventanas y las mismas duraciones.
+//
+// La línea gruesa es la MEDIANA MÓVIL de 7 días, no un promedio: un día con una sola
+// bobina no arrastra la tendencia. Y no interpola sobre los días sin producción.
+// ════════════════════════════════════════════════════════════════
+const PRH_KGM_GRUESO=0.035;      // kg por metro a partir del cual manda el extrusor
+
+// kg/m de cada tipo de bobina. Sólo aplica a extrusión: en confección el "grueso" no
+// tiene el mismo significado (la cortadora no es la que limita el peso del metro).
+function _prhKgmMap(area){
+  const m={};
+  if(area!=='extrusion')return m;
+  (C.bobinas||[]).forEach(b=>{m[b.id]=parseFloat(b.kg_por_metro)||0;});
+  return m;
+}
+const _prhDiaN=f=>Math.round(new Date(f+'T12:00:00').getTime()/86400000);
+
+// Mediana móvil de `dias` días naturales hacia atrás, sobre los días QUE PRODUJERON.
+function _prhMedMov(serie,campo,dias){
+  const out={};
+  serie.forEach(p=>{
+    const d0=_prhDiaN(p.f);
+    const v=serie.filter(q=>{const d=_prhDiaN(q.f);return d<=d0&&d>d0-dias&&q[campo]!=null;}).map(q=>q[campo]);
+    if(v.length>=2){v.sort((a,b)=>a-b);out[p.f]=v.length%2?v[(v.length-1)/2]:(v[v.length/2-1]+v[v.length/2])/2;}
+  });
+  return out;
+}
+
+// Serie diaria por máquina de los últimos `dias` días, con el corte por kg/m.
+function _prhHist(area,linea,dias){
+  const cfg=_prhCfg(area,linea);
+  const dd=new Date();dd.setDate(dd.getDate()-(dias||60));
+  const iniStr=localDate(dd), finStr=localDate();
+  const evs=cfg.eventos(iniStr,finStr);
+  const kgm=_prhKgmMap(area);
+  const porMaq={};
+  evs.forEach(x=>{if(x.maqId==null)return;(porMaq[String(x.maqId)]=porMaq[String(x.maqId)]||[]).push(x);});
+  const filas=(cfg.maquinas||[]).map(mq=>{
+    const ev=porMaq[String(mq.id)]||[];
+    if(!ev.length)return null;
+    // la mediana de h/kg se calcula MES POR MES, igual que ⚡ Ritmo por máquina, para
+    // que el mismo día dé el mismo kg/h en las dos pantallas (P1)
+    const porMes={};
+    ev.forEach(x=>{(porMes[String(x.fecha).slice(0,7)]=porMes[String(x.fecha).slice(0,7)]||[]).push(x);});
+    const dias_={};
+    Object.keys(porMes).forEach(mes=>{
+      (_prhRitmoCalc(porMes[mes]).ventanas||[]).forEach(w=>{
+        const D=dias_[w.fecha]||(dias_[w.fecha]={kg:0,hs:0,kgG:0,hsG:0,n:0,nG:0});
+        D.kg+=w.val;D.hs+=w.dur;D.n+=w.nb;
+        // 🔴 El TECHO se mide sólo con ventanas MEDIDAS entre dos pesajes: se deja afuera
+        // la primera bobina del día y la posterior a una parada, cuya duración se imputa
+        // con la mediana de h/kg de la máquina. Esa mediana mezcla productos finos y
+        // gruesos —que corren a velocidades muy distintas— así que imputarle a una bobina
+        // gruesa el ritmo promedio de la máquina le baja el techo sin que pase nada en la
+        // planta. La serie de TODOS los productos sí las incluye, porque tiene que dar
+        // exactamente el mismo número que ⚡ Ritmo por máquina (P1).
+        if(!w.imput&&(kgm[w.prodId]||0)>=PRH_KGM_GRUESO){D.kgG+=w.val;D.hsG+=w.dur;D.nG+=w.nb;}
+      });
+    });
+    const serie=Object.keys(dias_).sort().map(f=>{
+      const D=dias_[f];
+      return {f:f,kg:D.kg,hs:D.hs,n:D.n,nG:D.nG,
+        kgh:D.hs>0.05?D.kg/D.hs:null,
+        kghG:(D.hsG>0.25&&D.nG>=2)?D.kgG/D.hsG:null};   // un solo evento grueso no es un ritmo
+    });
+    if(!serie.length)return null;
+    const conG=serie.filter(p=>p.kghG!=null);
+    const kgT=serie.reduce((s,p)=>s+p.kg,0), hsT=serie.reduce((s,p)=>s+p.hs,0);
+    return {maq:mq,nominal:mq.cap||0,serie:serie,
+      mm:_prhMedMov(serie,conG.length>=6?'kghG':'kgh',7),
+      usaG:conG.length>=6,nG:conG.length,
+      kgh:hsT>0?kgT/hsT:null,kg:kgT,hs:hsT,
+      // la comparación de puntas necesita 8 días con techo: con 4 es ruido, no tendencia
+      ini:conG.length>=8?conG.slice(0,Math.max(3,Math.ceil(conG.length*0.2))):null,
+      fin:conG.length>=8?conG.slice(-Math.max(3,Math.ceil(conG.length*0.2))):null};
+  }).filter(Boolean);
+  filas.sort((a,b)=>(b.maq.servicio?1:0)-(a.maq.servicio?1:0)||b.kg-a.kg);
+  return {cfg,iniStr,finStr,dias:dias||60,filas,
+    d0:_prhDiaN(iniStr),d1:_prhDiaN(finStr)};
+}
+
+function prhHistDias(n){PRH.hdias=n;renderProductividadHora();}
+
+function _prhHistSvg(f,H,u,dec){
+  const W=780,ALT=214,PL=44,PR=12,PT=14,PB=24;
+  const vals=[];
+  f.serie.forEach(p=>{if(p.kgh!=null)vals.push(p.kgh);if(p.kghG!=null)vals.push(p.kghG);});
+  Object.keys(f.mm).forEach(k=>vals.push(f.mm[k]));
+  if(!vals.length)return '<div style="font-size:11px;color:var(--text3);padding:14px 0;">sin datos suficientes</div>';
+  // 🔴 La escala NO se arma con el máximo. Dos bobinas pesadas casi juntas dan un kg/h
+  // absurdo —180 en una máquina de 40— y ese solo punto aplasta los otros 70 días contra
+  // el piso, que es justo donde hay que mirar. Se usa el percentil 90 y lo de arriba se
+  // dibuja RECORTADO en el borde, con un triangulito y el valor real en el tooltip: se ve
+  // que hay un dato fuera de rango, pero no arruina la lectura de la serie.
+  const ord=vals.slice().sort((a,b)=>a-b);
+  const p90=ord[Math.min(ord.length-1,Math.floor(ord.length*0.9))];
+  const esc=_prhEscala(Math.max(f.nominal||0,p90)*1.18);
+  const top=Math.max(esc.max,0.001);
+  const cl=v=>Math.min(v,top);
+  const span=Math.max(1,H.d1-H.d0);
+  const X=fe=>PL+((_prhDiaN(fe)-H.d0)/span)*(W-PL-PR);
+  const Y=v=>PT+(1-v/top)*(ALT-PT-PB);
+  let g='<svg viewBox="0 0 '+W+' '+ALT+'" style="width:100%;height:'+ALT+'px;overflow:visible;" role="img">';
+  // grilla
+  for(let v=0;v<=top+1e-9;v+=esc.paso){
+    g+='<line x1="'+PL+'" y1="'+Y(v).toFixed(1)+'" x2="'+(W-PR)+'" y2="'+Y(v).toFixed(1)+'" stroke="var(--border)" stroke-width="1"/>'
+      +'<text x="'+(PL-6)+'" y="'+(Y(v)+3).toFixed(1)+'" text-anchor="end" fill="var(--text3)" font-size="9" font-family="monospace">'+_prhN(v,0)+'</text>';
+  }
+  if(f.nominal>0&&f.nominal<=top)
+    g+='<line x1="'+PL+'" y1="'+Y(f.nominal).toFixed(1)+'" x2="'+(W-PR)+'" y2="'+Y(f.nominal).toFixed(1)+'" stroke="var(--text2)" stroke-width="1" stroke-dasharray="5 4" opacity=".8"><title>nominal de la máquina: '+_prhN(f.nominal,0)+'</title></line>';
+  // eje de fechas: una marca por semana
+  for(let d=H.d0;d<=H.d1;d++){
+    const dt=new Date(d*86400000+43200000);
+    if(dt.getDay()!==1)continue;
+    const fe=localDate(dt);
+    g+='<line x1="'+X(fe).toFixed(1)+'" y1="'+PT+'" x2="'+X(fe).toFixed(1)+'" y2="'+(ALT-PB)+'" stroke="var(--border)" stroke-width="1" opacity=".5"/>';
+    if((H.d1-d)%14<7)
+      g+='<text x="'+X(fe).toFixed(1)+'" y="'+(ALT-8)+'" text-anchor="middle" fill="var(--text3)" font-size="9" font-family="monospace">'+fe.slice(8,10)+'/'+fe.slice(5,7)+'</text>';
+  }
+  // puntos: todos los productos (tenue) y gruesos (destacado)
+  const tri=(x,col)=>'<path d="M'+x.toFixed(1)+' '+(PT-2)+' l4 6 l-8 0 z" fill="'+col+'"/>';
+  f.serie.forEach(p=>{
+    if(p.kgh==null)return;
+    const t='<title>'+p.f.slice(8,10)+'/'+p.f.slice(5,7)+' · todos los productos: '+_prhN(p.kgh,1)+' '+u+'/h · '+_prhN(p.kg,dec)+' '+u+' en '+_prhN(p.hs,1)+' hs · '+p.n+' bobinas'+(p.kgh>top?' · fuera de escala':'')+'</title>';
+    g+=p.kgh>top?('<g opacity=".7">'+tri(X(p.f),'#6c8ef5')+t+'</g>')
+      :('<circle cx="'+X(p.f).toFixed(1)+'" cy="'+Y(p.kgh).toFixed(1)+'" r="2.8" fill="#6c8ef5" opacity=".55">'+t+'</circle>');
+  });
+  f.serie.forEach(p=>{
+    if(p.kghG==null)return;
+    const t='<title>'+p.f.slice(8,10)+'/'+p.f.slice(5,7)+' · productos gruesos: '+_prhN(p.kghG,1)+' '+u+'/h · '+p.nG+' bobinas de kg/m ≥ '+PRH_KGM_GRUESO+(p.kghG>top?' · fuera de escala':'')+'</title>';
+    g+=p.kghG>top?('<g>'+tri(X(p.f),'#fbbf24')+t+'</g>')
+      :('<rect x="'+(X(p.f)-3.2).toFixed(1)+'" y="'+(Y(p.kghG)-3.2).toFixed(1)+'" width="6.4" height="6.4" rx="1.4" fill="#fbbf24">'+t+'</rect>');
+  });
+  // mediana móvil, cortada donde hay huecos de más de 5 días
+  let d='',ab=false,ant=null;
+  f.serie.forEach(p=>{
+    const v=f.mm[p.f];
+    if(v==null){ab=false;return;}
+    if(ant!=null&&_prhDiaN(p.f)-ant>5)ab=false;
+    d+=(ab?'L':'M')+X(p.f).toFixed(1)+' '+Y(cl(v)).toFixed(1)+' ';
+    ab=true;ant=_prhDiaN(p.f);
+  });
+  g+='<path d="'+d+'" fill="none" stroke="#fbbf24" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>';
+  g+='</svg>';
+  return g;
+}
+
+function _prhHistHtml(H){
+  const c=H.cfg,u=c.unidadCorta,dec=c.decimales;
+  const bt=(n,l)=>'<button class="btn btn-sm" onclick="prhHistDias('+n+')" style="'+((PRH.hdias||60)===n?'background:var(--accent);color:#fff;border-color:var(--accent);':'')+'">'+l+'</button>';
+  let h='<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">'
+    +'<div class="btn-grp">'+bt(30,'30 días')+bt(60,'60 días')+bt(90,'90 días')+bt(180,'6 meses')+'</div>'
+    +'<div style="font-size:11.5px;color:var(--text3);">Del '+H.iniStr.slice(8,10)+'/'+H.iniStr.slice(5,7)+' al '+H.finStr.slice(8,10)+'/'+H.finStr.slice(5,7)+' · cada punto es un día</div></div>';
+  if(!H.filas.length)return h+'<div class="empty" style="padding:40px;text-align:center;color:var(--text3);">No hay producción de '+c.titulo.toLowerCase()+' en la ventana elegida.</div>';
+
+  h+='<div style="display:flex;gap:18px;flex-wrap:wrap;font-size:11px;color:var(--text2);margin-bottom:14px;align-items:center;">'
+    +'<span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#6c8ef5;opacity:.55;margin-right:5px;"></span>'+u+'/h del día · todos los productos</span>'
+    +(c.area==='extrusion'?'<span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#fbbf24;margin-right:5px;"></span>sólo productos gruesos (kg/m ≥ '+PRH_KGM_GRUESO+') — <b>el techo del extrusor</b></span>':'')
+    +'<span><span style="display:inline-block;width:16px;height:3px;background:#fbbf24;margin-right:5px;vertical-align:middle;"></span>mediana móvil de 7 días</span>'
+    +'<span><span style="display:inline-block;width:16px;height:0;border-top:2px dashed var(--text2);margin-right:5px;vertical-align:middle;"></span>nominal de la máquina</span>'
+    +'</div>';
+
+  H.filas.forEach(f=>{
+    // tendencia: primer quinto contra último quinto de los días con dato de techo
+    let tend=null,vIni=null,vFin=null;
+    if(f.ini&&f.fin){
+      const md=a=>{const v=a.map(p=>p.kghG).sort((x,y)=>x-y);return v.length%2?v[(v.length-1)/2]:(v[v.length/2-1]+v[v.length/2])/2;};
+      vIni=md(f.ini);vFin=md(f.fin);
+      if(vIni>0)tend=(vFin-vIni)/vIni*100;
+    }
+    const col=tend==null?'var(--text3)':(tend>=-3?'var(--green)':(tend>=-10?'var(--amber)':'var(--red)'));
+    h+='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:14px;">'
+      +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px;">'
+      +'<div style="font-weight:700;font-size:14px;">'+escapeHtml(f.maq.nom)
+      +(f.maq.servicio?'':' <span style="font-size:10px;color:var(--amber);font-weight:400;">fuera de servicio</span>')
+      +' <span style="font-size:11px;color:var(--text3);font-weight:400;">· nominal '+_prhN(f.nominal,0)+' '+u+'/h</span></div>';
+    if(tend!=null)
+      h+='<div style="font-size:11.5px;color:var(--text2);">Techo del extrusor: <b style="font-family:monospace;">'+_prhN(vIni,1)+'</b> → <b style="font-family:monospace;color:'+col+';">'+_prhN(vFin,1)+'</b> '+u+'/h '
+        +'<b style="color:'+col+';">('+(tend>=0?'+':'')+tend.toFixed(0)+'%)</b> entre el principio y el final de la ventana</div>';
+    else
+      h+='<div style="font-size:11.5px;color:var(--text3);">'+_prhN(f.kgh||0,1)+' '+u+'/h en la ventana'
+        +(c.area==='extrusion'?' · <span style="color:var(--amber);">'+(f.nG?'sólo '+f.nG+' día'+(f.nG===1?'':'s')+' con productos gruesos':'sin productos gruesos')+', no alcanza para medir el techo</span>':'')+'</div>';
+    h+='</div>'+_prhHistSvg(f,H,u,dec)+'</div>';
+  });
+
+  h+='<div style="font-size:11px;color:var(--text3);line-height:1.6;margin-top:4px;">'
+    +'<b style="color:var(--text2);">Cómo se lee.</b> Los kg y las horas de cada día son los mismos que usa ⚡ Ritmo por máquina — el punto azul de un día y el número de esa pantalla para ese día son <b>el mismo dato</b>. '
+    +(c.area==='extrusion'?'Lo que agrega esta vista es el <b>corte por kg/m</b>: en película fina el caudal lo ponen la burbuja y el tiro, no el tornillo, así que la máquina podría dar más y nadie se lo pide. En película gruesa sí se le pide todo. Por eso <b>los cuadrados naranjas son el techo real del extrusor</b>, y un problema mecánico se ve ahí antes —o sólo ahí— que en el promedio de la máquina. ':'')
+    +'La línea es la mediana móvil de 7 días, no un promedio: un día flojo con dos bobinas no arrastra la tendencia. Los días sin producción cortan la línea en vez de interpolarse. '
+    +'<b style="color:var(--text2);">Para qué sirve.</b> Un desgaste, una malla que se va cegando o un cabezal que se ensucia no se ven de un día para el otro: se ven como una pendiente de semanas. Esta es la pantalla donde aparecen.'
+    +'</div>';
+  return h;
+}
+
 function prhRitModo(m){PRH.rit=m;renderProductividadHora();}
 function prhTab(t){PRH.tab=t;renderProductividadHora();}
 function prhArea(a){PRH.area=a;renderProductividadHora();}
@@ -32961,13 +33482,22 @@ async function renderProductividadHora(){
   if(PRH.area==='extrusion'){
     const rr=_rmMesRange(ym);
     let ra=_rmMesRange(_rmMesAnterior(ym));
+    let finNec=rr.finStr;
     if(PRH.tab==='ritmo'&&(PRH.rit||'dia')==='mes'){
       const y=parseInt(ym.slice(0,4)),m=parseInt(ym.slice(5,7));
       ra={iniStr:localDate(new Date(y,m-12,1)).slice(0,8)+'01'};
     }
-    if(!(_PRHBOB.rows&&_PRHBOB.desde<=ra.iniStr&&_PRHBOB.hasta>=rr.finStr)){
+    // 📉 Historial de ritmo NO mira el mes elegido: mira los últimos N días hasta hoy,
+    // así que necesita su propia ventana de bobinas (la caché sólo crece, nunca achica).
+    if(PRH.tab==='hist'){
+      const dd=new Date();dd.setDate(dd.getDate()-(PRH.hdias||60));
+      const hoy=localDate();
+      ra={iniStr:localDate(dd)};
+      if(hoy>finNec)finNec=hoy;
+    }
+    if(!(_PRHBOB.rows&&_PRHBOB.desde<=ra.iniStr&&_PRHBOB.hasta>=finNec)){
       root.innerHTML='<div class="loading" style="padding:24px;"><div class="spinner"></div>Trayendo las bobinas del período…</div>';
-      try{await _prhCargarBobinas(ra.iniStr,rr.finStr);}
+      try{await _prhCargarBobinas(ra.iniStr,finNec);}
       catch(e){root.innerHTML='<div class="msg-err" style="padding:14px;">No se pudieron traer las bobinas del período: '+escapeHtml(e.message||String(e))+'</div>';return;}
     }
   }
@@ -32978,11 +33508,24 @@ async function renderProductividadHora(){
   const lb=l=>'<button class="btn btn-sm" onclick="prhLinea(\''+l.nom.replace(/'/g,"\\'")+'\')" title="'+escapeHtml(l.maquinas.map(m=>m.nombre).join(', '))+' · '+_prhN(l.capServicio)+' bolsas/h en servicio" style="'+(LN===l.nom?'background:var(--accent);color:#fff;border-color:var(--accent);':'')+'">'+escapeHtml(l.nom)+'</button>';
   let html='<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;">'
     +'<div class="btn-grp">'+btn('extrusion','🏭 Extrusión')+btn('confeccion','✂️ Confección')+'</div>'
-    +'<div class="btn-grp">'+tb('hora','🕐 Por hora del día')+tb('turno','🌙 Por turno')+tb('dia','📅 Detalle por día')+tb('ritmo','⚡ Ritmo por máquina')+tb('maquina','⚙ Por máquina')+'</div>'
+    +'<div class="btn-grp">'+tb('hora','🕐 Por hora del día')+tb('turno','🌙 Por turno')+tb('dia','📅 Detalle por día')+tb('ritmo','⚡ Ritmo por máquina')+tb('hist','📉 Historial de ritmo')+tb('bandas','🕑 Bandas de 2 hs')+tb('maquina','⚙ Por máquina')+'</div>'
     +(LN?'<div class="btn-grp">'+(c.lineas||[]).map(lb).join('')+'</div>':'')+'</div>';
   if(LN)html+='<div style="font-size:11.5px;color:var(--text3);margin:-6px 0 14px;">'
     +'Cada línea se mide contra su propia capacidad: la rollera y las confeccionadoras no hacen el mismo trabajo, '
     +'así que sumarlas daría un porcentaje que no le sirve a ninguna de las dos.</div>';
+  // 🔴 AVISO DE CONFECCIÓN, en todas las pestañas del módulo. En extrusión la marca de
+  // tiempo es el pesaje de CADA bobina: una medición por pieza. En confección es
+  // `fecha_asignacion`, o sea cuándo el operario ASOCIÓ la bobina a la orden de corte —
+  // y medido sobre la base al 05/09, el 51 % de las asociaciones entran en tandas de
+  // menos de un minuto (1.929 de 3.783 desde junio). O sea que la curva por hora de esta
+  // área muestra cuándo se cargó el papeleo, no el ritmo de la cortadora. El dato es
+  // honesto (lo sella la base con now(), no se congela como pasaba en extrusión antes
+  // del 05c) pero NO es una línea de tiempo de producción, y usarlo para diagnosticar
+  // una cortadora lleva a conclusiones falsas.
+  if(PRH.area==='confeccion')html+='<div style="font-size:11.5px;color:var(--amber);background:var(--amberbg);border:1px solid var(--amberbd);border-radius:var(--r);padding:9px 12px;margin:-4px 0 14px;line-height:1.55;">'
+    +'<b>Ojo con la hora en confección.</b> La marca de tiempo es cuándo se <b>asoció</b> la bobina a la orden de corte, no cuándo se cortaron las bolsas, y <b>la mitad de las asociaciones entran en tandas de menos de un minuto</b>. '
+    +'Los totales por día y por mes son correctos; <b>la distribución por hora y por banda no es el ritmo de la cortadora</b>, es cuándo se cargó. '
+    +'Para medir confección de verdad hay que ir por orden completa (de la primera bobina asignada a la fecha de completada), que es un módulo aparte todavía no hecho.</div>';
   if(PRH.tab==='maquina'){root.innerHTML=html+_prhMaquinasHtml(PRH.area,ym,LN);return;}
   if(PRH.tab==='turno'||PRH.tab==='dia'){
     const T=_prhPorTurno(PRH.area,ym,LN);
@@ -32990,6 +33533,8 @@ async function renderProductividadHora(){
     return;
   }
   if(PRH.tab==='ritmo'){root.innerHTML=html+_prhRitmoHtml(_prhRitmo(PRH.area,ym,PRH.rit||'dia',LN));return;}
+  if(PRH.tab==='bandas'){root.innerHTML=html+_prhBandasHtml(_prhBandas(PRH.area,ym,PRH.bdia,LN));return;}
+  if(PRH.tab==='hist'){root.innerHTML=html+_prhHistHtml(_prhHist(PRH.area,LN,PRH.hdias||60));return;}
 
   if(!R.dias.length){
     root.innerHTML=html+'<div class="empty" style="padding:40px;text-align:center;color:var(--text3);">No hay producción de '
