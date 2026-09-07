@@ -709,7 +709,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-05d</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-07d</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5363,7 +5363,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-09-05d';   // 05d: aviso de CONFECCIÓN en todas las pestañas de 📈 Productividad por hora. Revisando si el reloj congelado del 05c también pasaba en corte: NO pasa — `orden_corte_bobinas` no manda `fecha_asignacion` en el insert, así que la sella la base con `now()` y no se puede congelar. Pero apareció algo distinto y peor para las curvas por hora: esa marca es cuándo el operario ASOCIÓ la bobina a la orden de corte, y el 51 % de las asociaciones entran en tandas de menos de un minuto (1.929 de 3.783 desde junio). O sea que 🕐 Por hora del día, 🕑 Bandas de 2 hs y 📉 Historial de ritmo, en el área de confección, muestran cuándo se cargó el papeleo y no el ritmo de la cortadora — los totales por día y por mes sí son correctos. El aviso lo dice en pantalla. Para medir confección de verdad hay que ir por orden completa (de la primera bobina asignada a `fecha_completada`): 479 órdenes tienen las dos puntas, ventana promedio 26 h. Módulo pendiente. Auditados de paso todos los inserts con fecha/hora: fichajes usa localDate()/localTime() en el momento del scan, mezclas, inventarios y movimientos de stock sellan al insertar, y los documentos (facturas, remitos, pagos, recibos) llevan la fecha que elige el usuario a propósito. La carga de bobinas era el único caso del reloj congelado. // 05c: 🔴 EL RELOJ DE LA CARGA DE BOBINAS ESTABA CONGELADO. `initCarga()` escribía fecha y hora UNA SOLA VEZ (al abrir la pantalla y después de cada bobina guardada) y `guardarBobina()` leía ESOS campos. Si el operario dejaba la pantalla abierta al lado de la balanza —que es lo normal— la bobina se guardaba con la hora de cuando se abrió: German reportó 2 hs de diferencia. Dos bobinas de la misma sesión de pantalla podían quedar con la MISMA hora, y ahí el kg/h de esa máquina da cualquier cosa porque el intervalo entre las dos es cero (esos son los picos absurdos tipo 180 kg/h en una máquina de 40). Peor con la FECHA: pasada la medianoche la producción de la madrugada se guardaba con el día anterior, y con la fábrica en 24 hs eso pasaba todas las noches. ARREGLO EN DOS PARTES: (1) el reloj de la pantalla se refresca solo cada 20 s mientras está a la vista y el timer se apaga cuando la pantalla deja de estar visible; (2) 🔴 la que manda: fecha y hora se SELLAN EN EL MOMENTO DE GUARDAR con `_cbSellarAhora()` y ya no se leen del campo, así el registro sale bien aunque el navegador congele el timer en una pestaña de fondo. Los campos siguen readonly: corregir una hora mal cargada es trabajo de la pantalla de admin de bobinas, que deja rastro. MEDIDO sobre las 5.278 bobinas del backup del 05/09 comparando `created_at` (que lo pone la base al insertar) contra la fecha+hora declarada: 78 % dentro de 5 min, 832 bobinas con 5-20 min, 290 con más de 20 min, 5 con más de 1 h. El desfase NO empeoró con el tiempo (mediana 1,2-1,7 min pareja de junio a septiembre), así que no explica la caída de kg/h de EXT-03/EXT-07 — esa sigue siendo real. Verificado con smoke_reloj.cjs (18 asserts, incluye el caso de las 2 hs y el cruce de medianoche). // 05b: 📉 HISTORIAL DE RITMO (📈 Productividad por hora → nueva pestaña): la curva diaria de kg/h por máquina sobre 30/60/90/180 días, con la mediana móvil de 7 días y el nominal. Nació del análisis del 05/09 de EXT-03 y EXT-07, donde la caída sólo se vio poniendo tres meses juntos. 🔴 LO QUE APORTA ES EL CORTE POR kg/m: en película fina el caudal NO lo pone el extrusor sino la burbuja y el tiro, así que la máquina podría dar más y nadie se lo pide; en película gruesa sí se le pide todo al tornillo. Por eso los productos de kg/m ≥ 0,035 son EL TECHO REAL DEL EXTRUSOR y ahí un deterioro mecánico se ve primero —o sólo ahí—: EXT-03 perdió 6 % en 14–20 µ y 32 % en 46–60 µ, y el promedio de la máquina apenas se movía. El techo se mide SÓLO con ventanas medidas entre dos pesajes (se descarta la primera bobina del día y la posterior a una parada, cuya duración se imputa con una mediana que mezcla finos y gruesos y le bajaría el techo a una bobina gruesa sin que pase nada en planta); la serie de TODOS los productos sí las incluye porque tiene que dar el mismo número que ⚡ Ritmo por máquina (P1, verificado día por día). Mediana móvil y no promedio: un día flojo de dos bobinas no arrastra la tendencia; los días sin producción cortan la línea en vez de interpolarse. 🔴 La escala usa el PERCENTIL 90 y no el máximo: dos bobinas pesadas casi juntas dan un kg/h absurdo (180 en una máquina de 40) que aplastaba 70 días contra el piso; lo que queda arriba se dibuja recortado en el borde con un triángulo y su valor real en el tooltip. La comparación de puntas exige 8 días con techo (con 4 es ruido) y si no alcanza lo dice. `_prhRitmoCalc` ahora arrastra `prodId` en cada ventana. Verificado con smoke_hist.cjs (50 asserts, incluye el invariante P1 y la reproducción del caso EXT-03) y render con los datos reales. // 05a: 🕒 BANDAS DE 2 HS (📈 Productividad por hora → nueva pestaña): el kg/h de cada máquina abierto en 12 bandas de 2 horas, para contestar no sólo «qué tan rápido va» sino «a qué hora afloja». 🔴 La única marca de tiempo que existe es la del PESAJE de la bobina (cuándo terminó): contar los kg enteros en la hora del pesaje —lo que hace 🕐 Por hora del día, avisado ahí— es falso en bandas cortas, porque una bobina que arrancó a las 9 y cerró a las 13 le pone el 100% de sus kg a la banda 12–14 y CERO a las dos en que la máquina estuvo tirando; con 4 o 5 bobinas por día el error es más grande que la señal. Acá cada bobina se REPARTE sobre su ventana de producción (pesaje − duración → pesaje) y cada banda se queda con su parte de kg Y de horas; el kg/h de la banda es kg÷horas repartidas, nunca promedio de promedios. P1: la duración NO se calcula acá — _prhRitmoCalc ahora devuelve también las `ventanas` de cada evento, con la misma mediana de h/kg y la misma regla de paradas anómalas, así que las 12 bandas suman EXACTAMENTE el kg/h de ⚡ Ritmo por máquina (verificado con 67 asserts en smoke_bandas.cjs, incluida la regresión de que _prhRitmoCalc da lo mismo que antes en 20 días inventados con paradas y pesajes juntos). Las bandas arrancan a las 6 y no a medianoche: cada una cae entera adentro de un turno y la noche no queda partida entre dos días (mismo criterio que el eje 🌙 VUELTA). El color compara contra el PROPIO promedio de esa máquina (índice 100 = su ritmo normal), no contra el nominal, que es un dato cargado a mano. EL LÍMITE, DICHO EN PANTALLA: cuando la duración se midió entre dos bobinas la ventana es real; cuando se imputó (la primera del día, y la posterior a una parada) la ubicación en el reloj es una estimación — de ahí la columna «ubicación medida», el KPI y el ≈ en las celdas mayormente estimadas. Para que todas las ventanas sean medidas hay que cargar la HORA DE ARRANQUE de la bobina (pendiente). Selector de todo el mes o un día suelto, con cartel de que un día son pocas bobinas y no alcanza para conclusiones. // 03a: ✏️ EDITAR LOTE DE MP (Stock MP, botón ✏️ en cada lote): corrige material, proveedor, remito, bolsones, kg, precio y fecha de un lote ya cargado, con clave admin. Nació de LOTE-2026-116 y 117, que entraron como COLORANTE NEGRO y eran ROJO y AMARILLO, sin forma de arreglarlo desde el sistema. 🔴 Material, kg y precio SÓLO se editan si el lote está INTACTO (cero consumos y ningún movimiento que no sea el ingreso): apenas salió un kilo, ese consumo ya quedó costeado en consumos_mp_bobina con el material y el precio de ese momento, y cambiarlos después dejaría bobinas costeadas con un material que nunca usaron. En un lote en uso se editan igual proveedor, remito, bolsones, fecha y observaciones; los kilos se mueven con ⚖️ Ajustar. Si la consulta de consumos falla, se bloquea igual (modo seguro de fallar). Cambiar el material repunta también mov_mp del lote para que el libro de MP cuente la misma historia. // 02g: 🔴 fix del cierre por entregado: escribía estado_linea='Cancelada' y la constraint pedido_lineas_estado_linea_check sólo acepta 'Pendiente'|'Entregado'|'Parcial'|'Cancelado' (masculino), así que el cierre de PED-05932/05997/05952 reventaba DESPUÉS de haber despegado las OE y cancelado las OC. Ahora va 'Cancelado' y, si igual lo rechazan, reintenta sin ese campo (cantidad_cancelada + subtotal 0 ya alcanzan) y lo avisa en el log. Re-ejecutar el lote es idempotente. // 02f: fix del diagnóstico de anulación en lote. (a) La producción de cada OE se contaba contra C.bobinas_prod, que es una CACHÉ PARCIAL (sólo bobinas en stock o de los últimos 60 días): una OE vieja que sí produjo daba cero y podía aparecer como «no arrancó, la cancelo». Ahora _alContarBobinas pide el conteo real a bobinas_producidas (1 request cada 200 OE, sin las anuladas) y avisa en ámbar si no pudo. (b) El cartel decía «N OE siguen corriendo» metiendo en la misma bolsa las OE ya COMPLETADAS: ahora _alClaseOe/_alClaseOc separan cancelar / ya hechas / en máquina / ya canceladas, en el resumen y en las columnas OC y OE de la tabla. Una OE Completada o En proceso NUNCA se cancela: sólo se despega del pedido. // 02e: ⛔ ANULAR PEDIDOS EN LOTE (Ventas → botón junto a + Nuevo pedido): se pegan los números, el sistema diagnostica cada uno (entregado real derivado de remito_lineas, facturas/RV vivos, cobrado, OC y OE con su producción, stock reservado) y propone camino: sin entregas → ANULAR entero; con entregas → CERRAR por lo entregado (remanente a cantidad_cancelada y total recalculado renglón por renglón, nunca prorrateado). Cierra el agujero del anularPedido de a uno, que NO tocaba las OE (quedaban con pedido_ref_id muerto ocupando cronograma) ni miraba remitos. OE sin bobinas producidas → Cancelada; OE con producción o compartida → se desvincula y sigue corriendo. OC activas → Canceladas; completadas → reserva liberada a stock disponible. Nada compartido con un pedido fuera del lote se cancela. // 02d: FACTURA FORMAL CONSOLIDADA: un renglón por producto+precio (nunca promediado), remitos en el encabezado del impreso, y vínculo REAL renglón→renglones de remito (tabla factura_linea_remitos) que reemplaza el parseo de '[Remito …]' en el ✏ (con fallback para facturas viejas). Requiere crear_factura_linea_remitos.sql. 02c: 📊 Hoy vs. el aumento anterior en Evolución (último aumento por cliente×producto contra la lista de hoy, con resina ese día→hoy) + 🗑 Deshacer la foto de hoy + las fotos se ocultan del registro por defecto. 02b: fix _efRecalcPedido pedía la columna observaciones (no existe en pedido_lineas) → la corrección de precios de remito/factura quedaba a medias; ahora sin cambios + tilde pedido recalcula la cabecera. 02a: ✏ Precios en remitos NO facturados (lista Remitos y pendientes de facturar): corregir $/paq por renglón antes de emitir, con $/kg por renglón y «llevar todo a X $/kg»; propaga opcionalmente al pedido; admin. Sobre el 01b: 🔴 BORRAR UN GASTO PAGADO ya no deja la cabecera del pago huérfana drenando el banco (caso PAG-000020 $37.975,24): ahora avisa y anula la cabecera que quedaría sin imputar, o explica que sigue pagando otros documentos. Un pago sin imputar se marca «sin imputar (crédito a cuenta)» en libro y conciliación. Sobre el 01a: tenencia FCI
+const APP_BUILD='2026-09-07d';   // 07d: ¿DE QUÉ ESTÁ HECHO TU COSTO? — el % de margen no vale mas que el costo que tiene abajo, y ese costo tenia TRES escalones de caida hacia lo teorico que no se veian en ninguna pantalla. Ahora Resultado del mes los muestra en dos tarjetas. (1) POR CALIDAD: que parte del costo del mes sale del CONSUMO TRAZADO (consumos_mp_bobina: los kilos que de verdad salieron del lote, al precio de ESE lote — el costo real de la bolsa), que parte de FORMULA x PROMEDIO SIMPLE DE TODOS LOS LOTES con precio (bobinas sin consumo trazado: mete lotes viejos y baratos, o sea que con inflacion BAJA el costo e INFLA el margen) y que parte del $/METRO DE RESPALDO (ni la formula tenia precio). (2) POR ANTIGUEDAD: que parte de la venta se costea con una OC completada en los ultimos 120 dias y que parte con una mas vieja (un producto que hace 4 meses no se corta se esta costeando a precios de entonces), mas la venta sin ningun costo que ya avisaba el cartel ambar. Implementacion: costoBobina devuelve {costo,via}, costoOC acumula cReal/cForm/cMetro, el mapa de costos guarda mixReal/mixForm/mixMetro por producto y _rmCalcVentas los reparte por linea en costoTraz/costoForm/costoMetro + ventaVentana/ventaHist. Invariante verificado: costoTraz+costoForm+costoMetro = costo del mes. Y un renglon deja dicho lo que faltaba decir: el margen es MARGINAL (materia prima sola, sin sueldos ni luz ni estructura) y es costo HISTORICO —lo que se pago por esos kilos—, no de REPOSICION: para decidir precios el numero que manda es el de Aumentos. Verificado con smoke_costo.cjs (14 asserts) y regresion de smoke_kg.cjs. Sin SQL: solo lectura. // 07c: 🔴 EL $/kg DE VENTA DEL RESULTADO DEL MES ESTABA MEDIDO CON OTRO METRO. La tarjeta de punto de equilibrio en kg hacia venta/kg y margen/kg dividiendo por A.kg, que son los kg de PELICULA: los kg_reales de las bobinas que la OC se comio para hacer esas bolsas, con la merma de corte adentro. Todo el resto del sistema —listas de precios, tramos, piso $/kg, aumentos, Cliente 360 y el Tablero— mide el kilo por FICHA (paquetes x u/paq x peso_por_bolsa), que es el kilo que se cobra. Por eso el $2.708,01/kg de la pantalla no se podia comparar contra el piso de $2.900 ni contra el objetivo del plan de precios: no era el mismo kilo. Ademas el numerador y el denominador cubrian conjuntos distintos de lineas: la venta sumaba TODAS las lineas del remito y los kg solo las que tenian costo real, asi que el cociente mezclaba peras con manzanas y siempre para el lado de inflar el $/kg. Ahora _rmCalcVentas devuelve kgFicha (kg de bolsa vendida, todas las lineas), y kgF/kgFilmF/ventaF/costoF/margenF acumulados EXACTAMENTE sobre las mismas lineas —las que tienen ficha Y costo real—, mas ventaFueraKg/lineasFueraKg para decir cuanto quedo afuera. La tarjeta pasa a llamarse «Punto de equilibrio en kg de bolsa a vender», el $/kg y el margen/kg salen del kilo de ficha (comparable con la lista) y debajo se muestra el equivalente en kg de pelicula a extrudar con el factor de merma medido del propio mes. Una venta de bobina al granel no cambia: ahi la ficha ES el kilo vendido (kg_reales) y el factor da 1. Verificado con smoke_kg.cjs (13 asserts: ficha vs pelicula con 6% de merma, linea sin peso_por_bolsa que queda afuera del cociente, y el caso granel). Sin SQL: solo lectura. // 07b: 🔴 REABRIR UNA OC YA CORTADA NO PEDÍA CONFIRMACIÓN. `_pcorteIniciarOC` (escanear el QR de una OC en el panel de corte) sólo frenaba Completada, Suspendida y Cancelada: una OC en 'Pendiente empaque' —corte físico terminado, esperando el cierre del dueño— se reabría en silencio y las bobinas siguientes se cargaban ahí. Es lo que pasó el 07/09/2026: OC-1052760 (DAG SRL, cortada el 01/09 con 8 bobinas de ORD-06142) se reabrió a las 10:35 al escanear la hoja vieja que había quedado en la máquina, y entre las 10:50 y las 11:23 se le cargaron 4 bobinas de la OE ORD-06164 —BOB-05204, BOB-05212, BOB-05215 y BOB-05217, 1.250 m, 125,44 kg— que son de OC-1052781. Ahora la reapertura pide un confirm que dice cuándo terminó de cortar y de qué cliente es, y si se acepta el rastro queda como [REABIERTA en panel …] en vez de [Iniciada en panel …]. Verificado con smoke_reabrir.cjs (9 asserts: pide confirmación y nombra la fecha, cancelar no toca el estado, aceptar pasa a En proceso con la marca REABIERTA, una OC Pendiente normal arranca sin preguntar nada, y Completada sigue bloqueada). Los datos de ese caso se corrigen aparte con fix_bobinas_oc2760_a_2781.sql (mueve las 4 filas de orden_corte_bobinas a la OC 813, repunta los 4 stock_movimientos y devuelve la 792 a 'Pendiente empaque'); las bobinas quedan fuera de stock, que es lo correcto, y no había costos, remitos ni facturas de por medio. // 07a: 🔴 EL kg/h DE ⚡ RITMO POR MÁQUINA ESTABA INFLADO. Dos causas, las dos en `_prhRitmoCalc` (así que se arreglan de una sola vez para ⚡ Ritmo, 🕒 Bandas de 2 hs, 📉 Historial de ritmo y 🔬 Análisis de extrusión — P1). (1) FALTABA LA MITAD DE ABAJO DE LA REGLA DE PARADAS. Estaba el tope de arriba (hueco > 3× lo esperado y > 45 min = parada anómala, sale del tiempo de producción) pero NO el de abajo: un hueco muchísimo más corto que lo que esa bobina pudo haber tardado se tomaba al pie de la letra, y entonces la bobina entera ponía sus kg en minutos. Eso no es producción, es PAPELERÍA EN TANDA: el operario pesó tarde la anterior y las dos entraron casi juntas. El error sólo podía ir para el lado de inflar. Ahora un hueco 3× más corto que lo esperado —o que implique más del DOBLE del nominal de la máquina, que es físicamente imposible— con al menos 15 min de faltante se imputa como la primera bobina del día, y NO cuenta como parada (ese tiempo no se perdió, estaba mal repartido entre dos bobinas). El nominal entra ahora como segundo parámetro de `_prhRitmoCalc` en las 5 llamadas. El mismo techo le pone PISO A LA MEDIANA de h/kg: si una máquina se pesa siempre en tandas los huecos cortos son mayoría y la mediana se iba al ciclo de la tanda, con lo cual ni las tandas ni las paradas se detectaban y el kg/h se iba a tres cifras (medido en el test: 300 kg/h y 18 hs de «parada» inventadas en una máquina de 40 que producía 40; ahora queda acotado en 80). (2) EL NÚMERO GRANDE ERA EL DÍA EN CURSO. La tarjeta comparaba media mañana de hoy contra un día entero de ayer — de ahí el +208,8 % de EXT-03 y el 206 % del nominal, con el pie de la misma tarjeta diciendo 2.911 kg en 106,6 hs (27,3 kg/h). Ahora el titular es el último día TERMINADO y con al menos 2 ventanas MEDIDAS entre dos pesajes (con una bobina, o con dos de las cuales la primera siempre es imputada, no hay ritmo que medir); el día en curso se muestra igual, aparte, dicho y sin comparar, y en el gráfico va con el punto hueco. La tabla espejo suma las columnas bob. y vent. medidas (con ·Nt cuando hubo tandas descartadas) y marca «en curso». Mismo criterio en Por mes: el mes en curso no es el titular. Verificado con smoke_ritmo.cjs (22 asserts, incluye la regresión de que los días limpios y las paradas dan EXACTAMENTE lo mismo que antes y el invariante P1 de que las ventanas suman las horas del día), smoke2.cjs (5 asserts, reproduce el caso EXT-03 y el pesaje en tandas) y smoke_html.cjs (render de la tarjeta). // 05d: aviso de CONFECCIÓN en todas las pestañas de 📈 Productividad por hora. Revisando si el reloj congelado del 05c también pasaba en corte: NO pasa — `orden_corte_bobinas` no manda `fecha_asignacion` en el insert, así que la sella la base con `now()` y no se puede congelar. Pero apareció algo distinto y peor para las curvas por hora: esa marca es cuándo el operario ASOCIÓ la bobina a la orden de corte, y el 51 % de las asociaciones entran en tandas de menos de un minuto (1.929 de 3.783 desde junio). O sea que 🕐 Por hora del día, 🕑 Bandas de 2 hs y 📉 Historial de ritmo, en el área de confección, muestran cuándo se cargó el papeleo y no el ritmo de la cortadora — los totales por día y por mes sí son correctos. El aviso lo dice en pantalla. Para medir confección de verdad hay que ir por orden completa (de la primera bobina asignada a `fecha_completada`): 479 órdenes tienen las dos puntas, ventana promedio 26 h. Módulo pendiente. Auditados de paso todos los inserts con fecha/hora: fichajes usa localDate()/localTime() en el momento del scan, mezclas, inventarios y movimientos de stock sellan al insertar, y los documentos (facturas, remitos, pagos, recibos) llevan la fecha que elige el usuario a propósito. La carga de bobinas era el único caso del reloj congelado. // 05c: 🔴 EL RELOJ DE LA CARGA DE BOBINAS ESTABA CONGELADO. `initCarga()` escribía fecha y hora UNA SOLA VEZ (al abrir la pantalla y después de cada bobina guardada) y `guardarBobina()` leía ESOS campos. Si el operario dejaba la pantalla abierta al lado de la balanza —que es lo normal— la bobina se guardaba con la hora de cuando se abrió: German reportó 2 hs de diferencia. Dos bobinas de la misma sesión de pantalla podían quedar con la MISMA hora, y ahí el kg/h de esa máquina da cualquier cosa porque el intervalo entre las dos es cero (esos son los picos absurdos tipo 180 kg/h en una máquina de 40). Peor con la FECHA: pasada la medianoche la producción de la madrugada se guardaba con el día anterior, y con la fábrica en 24 hs eso pasaba todas las noches. ARREGLO EN DOS PARTES: (1) el reloj de la pantalla se refresca solo cada 20 s mientras está a la vista y el timer se apaga cuando la pantalla deja de estar visible; (2) 🔴 la que manda: fecha y hora se SELLAN EN EL MOMENTO DE GUARDAR con `_cbSellarAhora()` y ya no se leen del campo, así el registro sale bien aunque el navegador congele el timer en una pestaña de fondo. Los campos siguen readonly: corregir una hora mal cargada es trabajo de la pantalla de admin de bobinas, que deja rastro. MEDIDO sobre las 5.278 bobinas del backup del 05/09 comparando `created_at` (que lo pone la base al insertar) contra la fecha+hora declarada: 78 % dentro de 5 min, 832 bobinas con 5-20 min, 290 con más de 20 min, 5 con más de 1 h. El desfase NO empeoró con el tiempo (mediana 1,2-1,7 min pareja de junio a septiembre), así que no explica la caída de kg/h de EXT-03/EXT-07 — esa sigue siendo real. Verificado con smoke_reloj.cjs (18 asserts, incluye el caso de las 2 hs y el cruce de medianoche). // 05b: 📉 HISTORIAL DE RITMO (📈 Productividad por hora → nueva pestaña): la curva diaria de kg/h por máquina sobre 30/60/90/180 días, con la mediana móvil de 7 días y el nominal. Nació del análisis del 05/09 de EXT-03 y EXT-07, donde la caída sólo se vio poniendo tres meses juntos. 🔴 LO QUE APORTA ES EL CORTE POR kg/m: en película fina el caudal NO lo pone el extrusor sino la burbuja y el tiro, así que la máquina podría dar más y nadie se lo pide; en película gruesa sí se le pide todo al tornillo. Por eso los productos de kg/m ≥ 0,035 son EL TECHO REAL DEL EXTRUSOR y ahí un deterioro mecánico se ve primero —o sólo ahí—: EXT-03 perdió 6 % en 14–20 µ y 32 % en 46–60 µ, y el promedio de la máquina apenas se movía. El techo se mide SÓLO con ventanas medidas entre dos pesajes (se descarta la primera bobina del día y la posterior a una parada, cuya duración se imputa con una mediana que mezcla finos y gruesos y le bajaría el techo a una bobina gruesa sin que pase nada en planta); la serie de TODOS los productos sí las incluye porque tiene que dar el mismo número que ⚡ Ritmo por máquina (P1, verificado día por día). Mediana móvil y no promedio: un día flojo de dos bobinas no arrastra la tendencia; los días sin producción cortan la línea en vez de interpolarse. 🔴 La escala usa el PERCENTIL 90 y no el máximo: dos bobinas pesadas casi juntas dan un kg/h absurdo (180 en una máquina de 40) que aplastaba 70 días contra el piso; lo que queda arriba se dibuja recortado en el borde con un triángulo y su valor real en el tooltip. La comparación de puntas exige 8 días con techo (con 4 es ruido) y si no alcanza lo dice. `_prhRitmoCalc` ahora arrastra `prodId` en cada ventana. Verificado con smoke_hist.cjs (50 asserts, incluye el invariante P1 y la reproducción del caso EXT-03) y render con los datos reales. // 05a: 🕒 BANDAS DE 2 HS (📈 Productividad por hora → nueva pestaña): el kg/h de cada máquina abierto en 12 bandas de 2 horas, para contestar no sólo «qué tan rápido va» sino «a qué hora afloja». 🔴 La única marca de tiempo que existe es la del PESAJE de la bobina (cuándo terminó): contar los kg enteros en la hora del pesaje —lo que hace 🕐 Por hora del día, avisado ahí— es falso en bandas cortas, porque una bobina que arrancó a las 9 y cerró a las 13 le pone el 100% de sus kg a la banda 12–14 y CERO a las dos en que la máquina estuvo tirando; con 4 o 5 bobinas por día el error es más grande que la señal. Acá cada bobina se REPARTE sobre su ventana de producción (pesaje − duración → pesaje) y cada banda se queda con su parte de kg Y de horas; el kg/h de la banda es kg÷horas repartidas, nunca promedio de promedios. P1: la duración NO se calcula acá — _prhRitmoCalc ahora devuelve también las `ventanas` de cada evento, con la misma mediana de h/kg y la misma regla de paradas anómalas, así que las 12 bandas suman EXACTAMENTE el kg/h de ⚡ Ritmo por máquina (verificado con 67 asserts en smoke_bandas.cjs, incluida la regresión de que _prhRitmoCalc da lo mismo que antes en 20 días inventados con paradas y pesajes juntos). Las bandas arrancan a las 6 y no a medianoche: cada una cae entera adentro de un turno y la noche no queda partida entre dos días (mismo criterio que el eje 🌙 VUELTA). El color compara contra el PROPIO promedio de esa máquina (índice 100 = su ritmo normal), no contra el nominal, que es un dato cargado a mano. EL LÍMITE, DICHO EN PANTALLA: cuando la duración se midió entre dos bobinas la ventana es real; cuando se imputó (la primera del día, y la posterior a una parada) la ubicación en el reloj es una estimación — de ahí la columna «ubicación medida», el KPI y el ≈ en las celdas mayormente estimadas. Para que todas las ventanas sean medidas hay que cargar la HORA DE ARRANQUE de la bobina (pendiente). Selector de todo el mes o un día suelto, con cartel de que un día son pocas bobinas y no alcanza para conclusiones. // 03a: ✏️ EDITAR LOTE DE MP (Stock MP, botón ✏️ en cada lote): corrige material, proveedor, remito, bolsones, kg, precio y fecha de un lote ya cargado, con clave admin. Nació de LOTE-2026-116 y 117, que entraron como COLORANTE NEGRO y eran ROJO y AMARILLO, sin forma de arreglarlo desde el sistema. 🔴 Material, kg y precio SÓLO se editan si el lote está INTACTO (cero consumos y ningún movimiento que no sea el ingreso): apenas salió un kilo, ese consumo ya quedó costeado en consumos_mp_bobina con el material y el precio de ese momento, y cambiarlos después dejaría bobinas costeadas con un material que nunca usaron. En un lote en uso se editan igual proveedor, remito, bolsones, fecha y observaciones; los kilos se mueven con ⚖️ Ajustar. Si la consulta de consumos falla, se bloquea igual (modo seguro de fallar). Cambiar el material repunta también mov_mp del lote para que el libro de MP cuente la misma historia. // 02g: 🔴 fix del cierre por entregado: escribía estado_linea='Cancelada' y la constraint pedido_lineas_estado_linea_check sólo acepta 'Pendiente'|'Entregado'|'Parcial'|'Cancelado' (masculino), así que el cierre de PED-05932/05997/05952 reventaba DESPUÉS de haber despegado las OE y cancelado las OC. Ahora va 'Cancelado' y, si igual lo rechazan, reintenta sin ese campo (cantidad_cancelada + subtotal 0 ya alcanzan) y lo avisa en el log. Re-ejecutar el lote es idempotente. // 02f: fix del diagnóstico de anulación en lote. (a) La producción de cada OE se contaba contra C.bobinas_prod, que es una CACHÉ PARCIAL (sólo bobinas en stock o de los últimos 60 días): una OE vieja que sí produjo daba cero y podía aparecer como «no arrancó, la cancelo». Ahora _alContarBobinas pide el conteo real a bobinas_producidas (1 request cada 200 OE, sin las anuladas) y avisa en ámbar si no pudo. (b) El cartel decía «N OE siguen corriendo» metiendo en la misma bolsa las OE ya COMPLETADAS: ahora _alClaseOe/_alClaseOc separan cancelar / ya hechas / en máquina / ya canceladas, en el resumen y en las columnas OC y OE de la tabla. Una OE Completada o En proceso NUNCA se cancela: sólo se despega del pedido. // 02e: ⛔ ANULAR PEDIDOS EN LOTE (Ventas → botón junto a + Nuevo pedido): se pegan los números, el sistema diagnostica cada uno (entregado real derivado de remito_lineas, facturas/RV vivos, cobrado, OC y OE con su producción, stock reservado) y propone camino: sin entregas → ANULAR entero; con entregas → CERRAR por lo entregado (remanente a cantidad_cancelada y total recalculado renglón por renglón, nunca prorrateado). Cierra el agujero del anularPedido de a uno, que NO tocaba las OE (quedaban con pedido_ref_id muerto ocupando cronograma) ni miraba remitos. OE sin bobinas producidas → Cancelada; OE con producción o compartida → se desvincula y sigue corriendo. OC activas → Canceladas; completadas → reserva liberada a stock disponible. Nada compartido con un pedido fuera del lote se cancela. // 02d: FACTURA FORMAL CONSOLIDADA: un renglón por producto+precio (nunca promediado), remitos en el encabezado del impreso, y vínculo REAL renglón→renglones de remito (tabla factura_linea_remitos) que reemplaza el parseo de '[Remito …]' en el ✏ (con fallback para facturas viejas). Requiere crear_factura_linea_remitos.sql. 02c: 📊 Hoy vs. el aumento anterior en Evolución (último aumento por cliente×producto contra la lista de hoy, con resina ese día→hoy) + 🗑 Deshacer la foto de hoy + las fotos se ocultan del registro por defecto. 02b: fix _efRecalcPedido pedía la columna observaciones (no existe en pedido_lineas) → la corrección de precios de remito/factura quedaba a medias; ahora sin cambios + tilde pedido recalcula la cabecera. 02a: ✏ Precios en remitos NO facturados (lista Remitos y pendientes de facturar): corregir $/paq por renglón antes de emitir, con $/kg por renglón y «llevar todo a X $/kg»; propaga opcionalmente al pedido; admin. Sobre el 01b: 🔴 BORRAR UN GASTO PAGADO ya no deja la cabecera del pago huérfana drenando el banco (caso PAG-000020 $37.975,24): ahora avisa y anula la cabecera que quedaría sin imputar, o explica que sigue pagando otros documentos. Un pago sin imputar se marca «sin imputar (crédito a cuenta)» en libro y conciliación. Sobre el 01a: tenencia FCI
   // 28a: NOTAS DE CREDITO Y DEBITO ANTE ARCA — Y UN BUG DE PLATA QUE NO ERA DE ARCA.
   //      German: "el tema de notas de debito, credito eso lo tenemos listo tambien" y
   //      despues, sobre las de cheque rechazado, "eso que tiene que ver con tus facturas".
@@ -30931,12 +30931,19 @@ function _rmCostoRealBolsaMap(finStr){
   const fin=new Date(finStr+'T23:59:59');
   const iniVentana=new Date(fin.getTime()-120*86400000);
   // Costo MP real de una bobina: consumo trazado (consumos_mp_bobina); fallback fórmula × promedio
+  // Devuelve {costo, via}. `via` dice de dónde salió la plata, porque NO es lo mismo:
+  //   'real'  = consumo TRAZADO (consumos_mp_bobina): los kilos que de verdad salieron
+  //             del lote, al precio de ESE lote. Es lo que realmente costó la bolsa.
+  //   'form'  = fórmula de la bobina × PROMEDIO SIMPLE de todos los lotes con precio.
+  //             Es una estimación teórica y, con inflación, tira el costo para ABAJO
+  //             (mete lotes viejos y baratos), o sea infla el margen.
+  //   'metro' = $/metro de respaldo (lo pone costoOC cuando ni la fórmula da precio).
   function costoBobina(bp){
-    if(!bp)return 0;
+    if(!bp)return{costo:0,via:'form'};
     const real=_costoMPRealBobina(bp);
-    if(real>0)return real; // consumo REAL trazado (P1)
+    if(real>0)return{costo:real,via:'real'}; // consumo REAL trazado (P1)
     const ordEx=C.ordenes.find(o=>o.id===bp.orden_id);
-    if(!ordEx)return 0;
+    if(!ordEx)return{costo:0,via:'form'};
     const formula=C.formulas.filter(f=>f.bobina_id===ordEx.bobina_id);
     let c=0;
     formula.forEach(f=>{
@@ -30945,7 +30952,7 @@ function _rmCostoRealBolsaMap(finStr){
       const precio=lotes.length?r4(lotes.reduce((s,l)=>s+(l.precio_kg||0),0)/lotes.length):0;
       c+=kgComp*precio;
     });
-    return c;
+    return{costo:c,via:'form'};
   }
   // $/metro de respaldo para bobinas sin fórmula con costo
   const bobsVentana=filtrarBobinasPorFecha(iniVentana,fin);
@@ -30957,15 +30964,18 @@ function _rmCostoRealBolsaMap(finStr){
   });
   const costoMetroFallback=mts>0?r4(costoRaw/mts):0;
   function costoOC(o){
-    let costoMP=0,kg=0;
+    let costoMP=0,kg=0,cReal=0,cForm=0,cMetro=0;
     (o.orden_corte_bobinas||[]).forEach(ocb=>{
       const bp=ocb.bobinas_producidas;
       if(!bp)return;
-      const c=costoBobina(bp);
-      costoMP+=c>0?c:(bp.metros_reales||0)*costoMetroFallback;
+      const cb=costoBobina(bp);
+      let c=cb.costo;
+      if(c>0){if(cb.via==='real')cReal+=c;else cForm+=c;}
+      else{c=(bp.metros_reales||0)*costoMetroFallback;cMetro+=c;}
+      costoMP+=c;
       kg+=parseFloat(bp.kg_reales)||0;
     });
-    return {costo:costoMP,kg};
+    return {costo:costoMP,kg,cReal,cForm,cMetro};
   }
   const ocsComp=(C.ord_corte||[]).filter(o=>{
     if(o.estado!=='Completada')return false;
@@ -30979,12 +30989,16 @@ function _rmCostoRealBolsaMap(finStr){
     ocs.forEach(o=>{
       const oc=costoOC(o);
       if(oc.costo<=0)return;
-      if(!tmp.has(o.producto_id))tmp.set(o.producto_id,{costo:0,kg:0,unidades:0,n:0});
+      if(!tmp.has(o.producto_id))tmp.set(o.producto_id,{costo:0,kg:0,unidades:0,n:0,cReal:0,cForm:0,cMetro:0});
       const e=tmp.get(o.producto_id);
       e.costo+=oc.costo;e.kg+=oc.kg;e.unidades+=parseFloat(o.unidades_reales)||0;e.n++;
+      e.cReal+=oc.cReal;e.cForm+=oc.cForm;e.cMetro+=oc.cMetro;
     });
     tmp.forEach((e,pid)=>{
-      if(!map.has(pid)&&e.unidades>0)map.set(pid,{costoBolsa:r6(e.costo/e.unidades),kgBolsa:r6(e.kg/e.unidades),fuente,nOCs:e.n});
+      // mix* = qué parte del costo de ese producto es trazada, teórica o de respaldo.
+      const t=e.cReal+e.cForm+e.cMetro;
+      if(!map.has(pid)&&e.unidades>0)map.set(pid,{costoBolsa:r6(e.costo/e.unidades),kgBolsa:r6(e.kg/e.unidades),fuente,nOCs:e.n,
+        mixReal:t>0?e.cReal/t:0,mixForm:t>0?e.cForm/t:0,mixMetro:t>0?e.cMetro/t:0});
     });
   }
   acumular(ocsComp.filter(o=>new Date(o.fecha_completada||o.created_at)>=iniVentana),'ventana');
@@ -30996,6 +31010,27 @@ function _rmCostoRealBolsaMap(finStr){
 function _rmCalcVentas(iniStr,finStr,costoMap){
   const remitos=(C.remitos||[]).filter(r=>r.estado!=='anulado'&&r.fecha&&String(r.fecha)>=iniStr&&String(r.fecha)<=finStr);
   let venta=0,costo=0,paquetes=0,unidades=0,ventaSinCosto=0,lineasSinCosto=0,kg=0;
+  // 🔴 DOS METROS DISTINTOS PARA EL MISMO KILO.
+  //   kg      = kg de PELICULA: los kg_reales de las bobinas que la OC se comio para
+  //             hacer esas bolsas. Incluye la merma de corte y todo lo que la bobina
+  //             arrastro. Es el kilo QUE HAY QUE EXTRUDAR.
+  //   kgFicha = kg de BOLSA VENDIDA: paquetes x u/paq x peso_por_bolsa. Es el MISMO
+  //             kilo con el que estan hechas las listas de precios, los tramos, el
+  //             piso $/kg, Cliente 360 y el Tablero. Es el kilo QUE SE COBRA.
+  // El $/kg de venta SOLO tiene sentido contra el segundo: dividir la venta por los kg
+  // de pelicula da un $/kg mas bajo que el de la lista y no se puede comparar con nada.
+  // Ademas el numerador y el denominador tienen que cubrir las MISMAS lineas: por eso
+  // ventaF/costoF/kgF/kgFilmF acumulan solo donde hay ficha Y hay costo real.
+  let kgFicha=0,kgF=0,kgFilmF=0,ventaF=0,costoF=0,ventaFueraKg=0,lineasFueraKg=0;
+  // 🔴 DE QUÉ ESTÁ HECHO EL COSTO. El % de ganancia sólo vale lo que vale el costo que
+  // tiene abajo, y ese costo no siempre es real: hay tres escalones de caída y ninguno
+  // se veía en pantalla. costoTraz = consumo trazado (lo que REALMENTE salió del lote,
+  // al precio de ese lote); costoForm = fórmula × promedio de lotes (teórico, y con
+  // inflación tira el costo para abajo → infla el margen); costoMetro = $/metro de
+  // respaldo. ventaVentana/ventaHist = venta costeada con una OC de los últimos 120
+  // días o con una más vieja (un producto que hace 4 meses no se corta se está
+  // costeando a precios de hace 4 meses).
+  let costoTraz=0,costoForm=0,costoMetro=0,ventaVentana=0,ventaHist=0;
   const porPlano={formal:{venta:0,costo:0},informal:{venta:0,costo:0}};
   const prodSinCosto=new Set();
   const porProducto=new Map();
@@ -31007,11 +31042,27 @@ function _rmCalcVentas(iniStr,finStr,costoMap){
       const paq=parseFloat(l.cantidad_paquetes)||0;
       venta+=v;paquetes+=paq;unidades+=uni;
       porPlano[plano].venta+=v;
+      // kg de BOLSA de esta linea (ficha), el mismo que usa la lista de precios.
+      let kgFic=0;
+      if(l.bobina_producida_id){
+        kgFic=parseFloat(l.kg_reales)||0;   // bobina al granel: se vende por kilo, la ficha ES el kilo
+      }else{
+        const prodL=l.productos||C.productos.find(p=>p.id===l.producto_id);
+        const pesoB=parseFloat(prodL?.peso_por_bolsa)||0;
+        if(pesoB>0){
+          const empL=prodL?C.emp.find(e=>e.id===prodL.empaque_id):null;
+          const uniPaqL=parseFloat(empL?.unidades)||0;
+          kgFic=uniPaqL>0?paq*uniPaqL*pesoB:(uni>0?uni*pesoB:0);
+        }
+      }
+      kgFicha+=kgFic;
+      let kgLin=0;                          // kg de PELICULA imputados a esta linea
       let cm=null,cLinea=null;
       if(l.bobina_producida_id){
         // Venta de bobina por kg: costo = MP REAL de la bobina fisica vendida (P1, sin OC).
         const bp=(C.bobinas_prod||[]).find(b=>b.id===l.bobina_producida_id);
         let cReal=_costoMPRealBobina({id:l.bobina_producida_id})||0;
+        const viaG=cReal>0?'real':'form';
         if(cReal<=0&&bp){ // fallback: formula x precio promedio de lotes
           const ordEx=C.ordenes.find(o=>o.id===bp.orden_id);
           const formula=ordEx?C.formulas.filter(f=>f.bobina_id===ordEx.bobina_id):[];
@@ -31024,7 +31075,9 @@ function _rmCalcVentas(iniStr,finStr,costoMap){
         }
         if(cReal>0){
           cLinea=r2(cReal);costo+=cLinea;porPlano[plano].costo+=cLinea;
-          kg+=parseFloat(l.kg_reales)||0;
+          kgLin=parseFloat(l.kg_reales)||0;kg+=kgLin;
+          if(viaG==='real')costoTraz+=cLinea;else costoForm+=cLinea;
+          ventaVentana+=v;   // la bobina vendida es la física, no hay ventana que valga
         }else{
           ventaSinCosto+=v;lineasSinCosto++;
           if(l.producto_id)prodSinCosto.add(l.producto_id);
@@ -31034,12 +31087,17 @@ function _rmCalcVentas(iniStr,finStr,costoMap){
         if(cm&&uni>0){
           cLinea=r2(cm.costoBolsa*uni);
           costo+=cLinea;porPlano[plano].costo+=cLinea;
-          kg+=(cm.kgBolsa||0)*uni;
+          kgLin=(cm.kgBolsa||0)*uni;kg+=kgLin;
+          costoTraz+=cLinea*(cm.mixReal||0);costoForm+=cLinea*(cm.mixForm||0);costoMetro+=cLinea*(cm.mixMetro||0);
+          if(cm.fuente==='ventana')ventaVentana+=v;else ventaHist+=v;
         }else{
           ventaSinCosto+=v;lineasSinCosto++;
           if(l.producto_id)prodSinCosto.add(l.producto_id);
         }
       }
+      // El $/kg se arma con las lineas que tienen LAS DOS cosas: ficha y costo real.
+      if(kgFic>0&&cLinea!==null){kgF+=kgFic;kgFilmF+=kgLin;ventaF+=v;costoF+=cLinea;}
+      else{ventaFueraKg+=v;lineasFueraKg++;}
       const key=l.producto_id||0;
       if(!porProducto.has(key))porProducto.set(key,{nombre:l.productos?.descripcion||C.productos.find(p=>p.id===l.producto_id)?.descripcion||('producto '+key),venta:0,costo:0,unidades:0,paquetes:0,sinCosto:false,fuente:cm?.fuente||(l.bobina_producida_id?'bobina real':'')});
       const pp=porProducto.get(key);
@@ -31048,6 +31106,10 @@ function _rmCalcVentas(iniStr,finStr,costoMap){
     });
   });
   return{nRemitos:remitos.length,venta:r2(venta),costo:r2(costo),margen:r2(venta-costo),paquetes:r2(paquetes),unidades,kg:r2(kg),
+    costoTraz:r2(costoTraz),costoForm:r2(costoForm),costoMetro:r2(costoMetro),
+    ventaVentana:r2(ventaVentana),ventaHist:r2(ventaHist),
+    kgFicha:r2(kgFicha),kgF:r2(kgF),kgFilmF:r2(kgFilmF),ventaF:r2(ventaF),costoF:r2(costoF),
+    margenF:r2(ventaF-costoF),ventaFueraKg:r2(ventaFueraKg),lineasFueraKg,
     ventaSinCosto:r2(ventaSinCosto),lineasSinCosto,prodSinCosto,porPlano,porProducto};
 }
 
@@ -32339,7 +32401,7 @@ function _prhPorMaquina(area,ym,linea){
     // El tiempo de producción sale de _prhRitmoCalc — la MISMA definición que usa
     // ⚡ Ritmo por máquina (P1). Antes era el span primera→última bobina, que mide un
     // ciclo de menos y daba 111% de capacidad en la EXT-01.
-    const RC=_prhRitmoCalc([].concat.apply([],ds.map(f=>m.dias[f])));
+    const RC=_prhRitmoCalc([].concat.apply([],ds.map(f=>m.dias[f])),cap);
     let hs=0,par=0,np=0;
     Object.keys(RC.porDia).forEach(f=>{hs+=RC.porDia[f].hs;par+=RC.porDia[f].par;np+=RC.porDia[f].np;});
     const nd=ds.length||1;
@@ -32722,7 +32784,7 @@ function _prhDiaHtml(R){
 // dos preguntas distintas, "qué rápido va la máquina" y "cuánto estuvo parada", y
 // entonces no sirve para ninguna de las dos.
 // ════════════════════════════════════════════════════════════════
-function _prhRitmoCalc(evs){
+function _prhRitmoCalc(evs,nominal){
   const crudo={};
   (evs||[]).forEach(x=>{(crudo[x.fecha]=crudo[x.fecha]||[]).push(x);});
   // Dos bobinas pesadas juntas (menos de 2 min) son UN evento: si no, el intervalo de
@@ -32751,7 +32813,7 @@ function _prhRitmoCalc(evs){
   // Mediana propiamente dicha (promedio de los dos centrales si son pares). Tomar el de
   // arriba hacía que, con dos o tres ciclos, UNA parada larga se convirtiera en "lo
   // normal" y entonces ya no se detectaba como parada.
-  const hkg=rel.length?(rel.length%2?rel[(rel.length-1)/2]:(rel[rel.length/2-1]+rel[rel.length/2])/2):0;
+  let hkg=rel.length?(rel.length%2?rel[(rel.length-1)/2]:(rel[rel.length/2-1]+rel[rel.length/2])/2):0;
   const porDia={};
   // VENTANAS: además de las horas del día, dónde CAE cada rato de producción en el reloj.
   // Es la misma duración que se suma a `hs` — no un cálculo paralelo (P1): la vista de
@@ -32760,25 +32822,51 @@ function _prhRitmoCalc(evs){
   // `imput` marca la ventana cuya duración NO se midió entre dos bobinas y se imputó con
   // la mediana: la primera del día (no hay bobina anterior) y la que vino después de una
   // parada anómala. Ahí la ubicación en el reloj es una estimación, y la pantalla lo dice.
+  // TECHO FÍSICO. La mediana de la máquina mezcla productos que corren a velocidades muy
+  // distintas (en película fina manda la burbuja, en gruesa el tornillo), así que el factor
+  // 3 contra la mediana deja pasar huecos que igual son imposibles. El nominal de la
+  // máquina es el otro anclaje: ninguna extrusora entrega el DOBLE de su capacidad nominal
+  // en un ciclo. Se usa al doble justamente porque el nominal está cargado a mano y puede
+  // estar bajo — no es el umbral de "va rápido", es el de "esto no pasó".
+  const nom2=(nominal>0)?nominal*2:0;
+  // ...y el mismo techo le pone piso a la MEDIANA. Si la máquina se pesa siempre en tandas,
+  // los huecos cortos son mayoría y la mediana se va al ciclo de la tanda: ahí `esp` queda
+  // tan chico que ni las tandas ni las paradas se detectan, y el kg/h se dispara a tres
+  // cifras. Ninguna máquina tiene un ciclo típico que entregue el doble de su nominal, así
+  // que la mediana no puede bajar de ahí. Sólo con ciclos: si no hubo ninguno, `hkg` sigue
+  // siendo 0 y el día no da número (como antes).
+  if(rel.length&&nom2>0&&hkg<1/nom2)hkg=1/nom2;
   const ventanas=[];
   Object.keys(dias).forEach(f=>{
     const v=dias[f];
     let kg=0,hs=0,par=0,np=0;
-    let nb=0;
+    let nb=0,nev=0,nimp=0,ntan=0;
     v.forEach((x,i)=>{
-      kg+=x.val;nb+=x.nb||1;
+      kg+=x.val;nb+=x.nb||1;nev++;
       const esp=hkg*x.val;                    // lo que "debería" costar ese evento
       let dur,imput;
       if(i===0){dur=esp;imput=true;}          // el primero también costó tiempo
       else{
         const d=(x.ts-v[i-1].tsFin)/3600000;
         if(d>3*esp&&d>0.75){dur=esp;imput=true;par+=d-esp;np++;}  // parada anómala: no es producción
+        // 🔴 LA OTRA MITAD DE LA MISMA REGLA (build 2026-09-07a). Un hueco MUCHO MÁS CORTO
+        // que lo que esa bobina pudo haber tardado tampoco es tiempo de producción: es
+        // PAPELERÍA EN TANDA — el operario pesó tarde la bobina anterior y las dos entraron
+        // casi juntas. Tomar ese hueco al pie de la letra le pone a la bobina todos sus kg
+        // en minutos y dispara el kg/h a valores imposibles (EXT-03 marcando 82 kg/h en una
+        // máquina de 40). Hasta ahora sólo estaba el tope de arriba (parada anómala) y no el
+        // de abajo, así que el error sólo podía ir para el lado de inflar. Mismo factor 3 y
+        // un mínimo absoluto de 15 min de faltante, para no tocar bobinas chicas ni productos
+        // finos que sí corren más rápido que la mediana. No cuenta como parada: ese tiempo no
+        // se perdió, estaba mal repartido entre dos bobinas.
+        else if((d*3<esp||(nom2>0&&d>0&&x.val/d>nom2))&&(esp-d)>0.25){dur=esp;imput=true;ntan++;}
         else{dur=d;imput=false;}
       }
+      if(imput)nimp++;
       hs+=dur;
       ventanas.push({fecha:f,fin:x.ts,ini:x.ts-dur*3600000,dur:dur,val:x.val,nb:x.nb||1,imput:imput,prodId:x.prodId});
     });
-    porDia[f]={kg:kg,hs:hs,par:par,n:nb,np:np};
+    porDia[f]={kg:kg,hs:hs,par:par,n:nb,np:np,nev:nev,nimp:nimp,ntan:ntan};
   });
   return {hkg:hkg,porDia:porDia,ciclos:rel.length,ventanas:ventanas};
 }
@@ -32813,7 +32901,7 @@ function _prhRitmo(area,ym,modo,linea){
     ev.forEach(x=>{(porMes[String(x.fecha).slice(0,7)]=porMes[String(x.fecha).slice(0,7)]||[]).push(x);});
     const R={porDia:{},ciclos:0,hkg:0};
     Object.keys(porMes).forEach(mes=>{
-      const rm=_prhRitmoCalc(porMes[mes]);
+      const rm=_prhRitmoCalc(porMes[mes],mq.cap||0);
       Object.keys(rm.porDia).forEach(f=>{R.porDia[f]=rm.porDia[f];});
       R.ciclos+=rm.ciclos;
       if(rm.hkg>R.hkg)R.hkg=rm.hkg;
@@ -32821,23 +32909,42 @@ function _prhRitmo(area,ym,modo,linea){
     const agg={};
     Object.keys(R.porDia).forEach(f=>{
       const k=clave(f),d=R.porDia[f];
-      const a=agg[k]||(agg[k]={kg:0,hs:0,par:0,n:0,np:0,dias:0});
+      const a=agg[k]||(agg[k]={kg:0,hs:0,par:0,n:0,np:0,dias:0,nev:0,nimp:0,ntan:0});
       a.kg+=d.kg;a.hs+=d.hs;a.par+=d.par;a.n+=d.n;a.np+=d.np;a.dias++;
+      a.nev+=(d.nev||0);a.nimp+=(d.nimp||0);a.ntan+=(d.ntan||0);
     });
     // `full` es todo lo cargado (incluye el mes anterior); `serie` es lo que se DIBUJA.
     // El período anterior para comparar sale de `full`, así el primer día del mes se
     // compara contra el último del mes pasado en vez de quedarse sin comparación.
+    const HOY=localDate(),HOYM=HOY.slice(0,7);
     const full=Object.keys(agg).sort().map(k=>({
       k:k,kg:agg[k].kg,hs:agg[k].hs,par:agg[k].par,n:agg[k].n,np:agg[k].np,dias:agg[k].dias,
+      nev:agg[k].nev,nimp:agg[k].nimp,ntan:agg[k].ntan,
+      medido:Math.max(0,(agg[k].nev||0)-(agg[k].nimp||0)),
+      curso:(modo==='mes'?k===HOYM:k===HOY),
       kgh:agg[k].hs>0?agg[k].kg/agg[k].hs:null
     }));
     const dentro=modo==='mes'?full:full.filter(p=>p.k.slice(0,7)===ym);
     const serie=dentro.slice(-NPER);
-    const act=serie.length?serie[serie.length-1]:null;
-    const iAct=act?full.findIndex(p=>p.k===act.k):-1;
-    const prev=iAct>0?full[iAct-1]:null;
+    // 🔴 EL NÚMERO GRANDE NO PUEDE SER UN DÍA QUE TODAVÍA NO PASÓ NI UN DÍA DE DOS
+    // BOBINAS (build 2026-09-07a). Con el día en curso arriba, la tarjeta comparaba media
+    // mañana contra un día entero y daba saltos de +200%; y con una o dos ventanas —de las
+    // cuales la primera SIEMPRE es imputada— no hay ritmo que medir, hay una estimación
+    // disfrazada de dato. El titular pasa a ser el último período con al menos 2 ventanas
+    // MEDIDAS entre dos pesajes; el día en curso se muestra igual, aparte y dicho.
+    const apto=p=>p.kgh!=null&&p.medido>=2&&!p.curso;
+    let iAct=-1;
+    for(let i=serie.length-1;i>=0;i--){if(apto(serie[i])){iAct=full.findIndex(p=>p.k===serie[i].k);break;}}
+    if(iAct<0&&serie.length)iAct=full.findIndex(p=>p.k===serie[serie.length-1].k);
+    const act=iAct>=0?full[iAct]:null;
+    let prev=null;
+    for(let i=iAct-1;i>=0;i--){if(apto(full[i])){prev=full[i];break;}}
+    // el último punto, si no es el titular: se muestra aparte (en curso / pocas bobinas)
+    const ultimo=serie.length?serie[serie.length-1]:null;
+    const curso=(ultimo&&(!act||ultimo.k!==act.k))?ultimo:null;
+    const actDudoso=!!(act&&!apto(act));   // no hubo ningún período aceptable: se avisa
     const totKg=serie.reduce((s,p)=>s+p.kg,0),totHs=serie.reduce((s,p)=>s+p.hs,0);
-    return {maq:mq,nominal:mq.cap||0,serie:serie,act:act,prev:prev,
+    return {maq:mq,nominal:mq.cap||0,serie:serie,act:act,prev:prev,curso:curso,actDudoso:actDudoso,
       kghMedio:totHs>0?totKg/totHs:null,kg:totKg,hs:totHs,
       par:serie.reduce((s,p)=>s+p.par,0),np:serie.reduce((s,p)=>s+p.np,0),
       ciclos:R.ciclos,hkg:R.hkg};
@@ -32891,11 +32998,15 @@ function _prhSpark(f,u,dec){
     d+=(abierto?'L':'M')+X(i).toFixed(1)+' '+Y(p.kgh).toFixed(1)+' ';
     abierto=true;
   });
-  const ultI=f.serie.length-1;
+  // el punto marcado es el TITULAR (último período completo y con ventanas medidas), no
+  // necesariamente el último de la serie: el día en curso se dibuja hueco atrás.
+  let ultI=f.serie.length-1;
+  if(f.act){const i=f.serie.findIndex(p=>p.k===f.act.k);if(i>=0)ultI=i;}
   const ult=f.serie[ultI];
+  const cI=f.curso?f.serie.findIndex(p=>p.k===f.curso.k):-1;
   let g='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:'+H+'px;overflow:visible;" role="img">';
   g+='<line x1="'+PL+'" y1="'+Y(0)+'" x2="'+(W-PR)+'" y2="'+Y(0)+'" stroke="var(--border)" stroke-width="1"/>';
-  const ultV=(f.serie.length&&f.serie[f.serie.length-1].kgh!=null)?f.serie[f.serie.length-1].kgh:null;
+  const ultV=(ult&&ult.kgh!=null)?ult.kgh:null;
   if(f.nominal>0&&f.nominal<=top){
     g+='<line x1="'+PL+'" y1="'+Y(f.nominal).toFixed(1)+'" x2="'+(W-PR)+'" y2="'+Y(f.nominal).toFixed(1)+'" stroke="var(--text3)" stroke-width="1" opacity=".55"/>';
     // la etiqueta del nominal solo si no se pisa con la del valor de hoy — el nominal
@@ -32904,6 +33015,10 @@ function _prhSpark(f,u,dec){
       g+='<text x="'+(W-PR+4)+'" y="'+(Y(f.nominal)+3).toFixed(1)+'" fill="var(--text3)" font-size="8" font-family="monospace">nom. '+_prhN(f.nominal,0)+'</text>';
   }
   g+='<path d="'+d+'" fill="none" stroke="#6c8ef5" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+  // el día en curso (o el que quedó con muy pocas ventanas medidas) va HUECO: se ve, pero
+  // no es el número de la tarjeta.
+  if(cI>=0&&f.serie[cI].kgh!=null)
+    g+='<circle cx="'+X(cI).toFixed(1)+'" cy="'+Y(f.serie[cI].kgh).toFixed(1)+'" r="3.5" fill="var(--bg2)" stroke="#6c8ef5" stroke-width="1.5" stroke-dasharray="2 1.6"/>';
   if(ult&&ult.kgh!=null){
     g+='<circle cx="'+X(ultI).toFixed(1)+'" cy="'+Y(ult.kgh).toFixed(1)+'" r="4" fill="#6c8ef5" stroke="var(--bg2)" stroke-width="2"/>'
       +'<text x="'+(W-PR+4)+'" y="'+(Y(ult.kgh)+3).toFixed(1)+'" fill="var(--text1)" font-size="10" font-weight="700" font-family="monospace">'+_prhN(ult.kgh,1)+'</text>';
@@ -32912,10 +33027,10 @@ function _prhSpark(f,u,dec){
   f.serie.forEach((p,i)=>{
     const w=(W-PL-PR)/Math.max(1,n-1);
     g+='<rect x="'+(X(i)-w/2).toFixed(1)+'" y="0" width="'+Math.max(6,w).toFixed(1)+'" height="'+H+'" fill="transparent">'
-      +'<title>'+escapeHtml(_prhKlbl(p.k))+(p.kgh!=null?' · '+_prhN(p.kgh,1)+' '+u+'/h · '+_prhN(p.kg,dec)+' '+u+' en '+_prhN(p.hs,1)+' hs'+(p.par>0.05?' · '+_prhN(p.par,1)+' hs parada':''):' · sin producción')+'</title></rect>';
+      +'<title>'+escapeHtml(_prhKlbl(p.k))+(p.kgh!=null?' · '+_prhN(p.kgh,1)+' '+u+'/h · '+_prhN(p.kg,dec)+' '+u+' en '+_prhN(p.hs,1)+' hs'+(p.par>0.05?' · '+_prhN(p.par,1)+' hs parada':'')+' · '+p.n+' bobinas, '+(p.medido||0)+' ventanas medidas'+(p.curso?' · día en curso':''):' · sin producción')+'</title></rect>';
   });
   g+='<text x="'+PL+'" y="'+(H-4)+'" fill="var(--text3)" font-size="8" font-family="monospace">'+escapeHtml(_prhKlbl(f.serie[0].k))+'</text>';
-  if(n>1)g+='<text x="'+(W-PR)+'" y="'+(H-4)+'" text-anchor="end" fill="var(--text3)" font-size="8" font-family="monospace">'+escapeHtml(_prhKlbl(ult.k))+'</text>';
+  if(n>1)g+='<text x="'+(W-PR)+'" y="'+(H-4)+'" text-anchor="end" fill="var(--text3)" font-size="8" font-family="monospace">'+escapeHtml(_prhKlbl(f.serie[n-1].k))+'</text>';
   g+='</svg>';
   return g;
 }
@@ -32941,10 +33056,18 @@ function _prhRitmoHtml(R){
     if(!f.serie.length){h+='<div style="font-size:11px;color:var(--text3);padding:14px 0;">sin producción en el período</div></div>';return;}
     h+='<div style="display:flex;align-items:baseline;gap:10px;margin:8px 0 2px;">'
       +'<div style="font-size:26px;font-weight:700;line-height:1;color:'+col+';">'+(a&&a.kgh!=null?_prhN(a.kgh,1):'—')+'</div>'
-      +'<div style="font-size:11px;color:var(--text3);">'+u+'/h '+(R.modo==='mes'?'este mes':'último día')+(pct!=null?' · <b style="color:'+col+';">'+pct.toFixed(0)+'% del nominal</b>':'')+'</div></div>';
+      +'<div style="font-size:11px;color:var(--text3);">'+u+'/h '+(a?((R.modo==='mes'?'en ':'el ')+escapeHtml(_prhKlbl(a.k))):(R.modo==='mes'?'este mes':'último día'))+(pct!=null?' · <b style="color:'+col+';">'+pct.toFixed(0)+'% del nominal</b>':'')+'</div></div>';
+    if(f.actDudoso)h+='<div style="font-size:10.5px;color:var(--amber);margin-bottom:4px;">⚠ '+(R.modo==='mes'?'este mes':'ese día')+' tiene '+(a?a.n:0)+' bobina'+((a&&a.n===1)?'':'s')+' y '+((a&&a.medido)||0)+' ventana'+(((a&&a.medido)||0)===1?'':'s')+' medida'+(((a&&a.medido)||0)===1?'':'s')+' entre dos pesajes: es una estimación, no un ritmo.</div>';
     h+='<div style="font-size:11px;color:var(--text2);margin-bottom:6px;">'
       +(dl!=null?'<span style="color:'+(dl>=0?'var(--green)':'var(--red)')+';font-weight:700;">'+(dl>=0?'▲ +':'▼ ')+dl.toFixed(1)+'%</span> vs '+per+' anterior ('+escapeHtml(_prhKlbl(p.k))+': '+_prhN(p.kgh,1)+')':'<span style="color:var(--text3);">sin '+per+' anterior para comparar</span>')
       +'</div>';
+    // El día en curso NO es el titular: media mañana no se compara contra un día entero.
+    if(f.curso&&f.curso.kgh!=null){
+      const cp=(f.nominal>0)?f.curso.kgh/f.nominal*100:null;
+      h+='<div style="font-size:10.5px;color:var(--text3);margin:-2px 0 6px;padding:4px 6px;border-left:2px solid var(--border);">'
+        +'<b style="color:var(--text2);">'+(f.curso.curso?(R.modo==='mes'?'Mes en curso':'Hoy, en curso'):'Último '+per+' ('+escapeHtml(_prhKlbl(f.curso.k))+')')+':</b> '
+        +_prhN(f.curso.kgh,1)+' '+u+'/h'+(cp!=null?' ('+cp.toFixed(0)+'%)':'')+' con '+f.curso.n+' bobina'+(f.curso.n===1?'':'s')+' y '+(f.curso.medido||0)+' ventana'+((f.curso.medido||0)===1?'':'s')+' medida'+((f.curso.medido||0)===1?'':'s')+' — parcial, no se compara.</div>';
+    }
     h+=_prhSpark(f,u,dec);
     h+='<div style="font-size:10px;color:var(--text3);margin-top:6px;font-family:monospace;">'
       +_prhN(f.kg,dec)+' '+u+' · '+_prhN(f.hs,1)+' hs produciendo'+(f.par>0.05?' · '+_prhN(f.par,1)+' hs de parada en '+f.np+(f.np===1?' corte':' cortes'):'')+'</div>';
@@ -32956,6 +33079,7 @@ function _prhRitmoHtml(R){
     +'<div style="overflow-x:auto;margin-top:8px;"><table style="width:100%;border-collapse:collapse;font-size:11px;">'
     +'<tr style="color:var(--text3);font-size:10px;text-transform:uppercase;"><th style="text-align:left;padding:5px 8px;">Máquina</th><th style="text-align:left;padding:5px 8px;">'+(R.modo==='mes'?'Mes':'Día')+'</th>'
     +'<th style="text-align:right;padding:5px 8px;">'+u+'</th><th style="text-align:right;padding:5px 8px;">hs prod</th><th style="text-align:right;padding:5px 8px;">hs parada</th>'
+    +'<th style="text-align:right;padding:5px 8px;">bob.</th><th style="text-align:right;padding:5px 8px;">vent. medidas</th>'
     +'<th style="text-align:right;padding:5px 8px;">'+u+'/h</th><th style="text-align:right;padding:5px 8px;">% nominal</th></tr>';
   R.filas.forEach(f=>{
     f.serie.slice().reverse().forEach((p,i)=>{
@@ -32966,7 +33090,9 @@ function _prhRitmoHtml(R){
         +'<td style="padding:4px 8px;text-align:right;font-family:monospace;">'+_prhN(p.kg,dec)+'</td>'
         +'<td style="padding:4px 8px;text-align:right;font-family:monospace;">'+_prhN(p.hs,1)+'</td>'
         +'<td style="padding:4px 8px;text-align:right;font-family:monospace;'+(p.par>0.05?'color:var(--amber);':'color:var(--text3);')+'">'+(p.par>0.05?_prhN(p.par,1):'—')+'</td>'
-        +'<td style="padding:4px 8px;text-align:right;font-family:monospace;font-weight:700;">'+(p.kgh!=null?_prhN(p.kgh,1):'—')+'</td>'
+        +'<td style="padding:4px 8px;text-align:right;font-family:monospace;color:var(--text3);">'+p.n+'</td>'
+        +'<td style="padding:4px 8px;text-align:right;font-family:monospace;'+((p.medido||0)>=2?'color:var(--text3);':'color:var(--amber);')+'">'+(p.medido||0)+(p.ntan?' <span title="ventanas descartadas por pesaje en tanda">·'+p.ntan+'t</span>':'')+'</td>'
+        +'<td style="padding:4px 8px;text-align:right;font-family:monospace;font-weight:700;'+((p.medido||0)>=2?'':'color:var(--amber);')+'">'+(p.kgh!=null?_prhN(p.kgh,1):'—')+(p.curso?' <span style="font-weight:400;color:var(--text3);">en curso</span>':'')+'</td>'
         +'<td style="padding:4px 8px;text-align:right;font-family:monospace;">'+(pc!=null?pc.toFixed(0)+'%':'—')+'</td></tr>';
     });
   });
@@ -32975,6 +33101,8 @@ function _prhRitmoHtml(R){
     +'<b style="color:var(--text2);">Cómo se calcula.</b> El tiempo de producción <b>no</b> es "de la primera bobina a la última": ese span mide un ciclo de menos y se come el tiempo que costó la primera, así que infla el '+u+'/h. '
     +'Acá cada '+(c.area==='extrusion'?'bobina':'carga')+' cuesta su tiempo, imputado con la <b>mediana de horas por kg de esa máquina</b> — por kg y no por bobina, para que una grande no cuente lo mismo que una chica. '
     +'Una <b>parada anómala</b> (hueco de más de 3× lo esperado y más de 45 min) sale del tiempo de producción y se cuenta aparte: si no, el número mezcla <i>qué tan rápido va</i> con <i>cuánto estuvo parada</i>, y no sirve para ninguna de las dos. '
+    +'Y al revés: un hueco <b>más de 3× más corto</b> que lo que esa '+(c.area==='extrusion'?'bobina':'carga')+' pudo haber tardado (con al menos 15 min de faltante) tampoco es producción — es <b>pesaje en tanda</b>, la anterior se cargó tarde y las dos entraron casi juntas. Se le imputa su tiempo igual que a la primera del día; si se tomara el hueco al pie de la letra, esos kg en minutos disparan el '+u+'/h a valores imposibles. En la tabla esas ventanas aparecen como <b>·t</b>. '
+    +'<b style="color:var(--text2);">El número grande</b> es el último '+per+' <b>terminado</b> y con al menos 2 ventanas medidas entre dos pesajes: el '+per+' en curso se muestra aparte, porque media mañana contra un día entero da saltos que no pasaron en la planta. '
     +'Por eso el '+u+'/h se puede comparar contra el nominal de la máquina — y si da más de 100% sostenido, el nominal está cargado bajo.</div>';
   return h;
 }
@@ -33062,7 +33190,7 @@ function _prhBandas(area,ym,dia,linea){
   const filas=(cfg.maquinas||[]).map(mq=>{
     const ev=porMaq[String(mq.id)]||[];
     if(!ev.length)return null;
-    const R=_prhRitmoCalc(ev);
+    const R=_prhRitmoCalc(ev,mq.cap||0);
     const bandas=nueva();
     let kg=0,hs=0,kgImp=0,nb=0;const dsMaq={};
     (R.ventanas||[]).forEach(w=>{
@@ -33289,7 +33417,7 @@ function _prhHist(area,linea,dias){
     ev.forEach(x=>{(porMes[String(x.fecha).slice(0,7)]=porMes[String(x.fecha).slice(0,7)]||[]).push(x);});
     const dias_={};
     Object.keys(porMes).forEach(mes=>{
-      (_prhRitmoCalc(porMes[mes]).ventanas||[]).forEach(w=>{
+      (_prhRitmoCalc(porMes[mes],mq.cap||0).ventanas||[]).forEach(w=>{
         const D=dias_[w.fecha]||(dias_[w.fecha]={kg:0,hs:0,kgG:0,hsG:0,n:0,nG:0});
         D.kg+=w.val;D.hs+=w.dur;D.n+=w.nb;
         // 🔴 El TECHO se mide sólo con ventanas MEDIDAS entre dos pesajes: se deja afuera
@@ -33855,7 +33983,7 @@ async function renderAnalisisExtrusion(){
   // para repartir el tiempo entre tipos de bobina y operarios, que es otra pregunta.
   const horasExt={};let horasTot=0,capTot=0;
   extIds.filter(m=>m).forEach(eId=>{
-    const RC=_prhRitmoCalc(bobs.filter(b=>b.extId===eId).map(b=>({ts:b.ts,fecha:b.fecha,val:b.kg})));
+    const RC=_prhRitmoCalc(bobs.filter(b=>b.extId===eId).map(b=>({ts:b.ts,fecha:b.fecha,val:b.kg})),extNominal(eId));
     let hs=0;Object.keys(RC.porDia).forEach(f=>{hs+=RC.porDia[f].hs;});
     horasExt[eId]=hs;horasTot+=hs;
     capTot+=hs*extNominal(eId);
@@ -34611,15 +34739,71 @@ async function renderResultadoMes(){
     const msgP=faltaP>0?'Todavía te faltan <b style="color:var(--amber);">'+faltaP.toLocaleString('es-AR')+' paq</b> para llegar':'✓ Ya superaste el equilibrio por '+Math.abs(faltaP).toLocaleString('es-AR')+' paq';
     html+='<div class="kpi-card"><div class="kpi-lbl">Punto de equilibrio en paquetes</div><div class="kpi-val" style="font-size:20px;">'+paqEq.toLocaleString('es-AR')+' paq</div><div style="font-size:11px;color:var(--text3);">al margen de $'+r2(margenPorPaq).toLocaleString('es-AR')+'/paq para cubrir los gastos totales del mes<br>'+msgP+'</div></div>';
   }
-  const margenPorKg=A.kg>0?A.margen/A.kg:0;
-  const ventaPorKg=A.kg>0?A.venta/A.kg:0;
+  // 🔴 El $/kg va SIEMPRE sobre kg de BOLSA VENDIDA (ficha: paq × u/paq × peso_por_bolsa),
+  // que es el mismo kilo de la lista de precios, los tramos, el piso, Cliente 360° y el
+  // Tablero. Antes se dividía por los kg de PELÍCULA de las bobinas que comió la OC, que
+  // traen la merma de corte adentro: el $/kg salía más bajo que el de la lista y no se
+  // podía comparar con nada. Y el numerador contaba todas las líneas mientras el
+  // denominador contaba sólo las costeadas — dos conjuntos distintos.
+  const margenPorKg=A.kgF>0?A.margenF/A.kgF:0;
+  const ventaPorKg=A.kgF>0?A.ventaF/A.kgF:0;
+  const factorPel=(A.kgF>0&&A.kgFilmF>0)?A.kgFilmF/A.kgF:0;   // kg de película por kg de bolsa
   const kgEq=(gastosTotalesA>0&&margenPorKg>0)?Math.ceil(gastosTotalesA/margenPorKg):null;
   if(kgEq!==null){
-    const faltaK=kgEq-A.kg;
+    const faltaK=kgEq-A.kgFicha;
     const msgK=faltaK>0?'Todavía te faltan <b style="color:var(--amber);">'+Math.ceil(faltaK).toLocaleString('es-AR')+' kg</b> para llegar':'✓ Ya superaste el equilibrio por '+Math.round(Math.abs(faltaK)).toLocaleString('es-AR')+' kg';
-    html+='<div class="kpi-card" style="border-top:3px solid var(--accent);"><div class="kpi-lbl">Punto de equilibrio en kg a producir</div><div class="kpi-val" style="font-size:20px;">'+kgEq.toLocaleString('es-AR')+' kg</div><div style="font-size:11px;color:var(--text3);">margen $'+r2(margenPorKg).toLocaleString('es-AR')+'/kg · venta prom. $'+r2(ventaPorKg).toLocaleString('es-AR')+'/kg<br>'+msgK+'</div></div>';
+    const pel=factorPel>0?Math.ceil(kgEq*factorPel):null;
+    html+='<div class="kpi-card" style="border-top:3px solid var(--accent);"><div class="kpi-lbl">Punto de equilibrio en kg de bolsa a vender</div><div class="kpi-val" style="font-size:20px;">'+kgEq.toLocaleString('es-AR')+' kg</div><div style="font-size:11px;color:var(--text3);">margen $'+r2(margenPorKg).toLocaleString('es-AR')+'/kg · venta prom. $'+r2(ventaPorKg).toLocaleString('es-AR')+'/kg — el mismo kg que tu lista de precios'
+      +(pel?'<br>≈ <b>'+pel.toLocaleString('es-AR')+' kg de película</b> a extrudar (×'+r2(factorPel).toLocaleString('es-AR')+' por la merma de corte)':'')
+      +'<br>'+msgK+'</div></div>';
   }
   html+='</div>';
+  if(A.ventaFueraKg>0&&A.venta>0){
+    const pct=r1(A.ventaFueraKg/A.venta*100);
+    html+='<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:9px 13px;margin-bottom:1.2rem;max-width:760px;font-size:11.5px;color:var(--text3);">'
+      +'ℹ El $/kg de arriba se calcula con '+A.lineasFueraKg+' línea'+(A.lineasFueraKg===1?'':'s')+' afuera ('+fmtMoney(A.ventaFueraKg)+', '+pct+'% de la venta): son líneas sin costo real o sin peso por bolsa cargado en el producto. Numerador y denominador cubren exactamente las mismas líneas, así que el $/kg es real — pero cargá el <b>peso por bolsa</b> de esos productos para que el equilibrio en kg use todo el mes.</div>';
+  }
+
+  // ───────── ¿DE QUÉ ESTÁ HECHO EL COSTO? ─────────
+  // El % de margen no vale más que el costo que tiene abajo. Este bloque contesta, cada
+  // mes y sin preguntar, cuánto de ese costo es lo que REALMENTE salió del lote y cuánto
+  // es estimación. Los dos escalones teóricos empujan el costo para ABAJO (promedio de
+  // lotes viejos, OC de hace meses), así que un margen apoyado en ellos está INFLADO.
+  {
+    const cTot=A.costoTraz+A.costoForm+A.costoMetro;
+    const pTraz=cTot>0?r1(A.costoTraz/cTot*100):null;
+    const pForm=cTot>0?r1(A.costoForm/cTot*100):0;
+    const pMet=cTot>0?r1(A.costoMetro/cTot*100):0;
+    const vTot=A.venta;
+    const pVent=vTot>0?r1(A.ventaVentana/vTot*100):0;
+    const pHist=vTot>0?r1(A.ventaHist/vTot*100):0;
+    const pSin=vTot>0?r1(A.ventaSinCosto/vTot*100):0;
+    if(pTraz!==null){
+      const colT=pTraz>=90?'var(--green)':pTraz>=70?'var(--amber)':'var(--red)';
+      const barra=(lbl,p,col,det)=>'<div style="margin-top:7px;">'
+        +'<div style="display:flex;justify-content:space-between;font-size:11.5px;"><span style="color:var(--text2);">'+lbl+'</span><span style="font-family:\'DM Mono\',monospace;font-weight:700;color:'+col+';">'+p+'%</span></div>'
+        +'<div style="background:var(--bg3);border-radius:99px;height:5px;margin-top:3px;overflow:hidden;"><div style="width:'+Math.min(100,p)+'%;height:100%;background:'+col+';border-radius:99px;"></div></div>'
+        +(det?'<div style="font-size:10.5px;color:var(--text3);margin-top:2px;line-height:1.45;">'+det+'</div>':'')+'</div>';
+      html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px;margin-bottom:1.4rem;max-width:760px;">';
+      html+='<div class="kpi-card" style="border-top:3px solid '+colT+';">'
+        +'<div class="kpi-lbl">¿De qué está hecho tu costo?</div>'
+        +'<div class="kpi-val" style="font-size:22px;color:'+colT+';">'+pTraz+'%</div>'
+        +'<div style="font-size:11px;color:var(--text3);">del costo de este mes sale del <b>consumo trazado</b>: los kilos que de verdad salieron del lote, al precio de ese lote. Ése es el costo real de la bolsa.</div>'
+        +(pForm>0?barra('Fórmula × promedio de lotes',pForm,'var(--amber)','Bobinas sin consumo trazado. Usa el promedio simple de <b>todos</b> los lotes con precio, viejos incluidos: con inflación te <b>baja</b> el costo y te <b>infla</b> el margen.'):'')
+        +(pMet>0?barra('$/metro de respaldo',pMet,'var(--red)','Ni la fórmula tenía precio. Es el último recurso: revisá la fórmula de esas bobinas.'):'')
+      +'</div>';
+      html+='<div class="kpi-card">'
+        +'<div class="kpi-lbl">¿De cuándo es ese costo?</div>'
+        +'<div class="kpi-val" style="font-size:22px;color:'+(pVent>=90?'var(--green)':pVent>=70?'var(--amber)':'var(--red)')+';">'+pVent+'%</div>'
+        +'<div style="font-size:11px;color:var(--text3);">de la venta está costeada con una OC completada en los <b>últimos 120 días</b>.</div>'
+        +(pHist>0?barra('Costo de una OC más vieja',pHist,'var(--amber)','Productos que hace más de 4 meses no se cortan: se están costeando a precios de entonces.'):'')
+        +(pSin>0?barra('Sin ningún costo (cuenta $0)',pSin,'var(--red)','Es la venta del cartel ámbar de arriba: suma al margen con costo cero.'):'')
+      +'</div>';
+      html+='</div>';
+      html+='<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:9px 13px;margin-bottom:1.4rem;max-width:760px;font-size:11.5px;color:var(--text3);line-height:1.55;">'
+        +'El margen de '+margenPctA+'% es <b>marginal</b>: costo de <b>materia prima</b> únicamente, sin sueldos, luz ni estructura (por eso los gastos van abajo, en la cascada). Y es costo <b>histórico</b> —lo que pagaste por esos kilos—, no de <b>reposición</b>: para decidir precios el número que manda es el de <b>💰 Aumentos</b>, que costea con lo que te sale reponer la resina hoy.</div>';
+    }
+  }
 
   // Desglose por plano y fijos por categoría
   html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:1.4rem;max-width:760px;">';
@@ -50133,10 +50317,25 @@ async function _pcorteIniciarOC(raw){
   if(oc.estado==='Suspendida'){_pcorteFeedback('✕ OC '+codigoOC+' está Suspendida — reactivala desde la lista.','var(--red)','error');return;}
   if(oc.estado==='Cancelada'){_pcorteFeedback('✕ OC '+codigoOC+' está Cancelada.','var(--red)','error');return;}
   if(oc.estado==='En proceso'){window._pcorteOCobjetivo=oc.id;_pcorteFeedback('▶ OC '+codigoOC+' ya estaba En proceso — bobinas se cargan acá','var(--accent)','ok');setTimeout(_pintarPanelCorte,600);return;}
+  // 🔴 REABRIR UNA OC YA CORTADA PEDÍA CONFIRMACIÓN Y NO LA PEDÍA (build 2026-09-07b).
+  // 'Pendiente empaque' significa que el corte físico YA terminó y la orden espera el
+  // cierre del dueño. Como el filtro de arriba sólo frenaba Completada / Suspendida /
+  // Cancelada, escanear el QR de una OC vieja —la hoja que quedó colgada en la máquina—
+  // la reabría sin decir nada, y las bobinas siguientes se cargaban ahí. Fue exactamente
+  // lo que pasó el 07/09/2026: OC-1052760 (cortada el 01/09) se reabrió a las 10:35 y se
+  // comió 4 bobinas de la OE ORD-06164, que eran de OC-1052781.
+  if(oc.estado==='Pendiente empaque'){
+    const _mCorte=(oc.observaciones||'').match(/\[Corte terminado en panel ([\d/-]+)/);
+    if(!confirm('⚠ '+codigoOC+' YA TERMINÓ DE CORTAR'+(_mCorte?' el '+_mCorte[1]:'')+' y está esperando el cierre del dueño.\n\n'
+      +'Cliente: '+(oc.cliente||'—')+'\n\n'
+      +'Si agarraste la hoja equivocada, cancelá y escaneá la OC que estás por cortar: todo lo que cargues acá va a quedar contado en ESTA orden.\n\n'
+      +'¿Reabrir igual?'))
+      {_pcorteFeedback('OC '+codigoOC+' quedó como estaba (cortada, esperando cierre).','var(--text3)','ok');return;}
+  }
   // Pendiente → arrancar, registrando operario en observaciones
   try{
     const obsPrev=oc.observaciones||'';
-    const marca='[Iniciada en panel '+localDate()+' '+fmtHora(new Date())+' por '+opNom+']';
+    const marca=(oc.estado==='Pendiente empaque'?'[REABIERTA en panel ':'[Iniciada en panel ')+localDate()+' '+fmtHora(new Date())+' por '+opNom+']';
     await sb.from('ordenes_corte').update({estado:'En proceso',observaciones:obsPrev+(obsPrev?' ':'')+marca}).eq('id',oc.id);
     if(typeof congelarBaselineCorte==='function')await congelarBaselineCorte(oc.id);
     window._pcorteOCobjetivo=oc.id;
