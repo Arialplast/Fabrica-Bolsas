@@ -791,7 +791,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-09b</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-11a</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5488,7 +5488,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-09-09b';   // 09b: REMITOS Y RV. (1) EL BULTO ESPECIAL DEL CLIENTE EN EL REMITO IMPRESO. imprimirRemito calculaba los bultos SIEMPRE con el paquetes_por_bolson del producto, asi que a un cliente que arma el bulto con 8 paquetes en vez de 10 el remito le pedia 30 bultos donde iban 38. Ahora usa la misma cascada que el impreso de deposito (imprimirPedido): paq/bolson de la OC que se corto para ese pedido -> especial del cliente (cliente_precios_especiales) -> default del producto. El impreso suma una columna «Paq/bulto», resalta en ambar la fila que no usa el bulto estandar con el tachado del valor por defecto, y pone un aviso arriba cuando el remito tiene alguna. Un producto sin paq/bolson cargado sigue mostrando «-», no inventa un bulto por paquete. Vale igual para el circuito formal y el informal: es el mismo impreso. (2) EL RV NO AGRUPABA POR MEDIDA. El RV-000215 de QUILPLAST salio con el 00396 dos veces (300 paq y 15 paq, mismo precio) porque guardarRV escribia un rv_linea por cada linea de remito, mientras la factura ya consolidaba con _facConsolidarRemitos. Ahora el RV usa ese mismo helper: un renglon por producto+precio, ordenado por codigo, con la cantidad total. Precios distintos NO se mezclan (un precio promedio no existe en ningun documento - P1). Los numeros de remito, que antes iban pegados a la descripcion como '[Remito REM-00523]', pasan al encabezado del impreso. Y _rvAgruparLineas agrupa TAMBIEN al imprimir, asi los RV ya emitidos salen bien sin tocar la base. Verificado con smoke_remitos.cjs (26 asserts).
+const APP_BUILD='2026-09-11a';   // 11a: REMITOS. (1) EL NUMERO SE REPETIA: 'duplicate key value violates unique constraint remitos_numero_unico'. El N° se leia del contador al ABRIR la pantalla y el contador se subia al FINAL del guardado; el REM-00535 se corto a mitad y el contador quedo en 534, asi que el remito siguiente choco. Ahora el numero se asigna AL GUARDAR con _remSiguienteNumero = max(contador, ultimo REM-n que existe en remitos)+1, con reintento si otro gano el numero (23505), y el contador se sincroniza apenas existe el remito (_remSincronizarContador, nunca lo baja). (2) POR QUE SE CORTO: el mismo producto en el renglon del pedido y en un extra tomo DOS VECES el mismo lote reservado de otro pedido (confirmarReasignacionRemito copiaba el lote con _usado por cada faltante y _ejecutarGuardarRemito filtraba las reasignaciones por producto, no por renglon); el segundo descuento revento en entregar_lotes_remito con el remito ya creado. Ahora: _remPlanificar arma el plan de lotes de TODO el remito con consumo compartido entre renglones (una sola definicion, la usa el guardado), _remPreflightLotes lo contrasta contra stock_bolsas de la BASE antes de escribir la primera fila (si no cierra no se escribe nada), la reasignacion reparte el stock entre faltantes del mismo producto y se ata a su renglon (campo rl), y la guarda de sobre-entrega y el calculo de faltantes suman todos los renglones del mismo producto. Sin SQL de esquema. Datos del caso: reparar_rem00535.sql.
+  // 09b: REMITOS Y RV. (1) EL BULTO ESPECIAL DEL CLIENTE EN EL REMITO IMPRESO. imprimirRemito calculaba los bultos SIEMPRE con el paquetes_por_bolson del producto, asi que a un cliente que arma el bulto con 8 paquetes en vez de 10 el remito le pedia 30 bultos donde iban 38. Ahora usa la misma cascada que el impreso de deposito (imprimirPedido): paq/bolson de la OC que se corto para ese pedido -> especial del cliente (cliente_precios_especiales) -> default del producto. El impreso suma una columna «Paq/bulto», resalta en ambar la fila que no usa el bulto estandar con el tachado del valor por defecto, y pone un aviso arriba cuando el remito tiene alguna. Un producto sin paq/bolson cargado sigue mostrando «-», no inventa un bulto por paquete. Vale igual para el circuito formal y el informal: es el mismo impreso. (2) EL RV NO AGRUPABA POR MEDIDA. El RV-000215 de QUILPLAST salio con el 00396 dos veces (300 paq y 15 paq, mismo precio) porque guardarRV escribia un rv_linea por cada linea de remito, mientras la factura ya consolidaba con _facConsolidarRemitos. Ahora el RV usa ese mismo helper: un renglon por producto+precio, ordenado por codigo, con la cantidad total. Precios distintos NO se mezclan (un precio promedio no existe en ningun documento - P1). Los numeros de remito, que antes iban pegados a la descripcion como '[Remito REM-00523]', pasan al encabezado del impreso. Y _rvAgruparLineas agrupa TAMBIEN al imprimir, asi los RV ya emitidos salen bien sin tocar la base. Verificado con smoke_remitos.cjs (26 asserts).
   // 28a: NOTAS DE CREDITO Y DEBITO ANTE ARCA — Y UN BUG DE PLATA QUE NO ERA DE ARCA.
   //      German: "el tema de notas de debito, credito eso lo tenemos listo tambien" y
   //      despues, sobre las de cheque rechazado, "eso que tiene que ver con tus facturas".
@@ -11594,10 +11595,36 @@ async function confirmarCargaParcial(ocId){
 }
 
 // ===== REMITOS =====
+// ── N° DE REMITO (11a) ─────────────────────────────────────────────────────
+// El número se asigna AL GUARDAR, no al abrir la pantalla. Es el mayor entre el
+// contador y el último REM-n que EXISTE en remitos, +1: el remito guardado es el
+// documento, el contador es sólo una ayuda (P1). Así un guardado que se cortó a
+// mitad —y dejó el contador atrasado— no puede volver a repetir un número
+// (caso REM-00535 del 11/09: contador en 534, y el siguiente chocaba).
+function _remNumeroDe(txt){const m=/^REM-(\d+)$/.exec(String(txt||'').trim());return m?parseInt(m[1],10):0;}
+function _remFormatear(n){return 'REM-'+String(n).padStart(5,'0');}
+async function _remSiguienteNumero(){
+  const[rc,ru]=await Promise.all([
+    sb.from('contadores').select('valor').eq('nombre','numero_remito').maybeSingle(),
+    sb.from('remitos').select('numero_remito').order('id',{ascending:false}).limit(50)
+  ]);
+  const maxRem=(ru?.data||[]).reduce((m,r)=>Math.max(m,_remNumeroDe(r.numero_remito)),0);
+  return Math.max(parseInt(rc?.data?.valor)||0,maxRem)+1;
+}
+// Deja el contador en n si estaba atrás. Nunca lo baja. No frena el remito si falla:
+// el próximo número igual se calcula mirando los remitos que existen.
+async function _remSincronizarContador(n){
+  try{
+    const{data:cnt}=await sb.from('contadores').select('valor').eq('nombre','numero_remito').maybeSingle();
+    if((parseInt(cnt?.valor)||0)>=n)return;
+    const{error}=await sb.from('contadores').upsert({nombre:'numero_remito',valor:n},{onConflict:'nombre'});
+    if(error)console.error('No se pudo actualizar el contador de remitos:',error);
+  }catch(e){console.error('No se pudo actualizar el contador de remitos:',e);}
+}
+
 async function initNuevoRemito(){
-  // N° remito auto
-  const{data:cnt}=await sb.from('contadores').select('valor').eq('nombre','numero_remito').maybeSingle();
-  const nro='REM-'+String((cnt?.valor||0)+1).padStart(5,'0');
+  // N° remito auto (provisorio: el definitivo se toma al guardar)
+  const nro=_remFormatear(await _remSiguienteNumero());
   const inp=document.getElementById('nr-nro');if(inp)inp.value=nro;
   const disp=document.getElementById('nr-nro-display');if(disp)disp.textContent=nro;
   // Fecha
@@ -12243,12 +12270,19 @@ async function guardarRemito(){
   // de TODO el producto (la reasignación cubre lo reservado a otros pedidos; lo que
   // no existe en ningún lado es sobre-entrega y deja el físico en negativo).
   const sobreEntrega=[];
+  // (11a) Se compara la SUMA de todos los renglones del mismo producto (pedido +
+  // extras) contra el físico: antes cada renglón se medía solo contra el total.
+  const _paqPorProd={};
+  lineasRemito.forEach(x=>{if(!x.es_bobina_granel)_paqPorProd[x.producto_id]=(_paqPorProd[x.producto_id]||0)+(parseFloat(x.cantidad_paquetes)||0);});
+  const _prodVisto={};
   for(const rl of lineasRemito){
     if(rl.es_bobina_granel)continue; // el stock de bobina no vive en stock_bolsas
+    if(_prodVisto[rl.producto_id])continue; _prodVisto[rl.producto_id]=true;
     const fisicoTotal=(C.stock_bolsas||[])
       .filter(s=>s.producto_id===rl.producto_id&&(s.estado==='disponible'||s.estado==='reservado'))
       .reduce((a,x)=>a+(parseFloat(x.cantidad_paquetes)||0),0);
-    if(rl.cantidad_paquetes>fisicoTotal){
+    const _pideProd=_paqPorProd[rl.producto_id]||0;
+    if(_pideProd>fisicoTotal){
       // Si hay sustituto disponible para esta línea (modo pedido), el faltante lo
       // resuelve el diálogo de sustitución, que exige cobertura completa antes de
       // confirmar. No es sobre-entrega real → diferir al diálogo.
@@ -12256,7 +12290,7 @@ async function guardarRemito(){
       const prod=C.productos.find(p=>p.id===rl.producto_id);
       sobreEntrega.push({
         nombre:(prod?.codigo?prod.codigo+' · ':'')+(prod?.descripcion||'producto'),
-        pide:rl.cantidad_paquetes,hay:fisicoTotal
+        pide:_pideProd,hay:fisicoTotal
       });
     }
   }
@@ -12272,9 +12306,16 @@ async function guardarRemito(){
 
   // Validar stock. Si falta para alguna línea, ofrecer reasignación de stock reservado a otros pedidos
   const faltantes=[];
+  const _consumoVal={}; // (11a) stock_bolsas.id -> paq que ya tomaron los renglones de arriba
   for(const rl of lineasRemito){
     if(rl.es_bobina_granel)continue; // no aplica reasignacion de stock_bolsas
-    const disp=rl.lotes.reduce((s,x)=>s+(parseFloat(x.cantidad_paquetes)||0),0);
+    let disp=0,_rest=parseFloat(rl.cantidad_paquetes)||0;
+    for(const x of rl.lotes){
+      const libreLote=Math.max(0,(parseFloat(x.cantidad_paquetes)||0)-(_consumoVal[x.id]||0));
+      disp+=libreLote;
+      const u=Math.min(_rest,libreLote);
+      if(u>0){_consumoVal[x.id]=(_consumoVal[x.id]||0)+u;_rest-=u;}
+    }
     if(disp<rl.cantidad_paquetes){
       faltantes.push({rl,disp,falta:rl.cantidad_paquetes-disp});
     }
@@ -12337,7 +12378,11 @@ function abrirDialogoReasignacion(faltantes,pedId,cliId,fecha,obs,modo,lineasRem
         +'Necesitás <strong>'+f.rl.cantidad_paquetes.toLocaleString('es-AR')+'</strong> paq · '
         +'Disponible: <strong style="color:var(--green);">'+f.disp.toLocaleString('es-AR')+'</strong> · '
         +'<strong style="color:var(--red);">Faltan '+f.falta.toLocaleString('es-AR')+' paq</strong>'
-      +'</div>';
+      +'</div>'
+      // (11a) mismo producto en más de un renglón: el stock de otros pedidos se REPARTE entre ellos
+      +(faltantes.filter(g=>g.rl.producto_id===f.rl.producto_id).length>1
+        ?'<div style="font-size:11px;color:var(--amber);margin:-4px 0 8px;">⚠ Este producto está en '+faltantes.filter(g=>g.rl.producto_id===f.rl.producto_id).length+' renglones del remito: los paquetes de abajo se reparten entre ellos (primero el de arriba), no alcanzan dos veces.</div>'
+        :'');
     const sustOpts=_sustOpcionesProducto(f.rl.producto_id,pedId);
     if(!grupos.length){
       if(sustOpts.length){
@@ -12468,6 +12513,12 @@ async function confirmarReasignacionRemito(){
   const reasignaciones=[];
   const sustituciones=[];
   let todoCubierto=true;
+  // (11a) Consumo COMPARTIDO entre faltantes: si el mismo producto falta en dos
+  // renglones (el del pedido y un extra), el segundo no puede volver a tomar los
+  // mismos paquetes del mismo lote. Así nació el REM-00535.
+  const _consumoReas={};
+  const _libreLote=l=>Math.max(0,(parseFloat(l.cantidad_paquetes)||0)-(_consumoReas[l.id]||0));
+  const _prodRepetidos=[];
   ctx.faltantes.forEach((f,fIdx)=>{
     const cont=document.querySelector('[data-falt-idx="'+fIdx+'"]');
     if(!cont){todoCubierto=false;return;}
@@ -12486,13 +12537,15 @@ async function confirmarReasignacionRemito(){
       ).sort((a,b)=>new Date(a.created_at||0)-new Date(b.created_at||0));
       for(const lote of lotesPed){
         if(falta<=0)break;
-        const usar=Math.min(falta,parseFloat(lote.cantidad_paquetes)||0);
+        const usar=Math.min(falta,_libreLote(lote));
+        if(usar<=0)continue;
         lotes.push({...lote,_usado:usar});
+        _consumoReas[lote.id]=(_consumoReas[lote.id]||0)+usar;
         falta-=usar;
       }
     });
     if(lotes.length){
-      reasignaciones.push({productoId:f.rl.producto_id,lotes});
+      reasignaciones.push({productoId:f.rl.producto_id,rl:f.rl,lotes});
     }
     // Sustitutos: cubren lo que el mismo producto no alcanzó
     cont.querySelectorAll('.sust-chk:checked').forEach(c=>{
@@ -12506,17 +12559,31 @@ async function confirmarReasignacionRemito(){
       const lotesU=[];
       for(const lote of lotesS){
         if(falta<=0)break;
-        const usar=Math.min(falta,parseFloat(lote.cantidad_paquetes)||0);
+        const usar=Math.min(falta,_libreLote(lote));
+        if(usar<=0)continue;
         lotesU.push({...lote,_usado:usar});
+        _consumoReas[lote.id]=(_consumoReas[lote.id]||0)+usar;
         falta-=usar;
       }
-      if(lotesU.length)sustituciones.push({pedidoLineaId:f.rl.pedido_linea_id,productoPedidoId:f.rl.producto_id,productoId:prodS,lotes:lotesU});
+      if(lotesU.length)sustituciones.push({pedidoLineaId:f.rl.pedido_linea_id,productoPedidoId:f.rl.producto_id,productoId:prodS,rl:f.rl,lotes:lotesU});
     });
-    if(falta>0)todoCubierto=false;
+    if(falta>0){
+      todoCubierto=false;
+      if(ctx.faltantes.filter(g=>g.rl.producto_id===f.rl.producto_id).length>1){
+        const pr=C.productos.find(p=>p.id===f.rl.producto_id);
+        const nm=(pr?.codigo?pr.codigo+' ':'')+(pr?.descripcion||'producto');
+        if(_prodRepetidos.indexOf(nm)<0)_prodRepetidos.push(nm);
+      }
+    }
   });
 
   if(!todoCubierto){
-    if(msg){msg.style.color='var(--red)';msg.textContent='⚠ Todavía falta cubrir stock. Tildá más pedidos.';}
+    if(msg){
+      msg.style.color='var(--red)';
+      msg.textContent=_prodRepetidos.length
+        ?'⚠ '+_prodRepetidos.join(', ')+' está en más de un renglón y los pedidos tildados no alcanzan para los dos (el stock se reparte, no se cuenta dos veces). Tildá más pedidos o cargalo en un solo renglón.'
+        :'⚠ Todavía falta cubrir stock. Tildá más pedidos.';
+    }
     return;
   }
   if(!reasignaciones.length&&!sustituciones.length){
@@ -12541,6 +12608,91 @@ async function confirmarReasignacionRemito(){
   await _ejecutarGuardarRemito(ctx.nro,ctx.pedId,ctx.cliId,ctx.fecha,ctx.obs,ctx.modo,ctx.ped,ctx.cli,ctx.lineasRemito,reasignaciones,sustituciones);
 }
 
+// ── PLAN DE LOTES DE TODO EL REMITO, SIN ESCRIBIR NADA (11a) ──────────────
+// Una sola definición de «de qué lote sale cada paquete», usada por el
+// pre-chequeo y por el guardado. El consumo es COMPARTIDO entre renglones:
+// si el mismo producto va en el renglón del pedido y en un extra, el segundo
+// ve lo que dejó el primero (antes cada renglón miraba el lote entero).
+// reasignaciones/sustituciones se atan a SU renglón (campo rl); las viejas sin
+// rl caen al criterio anterior (por producto).
+function _remLotesDeRenglon(rl,reasignaciones,sustituciones){
+  const reasignLinea=(reasignaciones||[]).filter(r=>r.rl?r.rl===rl:r.productoId===rl.producto_id);
+  const lotesMismo=[...(rl.lotes||[])];
+  reasignLinea.forEach(r=>{
+    (r.lotes||[]).forEach(lote=>{
+      if(!lotesMismo.find(x=>x.id===lote.id))lotesMismo.push(lote);
+    });
+  });
+  const sustLin=(sustituciones||[]).filter(sg=>sg.rl?sg.rl===rl:(sg.pedidoLineaId===rl.pedido_linea_id&&sg.productoPedidoId===rl.producto_id));
+  return {lotesMismo,sustLin};
+}
+function _remPlanificar(lineasRemito,reasignaciones,sustituciones){
+  const consumo={}; // stock_bolsas.id -> paq ya tomados por renglones anteriores
+  return (lineasRemito||[]).map(rl=>{
+    if(rl.es_bobina_granel)return null;
+    const{lotesMismo,sustLin}=_remLotesDeRenglon(rl,reasignaciones,sustituciones);
+    const paqSust=sustLin.reduce((a,sg)=>a+sg.lotes.reduce((b,l)=>b+(parseFloat(l._usado)||0),0),0);
+    const uniRatio=rl.cantidad_paquetes>0?(rl.cantidad_unidades||0)/rl.cantidad_paquetes:0;
+    const partes=[];
+    const paqPrincipal=rl.cantidad_paquetes-paqSust;
+    if(paqPrincipal>0)partes.push({producto_id:rl.producto_id,paq:paqPrincipal,uni:Math.round(paqPrincipal*uniRatio),lotes:lotesMismo,sustDe:null});
+    sustLin.forEach(sg=>{
+      const paqG=sg.lotes.reduce((b,l)=>b+(parseFloat(l._usado)||0),0);
+      if(paqG<=0)return;
+      const prodS=(C.productos||[]).find(x=>x.id===sg.productoId);
+      const uniPaqS=parseInt((C.emp||[]).find(e=>e.id===prodS?.empaque_id)?.unidades)||0;
+      const ratioLote=(sg.lotes[0]&&parseFloat(sg.lotes[0].cantidad_paquetes))?(parseFloat(sg.lotes[0].cantidad_unidades)||0)/parseFloat(sg.lotes[0].cantidad_paquetes):0;
+      partes.push({producto_id:sg.productoId,paq:paqG,uni:Math.round(paqG*(uniPaqS||ratioLote)),lotes:sg.lotes,sustDe:rl.producto_id});
+    });
+    partes.forEach(parte=>{
+      let rest=parte.paq;
+      const plan=[];
+      for(const st of parte.lotes){
+        if(rest<=0)break;
+        const fis=Math.max(0,(parseFloat(st.cantidad_paquetes)||0)-(consumo[st.id]||0));
+        const tope=st._usado!==undefined?Math.min(parseFloat(st._usado)||0,fis):fis;
+        const usar=Math.min(rest,tope);
+        if(usar>0){plan.push({s:st,usar});consumo[st.id]=(consumo[st.id]||0)+usar;rest-=usar;}
+      }
+      parte.plan=plan;
+      parte.faltaPlan=Math.max(0,rest);
+    });
+    return {rl,partes};
+  });
+}
+// Contrasta el plan contra la BASE (no contra la caché): cada lote tiene que
+// tener todo lo que el remito le va a descontar, sumado entre renglones, y cada
+// parte tiene que tener de dónde salir. Devuelve textos de problema ([] = ok).
+async function _remPreflightLotes(lineasRemito,planes){
+  const nomProd=id=>{const p=(C.productos||[]).find(x=>x.id===id);return p?((p.codigo?p.codigo+' ':'')+(p.descripcion||'')).trim():('producto #'+id);};
+  const out=[];
+  const porLote={};
+  (planes||[]).forEach(pl=>{
+    if(!pl)return;
+    pl.partes.forEach(pt=>{
+      if(pt.faltaPlan>0)out.push(nomProd(pt.producto_id)+': '+pt.faltaPlan.toLocaleString('es-AR')+' paq de '+pt.paq.toLocaleString('es-AR')+' no tienen de qué lote salir (ya los tomó otro renglón de este remito)');
+      pt.plan.forEach(x=>{
+        if(!porLote[x.s.id])porLote[x.s.id]={usar:0,producto_id:x.s.producto_id};
+        porLote[x.s.id].usar+=x.usar;
+      });
+    });
+  });
+  const ids=Object.keys(porLote).map(Number);
+  const fres={};
+  for(let i=0;i<ids.length;i+=200){
+    const{data,error}=await sb.from('stock_bolsas').select('id,producto_id,cantidad_paquetes').in('id',ids.slice(i,i+200));
+    if(error)throw error;
+    (data||[]).forEach(r=>{fres[r.id]=r;});
+  }
+  ids.forEach(id=>{
+    const r=fres[id];
+    const tiene=r?(parseFloat(r.cantidad_paquetes)||0):0;
+    if(!r)out.push(nomProd(porLote[id].producto_id)+': el lote #'+id+' ya no existe');
+    else if(tiene+1e-9<porLote[id].usar)out.push(nomProd(r.producto_id)+': el lote #'+id+' tiene '+tiene.toLocaleString('es-AR')+' paq y el remito le quiere sacar '+porLote[id].usar.toLocaleString('es-AR'));
+  });
+  return out;
+}
+
 // Ejecuta el guardado real del remito. reasignaciones = lotes tomados de otros pedidos
 async function _ejecutarGuardarRemito(nro,pedId,cliId,fecha,obs,modo,ped,cli,lineasRemito,reasignaciones,sustituciones){
   sustituciones=sustituciones||[];
@@ -12559,12 +12711,43 @@ async function _ejecutarGuardarRemito(nro,pedId,cliId,fecha,obs,modo,ped,cli,lin
       plano=(ped?.tipo_venta==='negro')?'informal':'formal';
       tipoVenta=ped?.tipo_venta||'blanco';
     }
-    const{data:rem,error:e1}=await sb.from('remitos').insert({
-      numero_remito:nro,pedido_id:pedId||null,cliente_id:cliId,
-      cliente:cli?.nombre||'',fecha,observaciones:obs||null,estado:'emitido',
-      plano:plano,tipo_venta:tipoVenta
-    }).select().single();
-    if(e1)throw e1;
+    // ── (11a) PRIMERO PLANIFICAR Y CHEQUEAR, DESPUÉS ESCRIBIR ──────────────
+    // El guardado no es una transacción: si algo falla a mitad, lo ya escrito
+    // queda. El REM-00535 quedó así: el mismo producto en dos renglones tomó DOS
+    // VECES el mismo lote reservado, el segundo descuento reventó con el remito
+    // ya creado, y el contador (que se subía al final) quedó atrasado.
+    // Ahora el plan de lotes se arma completo, con el consumo COMPARTIDO entre
+    // renglones, y se contrasta contra el stock real de la base ANTES de crear
+    // la primera fila. Si no cierra, no se escribe nada.
+    const _planes=_remPlanificar(lineasRemito,reasignaciones,sustituciones);
+    const _probl=await _remPreflightLotes(lineasRemito,_planes);
+    if(_probl.length){
+      const e=new Error('No se guardó nada — '+_probl.join(' · ')
+        +' · Salí de Nuevo remito, volvé a entrar (recarga el stock) y si el mismo producto va en dos renglones, cargalo en uno solo.');
+      e._remPreflight=true;
+      throw e;
+    }
+
+    // N° definitivo: se recalcula ahora y, si otro remito ganó ese número, se prueba el siguiente.
+    let rem=null,e1=null,_nNro=await _remSiguienteNumero();
+    for(let _int=0;_int<5&&!rem;_int++){
+      const _cand=_remFormatear(_nNro);
+      const rIns=await sb.from('remitos').insert({
+        numero_remito:_cand,pedido_id:pedId||null,cliente_id:cliId,
+        cliente:cli?.nombre||'',fecha,observaciones:obs||null,estado:'emitido',
+        plano:plano,tipo_venta:tipoVenta
+      }).select().single();
+      if(!rIns.error){rem=rIns.data;nro=_cand;break;}
+      e1=rIns.error;
+      const _dup=String(e1.code)==='23505'||/remitos_numero_unico|duplicate key/i.test(e1.message||'');
+      if(!_dup)break;
+      _nNro++;
+    }
+    if(!rem)throw (e1||new Error('No se pudo asignar un número de remito'));
+    // El contador queda al día APENAS existe el remito (antes se subía al final).
+    await _remSincronizarContador(_remNumeroDe(nro));
+    {const _i=document.getElementById('nr-nro');if(_i)_i.value=nro;
+     const _d=document.getElementById('nr-nro-display');if(_d)_d.textContent=nro;}
 
     // Insertar líneas y descontar stock.
     // Cada línea del pedido se entrega en PARTES: lo que sale con el producto
@@ -12598,37 +12781,11 @@ async function _ejecutarGuardarRemito(nro,pedId,cliId,fecha,obs,modo,ped,cli,lin
         }
         continue;
       }
-      const reasignLinea=reasignaciones.filter(r=>r.productoId===rl.producto_id);
-      let lotesMismo=[...rl.lotes];
-      reasignLinea.forEach(r=>{
-        r.lotes.forEach(lote=>{
-          if(!lotesMismo.find(x=>x.id===lote.id))lotesMismo.push(lote);
-        });
-      });
-      const sustLin=sustituciones.filter(sg=>sg.pedidoLineaId===rl.pedido_linea_id&&sg.productoPedidoId===rl.producto_id);
-      const paqSust=sustLin.reduce((a,sg)=>a+sg.lotes.reduce((b,l)=>b+(parseFloat(l._usado)||0),0),0);
-      const uniRatio=rl.cantidad_paquetes>0?(rl.cantidad_unidades||0)/rl.cantidad_paquetes:0;
-      const partes=[];
-      const paqPrincipal=rl.cantidad_paquetes-paqSust;
-      if(paqPrincipal>0)partes.push({producto_id:rl.producto_id,paq:paqPrincipal,uni:Math.round(paqPrincipal*uniRatio),lotes:lotesMismo,sustDe:null});
-      sustLin.forEach(sg=>{
-        const paqG=sg.lotes.reduce((b,l)=>b+(parseFloat(l._usado)||0),0);
-        if(paqG<=0)return;
-        const prodS=C.productos.find(x=>x.id===sg.productoId);
-        const uniPaqS=parseInt((C.emp||[]).find(e=>e.id===prodS?.empaque_id)?.unidades)||0;
-        const ratioLote=(sg.lotes[0]&&parseFloat(sg.lotes[0].cantidad_paquetes))?(parseFloat(sg.lotes[0].cantidad_unidades)||0)/parseFloat(sg.lotes[0].cantidad_paquetes):0;
-        partes.push({producto_id:sg.productoId,paq:paqG,uni:Math.round(paqG*(uniPaqS||ratioLote)),lotes:sg.lotes,sustDe:rl.producto_id});
-      });
+      // (11a) El plan de lotes ya está armado para TODO el remito (_remPlanificar),
+      // con el consumo compartido entre renglones y chequeado contra la base.
+      const partes=(_planes[lineasRemito.indexOf(rl)]||{partes:[]}).partes;
       for(const parte of partes){
-        let restantePlan=parte.paq;
-        const plan=[];
-        for(const st of parte.lotes){
-          if(restantePlan<=0)break;
-          const tope=st._usado!==undefined?parseFloat(st._usado):parseFloat(st.cantidad_paquetes);
-          const usar=Math.min(restantePlan,tope||0);
-          if(usar>0)plan.push({s:st,usar});
-          restantePlan-=usar;
-        }
+        const plan=parte.plan;
         const porDonante={};
         plan.forEach(x=>{
           if(x.s.estado==='reservado'&&x.s.pedido_id&&x.s.pedido_id!==(pedId||-1)){
@@ -12721,9 +12878,7 @@ async function _ejecutarGuardarRemito(nro,pedId,cliId,fecha,obs,modo,ped,cli,lin
       if(eAf&&(eAf.message||'').includes('notas_internas')){/* sin columna, lo ignoramos */}
     }
 
-    // Actualizar contador remito
-    const{data:cnt}=await sb.from('contadores').select('valor').eq('nombre','numero_remito').maybeSingle();
-    await sb.from('contadores').upsert({nombre:'numero_remito',valor:(cnt?.valor||0)+1},{onConflict:'nombre'});
+    // (11a) El contador ya se actualizó al crear el remito (_remSincronizarContador).
 
     // Actualizar estado del pedido (solo si es modo pedido).
     // EXCEPCIÓN: si el pedido es Borrador con tandas pendientes (Borrador híbrido),
