@@ -791,7 +791,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-11a</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-12a</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -948,6 +948,8 @@ body.pext-on .main{margin-left:0!important;}
 
     <div class="page active" id="page-dashboard">
       <div class="page-hdr"><div><div class="page-title">Dashboard extrusión</div><div class="page-sub" id="dash-fecha"></div></div></div>
+      <!-- ALERTA DE MATERIA PRIMA (autonomía en rojo / declaraciones sin regularizar) -->
+      <div id="dash-mp-alerta" style="display:none;margin-bottom:1rem;"></div>
       <!-- KPIs -->
       <div class="stats">
         <div class="stat"><div class="stat-lbl">Órdenes activas</div><div class="stat-val" id="s-act">—</div><div class="stat-sub">en proceso</div></div>
@@ -4716,7 +4718,13 @@ body.pext-on .main{margin-left:0!important;}
           </select>
         </div>
       </div>
+      <div id="mp-prov-wrap" style="margin-bottom:1rem;"></div>
       <div id="mp-stock-kpis" style="margin-bottom:1rem;"></div>
+      <div class="tw" style="margin-bottom:1rem;">
+        <div class="tw-bar"><span class="tw-title">Autonomía — cuántos días queda de cada material</span>
+          <button class="btn btn-sm" onclick="renderMPAutonomia()">↻ Recalcular</button></div>
+        <div id="mp-autonomia-wrap" style="padding:0.25rem;"></div>
+      </div>
       <div class="tw"><div id="mp-stock-tbl"><div class="loading"><div class="spinner"></div></div></div></div>
     </div>
 
@@ -5488,7 +5496,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-09-11a';   // 11a: REMITOS. (1) EL NUMERO SE REPETIA: 'duplicate key value violates unique constraint remitos_numero_unico'. El N° se leia del contador al ABRIR la pantalla y el contador se subia al FINAL del guardado; el REM-00535 se corto a mitad y el contador quedo en 534, asi que el remito siguiente choco. Ahora el numero se asigna AL GUARDAR con _remSiguienteNumero = max(contador, ultimo REM-n que existe en remitos)+1, con reintento si otro gano el numero (23505), y el contador se sincroniza apenas existe el remito (_remSincronizarContador, nunca lo baja). (2) POR QUE SE CORTO: el mismo producto en el renglon del pedido y en un extra tomo DOS VECES el mismo lote reservado de otro pedido (confirmarReasignacionRemito copiaba el lote con _usado por cada faltante y _ejecutarGuardarRemito filtraba las reasignaciones por producto, no por renglon); el segundo descuento revento en entregar_lotes_remito con el remito ya creado. Ahora: _remPlanificar arma el plan de lotes de TODO el remito con consumo compartido entre renglones (una sola definicion, la usa el guardado), _remPreflightLotes lo contrasta contra stock_bolsas de la BASE antes de escribir la primera fila (si no cierra no se escribe nada), la reasignacion reparte el stock entre faltantes del mismo producto y se ata a su renglon (campo rl), y la guarda de sobre-entrega y el calculo de faltantes suman todos los renglones del mismo producto. Sin SQL de esquema. Datos del caso: reparar_rem00535.sql.
+const APP_BUILD='2026-09-12a';   // 12a: QUE LA NOCHE NUNCA MAS DEJE DE CARGAR. El 12/09 a las 02:16, con BOB-05619, el COLORANTE NEGRO toco 0,09 kg EN EL SISTEMA (fisicamente habia) y el bloqueo duro del 10r dejo al turno noche cuatro horas sin cargar: ~8 bobinas que no existen. Y el exceso de metros de OE pedia clave de admin, que a las 3 AM no hay. Tres cambios. (1) VALVULA DE MP: si falta un componente, el operario declara los kg que VE y se abre un LOTE PROVISORIO (PROV-fecha-hora-tN) al ultimo precio conocido — la bobina se carga con su consumo y su costo completos. Tope por categoria (mp_prov_max_aditivo 60 / mp_prov_max_base 1200), confirmacion explicita y queda a nombre del operario. El principio del 10r sigue: NUNCA una bobina sin su consumo; lo que cambia es que ahora hay una salida que lo cumple. (2) REGULARIZACION: cada provisorio queda EN ROJO en Stock MP hasta cerrarse por uno de tres caminos — era sobrante nuestro (usamos menos que la formula), salio de un remito (se le descuenta al lote real, no se cuenta dos veces), o no habia nada. El panel muestra la deriva de inventario de 60 dias de ese material como pista de cual de los tres es. (3) EXCEDENTE DE OE: ya no pide clave — la bobina SIEMPRE se registra y viaja por el circuito de pendientes de asignacion (el mismo de fuera de rango); a la mañana se resuelve con un click. Solo frena el dedazo: una bobina que se lleve la OE entera o mas del triple del tope. Ademas: AUTONOMIA DE MP (dias que queda de cada material al consumo real de 14 dias, contando solo los dias con consumo) en Stock MP y cartel rojo en el dashboard — el negro hubiera avisado el 06/09. Y se cerro el agujero silencioso del 10q: si un componente igual no se pudo descontar, queda escrito en las observaciones de la bobina en vez de un console.warn que nadie mira. Sin SQL nuevo: el provisorio se reconoce por el prefijo del numero de lote y se cierra escribiendo en observaciones.
+// 11a: REMITOS. (1) EL NUMERO SE REPETIA: 'duplicate key value violates unique constraint remitos_numero_unico'. El N° se leia del contador al ABRIR la pantalla y el contador se subia al FINAL del guardado; el REM-00535 se corto a mitad y el contador quedo en 534, asi que el remito siguiente choco. Ahora el numero se asigna AL GUARDAR con _remSiguienteNumero = max(contador, ultimo REM-n que existe en remitos)+1, con reintento si otro gano el numero (23505), y el contador se sincroniza apenas existe el remito (_remSincronizarContador, nunca lo baja). (2) POR QUE SE CORTO: el mismo producto en el renglon del pedido y en un extra tomo DOS VECES el mismo lote reservado de otro pedido (confirmarReasignacionRemito copiaba el lote con _usado por cada faltante y _ejecutarGuardarRemito filtraba las reasignaciones por producto, no por renglon); el segundo descuento revento en entregar_lotes_remito con el remito ya creado. Ahora: _remPlanificar arma el plan de lotes de TODO el remito con consumo compartido entre renglones (una sola definicion, la usa el guardado), _remPreflightLotes lo contrasta contra stock_bolsas de la BASE antes de escribir la primera fila (si no cierra no se escribe nada), la reasignacion reparte el stock entre faltantes del mismo producto y se ata a su renglon (campo rl), y la guarda de sobre-entrega y el calculo de faltantes suman todos los renglones del mismo producto. Sin SQL de esquema. Datos del caso: reparar_rem00535.sql.
   // 09b: REMITOS Y RV. (1) EL BULTO ESPECIAL DEL CLIENTE EN EL REMITO IMPRESO. imprimirRemito calculaba los bultos SIEMPRE con el paquetes_por_bolson del producto, asi que a un cliente que arma el bulto con 8 paquetes en vez de 10 el remito le pedia 30 bultos donde iban 38. Ahora usa la misma cascada que el impreso de deposito (imprimirPedido): paq/bolson de la OC que se corto para ese pedido -> especial del cliente (cliente_precios_especiales) -> default del producto. El impreso suma una columna «Paq/bulto», resalta en ambar la fila que no usa el bulto estandar con el tachado del valor por defecto, y pone un aviso arriba cuando el remito tiene alguna. Un producto sin paq/bolson cargado sigue mostrando «-», no inventa un bulto por paquete. Vale igual para el circuito formal y el informal: es el mismo impreso. (2) EL RV NO AGRUPABA POR MEDIDA. El RV-000215 de QUILPLAST salio con el 00396 dos veces (300 paq y 15 paq, mismo precio) porque guardarRV escribia un rv_linea por cada linea de remito, mientras la factura ya consolidaba con _facConsolidarRemitos. Ahora el RV usa ese mismo helper: un renglon por producto+precio, ordenado por codigo, con la cantidad total. Precios distintos NO se mezclan (un precio promedio no existe en ningun documento - P1). Los numeros de remito, que antes iban pegados a la descripcion como '[Remito REM-00523]', pasan al encabezado del impreso. Y _rvAgruparLineas agrupa TAMBIEN al imprimir, asi los RV ya emitidos salen bien sin tocar la base. Verificado con smoke_remitos.cjs (26 asserts).
   // 28a: NOTAS DE CREDITO Y DEBITO ANTE ARCA — Y UN BUG DE PLATA QUE NO ERA DE ARCA.
   //      German: "el tema de notas de debito, credito eso lo tenemos listo tambien" y
@@ -6580,6 +6589,9 @@ function updateStats(){
 
 // ===== DASHBOARD =====
 function renderDash(){
+  // Aviso de materia prima: no bloquea el pintado del dashboard (tiene cache propia
+  // de 5 min y consulta el libro por su cuenta).
+  try{_mpAlertaDashboard();}catch(e){}
   const lun=lunesDeHoy();
   const dom=new Date(addDays(lun,6));dom.setHours(23,59,59,999);
   const sched=computeSchedule();
@@ -7462,7 +7474,8 @@ async function _mpFaltante(bobinaTipoId,kgR){
     if(hay<nec-0.001){
       const t=(C.tipos_mp||[]).find(x=>x.id===f.tipo_mp_id)||{};
       falta.push({tipo_mp_id:f.tipo_mp_id,nombre:t.nombre||('MP '+f.tipo_mp_id),
-        necesita:r2(nec),hay:r2(hay),falta:r2(nec-hay),base:t.categoria==='base'});
+        necesita:r2(nec),hay:r2(hay),falta:r2(nec-hay),base:t.categoria==='base',
+        categoria:t.categoria||'aditivo'});
     }
   });
   return falta;
@@ -7516,36 +7529,84 @@ async function guardarBobina(){
   const mtsAcum=(mtsXOrden[ordId]||0)+mtsR;
   const pctAcum=orden.metros?mtsAcum/orden.metros*100:0;
   if(pctAcum>(100+cfg.tolerancia_exceso_mts)){
-    pedirAdminYEjecutar(async()=>await _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,calidad,obs,fecha,hora,orden,mtsAcum,opId));
+    // 🔴 11b — ANTES esto pedia clave de admin y listo. A las 3 de la mañana no hay
+    // admin: el operario cerraba la pantalla y esas bobinas no se cargaban nunca.
+    // Ahora la bobina SIEMPRE se registra; si excede, no se le suma a esa OE y queda
+    // en el panel de pendientes de asignacion (el mismo de fuera de rango), que a la
+    // mañana se resuelve con un click ("Aceptar tal cual" o reasignar).
+    // Lo unico que sigue frenando es el dedazo: una sola bobina que se lleve la OE
+    // entera, o el triple del tope, es un cero de mas — eso sigue pidiendo admin.
+    const absurdo=(mtsR>=orden.metros)||(pctAcum>(100+cfg.tolerancia_exceso_mts*3));
+    if(absurdo){
+      pedirAdminYEjecutar(async()=>await _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,calidad,obs,fecha,hora,orden,mtsAcum,opId));
+      return;
+    }
+    window._oeExcedArgs=[nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,calidad,obs,fecha,hora,orden,mtsAcum,opId];
+    _oeExcesoAbrir(orden,mtsR,mtsAcum,pctAcum);
     return;
   }
   await _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,calidad,obs,fecha,hora,orden,mtsAcum,opId);
 }
-async function _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,calidad,obs,fecha,hora,orden,mtsAcum,opId){
+// Modal del excedente de OE: sin clave, dos botones, y la bobina no se pierde.
+function _oeExcesoAbrir(orden,mtsR,mtsAcum,pctAcum){
+  document.getElementById('oeexc-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="oeexc-modal"><div class="modal-card" style="max-width:500px;">'
+    +'<div class="modal-title">📏 Esta bobina se pasa de los metros de la OE</div>'
+    +'<div style="background:var(--bg3);border-radius:var(--r);padding:11px 13px;margin-bottom:12px;font-size:12.5px;line-height:1.6;">'
+      +'<b>'+escapeHtml(orden.numero_orden)+'</b> pide <b>'+r1(orden.metros).toLocaleString('es-AR')+' m</b>.<br>'
+      +'Con esta bobina de '+r1(mtsR).toLocaleString('es-AR')+' m quedaría en <b>'+r1(mtsAcum).toLocaleString('es-AR')+' m ('+Math.round(pctAcum)+'%)</b>.'
+    +'</div>'
+    +'<div style="font-size:12px;color:var(--text2);line-height:1.55;margin-bottom:14px;">'
+      +'La bobina <b>se va a registrar igual</b> — el material ya se gastó y el rollo existe. '
+      +'Lo que no se hace es sumarla a esta orden: queda en <b>pendientes de asignación</b> y a la mañana '
+      +'la oficina la acepta acá o la manda a la orden que corresponda. Seguí produciendo.'
+    +'</div>'
+    +'<div class="btn-grp">'
+      +'<button class="btn btn-primary btn-sm" onclick="_oeExcesoConfirmar()">Registrar la bobina</button>'
+      +'<button class="btn btn-sm" onclick="document.getElementById(\'oeexc-modal\').remove()">Volver a revisar los metros</button>'
+    +'</div></div></div>');
+}
+async function _oeExcesoConfirmar(){
+  const a=window._oeExcedArgs;
+  document.getElementById('oeexc-modal')?.remove();
+  if(!a){toast('Se perdieron los datos de la bobina — cargala de nuevo.','red');return;}
+  window._oeExcedArgs=null;
+  await _guardarBobinaDB(a[0],a[1],a[2],a[3],a[4],a[5],a[6],a[7],a[8],a[9],a[10],a[11],a[12],a[13],a[14],a[15],true);
+}
+async function _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,calidad,obs,fecha,hora,orden,mtsAcum,opId,esExcedenteOE){
   const msg=document.getElementById('msg-carga');
   msg.innerHTML='<div class="loading" style="padding:0.5rem 0;justify-content:flex-start"><div class="spinner"></div>Guardando...</div>';
   // El control va ACA y no en guardarBobina() porque este es el unico paso por el
   // que entran los dos caminos (el normal y el de exceso de metros con clave).
-  // BLOQUEO DURO, por decision de German (build 10r): si falta CUALQUIER componente
-  // de la formula —el material base o un colorante de 2%— no se puede continuar.
-  // No hay boton para saltearlo. El 10q lo dejaba forzar con clave de admin; German
-  // lo saco: "si falta negro o caramelo, o algun componente de la formula de la
-  // bobina, no se puede continuar". Es la decision correcta y es suya: el que paga
-  // una linea parada es el mismo que paga un costo mal calculado, y prefiere parar.
-  // Una bobina cargada sin su material no se puede arreglar despues — el consumo no
-  // existe y nadie sabe que falto.
+  // El 10q dejaba forzar con clave de admin; el 10r lo saco entero ("si falta negro
+  // o caramelo, o algun componente de la formula, no se puede continuar") porque una
+  // bobina cargada sin su material no se puede arreglar despues: el consumo no existe
+  // y nadie sabe que falto.
+  //
+  // 🔴 11b — la noche del 12/09 mostro el otro lado: a las 02:16 el colorante negro
+  // toco cero EN EL SISTEMA con material fisico en la planta, y el turno entero dejo
+  // de cargar. Cuatro horas y ~8 bobinas que no existen. El principio del 10r sigue
+  // en pie —NUNCA una bobina sin su consumo— pero ahora hay una salida que lo cumple:
+  // el operario DECLARA los kg que ve, se abre un lote provisorio y la bobina se
+  // carga con su consumo completo. Lo que antes era "no se puede" ahora es "se puede,
+  // con nombre, hora y una marca roja hasta que la oficina lo cierre".
   {
     const falta=await _mpFaltante(bob.id,kgR);
     if(falta.length){
+      window._mpFaltaPendiente=falta;
       msg.className='msg-err';
-      msg.innerHTML='⛔ <strong>No se puede cargar la bobina: falta materia prima</strong>'
+      msg.innerHTML='⛔ <strong>Falta materia prima en el sistema</strong>'
         +'<div style="margin:7px 0;font-family:\'DM Mono\',monospace;font-size:12px;line-height:1.6;">'
         +falta.map(f=>'· <b>'+escapeHtml(f.nombre)+'</b> — necesita '+f.necesita+' kg, hay '
             +f.hay+' kg → <b>faltan '+f.falta+' kg</b>'+(f.base?'  (material base)':'')).join('<br>')
         +'</div>'
-        +'<div style="font-size:12px;line-height:1.55;">Cargá el ingreso de esa materia prima y volvé '
-        +'a guardar. La bobina no se perdió: los datos quedan en pantalla.</div>'
-        +'<div style="margin-top:9px;"><button class="btn btn-sm btn-primary" onclick="go(\'mp-ingreso\')">Ir a cargar la materia prima</button></div>';
+        +'<div style="font-size:12px;line-height:1.55;"><b>Si en la planta HAY material</b>, declaralo acá abajo: '
+        +'la bobina se carga igual y queda anotado a tu nombre para que la oficina lo regularice. '
+        +'Los datos de la bobina no se perdieron, siguen en pantalla.</div>'
+        +'<div style="margin-top:9px;display:flex;gap:8px;flex-wrap:wrap;">'
+        +'<button class="btn btn-sm btn-primary" onclick="_mpProvAbrir()">🧪 Hay material en planta — declarar y cargar</button>'
+        +'<button class="btn btn-sm" onclick="go(\'mp-ingreso\')">Cargar un ingreso de MP</button></div>';
       return;
     }
   }
@@ -7555,8 +7616,15 @@ async function _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,ca
   // Convención: pesada = negativo (pérdida de precisión), liviana = positivo (falta material)
   const errPctStore=esPesada?-absE:absE;
   const errKgStore=esPesada?-Math.abs(errKg):Math.abs(errKg);
-  const fueraDeRango=(esPesada&&absE>cfg.tolerancia_pesada_pct)||((!esPesada)&&absE>cfg.tolerancia_liviana_pct);
-  const motivoFR=esPesada?`Pesada: −${absE}% (límite −${cfg.tolerancia_pesada_pct}%)`:`Liviana: +${absE}% (límite +${cfg.tolerancia_liviana_pct}%)`;
+  const fueraCalidad=(esPesada&&absE>cfg.tolerancia_pesada_pct)||((!esPesada)&&absE>cfg.tolerancia_liviana_pct);
+  // Un excedente de OE viaja por el MISMO circuito que una bobina fuera de rango:
+  // se registra, no suma a su orden, y espera en el panel de pendientes. Si además
+  // está fuera de tolerancia de peso, se guardan los dos motivos.
+  const _pctAc=orden&&orden.metros?r1(mtsAcum/orden.metros*100):0;
+  const motivoCal=esPesada?`Pesada: −${absE}% (límite −${cfg.tolerancia_pesada_pct}%)`:`Liviana: +${absE}% (límite +${cfg.tolerancia_liviana_pct}%)`;
+  const motivoExc=`EXCEDENTE DE OE: ${orden?orden.numero_orden:''} quedaría en ${r1(mtsAcum).toLocaleString('es-AR')} m de ${r1(orden?orden.metros:0).toLocaleString('es-AR')} m (${Math.round(_pctAc)}%) — pendiente de asignación`;
+  const fueraDeRango=fueraCalidad||!!esExcedenteOE;
+  const motivoFR=esExcedenteOE?(motivoExc+(fueraCalidad?' · '+motivoCal:'')):motivoCal;
   // .select('id').single() sobre el propio insert: la base nos devuelve el id
   // en el mismo viaje. Antes había que ir a buscarlo después por numero_bobina.
   const{data:bobIns,error:e1}=await sb.from('bobinas_producidas').insert({
@@ -7574,6 +7642,7 @@ async function _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,ca
 
   // === CONSUMO AUTOMÁTICO DE MP ===
   let consumosGuardados=[];   // para parchear C.consumos_mp sin volver a pedirla
+  const _mpSinConsumir=[];    // componentes que no se pudieron descontar (ver más abajo)
   const formula=C.formulas.filter(f=>f.bobina_id===bob.id);
   if(formula.length){
     const consumos=[];
@@ -7590,7 +7659,7 @@ async function _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,ca
       const lotesComp=lotesVivos
         .filter(l=>l.tipo_mp_id===f.tipo_mp_id&&(lotesCache[l.id]??l.kg_disponibles)>0)
         .sort((a,b)=>new Date(a.fecha_ingreso)-new Date(b.fecha_ingreso));
-      if(!lotesComp.length){console.warn('Sin lotes para tipo_mp_id',f.tipo_mp_id);continue;}
+      if(!lotesComp.length){console.warn('Sin lotes para tipo_mp_id',f.tipo_mp_id);_mpSinConsumir.push({id:f.tipo_mp_id,kg:r3(kgRestante)});continue;}
       for(const lote of lotesComp){
         if(kgRestante<=0)break;
         const dispActual=lotesCache[lote.id]??lote.kg_disponibles;
@@ -7611,7 +7680,22 @@ async function _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,ca
         }).eq('id',lote.id);
         kgRestante=r3(kgRestante-kgDeLote);
       }
-      if(kgRestante>0.01)console.warn('Sin stock suficiente para tipo_mp_id',f.tipo_mp_id,'— faltan',kgRestante,'kg');
+      if(kgRestante>0.01){console.warn('Sin stock suficiente para tipo_mp_id',f.tipo_mp_id,'— faltan',kgRestante,'kg');_mpSinConsumir.push({id:f.tipo_mp_id,kg:r3(kgRestante)});}
+    }
+    // 🔴 11b — el agujero silencioso del 10q: si un componente no tenía lotes, el
+    // bucle hacía `continue` y la bobina quedaba costeada SIN ese material, con un
+    // console.warn que nadie mira. El control de arriba lo evita en el 99% de los
+    // casos, pero si falla por red se deja pasar a propósito (una línea parada es
+    // peor). Entonces, al menos, que quede escrito en la bobina y en pantalla.
+    if(_mpSinConsumir.length&&bobIns?.id){
+      const det=_mpSinConsumir.map(x=>{
+        const t=(C.tipos_mp||[]).find(y=>String(y.id)===String(x.id));
+        return (t?t.nombre:'MP '+x.id)+' '+x.kg+' kg';
+      }).join(', ');
+      const nota='⚠ CARGADA SIN MP COMPLETA ('+fecha+' '+hora.slice(0,5)+'): faltó '+det+'. Costo incompleto — revisar.';
+      try{
+        await sb.from('bobinas_producidas').update({observaciones:(obs?obs+' | ':'')+nota}).eq('id',bobIns.id);
+      }catch(e){console.warn('No se pudo anotar el faltante en la bobina',e);}
     }
     const bobInsertada=bobIns;   // ya lo devolvió el insert de arriba
     if(bobInsertada&&consumos.length){
@@ -7639,7 +7723,9 @@ async function _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,ca
   let _oeCompletada=false;
   if(fueraDeRango){
     msg.className='msg-err';
-    msg.textContent=`⚠ Bobina ${nro} registrada FUERA DE RANGO (${motivoFR}). NO se sumó a la orden. Pendiente de reasignación por admin.`;
+    msg.textContent=esExcedenteOE
+      ?`✓ Bobina ${nro} REGISTRADA como excedente de ${orden?orden.numero_orden:'la OE'}. No se sumó a esa orden: queda pendiente de asignación para la oficina. Seguí cargando.`
+      :`⚠ Bobina ${nro} registrada FUERA DE RANGO (${motivoFR}). NO se sumó a la orden. Pendiente de reasignación por admin.`;
   } else {
     // Solo sumar metros si está dentro del rango
     if(orden&&mtsAcum>=orden.metros){
@@ -7657,7 +7743,7 @@ async function _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,ca
     ordenes:{numero_orden:orden.numero_orden},
     extrusoras:{nombre:extrusora?.nombre||'—'},
     metros_reales:mtsR,kg_reales:kgR,kg_teoricos:kgT,
-    error_pct:errPct,estado_calidad:fueraDeRango?'FUERA DE RANGO':calidad,
+    error_pct:errPct,estado_calidad:esExcedenteOE?'EXCEDENTE OE':(fueraDeRango?'FUERA DE RANGO':calidad),
     operario:opNom,flexxus:'No pasada'
   });
   // Antes: await reload() — 68 consultas por CADA bobina cargada (~100/día).
@@ -10015,6 +10101,7 @@ function go(name){
   if(name==='panel-operario')renderPanelOperario();
   if(name==='tablero')renderTablero();
   if(name==='panel-corte')renderPanelCorte();
+  if(name==='mp-stock'){renderMPStock();renderMPProvisorios();renderMPAutonomia();}
   if(name==='mp-ingreso'){renderTiposMP();renderProveedores();poblarSelectsMP();}
   if(name==='mp-inventario'){renderInvAlerta();renderInvHist();poblarInvOp();}
   if(name==='mp-formulas'){poblarSelectsFormulas();renderFormulaBobina();auditFormulas();}
@@ -37119,13 +37206,17 @@ function renderFueraDeRango(){
     +'<div class="alert alert-warn" style="font-size:12px;margin-bottom:1rem;">Solo el administrador puede reasignar bobinas. El sistema sugiere tipos compatibles por ancho exacto y tolerancia de peso.</div>';
   lista.forEach(b=>{
     const recom=calcRecomendaciones(b);
+    // Un excedente de OE llega por el mismo circuito pero NO es un problema de
+    // calidad: la bobina está bien, sobra respecto de los metros de su orden. Se
+    // resuelve casi siempre con "Aceptar tal cual" o mandándola a otra orden.
+    const esExc=/^EXCEDENTE DE OE/.test(String(b.motivo_fuera_rango||''));
     const kgM_real=b.metros_reales>0?r4(b.kg_reales/b.metros_reales):0;
     // Error con nueva convención: pesada=negativo, liviana=positivo
     const errPctOrig=b.error_pct||0;
     const errColor=errPctOrig>0?'var(--accent)':'var(--amber)'; // liviana=verde, pesada=amarillo
     html+='<div class="fp" style="margin-bottom:1rem;">'
       +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
-        +'<div class="fp-t" style="color:var(--red);margin:0">⚠ '+b.numero_bobina+' — Fuera de rango</div>'
+        +'<div class="fp-t" style="color:'+(esExc?'var(--amber)':'var(--red)')+';margin:0">'+(esExc?'📏 '+b.numero_bobina+' — Excedente de OE (la bobina está bien)':'⚠ '+b.numero_bobina+' — Fuera de rango')+'</div>'
         +'<button class="btn btn-sm" onclick="imprimirTarjetaBobina(\''+b.numero_bobina+'\')" title="Imprimir tarjeta">🖨️</button>'
       +'</div>'
       // Datos originales
@@ -37188,8 +37279,10 @@ function renderFueraDeRango(){
       // Opción de aceptar la bobina con el tipo original
       +'<div style="background:var(--amberbg);border:1px solid var(--amberbd);border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;gap:10px;">'
         +'<div style="flex:1;">'
-          +'<div style="font-size:12px;font-weight:600;color:var(--amber)">Aceptar bobina con tipo original</div>'
-          +'<div style="font-size:11px;color:var(--text2)">La bobina se suma a su orden original ('+(b.bobinas?.nombre||'—')+') con el error real. Usá esto si el error es aceptable para este caso específico.</div>'
+          +'<div style="font-size:12px;font-weight:600;color:var(--amber)">'+(esExc?'Aceptar el excedente en su OE':'Aceptar bobina con tipo original')+'</div>'
+          +'<div style="font-size:11px;color:var(--text2)">'+(esExc
+            ?'La bobina se suma a su orden original ('+(b.ordenes?.numero_orden||b.bobinas?.nombre||'—')+') aunque la pase de metros. Es lo habitual: el rollo está bien, sobró respecto de lo pedido. Si en realidad va a otra orden, reasignala arriba.'
+            :'La bobina se suma a su orden original ('+(b.bobinas?.nombre||'—')+') con el error real. Usá esto si el error es aceptable para este caso específico.')+'</div>'
         +'</div>'
         +'<button class="btn btn-sm" style="background:var(--amber);color:#fff;border:none;white-space:nowrap;" onclick="aceptarBobinaOriginal('+b.id+')">✓ Aceptar tal cual</button>'
       +'</div>'
@@ -64011,6 +64104,7 @@ function renderMPStock(){
   });
   html+='</tbody></table></div>';
   if(tbl)tbl.innerHTML=html;
+  try{renderMPProvisorios();}catch(e){}
 }
 
 // ===== TRAZABILIDAD DE LOTE MP =====
@@ -64660,6 +64754,372 @@ async function confirmarAjusteLote(loteId, kgAnterior){
     setTimeout(()=>{document.getElementById('ajuste-lote-modal')?.remove();renderMPStock();},1200);
   });
 }
+
+// ===== MP PROVISORIA (válvula de escape de planta) + AUTONOMÍA DE STOCK =====
+// El caso que lo motivó: 12/09/2026, 02:16. El turno noche cargó BOB-05619 y el
+// COLORANTE NEGRO quedó en 0,09 kg EN EL SISTEMA. Físicamente HABÍA material, pero
+// el bloqueo duro del build 10r no deja cargar una bobina si falta un componente de
+// la fórmula, y a esa hora no hay nadie que cargue un remito. Resultado: cuatro
+// horas de turno sin registrar, ~8 bobinas que para el sistema no existen.
+// El bloqueo no está mal — está puesto en el único momento en que nadie lo puede
+// resolver. La falla real es que nadie supo el 06/09 que quedaban 3 días de negro.
+//
+// Tres capas, en este orden:
+//  1) AUTONOMÍA: días de stock de cada MP calculados con el consumo REAL de los
+//     últimos 14 días. El negro se consume a ~20 kg/día y entra de a 125 kg: el
+//     aviso tenía que salir el 06/09, no a las 2 de la mañana del 12.
+//  2) VÁLVULA: si igual pasa, el operario declara los kg que VE físicamente y el
+//     sistema abre un LOTE PROVISORIO (PROV-…) al último precio conocido de ese
+//     material. La bobina se carga con su consumo completo y su costo. Nunca más
+//     una bobina sin registro, y nunca más un consumo sin material detrás.
+//  3) REGULARIZACIÓN: cada provisorio queda EN ROJO en Stock MP hasta que se cierra
+//     por uno de tres caminos — era sobrante nuestro (usamos menos que la fórmula),
+//     salió de un remito que no estaba cargado, o no había nada y fue un error.
+//
+// P1 se respeta: el provisorio NO es un saldo escrito a mano. Es un movimiento del
+// libro (ajuste_pos, impacta_resultado=false) con autor, hora y motivo, y el saldo
+// se sigue derivando del libro. No hace falta SQL nuevo: el provisorio se reconoce
+// por el prefijo del número de lote y se cierra escribiendo en observaciones.
+const MP_PROV_PREFIJO='PROV-';
+function _mpEsProvisorio(l){return String((l&&l.numero_lote)||'').indexOf(MP_PROV_PREFIJO)===0;}
+function _mpProvCerrado(l){return /\[(REGULARIZADO|ANULADO)/.test(String((l&&l.observaciones)||''));}
+function _mpProvPendientes(){return (C.lotes_mp||[]).filter(l=>_mpEsProvisorio(l)&&!_mpProvCerrado(l));}
+// Tope de lo que un operario puede declarar sin admin. Un colorante entra de a
+// 25 kg y un base de a 1000+: declarar más que eso no es "lo que quedaba en la
+// bolsa", es un ingreso de mercadería y va por la pantalla de ingreso de MP.
+function _mpTopeProv(categoria){
+  const k=categoria==='base'?'mp_prov_max_base':'mp_prov_max_aditivo';
+  const v=parseFloat(getCfg(k,categoria==='base'?1200:60));
+  return isNaN(v)?(categoria==='base'?1200:60):v;
+}
+// Último precio conocido del material: el lote NO provisorio más reciente con precio.
+// Si el material nunca entró (no debería pasar), queda en 0 y se avisa en el panel.
+function _mpUltimoPrecioKg(tipoId){
+  const cand=(C.lotes_mp||[])
+    .filter(l=>String(l.tipo_mp_id)===String(tipoId)&&!_mpEsProvisorio(l)&&(parseFloat(l.precio_kg)||0)>0)
+    .sort((a,b)=>String(b.fecha_ingreso||'').localeCompare(String(a.fecha_ingreso||'')));
+  return cand.length?(parseFloat(cand[0].precio_kg)||0):0;
+}
+function _mpFechaMenos(dias){
+  const d=new Date();d.setDate(d.getDate()-(parseInt(dias)||0));return localDate(d);
+}
+
+// ---- Modal de declaración (lo abre el cartel de falta de MP en carga de bobinas) ----
+function _mpProvAbrir(){
+  const falta=window._mpFaltaPendiente||[];
+  if(!falta.length){toast('No hay materia prima pendiente de declarar.','red');return;}
+  const opSel=document.getElementById('cb-op-sel');
+  const opNom=(opSel&&opSel.selectedIndex>0?opSel.options[opSel.selectedIndex].text:'')||'operario';
+  window._mpProvOperario=opNom;
+  document.getElementById('mprov-modal')?.remove();
+  const filas=falta.map(f=>{
+    const tope=_mpTopeProv(f.categoria);
+    const rapidos=(f.categoria==='base'?[250,500,1000]:[5,10,25]).filter(n=>n<=tope);
+    return '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:11px 13px;margin-bottom:9px;">'
+      +'<div style="font-weight:700;font-size:13px;">'+escapeHtml(f.nombre)+'</div>'
+      +'<div style="font-size:11px;color:var(--text2);margin:2px 0 8px;">Esta bobina necesita <b>'+f.necesita+' kg</b> · el sistema tiene <b>'+f.hay+' kg</b> → faltan <b style="color:var(--red)">'+f.falta+' kg</b></div>'
+      +'<div class="fg" style="margin:0;"><label style="font-size:11px;">¿Cuántos kg hay en la bolsa / el tacho? <span style="color:var(--text3)">(mirá y poné lo que ves — máx '+tope+' kg)</span></label>'
+      +'<input type="number" step="0.1" min="0" id="mprov-kg-'+f.tipo_mp_id+'" placeholder="kg que ves" style="font-size:17px;font-weight:700;"></div>'
+      +'<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">'
+      +rapidos.map(n=>'<button class="btn btn-sm" type="button" onclick="document.getElementById(\'mprov-kg-'+f.tipo_mp_id+'\').value='+n+'">'+n+' kg</button>').join('')
+      +'</div></div>';
+  }).join('');
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="mprov-modal"><div class="modal-card" style="max-width:520px;width:94vw;max-height:92vh;overflow-y:auto;">'
+    +'<div class="modal-title">🧪 Declarar materia prima que hay en planta</div>'
+    +'<div style="font-size:12px;color:var(--text2);line-height:1.55;background:var(--amberbg);border:1px solid var(--amberbd);border-radius:var(--r);padding:10px 12px;margin-bottom:12px;">'
+      +'El sistema se quedó sin stock de este material pero en la planta hay. Declarálo acá y la bobina se carga normal, con su consumo y su costo.<br>'
+      +'<b>Esto no es un ingreso de mercadería:</b> queda marcado en rojo hasta que la oficina lo regularice.'
+    +'</div>'
+    +filas
+    +'<label style="display:flex;gap:8px;align-items:flex-start;font-size:12px;margin:12px 0;cursor:pointer;">'
+      +'<input type="checkbox" id="mprov-chk" style="margin-top:2px;">'
+      +'<span>Confirmo que <b>vi el material físicamente</b> y que los kg que puse son los que hay. Queda registrado a nombre de <b>'+escapeHtml(opNom)+'</b>.</span>'
+    +'</label>'
+    +'<div class="btn-grp"><button class="btn btn-primary btn-sm" onclick="_mpProvConfirmar()">Declarar y cargar la bobina</button>'
+    +'<button class="btn btn-sm" onclick="document.getElementById(\'mprov-modal\').remove()">Cancelar</button>'
+    +'<span id="mprov-msg" style="font-size:12px;margin-left:8px;"></span></div>'
+    +'</div></div>');
+}
+async function _mpProvConfirmar(){
+  const falta=window._mpFaltaPendiente||[];
+  const msg=document.getElementById('mprov-msg');
+  const chk=document.getElementById('mprov-chk');
+  if(!chk||!chk.checked){if(msg)msg.innerHTML='<span style="color:var(--red)">Tildá la confirmación.</span>';return;}
+  const opNom=window._mpProvOperario||'operario';
+  const decl=[];
+  for(const f of falta){
+    const inp=document.getElementById('mprov-kg-'+f.tipo_mp_id);
+    const kg=parseFloat(inp&&inp.value)||0;
+    const tope=_mpTopeProv(f.categoria);
+    if(!(kg>0)){if(msg)msg.innerHTML='<span style="color:var(--red)">Poné los kg de '+escapeHtml(f.nombre)+'.</span>';return;}
+    if(kg<f.falta){if(msg)msg.innerHTML='<span style="color:var(--red)">'+escapeHtml(f.nombre)+': con '+kg+' kg no alcanza para esta bobina (faltan '+f.falta+' kg).</span>';return;}
+    if(kg>tope){if(msg)msg.innerHTML='<span style="color:var(--red)">'+escapeHtml(f.nombre)+': el máximo que se puede declarar en planta es '+tope+' kg. Si hay más, tiene que entrar como ingreso de MP.</span>';return;}
+    decl.push(Object.assign({},f,{kg:r3(kg)}));
+  }
+  if(msg)msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:12px;height:12px"></div>Declarando…</div>';
+  const fecha=localDate(),hora=localTime();
+  const creados=[];
+  for(const d of decl){
+    const precio=_mpUltimoPrecioKg(d.tipo_mp_id);
+    // Sin contador en la base a propósito: a las 2 de la mañana, con dos extrusoras
+    // declarando a la vez, un contador compartido es una carrera más. Fecha + hora +
+    // material + 3 dígitos al azar alcanza y no necesita ningún viaje extra.
+    const nro=MP_PROV_PREFIJO+fecha.replace(/-/g,'')+'-'+hora.replace(/:/g,'')+'-t'+d.tipo_mp_id
+      +'-'+String(Math.floor(Math.random()*900)+100);
+    const obs='PROVISORIO · declarado por '+opNom+' el '+fecha+' '+hora.slice(0,5)
+      +' — material presente en planta que el sistema no tenía (saldo en sistema: '+d.hay+' kg).'
+      +' Precio estimado con el último ingreso ($'+precio+'/kg). PENDIENTE DE REGULARIZAR.';
+    const{data:loteIns,error}=await sb.from('lotes_mp').insert({
+      numero_lote:nro,tipo_mp_id:d.tipo_mp_id,proveedor_id:null,
+      numero_remito:'PROVISORIO',numero_bigbag:null,
+      fecha_ingreso:fecha,kg_ingresados:d.kg,kg_disponibles:d.kg,
+      precio_kg:precio,estado:'activo',activo:true,observaciones:obs
+    }).select('id').single();
+    if(error){if(msg)msg.innerHTML='<span style="color:var(--red)">Error creando el provisorio: '+escapeHtml(error.message)+'</span>';return;}
+    const{error:eMov}=await sb.from('mov_mp').insert({
+      lote_id:loteIns.id,tipo_mp_id:d.tipo_mp_id,tipo_mov:'ajuste_pos',
+      kg:d.kg,precio_kg:precio,impacta_resultado:false,
+      motivo:'PROVISORIO · '+d.nombre+' declarado en planta por '+opNom+' (el sistema estaba en '+d.hay+' kg)',
+      ref_tipo:'mp_provisorio',ref_id:loteIns.id,operario:opNom,fecha:fecha
+    });
+    if(eMov){if(msg)msg.innerHTML='<span style="color:var(--red)">Lote creado pero falló el libro: '+escapeHtml(eMov.message)+'</span>';return;}
+    creados.push(nro);
+  }
+  const{data:lotesRef}=await sb.from('lotes_mp').select('*, tipos_mp(*), proveedores(nombre)').order('fecha_ingreso',{ascending:false});
+  if(lotesRef)C.lotes_mp=lotesRef;
+  window._mpFaltaPendiente=null;
+  document.getElementById('mprov-modal')?.remove();
+  toast('✓ Declarado en planta ('+creados.length+' material'+(creados.length===1?'':'es')+') — cargando la bobina…','green');
+  guardarBobina();
+}
+
+// ---- Panel de provisorios pendientes (Stock MP) ----
+async function renderMPProvisorios(){
+  const w=document.getElementById('mp-prov-wrap');if(!w)return;
+  const pend=_mpProvPendientes();
+  if(!pend.length){w.innerHTML='';return;}
+  // Deriva de los últimos 60 días: si los inventarios de ese material vienen dando
+  // A FAVOR, lo declarado era muy probablemente sobrante nuestro (la fórmula pide
+  // más de lo que la máquina usa). Si vienen en contra, buscá el remito.
+  const desde=_mpFechaMenos(60);
+  const{data:ajus}=await sb.from('mov_mp').select('tipo_mp_id,kg,tipo_mov,ref_tipo').gte('fecha',desde)
+    .in('tipo_mov',['ajuste_pos','ajuste_neg','ajuste_neutro']);
+  const deriva={};
+  (ajus||[]).forEach(m=>{
+    if(m.ref_tipo==='mp_provisorio')return;
+    deriva[m.tipo_mp_id]=(deriva[m.tipo_mp_id]||0)+(parseFloat(m.kg)||0);
+  });
+  let html='<div class="alert alert-danger" style="font-size:12px;margin-bottom:10px;">'
+    +'🧪 <b>'+pend.length+' declaración'+(pend.length===1?'':'es')+' de materia prima sin regularizar.</b> '
+    +'Son kg que un operario declaró en planta porque el sistema estaba en cero. Las bobinas ya se costearon con esto — cerralo cuanto antes.</div>';
+  pend.forEach(l=>{
+    const nom=(l.tipos_mp&&l.tipos_mp.nombre)||('MP '+l.tipo_mp_id);
+    const ing=parseFloat(l.kg_ingresados)||0,disp=parseFloat(l.kg_disponibles)||0;
+    const cons=r3(ing-disp);
+    const d=r1(deriva[l.tipo_mp_id]||0);
+    const pista=d>0.5?'<span style="color:var(--green)">los inventarios de este material vienen dando +'+d+' kg en 60 días → muy probablemente era sobrante nuestro</span>'
+      :d<-0.5?'<span style="color:var(--amber)">los inventarios vienen dando '+d+' kg en 60 días → buscá el remito antes de darlo por sobrante</span>'
+      :'<span style="color:var(--text3)">sin diferencias de inventario significativas en 60 días</span>';
+    html+='<div class="fp" style="margin-bottom:10px;border-left:3px solid var(--red);">'
+      +'<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start;">'
+        +'<div><div class="fp-t" style="margin:0;color:var(--red)">'+escapeHtml(l.numero_lote)+' · '+escapeHtml(nom)+'</div>'
+        +'<div style="font-size:11px;color:var(--text2);margin-top:3px;">'+escapeHtml(l.observaciones||'')+'</div>'
+        +'<div style="font-size:11px;margin-top:5px;">'+pista+'</div></div>'
+        +'<div style="text-align:right;font-family:\'DM Mono\',monospace;font-size:12px;white-space:nowrap;">'
+          +'declarado <b>'+kgFmt(ing)+' kg</b><br>consumido <b>'+kgFmt(cons)+' kg</b><br>queda <b>'+kgFmt(disp)+' kg</b>'
+          +(parseFloat(l.precio_kg)>0?'':'<br><span style="color:var(--red)">⚠ sin precio</span>')
+        +'</div>'
+      +'</div>'
+      +'<div class="btn-grp" style="margin-top:10px;">'
+        +'<button class="btn btn-sm btn-primary" onclick="_mpProvSobrante('+l.id+')" title="Era material nuestro que había sobrado: usamos menos que la fórmula">✓ Era sobrante nuestro</button>'
+        +'<button class="btn btn-sm btn-teal" onclick="_mpProvDesdeRemito('+l.id+')" title="El material salió de un lote comprado que ya está cargado">📦 Salió de un remito</button>'
+        +'<button class="btn btn-sm btn-warn" onclick="_mpProvAnularPedir('+l.id+')" title="No había nada / se declaró de más">🚫 No había nada</button>'
+      +'</div>'
+      +'</div>';
+  });
+  w.innerHTML=html;
+}
+function _mpProvMarcar(loteId,marca){
+  const l=(C.lotes_mp||[]).find(x=>x.id===loteId);
+  return String((l&&l.observaciones)||'')+' ['+marca+' el '+localDate()+']';
+}
+function _mpProvSobrante(loteId){
+  const l=(C.lotes_mp||[]).find(x=>x.id===loteId);if(!l)return;
+  pedirAdminYEjecutar(async()=>{
+    // El ajuste_pos que lo creó YA es el documento correcto: era material nuestro,
+    // ya pagado, que el consumo teórico de la fórmula se había "comido" de más.
+    // No impacta resultado y no hay nada más que mover: sólo se cierra.
+    const{error}=await sb.from('lotes_mp').update({observaciones:_mpProvMarcar(loteId,'REGULARIZADO sobrante de producción')}).eq('id',loteId);
+    if(error){toast('Error: '+error.message,'red');return;}
+    toast('✓ '+l.numero_lote+' cerrado como sobrante de producción.','green');
+    await reload();renderMPStock();renderMPProvisorios();
+  });
+}
+function _mpProvDesdeRemito(loteId){
+  const l=(C.lotes_mp||[]).find(x=>x.id===loteId);if(!l)return;
+  const ing=parseFloat(l.kg_ingresados)||0;
+  const cands=(C.lotes_mp||[]).filter(x=>String(x.tipo_mp_id)===String(l.tipo_mp_id)&&!_mpEsProvisorio(x)&&(parseFloat(x.kg_disponibles)||0)>=ing);
+  document.getElementById('mprov-rem-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="mprov-rem-modal"><div class="modal-card" style="max-width:520px;">'
+    +'<div class="modal-title">📦 El material salió de un remito</div>'
+    +'<div style="font-size:12px;color:var(--text2);line-height:1.55;margin-bottom:12px;">'
+      +'Elegí el lote comprado del que salieron esos <b>'+kgFmt(ing)+' kg</b>. Se le descuentan a ese lote '
+      +'(queda el movimiento en su libro) y el provisorio se cierra. Así el stock no queda contado dos veces.'
+    +'</div>'
+    +(cands.length
+      ?'<div class="fg" style="margin-bottom:12px;"><label>Lote de origen</label><select id="mprov-rem-sel">'
+        +cands.map(x=>'<option value="'+x.id+'">'+escapeHtml(x.numero_lote)+' · '+kgFmt(x.kg_disponibles)+' kg disponibles · $'+x.precio_kg+'/kg</option>').join('')
+        +'</select></div>'
+      :'<div class="alert alert-warn" style="font-size:12px;">No hay ningún lote de este material con al menos '+kgFmt(ing)+' kg disponibles. Si el remito todavía no está cargado, cargalo primero en Ingreso de MP y volvé acá.</div>')
+    +'<div class="btn-grp">'
+      +(cands.length?'<button class="btn btn-primary btn-sm" onclick="_mpProvDesdeRemitoConfirmar('+loteId+')">Confirmar (requiere admin)</button>':'')
+      +'<button class="btn btn-sm" onclick="document.getElementById(\'mprov-rem-modal\').remove()">Cerrar</button>'
+      +'<span id="mprov-rem-msg" style="font-size:12px;margin-left:8px;"></span></div>'
+    +'</div></div>');
+}
+function _mpProvDesdeRemitoConfirmar(loteId){
+  const l=(C.lotes_mp||[]).find(x=>x.id===loteId);if(!l)return;
+  const origenId=parseInt(document.getElementById('mprov-rem-sel')?.value);
+  const origen=(C.lotes_mp||[]).find(x=>x.id===origenId);
+  const msg=document.getElementById('mprov-rem-msg');
+  if(!origen){if(msg)msg.innerHTML='<span style="color:var(--red)">Elegí el lote de origen.</span>';return;}
+  const ing=parseFloat(l.kg_ingresados)||0;
+  const dispOrig=parseFloat(origen.kg_disponibles)||0;
+  if(dispOrig<ing){if(msg)msg.innerHTML='<span style="color:var(--red)">Ese lote ya no tiene '+kgFmt(ing)+' kg.</span>';return;}
+  pedirAdminYEjecutar(async()=>{
+    if(msg)msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:12px;height:12px"></div></div>';
+    const{error:eMov}=await sb.from('mov_mp').insert({
+      lote_id:origen.id,tipo_mp_id:origen.tipo_mp_id,tipo_mov:'ajuste_neg',
+      kg:-Math.abs(ing),precio_kg:origen.precio_kg,impacta_resultado:false,
+      motivo:'Traspaso a '+l.numero_lote+' — el material ya estaba en planta y se consumió desde el provisorio',
+      ref_tipo:'mp_provisorio',ref_id:l.id,operario:'admin',fecha:localDate()
+    });
+    if(eMov){if(msg)msg.innerHTML='<span style="color:var(--red)">Error: '+escapeHtml(eMov.message)+'</span>';return;}
+    const nuevo=r3(dispOrig-ing);
+    await sb.from('lotes_mp').update({kg_disponibles:nuevo,estado:nuevo<=0?'terminado':'en_uso',
+      fecha_fin_uso:nuevo<=0?localDate():null}).eq('id',origen.id);
+    await sb.from('lotes_mp').update({observaciones:_mpProvMarcar(loteId,'REGULARIZADO contra '+origen.numero_lote)}).eq('id',loteId);
+    document.getElementById('mprov-rem-modal')?.remove();
+    toast('✓ '+l.numero_lote+' regularizado contra '+origen.numero_lote,'green');
+    await reload();renderMPStock();renderMPProvisorios();
+  });
+}
+function _mpProvAnularPedir(loteId){
+  const l=(C.lotes_mp||[]).find(x=>x.id===loteId);if(!l)return;
+  const ing=parseFloat(l.kg_ingresados)||0,disp=parseFloat(l.kg_disponibles)||0;
+  const cons=r3(ing-disp);
+  if(!confirm('Anular '+l.numero_lote+'?\n\nSe dan de baja los '+kgFmt(disp)+' kg que quedan sin usar.'
+    +(cons>0?'\n\nOJO: '+kgFmt(cons)+' kg YA se consumieron en bobinas. Eso no se deshace desde acá: si esas bobinas no existen, hay que anularlas una por una.':'')))return;
+  pedirAdminYEjecutar(async()=>{
+    if(disp>0){
+      const{error}=await sb.from('mov_mp').insert({
+        lote_id:l.id,tipo_mp_id:l.tipo_mp_id,tipo_mov:'ajuste_neg',
+        kg:-Math.abs(disp),precio_kg:l.precio_kg,impacta_resultado:false,
+        motivo:'Baja del provisorio '+l.numero_lote+' — el material declarado no estaba',
+        ref_tipo:'mp_provisorio',ref_id:l.id,operario:'admin',fecha:localDate()
+      });
+      if(error){toast('Error: '+error.message,'red');return;}
+      await sb.from('lotes_mp').update({kg_disponibles:0,estado:'terminado',fecha_fin_uso:localDate()}).eq('id',l.id);
+    }
+    await sb.from('lotes_mp').update({observaciones:_mpProvMarcar(loteId,'ANULADO')}).eq('id',loteId);
+    toast('✓ '+l.numero_lote+' anulado.','green');
+    await reload();renderMPStock();renderMPProvisorios();
+  });
+}
+
+// ---- Autonomía: cuántos días de cada material quedan al ritmo real ----
+// El consumo diario se saca de los días que REALMENTE se consumió ese material en
+// la ventana (no de los días de calendario): si una bobina negra se hace 4 días por
+// semana, dividir por 14 daría una autonomía optimista y el aviso llegaría tarde.
+let _mpAutoCache=null;
+function _mpAutonomiaCalcPuro(consumos,saldos,tipos){
+  const kg={},dias={};
+  (consumos||[]).forEach(m=>{
+    const t=String(m.tipo_mp_id);
+    kg[t]=(kg[t]||0)+Math.abs(parseFloat(m.kg)||0);
+    (dias[t]=dias[t]||{})[m.fecha]=1;
+  });
+  return (tipos||[]).filter(t=>t.activo!==false&&t.activo!=='f').map(t=>{
+    const id=String(t.id);
+    const nd=Object.keys(dias[id]||{}).length;
+    const porDia=nd>0?r2(kg[id]/nd):0;
+    const saldo=r1(saldos[id]||0);
+    const diasRest=porDia>0?Math.floor(saldo/porDia):null;
+    return{tipo_mp_id:t.id,nombre:t.nombre,categoria:t.categoria,saldo:saldo,porDia:porDia,diasProd:nd,dias:diasRest};
+  }).sort((a,b)=>(a.dias===null?9999:a.dias)-(b.dias===null?9999:b.dias));
+}
+async function _mpAutonomia(force){
+  if(!force&&_mpAutoCache&&(Date.now()-_mpAutoCache.ts)<300000)return _mpAutoCache.filas;
+  const vent=parseInt(getCfg('mp_autonomia_dias_ventana',14))||14;
+  const desde=_mpFechaMenos(vent);
+  let cons=[],from=0;const page=1000;
+  while(true){
+    const{data,error}=await sb.from('mov_mp').select('tipo_mp_id,kg,fecha')
+      .eq('tipo_mov','consumo').gte('fecha',desde).range(from,from+page-1);
+    if(error)return [];
+    cons=cons.concat(data||[]);
+    if(!data||data.length<page)break;
+    from+=page;
+    if(from>40000)break;   // canario: nunca debería haber tantos consumos en 14 días
+  }
+  const saldos={};
+  (C.lotes_mp||[]).forEach(l=>{saldos[String(l.tipo_mp_id)]=(saldos[String(l.tipo_mp_id)]||0)+(parseFloat(l.kg_disponibles)||0);});
+  const filas=_mpAutonomiaCalcPuro(cons,saldos,C.tipos_mp||[]);
+  _mpAutoCache={ts:Date.now(),filas:filas};
+  return filas;
+}
+function _mpDiasRojo(){return parseInt(getCfg('mp_dias_alerta_rojo',3))||3;}
+function _mpDiasAmarillo(){return parseInt(getCfg('mp_dias_alerta_amarillo',7))||7;}
+async function renderMPAutonomia(){
+  const w=document.getElementById('mp-autonomia-wrap');if(!w)return;
+  w.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Calculando autonomía…</div>';
+  const filas=await _mpAutonomia(true);
+  const rojo=_mpDiasRojo(),amar=_mpDiasAmarillo();
+  if(!filas.length){w.innerHTML='<div class="empty" style="font-size:12px">Sin datos de consumo para calcular autonomía.</div>';return;}
+  let html='<div style="overflow-x:auto"><table><thead><tr>'
+    +'<th>Material</th><th style="text-align:right">Stock</th><th style="text-align:right">Consumo/día</th>'
+    +'<th style="text-align:right">Autonomía</th><th>Reponer</th></tr></thead><tbody>';
+  filas.forEach(f=>{
+    const col=f.dias===null?'var(--text3)':f.dias<=rojo?'var(--red)':f.dias<=amar?'var(--amber)':'var(--green)';
+    const txt=f.dias===null?'sin consumo':(f.dias+' día'+(f.dias===1?'':'s'));
+    html+='<tr>'
+      +'<td><b>'+escapeHtml(f.nombre)+'</b> <span style="font-size:10px;color:var(--text3)">'+escapeHtml(f.categoria||'')+'</span></td>'
+      +'<td class="mono" style="text-align:right">'+kgFmt(f.saldo)+' kg</td>'
+      +'<td class="mono" style="text-align:right">'+(f.porDia>0?kgFmt(f.porDia)+' kg':'—')+'<div style="font-size:10px;color:var(--text3)">'+f.diasProd+' día'+(f.diasProd===1?'':'s')+' con consumo</div></td>'
+      +'<td class="mono" style="text-align:right;font-weight:700;font-size:15px;color:'+col+'">'+txt+'</td>'
+      +'<td style="font-size:11px;color:'+col+'">'+(f.dias===null?'—':f.dias<=rojo?'🔴 YA':f.dias<=amar?'🟡 esta semana':'🟢 al día')+'</td>'
+      +'</tr>';
+  });
+  html+='</tbody></table></div>'
+    +'<div style="font-size:11px;color:var(--text3);margin-top:6px;">Consumo promedio de los últimos '+(parseInt(getCfg('mp_autonomia_dias_ventana',14))||14)+' días, contando sólo los días en que ese material se usó. Rojo ≤'+rojo+' días · amarillo ≤'+amar+' días.</div>';
+  w.innerHTML=html;
+}
+// Cartel del dashboard: sólo aparece si hay algo en rojo o una declaración sin cerrar.
+async function _mpAlertaDashboard(){
+  const w=document.getElementById('dash-mp-alerta');if(!w)return;
+  const pend=_mpProvPendientes();
+  let filas=[];
+  try{filas=await _mpAutonomia(false);}catch(e){filas=[];}
+  const rojo=_mpDiasRojo();
+  const criticos=filas.filter(f=>f.dias!==null&&f.dias<=rojo);
+  if(!criticos.length&&!pend.length){w.style.display='none';w.innerHTML='';return;}
+  let html='';
+  if(criticos.length){
+    html+='<div class="alert alert-danger" style="font-size:12.5px;line-height:1.6;">'
+      +'🔴 <b>Materia prima por acabarse:</b> '
+      +criticos.map(f=>escapeHtml(f.nombre)+' <b>'+(f.dias===0?'HOY':f.dias+' día'+(f.dias===1?'':'s'))+'</b> ('+kgFmt(f.saldo)+' kg, '+kgFmt(f.porDia)+' kg/día)').join(' · ')
+      +'<div style="margin-top:6px;"><button class="btn btn-sm btn-primary" onclick="go(\'mp-stock\')">Ver stock de MP →</button></div></div>';
+  }
+  if(pend.length){
+    html+='<div class="alert alert-warn" style="font-size:12.5px;">'
+      +'🧪 <b>'+pend.length+' declaración'+(pend.length===1?'':'es')+' de MP en planta sin regularizar</b> — la planta cargó material que el sistema no tenía.'
+      +'<div style="margin-top:6px;"><button class="btn btn-sm" onclick="go(\'mp-stock\')">Regularizar →</button></div></div>';
+  }
+  w.innerHTML=html;w.style.display='block';
+}
+
 
 // ===== EDITAR LOTE DE MP =====
 // Corrige los DATOS de un lote ya cargado: material, proveedor, remito, bolsones,
