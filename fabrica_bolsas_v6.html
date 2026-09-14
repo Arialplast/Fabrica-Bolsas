@@ -791,7 +791,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-14d</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-14e</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5557,7 +5557,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-09-14d';   // 14d: EL NUMERO DE BOBINA NO SE ADIVINA. German fue a repartir las horas del sabado, escribio "BOB-5620" y le dijo "Sin bobinas en ese rango": los numeros llevan CINCO digitos (BOB-05620) y la comparacion es de texto, asi que un cero de menos no encuentra nada. Que el usuario tenga que adivinar el padding es un bug de la pantalla, no un error suyo. (1) _repNormNro acepta 5620, bob-5620, BOB 5620 o BOB-05620 y lo normaliza, y devuelve el numero ya corregido al campo para que se vea como se escribe; ademas el rango se ordena solo si se ponen al reves. (2) Si aun asi no hay nada, en vez de un "no hay" seco se muestran las ultimas 8 bobinas cargadas con su numero tal cual esta en la base. (3) 🔎 DETECTARLOS SOLO: busca en los ultimos 60 dias las tandas con la hora apretada —5 o mas bobinas dentro de 45 minutos, que es la firma de una carga en diferido: tres extrusoras no hacen 18 bobinas en 22 minutos— y las ofrece con un boton que completa desde/hasta/fecha. Sobre el lote real del 12/09 detecta exactamente BOB-05620 → BOB-05637, 18 bobinas, 3 extrusoras, y no marca una jornada normal. Verificado con smoke8.cjs (20 asserts).
+const APP_BUILD='2026-09-14e';   // 14e: 🔴 LA PANTALLA PROPUSO BOB-00002 Y FRENO LA PLANTA. El 14/09 11:26 Carga de bobinas ofrecio BOB-00002 —que existe desde el 5 de mayo— y el candado de numeros unicos corto la carga: "hay bobinas repetidas". EL CONTADOR ESTABA PERFECTO (5645, y la ultima bobina era BOB-05645 de las 10:32 de ese mismo dia): lo que fallo fue la LECTURA. `const next=(data?.valor||0)+1` convierte un problema de red en un numero inventado, y el que arranca de cero siempre choca con lo que ya existe. Es EXACTAMENTE el bug de los remitos del 11/09 (11a) en otro modulo: mismo ||0, misma caida a 1 — la regla ya estaba escrita y faltaba aplicarla acá. Ahora hay un numerador unico para los tres documentos que quedaban con el patron viejo (bobinas, OC, OE): _nroSiguiente = max(contador, ULTIMO DOCUMENTO QUE EXISTE) + 1; si UNA de las dos lecturas falla la otra lo salva; si fallan LAS DOS no se propone nada — se avisa y no se deja cargar, porque un numero inventado es peor que no tener numero. El numero se CONFIRMA AL GUARDAR y no al abrir la pantalla (que puede quedar abierta mientras otro carga), ante un choque 23505 se prueba el siguiente hasta 5 veces, y el contador se sincroniza despues y NUNCA baja: es una ayuda, no la fuente. Un error que no es choque (permisos, red) no se reintenta. Verificado con smoke9.cjs (17 asserts) sobre el escenario real: contador caido, tabla caida, las dos caidas, contador atrasado y adelantado, base vacia y valor en texto.
+// 14d: EL NUMERO DE BOBINA NO SE ADIVINA. German fue a repartir las horas del sabado, escribio "BOB-5620" y le dijo "Sin bobinas en ese rango": los numeros llevan CINCO digitos (BOB-05620) y la comparacion es de texto, asi que un cero de menos no encuentra nada. Que el usuario tenga que adivinar el padding es un bug de la pantalla, no un error suyo. (1) _repNormNro acepta 5620, bob-5620, BOB 5620 o BOB-05620 y lo normaliza, y devuelve el numero ya corregido al campo para que se vea como se escribe; ademas el rango se ordena solo si se ponen al reves. (2) Si aun asi no hay nada, en vez de un "no hay" seco se muestran las ultimas 8 bobinas cargadas con su numero tal cual esta en la base. (3) 🔎 DETECTARLOS SOLO: busca en los ultimos 60 dias las tandas con la hora apretada —5 o mas bobinas dentro de 45 minutos, que es la firma de una carga en diferido: tres extrusoras no hacen 18 bobinas en 22 minutos— y las ofrece con un boton que completa desde/hasta/fecha. Sobre el lote real del 12/09 detecta exactamente BOB-05620 → BOB-05637, 18 bobinas, 3 extrusoras, y no marca una jornada normal. Verificado con smoke8.cjs (20 asserts).
 // 14c: CALENDARIO DE PRODUCCION, HOJA APARTE. German: "no quiero cosas en admin, armame una hoja aparte". Todo lo del calendario sale de Administracion y pasa a Produccion → 📅 Calendario de produccion, en tres tarjetas: FERIADOS (los que vienen, con el tilde por area de si ese dia se trabaja y el boton de traer los del año), SABADOS (los 6 que vienen, quien esta tildado en Sueldos, cuantas horas va a producir cada area y el interruptor de la derivacion) y TURNOS SUELTOS (lo que no es ni feriado ni sabado: un turno que se cae entre semana, un mantenimiento, un corte de luz). En Admin queda solo un boton que lleva a la hoja, y el horario SEMANAL se sigue configurando alla — la hoja nueva decide que dias de ese horario no corren, y lo dice arriba. Verificado con smoke7.cjs (19 asserts) renderizando las tres tarjetas con datos reales y revisando que no haya undefined ni NaN.
 // 14b: EL SABADO LO DECIDE QUIEN VIENE. German: "no me pueden quedar cosas colgadas, decime que me aconsejas vos". Habia TRES lugares hablando del sabado y ninguno sabia del otro: (1) el tilde por empleado del calendario de Sueldos — QUIEN VIENE, que se carga si o si porque de ahi sale el pago; (2) extrusion_sab_hasta en Admin — HASTA QUE HORA corre la planta, global, y hay que acordarse de ponerlo y PEOR de sacarlo el sabado que no se viene (si te olvidas, el Gantt promete un sabado que no existe); (3) los paros por fecha del 12c. El dato verdadero es el (1): la planta produce el sabado si hay gente, y los otros dos son consecuencia. Ahora sab_hasta significa solo "cuando se viene, se trabaja hasta las X", y un sabado sin nadie tildado de esa area no produce. El cruce es empleado → esquema_turno → area (extrusion / confeccion), asi que un tildado de confeccion abre el corte y no la extrusion. 🔴 El turno noche del VIERNES no depende de esto: entra 22 y termina 6 del sabado, por eso lo que se cae es la EXTENSION del sabado (del cierre en adelante), nunca el dia entero. Interruptor configuracion['sabado_desde_sueldos']='false' para volver al comportamiento viejo. En el panel, los 6 sabados que vienen con quien esta tildado y cuantas horas va a producir cada area. Verificado con smoke6.cjs (21 asserts), con el plantel y los esquemas reales, incluidos empleado sin esquema, empleado de baja, un cambio de turno que no es un tilde de sabado, y la convivencia con feriado y con paro parcial.
 // 14a: LOS FERIADOS SE CARGAN UNA SOLA VEZ. German, mirando el 12c: "¿esto no se pisa con feriados, que estan en sueldos? los feriados ya no se ponian solos? si no es asi se tienen que poner solos, si los trabajo ahi lo pongo yo, si no me queda un monton de informacion para cargar". Tenia razon en las dos puntas. (1) Los feriados YA estaban cargados en la tabla `feriados` (calendario de Sueldos → 🕐 Turnos) pero los miraba SOLO la liquidacion (_esFeriado: feriado trabajado x2): la PRODUCCION no se enteraba y el Gantt programaba el 25 de diciembre como un dia cualquiera. Pedirle que ademas los cargara como paro era cargarlos dos veces. Ahora un feriado activo borra el dia entero de la jornada de produccion — el corte va DENTRO de _jorTramosFecha, antes de los paros — sin cargar nada nuevo, y la excepcion (que ese feriado SI se trabaje) es un tilde por area en el panel. El tilde vive en configuracion['feriados_trabajados'] porque es una decision de produccion, no un dato de RRHH: la tabla `feriados` sigue siendo el maestro unico de los dos modulos. (2) Boton "Traer los feriados de un año": calcula los nacionales POR LEY — los 12 inamovibles, Carnaval y Viernes Santo desde Pascua (Meeus) y los 4 trasladables con la regla de la ley 27.399 (martes/miercoles → lunes anterior, jueves/viernes → lunes siguiente) — y agrega SOLO los que faltan, sin pisar nada. Los puentes turisticos no se calculan: los fija un decreto distinto cada año y van a mano; el preview los lista aparte junto con cualquier trasladable que haya quedado en la fecha vieja. 🔴 Encontro dos cosas en los datos de 2026: falta GÜEMES (15/6, miercoles 17 movido al lunes anterior) y SOBERANIA esta cargada el 20/11, que cae viernes y por ley va al lunes 23/11 — los dos afectan la liquidacion. Verificado con smoke5.cjs (31 asserts), incluida la reproduccion de los 15 feriados de 2026 ya cargados.
@@ -7904,15 +7905,82 @@ function initCarga(){
   setupMedicionField('cb-mts','lock-mts');
   setupMedicionField('cb-kg','lock-kg');
 }
-async function generarNroBobina(){
+// ===== NUMERACIÓN SEGURA DE DOCUMENTOS (bobinas, OC, OE) =====
+// 🔴 14e — El 14/09 a las 11:26 la pantalla de Carga de bobinas propuso BOB-00002,
+// que existe desde el 5 de mayo, y el candado de números únicos frenó la carga:
+// "hay bobinas repetidas". El contador en la base estaba PERFECTO (5645, y la última
+// bobina era BOB-05645 de las 10:32 de ese mismo día): lo que falló fue la LECTURA.
+//
+//     const{data}=await sb...select('valor')...single();
+//     const next=(data?.valor||0)+1;        // ← si la lectura no vuelve, esto es 1
+//
+// Ese `||0` convierte un problema de red en un número de documento inventado, y el
+// que arranca desde cero siempre choca con lo que ya existe. Es EXACTAMENTE el bug
+// de los remitos del 11/09 (build 11a) en otro módulo: mismo `||0`, misma caída a 1.
+//
+// La regla, que ya estaba escrita: UN CONTADOR NO ES LA VERDAD; LA VERDAD ES EL
+// ÚLTIMO DOCUMENTO QUE EXISTE. Acá se generaliza para los tres numeradores que
+// quedaban con el patrón viejo:
+//   · el número es máx(contador, último documento) + 1;
+//   · si las DOS lecturas fallan no se propone nada — se avisa y no se deja cargar,
+//     porque un número inventado es peor que no tener número;
+//   · se confirma AL GUARDAR, no al abrir la pantalla (que puede quedar abierta
+//     mientras otro carga);
+//   · ante un choque (23505) se prueba el siguiente, hasta 5 veces;
+//   · el contador se sincroniza después y NUNCA baja: es una ayuda, no la fuente.
+function _nroDe(txt){
+  const m=String(txt||'').match(/(\d+)\s*$/);
+  return m?(parseInt(m[1],10)||0):0;
+}
+// Devuelve {n, txt} o {err}. `tabla`/`campo` es el documento que manda.
+async function _nroSiguiente(contador,tabla,campo,prefijo,pad){
+  const[rc,ru]=await Promise.all([
+    sb.from('contadores').select('valor').eq('nombre',contador).maybeSingle(),
+    sb.from(tabla).select(campo).order(campo,{ascending:false}).limit(1)
+  ]);
+  const okC=!rc.error, okU=!ru.error;
+  const base=okC?(parseInt(rc.data&&rc.data.valor)||0):0;
+  const ult=okU?_nroDe((ru.data&&ru.data[0])?ru.data[0][campo]:''):0;
+  // 🔴 Las dos lecturas caídas = no sabemos por dónde va la numeración. Antes acá
+  // salía un 1 y se llevaba puesto el primer documento del sistema.
+  if(!okC&&!okU)return {err:(rc.error&&rc.error.message)||(ru.error&&ru.error.message)||'no se pudo leer la numeración'};
+  const n=Math.max(base,ult)+1;
+  return {n:n,txt:prefijo+String(n).padStart(pad||5,'0')};
+}
+// Deja el contador en n si estaba atrás. Nunca lo baja, y si falla no frena nada:
+// el próximo número igual se calcula mirando los documentos que existen.
+async function _nroSincronizar(contador,n){
   try{
-    const{data}=await sb.from('contadores').select('valor').eq('nombre','numero_bobina').single();
-    const next=(data?.valor||0)+1;
-    const nro='BOB-'+String(next).padStart(5,'0');
-    const el=document.getElementById('cb-nbob');if(el)el.value=nro;
-    window._nextNroBobina=next;
-    window._strNroBobina=nro;
-  }catch(e){}
+    const{data:cnt}=await sb.from('contadores').select('valor').eq('nombre',contador).maybeSingle();
+    if((parseInt(cnt&&cnt.valor)||0)>=n)return;
+    const{error}=await sb.from('contadores').upsert({nombre:contador,valor:n},{onConflict:'nombre'});
+    if(error)console.error('No se pudo actualizar el contador '+contador+':',error);
+  }catch(e){console.error('No se pudo actualizar el contador '+contador+':',e);}
+}
+function _esChoqueNro(error){
+  return !!error&&(String(error.code)==='23505'||/duplicate key|unique/i.test(String(error.message||'')));
+}
+
+async function generarNroBobina(){
+  const el=document.getElementById('cb-nbob');
+  try{
+    const r=await _nroSiguiente('numero_bobina','bobinas_producidas','numero_bobina','BOB-',5);
+    if(r.err){
+      window._nextNroBobina=null;window._strNroBobina='';
+      if(el)el.value='';
+      const m=document.getElementById('msg-carga');
+      if(m){m.className='msg-err';m.innerHTML='⛔ <b>No se pudo leer la numeración de bobinas</b> ('+escapeHtml(r.err)+').<br>'
+        +'Refrescá la pantalla antes de cargar: sin el número correcto la bobina chocaría con una que ya existe.';}
+      return;
+    }
+    if(el)el.value=r.txt;
+    window._nextNroBobina=r.n;
+    window._strNroBobina=r.txt;
+  }catch(e){
+    window._nextNroBobina=null;window._strNroBobina='';
+    if(el)el.value='';
+    console.error('generarNroBobina',e);
+  }
 }
 function onOrdenChange(){
   const ordId=parseInt(document.getElementById('cb-orden').value);
@@ -8067,7 +8135,8 @@ async function guardarBobina(){
   const opId=parseInt(document.getElementById('cb-op-sel').value)||null;
   const obs=document.getElementById('cb-obs').value.trim();
   const msg=document.getElementById('msg-carga');
-  if(!nro||!ordId||!extId||!mtsR||!kgR||!opId){msg.className='msg-err';msg.textContent='Completá todos los campos incluyendo el operario.';return;}
+  if(!nro){msg.className='msg-err';msg.innerHTML='⛔ <b>No hay número de bobina</b> — no se pudo leer la numeración. Refrescá la pantalla antes de cargar.';return;}
+  if(!ordId||!extId||!mtsR||!kgR||!opId){msg.className='msg-err';msg.textContent='Completá todos los campos incluyendo el operario.';return;}
   const orden=C.ordenes.find(o=>o.id===ordId);
   const bob=orden?.bobinas;
   if(!bob){msg.className='msg-err';msg.textContent='Error: bobina no encontrada.';return;}
@@ -8183,18 +8252,34 @@ async function _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,ca
   const motivoFR=esExcedenteOE?(motivoExc+(fueraCalidad?' · '+motivoCal:'')):motivoCal;
   // .select('id').single() sobre el propio insert: la base nos devuelve el id
   // en el mismo viaje. Antes había que ir a buscarlo después por numero_bobina.
-  const{data:bobIns,error:e1}=await sb.from('bobinas_producidas').insert({
-    numero_bobina:nro,orden_id:ordId,extrusora_id:extId,bobina_tipo_id:bob.id,
-    metros_teoricos:mtsR,metros_reales:mtsR,kg_teoricos:kgT,kg_reales:kgR,
-    error_kg:errKgStore,error_pct:errPctStore,estado_calidad:calidad,
-    flexxus:'No pasada',fecha_produccion:fecha,hora_produccion:hora,
-    en_stock:!fueraDeRango,
-    fuera_de_rango:fueraDeRango,
-    motivo_fuera_rango:fueraDeRango?motivoFR:null,
-    operario_id:opId,operario:opNom,observaciones:obs||null
-  }).select('id').single();
-  if(e1){msg.className='msg-err';msg.textContent='Error: '+e1.message;return;}
-  await sb.from('contadores').update({valor:window._nextNroBobina}).eq('nombre','numero_bobina');
+  // 🔴 14e — EL NÚMERO SE CONFIRMA ACÁ, NO AL ABRIR LA PANTALLA. El de arriba es
+  // provisorio: la pantalla pudo quedar abierta, otro operario pudo cargar mientras
+  // tanto, o la lectura del contador pudo fallar (que es lo que pasó el 14/09 y
+  // propuso BOB-00002, una bobina de mayo). Se recalcula contra lo que EXISTE y, si
+  // igual choca (23505), se prueba el siguiente. Mismo patrón que los remitos (11a).
+  let bobIns=null,e1=null;
+  for(let intento=0;intento<5;intento++){
+    const r=await _nroSiguiente('numero_bobina','bobinas_producidas','numero_bobina','BOB-',5);
+    if(r.err){msg.className='msg-err';msg.textContent='No se pudo leer la numeración de bobinas: '+r.err+'. No se guardó nada — refrescá y probá de nuevo.';return;}
+    nro=r.txt;window._nextNroBobina=r.n;window._strNroBobina=r.txt;
+    const ins=await sb.from('bobinas_producidas').insert({
+      numero_bobina:nro,orden_id:ordId,extrusora_id:extId,bobina_tipo_id:bob.id,
+      metros_teoricos:mtsR,metros_reales:mtsR,kg_teoricos:kgT,kg_reales:kgR,
+      error_kg:errKgStore,error_pct:errPctStore,estado_calidad:calidad,
+      flexxus:'No pasada',fecha_produccion:fecha,hora_produccion:hora,
+      en_stock:!fueraDeRango,
+      fuera_de_rango:fueraDeRango,
+      motivo_fuera_rango:fueraDeRango?motivoFR:null,
+      operario_id:opId,operario:opNom,observaciones:obs||null
+    }).select('id').single();
+    if(!ins.error){bobIns=ins.data;e1=null;break;}
+    e1=ins.error;
+    if(!_esChoqueNro(ins.error))break;      // un error que no es choque no se reintenta
+    await _nroSincronizar('numero_bobina',r.n);   // alguien ganó el número: subir y repetir
+  }
+  if(e1||!bobIns){msg.className='msg-err';msg.textContent='Error: '+((e1&&e1.message)||'no se pudo guardar la bobina');return;}
+  const el_nb=document.getElementById('cb-nbob');if(el_nb)el_nb.value=nro;
+  await _nroSincronizar('numero_bobina',window._nextNroBobina);
 
   // === CONSUMO AUTOMÁTICO DE MP ===
   let consumosGuardados=[];   // para parchear C.consumos_mp sin volver a pedirla
@@ -64486,17 +64571,19 @@ function chRechGuardar(id){
 
 // Generador de número OC usando contador en DB — evita duplicados
 async function generarNroOC(){
-  const{data:cnt}=await sb.from('contadores').select('valor').eq('nombre','numero_orden_corte').maybeSingle();
-  const next=(cnt?.valor||0)+1;
-  await sb.from('contadores').upsert({nombre:'numero_orden_corte',valor:next},{onConflict:'nombre'});
-  return 'OC-'+String(next).padStart(5,'0');
+  // 14e: el número sale de máx(contador, última OC) — el contador es la ayuda, no la fuente.
+  const r=await _nroSiguiente('numero_orden_corte','ordenes_corte','numero_orden','OC-',5);
+  if(r.err)throw new Error('No se pudo leer la numeración de órdenes de corte: '+r.err);
+  await _nroSincronizar('numero_orden_corte',r.n);
+  return r.txt;
 }
 // Generador de número ORD usando contador en DB
 async function generarNroORD(){
-  const{data:cnt}=await sb.from('contadores').select('valor').eq('nombre','numero_orden').maybeSingle();
-  const next=(cnt?.valor||0)+1;
-  await sb.from('contadores').upsert({nombre:'numero_orden',valor:next},{onConflict:'nombre'});
-  return 'ORD-'+String(next).padStart(5,'0');
+  // 14e: idem OC — ver el banner de _nroSiguiente.
+  const r=await _nroSiguiente('numero_orden','ordenes','numero_orden','ORD-',5);
+  if(r.err)throw new Error('No se pudo leer la numeración de órdenes: '+r.err);
+  await _nroSincronizar('numero_orden',r.n);
+  return r.txt;
 }
 
 function poblarSelectsMP(){
