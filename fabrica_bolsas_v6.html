@@ -791,7 +791,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-14c</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-14d</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -1717,10 +1717,11 @@ body.pext-on .main{margin-left:0!important;}
           <div class="fp-t">🕐 Repartir las horas de un lote cargado junto</div>
           <div class="alert alert-warn" style="margin-bottom:12px;font-size:12px;">Cuando se cargan de golpe las bobinas de un turno que ya pasó, a todas les queda la hora en que se tipearon. Acá se reparten dentro de la ventana real del turno, <b>por extrusora</b> y en orden de número. Queda marcado "editado por admin".</div>
           <div class="fgrid fgrid3">
-            <div class="fg"><label>Desde N° bobina</label><input id="rep-desde" type="text" placeholder="BOB-05620"></div>
-            <div class="fg"><label>Hasta N° bobina</label><input id="rep-hasta" type="text" placeholder="BOB-05637"></div>
-            <div class="fg"><label>&nbsp;</label><button class="btn btn-sm" onclick="repHorasBuscar()">Buscar el lote</button></div>
+            <div class="fg"><label>Desde N° bobina</label><input id="rep-desde" type="text" placeholder="5620 · BOB-05620"></div>
+            <div class="fg"><label>Hasta N° bobina</label><input id="rep-hasta" type="text" placeholder="5637 · BOB-05637"></div>
+            <div class="fg"><label>&nbsp;</label><div class="btn-grp" style="margin:0"><button class="btn btn-sm" onclick="repHorasBuscar()">Buscar el lote</button><button class="btn btn-sm btn-teal" onclick="repDetectar()" title="Busca solo las tandas cargadas de golpe de los últimos 60 días">🔎 Detectarlos solo</button></div></div>
           </div>
+          <div style="font-size:11px;color:var(--text3);margin:-4px 0 8px;">El número lo podés escribir como quieras — <span class="mono">5620</span>, <span class="mono">BOB-5620</span> o <span class="mono">BOB-05620</span>: se completa solo.</div>
           <div class="fgrid fgrid3">
             <div class="fg"><label>Fecha real de producción</label><input id="rep-fecha" type="date" onchange="repHorasPreview()"></div>
             <div class="fg"><label>Desde (última hora real)</label><input id="rep-hini" type="time" onchange="repHorasPreview()"></div>
@@ -5556,7 +5557,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-09-14c';   // 14c: CALENDARIO DE PRODUCCION, HOJA APARTE. German: "no quiero cosas en admin, armame una hoja aparte". Todo lo del calendario sale de Administracion y pasa a Produccion → 📅 Calendario de produccion, en tres tarjetas: FERIADOS (los que vienen, con el tilde por area de si ese dia se trabaja y el boton de traer los del año), SABADOS (los 6 que vienen, quien esta tildado en Sueldos, cuantas horas va a producir cada area y el interruptor de la derivacion) y TURNOS SUELTOS (lo que no es ni feriado ni sabado: un turno que se cae entre semana, un mantenimiento, un corte de luz). En Admin queda solo un boton que lleva a la hoja, y el horario SEMANAL se sigue configurando alla — la hoja nueva decide que dias de ese horario no corren, y lo dice arriba. Verificado con smoke7.cjs (19 asserts) renderizando las tres tarjetas con datos reales y revisando que no haya undefined ni NaN.
+const APP_BUILD='2026-09-14d';   // 14d: EL NUMERO DE BOBINA NO SE ADIVINA. German fue a repartir las horas del sabado, escribio "BOB-5620" y le dijo "Sin bobinas en ese rango": los numeros llevan CINCO digitos (BOB-05620) y la comparacion es de texto, asi que un cero de menos no encuentra nada. Que el usuario tenga que adivinar el padding es un bug de la pantalla, no un error suyo. (1) _repNormNro acepta 5620, bob-5620, BOB 5620 o BOB-05620 y lo normaliza, y devuelve el numero ya corregido al campo para que se vea como se escribe; ademas el rango se ordena solo si se ponen al reves. (2) Si aun asi no hay nada, en vez de un "no hay" seco se muestran las ultimas 8 bobinas cargadas con su numero tal cual esta en la base. (3) 🔎 DETECTARLOS SOLO: busca en los ultimos 60 dias las tandas con la hora apretada —5 o mas bobinas dentro de 45 minutos, que es la firma de una carga en diferido: tres extrusoras no hacen 18 bobinas en 22 minutos— y las ofrece con un boton que completa desde/hasta/fecha. Sobre el lote real del 12/09 detecta exactamente BOB-05620 → BOB-05637, 18 bobinas, 3 extrusoras, y no marca una jornada normal. Verificado con smoke8.cjs (20 asserts).
+// 14c: CALENDARIO DE PRODUCCION, HOJA APARTE. German: "no quiero cosas en admin, armame una hoja aparte". Todo lo del calendario sale de Administracion y pasa a Produccion → 📅 Calendario de produccion, en tres tarjetas: FERIADOS (los que vienen, con el tilde por area de si ese dia se trabaja y el boton de traer los del año), SABADOS (los 6 que vienen, quien esta tildado en Sueldos, cuantas horas va a producir cada area y el interruptor de la derivacion) y TURNOS SUELTOS (lo que no es ni feriado ni sabado: un turno que se cae entre semana, un mantenimiento, un corte de luz). En Admin queda solo un boton que lleva a la hoja, y el horario SEMANAL se sigue configurando alla — la hoja nueva decide que dias de ese horario no corren, y lo dice arriba. Verificado con smoke7.cjs (19 asserts) renderizando las tres tarjetas con datos reales y revisando que no haya undefined ni NaN.
 // 14b: EL SABADO LO DECIDE QUIEN VIENE. German: "no me pueden quedar cosas colgadas, decime que me aconsejas vos". Habia TRES lugares hablando del sabado y ninguno sabia del otro: (1) el tilde por empleado del calendario de Sueldos — QUIEN VIENE, que se carga si o si porque de ahi sale el pago; (2) extrusion_sab_hasta en Admin — HASTA QUE HORA corre la planta, global, y hay que acordarse de ponerlo y PEOR de sacarlo el sabado que no se viene (si te olvidas, el Gantt promete un sabado que no existe); (3) los paros por fecha del 12c. El dato verdadero es el (1): la planta produce el sabado si hay gente, y los otros dos son consecuencia. Ahora sab_hasta significa solo "cuando se viene, se trabaja hasta las X", y un sabado sin nadie tildado de esa area no produce. El cruce es empleado → esquema_turno → area (extrusion / confeccion), asi que un tildado de confeccion abre el corte y no la extrusion. 🔴 El turno noche del VIERNES no depende de esto: entra 22 y termina 6 del sabado, por eso lo que se cae es la EXTENSION del sabado (del cierre en adelante), nunca el dia entero. Interruptor configuracion['sabado_desde_sueldos']='false' para volver al comportamiento viejo. En el panel, los 6 sabados que vienen con quien esta tildado y cuantas horas va a producir cada area. Verificado con smoke6.cjs (21 asserts), con el plantel y los esquemas reales, incluidos empleado sin esquema, empleado de baja, un cambio de turno que no es un tilde de sabado, y la convivencia con feriado y con paro parcial.
 // 14a: LOS FERIADOS SE CARGAN UNA SOLA VEZ. German, mirando el 12c: "¿esto no se pisa con feriados, que estan en sueldos? los feriados ya no se ponian solos? si no es asi se tienen que poner solos, si los trabajo ahi lo pongo yo, si no me queda un monton de informacion para cargar". Tenia razon en las dos puntas. (1) Los feriados YA estaban cargados en la tabla `feriados` (calendario de Sueldos → 🕐 Turnos) pero los miraba SOLO la liquidacion (_esFeriado: feriado trabajado x2): la PRODUCCION no se enteraba y el Gantt programaba el 25 de diciembre como un dia cualquiera. Pedirle que ademas los cargara como paro era cargarlos dos veces. Ahora un feriado activo borra el dia entero de la jornada de produccion — el corte va DENTRO de _jorTramosFecha, antes de los paros — sin cargar nada nuevo, y la excepcion (que ese feriado SI se trabaje) es un tilde por area en el panel. El tilde vive en configuracion['feriados_trabajados'] porque es una decision de produccion, no un dato de RRHH: la tabla `feriados` sigue siendo el maestro unico de los dos modulos. (2) Boton "Traer los feriados de un año": calcula los nacionales POR LEY — los 12 inamovibles, Carnaval y Viernes Santo desde Pascua (Meeus) y los 4 trasladables con la regla de la ley 27.399 (martes/miercoles → lunes anterior, jueves/viernes → lunes siguiente) — y agrega SOLO los que faltan, sin pisar nada. Los puentes turisticos no se calculan: los fija un decreto distinto cada año y van a mano; el preview los lista aparte junto con cualquier trasladable que haya quedado en la fecha vieja. 🔴 Encontro dos cosas en los datos de 2026: falta GÜEMES (15/6, miercoles 17 movido al lunes anterior) y SOBERANIA esta cargada el 20/11, que cae viernes y por ley va al lunes 23/11 — los dos afectan la liquidacion. Verificado con smoke5.cjs (31 asserts), incluida la reproduccion de los 15 feriados de 2026 ya cargados.
 // 12c: TURNOS QUE NO SE TRABAJAN. El sabado 12/09 no se hizo el turno mañana de extrusion ("hay mucha bobina de stock") y el sistema no se entero: la jornada es un descriptor SEMANAL (getJornada + _jorTramosDia), dice de que hora a que hora se trabaja cada dia de la semana, igual todas las semanas, y un turno que no se hace UNA vez no tiene donde anotarse. Consecuencia: el Gantt sigue prometiendo produccion en horas que no van a existir, la capacidad de la semana cuenta esas horas, y las fechas de entrega que salen de sumarHsLaborales salen optimistas. Ahora hay EXCEPCIONES POR FECHA: en Admin → Horarios de produccion se declara "el sabado 12 no se hace el turno mañana de extrusion" (o el dia completo, o media jornada de corte) con motivo obligatorio, y esas horas se restan de los tramos de ESE dia. 🔴 Se enchufa DENTRO de jorTramos() y _jorIntervalosDia(), que es por donde TODO el sistema pregunta cuando se trabaja: Gantt, capacidad semanal, programacion, ajustarAJornada, sumarHsLaborales y jorHull se corrigen a la vez y no quedan dos definiciones de "cuando se trabaja" conviviendo. El turno noche, que cruza medianoche, genera dos cortes (22-24 de su dia y 0-6 del siguiente) — probado tambien cruzando fin de mes y fin de año. SIN SQL: viven en configuracion['paros_produccion'] como JSON, se podan solos a los 120 dias y un JSON roto no rompe la jornada. Verificado con smoke4.cjs (27 asserts).
@@ -65445,19 +65447,105 @@ function _repHorasCalc(bobs,fecha,horaIni,horaFin){
   });
   return out.sort((a,b)=>String(a.numero_bobina).localeCompare(String(b.numero_bobina)));
 }
+// 🔴 14d — German escribió "BOB-5620" y le dijo "sin bobinas en ese rango": los
+// números llevan CINCO dígitos (BOB-05620) y la comparación es de texto, así que un
+// cero de menos no encuentra nada. Que el usuario tenga que adivinar el padding es
+// un bug de la pantalla, no un error suyo. PURA (testeable): normaliza cualquier
+// forma razonable de escribir el número — 5620, bob-5620, BOB 5620, 05620.
+function _repNormNro(txt){
+  const s=String(txt||'').trim().toUpperCase();
+  if(!s)return '';
+  const m=s.match(/(\d+)\s*$/);
+  if(!m)return s;
+  return 'BOB-'+m[1].replace(/^0+/,'').padStart(5,'0');
+}
 async function repHorasBuscar(){
-  const d=(document.getElementById('rep-desde')?.value||'').trim().toUpperCase();
-  const h=(document.getElementById('rep-hasta')?.value||'').trim().toUpperCase();
+  const dIn=document.getElementById('rep-desde'), hIn=document.getElementById('rep-hasta');
+  const d=_repNormNro(dIn&&dIn.value), h=_repNormNro(hIn&&hIn.value);
   const box=document.getElementById('rep-preview');
   const msg=document.getElementById('msg-rep');
   if(!d||!h){if(msg){msg.style.color='var(--red)';msg.textContent='Poné el número de la primera y de la última bobina del lote.';}return;}
+  // Se devuelve normalizado a la pantalla: así queda a la vista cómo se escriben.
+  if(dIn)dIn.value=d; if(hIn)hIn.value=h;
+  if(msg)msg.textContent='';
   if(box)box.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Buscando…</div>';
   const{data,error}=await sb.from('bobinas_producidas')
     .select('id,numero_bobina,extrusora_id,fecha_produccion,hora_produccion,orden_id,kg_reales')
-    .gte('numero_bobina',d).lte('numero_bobina',h).order('numero_bobina');
+    .gte('numero_bobina',d<h?d:h).lte('numero_bobina',d<h?h:d).order('numero_bobina');
   if(error){if(box)box.innerHTML='<div class="alert alert-danger" style="font-size:12px;">'+escapeHtml(error.message)+'</div>';return;}
   window._repBobs=data||[];
+  if(!(data||[]).length){await _repSinResultados(d,h);return;}
   repHorasPreview();
+}
+// Cuando el rango no trae nada, en vez de un "no hay" seco se muestran las últimas
+// bobinas cargadas, con su número tal cual está escrito en la base.
+async function _repSinResultados(d,h){
+  const box=document.getElementById('rep-preview');if(!box)return;
+  const{data}=await sb.from('bobinas_producidas')
+    .select('numero_bobina,fecha_produccion,hora_produccion')
+    .order('id',{ascending:false}).limit(8);
+  let h2='<div class="alert alert-warn" style="font-size:12px;line-height:1.55;">No hay bobinas entre <b>'+escapeHtml(d)+'</b> y <b>'+escapeHtml(h)+'</b>.';
+  if((data||[]).length){
+    h2+='<br>Las últimas cargadas son:<div class="mono" style="font-size:11px;margin-top:5px;">'
+      +data.map(b=>escapeHtml(b.numero_bobina)+' · '+escapeHtml(String(b.fecha_produccion||''))+' '+escapeHtml(String(b.hora_produccion||'').slice(0,5))).join('<br>')+'</div>';
+  }
+  box.innerHTML=h2+'</div>';
+}
+
+// ---- Detectar solo los lotes que se cargaron de golpe ----
+// Lo que se busca es la firma del problema: muchas bobinas con hora_produccion
+// apretada en pocos minutos. Tres extrusoras no producen 18 bobinas en 22 minutos:
+// esa hora es la de tipeo. PURA (testeable).
+function _repDetectarLotes(bobs,minBobinas,minutosMax){
+  const nMin=minBobinas||5, vent=minutosMax||45;
+  const orden=(bobs||[]).filter(b=>b.fecha_produccion&&b.hora_produccion)
+    .slice().sort((a,b)=>String(a.fecha_produccion+a.hora_produccion).localeCompare(String(b.fecha_produccion+b.hora_produccion)));
+  const min=b=>_horaMin(String(b.hora_produccion).slice(0,5));
+  const out=[];let grupo=[];
+  const cerrar=()=>{
+    if(grupo.length>=nMin){
+      const nums=grupo.map(g=>g.numero_bobina).sort();
+      out.push({desde:nums[0],hasta:nums[nums.length-1],n:grupo.length,
+        fecha:grupo[0].fecha_produccion,
+        hIni:String(grupo[0].hora_produccion).slice(0,5),
+        hFin:String(grupo[grupo.length-1].hora_produccion).slice(0,5),
+        exts:Object.keys(grupo.reduce((a,g)=>{a[g.extrusora_id]=1;return a;},{})).length});
+    }
+    grupo=[];
+  };
+  orden.forEach(b=>{
+    if(!grupo.length){grupo=[b];return;}
+    const ult=grupo[grupo.length-1];
+    if(b.fecha_produccion===ult.fecha_produccion&&(min(b)-min(grupo[0]))<=vent)grupo.push(b);
+    else{cerrar();grupo=[b];}
+  });
+  cerrar();
+  return out.reverse();
+}
+async function repDetectar(){
+  const box=document.getElementById('rep-preview');
+  const msg=document.getElementById('msg-rep');
+  if(msg)msg.textContent='';
+  if(box)box.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Buscando lotes cargados de golpe…</div>';
+  const{data,error}=await sb.from('bobinas_producidas')
+    .select('numero_bobina,extrusora_id,fecha_produccion,hora_produccion')
+    .gte('fecha_produccion',_mpFechaMenos(60)).order('id',{ascending:false}).limit(1000);
+  if(error){if(box)box.innerHTML='<div class="alert alert-danger" style="font-size:12px;">'+escapeHtml(error.message)+'</div>';return;}
+  const lotes=_repDetectarLotes(data||[]);
+  if(!lotes.length){box.innerHTML='<div class="empty" style="font-size:12px;color:var(--green)">✓ No hay lotes sospechosos en los últimos 60 días: ninguna tanda de bobinas comparte una ventana de minutos.</div>';return;}
+  let h='<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Tandas con la hora apretada — es la firma de una carga en diferido. Tocá una y se completan los campos de arriba:</div>';
+  lotes.forEach(l=>{
+    h+='<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:8px 11px;margin-bottom:6px;">'
+      +'<div style="font-size:12px;"><b class="mono">'+escapeHtml(l.desde)+' → '+escapeHtml(l.hasta)+'</b>'
+      +'<div style="font-size:11px;color:var(--text2)">'+l.n+' bobinas en '+l.exts+' extrusora'+(l.exts===1?'':'s')+' · '+escapeHtml(l.fecha)+' entre '+escapeHtml(l.hIni)+' y '+escapeHtml(l.hFin)+'</div></div>'
+      +'<button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="repUsarLote('+JSON.stringify(l).replace(/"/g,'&quot;')+')">Usar este lote</button></div>';
+  });
+  box.innerHTML=h;
+}
+function repUsarLote(l){
+  const set=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v;};
+  set('rep-desde',l.desde);set('rep-hasta',l.hasta);set('rep-fecha',l.fecha);
+  repHorasBuscar();
 }
 function repHorasPreview(){
   const box=document.getElementById('rep-preview');if(!box)return;
