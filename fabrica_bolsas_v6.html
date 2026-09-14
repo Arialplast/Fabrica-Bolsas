@@ -791,7 +791,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-12a</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-14c</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -839,6 +839,7 @@ body.pext-on .main{margin-left:0!important;}
         <div class="nav-item" onclick="go('bobinas-fuera-rango')"><div class="nav-dot" style="background:var(--red)"></div>Fuera de rango</div>
         <div class="nav-item" onclick="go('historial-ordenes')"><div class="nav-dot"></div>Historial órdenes</div>
         <div class="nav-item" onclick="go('suspension-maquinas')"><div class="nav-dot" style="background:var(--red)"></div>Suspensión máquinas</div>
+        <div class="nav-item" onclick="go('calendario-prod')"><div class="nav-dot" style="background:var(--amber)"></div>📅 Calendario de producción</div>
         <div class="nav-item" onclick="goAdmin('informe-corte')"><div class="nav-dot" style="background:var(--purple)"></div>Informe producción 🔐</div>
         <div class="nav-item" onclick="goAdmin('analisis-corte')"><div class="nav-dot" style="background:var(--teal)"></div>Análisis de corte 🔐</div>
         <div class="nav-item" onclick="goAdmin('analisis-extrusion')"><div class="nav-dot" style="background:var(--teal)"></div>Análisis de extrusión 🔐</div>
@@ -1084,7 +1085,9 @@ body.pext-on .main{margin-left:0!important;}
 
     <!-- CARGA DE BOBINAS -->
     <div class="page" id="page-carga-bobinas">
-      <div class="page-hdr"><div><div class="page-title">Carga de bobinas</div><div class="page-sub">Registro de producción real · extrusión</div></div><div class="btn-grp"><button id="cb-volver-estacion" class="btn btn-sm" style="display:none" onclick="cerrarCargaEmbebida()">← Volver a la estación</button></div></div>
+      <div class="page-hdr"><div><div class="page-title">Carga de bobinas</div><div class="page-sub">Registro de producción real · extrusión</div></div><div class="btn-grp"><button id="cb-volver-estacion" class="btn btn-sm" style="display:none" onclick="cerrarCargaEmbebida()">← Volver a la estación</button><button id="cb-retro-btn" class="btn btn-sm" onclick="cbRetroPedir()" title="Cargar producción de un turno que ya pasó, con su fecha y hora reales">🕐 Cargar turno atrasado</button></div></div>
+      <!-- BANDA DEL MODO CARGA ATRASADA -->
+      <div id="cb-retro-banda" style="display:none;margin-bottom:1rem;"></div>
       <div class="carga-grid">
         <div class="carga-left">
           <div class="fp">
@@ -1100,7 +1103,7 @@ body.pext-on .main{margin-left:0!important;}
               <div class="fg"><label>Fecha producción</label><input id="cb-fecha" type="date" readonly></div>
             </div>
             <div class="fgrid">
-              <div class="fg"><label>Hora</label><input id="cb-hora" type="time" readonly><span style="font-size:10px;color:var(--text3);margin-top:2px;">🕐 reloj en vivo · la hora se sella al apretar Registrar</span></div>
+              <div class="fg"><label>Hora</label><input id="cb-hora" type="time" readonly><span style="font-size:10px;color:var(--text3);margin-top:2px;">🕐 reloj en vivo · la hora se sella al apretar Registrar<br>¿Cargás un turno que ya pasó? Usá «Cargar turno atrasado» arriba.</span></div>
               <div class="fg"><label>Tipo bobina (de la orden)</label><input id="cb-tipo" type="text" readonly placeholder="Auto"></div>
             </div>
             <div class="fp-t" style="margin-top:4px;">Medición real</div>
@@ -1470,6 +1473,43 @@ body.pext-on .main{margin-left:0!important;}
     </div>
 
     <!-- ADMIN -->
+
+    <!-- CALENDARIO DE PRODUCCIÓN -->
+    <div class="page" id="page-calendario-prod">
+      <div class="page-hdr">
+        <div><div class="page-title">📅 Calendario de producción</div>
+        <div class="page-sub">Qué días y qué turnos NO se trabajan · feriados, sábados y excepciones</div></div>
+        <div class="btn-grp"><button class="btn btn-sm" onclick="renderParos()">↻ Actualizar</button></div>
+      </div>
+      <div class="alert alert-warn" style="font-size:12px;margin-bottom:1rem;line-height:1.6;">
+        El horario semanal (de qué hora a qué hora se produce cada día) se configura en <b>Administración → Horarios de producción</b>.
+        Acá se decide <b>qué días de ese horario no corren</b>: las horas que se saquen dejan de contar en el Gantt, en la capacidad semanal y en las fechas de entrega comprometidas.
+      </div>
+      <div class="fp">
+        <div class="fp-t">🗓 Feriados</div>
+        <div id="cal-feriados"></div>
+      </div>
+      <div class="fp">
+        <div class="fp-t">📆 Sábados</div>
+        <div id="cal-sabados"></div>
+      </div>
+      <div class="fp">
+        <div class="fp-t">🚫 Turnos sueltos que no se trabajan</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:10px;">Para lo que no es ni feriado ni sábado: un turno que se cae entre semana, un mantenimiento programado, un corte de luz. <b>Los feriados y los sábados no se cargan acá</b> — se resuelven en las dos tarjetas de arriba.</div>
+        <div class="fgrid fgrid3">
+          <div class="fg"><label>Fecha</label><input id="paro-fecha" type="date"></div>
+          <div class="fg"><label>Área</label><select id="paro-area" onchange="paroPoblarTurnos()"><option value="extrusion">Extrusión</option><option value="corte">Corte</option></select></div>
+          <div class="fg"><label>Qué no se trabaja</label><select id="paro-alcance" onchange="paroToggleAlcance()"><option value="turno">Un turno</option><option value="dia">El día completo</option></select></div>
+        </div>
+        <div class="fgrid">
+          <div class="fg" id="paro-turno-box"><label>Turno</label><select id="paro-turno"></select></div>
+          <div class="fg"><label>Motivo</label><input id="paro-motivo" type="text" placeholder="ej: mantenimiento del extrusor 3, corte de luz"></div>
+        </div>
+        <div class="btn-grp" style="margin-bottom:10px;"><button class="btn btn-primary btn-sm" onclick="paroAgregar()">Declarar (requiere admin)</button><span id="msg-paro" style="font-size:12px;"></span></div>
+        <div id="paro-lista"></div>
+      </div>
+    </div>
+
     <div class="page" id="page-admin">
       <div class="page-hdr"><div><div class="page-title">Administración</div><div class="page-sub">Configuración del sistema · acceso restringido</div></div></div>
       <div id="admin-lock-wrap">
@@ -1635,10 +1675,14 @@ body.pext-on .main{margin-left:0!important;}
               <div class="fgrid fgrid3">
                 <div class="fg"><label>Termina — hora</label><input id="adm-ext-fin-hora" type="number" min="0" max="24" step="0.5" oninput="admContToggle()"></div>
                 <div class="fg"><label>Ese día se sigue hasta (opcional)</label><input id="adm-ext-sab" type="number" min="0" max="24" step="0.5" placeholder="ej: 12 — vacío = no" oninput="admContToggle()">
-                  <div style="font-size:10px;color:var(--text3);margin-top:3px">El sábado que se viene a trabajar de 6 a 12: poné 12. Si esa semana no se viene, dejalo vacío.</div></div>
+                  <div style="font-size:10px;color:var(--text3);margin-top:3px">Es <b>hasta qué hora</b> se trabaja el sábado <b>cuando se viene</b> (de 6 a 12: poné 12). <b>Qué sábado se viene</b> lo dice el tilde por empleado del calendario de Sueldos — no hace falta vaciar esto cada semana.</div></div>
                 <div class="fg"><label>&nbsp;</label><div id="adm-ext-cont-prev" style="font-size:11px;color:var(--accent);padding-top:8px;"></div></div>
               </div>
             </div>
+          </div>
+          <div style="font-size:12px;color:var(--text2);background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:9px 12px;margin:10px 0;">
+            🗓 <b>Feriados, sábados y turnos que no se trabajan</b> se manejan en su propia hoja:
+            <button class="btn btn-sm" onclick="go('calendario-prod')" style="margin-left:6px;">Ir al calendario de producción →</button>
           </div>
           <div class="fgrid fgrid3">
             <div class="fg"><label>Corte — hora inicio</label><input id="adm-cor-ini" type="number" min="0" max="23" step="1"></div>
@@ -1668,6 +1712,22 @@ body.pext-on .main{margin-left:0!important;}
             <div class="fg"><label>Hora de producción real</label><input id="adm-bob-hora" type="time"></div>
           </div>
           <div class="btn-grp"><button class="btn btn-primary btn-sm" onclick="editarBobinaAdmin()">Guardar corrección</button><span id="msg-adm-bob" style="font-size:12px;"></span></div>
+        </div>
+        <div class="fp">
+          <div class="fp-t">🕐 Repartir las horas de un lote cargado junto</div>
+          <div class="alert alert-warn" style="margin-bottom:12px;font-size:12px;">Cuando se cargan de golpe las bobinas de un turno que ya pasó, a todas les queda la hora en que se tipearon. Acá se reparten dentro de la ventana real del turno, <b>por extrusora</b> y en orden de número. Queda marcado "editado por admin".</div>
+          <div class="fgrid fgrid3">
+            <div class="fg"><label>Desde N° bobina</label><input id="rep-desde" type="text" placeholder="BOB-05620"></div>
+            <div class="fg"><label>Hasta N° bobina</label><input id="rep-hasta" type="text" placeholder="BOB-05637"></div>
+            <div class="fg"><label>&nbsp;</label><button class="btn btn-sm" onclick="repHorasBuscar()">Buscar el lote</button></div>
+          </div>
+          <div class="fgrid fgrid3">
+            <div class="fg"><label>Fecha real de producción</label><input id="rep-fecha" type="date" onchange="repHorasPreview()"></div>
+            <div class="fg"><label>Desde (última hora real)</label><input id="rep-hini" type="time" onchange="repHorasPreview()"></div>
+            <div class="fg"><label>Hasta (fin del turno)</label><input id="rep-hfin" type="time" onchange="repHorasPreview()"></div>
+          </div>
+          <div id="rep-preview" style="margin-bottom:12px;"></div>
+          <div class="btn-grp"><button class="btn btn-primary btn-sm" onclick="repHorasAplicar()">Aplicar el reparto (requiere admin)</button><span id="msg-rep" style="font-size:12px;"></span></div>
         </div>
         <div class="fp">
           <div class="fp-t">Editar orden de corte</div>
@@ -5496,7 +5556,12 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-09-12a';   // 12a: QUE LA NOCHE NUNCA MAS DEJE DE CARGAR. El 12/09 a las 02:16, con BOB-05619, el COLORANTE NEGRO toco 0,09 kg EN EL SISTEMA (fisicamente habia) y el bloqueo duro del 10r dejo al turno noche cuatro horas sin cargar: ~8 bobinas que no existen. Y el exceso de metros de OE pedia clave de admin, que a las 3 AM no hay. Tres cambios. (1) VALVULA DE MP: si falta un componente, el operario declara los kg que VE y se abre un LOTE PROVISORIO (PROV-fecha-hora-tN) al ultimo precio conocido — la bobina se carga con su consumo y su costo completos. Tope por categoria (mp_prov_max_aditivo 60 / mp_prov_max_base 1200), confirmacion explicita y queda a nombre del operario. El principio del 10r sigue: NUNCA una bobina sin su consumo; lo que cambia es que ahora hay una salida que lo cumple. (2) REGULARIZACION: cada provisorio queda EN ROJO en Stock MP hasta cerrarse por uno de tres caminos — era sobrante nuestro (usamos menos que la formula), salio de un remito (se le descuenta al lote real, no se cuenta dos veces), o no habia nada. El panel muestra la deriva de inventario de 60 dias de ese material como pista de cual de los tres es. (3) EXCEDENTE DE OE: ya no pide clave — la bobina SIEMPRE se registra y viaja por el circuito de pendientes de asignacion (el mismo de fuera de rango); a la mañana se resuelve con un click. Solo frena el dedazo: una bobina que se lleve la OE entera o mas del triple del tope. Ademas: AUTONOMIA DE MP (dias que queda de cada material al consumo real de 14 dias, contando solo los dias con consumo) en Stock MP y cartel rojo en el dashboard — el negro hubiera avisado el 06/09. Y se cerro el agujero silencioso del 10q: si un componente igual no se pudo descontar, queda escrito en las observaciones de la bobina en vez de un console.warn que nadie mira. Sin SQL nuevo: el provisorio se reconoce por el prefijo del numero de lote y se cierra escribiendo en observaciones.
+const APP_BUILD='2026-09-14c';   // 14c: CALENDARIO DE PRODUCCION, HOJA APARTE. German: "no quiero cosas en admin, armame una hoja aparte". Todo lo del calendario sale de Administracion y pasa a Produccion → 📅 Calendario de produccion, en tres tarjetas: FERIADOS (los que vienen, con el tilde por area de si ese dia se trabaja y el boton de traer los del año), SABADOS (los 6 que vienen, quien esta tildado en Sueldos, cuantas horas va a producir cada area y el interruptor de la derivacion) y TURNOS SUELTOS (lo que no es ni feriado ni sabado: un turno que se cae entre semana, un mantenimiento, un corte de luz). En Admin queda solo un boton que lleva a la hoja, y el horario SEMANAL se sigue configurando alla — la hoja nueva decide que dias de ese horario no corren, y lo dice arriba. Verificado con smoke7.cjs (19 asserts) renderizando las tres tarjetas con datos reales y revisando que no haya undefined ni NaN.
+// 14b: EL SABADO LO DECIDE QUIEN VIENE. German: "no me pueden quedar cosas colgadas, decime que me aconsejas vos". Habia TRES lugares hablando del sabado y ninguno sabia del otro: (1) el tilde por empleado del calendario de Sueldos — QUIEN VIENE, que se carga si o si porque de ahi sale el pago; (2) extrusion_sab_hasta en Admin — HASTA QUE HORA corre la planta, global, y hay que acordarse de ponerlo y PEOR de sacarlo el sabado que no se viene (si te olvidas, el Gantt promete un sabado que no existe); (3) los paros por fecha del 12c. El dato verdadero es el (1): la planta produce el sabado si hay gente, y los otros dos son consecuencia. Ahora sab_hasta significa solo "cuando se viene, se trabaja hasta las X", y un sabado sin nadie tildado de esa area no produce. El cruce es empleado → esquema_turno → area (extrusion / confeccion), asi que un tildado de confeccion abre el corte y no la extrusion. 🔴 El turno noche del VIERNES no depende de esto: entra 22 y termina 6 del sabado, por eso lo que se cae es la EXTENSION del sabado (del cierre en adelante), nunca el dia entero. Interruptor configuracion['sabado_desde_sueldos']='false' para volver al comportamiento viejo. En el panel, los 6 sabados que vienen con quien esta tildado y cuantas horas va a producir cada area. Verificado con smoke6.cjs (21 asserts), con el plantel y los esquemas reales, incluidos empleado sin esquema, empleado de baja, un cambio de turno que no es un tilde de sabado, y la convivencia con feriado y con paro parcial.
+// 14a: LOS FERIADOS SE CARGAN UNA SOLA VEZ. German, mirando el 12c: "¿esto no se pisa con feriados, que estan en sueldos? los feriados ya no se ponian solos? si no es asi se tienen que poner solos, si los trabajo ahi lo pongo yo, si no me queda un monton de informacion para cargar". Tenia razon en las dos puntas. (1) Los feriados YA estaban cargados en la tabla `feriados` (calendario de Sueldos → 🕐 Turnos) pero los miraba SOLO la liquidacion (_esFeriado: feriado trabajado x2): la PRODUCCION no se enteraba y el Gantt programaba el 25 de diciembre como un dia cualquiera. Pedirle que ademas los cargara como paro era cargarlos dos veces. Ahora un feriado activo borra el dia entero de la jornada de produccion — el corte va DENTRO de _jorTramosFecha, antes de los paros — sin cargar nada nuevo, y la excepcion (que ese feriado SI se trabaje) es un tilde por area en el panel. El tilde vive en configuracion['feriados_trabajados'] porque es una decision de produccion, no un dato de RRHH: la tabla `feriados` sigue siendo el maestro unico de los dos modulos. (2) Boton "Traer los feriados de un año": calcula los nacionales POR LEY — los 12 inamovibles, Carnaval y Viernes Santo desde Pascua (Meeus) y los 4 trasladables con la regla de la ley 27.399 (martes/miercoles → lunes anterior, jueves/viernes → lunes siguiente) — y agrega SOLO los que faltan, sin pisar nada. Los puentes turisticos no se calculan: los fija un decreto distinto cada año y van a mano; el preview los lista aparte junto con cualquier trasladable que haya quedado en la fecha vieja. 🔴 Encontro dos cosas en los datos de 2026: falta GÜEMES (15/6, miercoles 17 movido al lunes anterior) y SOBERANIA esta cargada el 20/11, que cae viernes y por ley va al lunes 23/11 — los dos afectan la liquidacion. Verificado con smoke5.cjs (31 asserts), incluida la reproduccion de los 15 feriados de 2026 ya cargados.
+// 12c: TURNOS QUE NO SE TRABAJAN. El sabado 12/09 no se hizo el turno mañana de extrusion ("hay mucha bobina de stock") y el sistema no se entero: la jornada es un descriptor SEMANAL (getJornada + _jorTramosDia), dice de que hora a que hora se trabaja cada dia de la semana, igual todas las semanas, y un turno que no se hace UNA vez no tiene donde anotarse. Consecuencia: el Gantt sigue prometiendo produccion en horas que no van a existir, la capacidad de la semana cuenta esas horas, y las fechas de entrega que salen de sumarHsLaborales salen optimistas. Ahora hay EXCEPCIONES POR FECHA: en Admin → Horarios de produccion se declara "el sabado 12 no se hace el turno mañana de extrusion" (o el dia completo, o media jornada de corte) con motivo obligatorio, y esas horas se restan de los tramos de ESE dia. 🔴 Se enchufa DENTRO de jorTramos() y _jorIntervalosDia(), que es por donde TODO el sistema pregunta cuando se trabaja: Gantt, capacidad semanal, programacion, ajustarAJornada, sumarHsLaborales y jorHull se corrigen a la vez y no quedan dos definiciones de "cuando se trabaja" conviviendo. El turno noche, que cruza medianoche, genera dos cortes (22-24 de su dia y 0-6 del siguiente) — probado tambien cruzando fin de mes y fin de año. SIN SQL: viven en configuracion['paros_produccion'] como JSON, se podan solos a los 120 dias y un JSON roto no rompe la jornada. Verificado con smoke4.cjs (27 asserts).
+// 12b: LA HORA DE LO QUE SE CARGA AL DIA SIGUIENTE. German cargo a mano las 18 bobinas que el turno noche no habia podido registrar (BOB-05620..05637) y quedaron TODAS entre las 11:38 y las 12:00 — 18 bobinas en 22 minutos — porque desde el 05c la hora se sella sola al apretar Registrar y no habia forma de poner otra. No es cosmetico: con la hora de tipeo esas bobinas mienten en el kg/h de Ritmo, en las bandas de 2 horas, en la productividad por hora y en el turno al que se imputa la produccion (el sabado el turno mañana de extrusion NO se trabajo, asi que eran 18 bobinas cargadas a un turno que no existio). Dos piezas. (1) MODO CARGA ATRASADA en la pantalla de carga, con clave de admin: la fecha y la hora las pone el que carga, el reloj deja de pisarlas, y la hora AVANZA sola un paso configurable despues de cada bobina (asi cargar 18 seguidas no es escribir 18 horas). Banda roja fija mientras este activo y guarda contra cargar produccion en el futuro. (2) REPARTIR HORAS en Admin, para lo que ya se cargo mal: se toma un rango de numeros de bobina y una ventana (ultima hora real → fin del turno) y se reparte POR EXTRUSORA, en orden, con vista previa de que dice ahora y en que queda cada una. No inventa un ritmo comun: tres extrusoras en paralelo no hacen una bobina cada 12 minutos, hacen una cada 37 cada una. Verificado con smoke3.cjs (28 asserts) sobre el lote real del 12/09.
+// 12a: QUE LA NOCHE NUNCA MAS DEJE DE CARGAR. El 12/09 a las 02:16, con BOB-05619, el COLORANTE NEGRO toco 0,09 kg EN EL SISTEMA (fisicamente habia) y el bloqueo duro del 10r dejo al turno noche cuatro horas sin cargar: ~8 bobinas que no existen. Y el exceso de metros de OE pedia clave de admin, que a las 3 AM no hay. Tres cambios. (1) VALVULA DE MP: si falta un componente, el operario declara los kg que VE y se abre un LOTE PROVISORIO (PROV-fecha-hora-tN) al ultimo precio conocido — la bobina se carga con su consumo y su costo completos. Tope por categoria (mp_prov_max_aditivo 60 / mp_prov_max_base 1200), confirmacion explicita y queda a nombre del operario. El principio del 10r sigue: NUNCA una bobina sin su consumo; lo que cambia es que ahora hay una salida que lo cumple. (2) REGULARIZACION: cada provisorio queda EN ROJO en Stock MP hasta cerrarse por uno de tres caminos — era sobrante nuestro (usamos menos que la formula), salio de un remito (se le descuenta al lote real, no se cuenta dos veces), o no habia nada. El panel muestra la deriva de inventario de 60 dias de ese material como pista de cual de los tres es. (3) EXCEDENTE DE OE: ya no pide clave — la bobina SIEMPRE se registra y viaja por el circuito de pendientes de asignacion (el mismo de fuera de rango); a la mañana se resuelve con un click. Solo frena el dedazo: una bobina que se lleve la OE entera o mas del triple del tope. Ademas: AUTONOMIA DE MP (dias que queda de cada material al consumo real de 14 dias, contando solo los dias con consumo) en Stock MP y cartel rojo en el dashboard — el negro hubiera avisado el 06/09. Y se cerro el agujero silencioso del 10q: si un componente igual no se pudo descontar, queda escrito en las observaciones de la bobina en vez de un console.warn que nadie mira. Sin SQL nuevo: el provisorio se reconoce por el prefijo del numero de lote y se cierra escribiendo en observaciones.
 // 11a: REMITOS. (1) EL NUMERO SE REPETIA: 'duplicate key value violates unique constraint remitos_numero_unico'. El N° se leia del contador al ABRIR la pantalla y el contador se subia al FINAL del guardado; el REM-00535 se corto a mitad y el contador quedo en 534, asi que el remito siguiente choco. Ahora el numero se asigna AL GUARDAR con _remSiguienteNumero = max(contador, ultimo REM-n que existe en remitos)+1, con reintento si otro gano el numero (23505), y el contador se sincroniza apenas existe el remito (_remSincronizarContador, nunca lo baja). (2) POR QUE SE CORTO: el mismo producto en el renglon del pedido y en un extra tomo DOS VECES el mismo lote reservado de otro pedido (confirmarReasignacionRemito copiaba el lote con _usado por cada faltante y _ejecutarGuardarRemito filtraba las reasignaciones por producto, no por renglon); el segundo descuento revento en entregar_lotes_remito con el remito ya creado. Ahora: _remPlanificar arma el plan de lotes de TODO el remito con consumo compartido entre renglones (una sola definicion, la usa el guardado), _remPreflightLotes lo contrasta contra stock_bolsas de la BASE antes de escribir la primera fila (si no cierra no se escribe nada), la reasignacion reparte el stock entre faltantes del mismo producto y se ata a su renglon (campo rl), y la guarda de sobre-entrega y el calculo de faltantes suman todos los renglones del mismo producto. Sin SQL de esquema. Datos del caso: reparar_rem00535.sql.
   // 09b: REMITOS Y RV. (1) EL BULTO ESPECIAL DEL CLIENTE EN EL REMITO IMPRESO. imprimirRemito calculaba los bultos SIEMPRE con el paquetes_por_bolson del producto, asi que a un cliente que arma el bulto con 8 paquetes en vez de 10 el remito le pedia 30 bultos donde iban 38. Ahora usa la misma cascada que el impreso de deposito (imprimirPedido): paq/bolson de la OC que se corto para ese pedido -> especial del cliente (cliente_precios_especiales) -> default del producto. El impreso suma una columna «Paq/bulto», resalta en ambar la fila que no usa el bulto estandar con el tachado del valor por defecto, y pone un aviso arriba cuando el remito tiene alguna. Un producto sin paq/bolson cargado sigue mostrando «-», no inventa un bulto por paquete. Vale igual para el circuito formal y el informal: es el mismo impreso. (2) EL RV NO AGRUPABA POR MEDIDA. El RV-000215 de QUILPLAST salio con el 00396 dos veces (300 paq y 15 paq, mismo precio) porque guardarRV escribia un rv_linea por cada linea de remito, mientras la factura ya consolidaba con _facConsolidarRemitos. Ahora el RV usa ese mismo helper: un renglon por producto+precio, ordenado por codigo, con la cantidad total. Precios distintos NO se mezclan (un precio promedio no existe en ningun documento - P1). Los numeros de remito, que antes iban pegados a la descripcion como '[Remito REM-00523]', pasan al encabezado del impreso. Y _rvAgruparLineas agrupa TAMBIEN al imprimir, asi los RV ya emitidos salen bien sin tocar la base. Verificado con smoke_remitos.cjs (26 asserts).
   // 28a: NOTAS DE CREDITO Y DEBITO ANTE ARCA — Y UN BUG DE PLATA QUE NO ERA DE ARCA.
@@ -6323,9 +6388,480 @@ function _jorTramosDia(j,dow){
   return [{a:j.hIni,b:j.hFin}];
 }
 
-// Tramos de una FECHA concreta, en horas del día.
+// ===== TURNOS QUE NO SE TRABAJAN (paros declarados por fecha) =====
+// El caso que lo motivó: el sábado 12/09 no se hizo el turno mañana de extrusión
+// —"hay mucha bobina de stock"— y el sistema no se enteró. La jornada de producción
+// es un descriptor SEMANAL (getJornada + _jorTramosDia): dice de qué hora a qué hora
+// se trabaja cada día de la semana, igual todas las semanas. Un turno que no se hace
+// una vez no tiene dónde anotarse, así que el Gantt sigue prometiendo producción en
+// horas que no van a existir, la capacidad de la semana cuenta esas horas, y las
+// fechas de entrega que salen de sumarHsLaborales salen optimistas.
+//
+// La pieza que faltaba es una EXCEPCIÓN POR FECHA. Se declara "el sábado 12 no se
+// hace el turno mañana de extrusión" y esas horas se restan de los tramos de ESE día.
+//
+// 🔴 Dónde se enchufa, y por qué acá: todo el sistema —Gantt, capacidad semanal,
+// programación, ajustarAJornada, sumarHsLaborales, jorHull— pregunta por los tramos
+// de un día a través de jorTramos() / _jorIntervalosDia(). Restando los paros ahí
+// adentro, en un solo lugar, se corrigen todos los consumidores a la vez y no hay
+// dos definiciones de "cuándo se trabaja" conviviendo (la lección del 09b).
+//
+// SIN SQL: los paros viven en configuracion['paros_produccion'] como JSON. Son unos
+// pocos por mes y se podan solos a los 120 días; si algún día crecen, se migran a
+// tabla propia sin tocar a los consumidores.
+let _parosCache={raw:null,idx:null,lista:null};
+function _parosIdx(){
+  const raw=String(getCfg('paros_produccion','[]')||'[]');
+  if(_parosCache.raw===raw&&_parosCache.idx)return _parosCache.idx;
+  let arr=[];
+  try{arr=JSON.parse(raw);}catch(e){arr=[];}
+  if(!Array.isArray(arr))arr=[];
+  const idx={};
+  arr.forEach(p=>{
+    if(!p||!p.f)return;
+    const a=Math.max(0,parseFloat(p.a)||0), b=Math.min(24,parseFloat(p.b));
+    if(!(b>a))return;
+    const k=(p.t||'extrusion')+'|'+p.f;
+    (idx[k]=idx[k]||[]).push({a:a,b:b});
+  });
+  _parosCache={raw:raw,idx:idx,lista:arr};
+  return idx;
+}
+function _parosLista(){_parosIdx();return _parosCache.lista||[];}
+// PURA (testeable): saca de 'tramos' las franjas de 'cortes'. Un corte puede partir
+// un tramo en dos (parar de 13 a 15 en una jornada de 6 a 22 deja 6-13 y 15-22).
+function _restarTramos(tramos,cortes){
+  if(!cortes||!cortes.length)return (tramos||[]).map(t=>({a:t.a,b:t.b}));
+  let out=(tramos||[]).map(t=>({a:t.a,b:t.b}));
+  cortes.forEach(c=>{
+    if(!(c.b>c.a))return;
+    const next=[];
+    out.forEach(t=>{
+      if(c.b<=t.a||c.a>=t.b){next.push(t);return;}          // no se tocan
+      if(c.a>t.a)next.push({a:t.a,b:Math.min(c.a,t.b)});    // lo que queda antes
+      if(c.b<t.b)next.push({a:Math.max(c.b,t.a),b:t.b});    // lo que queda después
+    });
+    out=next;
+  });
+  return out.filter(t=>t.b>t.a+1e-9).sort((x,y)=>x.a-y.a);
+}
+// Tramos de una fecha concreta YA con los paros restados. Es la única definición.
+function _jorTramosFecha(fecha,tipo){
+  const ti=tipo||'extrusion';
+  const d=new Date(fecha);
+  const fs=localDate(d);
+  // Un feriado del maestro de Sueldos borra el día entero, salvo que esté tildado
+  // como trabajado. Va ANTES de los paros: no tiene sentido restarle horas a un día
+  // que no existe, y así el panel puede mostrar el feriado como el motivo real.
+  if(_esFeriadoProd(fs,ti))return [];
+  const base=_jorTramosDia(getJornada(ti),d.getDay());
+  const cortes=(_parosIdx()[ti+'|'+fs]||[]).slice();
+  const cs=_sabCorte(fs,ti);      // sábado sin nadie tildado en el calendario de Sueldos
+  if(cs)cortes.push(cs);
+  return cortes.length?_restarTramos(base,cortes):base;
+}
+// ¿Esta fecha tiene algún paro declarado? (para los carteles)
+function _parosDeFecha(fechaStr,tipo){
+  return _parosLista().filter(p=>p.f===fechaStr&&(p.t||'extrusion')===(tipo||'extrusion'));
+}
+
+// ---- FERIADOS: se cargan UNA vez y valen para las dos cosas ----
+// German, 14/09: "¿esto no se pisa con feriados, que están en sueldos? los feriados
+// ya no se ponían solos? si no es así se tienen que poner solos, si los trabajo ahí
+// lo pongo yo, si no me queda un montón de información para cargar". Tiene razón en
+// las dos puntas:
+//  · Los feriados YA estaban cargados (tabla `feriados`, calendario de Sueldos →
+//    🕐 Turnos), pero sólo los miraba la liquidación (`_esFeriado`: feriado trabajado
+//    ×2). La PRODUCCIÓN no se enteraba: el Gantt programaba el 25 de diciembre como
+//    un día cualquiera. Pedirle que además los cargue como paro sería cargarlos dos
+//    veces — exactamente lo que no quiere.
+//  · Ahora un feriado activo **resta el día entero** de la jornada de producción, sin
+//    cargar nada nuevo. Y el caso raro —que ese feriado SÍ se trabaje— se marca con
+//    un tilde, que es la excepción y no la regla.
+// El tilde vive en configuracion['feriados_trabajados'] (["2026-12-08:extrusion", …]):
+// es una decisión de producción, no un dato de RRHH, y así la tabla `feriados` sigue
+// siendo el maestro único que usan los dos módulos.
+let _ferSetCache={ref:null,set:null};
+function _feriadoNombre(fechaStr){
+  const f=(C.feriados||[]).find(x=>x.activo!==false&&String(x.fecha)===fechaStr);
+  return f?(f.nombre||'Feriado'):null;
+}
+function _ferTrabSet(){
+  let arr=[];
+  try{arr=JSON.parse(String(getCfg('feriados_trabajados','[]')||'[]'));}catch(e){arr=[];}
+  return Array.isArray(arr)?arr:[];
+}
+function _ferSeTrabaja(fechaStr,tipo){
+  const s=_ferTrabSet();
+  return s.indexOf(fechaStr+':'+(tipo||'extrusion'))>=0||s.indexOf(fechaStr+':todo')>=0;
+}
+// ¿Este día NO se produce por feriado? (el maestro de Sueldos manda; el tilde exime)
+function _esFeriadoProd(fechaStr,tipo){
+  if(_ferSetCache.ref!==C.feriados){
+    const s={};
+    (C.feriados||[]).forEach(f=>{if(f.activo!==false)s[String(f.fecha)]=1;});
+    _ferSetCache={ref:C.feriados,set:s};
+  }
+  if(!_ferSetCache.set[fechaStr])return false;
+  return !_ferSeTrabaja(fechaStr,tipo||'extrusion');
+}
+async function ferTrabajaToggle(fechaStr,tipo,checked){
+  pedirAdminYEjecutar(async()=>{
+    const k=fechaStr+':'+tipo;
+    const arr=_ferTrabSet().filter(x=>x!==k);
+    if(checked)arr.push(k);
+    const txt=JSON.stringify(arr);
+    const{error}=await sb.from('configuracion').upsert({clave:'feriados_trabajados',valor:txt},{onConflict:'clave'});
+    if(error){toast('Error: '+error.message,'red');return;}
+    cfg.feriados_trabajados=txt;
+    toast(checked?('✓ El '+fechaStr+' se trabaja en '+tipo):('✓ El '+fechaStr+' no se trabaja'),'green');
+    renderParos();
+    _repintar(renderDash,renderGantt,renderCap);
+  });
+}
+
+// ---- Generador de feriados nacionales de un año ----
+// Domingo de Pascua (Meeus/Jones/Butcher, calendario gregoriano). De ahí salen
+// Carnaval (lunes y martes, −48 y −47) y Viernes Santo (−2).
+function _pascua(y){
+  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,
+        f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,
+        i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),
+        mes=Math.floor((h+l-7*m+114)/31),dia=((h+l-7*m+114)%31)+1;
+  return new Date(y,mes-1,dia);
+}
+function _diasDesde(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x;}
+// Ley 27.399: martes o miércoles → lunes anterior; jueves o viernes → lunes siguiente;
+// sábado, domingo o lunes → queda donde está.
+function _trasladaFeriado(d){
+  const dow=d.getDay(),x=new Date(d);
+  if(dow===2||dow===3)x.setDate(x.getDate()-(dow-1));
+  else if(dow===4||dow===5)x.setDate(x.getDate()+(8-dow));
+  return x;
+}
+// PURA (testeable): los feriados nacionales POR LEY de un año.
+// 🔴 No incluye los "días no laborables con fines turísticos" (los puentes): esos no
+// se calculan, los fija un decreto distinto cada año y hay que agregarlos a mano.
+// Los trasladables salen con la regla de la ley, pero el decreto puede moverlos:
+// vienen marcados para que se verifiquen antes de darlos por buenos.
+function _feriadosDelAnio(y){
+  const P=_pascua(y),f=[],F=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const fijo=(m,d,n)=>f.push({fecha:F(new Date(y,m-1,d)),nombre:n,clase:'inamovible'});
+  fijo(1,1,'Año Nuevo');
+  f.push({fecha:F(_diasDesde(P,-48)),nombre:'Carnaval',clase:'inamovible'});
+  f.push({fecha:F(_diasDesde(P,-47)),nombre:'Carnaval',clase:'inamovible'});
+  fijo(3,24,'Día de la Memoria');
+  f.push({fecha:F(_diasDesde(P,-2)),nombre:'Viernes Santo',clase:'inamovible'});
+  fijo(4,2,'Malvinas');
+  fijo(5,1,'Día del Trabajador');
+  fijo(5,25,'Revolución de Mayo');
+  fijo(6,20,'Día de la Bandera');
+  fijo(7,9,'Día de la Independencia');
+  fijo(12,8,'Inmaculada Concepción');
+  fijo(12,25,'Navidad');
+  [[6,17,'Paso a la Inmortalidad de Güemes'],[8,17,'Paso a la Inmortalidad de San Martín'],
+   [10,12,'Diversidad Cultural'],[11,20,'Soberanía Nacional']].forEach(t=>{
+    const orig=new Date(y,t[0]-1,t[1]), mov=_trasladaFeriado(orig);
+    f.push({fecha:F(mov),nombre:t[2],clase:'trasladable',original:F(orig)});
+  });
+  return f.sort((a,b)=>a.fecha.localeCompare(b.fecha));
+}
+function ferGenerarAbrir(){
+  const y=new Date().getFullYear();
+  document.getElementById('fergen-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="fergen-modal"><div class="modal-card" style="max-width:560px;max-height:92vh;overflow-y:auto;">'
+    +'<div class="modal-title">🗓 Traer los feriados nacionales de un año</div>'
+    +'<div class="fg" style="margin-bottom:10px;"><label>Año</label><input type="number" id="fergen-y" min="2020" max="2099" step="1" value="'+(y+1)+'" onchange="ferGenerarPreview()" oninput="ferGenerarPreview()"></div>'
+    +'<div id="fergen-box"></div>'
+    +'<div class="btn-grp" style="margin-top:12px;"><button class="btn btn-primary btn-sm" onclick="ferGenerarAplicar()">Agregar los que faltan</button>'
+    +'<button class="btn btn-sm" onclick="document.getElementById(\'fergen-modal\').remove()">Cerrar</button>'
+    +'<span id="fergen-msg" style="font-size:12px;margin-left:8px;"></span></div>'
+    +'</div></div>');
+  ferGenerarPreview();
+}
+function ferGenerarPreview(){
+  const box=document.getElementById('fergen-box');if(!box)return;
+  const y=parseInt(document.getElementById('fergen-y')?.value);
+  if(!(y>2019&&y<2100)){box.innerHTML='<div style="font-size:12px;color:var(--text3)">Poné un año válido.</div>';return;}
+  const gen=_feriadosDelAnio(y);
+  const yaHay={};(C.feriados||[]).forEach(f=>{yaHay[String(f.fecha)]=f;});
+  const nuevos=gen.filter(g=>!yaHay[g.fecha]);
+  window._ferGen=nuevos;
+  // Lo que ya está cargado ese año y el generador NO produjo: puentes turísticos
+  // (bien) o un trasladable que quedó en la fecha vieja (mal). Se muestra, no se toca.
+  const genSet={};gen.forEach(g=>genSet[g.fecha]=1);
+  const sobran=(C.feriados||[]).filter(f=>String(f.fecha).slice(0,4)===String(y)&&!genSet[String(f.fecha)]);
+  let h='<div style="font-size:12px;color:var(--text2);line-height:1.55;margin-bottom:10px;">'
+    +'Los <b>inamovibles</b> y los de Pascua (Carnaval y Viernes Santo) salen exactos. Los <b>trasladables</b> se calculan con la regla de la ley 27.399 '
+    +'(martes o miércoles → lunes anterior; jueves o viernes → lunes siguiente), pero el decreto de cada año puede moverlos: verificalos. '
+    +'🔴 Los <b>puentes turísticos</b> no se calculan — los fija un decreto distinto cada año y van a mano.</div>';
+  h+='<div style="font-size:12px;margin-bottom:6px;"><b>'+nuevos.length+'</b> para agregar · <b>'+(gen.length-nuevos.length)+'</b> ya estaban</div>';
+  if(nuevos.length){
+    h+='<div style="max-height:230px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r)"><table style="margin:0"><thead><tr style="background:var(--bg3)">'
+      +'<th style="font-size:11px">Fecha</th><th style="font-size:11px">Feriado</th><th style="font-size:11px">Tipo</th></tr></thead><tbody>';
+    nuevos.forEach(n=>{
+      h+='<tr><td class="mono" style="font-size:11px">'+escapeHtml(n.fecha)+'</td><td style="font-size:11px">'+escapeHtml(n.nombre)+'</td>'
+        +'<td style="font-size:10px;color:'+(n.clase==='trasladable'?'var(--amber)':'var(--text3)')+'">'+n.clase
+        +(n.original&&n.original!==n.fecha?' (cae '+n.original+')':'')+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  if(sobran.length){
+    h+='<div class="alert alert-warn" style="font-size:11.5px;margin-top:10px;line-height:1.5;">⚠ Ya tenés cargados estos '+y+' que el cálculo no produjo. '
+      +'Si son <b>puentes turísticos</b> está perfecto; si es un trasladable que quedó en la fecha vieja, corregilo a mano:<br>'
+      +sobran.map(s=>'· <b>'+escapeHtml(String(s.fecha))+'</b> '+escapeHtml(s.nombre||'')).join('<br>')+'</div>';
+  }
+  box.innerHTML=h;
+}
+function ferGenerarAplicar(){
+  const nuevos=window._ferGen||[];
+  const msg=document.getElementById('fergen-msg');
+  if(!nuevos.length){if(msg){msg.style.color='var(--text3)';msg.textContent='No hay nada para agregar.';}return;}
+  pedirAdminYEjecutar(async()=>{
+    if(msg){msg.style.color='var(--text2)';msg.textContent='Agregando…';}
+    const{error}=await sb.from('feriados').upsert(
+      nuevos.map(n=>({fecha:n.fecha,nombre:n.nombre,tipo:'nacional',activo:true})),{onConflict:'fecha'});
+    if(error){if(msg){msg.style.color='var(--red)';msg.textContent='Error: '+error.message;}return;}
+    if(msg){msg.style.color='var(--green)';msg.textContent='✓ '+nuevos.length+' feriados agregados.';}
+    await reload();
+    ferGenerarPreview();renderParos();
+  });
+}
+
+// ---- EL SÁBADO LO DECIDE QUIÉN VIENE, NO UNA CONFIG QUE HAY QUE APAGAR ----
+// German, 14/09: "no me pueden quedar cosas colgadas... decime qué me aconsejás".
+// Había TRES lugares hablando del sábado, y ninguno sabía del otro:
+//   1) el tilde por empleado del calendario de Sueldos — QUIÉN VIENE. Este se carga
+//      sí o sí, porque de ahí sale el pago (3 hs normales + el resto extra).
+//   2) `extrusion_sab_hasta` en Admin — HASTA QUÉ HORA corre la planta. Global, y
+//      hay que acordarse de ponerlo y —peor— de SACARLO el sábado que no se viene.
+//      Si te olvidás, el Gantt promete un sábado que no existe.
+//   3) los paros por fecha del 12c.
+// El dato verdadero es el (1): la planta produce el sábado si hay gente. Los otros
+// dos son consecuencia. Así que `sab_hasta` deja de significar "este sábado se
+// viene" y pasa a significar sólo "cuando se viene, se trabaja hasta las X".
+//
+// 🔴 El turno noche del VIERNES no depende de esto: entra a las 22 del viernes y
+// termina a las 6 del sábado. Por eso lo que se cae cuando no hay nadie es la
+// EXTENSIÓN del sábado (de la hora de cierre en adelante), no el día entero.
+//
+// Interruptor: configuracion['sabado_desde_sueldos'] = 'false' vuelve al
+// comportamiento viejo (manda sólo sab_hasta).
+function _sabDerivaActiva(){return String(getCfg('sabado_desde_sueldos','true'))!=='false';}
+// Área del calendario de Sueldos que corresponde a cada área de producción.
+function _areaRRHH(tipo){return (tipo||'extrusion')==='corte'?'confeccion':'extrusion';}
+// ¿Hay alguien de esta área tildado para trabajar ese sábado?
+function _sabHayGente(fechaStr,tipo){
+  const area=_areaRRHH(tipo);
+  const tildados=(C.turnos_excepcion||[]).filter(x=>x.tipo==='sabado'&&String(x.fecha)===fechaStr);
+  if(!tildados.length)return false;
+  return tildados.some(x=>{
+    const e=(C.empleados||[]).find(y=>y.id===x.empleado_id);
+    if(!e||e.activo===false)return false;
+    const s=(C.esquemas_turno||[]).find(y=>y.id===e.esquema_turno_id);
+    // Un empleado sin esquema no dice de qué área es: no cuenta como que la planta
+    // abre, pero tampoco la cierra — lo resuelve el `some` sobre el resto.
+    return !!s&&s.area===area;
+  });
+}
+// La hora hasta la que el sábado se trabaja "por arrastre" aunque no venga nadie:
+// en continuo, el cierre de la semana (el turno noche del viernes terminando); si no,
+// cero, porque el sábado de corte o de extrusión por franja empieza de cero.
+function _sabCierreNatural(tipo){
+  const j=getJornada(tipo||'extrusion');
+  return (j.modo==='continuo'&&j.fin_dia===6)?(j.fin_hora||0):0;
+}
+// Corte a aplicar en un sábado sin gente, o null si no corresponde.
+function _sabCorte(fechaStr,tipo){
+  if(!_sabDerivaActiva())return null;
+  const d=new Date(fechaStr+'T12:00:00');
+  if(d.getDay()!==6)return null;
+  if(_sabHayGente(fechaStr,tipo))return null;
+  const a=_sabCierreNatural(tipo);
+  return {a:a,b:24};
+}
+
+// ---- Alta / baja (Admin) ----
+// PURA (testeable): un turno en una fecha → los cortes que hay que anotar. El turno
+// noche cruza medianoche, así que corta el final de SU día y el principio del
+// siguiente: 22→06 son [22,24] del viernes y [0,6] del sábado.
+function _paroCortesDeTurno(fecha,turno,motivo,tipoArea){
+  const hIni=_horaMin(String(turno.hora_entrada||'00:00').slice(0,5))/60;
+  const hFin=_horaMin(String(turno.hora_salida||'00:00').slice(0,5))/60;
+  const t=tipoArea||turno.area||'extrusion';
+  const base={t:t,m:motivo,q:'admin',ts:localDate()+' '+localTime().slice(0,5)};
+  if(hFin>hIni)return [Object.assign({f:fecha,a:hIni,b:hFin},base)];
+  // cruza medianoche
+  const sig=_horaSumar(fecha,'12:00',1440).fecha;
+  const out=[];
+  if(hIni<24)out.push(Object.assign({f:fecha,a:hIni,b:24},base));
+  if(hFin>0)out.push(Object.assign({f:sig,a:0,b:hFin},base));
+  return out;
+}
+async function _parosGuardar(arr){
+  const podado=(arr||[]).filter(p=>p&&p.f&&p.f>=_mpFechaMenos(120))
+    .sort((x,y)=>String(x.f).localeCompare(String(y.f))||(x.a-y.a));
+  const txt=JSON.stringify(podado);
+  const{error}=await sb.from('configuracion').upsert({clave:'paros_produccion',valor:txt},{onConflict:'clave'});
+  if(error)return error.message;
+  cfg.paros_produccion=txt;
+  _parosCache={raw:null,idx:null,lista:null};
+  return null;
+}
+function paroAgregar(){
+  const fecha=document.getElementById('paro-fecha')?.value;
+  const area=document.getElementById('paro-area')?.value||'extrusion';
+  const alcance=document.getElementById('paro-alcance')?.value||'turno';
+  const turnoId=parseInt(document.getElementById('paro-turno')?.value);
+  const motivo=(document.getElementById('paro-motivo')?.value||'').trim();
+  const msg=document.getElementById('msg-paro');
+  const set=(c,t)=>{if(msg){msg.style.color=c;msg.textContent=t;}};
+  if(!fecha)return set('var(--red)','Elegí la fecha.');
+  if(!motivo)return set('var(--red)','Escribí el motivo — dentro de un mes nadie se acuerda por qué no se trabajó.');
+  let nuevos=[];
+  if(alcance==='dia'){
+    nuevos=[{f:fecha,t:area,a:0,b:24,m:motivo,q:'admin',ts:localDate()+' '+localTime().slice(0,5)}];
+  }else{
+    const turno=(C.turnos||[]).find(x=>String(x.id)===String(turnoId));
+    if(!turno)return set('var(--red)','Elegí el turno que no se trabaja.');
+    nuevos=_paroCortesDeTurno(fecha,turno,motivo,area);
+  }
+  pedirAdminYEjecutar(async()=>{
+    set('var(--text2)','Guardando…');
+    const err=await _parosGuardar(_parosLista().concat(nuevos));
+    if(err)return set('var(--red)','Error: '+err);
+    set('var(--green)','✓ Declarado. El Gantt, la capacidad y las fechas de entrega ya no cuentan esas horas.');
+    const mo=document.getElementById('paro-motivo');if(mo)mo.value='';
+    renderParos();
+    _repintar(renderDash,renderGantt,renderCap);
+  });
+}
+function paroBorrar(ts,f,a){
+  pedirAdminYEjecutar(async()=>{
+    const msg=document.getElementById('msg-paro');
+    const resto=_parosLista().filter(p=>!(String(p.ts)===String(ts)&&String(p.f)===String(f)&&String(p.a)===String(a)));
+    const err=await _parosGuardar(resto);
+    if(msg){msg.style.color=err?'var(--red)':'var(--green)';msg.textContent=err?('Error: '+err):'✓ Borrado — esas horas vuelven a contar.';}
+    renderParos();
+    _repintar(renderDash,renderGantt,renderCap);
+  });
+}
+function paroToggleAlcance(){
+  const al=document.getElementById('paro-alcance')?.value;
+  const box=document.getElementById('paro-turno-box');
+  if(box)box.style.display=(al==='dia')?'none':'';
+  paroPoblarTurnos();
+}
+function paroPoblarTurnos(){
+  const sel=document.getElementById('paro-turno');if(!sel)return;
+  const area=document.getElementById('paro-area')?.value||'extrusion';
+  const lista=(C.turnos||[]).filter(t=>t.activo!==false&&(!t.area||t.area===area))
+    .sort((a,b)=>(a.orden||0)-(b.orden||0));
+  const prev=sel.value;
+  sel.innerHTML=lista.length
+    ?lista.map(t=>'<option value="'+t.id+'">'+escapeHtml(t.nombre)+' ('+String(t.hora_entrada).slice(0,5)+'–'+String(t.hora_salida).slice(0,5)+')</option>').join('')
+    :'<option value="">— sin turnos cargados para esta área —</option>';
+  if(prev&&lista.some(t=>String(t.id)===String(prev)))sel.value=prev;
+}
+// Los feriados que se vienen, con el tilde de "este sí se trabaja". El maestro es la
+// tabla `feriados` del calendario de Sueldos: acá no se cargan, sólo se decide si la
+// planta trabaja. Así el feriado se carga UNA vez y sirve para sueldos y producción.
+function _ferProximosHtml(){
+  const hoy=localDate();
+  const prox=(C.feriados||[]).filter(f=>f.activo!==false&&String(f.fecha)>=hoy)
+    .sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha))).slice(0,8);
+  let h='<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 0 6px;">'
+    +'<div style="font-size:11px;color:var(--text2);">Los que vienen</div>'
+    +'<button class="btn btn-sm" onclick="ferGenerarAbrir()">🗓 Traer los feriados de un año</button></div>'
+    +'<div style="font-size:11px;color:var(--text3);margin-bottom:8px;">Salen del calendario de <b>Sueldos → 🕐 Turnos</b> — no hay que cargarlos acá. '
+    +'La planta <b>no produce</b> los feriados; si ese día se trabaja, tildalo y esas horas vuelven a contar.</div>';
+  if(!prox.length)return h+'<div style="font-size:12px;color:var(--text3);margin-bottom:14px;">No hay feriados cargados de acá en adelante. Usá el botón de arriba para traer los del año que viene.</div>';
+  h+='<div style="overflow-x:auto;margin-bottom:14px;"><table style="margin:0"><thead><tr style="background:var(--bg3)">'
+    +'<th style="font-size:11px">Fecha</th><th style="font-size:11px">Feriado</th>'
+    +'<th style="font-size:11px;text-align:center">Se extruye</th><th style="font-size:11px;text-align:center">Se corta</th></tr></thead><tbody>';
+  const DIA=['dom','lun','mar','mié','jue','vie','sáb'];
+  prox.forEach(f=>{
+    const fs=String(f.fecha), dow=DIA[new Date(fs+'T12:00:00').getDay()];
+    h+='<tr><td class="mono" style="font-size:11px">'+escapeHtml(fs)+' <span style="color:var(--text3)">'+dow+'</span></td>'
+      +'<td style="font-size:11px">'+escapeHtml(f.nombre||'Feriado')+'</td>'
+      +['extrusion','corte'].map(t=>'<td style="text-align:center"><input type="checkbox" '
+        +(_ferSeTrabaja(fs,t)?'checked':'')+' onchange="ferTrabajaToggle(\''+fs+'\',\''+t+'\',this.checked)"></td>').join('')
+      +'</tr>';
+  });
+  return h+'</tbody></table></div>';
+}
+// Los próximos sábados, con quién viene según el calendario de Sueldos y qué va a
+// hacer la planta. No se carga nada acá: es el espejo de lo que ya está tildado allá.
+function _sabProximosHtml(){
+  const hoy=localDate(),sabs=[];
+  const d=new Date(hoy+'T12:00:00');
+  while(sabs.length<6){ if(d.getDay()===6)sabs.push(localDate(d)); d.setDate(d.getDate()+1); }
+  const act=_sabDerivaActiva();
+  let h='<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 0 6px;">'
+    +'<div style="font-size:11px;color:var(--text2);">Los 6 que vienen</div>'
+    +'<label style="display:flex;align-items:center;gap:7px;font-size:11px;cursor:pointer;">'
+      +'<input type="checkbox" '+(act?'checked':'')+' onchange="sabDerivaToggle(this.checked)">'
+      +'El sábado lo decide quién está tildado en Sueldos</label></div>'
+    +'<div style="font-size:11px;color:var(--text3);margin-bottom:8px;">'
+    +(act?'La planta produce el sábado <b>si hay gente tildada</b> en el calendario de <b>Sueldos → 🕐 Turnos</b>. El horario «se sigue hasta» de arriba dice sólo <b>hasta qué hora</b> se trabaja cuando se viene. El turno noche del viernes termina a las 6 igual, venga o no venga alguien el sábado.'
+        :'⚠ Derivación apagada: el sábado lo decide sólo el «se sigue hasta» de arriba, y hay que acordarse de sacarlo el sábado que no se viene.')+'</div>';
+  h+='<div style="overflow-x:auto;margin-bottom:14px;"><table style="margin:0"><thead><tr style="background:var(--bg3)">'
+    +'<th style="font-size:11px">Sábado</th><th style="font-size:11px">Quién viene</th><th style="font-size:11px">Extrusión</th><th style="font-size:11px">Corte</th></tr></thead><tbody>';
+  sabs.forEach(fs=>{
+    const tild=(C.turnos_excepcion||[]).filter(x=>x.tipo==='sabado'&&String(x.fecha)===fs)
+      .map(x=>((C.empleados||[]).find(y=>y.id===x.empleado_id)||{}).apellido_nombre).filter(Boolean);
+    const hsE=_jorTramosFecha(fs,'extrusion').reduce((s,t)=>s+(t.b-t.a),0);
+    const hsC=_jorTramosFecha(fs,'corte').reduce((s,t)=>s+(t.b-t.a),0);
+    const cel=hs=>'<td class="mono" style="font-size:11px;color:'+(hs>0?'var(--green)':'var(--text3)')+'">'+(hs>0?r1(hs)+' hs':'no produce')+'</td>';
+    h+='<tr><td class="mono" style="font-size:11px">'+escapeHtml(fs)+'</td>'
+      +'<td style="font-size:11px;color:'+(tild.length?'var(--text1)':'var(--text3)')+'">'+(tild.length?escapeHtml(tild.join(', ')):'nadie tildado')+'</td>'
+      +cel(hsE)+cel(hsC)+'</tr>';
+  });
+  return h+'</tbody></table></div>';
+}
+function sabDerivaToggle(checked){
+  pedirAdminYEjecutar(async()=>{
+    const v=checked?'true':'false';
+    const{error}=await sb.from('configuracion').upsert({clave:'sabado_desde_sueldos',valor:v},{onConflict:'clave'});
+    if(error){toast('Error: '+error.message,'red');return;}
+    cfg.sabado_desde_sueldos=v;
+    toast(checked?'✓ El sábado se deriva del calendario de Sueldos':'✓ Volviste al «se sigue hasta» manual','green');
+    renderParos();
+    _repintar(renderDash,renderGantt,renderCap);
+  });
+}
+function renderParos(){
+  const w=document.getElementById('paro-lista');if(!w)return;
+  paroPoblarTurnos();
+  const fw=document.getElementById('cal-feriados');if(fw)fw.innerHTML=_ferProximosHtml();
+  const sw=document.getElementById('cal-sabados');if(sw)sw.innerHTML=_sabProximosHtml();
+  const hoy=localDate();
+  const lista=_parosLista().filter(p=>p.f>=_mpFechaMenos(30))
+    .sort((a,b)=>String(b.f).localeCompare(String(a.f))||(a.a-b.a));
+  if(!lista.length){w.innerHTML='<div class="empty" style="font-size:12px">Sin turnos declarados. Fuera de los feriados y los sábados, todo se trabaja según el horario semanal.</div>';return;}
+  let html='<div style="overflow-x:auto"><table style="margin:0"><thead><tr>'
+    +'<th style="font-size:11px">Fecha</th><th style="font-size:11px">Área</th><th style="font-size:11px">Horas que no se trabajan</th>'
+    +'<th style="font-size:11px">Motivo</th><th style="font-size:11px">Declarado</th><th></th></tr></thead><tbody>';
+  lista.forEach(p=>{
+    const fut=p.f>=hoy;
+    const dia=(p.a<=0&&p.b>=24)?'día completo':(_hTxt(p.a)+'–'+_hTxt(p.b));
+    html+='<tr style="opacity:'+(fut?1:0.6)+'">'
+      +'<td class="mono" style="font-size:11px;font-weight:'+(fut?700:400)+'">'+escapeHtml(p.f)+(fut?'':' <span style="color:var(--text3)">(pasado)</span>')+'</td>'
+      +'<td style="font-size:11px">'+escapeHtml(p.t||'extrusion')+'</td>'
+      +'<td class="mono" style="font-size:11px;color:var(--amber)">'+escapeHtml(dia)+'</td>'
+      +'<td style="font-size:11px">'+escapeHtml(p.m||'')+'</td>'
+      +'<td style="font-size:10px;color:var(--text3)">'+escapeHtml(p.ts||'')+'</td>'
+      +'<td><button class="btn btn-sm btn-warn" onclick="paroBorrar('+JSON.stringify(String(p.ts||''))+','+JSON.stringify(String(p.f))+','+JSON.stringify(String(p.a))+')">✕</button></td>'
+      +'</tr>';
+  });
+  html+='</tbody></table></div>';
+  w.innerHTML=html;
+}
+
+// Tramos de una FECHA concreta, en horas del día — YA con los paros restados.
 function jorTramos(fecha,tipo){
-  return _jorTramosDia(getJornada(tipo||'extrusion'),new Date(fecha).getDay());
+  return _jorTramosFecha(fecha,tipo);
 }
 
 // Los mismos tramos como intervalos de fecha/hora reales del día de 'fecha'.
@@ -6334,7 +6870,7 @@ function jorTramos(fecha,tipo){
 // esto además tolera tramos con fracción de hora).
 function _jorIntervalosDia(fecha,tipo){
   const d0=new Date(fecha);d0.setHours(0,0,0,0);
-  return _jorTramosDia(getJornada(tipo||'extrusion'),d0.getDay())
+  return _jorTramosFecha(d0,tipo)
     .map(t=>({ini:new Date(d0.getTime()+t.a*3600000),fin:new Date(d0.getTime()+t.b*3600000)}));
 }
 
@@ -7332,6 +7868,14 @@ async function poblarCargaSelects(){
 // ════════════════════════════════════════════════════════════════
 let _cbRelojTimer=null;
 function _cbSellarAhora(){
+  // 🔴 12b — en MODO CARGA ATRASADA el reloj no manda: la fecha y la hora las puso
+  // el que está cargando un turno que ya pasó, y pisarlas con el ahora es
+  // exactamente el bug que dejó 18 bobinas del turno noche selladas al mediodía.
+  if(typeof _cbRetroActivo==='function'&&_cbRetroActivo()){
+    const fdR=document.getElementById('cb-fecha'), fhR=document.getElementById('cb-hora');
+    const r=window._cbRetro||{};
+    return {fecha:(fdR&&fdR.value)||r.fecha||localDate(),hora:(fhR&&fhR.value)||r.hora||localTime().slice(0,5)};
+  }
   const fecha=localDate(), hora=localTime().slice(0,5);
   const fd=document.getElementById('cb-fecha');if(fd)fd.value=fecha;
   const fh=document.getElementById('cb-hora');if(fh)fh.value=hora;
@@ -7352,6 +7896,7 @@ function _cbRelojVivo(){
 function initCarga(){
   _cbSellarAhora();
   _cbRelojVivo();
+  try{_cbRetroPintar();}catch(e){}
   generarNroBobina();
   renderCargaHist();
   setupMedicionField('cb-mts','lock-mts');
@@ -7506,6 +8051,15 @@ async function guardarBobina(){
   const _sello=_cbSellarAhora();
   const fecha=_sello.fecha;
   const hora=_sello.hora;
+  // En modo carga atrasada la fecha/hora las escribe una persona: la única guarda es
+  // que no se pueda registrar producción en el futuro (dedazo en el año o en el día).
+  if(typeof _cbRetroActivo==='function'&&_cbRetroActivo()){
+    if(fecha+' '+hora>localDate()+' '+localTime().slice(0,5)){
+      const m0=document.getElementById('msg-carga');
+      if(m0){m0.className='msg-err';m0.textContent='La fecha y hora de carga atrasada ('+fecha+' '+hora+') están en el futuro. Corregilas antes de registrar.';}
+      return;
+    }
+  }
   const mtsR=parseFloat(document.getElementById('cb-mts').value);
   const kgR=parseFloat(document.getElementById('cb-kg').value);
   const opId=parseInt(document.getElementById('cb-op-sel').value)||null;
@@ -7762,6 +8316,7 @@ async function _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,ca
   if(_panel&&_panel.classList.contains('active'))_repintar(renderPanelOperario);
   limpiarCarga();
   initCarga();
+  try{_cbRetroAvanzar();}catch(e){}
 }
 function limpiarCarga(){
   ['cb-orden','cb-ext','cb-op-sel'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
@@ -10101,6 +10656,7 @@ function go(name){
   if(name==='panel-operario')renderPanelOperario();
   if(name==='tablero')renderTablero();
   if(name==='panel-corte')renderPanelCorte();
+  if(name==='calendario-prod'){const _pf=document.getElementById('paro-fecha');if(_pf&&!_pf.value)_pf.value=localDate();paroToggleAlcance();renderParos();}
   if(name==='mp-stock'){renderMPStock();renderMPProvisorios();renderMPAutonomia();}
   if(name==='mp-ingreso'){renderTiposMP();renderProveedores();poblarSelectsMP();}
   if(name==='mp-inventario'){renderInvAlerta();renderInvHist();poblarInvOp();}
@@ -64752,6 +65308,199 @@ async function confirmarAjusteLote(loteId, kgAnterior){
     msg.style.color='var(--green)';msg.textContent='✓ Ajuste registrado ('+(dif>0?'+':'')+dif+' kg · '+tipoMov+')';
     await reload();
     setTimeout(()=>{document.getElementById('ajuste-lote-modal')?.remove();renderMPStock();},1200);
+  });
+}
+
+// ===== CARGA ATRASADA (fecha y hora REALES) + REPARTO DE HORAS DE UN LOTE =====
+// El caso que lo motivó: el sábado 12/09 German cargó a mano las 18 bobinas que el
+// turno noche no había podido registrar (BOB-05620…05637). Quedaron TODAS con hora
+// entre las 11:38 y las 12:00 — 18 bobinas en 22 minutos — porque desde el build 05c
+// la hora se sella sola al apretar Registrar y no hay forma de poner otra. El sello
+// automático arregló un bug real (el campo quedaba viejo con la pantalla abierta),
+// pero dejó sin salida el caso contrario: cargar hoy lo que se produjo anoche.
+//
+// Y no es cosmético: con la hora de tipeo, esas bobinas mienten en el ritmo kg/h, en
+// las bandas de 2 horas, en la productividad por hora y en el turno al que se le
+// imputa la producción — el sábado el turno mañana de extrusión NO se trabajó, así
+// que 18 bobinas al mediodía son 18 bobinas atribuidas a un turno que no existió.
+//
+// Dos piezas:
+//  1) MODO CARGA ATRASADA (pantalla de carga, con clave de admin): fecha y hora las
+//     pone el que carga, y la hora AVANZA sola un paso configurable después de cada
+//     bobina, así cargar 18 seguidas no es escribir 18 horas a mano. Mientras está
+//     activo hay una banda roja arriba: nadie se lo olvida prendido.
+//  2) REPARTIR HORAS (Admin): para lo que ya se cargó mal. Se toma un rango de
+//     números de bobina y una ventana (última hora real → fin del turno) y se
+//     reparte POR EXTRUSORA, en orden, dentro de esa ventana. No inventa un ritmo
+//     común: cada extrusora reparte sus propias bobinas.
+let _cbRetro=null;   // {fecha:'YYYY-MM-DD', hora:'HH:MM', paso:minutos}
+window._cbRetro=null;
+function _cbRetroActivo(){return !!window._cbRetro;}
+// Suma minutos a 'HH:MM' sobre una fecha; devuelve {fecha,hora} y cruza medianoche.
+function _horaSumar(fecha,hora,min){
+  const p=String(hora||'00:00').split(':');
+  let tot=(parseInt(p[0])||0)*60+(parseInt(p[1])||0)+Math.round(min||0);
+  let dias=Math.floor(tot/1440);tot=((tot%1440)+1440)%1440;
+  let f=fecha;
+  if(dias!==0){const d=new Date(fecha+'T12:00:00');d.setDate(d.getDate()+dias);f=localDate(d);}
+  return {fecha:f,hora:String(Math.floor(tot/60)).padStart(2,'0')+':'+String(tot%60).padStart(2,'0')};
+}
+function _horaMin(h){const p=String(h||'00:00').split(':');return (parseInt(p[0])||0)*60+(parseInt(p[1])||0);}
+
+function cbRetroPedir(){
+  if(_cbRetroActivo()){cbRetroSalir();return;}
+  pedirAdminYEjecutar(()=>_cbRetroAbrir());
+}
+function _cbRetroAbrir(){
+  document.getElementById('cbretro-modal')?.remove();
+  const ayer=_horaSumar(localDate(),'12:00',-1440).fecha;
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="cbretro-modal"><div class="modal-card" style="max-width:470px;">'
+    +'<div class="modal-title">🕐 Cargar bobinas de un turno que ya pasó</div>'
+    +'<div style="font-size:12px;color:var(--text2);line-height:1.55;margin-bottom:13px;">'
+      +'Mientras esté activo, la fecha y la hora <b>las ponés vos</b> y no las sella el reloj. '
+      +'Después de cada bobina la hora <b>avanza sola</b> el paso que elijas — igual la podés corregir a mano en cada una.'
+    +'</div>'
+    +'<div class="fgrid" style="margin-bottom:10px;">'
+      +'<div class="fg"><label>Fecha de producción</label><input type="date" id="cbretro-f" value="'+ayer+'"></div>'
+      +'<div class="fg"><label>Hora de la primera</label><input type="time" id="cbretro-h" value="22:00"></div>'
+    +'</div>'
+    +'<div class="fg" style="margin-bottom:12px;"><label>Cada bobina suma (minutos)</label>'
+      +'<input type="number" id="cbretro-p" min="0" max="240" step="1" value="15">'
+      +'<div style="font-size:11px;color:var(--text3);margin-top:4px;">Poné 0 si vas a escribir la hora de cada una a mano.</div></div>'
+    +'<div class="btn-grp"><button class="btn btn-primary btn-sm" onclick="_cbRetroConfirmar()">Activar</button>'
+    +'<button class="btn btn-sm" onclick="document.getElementById(\'cbretro-modal\').remove()">Cancelar</button>'
+    +'<span id="cbretro-msg" style="font-size:12px;margin-left:8px;"></span></div>'
+    +'</div></div>');
+}
+function _cbRetroConfirmar(){
+  const f=document.getElementById('cbretro-f')?.value;
+  const h=document.getElementById('cbretro-h')?.value;
+  const p=parseInt(document.getElementById('cbretro-p')?.value);
+  const msg=document.getElementById('cbretro-msg');
+  if(!f||!h){if(msg)msg.innerHTML='<span style="color:var(--red)">Completá fecha y hora.</span>';return;}
+  window._cbRetro={fecha:f,hora:h,paso:isNaN(p)?0:p};
+  document.getElementById('cbretro-modal')?.remove();
+  _cbRetroPintar();
+  const fd=document.getElementById('cb-fecha');if(fd){fd.readOnly=false;fd.value=f;}
+  const fh=document.getElementById('cb-hora');if(fh){fh.readOnly=false;fh.value=h;}
+  toast('Modo carga atrasada activo — la hora la ponés vos','amber');
+}
+function cbRetroSalir(){
+  window._cbRetro=null;
+  const fd=document.getElementById('cb-fecha');if(fd)fd.readOnly=true;
+  const fh=document.getElementById('cb-hora');if(fh)fh.readOnly=true;
+  _cbRetroPintar();
+  _cbSellarAhora();
+  toast('Volviste al reloj en vivo','green');
+}
+function _cbRetroPintar(){
+  const w=document.getElementById('cb-retro-banda');
+  const btn=document.getElementById('cb-retro-btn');
+  if(btn)btn.textContent=_cbRetroActivo()?'🕐 Salir del modo atrasado':'🕐 Cargar turno atrasado';
+  if(!w)return;
+  if(!_cbRetroActivo()){w.style.display='none';w.innerHTML='';return;}
+  const r=window._cbRetro;
+  w.style.display='block';
+  w.innerHTML='<div style="background:var(--red);color:#fff;border-radius:var(--r);padding:9px 13px;font-size:12.5px;font-weight:700;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">'
+    +'<span>🕐 MODO CARGA ATRASADA — estás cargando producción del '+escapeHtml(r.fecha)+' a partir de las '+escapeHtml(r.hora)+'</span>'
+    +'<span style="font-weight:500;opacity:.9;">'+(r.paso>0?'cada bobina suma '+r.paso+' min':'la hora la escribís vos en cada una')+'</span>'
+    +'<button class="btn btn-sm" style="margin-left:auto;" onclick="cbRetroSalir()">Salir</button></div>';
+}
+// Se llama después de guardar cada bobina: mueve el reloj manual al siguiente hueco.
+function _cbRetroAvanzar(){
+  if(!_cbRetroActivo())return;
+  const r=window._cbRetro;
+  if(r.paso>0){
+    const n=_horaSumar(r.fecha,r.hora,r.paso);
+    r.fecha=n.fecha;r.hora=n.hora;
+  }
+  const fd=document.getElementById('cb-fecha');if(fd){fd.readOnly=false;fd.value=r.fecha;}
+  const fh=document.getElementById('cb-hora');if(fh){fh.readOnly=false;fh.value=r.hora;}
+  _cbRetroPintar();
+}
+
+// ---- Repartir las horas de un lote ya cargado (Admin) ----
+// PURA (testeable): decide qué hora le toca a cada bobina. No toca la base ni el DOM.
+// Reparte POR EXTRUSORA: n bobinas de una extrusora se acomodan en la ventana de a
+// ventana/n, y la última de cada extrusora cae justo en el fin. Mezclar todas en una
+// sola serie daría un ritmo falso — tres extrusoras produciendo en paralelo no hacen
+// una bobina cada 12 minutos, hacen una cada 37 cada una.
+function _repHorasCalc(bobs,fecha,horaIni,horaFin){
+  const ini=_horaMin(horaIni), fin0=_horaMin(horaFin);
+  const fin=fin0>ini?fin0:fin0+1440;     // ventana que cruza medianoche
+  const vent=fin-ini;
+  const porExt={};
+  (bobs||[]).slice().sort((a,b)=>String(a.numero_bobina||'').localeCompare(String(b.numero_bobina||'')))
+    .forEach(b=>{(porExt[b.extrusora_id]=porExt[b.extrusora_id]||[]).push(b);});
+  const out=[];
+  Object.keys(porExt).forEach(ext=>{
+    const lista=porExt[ext];
+    lista.forEach((b,i)=>{
+      const min=ini+Math.round(vent*(i+1)/lista.length);
+      const t=_horaSumar(fecha,'00:00',min);
+      out.push({id:b.id,numero_bobina:b.numero_bobina,extrusora_id:ext,
+        fecha:t.fecha,hora:t.hora,antes:(b.fecha_produccion||'')+' '+String(b.hora_produccion||'').slice(0,5)});
+    });
+  });
+  return out.sort((a,b)=>String(a.numero_bobina).localeCompare(String(b.numero_bobina)));
+}
+async function repHorasBuscar(){
+  const d=(document.getElementById('rep-desde')?.value||'').trim().toUpperCase();
+  const h=(document.getElementById('rep-hasta')?.value||'').trim().toUpperCase();
+  const box=document.getElementById('rep-preview');
+  const msg=document.getElementById('msg-rep');
+  if(!d||!h){if(msg){msg.style.color='var(--red)';msg.textContent='Poné el número de la primera y de la última bobina del lote.';}return;}
+  if(box)box.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Buscando…</div>';
+  const{data,error}=await sb.from('bobinas_producidas')
+    .select('id,numero_bobina,extrusora_id,fecha_produccion,hora_produccion,orden_id,kg_reales')
+    .gte('numero_bobina',d).lte('numero_bobina',h).order('numero_bobina');
+  if(error){if(box)box.innerHTML='<div class="alert alert-danger" style="font-size:12px;">'+escapeHtml(error.message)+'</div>';return;}
+  window._repBobs=data||[];
+  repHorasPreview();
+}
+function repHorasPreview(){
+  const box=document.getElementById('rep-preview');if(!box)return;
+  const bobs=window._repBobs||[];
+  if(!bobs.length){box.innerHTML='<div class="empty" style="font-size:12px">Sin bobinas en ese rango — buscá primero.</div>';return;}
+  const fecha=document.getElementById('rep-fecha')?.value;
+  const hi=document.getElementById('rep-hini')?.value;
+  const hf=document.getElementById('rep-hfin')?.value;
+  if(!fecha||!hi||!hf){box.innerHTML='<div style="font-size:12px;color:var(--text3)">'+bobs.length+' bobinas encontradas. Completá fecha y ventana horaria.</div>';return;}
+  const plan=_repHorasCalc(bobs,fecha,hi,hf);
+  window._repPlan=plan;
+  const porExt={};plan.forEach(p=>{porExt[p.extrusora_id]=(porExt[p.extrusora_id]||0)+1;});
+  const nomExt=id=>((C.extrusoras||[]).find(e=>String(e.id)===String(id))||{}).nombre||('Ext '+id);
+  let html='<div style="font-size:12px;color:var(--text2);margin-bottom:8px;"><b>'+plan.length+' bobinas</b> se reparten entre las '+escapeHtml(hi)+' y las '+escapeHtml(hf)+' del '+escapeHtml(fecha)+' — '
+    +Object.keys(porExt).map(e=>escapeHtml(nomExt(e))+': '+porExt[e]).join(' · ')+'</div>'
+    +'<div style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r)"><table style="margin:0"><thead><tr style="background:var(--bg3)">'
+    +'<th style="font-size:11px">Bobina</th><th style="font-size:11px">Extrusora</th><th style="font-size:11px">Dice ahora</th><th style="font-size:11px">Queda en</th></tr></thead><tbody>';
+  plan.forEach(p=>{
+    html+='<tr><td class="mono" style="font-size:11px">'+escapeHtml(p.numero_bobina)+'</td>'
+      +'<td style="font-size:11px">'+escapeHtml(nomExt(p.extrusora_id))+'</td>'
+      +'<td class="mono" style="font-size:11px;color:var(--red)">'+escapeHtml(p.antes)+'</td>'
+      +'<td class="mono" style="font-size:11px;color:var(--green);font-weight:700">'+escapeHtml(p.fecha+' '+p.hora)+'</td></tr>';
+  });
+  html+='</tbody></table></div>';
+  box.innerHTML=html;
+}
+function repHorasAplicar(){
+  const plan=window._repPlan||[];
+  const msg=document.getElementById('msg-rep');
+  if(!plan.length){if(msg){msg.style.color='var(--red)';msg.textContent='Generá primero la vista previa.';}return;}
+  pedirAdminYEjecutar(async()=>{
+    if(msg){msg.style.color='var(--text2)';msg.textContent='Aplicando…';}
+    let ok=0;
+    for(const p of plan){
+      const{error}=await sb.from('bobinas_producidas')
+        .update({fecha_produccion:p.fecha,hora_produccion:p.hora+':00',editado_admin:true}).eq('id',p.id);
+      if(error){if(msg){msg.style.color='var(--red)';msg.textContent='Error en '+p.numero_bobina+': '+error.message+' ('+ok+' ya corregidas)';}return;}
+      ok++;
+    }
+    if(msg){msg.style.color='var(--green)';msg.textContent='✓ '+ok+' bobinas corregidas.';}
+    window._repBobs=[];window._repPlan=[];
+    const box=document.getElementById('rep-preview');if(box)box.innerHTML='';
+    await reload();
   });
 }
 
