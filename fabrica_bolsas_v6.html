@@ -791,7 +791,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-14e</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-15d</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -1923,6 +1923,7 @@ body.pext-on .main{margin-left:0!important;}
           <button class="btn btn-primary btn-sm" onclick="go('nueva-corte')">+ Nueva orden</button>
         </div>
       </div>
+      <div id="om-cortas-wrap"></div>
       <div class="tw"><div id="oc-tbl"><div class="loading"><div class="spinner"></div></div></div></div>
     </div>
 
@@ -4109,7 +4110,7 @@ body.pext-on .main{margin-left:0!important;}
             </div>
 
             <div class="btn-grp" style="margin-top:18px;">
-              <button class="btn btn-primary" onclick="guardarRV()">💾 Emitir RV</button>
+              <button class="btn btn-primary" id="nrv-btn" onclick="guardarRV()">💾 Emitir RV</button>
               <button class="btn" onclick="go('ventas-informales')">Cancelar</button>
               <span id="msg-nrv" style="font-size:13px;margin-left:8px;"></span>
             </div>
@@ -5557,7 +5558,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-09-14e';   // 14e: 🔴 LA PANTALLA PROPUSO BOB-00002 Y FRENO LA PLANTA. El 14/09 11:26 Carga de bobinas ofrecio BOB-00002 —que existe desde el 5 de mayo— y el candado de numeros unicos corto la carga: "hay bobinas repetidas". EL CONTADOR ESTABA PERFECTO (5645, y la ultima bobina era BOB-05645 de las 10:32 de ese mismo dia): lo que fallo fue la LECTURA. `const next=(data?.valor||0)+1` convierte un problema de red en un numero inventado, y el que arranca de cero siempre choca con lo que ya existe. Es EXACTAMENTE el bug de los remitos del 11/09 (11a) en otro modulo: mismo ||0, misma caida a 1 — la regla ya estaba escrita y faltaba aplicarla acá. Ahora hay un numerador unico para los tres documentos que quedaban con el patron viejo (bobinas, OC, OE): _nroSiguiente = max(contador, ULTIMO DOCUMENTO QUE EXISTE) + 1; si UNA de las dos lecturas falla la otra lo salva; si fallan LAS DOS no se propone nada — se avisa y no se deja cargar, porque un numero inventado es peor que no tener numero. El numero se CONFIRMA AL GUARDAR y no al abrir la pantalla (que puede quedar abierta mientras otro carga), ante un choque 23505 se prueba el siguiente hasta 5 veces, y el contador se sincroniza despues y NUNCA baja: es una ayuda, no la fuente. Un error que no es choque (permisos, red) no se reintenta. Verificado con smoke9.cjs (17 asserts) sobre el escenario real: contador caido, tabla caida, las dos caidas, contador atrasado y adelantado, base vacia y valor en texto.
+const APP_BUILD='2026-09-15d';   // 15d: 🔴 RV-000225 SALIÓ DOS VECES, CON EL MISMO NÚMERO Y 4 SEGUNDOS DE DIFERENCIA. German: «se anotó dos veces en la cuenta corriente, fallaron todos los controles». Fallaron cuatro, y las cuatro estaban resueltas en el guardado de remitos desde el 11a — tercera vez que el mismo patrón aparece en otro módulo (11a remitos → 14e bobinas/OC/OE → RV). (1) El botón NO se apagaba: el único feedback era el spinner del mensaje. (2) El número salía de la CACHÉ `C.rvs`, que en el segundo click todavía no tenía el primer RV porque el `reload()` corre al final — por eso los dos sacaron RV-000225. (3) `remitos_valorizados.numero` NO tiene índice único (los remitos lo tienen desde el 11a), así que la base tampoco lo frenó. (4) No había pre-chequeo: el segundo guardado pisó `remitos.rv_id` y metió otra fila en `rv_remitos` para un remito YA valorizado. AHORA: guarda de reentrada `_rvGuardando` + botón deshabilitado; `_rvSiguienteNumero` pide el último número A LA BASE al guardar (P1: el documento que existe es la verdad, la caché es una foto vieja); reintento ante 23505 hasta 5 veces; y 🔴 PRE-CHEQUEO CONTRA LA BASE ANTES DE ESCRIBIR LA PRIMERA FILA —se re-consultan los remitos elegidos y si alguno ya tiene `rv_id` o está anulado no se emite NADA y se dice cuál—, que es lo único que frena de verdad al segundo click porque para cuando llega el primero ya escribió. 🔴 Y NO ERA LA PRIMERA VEZ: el 10/06 salieron RV-000026 y RV-000027 (PAPELERA FENIX, los mismos tres remitos, $2.055.703,60 cada uno) y el 01/09 RV-000195 y RV-000196 (QUILPLAST, el mismo remito, $343.680 cada uno). Esas dos no saltaron porque sacaron números distintos, y las dos quedaron PAGADAS: entre ambas se imputaron $2.399.383,60 de cobranza real a documentos que nunca debieron existir. La plata que entró es real y los recibos cuadran —lo que estaba mal era la deuda—, así que al borrar los fantasmas esa plata queda sin imputar, como crédito a cuenta. Datos aparte: fix_rv_duplicados_A_seguro.sql (el de hoy, sin plata, más el índice único que faltaba) y fix_rv_duplicados_B_plata.sql (los dos viejos, con el detalle de qué crédito le queda a cada cliente). Verificado con smoke_rv.cjs (13 asserts, incluidos el segundo click con la caché vieja, dos clicks simultáneos que emiten UN solo RV, el reintento ante choque de número y el remito anulado). // 15c: 🔴 NADA AVISABA CUANDO LA OE NO ALCANZA PARA SU OC. German: «los metros que me hizo la OE no me alcanzan para cubrir la OC, pero hice un 115 % de más». Las dos cosas eran ciertas: OC-1052807 (GARCIA LEONARDO, 00492, 50.000 bolsas) necesita 41.200 m y su OE ORD-06190 se creó por 33.990. La planta produjo 39.000 m —el 114,7 % de la OE y el 94,7 % de la OC— y salieron 47.330 bolsas de 50.000. Cada pantalla comparaba la producción contra LA OE y ninguna comparaba LA OE CONTRA SU OC. 🔴 EL ORIGEN ES LA FICHA: el 00492 tenía metros_por_bolsa 0,66 cuando la bolsa 60×90 lleva 0,80 —lo confirma su propio peso de ficha, 0,0142 kg ÷ 0,0177 kg/m de la bobina = 0,8023 m—; al corregirla la OC se recalculó y la OE quedó con el número viejo. Ya había pasado en agosto con OC-1052714 (30.000 pedidas, 28.000 reales) y nadie lo ató a su causa. Bloque nuevo al lado de `_ocDesalineo` (misma idea, mismo lugar): `_ocMetrosPlan` es LA cuenta (P1) y mide contra la FICHA DE HOY —unidades × metros_por_bolsa × merma— y no contra lo que dice la OC, así con una sola comparación salen los dos casos: la OE que quedó corta contra su OC ('oe_corta') y la OC que quedó corta contra la ficha y arrastró a su OE ('ficha_vieja'). `_ocMetrosCortos` filtra por órdenes ABIERTAS y tolerancia 0,5 % (abajo de eso es redondeo). El aviso aparece en la lista de Órdenes de corte, en el panel de bobinas de la OC, en el panel de corte y en 🎯 Cortar hoy —ahí SIEMPRE, aunque hoy no falte stock, porque lo que falta no se va a producir nunca—; más un panel rojo arriba de la tabla con todas y su botón de corregir. 🔴 LA CORRECCIÓN lleva la OC y la OE a los metros de la ficha (y recalcula los kg de la OE con el kg/m de su bobina), NO toca cantidades ni precios —la cantidad pedida no cambió, lo que estaba mal era cuántos metros hacen falta—, y si la OE figura Completada pero le faltan metros ofrece REABRIRLA a En proceso: si no, no aparece en ninguna cola y esos metros no se hacen nunca. Lo producido se consulta contra la BASE, no contra `C.bobinas_prod`, que es caché parcial. Rastro en las observaciones de las dos órdenes. 🔴 Y al cambiar metros_por_bolsa de un producto, guardar ahora pide confirmación listando las OC abiertas que quedan cortas con el valor nuevo, con los metros y las unidades de cada una — el aviso que no existía cuando se corrigió el 0,66. Sobre los datos reales del 15/09 detecta exactamente dos: OC-1052816 (RICCI, faltan 7.642 m ≈ 9.275 u, su OE ORD-06199 ya figura Completada) y OC-1052807 (faltan 7.210 m ≈ 8.750 u). Verificado con smoke_om.cjs (22 asserts sobre esos mismos datos, incluidos los bordes: OC cerrada, OE cancelada, ficha sin metros por bolsa y una diferencia de redondeo del 0,2 % que no dispara). // 15b: 🔴 QUE FALTEN KG AL REGULARIZAR UN PROVISORIO NO ES UN ERROR: SON DOS CASOS DISTINTOS Y EL SISTEMA NO PUEDE ADIVINAR CUÁL. Con el 15a puesto, el modal del caso del rojo mostró los dos lotes —pero 14,483 y 24,472 disponibles, no 15 y 25— y frenó pidiendo cargar un remito que no falta: desde que German cargó esos remitos la planta siguió produciendo Y CONSUMIÓ 1,045 kg CONTRA ELLOS. Esos kg salieron de la misma bolsa que el provisorio, así que también hay que sacárselos al provisorio; descontar sólo los 38,955 dejaba el sistema en 19,22 kg donde hay 18,175. El caso opuesto existe igual: el operario declaró MÁS de lo que vino por remito porque parte era sobrante nuestro, y ahí el faltante NO se descuenta —esos kg son de verdad y ya están adentro del provisorio—. La pista para distinguirlos es cuánto SALIÓ de los lotes elegidos (`ingresados − disponibles`): si alcanza para explicar el faltante es consumo, si no el remito nunca trajo tanto. Ahora el modal propone el que corresponde, deja cambiarlo y muestra CON CUÁNTO QUEDA EL PROVISORIO en cada caso; con «ya se consumieron» escribe un `ajuste_neg` extra contra el propio provisorio y baja sus kg. La opción se deshabilita sola si el provisorio no tiene saldo para cubrir el faltante. Además: repartir MÁS de lo declarado ahora se rechaza explícitamente (antes sólo decía «sobran»), y `_mpProvRemLeer` descarta las filas cuyo lote no esté en la caché — mejor que el reparto no cierre y el botón quede apagado, que escribir un movimiento contra un lote que no se pudo leer. Verificado con smoke_prov.cjs (37 asserts, 16 nuevos: reproduce el caso real con 14,483 + 24,472, detecta el faltante de 1,045, propone «ya se consumieron», dice que el provisorio queda en 18,175, exige elegir opción antes de habilitar, escribe los 3 movimientos con el del provisorio en −1,045, y con la otra opción escribe sólo 2 y no toca sus kg). // 15a: 🔴 REGULARIZAR UN PROVISORIO DE MP SÓLO ACEPTABA UN LOTE CON TODOS LOS KG. El botón «📦 Salió de un remito» filtraba los candidatos con `kg_disponibles >= kg declarados`, y eso casi nunca se cumple: el operario declara lo que VE en planta —que es la suma de lo que llegó— y lo que llegó vino en varios remitos. Caso del 15/09: MATIAS CORDOBA declaró 40 kg de COLORANTE ROJO el 14/09 porque el sistema estaba en 0,26 kg, y esos 40 kg eran dos lotes de 25 y 15 que German cargó al día siguiente. Ninguno de los dos llegaba a 40, la lista del modal salía VACÍA y el provisorio no se podía cerrar por ningún lado: el stock quedaba contado dos veces (40 kg de los remitos + 19,22 kg que quedaban del provisorio = 58,2 donde hay 19,22). AHORA EL REPARTO ES ENTRE VARIOS LOTES: se listan todos los lotes comprados con kg disponibles, con los kg editables uno por uno y prellenado del más viejo al más nuevo (el mismo FIFO con el que se consume de verdad). El botón de confirmar se habilita SÓLO si el reparto da exacto lo declarado —repartir de menos deja stock fantasma y de más le roba kg a un lote que sí los tiene— y se bloquea si a algún lote se le piden más kg de los que tiene, diciendo cuál. Cada lote de origen recibe SU propio `ajuste_neg` con SU precio, así el libro de cada uno cuenta su propia historia. Si entre todos los lotes cargados no llegan a lo declarado, lo dice y manda a cargar el remito que falta —o a cerrarlo como sobrante nuestro, que es lo que es si no hubo remito. 🔴 ADEMÁS, LOS KG QUE QUEDAN SE REPRECIAN AL PRECIO REAL (tilde, por defecto sí): el provisorio nace con un precio ESTIMADO —el del último ingreso— y al regularizar ya se sabe de qué lotes salió, así que los kg que quedan pasan al promedio ponderado real de esos lotes. En el caso del rojo el estimado era $6.761,725 y el histórico de ese material va de $6.761 a $13.341: dejarlo estimado mete ese error en el costo de cada bolsa que use colorante. Lo YA CONSUMIDO no se recostea —esas bobinas quedaron costeadas al precio del momento y no se tocan (P1, mismo criterio que el 03a)—, y por eso el repricing es un tilde visible y no un efecto silencioso. Verificado con smoke_prov.cjs (21 asserts: reproduce el caso 40 = 25 + 15, el prellenado FIFO, los tres bordes del reparto —falta, sobra, un lote sin esos kg—, que se escribe un movimiento por lote con su precio y sin impactar resultado, que los dos lotes quedan en cero y terminados, la marca REGULARIZADO contra los dos, el promedio ponderado de $8.375 y que destildando no se toca el precio). // 14e: 🔴 LA PANTALLA PROPUSO BOB-00002 Y FRENO LA PLANTA. El 14/09 11:26 Carga de bobinas ofrecio BOB-00002 —que existe desde el 5 de mayo— y el candado de numeros unicos corto la carga: "hay bobinas repetidas". EL CONTADOR ESTABA PERFECTO (5645, y la ultima bobina era BOB-05645 de las 10:32 de ese mismo dia): lo que fallo fue la LECTURA. `const next=(data?.valor||0)+1` convierte un problema de red en un numero inventado, y el que arranca de cero siempre choca con lo que ya existe. Es EXACTAMENTE el bug de los remitos del 11/09 (11a) en otro modulo: mismo ||0, misma caida a 1 — la regla ya estaba escrita y faltaba aplicarla acá. Ahora hay un numerador unico para los tres documentos que quedaban con el patron viejo (bobinas, OC, OE): _nroSiguiente = max(contador, ULTIMO DOCUMENTO QUE EXISTE) + 1; si UNA de las dos lecturas falla la otra lo salva; si fallan LAS DOS no se propone nada — se avisa y no se deja cargar, porque un numero inventado es peor que no tener numero. El numero se CONFIRMA AL GUARDAR y no al abrir la pantalla (que puede quedar abierta mientras otro carga), ante un choque 23505 se prueba el siguiente hasta 5 veces, y el contador se sincroniza despues y NUNCA baja: es una ayuda, no la fuente. Un error que no es choque (permisos, red) no se reintenta. Verificado con smoke9.cjs (17 asserts) sobre el escenario real: contador caido, tabla caida, las dos caidas, contador atrasado y adelantado, base vacia y valor en texto.
 // 14d: EL NUMERO DE BOBINA NO SE ADIVINA. German fue a repartir las horas del sabado, escribio "BOB-5620" y le dijo "Sin bobinas en ese rango": los numeros llevan CINCO digitos (BOB-05620) y la comparacion es de texto, asi que un cero de menos no encuentra nada. Que el usuario tenga que adivinar el padding es un bug de la pantalla, no un error suyo. (1) _repNormNro acepta 5620, bob-5620, BOB 5620 o BOB-05620 y lo normaliza, y devuelve el numero ya corregido al campo para que se vea como se escribe; ademas el rango se ordena solo si se ponen al reves. (2) Si aun asi no hay nada, en vez de un "no hay" seco se muestran las ultimas 8 bobinas cargadas con su numero tal cual esta en la base. (3) 🔎 DETECTARLOS SOLO: busca en los ultimos 60 dias las tandas con la hora apretada —5 o mas bobinas dentro de 45 minutos, que es la firma de una carga en diferido: tres extrusoras no hacen 18 bobinas en 22 minutos— y las ofrece con un boton que completa desde/hasta/fecha. Sobre el lote real del 12/09 detecta exactamente BOB-05620 → BOB-05637, 18 bobinas, 3 extrusoras, y no marca una jornada normal. Verificado con smoke8.cjs (20 asserts).
 // 14c: CALENDARIO DE PRODUCCION, HOJA APARTE. German: "no quiero cosas en admin, armame una hoja aparte". Todo lo del calendario sale de Administracion y pasa a Produccion → 📅 Calendario de produccion, en tres tarjetas: FERIADOS (los que vienen, con el tilde por area de si ese dia se trabaja y el boton de traer los del año), SABADOS (los 6 que vienen, quien esta tildado en Sueldos, cuantas horas va a producir cada area y el interruptor de la derivacion) y TURNOS SUELTOS (lo que no es ni feriado ni sabado: un turno que se cae entre semana, un mantenimiento, un corte de luz). En Admin queda solo un boton que lleva a la hoja, y el horario SEMANAL se sigue configurando alla — la hoja nueva decide que dias de ese horario no corren, y lo dice arriba. Verificado con smoke7.cjs (19 asserts) renderizando las tres tarjetas con datos reales y revisando que no haya undefined ni NaN.
 // 14b: EL SABADO LO DECIDE QUIEN VIENE. German: "no me pueden quedar cosas colgadas, decime que me aconsejas vos". Habia TRES lugares hablando del sabado y ninguno sabia del otro: (1) el tilde por empleado del calendario de Sueldos — QUIEN VIENE, que se carga si o si porque de ahi sale el pago; (2) extrusion_sab_hasta en Admin — HASTA QUE HORA corre la planta, global, y hay que acordarse de ponerlo y PEOR de sacarlo el sabado que no se viene (si te olvidas, el Gantt promete un sabado que no existe); (3) los paros por fecha del 12c. El dato verdadero es el (1): la planta produce el sabado si hay gente, y los otros dos son consecuencia. Ahora sab_hasta significa solo "cuando se viene, se trabaja hasta las X", y un sabado sin nadie tildado de esa area no produce. El cruce es empleado → esquema_turno → area (extrusion / confeccion), asi que un tildado de confeccion abre el corte y no la extrusion. 🔴 El turno noche del VIERNES no depende de esto: entra 22 y termina 6 del sabado, por eso lo que se cae es la EXTENSION del sabado (del cierre en adelante), nunca el dia entero. Interruptor configuracion['sabado_desde_sueldos']='false' para volver al comportamiento viejo. En el panel, los 6 sabados que vienen con quien esta tildado y cuantas horas va a producir cada area. Verificado con smoke6.cjs (21 asserts), con el plantel y los esquemas reales, incluidos empleado sin esquema, empleado de baja, un cambio de turno que no es un tilde de sabado, y la convivencia con feriado y con paro parcial.
@@ -8635,6 +8636,201 @@ function _desalineoHTML(des,modo){
 }
 // Estados en los que una OC ya no espera material
 const _OC_CERRADA=new Set(['Completada','Cancelada','Anulada']);
+// ════════════════════════════════════════════════════════════════
+// ¿LA OE ALCANZA PARA SU OC? — metros mal dimensionados (build 2026-09-15c)
+// ----------------------------------------------------------------
+// El caso que lo destapó: OC-1052807 (GARCIA LEONARDO, 00492, 50.000 bolsas) necesita
+// 41.200 m y su OE ORD-06190 se creó por 33.990. La planta produjo 39.000 m y el panel
+// le dijo al operario que había hecho el 115 % de la OE — y era cierto, pero contra un
+// número equivocado: son el 94,7 % de lo que la OC necesita. Salieron 47.330 bolsas de
+// las 50.000. NADA avisaba, porque cada pantalla comparaba la producción contra la OE y
+// ninguna comparaba la OE contra su OC.
+//
+// 🔴 EL ORIGEN ES LA FICHA DEL PRODUCTO. El 00492 tenía `metros_por_bolsa`=0,66 cuando
+// la bolsa 60×90 lleva 0,80 — lo confirma su propio peso de ficha: 0,0142 kg ÷ 0,0177
+// kg/m de la bobina = 0,8023 m. Al corregir la ficha la OC se recalculó y la OE quedó
+// con el número viejo. Por eso acá la referencia NO es lo que dice la OC sino lo que
+// pide la FICHA DE HOY (`unidades × metros_por_bolsa × merma`): así se detectan los dos
+// casos con una sola cuenta — la OE que quedó corta contra su OC, y la OC que quedó
+// corta contra la ficha (y arrastra a su OE, que es el caso de OC-1052816).
+//
+// Los kg tapan el problema: esa OE pidió 601,62 kg y se hicieron 660,74 (109,8 %). El
+// film salió 4,3 % más fino que la ficha, así que sobran kilos y faltan metros. El corte
+// consume METROS.
+// ════════════════════════════════════════════════════════════════
+const _OM_TOL=0.005;   // 0,5 % — por debajo de eso es redondeo, no un error de plan
+// Lo que la OC necesita de verdad, medido con la ficha de HOY. Es una función pura:
+// no lee estado, no escribe, y la usan el aviso, el panel y la corrección (P1).
+function _ocMetrosPlan(oc){
+  if(!oc)return null;
+  const u=parseFloat(oc.unidades_a_producir)||0;
+  if(u<=0)return null;
+  const prod=oc.productos||(C.productos||[]).find(p=>p.id===oc.producto_id);
+  const ficha=parseFloat(prod&&prod.metros_por_bolsa)||0;
+  if(ficha<=0)return null;                 // sin metros por bolsa no hay con qué comparar
+  const merma=1+(parseFloat(oc.merma_pct)||0)/100;
+  const nec=parseFloat(oc.metros_necesarios)||0;
+  const mReq=r2(u*ficha*merma);
+  const oe=oc.orden_extrusion_id?(C.ordenes||[]).find(o=>o.id===oc.orden_extrusion_id):null;
+  const oeM=oe?(parseFloat(oe.metros)||0):0;
+  const mpu=v=>(u>0&&merma>0)?r3(v/u/merma):0;
+  const bob=oe?(C.bobinas||[]).find(b=>b.id===oe.bobina_id):null;
+  return {oc:oc,oe:oe,prod:prod,bob:bob,u:u,ficha:ficha,merma:merma,
+    nec:nec,mReq:mReq,oeM:oeM,
+    faltaOC:r2(mReq-nec),faltaOE:oe?r2(mReq-oeM):0,
+    mpuFicha:r3(ficha),mpuOC:mpu(nec),mpuOE:oe?mpu(oeM):0,
+    uFaltan:oe?Math.max(0,Math.round((mReq-oeM)/ficha/merma)):0,
+    kgReq:(oe&&bob)?r2(mReq*(parseFloat(bob.kg_por_metro)||0)):0};
+}
+// El aviso sólo aparece en órdenes ABIERTAS: en una cerrada ya no hay nada que hacer y
+// sería ruido en todas las pantallas históricas.
+function _ocMetrosCortos(oc){
+  if(!oc||_OC_CERRADA.has(oc.estado))return null;
+  const d=_ocMetrosPlan(oc);
+  if(!d||!d.oe||d.oe.estado==='Cancelada')return null;
+  const tol=Math.max(1,d.mReq*_OM_TOL);
+  if(d.faltaOE<=tol)return null;
+  // 'ficha_vieja': la OC TAMBIÉN quedó corta, o sea que el número malo viene de la ficha
+  // con la que se armó todo. 'oe_corta': la OC está bien y la que se quedó vieja es la OE.
+  d.tipo=(d.faltaOC>tol)?'ficha_vieja':'oe_corta';
+  return d;
+}
+function _metrosCortosHTML(d,modo){
+  if(!d)return '';
+  const nm=d.oe&&d.oe.numero_orden?d.oe.numero_orden:'la OE';
+  if(modo==='compacto'){
+    return '<div style="color:var(--red);font-weight:700;margin-top:2px;" title="'+escapeHtml(nm)+' se creó por '+r1(d.oeM).toLocaleString('es-AR')+' m y esta orden necesita '+r1(d.mReq).toLocaleString('es-AR')+' m. Aunque la OE se cumpla al 100 %, van a faltar '+d.uFaltan.toLocaleString('es-AR')+' unidades.">'
+      +'⚠ la OE pidió '+r1(d.oeM).toLocaleString('es-AR')+' m · faltan '+r1(d.faltaOE).toLocaleString('es-AR')+'</div>';
+  }
+  const esFicha=d.tipo==='ficha_vieja';
+  return '<div style="margin:8px 0;padding:9px 11px;border-left:3px solid var(--red);background:rgba(239,68,68,.08);border-radius:6px;font-size:12px;line-height:1.5;">'
+    +'<div style="font-weight:800;color:var(--red);">⚠ La orden de extrusión no alcanza para esta orden de corte</div>'
+    +'<div style="color:var(--text2);margin-top:4px;">'
+      +'Con la ficha de hoy —<b>'+kgFmt(d.ficha)+' m por bolsa</b>— las <b>'+d.u.toLocaleString('es-AR')+'</b> unidades necesitan '
+      +'<b>'+r1(d.mReq).toLocaleString('es-AR')+' m</b> (con '+kgFmt((d.merma-1)*100)+' % de merma). '
+      +escapeHtml(nm)+' se creó por <b>'+r1(d.oeM).toLocaleString('es-AR')+' m</b>'
+      +(d.mpuOE>0?' — equivale a '+kgFmt(d.mpuOE)+' m por bolsa':'')+'.'
+      +'<br><b style="color:var(--red);">Faltan '+r1(d.faltaOE).toLocaleString('es-AR')+' m ≈ '+d.uFaltan.toLocaleString('es-AR')+' unidades</b>, aunque la OE se cumpla al 100 %.'
+      +(esFicha?'<br>La OC también quedó corta ('+r1(d.nec).toLocaleString('es-AR')+' m, '+kgFmt(d.mpuOC)+' m por bolsa): las dos se armaron con la ficha vieja.':'')
+      +'<br><span style="color:var(--text3);">Ojo con los kilos: si el film sale más fino que la ficha, la OE puede cumplir en kg y quedar corta en metros igual. El corte consume metros.</span>'
+    +'</div>'
+    +'<button class="btn btn-sm" style="margin-top:8px;color:var(--red);border-color:var(--red);" onclick="_omFijarPedir('+d.oc.id+')">🔧 Corregir los metros</button>'
+  +'</div>';
+}
+// Todas las OC abiertas con el problema, peor primero.
+function _omPendientes(){
+  return (C.ord_corte||[]).map(_ocMetrosCortos).filter(Boolean).sort((a,b)=>b.faltaOE-a.faltaOE);
+}
+// Panel en Órdenes de corte. Mismo lugar y misma idea que el de MP provisoria: lo que
+// está mal se ve sin ir a buscarlo.
+function renderMetrosCortos(){
+  const box=document.getElementById('om-cortas-wrap');
+  if(!box)return;
+  const pend=_omPendientes();
+  if(!pend.length){box.innerHTML='';return;}
+  const totalU=pend.reduce((s,d)=>s+d.uFaltan,0);
+  box.innerHTML='<div style="border:1.5px solid var(--red);border-radius:var(--r);padding:12px 14px;margin-bottom:14px;background:rgba(239,68,68,.06);">'
+    +'<div style="font-weight:800;color:var(--red);font-size:13px;">⚠ '+pend.length+' orden'+(pend.length===1?'':'es')+' de corte con la OE mal dimensionada</div>'
+    +'<div style="font-size:11.5px;color:var(--text2);margin:3px 0 10px;">La OE se creó por menos metros de los que la OC necesita. Aunque la extrusión se cumpla entera, van a faltar <b>'+totalU.toLocaleString('es-AR')+' unidades</b> en total.</div>'
+    +'<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:11.5px;">'
+    +'<tr style="color:var(--text3);font-size:10px;text-transform:uppercase;"><th style="text-align:left;padding:4px 8px;">OC</th><th style="text-align:left;padding:4px 8px;">Producto</th><th style="text-align:left;padding:4px 8px;">OE</th>'
+    +'<th style="text-align:right;padding:4px 8px;">necesita</th><th style="text-align:right;padding:4px 8px;">la OE pidió</th><th style="text-align:right;padding:4px 8px;">faltan</th><th style="text-align:right;padding:4px 8px;">unidades</th><th></th></tr>'
+    +pend.map(d=>'<tr style="border-top:1px solid var(--border);">'
+      +'<td style="padding:5px 8px;font-family:monospace;">'+escapeHtml(d.oc.numero_orden||'')+'<div style="font-size:10px;color:var(--text3);font-family:inherit;">'+escapeHtml(d.oc.cliente||'—')+' · '+escapeHtml(d.oc.estado||'')+'</div></td>'
+      +'<td style="padding:5px 8px;">'+escapeHtml((d.prod&&d.prod.codigo)||'—')+'<div style="font-size:10px;color:var(--text3);">ficha '+kgFmt(d.ficha)+' m/bolsa'+(d.tipo==='ficha_vieja'?' · la OC usó '+kgFmt(d.mpuOC):'')+'</div></td>'
+      +'<td style="padding:5px 8px;font-family:monospace;">'+escapeHtml((d.oe&&d.oe.numero_orden)||'—')+'<div style="font-size:10px;color:var(--text3);font-family:inherit;">'+escapeHtml((d.oe&&d.oe.estado)||'')+'</div></td>'
+      +'<td style="padding:5px 8px;text-align:right;font-family:monospace;">'+r1(d.mReq).toLocaleString('es-AR')+'</td>'
+      +'<td style="padding:5px 8px;text-align:right;font-family:monospace;">'+r1(d.oeM).toLocaleString('es-AR')+'</td>'
+      +'<td style="padding:5px 8px;text-align:right;font-family:monospace;color:var(--red);font-weight:700;">'+r1(d.faltaOE).toLocaleString('es-AR')+'</td>'
+      +'<td style="padding:5px 8px;text-align:right;font-family:monospace;color:var(--red);font-weight:700;">'+d.uFaltan.toLocaleString('es-AR')+'</td>'
+      +'<td style="padding:5px 8px;text-align:right;"><button class="btn btn-sm" style="color:var(--red);border-color:var(--red);" onclick="_omFijarPedir('+d.oc.id+')">🔧 Corregir</button></td>'
+      +'</tr>').join('')
+    +'</table></div></div>';
+}
+// ── Corrección ──────────────────────────────────────────────────
+// Se lleva la OC y la OE a los metros que pide la ficha de hoy. NO toca cantidades ni
+// precios: la cantidad pedida no cambió, lo que estaba mal era cuántos metros hacen falta
+// para producirla.
+async function _omFijarPedir(ocId){
+  const oc=(C.ord_corte||[]).find(x=>x.id===ocId);if(!oc)return;
+  const d=_ocMetrosPlan(oc);
+  if(!d||!d.oe){toast('Esta orden no tiene OE asociada.','red');return;}
+  // Cuánto produjo ya la OE — contra la BASE, no contra la caché parcial de bobinas.
+  let prod=null;
+  try{
+    const{data,error}=await sb.from('bobinas_producidas').select('metros_reales').eq('orden_id',d.oe.id).neq('anulada',true);
+    if(!error)prod=(data||[]).reduce((s,b)=>s+(parseFloat(b.metros_reales)||0),0);
+  }catch(e){}
+  const yaCompletada=d.oe.estado==='Completada';
+  const faltaProducir=prod==null?null:r2(d.mReq-prod);
+  document.getElementById('om-fix-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="om-fix-modal"><div class="modal-card" style="max-width:560px;">'
+    +'<div class="modal-title">🔧 Corregir los metros de '+escapeHtml(oc.numero_orden||'')+'</div>'
+    +'<div style="font-size:12px;color:var(--text2);line-height:1.55;">'
+      +'Con la ficha de hoy (<b>'+kgFmt(d.ficha)+' m por bolsa</b>) las <b>'+d.u.toLocaleString('es-AR')+'</b> unidades necesitan <b>'+r1(d.mReq).toLocaleString('es-AR')+' m</b>.'
+    +'</div>'
+    +'<div style="margin:10px 0;font-size:12px;">'
+      +'<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);"><span>OC · metros necesarios</span><span style="font-family:monospace;">'+r1(d.nec).toLocaleString('es-AR')+' → <b style="color:var(--green);">'+r1(d.mReq).toLocaleString('es-AR')+'</b></span></div>'
+      +'<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);"><span>'+escapeHtml(d.oe.numero_orden||'OE')+' · metros</span><span style="font-family:monospace;">'+r1(d.oeM).toLocaleString('es-AR')+' → <b style="color:var(--green);">'+r1(d.mReq).toLocaleString('es-AR')+'</b></span></div>'
+      +(d.kgReq>0?'<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);"><span>'+escapeHtml(d.oe.numero_orden||'OE')+' · kg estimados</span><span style="font-family:monospace;">'+kgFmt(d.oe.kg_totales)+' → <b style="color:var(--green);">'+kgFmt(d.kgReq)+'</b></span></div>':'')
+      +(prod!=null?'<div style="display:flex;justify-content:space-between;padding:4px 0;"><span>ya producido por la OE</span><span style="font-family:monospace;">'+r1(prod).toLocaleString('es-AR')+' m'+(faltaProducir>0?' · <b style="color:var(--red);">faltan '+r1(faltaProducir).toLocaleString('es-AR')+'</b>':' · <b style="color:var(--green);">ya alcanza</b>')+'</span></div>'
+        :'<div style="padding:4px 0;color:var(--amber);font-size:11.5px;">No se pudo leer lo producido por la OE — se corrigen los metros igual.</div>')
+    +'</div>'
+    +((yaCompletada&&faltaProducir>0)
+      ?'<label style="display:flex;gap:7px;align-items:flex-start;font-size:11.5px;color:var(--text2);margin-bottom:10px;cursor:pointer;">'
+        +'<input type="checkbox" id="om-fix-reabrir" checked style="margin-top:2px;">'
+        +'<span>Volver '+escapeHtml(d.oe.numero_orden||'la OE')+' a <b>En proceso</b>: figura Completada pero le faltan '+r1(faltaProducir).toLocaleString('es-AR')+' m para cubrir la orden. Si no se reabre, no va a aparecer en ninguna cola y esos metros no se hacen.</span></label>'
+      :'')
+    +'<div style="font-size:11px;color:var(--text3);margin-bottom:10px;">No se tocan cantidades ni precios: la cantidad pedida no cambió. Queda el rastro en las observaciones de las dos órdenes.</div>'
+    +'<div class="btn-grp">'
+      +'<button class="btn btn-primary btn-sm" onclick="_omFijar('+ocId+')">Confirmar (requiere admin)</button>'
+      +'<button class="btn btn-sm" onclick="document.getElementById(\'om-fix-modal\').remove()">Cerrar</button>'
+      +'<span id="om-fix-msg" style="font-size:12px;margin-left:8px;"></span></div>'
+    +'</div></div>');
+}
+function _omFijar(ocId){
+  const oc=(C.ord_corte||[]).find(x=>x.id===ocId);if(!oc)return;
+  const d=_ocMetrosPlan(oc);if(!d||!d.oe)return;
+  const reabrir=!!document.getElementById('om-fix-reabrir')?.checked;
+  const msg=document.getElementById('om-fix-msg');
+  pedirAdminYEjecutar(async()=>{
+    if(msg)msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:12px;height:12px"></div></div>';
+    const marca=' [Metros corregidos '+localDate()+': '+r1(d.mReq).toLocaleString('es-AR')+' m con la ficha de '+kgFmt(d.ficha)+' m/bolsa (antes OC '+r1(d.nec).toLocaleString('es-AR')+' · OE '+r1(d.oeM).toLocaleString('es-AR')+')]';
+    const{error:e1}=await sb.from('ordenes_corte')
+      .update({metros_necesarios:d.mReq,observaciones:String(oc.observaciones||'')+marca}).eq('id',oc.id);
+    if(e1){if(msg)msg.innerHTML='<span style="color:var(--red)">Error: '+escapeHtml(e1.message)+'</span>';return;}
+    const updOE={metros:d.mReq,observaciones:String(d.oe.observaciones||'')+marca};
+    if(d.kgReq>0)updOE.kg_totales=d.kgReq;
+    if(reabrir){updOE.estado='En proceso';updOE.fecha_completada=null;}
+    const{error:e2}=await sb.from('ordenes').update(updOE).eq('id',d.oe.id);
+    if(e2){if(msg)msg.innerHTML='<span style="color:var(--amber)">La OC se corrigió pero la OE no: '+escapeHtml(e2.message)+'</span>';return;}
+    document.getElementById('om-fix-modal')?.remove();
+    toast('✓ '+oc.numero_orden+' y '+d.oe.numero_orden+' a '+r1(d.mReq).toLocaleString('es-AR')+' m'+(reabrir?' · OE reabierta':''),'green');
+    await reload();
+    _repintar(renderOrdenesCorte,renderMetrosCortos,renderGanttCorte,updateStats,renderDash);
+  });
+}
+// ── Al cambiar los metros por bolsa de un producto ──────────────
+// 🔴 La ficha es la que arrastra a todo: corregirla y no mirar qué órdenes vivas se
+// armaron con el valor anterior es exactamente lo que dejó a OC-1052807 y OC-1052816
+// cortas. Devuelve el texto del aviso, o '' si no hay nada abierto afectado.
+function _omAfectadasPorFicha(prodId,mpbNuevo){
+  const nuevo=parseFloat(mpbNuevo)||0;
+  if(!prodId||nuevo<=0)return [];
+  return (C.ord_corte||[]).filter(o=>String(o.producto_id)===String(prodId)&&!_OC_CERRADA.has(o.estado))
+    .map(o=>{
+      const u=parseFloat(o.unidades_a_producir)||0;
+      if(u<=0)return null;
+      const merma=1+(parseFloat(o.merma_pct)||0)/100;
+      const mReq=r2(u*nuevo*merma);
+      const oe=o.orden_extrusion_id?(C.ordenes||[]).find(x=>x.id===o.orden_extrusion_id):null;
+      if(!oe||oe.estado==='Cancelada')return null;
+      const oeM=parseFloat(oe.metros)||0;
+      const falta=r2(mReq-oeM);
+      return falta>Math.max(1,mReq*_OM_TOL)?{o:o,oe:oe,mReq:mReq,oeM:oeM,falta:falta,u:Math.round(falta/nuevo/merma)}:null;
+    }).filter(Boolean).sort((a,b)=>b.falta-a.falta);
+}
 // Qué OC abiertas quedarían desalineadas si al producto se le pone otra bobina.
 // Lo usa el guardado del producto para avisar ANTES de escribir.
 function _ocsAfectadasPorBobinaProducto(productoId,bobinaNueva){
@@ -8667,7 +8863,7 @@ function renderConfBobinasList(oc){
     .filter(b=>!tipoBobinaId||(b.bobina_tipo_id??b.bobinas?.id)===tipoBobinaId||_bobEsDeSuOEDesalineada(b,oc,des))
     .sort((a,b)=>new Date(a.fecha_produccion||0)-new Date(b.fecha_produccion||0));
 
-  const avisoDes=_desalineoHTML(des,'panel');
+  const avisoDes=_desalineoHTML(des,'panel')+_metrosCortosHTML(_ocMetrosCortos(oc),'panel');
   if(!bobs.length){
     list.innerHTML=avisoDes+'<div style="color:var(--text3);font-size:12px;padding:14px;text-align:center;">No hay bobinas disponibles del tipo requerido para esta orden.</div>';
     actualizarResumenBobinas(oc);
@@ -17417,55 +17613,106 @@ function recalcRVTotal(){
   document.getElementById('nrv-total').textContent=fmtMoney(subtotal);
 }
 
+// ════════════════════════════════════════════════════════════════
+// EMITIR UN RV — el mismo blindaje que los remitos (build 2026-09-15d)
+// ----------------------------------------------------------------
+// 🔴 EL 15/09 SALIÓ RV-000225 DOS VECES, con el mismo número, el mismo importe y el
+// mismo remito, separados por CUATRO SEGUNDOS. No fue la primera vez: el 10/06 salieron
+// RV-000026 y RV-000027 (PAPELERA FENIX, mismos tres remitos, $2.055.703,60 cada uno) y
+// el 01/09 RV-000195 y RV-000196 (QUILPLAST, mismo remito, $343.680 cada uno). Las dos
+// viejas quedaron PAGADAS: entre las dos se imputaron $2.399.383,60 de cobranza real a
+// documentos que nunca debieron existir.
+//
+// Fallaron cuatro cosas a la vez, y las cuatro estaban resueltas en el guardado de
+// remitos desde el 11a. Es la tercera vez que el mismo patrón aparece en otro módulo
+// (11a remitos → 14e bobinas/OC/OE → acá):
+//   1. El botón NO se apagaba. El único feedback era el spinner del mensaje.
+//   2. El número salía de la CACHÉ `C.rvs`, que en el segundo click todavía no tenía el
+//      primer RV — el `reload()` corre al final. Por eso los dos sacaron el mismo número.
+//   3. `remitos_valorizados.numero` NO tiene índice único (los remitos sí lo tienen desde
+//      el 11a: `remitos_numero_unico`), así que la base tampoco lo frenó.
+//   4. No había pre-chequeo: el segundo guardado pisó `remitos.rv_id` y metió una fila más
+//      en `rv_remitos` para un remito que YA estaba valorizado.
+// ════════════════════════════════════════════════════════════════
+function _rvNumeroDe(txt){const m=/^RV-(\d+)$/.exec(String(txt||'').trim());return m?parseInt(m[1],10):0;}
+function _rvFormatear(n){return 'RV-'+String(n).padStart(6,'0');}
+// El número se pide a la BASE al guardar, no a la caché al abrir la pantalla: el
+// documento que existe es la verdad, el resto es una foto vieja (misma regla que el 11a).
+async function _rvSiguienteNumero(){
+  const{data,error}=await sb.from('remitos_valorizados').select('numero').order('id',{ascending:false}).limit(50);
+  if(error)throw error;
+  return (data||[]).reduce((m,r)=>Math.max(m,_rvNumeroDe(r.numero)),0)+1;
+}
+let _rvGuardando=false;
 async function guardarRV(){
   const msg=document.getElementById('msg-nrv');
+  const btn=document.getElementById('nrv-btn');
+  if(_rvGuardando)return;                       // doble click: el segundo no entra
   if(!_rvCtx.cliente){msg.style.color='var(--red)';msg.textContent='Falta cliente.';return;}
   if(!_rvCtx.remitosSel.length){msg.style.color='var(--red)';msg.textContent='Seleccioná al menos un remito.';return;}
+  _rvGuardando=true;
+  if(btn){btn.disabled=true;btn.style.opacity='.5';btn.style.cursor='not-allowed';}
+  const soltar=()=>{_rvGuardando=false;if(btn){btn.disabled=false;btn.style.opacity='';btn.style.cursor='';}};
+  const fallar=t=>{msg.style.color='var(--red)';msg.innerHTML=t;soltar();};
   msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Guardando…</div>';
+  try{
+    const cli=_rvCtx.cliente;
+    const fecha=document.getElementById('nrv-fecha').value||localDate();
+    const obs=document.getElementById('nrv-obs').value.trim()||null;
+    const manual=document.getElementById('nrv-num').value.trim();
 
-  const cli=_rvCtx.cliente;
-  const fecha=document.getElementById('nrv-fecha').value||localDate();
-  let numero=document.getElementById('nrv-num').value.trim();
-  const obs=document.getElementById('nrv-obs').value.trim()||null;
+    // 🔴 PRE-CHEQUEO CONTRA LA BASE, ANTES DE ESCRIBIR LA PRIMERA FILA (regla del 11a).
+    // Es lo único que frena de verdad al segundo click: para cuando llega, el primero ya
+    // dejó los remitos valorizados en la base aunque la caché todavía no se haya enterado.
+    const{data:remBase,error:eChk}=await sb.from('remitos')
+      .select('id,numero_remito,rv_id,factura_id,estado').in('id',_rvCtx.remitosSel);
+    if(eChk){fallar('No se pudo verificar el estado de los remitos: '+escapeHtml(eChk.message)+'. No se emitió nada.');return;}
+    const tomados=(remBase||[]).filter(r=>r.rv_id||r.estado==='anulado');
+    if(tomados.length){
+      fallar('<b>No se emitió nada.</b> '+tomados.length+' remito'+(tomados.length>1?'s ya fueron valorizados o anulados':' ya fue valorizado o anulado')
+        +': '+tomados.map(r=>escapeHtml(r.numero_remito||('#'+r.id))).join(', ')
+        +'. Si acabás de emitir el RV, ya está hecho — revisá Ventas informales antes de volver a intentar.');
+      await reload();return;
+    }
+    if((remBase||[]).length!==_rvCtx.remitosSel.length){
+      fallar('Algún remito de la selección ya no existe. No se emitió nada.');return;}
 
-  if(!numero){
-    const max=(C.rvs||[]).reduce((m,rv)=>{
-      const mt=(rv.numero||'').match(/(\d+)/);
-      return mt?Math.max(m,parseInt(mt[1])):m;
-    },0);
-    numero='RV-'+String(max+1).padStart(6,'0');
-  }
+    // Insert con reintento ante choque de número (23505). El índice único todavía puede
+    // no estar creado en la base: por eso el número igual se toma del último documento.
+    let rv=null,numero=manual;
+    for(let intento=0;intento<5;intento++){
+      if(!manual)numero=_rvFormatear(await _rvSiguienteNumero());
+      const{data,error}=await sb.from('remitos_valorizados').insert({
+        numero:numero,cliente_id:cli.id,fecha:fecha,
+        subtotal:r2(_rvCtx.subtotal),total:r2(_rvCtx.total),saldo:r2(_rvCtx.total),
+        estado:'pendiente',razon_social_cliente:cli.razon_social||cli.nombre,observaciones:obs
+      }).select().single();
+      if(!error){rv=data;break;}
+      const choque=error.code==='23505'||/duplicate key|unique/i.test(error.message||'');
+      if(!choque||manual){fallar('Error: '+escapeHtml(error.message));return;}
+    }
+    if(!rv){fallar('No se pudo asignar un número libre después de 5 intentos. No se emitió nada.');return;}
 
-  const {data:rv,error:e1}=await sb.from('remitos_valorizados').insert({
-    numero:numero,cliente_id:cli.id,fecha:fecha,
-    subtotal:r2(_rvCtx.subtotal),total:r2(_rvCtx.total),saldo:r2(_rvCtx.total),
-    estado:'pendiente',razon_social_cliente:cli.razon_social||cli.nombre,observaciones:obs
-  }).select().single();
-  if(e1){msg.style.color='var(--red)';msg.textContent='Error: '+e1.message;return;}
+    // Renglones AGRUPADOS por producto + precio unitario, igual que la factura (09b).
+    const gruposRV=_facConsolidarRemitos(_rvCtx.remitosSel);
+    const lineasInsert=gruposRV.map((g,i)=>({
+      rv_id:rv.id,producto_id:g.producto_id||null,descripcion:g.desc,
+      cantidad:g.cant,unidad:'paq',precio_unitario:r2(g.pu),subtotal:r2(g.sub),orden_visual:i
+    }));
+    if(lineasInsert.length){await sb.from('rv_lineas').insert(lineasInsert);}
 
-  // Renglones AGRUPADOS por producto + precio unitario, igual que la factura
-  // (_facConsolidarRemitos, ordenados por código de producto). Antes salía un
-  // renglón por cada línea de remito: el mismo producto aparecía repetido —
-  // 300 paq y 15 paq del mismo código, uno abajo del otro— y el RV no se podía
-  // leer. El detalle remito por remito vive en rv_remitos (cabecera del impreso),
-  // no en el texto de la descripción.
-  const gruposRV=_facConsolidarRemitos(_rvCtx.remitosSel);
-  const lineasInsert=gruposRV.map((g,i)=>({
-    rv_id:rv.id,producto_id:g.producto_id||null,
-    descripcion:g.desc,
-    cantidad:g.cant,unidad:'paq',precio_unitario:r2(g.pu),subtotal:r2(g.sub),orden_visual:i
-  }));
-  if(lineasInsert.length){await sb.from('rv_lineas').insert(lineasInsert);}
+    const vincInsert=_rvCtx.remitosSel.map(rid=>({rv_id:rv.id,remito_id:rid}));
+    if(vincInsert.length){
+      await sb.from('rv_remitos').insert(vincInsert);
+      await sb.from('remitos').update({rv_id:rv.id,estado:'facturado'}).in('id',_rvCtx.remitosSel);
+    }
 
-  const vincInsert=_rvCtx.remitosSel.map(rid=>({rv_id:rv.id,remito_id:rid}));
-  if(vincInsert.length){
-    await sb.from('rv_remitos').insert(vincInsert);
-    await sb.from('remitos').update({rv_id:rv.id,estado:'facturado'}).in('id',_rvCtx.remitosSel);
-  }
-
-  msg.style.color='var(--green)';msg.textContent='✓ '+numero+' emitido';
-  await reload();
-  setTimeout(()=>{imprimirRV(rv.id);go('ventas-informales');},800);
+    msg.style.color='var(--green)';msg.textContent='✓ '+rv.numero+' emitido';
+    _rvCtx.remitosSel=[];      // que no quede la selección viva si alguien vuelve atrás
+    await reload();
+    setTimeout(()=>{imprimirRV(rv.id);go('ventas-informales');},800);
+    soltar();
+  }catch(e){fallar('Error: '+escapeHtml(e.message||String(e)));}
 }
 
 function imprimirNotaCredito(ncId){
@@ -38306,6 +38553,7 @@ function updateOCCliLabel(){
   else lbl.textContent=sel.length+' clientes';
 }
 function renderOrdenesCorte(){
+  try{renderMetrosCortos();}catch(e){}
   // Poblar selects — siempre actualizar
   const sProd=document.getElementById('filtro-oc-producto');
   if(sProd&&C.productos.length){
@@ -38431,7 +38679,8 @@ function renderOrdenesCorte(){
         // producto hoy. Se muestra SIEMPRE que la OC siga abierta, aunque abajo no
         // haya desglose — si no, la orden aparece sin material y sin explicación.
         const _des=_ocDesalineo(o);
-        const _desHtml=(_des&&!_OC_CERRADA.has(o.estado))?_desalineoHTML(_des,'compacto'):'';
+        const _desHtml=((_des&&!_OC_CERRADA.has(o.estado))?_desalineoHTML(_des,'compacto'):'')
+          +_metrosCortosHTML(_ocMetrosCortos(o),'compacto');
         // Desglose de bobinas disponibles solo para Pendientes/En proceso
         if(o.estado!=='Pendiente'&&o.estado!=='En proceso')return _desHtml;
         const prod=o.productos;
@@ -45296,6 +45545,19 @@ async function guardarEdicionProducto(id){
         +'\n\nEsas órdenes van a mostrar un aviso rojo y sus bobinas se van a poder cargar igual, pidiendo confirmación.\n\n¿Guardar el cambio?'))return;
     }
   }
+  // 🔴 CAMBIAR LOS METROS POR BOLSA NO ES UN DATO DE FICHA: REDIMENSIONA TODA ORDEN VIVA.
+  // Es lo que dejó cortas a OC-1052807 y OC-1052816 — se corrigió el 0,66 a 0,80 y nadie
+  // miró qué OE ya estaban creadas con el número viejo.
+  const _prodAnt=(C.productos||[]).find(p=>p.id===id);
+  if(_prodAnt&&Math.abs((parseFloat(_prodAnt.metros_por_bolsa)||0)-mtsFinal)>0.0001){
+    const _af=_omAfectadasPorFicha(id,mtsFinal);
+    if(_af.length){
+      const _lista=_af.slice(0,10).map(x=>'· '+(x.o.numero_orden||'OC')+' ('+(x.o.estado||'')+') — '+(x.oe.numero_orden||'OE')+' pidió '+r1(x.oeM).toLocaleString('es-AR')+' m y necesita '+r1(x.mReq).toLocaleString('es-AR')+' → faltan '+r1(x.falta).toLocaleString('es-AR')+' m ≈ '+x.u.toLocaleString('es-AR')+' u').join('\n');
+      if(!confirm('⚠ Con '+mtsFinal+' m por bolsa, '+_af.length+' orden'+(_af.length>1?'es':'')+' de corte abierta'+(_af.length>1?'s':'')+' queda'+(_af.length>1?'n':'')+' CORTA'+(_af.length>1?'S':'')+':\n\n'
+        +_lista+(_af.length>10?'\n… y '+(_af.length-10)+' más':'')
+        +'\n\nLa OE se creó con el valor anterior y no se agranda sola. Después de guardar, corregilas desde Órdenes de corte (panel rojo arriba de la tabla).\n\n¿Guardar el cambio?'))return;
+    }
+  }
   msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Guardando...</div>';
   const upd={
     codigo:cod,descripcion:des,bobina_id:bId,
@@ -51397,7 +51659,7 @@ function _pcorteBobinasHTML(oc,maqId){
     +'</div>';
 
   let html='<div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px;">';
-  html+=_desalineoHTML(des,'panel');
+  html+=_desalineoHTML(des,'panel')+_metrosCortosHTML(_ocMetrosCortos(oc),'panel');
 
   // ── ARRIBA: bobinas en stock del tipo, separadas por origen (lo que falta cargar) ──
   html+='<div style="font-size:13px;font-weight:800;color:var(--accent);margin-bottom:4px;">📦 Bobinas del tipo en stock ('+disp.length+')</div>';
@@ -65880,53 +66142,187 @@ function _mpProvSobrante(loteId){
     await reload();renderMPStock();renderMPProvisorios();
   });
 }
+// ════════════════════════════════════════════════════════════════
+// REGULARIZAR UN PROVISORIO CONTRA LOS REMITOS DE LOS QUE SALIÓ
+// ----------------------------------------------------------------
+// 🔴 ANTES PEDÍA UN SOLO LOTE CON TODOS LOS KG (build 2026-09-15a). El filtro era
+// `kg_disponibles >= kg declarados`, y eso casi nunca se cumple: el operario declara lo
+// que hay en planta —que es la suma de lo que llegó— y lo que llegó vino en varios
+// remitos. Caso real del 15/09: 40 kg de COLORANTE ROJO declarados contra dos lotes de
+// 25 y 15. Ninguno llegaba a 40, la lista salía vacía y el botón no servía para nada:
+// el stock quedaba contado dos veces (los 40 del remito + lo que quedaba del provisorio)
+// sin ninguna forma de cerrarlo desde el sistema.
+// Ahora se reparte entre TODOS los lotes que hagan falta, con los kg editables por lote
+// y prellenado por orden de ingreso (el mismo FIFO con el que se consume de verdad).
+// ════════════════════════════════════════════════════════════════
 function _mpProvDesdeRemito(loteId){
   const l=(C.lotes_mp||[]).find(x=>x.id===loteId);if(!l)return;
   const ing=parseFloat(l.kg_ingresados)||0;
-  const cands=(C.lotes_mp||[]).filter(x=>String(x.tipo_mp_id)===String(l.tipo_mp_id)&&!_mpEsProvisorio(x)&&(parseFloat(x.kg_disponibles)||0)>=ing);
+  // Candidatos: cualquier lote comprado de ese material con algo disponible. El reparto
+  // arranca por el más viejo, que es de donde el consumo sale en la realidad.
+  const cands=(C.lotes_mp||[]).filter(x=>String(x.tipo_mp_id)===String(l.tipo_mp_id)&&!_mpEsProvisorio(x)&&(parseFloat(x.kg_disponibles)||0)>0)
+    .sort((a,b)=>String(a.fecha_ingreso||'').localeCompare(String(b.fecha_ingreso||''))||(a.id-b.id));
+  const totalDisp=cands.reduce((s,x)=>s+(parseFloat(x.kg_disponibles)||0),0);
+  // prellenado FIFO hasta cubrir lo declarado
+  let resta=ing;const pre={};
+  cands.forEach(x=>{const d=parseFloat(x.kg_disponibles)||0;const t=Math.min(d,Math.max(0,r3(resta)));pre[x.id]=t;resta=r3(resta-t);});
   document.getElementById('mprov-rem-modal')?.remove();
+  const alcanza=totalDisp>=ing-0.001;
   document.body.insertAdjacentHTML('beforeend',
-    '<div class="modal-overlay" id="mprov-rem-modal"><div class="modal-card" style="max-width:520px;">'
+    '<div class="modal-overlay" id="mprov-rem-modal"><div class="modal-card" style="max-width:620px;">'
     +'<div class="modal-title">📦 El material salió de un remito</div>'
     +'<div style="font-size:12px;color:var(--text2);line-height:1.55;margin-bottom:12px;">'
-      +'Elegí el lote comprado del que salieron esos <b>'+kgFmt(ing)+' kg</b>. Se le descuentan a ese lote '
-      +'(queda el movimiento en su libro) y el provisorio se cierra. Así el stock no queda contado dos veces.'
+      +'Repartí los <b>'+kgFmt(ing)+' kg</b> de <b>'+escapeHtml(l.numero_lote)+'</b> entre los lotes comprados de los que salieron. '
+      +'Se le descuentan a cada uno (queda el movimiento en su libro) y el provisorio se cierra, así el stock no queda contado dos veces. '
+      +'Viene prellenado del lote más viejo al más nuevo, que es como se consume de verdad — cambialo si sabés de qué bolsón salió.'
     +'</div>'
-    +(cands.length
-      ?'<div class="fg" style="margin-bottom:12px;"><label>Lote de origen</label><select id="mprov-rem-sel">'
-        +cands.map(x=>'<option value="'+x.id+'">'+escapeHtml(x.numero_lote)+' · '+kgFmt(x.kg_disponibles)+' kg disponibles · $'+x.precio_kg+'/kg</option>').join('')
-        +'</select></div>'
-      :'<div class="alert alert-warn" style="font-size:12px;">No hay ningún lote de este material con al menos '+kgFmt(ing)+' kg disponibles. Si el remito todavía no está cargado, cargalo primero en Ingreso de MP y volvé acá.</div>')
+    +(!cands.length
+      ?'<div class="alert alert-warn" style="font-size:12px;">No hay ningún lote comprado de este material con kg disponibles. Si el remito todavía no está cargado, cargalo primero en Ingreso de MP y volvé acá.</div>'
+      :''
+      +'<div style="overflow-x:auto;margin-bottom:10px;"><table style="width:100%;border-collapse:collapse;font-size:12px;">'
+      +'<tr style="color:var(--text3);font-size:10px;text-transform:uppercase;"><th style="text-align:left;padding:5px 8px;">Lote</th><th style="text-align:left;padding:5px 8px;">Ingreso</th><th style="text-align:right;padding:5px 8px;">Disponible</th><th style="text-align:right;padding:5px 8px;">$/kg</th><th style="text-align:right;padding:5px 8px;">kg a descontar</th></tr>'
+      +cands.map(x=>'<tr style="border-top:1px solid var(--border);">'
+        +'<td style="padding:5px 8px;">'+escapeHtml(x.numero_lote)+'<div style="font-size:10px;color:var(--text3);">remito '+escapeHtml(x.numero_remito||'—')+'</div></td>'
+        +'<td style="padding:5px 8px;font-family:monospace;color:var(--text3);">'+escapeHtml(String(x.fecha_ingreso||'—'))+'</td>'
+        +'<td style="padding:5px 8px;text-align:right;font-family:monospace;">'+kgFmt(x.kg_disponibles)+'</td>'
+        +'<td style="padding:5px 8px;text-align:right;font-family:monospace;color:var(--text3);">'+kgFmt(x.precio_kg)+'</td>'
+        +'<td style="padding:5px 8px;text-align:right;"><input type="number" step="0.001" min="0" max="'+(parseFloat(x.kg_disponibles)||0)+'" '
+          +'id="mprov-kg-'+x.id+'" data-lote="'+x.id+'" class="mprov-kg" value="'+(pre[x.id]||0)+'" oninput="_mpProvRemTotal('+loteId+')" style="width:110px;text-align:right;"></td></tr>').join('')
+      +'</table></div>'
+      +'<div id="mprov-rem-total" style="font-size:12.5px;margin-bottom:10px;"></div>'
+      +'<div id="mprov-rem-falta" style="margin-bottom:10px;"></div>'
+      +'<label style="display:flex;gap:7px;align-items:flex-start;font-size:11.5px;color:var(--text2);margin-bottom:12px;cursor:pointer;">'
+        +'<input type="checkbox" id="mprov-rem-reprecio" checked style="margin-top:2px;">'
+        +'<span>Ponerle a los kg que quedan el <b>precio real de los remitos</b> (promedio ponderado de lo que se descuenta) en vez del estimado con el que se declaró. '
+        +'<b>Lo ya consumido no se recostea</b> — esas bobinas quedaron costeadas al precio del momento y no se tocan.</span></label>')
     +'<div class="btn-grp">'
-      +(cands.length?'<button class="btn btn-primary btn-sm" onclick="_mpProvDesdeRemitoConfirmar('+loteId+')">Confirmar (requiere admin)</button>':'')
+      +(cands.length?'<button class="btn btn-primary btn-sm" id="mprov-rem-ok" onclick="_mpProvDesdeRemitoConfirmar('+loteId+')">Confirmar (requiere admin)</button>':'')
       +'<button class="btn btn-sm" onclick="document.getElementById(\'mprov-rem-modal\').remove()">Cerrar</button>'
       +'<span id="mprov-rem-msg" style="font-size:12px;margin-left:8px;"></span></div>'
     +'</div></div>');
+  if(cands.length)_mpProvRemTotal(loteId);
+}
+// Lee el reparto de la pantalla. Devuelve las filas con kg>0 y el total.
+function _mpProvRemLeer(){
+  const filas=[];
+  document.querySelectorAll('#mprov-rem-modal .mprov-kg').forEach(inp=>{
+    const id=parseInt(inp.dataset.lote),kg=r3(parseFloat(inp.value)||0);
+    const lote=(C.lotes_mp||[]).find(x=>x.id===id);
+    // Si el lote no está en la caché, la fila se descarta: mejor que el reparto no cierre
+    // —y el botón quede apagado— que escribir un movimiento contra un lote que no se pudo leer.
+    if(kg>0&&lote)filas.push({id:id,kg:kg,lote:lote});
+  });
+  return {filas:filas,total:r3(filas.reduce((s,f)=>s+f.kg,0))};
+}
+// Marcador vivo: hasta que el reparto no dé EXACTO lo declarado, el botón no se toca.
+// Repartir de menos deja stock fantasma; de más le roba kg a un lote que sí los tiene.
+// 🔴 QUE FALTEN KG NO ES UN ERROR: SON DOS CASOS DISTINTOS Y EL SISTEMA NO PUEDE ADIVINAR CUÁL
+// (build 2026-09-15b). Caso real del 15/09: el provisorio declaró 40 kg de rojo, los dos remitos
+// que los traían suman 40 kg ingresados... pero ya sólo quedan 38,955 disponibles, porque desde
+// que se cargaron la planta consumió 1,045 kg CONTRA ELLOS. Esos kg salieron de la misma bolsa
+// que el provisorio, así que también hay que sacárselos al provisorio: si no, el sistema queda
+// con 19,22 kg donde hay 18,175.
+// El otro caso es el opuesto: el operario declaró MÁS de lo que vino por remito porque parte era
+// sobrante nuestro. Ahí el faltante NO se descuenta — esos kg son de verdad y ya están adentro
+// del provisorio.
+// La pista para distinguirlos es cuánto SALIÓ de los lotes elegidos (`ingresados − disponibles`):
+// si alcanza para explicar el faltante, es consumo; si no, el remito nunca trajo tanto. Se
+// propone el que corresponde y se deja cambiar, con el resultado de cada uno a la vista.
+function _mpProvRemFaltaModo(){
+  const el=document.querySelector('#mprov-rem-modal input[name="mprov-falta"]:checked');
+  return el?el.value:null;
+}
+function _mpProvRemTotal(loteId){
+  const l=(C.lotes_mp||[]).find(x=>x.id===loteId);if(!l)return;
+  const ing=parseFloat(l.kg_ingresados)||0,dispProv=parseFloat(l.kg_disponibles)||0;
+  const {filas,total}=_mpProvRemLeer();
+  const dif=r3(total-ing);
+  const falta=r3(ing-total);
+  const box=document.getElementById('mprov-rem-total'),ok=document.getElementById('mprov-rem-ok');
+  const caja=document.getElementById('mprov-rem-falta');
+  const excede=filas.find(f=>f.lote&&f.kg>(parseFloat(f.lote.kg_disponibles)||0)+0.001);
+  // ¿cuánto salió ya de los lotes elegidos? Eso es lo que puede explicar el faltante.
+  const salido=r3(filas.reduce((s,f)=>s+Math.max(0,(parseFloat(f.lote.kg_ingresados)||0)-(parseFloat(f.lote.kg_disponibles)||0)),0));
+  if(caja){
+    if(falta>0.005&&!excede){
+      const sugerido=(falta<=salido+0.01&&falta<=dispProv+0.0001)?'consumido':'sobrante';
+      const yaHay=_mpProvRemFaltaModo();
+      const sel=yaHay||sugerido;
+      const alcanzaProv=falta<=dispProv+0.0001;
+      caja.innerHTML='<div class="alert alert-warn" style="font-size:11.5px;line-height:1.5;">'
+        +'<b>Faltan '+kgFmt(falta)+' kg</b> para llegar a los '+kgFmt(ing)+' declarados. Eso pasa por una de dos razones — elegí cuál:'
+        +'<label style="display:flex;gap:7px;align-items:flex-start;margin-top:9px;'+(alcanzaProv?'cursor:pointer;':'opacity:.5;')+'">'
+          +'<input type="radio" name="mprov-falta" value="consumido" '+(sel==='consumido'&&alcanzaProv?'checked':'')+(alcanzaProv?'':' disabled')+' onchange="_mpProvRemTotal('+loteId+')" style="margin-top:2px;">'
+          +'<span><b>Ya se consumieron de esos lotes.</b> Se cargaron los remitos y la planta siguió produciendo contra ellos'
+          +(salido>0.005?' — de hecho ya salieron '+kgFmt(salido)+' kg':'')+'. Son los mismos kg del provisorio, así que se le descuentan también a él: <b>queda '+kgFmt(r3(dispProv-falta))+' kg</b>.'
+          +(alcanzaProv?'':' <span style="color:var(--red);">El provisorio sólo tiene '+kgFmt(dispProv)+' kg — no alcanza.</span>')+'</span></label>'
+        +'<label style="display:flex;gap:7px;align-items:flex-start;margin-top:7px;cursor:pointer;">'
+          +'<input type="radio" name="mprov-falta" value="sobrante" '+(sel==='sobrante'||!alcanzaProv?'checked':'')+' onchange="_mpProvRemTotal('+loteId+')" style="margin-top:2px;">'
+          +'<span><b>El remito nunca los trajo.</b> Se declaró de más, o esa parte era sobrante nuestro. El provisorio <b>queda con sus '+kgFmt(dispProv)+' kg</b> y no se toca.</span></label>'
+        +'</div>';
+    } else caja.innerHTML='';
+  }
+  const modo=falta>0.005?_mpProvRemFaltaModo():null;
+  const bien=!excede&&dif<0.005&&(Math.abs(dif)<0.005||!!modo)&&total>0;
+  if(box){
+    box.innerHTML='Repartido <b style="font-family:monospace;">'+kgFmt(total)+'</b> de '+kgFmt(ing)+' kg · '
+      +(excede?'<span style="color:var(--red);font-weight:700;">'+escapeHtml(excede.lote.numero_lote)+' no tiene esos kg</span>'
+       :dif>0.005?'<span style="color:var(--red);font-weight:700;">sobran '+kgFmt(dif)+' kg — no se puede descontar más de lo declarado</span>'
+       :Math.abs(dif)<0.005?'<span style="color:var(--green);font-weight:700;">✓ cierra exacto</span>'
+       :'<span style="color:var(--amber);font-weight:700;">faltan '+kgFmt(falta)+' kg</span>');
+  }
+  if(ok){ok.disabled=!bien;ok.style.opacity=bien?'':'0.45';ok.style.cursor=bien?'':'not-allowed';}
+  return bien;
 }
 function _mpProvDesdeRemitoConfirmar(loteId){
   const l=(C.lotes_mp||[]).find(x=>x.id===loteId);if(!l)return;
-  const origenId=parseInt(document.getElementById('mprov-rem-sel')?.value);
-  const origen=(C.lotes_mp||[]).find(x=>x.id===origenId);
   const msg=document.getElementById('mprov-rem-msg');
-  if(!origen){if(msg)msg.innerHTML='<span style="color:var(--red)">Elegí el lote de origen.</span>';return;}
-  const ing=parseFloat(l.kg_ingresados)||0;
-  const dispOrig=parseFloat(origen.kg_disponibles)||0;
-  if(dispOrig<ing){if(msg)msg.innerHTML='<span style="color:var(--red)">Ese lote ya no tiene '+kgFmt(ing)+' kg.</span>';return;}
+  if(!_mpProvRemTotal(loteId)){if(msg)msg.innerHTML='<span style="color:var(--red)">El reparto tiene que dar exacto.</span>';return;}
+  const {filas,total}=_mpProvRemLeer();
+  const ing=parseFloat(l.kg_ingresados)||0,dispProv=parseFloat(l.kg_disponibles)||0;
+  const falta=r3(ing-total);
+  const modoFalta=falta>0.005?_mpProvRemFaltaModo():null;
+  const reprecio=!!document.getElementById('mprov-rem-reprecio')?.checked;
+  // precio real = promedio ponderado por kg de los lotes de los que sale
+  const costo=filas.reduce((s,f)=>s+f.kg*(parseFloat(f.lote.precio_kg)||0),0);
+  const precioReal=total>0?r2(costo/total):0;
   pedirAdminYEjecutar(async()=>{
     if(msg)msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:12px;height:12px"></div></div>';
-    const{error:eMov}=await sb.from('mov_mp').insert({
-      lote_id:origen.id,tipo_mp_id:origen.tipo_mp_id,tipo_mov:'ajuste_neg',
-      kg:-Math.abs(ing),precio_kg:origen.precio_kg,impacta_resultado:false,
+    // Un movimiento por lote de origen, cada uno con SU precio: el libro de cada lote
+    // tiene que poder contar su propia historia.
+    const movs=filas.map(f=>({
+      lote_id:f.lote.id,tipo_mp_id:f.lote.tipo_mp_id,tipo_mov:'ajuste_neg',
+      kg:-Math.abs(f.kg),precio_kg:f.lote.precio_kg,impacta_resultado:false,
       motivo:'Traspaso a '+l.numero_lote+' — el material ya estaba en planta y se consumió desde el provisorio',
       ref_tipo:'mp_provisorio',ref_id:l.id,operario:'admin',fecha:localDate()
+    }));
+    // Los kg que faltan y ya se consumieron de los lotes reales salen también del provisorio:
+    // es la MISMA bolsa contada dos veces, y si no se descuentan el stock queda de más.
+    if(modoFalta==='consumido'&&falta>0.005)movs.push({
+      lote_id:l.id,tipo_mp_id:l.tipo_mp_id,tipo_mov:'ajuste_neg',
+      kg:-Math.abs(falta),precio_kg:l.precio_kg,impacta_resultado:false,
+      motivo:'Regularización de '+l.numero_lote+' — estos kg ya se habían consumido contra los lotes del remito después de cargarlos',
+      ref_tipo:'mp_provisorio',ref_id:l.id,operario:'admin',fecha:localDate()
     });
+    const{error:eMov}=await sb.from('mov_mp').insert(movs);
     if(eMov){if(msg)msg.innerHTML='<span style="color:var(--red)">Error: '+escapeHtml(eMov.message)+'</span>';return;}
-    const nuevo=r3(dispOrig-ing);
-    await sb.from('lotes_mp').update({kg_disponibles:nuevo,estado:nuevo<=0?'terminado':'en_uso',
-      fecha_fin_uso:nuevo<=0?localDate():null}).eq('id',origen.id);
-    await sb.from('lotes_mp').update({observaciones:_mpProvMarcar(loteId,'REGULARIZADO contra '+origen.numero_lote)}).eq('id',loteId);
+    for(const f of filas){
+      const nuevo=r3((parseFloat(f.lote.kg_disponibles)||0)-f.kg);
+      await sb.from('lotes_mp').update({kg_disponibles:nuevo,estado:nuevo<=0.0005?'terminado':'en_uso',
+        fecha_fin_uso:nuevo<=0.0005?localDate():null}).eq('id',f.lote.id);
+    }
+    const nombres=filas.map(f=>f.lote.numero_lote).join(' + ');
+    const upd={observaciones:_mpProvMarcar(loteId,'REGULARIZADO contra '+nombres+(modoFalta==='consumido'&&falta>0.005?' (+'+kgFmt(falta)+' kg ya consumidos de esos lotes)':''))};
+    if(reprecio&&precioReal>0)upd.precio_kg=precioReal;
+    if(modoFalta==='consumido'&&falta>0.005){
+      const nuevoProv=r3(dispProv-falta);
+      upd.kg_disponibles=nuevoProv;
+      upd.estado=nuevoProv<=0.0005?'terminado':'en_uso';
+      if(nuevoProv<=0.0005)upd.fecha_fin_uso=localDate();
+    }
+    await sb.from('lotes_mp').update(upd).eq('id',loteId);
     document.getElementById('mprov-rem-modal')?.remove();
-    toast('✓ '+l.numero_lote+' regularizado contra '+origen.numero_lote,'green');
+    toast('✓ '+l.numero_lote+' regularizado contra '+nombres+(reprecio&&precioReal>0?' · quedan a $'+fmtMoney(precioReal)+'/kg':''),'green');
     await reload();renderMPStock();renderMPProvisorios();
   });
 }
@@ -68053,14 +68449,18 @@ function _chOCHtml(f){
   const rollos=ordenados.slice(0,TOPE).map(chip).join('')
     +(ordenados.length>TOPE?'<span id="chr'+oc.id+'" style="display:none;">'+ordenados.slice(TOPE).map(chip).join('')+'</span>'
       +'<button class="ch-mas" id="chb'+oc.id+'" onclick="chMasRollos('+oc.id+')">+'+(ordenados.length-TOPE)+' rollos</button>':'');
-  let aviso='';
+  // 🔴 La OE puede estar completa y la OC quedar corta igual: el aviso va SIEMPRE,
+  // aunque hoy no falte material en stock, porque lo que falta no se va a producir nunca.
+  let aviso=(()=>{const d=_ocMetrosCortos(oc);
+    return d?'<div style="border:1px solid var(--red);border-radius:6px;padding:7px 10px;font-size:11.5px;color:var(--red);margin-top:8px;font-weight:700;">'
+      +'⚠ '+escapeHtml((d.oe&&d.oe.numero_orden)||'la OE')+' se creó por '+_chM(d.oeM)+' m y esta orden necesita '+_chM(d.mReq)+': van a faltar '+_chM(d.uFaltan)+' unidades aunque se cumpla entera.</div>':'';})();
   if(f.falta>0.5){
     const oeTxt=!f.oe?'<b style="color:var(--purple)">no tiene OE asociada</b> — hay que ordenar extrusión'
       :f.oeEst==='Pendiente'?'la produce <b>'+escapeHtml(f.oe.numero_orden)+'</b>, en cola de extrusión'
       :f.oeEst==='En proceso'?'la produce <b>'+escapeHtml(f.oe.numero_orden)+'</b>, extruyendo ahora'
       :f.oeEst==='Suspendida'?'<b style="color:var(--red)">'+escapeHtml(f.oe.numero_orden)+' está SUSPENDIDA: no está en ninguna cola</b>'
       :'<b>'+escapeHtml(f.oe.numero_orden)+'</b> ya está completada'+(f.robadas.length?' y '+f.robadas.length+' de sus bobinas se fueron a otras OC':'')+' — hay que ordenar extrusión nueva';
-    aviso='<div style="border:1px dashed var(--border2);border-radius:6px;padding:7px 10px;font-size:11.5px;color:var(--text2);margin-top:8px;">'
+    aviso+='<div style="border:1px dashed var(--border2);border-radius:6px;padding:7px 10px;font-size:11.5px;color:var(--text2);margin-top:8px;">'
       +'Faltan <b>'+_chM(f.falta)+' m</b>'+(f.kgFalta?' (~'+f.kgFalta.toLocaleString('es-AR')+' kg)':'')+' de la bobina '+escapeHtml(f.bob?.nombre||'?')+': '+oeTxt
       +(f.maquinas.length?' · '+escapeHtml(f.maquinas.join(', ')):'')+'</div>';
   }
