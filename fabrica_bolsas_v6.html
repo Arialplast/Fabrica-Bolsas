@@ -791,7 +791,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-27b</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-28a</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -3002,6 +3002,9 @@ body.pext-on .main{margin-left:0!important;}
         <div id="plan-oc-cols" style="padding:8px 14px 14px;display:flex;gap:12px;overflow-x:auto;"></div>
       </div>
 
+      <!-- SECCIÓN: COBROS DEL PLAN (28a) — qué plata trae el orden armado -->
+      <div class="tw" id="plan-cobros" style="margin-top:1.5rem;"></div>
+
       <!-- ESTILOS LOCALES -->
       <style>
         .plan-col{flex:1;min-width:320px;max-width:420px;background:var(--bg3);border-radius:var(--rl);padding:10px;display:flex;flex-direction:column;}
@@ -3026,6 +3029,35 @@ body.pext-on .main{margin-left:0!important;}
         .plan-handle{cursor:grab;color:var(--text3);font-size:14px;user-select:none;padding:2px 4px;align-self:center;}
         .plan-handle:active{cursor:grabbing;}
         .plan-pos{background:var(--accent);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;flex-shrink:0;margin-top:2px;}
+        /* 💰 Cobros del plan (28a) */
+        .cp-ctrl{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:12px;font-size:12px;color:var(--text2);}
+        .cp-ctrl label{display:flex;gap:6px;align-items:center;}
+        .cp-ctrl select,.cp-ctrl input{font-size:12px;}
+        .cp-rey{padding:12px 16px;background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.3);border-radius:var(--rl);margin-bottom:10px;}
+        .cp-rey-l{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);font-weight:700;}
+        .cp-rey-n{font-size:30px;font-weight:800;color:var(--green);font-family:'DM Mono',monospace;line-height:1.2;}
+        .cp-rey-s{font-size:13px;color:var(--text2);}
+        .cp-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:10px;}
+        .cp-k{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;}
+        .cp-k .l{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:700;}
+        .cp-k .v{font-size:17px;font-weight:800;color:var(--text1);font-family:'DM Mono',monospace;}
+        .cp-k .s{font-size:10.5px;color:var(--text3);}
+        .cp-graf{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:8px 8px 6px;margin-bottom:10px;}
+        .cp-ley{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--text2);padding:4px 8px 0;}
+        .cp-ley i{display:inline-block;width:22px;vertical-align:middle;margin-right:5px;}
+        .cp-tabla-wrap{max-height:460px;overflow:auto;border:1px solid var(--border);border-radius:var(--r);}
+        .cp-tabla{width:100%;border-collapse:collapse;font-size:12px;}
+        .cp-tabla th{position:sticky;top:0;background:var(--bg3);text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);padding:6px 8px;}
+        .cp-tabla td{padding:5px 8px;border-top:1px solid var(--border);color:var(--text1);vertical-align:middle;}
+        .cp-dem{font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:99px;background:rgba(34,197,94,.12);color:var(--green);white-space:nowrap;}
+        .cp-dem.med{background:rgba(245,158,11,.12);color:var(--amber);}
+        .cp-dem.mal{background:rgba(239,68,68,.14);color:var(--red);}
+        .cp-dem.sin{background:var(--bg3);color:var(--text3);}
+        .cp-tag{font-size:9.5px;font-weight:700;padding:0 6px;border-radius:99px;background:var(--bg3);color:var(--text2);}
+        .cp-tag.ok{color:var(--teal);} .cp-tag.warn{color:var(--amber);}
+        .cp-nota{font-size:11.5px;color:var(--text3);margin-top:10px;line-height:1.5;}
+        .cp-nota.warn{color:var(--amber);}
+        .cp-cli{margin-top:10px;font-size:12px;} .cp-cli summary{cursor:pointer;font-weight:700;color:var(--text2);padding:4px 0;}
         .plan-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
         /* Vista compacta (27b): una fila por orden; clic en la fila = .plan-open despliega el detalle */
         .plan-pos-go{cursor:pointer;transition:transform .1s,box-shadow .1s;}
@@ -5595,7 +5627,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-09-27b';   // 27b: ☰ PLANIFICADOR COMPACTO — botón «Vista compacta» por sección (Extrusión/Corte): una fila por orden, clic en la fila despliega el detalle; y clic en el número de posición → «mover a la posición N» de esa máquina (antes había que apretar ↑ veinte veces). No toca prioridades, cronograma ni guardado: todo pasa por _planOC/_planOE + _planRecalcVista y se guarda con 💾 como siempre. La vista elegida queda en localStorage. Sin SQL.
+const APP_BUILD='2026-09-28a';   // 28a: 💰 QUÉ PLATA TRAE ESTE ORDEN — sección nueva en Planificar producción: con el orden de extrusión y de corte (aunque no esté guardado) proyecta cuándo sale cada OC y cuándo entra la plata según cómo PAGA DE VERDAD cada cliente (remito→saldo de su factura/RV, últimos 120 días, ponderado; impagos vencidos cuentan como cota), contra cobrar al entregar. Número rey a 30 días, curva doble, plata financiada máxima, filtro por cortadora, lista OC por OC con su máquina, tabla pacta vs. paga. Proyección: no toca Flujo ni Salud. Sin SQL.
+// 27b (anterior):   // 27b: ☰ PLANIFICADOR COMPACTO — botón «Vista compacta» por sección (Extrusión/Corte): una fila por orden, clic en la fila despliega el detalle; y clic en el número de posición → «mover a la posición N» de esa máquina (antes había que apretar ↑ veinte veces). No toca prioridades, cronograma ni guardado: todo pasa por _planOC/_planOE + _planRecalcVista y se guarda con 💾 como siempre. La vista elegida queda en localStorage. Sin SQL.
 // 27a (anterior):    // 27a: 📋 CONTEO FÍSICO CON HORA — lo contado se compara contra el sistema A LA HORA DEL CONTEO (sale del libro mov_bolsas: ahora − lo movido después), así los cortes y remitos posteriores no se borran con el ajuste; lo tipeado queda en localStorage de la PC hasta aplicarlo; el aplicar lee stock y libro frescos de la BASE (no de la caché) y avisa qué reservas de pedidos se achican. Sin SQL.
 // 25a: ✂ SALA DE PLANES Y DEUDAS — PAGAR UNA PARTE Y MANDAR EL RESTO A UN PLAN DE PAGOS. German, en el plan «Cubrir ARCA · cuota 1/2 +7»: quiere SACAR la cuota 3/3 del IVA (ARCA deuda 15, $7.387.622,17, vto 21/09) para ponerla en otro plan, y poder decir «de este IVA pago la mitad y la otra mitad la meto en un plan de pagos de ARCA». Dos huecos: (1) en el paso 2 del editor lo que cubre el plan era una línea de texto: para sacar o achicar un compromiso había que volver al paso 1. Ahora es una tabla editable (_plwObjetivosEditables) con ✕ sacar, ½, todo y monto. (2) el resto de un parcial siempre decía «queda debiendo»: ahora el objetivo lleva `resto_destino:'plan'` (+`resto_ref`) y todos los textos salen de _plwRestoTxt. (3) 🔴 en Deudas una cuota tenía UN solo desenlace: pagar la mitad con 💵 la marcaba pagada y la otra mitad DESAPARECIA. Nuevo ✂ Partir (_dfPartirCuotas/_dfUnirCuotas): la cuota se vuelve dos piezas 3a/3b que suman exacto, capital/interés prorrateados, mismo vencimiento; la b puede quedar pendiente o nacer ya consolidada en el plan de facilidades (igual que 🔄 Sin caja → plan). La pieza a conserva el nro y la clave del flujo, así el plan que la tenía la sigue encontrando; plwEditar relee el saldo de hoy. Libro de caja, Resultado, Mapa de deuda y conciliación no cambian: ven cuotas normales. Sin SQL.
 // 22b: el aviso del 22a era inusable: 225 ordenes, 212 de ellas COMPLETADAS de mayo en adelante. En una OC cerrada la diferencia entre lo cortado y lo cargado NO es mercaderia sin anotar: es la MERMA DE CORTE (recortes y falladas, 5-10 % tipico) y ya la controla el scrap del cierre. Ahora mira SOLO OC abiertas (Pendiente / En proceso / Pendiente empaque) y la tolerancia sube a 10 % con minimo de UN BOLSON entero. Sobre los datos del 22/09 quedan 13 avisos, todos reales y de septiembre, incluido el caso testigo OC-1052734 (696 paq) y su hermana OC-1052733 (689 paq). 🔴 Regla: un aviso que enciende 200 casos no se lee — antes de soltarlo hay que correrlo contra los datos de verdad y contar cuantos da.\n// 22a: 📦 OC CON BOBINAS CORTADAS Y BULTOS SIN CARGAR. Caso PED-06024 / OC-1052734: el 15/09 se asociaron y cortaron 5 bobinas (8.320 m = 696 paquetes de 00008) y NADIE cargo el empaque. La OC quedo Pendiente con produccion 0, el pedido seguia pidiendo lo que ya estaba hecho, y los 200 paquetes que salieron a VEGA el 16/09 (REM-00550) se descontaron de una fila de stock VIEJA de la OC-1052491 de AGUACA MANA, que quedo en cero. 🔴 CORTAR Y EMPAQUETAR SON DOS HECHOS DISTINTOS y el sistema solo conocia el primero: las bobinas consumidas son un dato duro (orden_corte_bobinas), los bultos son una carga manual que puede no llegar nunca. Bloque nuevo `_SB_*` arriba de renderMetrosCortos: `_sbMetrosCortados` (metros_usados del vinculo, y solo si falta se mira la bobina — nunca se le pregunta a la cache parcial C.bobinas_prod), `_sbPaqCargados` (el MAYOR entre las filas de stock de esa OC y lo declarado al cierre, nunca la suma: son dos vistas del mismo hecho), `_sbPendientes`, `_sinBultosHTML`, `renderSinBultos`, `sbYaEsta`/`sbReset` y el indice `_SB_MAP`. Tolerancia 5 % del corte y minimo 3 paquetes. Avisa en panel ambar arriba de Ordenes de corte (div `sb-wrap`) con paquetes, BOLSONES y kg, y en la fila de cada OC. Silenciador `configuracion['sin_bultos_ok']` con la clave ocId:metros, asi que si despues se corta otra bobina contra la misma OC el aviso VUELVE SOLO. Sin SQL.
@@ -39404,6 +39437,7 @@ function renderPlanificar(){
   _planSchedOC=(typeof calcScheduleCorteReal==='function')?calcScheduleCorteReal():{};
   renderPlanSeccion('oe');
   renderPlanSeccion('oc');
+  if(typeof _cpRefrescar==='function')_cpRefrescar();
 }
 
 // Devuelve los IDs de máquinas/extrusoras que usa una orden
@@ -39813,6 +39847,7 @@ function _planRecalcVista(tipo){
   _planSchedOE=(typeof calcScheduleReal==='function')?calcScheduleReal():{};
   _planSchedOC=(typeof calcScheduleCorteReal==='function')?calcScheduleCorteReal():{};
   renderPlanSeccion(tipo);
+  if(typeof _cpRefrescar==='function')_cpRefrescar();
 }
 
 // Mover orden a una posición específica en la lista global
@@ -40058,6 +40093,270 @@ function toast(msg,color){
 }
 
 
+
+
+// ===== 💰 COBROS DEL PLAN — qué plata trae el orden armado (build 2026-09-28a) =====
+// Pregunta de German: «con el orden que organicé la extrusión y el corte, cuánto puedo recaudar
+// a medida que voy terminando, con la manera en que cobro, comparado con cobrarlo enseguida».
+// TODO DERIVADO (P1), nada se guarda:
+//  · CUÁNDO SALE cada OC = fin del cronograma real de corte (_planSchedOC, el MISMO que
+//    usa el planificador, así refleja el orden sin guardar) + buffer de entrega.
+//    El cronograma de corte ya espera a su OE → el orden de extrusión también entra.
+//  · CUÁNTO vale = _ocValorVenta (la definición única, 08c).
+//  · CUÁNDO ENTRA la plata = sale + la demora REAL de ese cliente, medida en sus documentos:
+//    días desde el remito (sale la mercadería) hasta que recibos/compensaciones/NC saldan
+//    la factura o el RV, ponderado por monto, últimos 120 días. Los documentos todavía
+//    impagos y ya vencidos cuentan con los días que llevan (una cota: pagan a eso O MÁS);
+//    si no se contaran, el que no paga parecería rápido. Sin historia → lo pactado.
+//  🔒 CANDADO ANTI-FANTASÍA: es una PROYECCIÓN de producción futura. No alimenta el Flujo,
+//    la Salud financiera ni la Sala de planes. No incluye lo ya entregado sin cobrar (eso
+//    vive en Cuenta corriente).
+const _CP_VENTANA=120;       // días de historia para medir cómo paga cada cliente
+const _CP_MIN_OBS=2;         // documentos mínimos para creerle a la medición
+let _cpAbierto=false,_cpMaq='',_cpModo='real',_cpTasa=0,_cpDemCache=null,_cpDemSig='';
+const _cpDia=86400000;
+function _cpD(s){if(!s)return null;const x=new Date(String(s).slice(0,10)+'T12:00:00');return isNaN(x)?null:x;}
+function _cpM(n){n=parseFloat(n)||0;const a=Math.abs(n);
+  if(a>=1e6)return '$ '+(n/1e6).toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:1})+' M';
+  if(a>=1e3)return '$ '+Math.round(n/1e3).toLocaleString('es-AR')+' mil';
+  return '$ '+Math.round(n).toLocaleString('es-AR');}
+function _cpFd(d){return d?String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0'):'—';}
+
+// ── Cómo paga cada cliente, de verdad. PURA: recibe las listas, no toca C ni el DOM. ──
+// ctx={facturas,rvs,remitos,recibos,compensaciones,notas,clientes,hoy(Date)}
+// → {cliente_id:{dias,pactado,origen:'real'|'pactado'|'sin_dato',nPag,nImp,monto}}
+function _cpDemoraClientes(ctx){
+  const hoy=new Date(ctx.hoy);hoy.setHours(12,0,0,0);
+  const desde=hoy.getTime()-_CP_VENTANA*_cpDia;
+  const remFecha={};(ctx.remitos||[]).forEach(r=>{if(!r.anulado_el)remFecha[r.id]=r;});
+  // pagos por documento: [{f:Date,m}]
+  const pagos={};const push=(k,f,m)=>{const d=_cpD(f);if(!d||!(m>0))return;(pagos[k]=pagos[k]||[]).push({f:d,m});};
+  (ctx.recibos||[]).forEach(r=>{if(r.estado==='anulado')return;
+    (r.recibo_facturas||[]).forEach(x=>push('fa'+x.factura_id,r.fecha,parseFloat(x.monto_aplicado)||0));
+    (r.recibo_rvs||[]).forEach(x=>push('rv'+x.rv_id,r.fecha,parseFloat(x.monto_aplicado)||0));});
+  (ctx.compensaciones||[]).forEach(c=>{(c.comp_aplicaciones||[]).forEach(a=>{
+    if(a.factura_id)push('fa'+a.factura_id,c.fecha,parseFloat(a.monto_aplicado)||0);
+    if(a.rv_id)push('rv'+a.rv_id,c.fecha,parseFloat(a.monto_aplicado)||0);});});
+  (ctx.notas||[]).forEach(n=>{if(n.estado==='anulada'||!n.doc_id)return;
+    push((n.doc_tipo==='factura'?'fa':'rv')+n.doc_id,n.fecha,parseFloat(n.total)||0);});
+  const pact={};(ctx.clientes||[]).forEach(c=>{pact[c.id]=c.dias_credito==null?null:(parseInt(c.dias_credito)||0);});
+  const acc={};
+  const doc=(k,cliId,fechaDoc,total,remIds)=>{
+    if(!cliId||!(total>0))return;
+    // sale la mercadería = el primer remito del documento; si no hay vínculo, la fecha del documento
+    let f0=null;(remIds||[]).forEach(id=>{const r=remFecha[id];const d=r&&_cpD(r.fecha);if(d&&(!f0||d<f0))f0=d;});
+    if(!f0)f0=_cpD(fechaDoc);
+    if(!f0||f0.getTime()<desde||f0>hoy)return;
+    const ps=(pagos[k]||[]).slice().sort((a,b)=>a.f-b.f);
+    let ac=0,fp=null;for(const p of ps){ac+=p.m;if(ac>=total-1){fp=p.f;break;}}
+    const a=acc[cliId]=acc[cliId]||{sd:0,sm:0,nPag:0,nImp:0,monto:0};
+    let dias;
+    if(fp){dias=Math.max(0,Math.round((fp-f0)/_cpDia));a.nPag++;}
+    else{
+      dias=Math.round((hoy-f0)/_cpDia);
+      const pc=pact[cliId]==null?30:pact[cliId];
+      if(dias<=pc)return;              // todavía dentro del plazo: no dice nada
+      a.nImp++;                        // impago y vencido: paga a ESTO o más
+    }
+    a.sd+=dias*total;a.sm+=total;a.monto+=total;
+  };
+  (ctx.facturas||[]).forEach(f=>{if(/anul/i.test(f.estado||''))return;
+    let rem=(f.factura_remitos||[]).map(x=>x.remito_id);
+    if(!rem.length)rem=(ctx.remitos||[]).filter(r=>r.factura_id===f.id).map(r=>r.id);
+    doc('fa'+f.id,f.cliente_id,f.fecha,parseFloat(f.total)||0,rem);});
+  (ctx.rvs||[]).forEach(v=>{if(/anul/i.test(v.estado||''))return;
+    let rem=(v.rv_remitos||[]).map(x=>x.remito_id);
+    if(!rem.length)rem=(ctx.remitos||[]).filter(r=>String(r.rv_id)===String(v.id)).map(r=>r.id);
+    doc('rv'+v.id,v.cliente_id,v.fecha,parseFloat(v.total)||0,rem);});
+  const out={};
+  Object.keys(pact).forEach(id=>{
+    const a=acc[id],p=pact[id];
+    if(a&&(a.nPag+a.nImp)>=_CP_MIN_OBS&&a.sm>0)out[id]={dias:Math.round(a.sd/a.sm),pactado:p,origen:'real',nPag:a.nPag,nImp:a.nImp,monto:a.monto};
+    else out[id]={dias:p==null?30:p,pactado:p,origen:p==null?'sin_dato':'pactado',nPag:a?a.nPag:0,nImp:a?a.nImp:0,monto:a?a.monto:0};
+  });
+  return out;
+}
+function _cpDemoras(){
+  const sig=[(C.facturas||[]).length,(C.rvs||[]).length,(C.recibos||[]).length,(C.compensaciones||[]).length,(C.notas_credito||[]).length,(C.remitos||[]).length,(C.clientes||[]).length,localDate()].join('|');
+  if(_cpDemCache&&_cpDemSig===sig)return _cpDemCache;
+  _cpDemCache=_cpDemoraClientes({facturas:C.facturas,rvs:C.rvs,remitos:C.remitos,recibos:C.recibos,
+    compensaciones:C.compensaciones,notas:C.notas_credito,clientes:C.clientes,hoy:new Date()});
+  _cpDemSig=sig;return _cpDemCache;
+}
+
+// ── Las OC del plan con cuándo salen, cuánto valen, quién las corta y cuándo se cobran ──
+function _cpItems(sched){
+  const hoy=new Date();hoy.setHours(12,0,0,0);
+  const buffer=(typeof cfg!=='undefined'&&cfg&&cfg.buffer_entrega_dias)||1;
+  const idx=(typeof _chIndicePedidos==='function')?_chIndicePedidos():{};
+  const dem=_cpDemoras();
+  const ESTA=new Set(['Pendiente','En proceso','Pendiente empaque']);
+  const items=[],sinFecha=[];
+  (C.ord_corte||[]).forEach(oc=>{
+    if(!ESTA.has(oc.estado))return;
+    const link=idx[oc.id]||{};const p=link.p||null;
+    const valor=_ocValorVenta(oc,link.linea||null).valor;
+    if(!(valor>0))return;
+    const cliNom=oc.cliente||(p&&p.cliente)||'';
+    let cliId=p&&p.cliente_id;
+    if(!cliId&&cliNom){const c=(C.clientes||[]).find(x=>x.razon_social===cliNom||x.nombre===cliNom);cliId=c&&c.id;}
+    const d=cliId&&dem[cliId]?dem[cliId]:{dias:30,pactado:null,origen:'sin_cliente'};
+    const maqs=getMaquinasDeOrden('oc',oc);
+    const maqNom=maqs.map(id=>((C.maq_corte||[]).find(m=>m.id===id)||{}).nombre||'?').join(' + ')||'sin máquina';
+    const s=sched&&sched[oc.id];
+    let fin=null;
+    if(oc.estado==='Pendiente empaque')fin=new Date(hoy);        // ya cortada: sale ya
+    else if(s&&s.fin)fin=new Date(s.fin);
+    const it={oc,p,cliId,cliNom:cliNom||'(stock)',valor,maqs,maqNom,dem:d,freno:!!(s&&s.frenoMaterial)};
+    if(!fin){sinFecha.push(it);return;}
+    it.fin=fin;
+    it.sale=new Date(fin.getTime()+buffer*_cpDia);
+    items.push(it);
+  });
+  return {items,sinFecha};
+}
+// ── Curvas acumuladas por día (PURA). modo: 'real' usa la demora medida, 'pactado' la de la ficha ──
+function _cpCurvas(items,modo,hoy){
+  const h=new Date(hoy);h.setHours(12,0,0,0);
+  const key=d=>{const x=new Date(Math.max(d.getTime(),h.getTime()));x.setHours(12,0,0,0);return Math.round((x-h)/_cpDia);};
+  const ya={},cob={};let maxD=0;
+  items.forEach(it=>{
+    const dd=modo==='pactado'?(it.dem.pactado==null?30:it.dem.pactado):it.dem.dias;
+    it.cobra=new Date(it.sale.getTime()+dd*_cpDia);
+    it.diasUsados=dd;
+    const k1=key(it.sale),k2=key(it.cobra);
+    ya[k1]=(ya[k1]||0)+it.valor;cob[k2]=(cob[k2]||0)+it.valor;maxD=Math.max(maxD,k1,k2);
+  });
+  const dias=[];let a1=0,a2=0,gapMax=0,gapDia=0;
+  for(let i=0;i<=maxD;i++){
+    a1+=ya[i]||0;a2+=cob[i]||0;const g=a1-a2;
+    if(g>gapMax){gapMax=g;gapDia=i;}
+    dias.push({i,ya:a1,cob:a2});
+  }
+  const en=n=>{const x=dias[Math.min(n,dias.length-1)];return x?{ya:x.ya,cob:x.cob}:{ya:0,cob:0};};
+  return {dias,gapMax,gapFecha:new Date(h.getTime()+gapDia*_cpDia),en,total:a1};
+}
+
+// ── Pantalla ──
+function cpToggle(){_cpAbierto=!_cpAbierto;_cpRender();}
+function cpSetMaq(v){_cpMaq=v;_cpRender();}
+function cpSetModo(v){_cpModo=v;_cpRender();}
+function cpSetTasa(v){_cpTasa=Math.max(0,parseFloat(String(v).replace(',','.'))||0);_cpRender();}
+function _cpRefrescar(){if(_cpAbierto)_cpRender();else _cpRender(true);}
+function _cpRender(soloCabecera){
+  const box=document.getElementById('plan-cobros');if(!box)return;
+  const hd='<div class="tw-bar" style="background:linear-gradient(90deg,rgba(34,197,94,.12),transparent);border-left:4px solid var(--green);cursor:pointer;" onclick="cpToggle()">'
+    +'<span class="tw-title" style="color:var(--green);font-size:14px;">💰 Qué plata trae este orden <span style="color:var(--text3);font-weight:400;font-size:12px;">— se recalcula al mover OC u OE, aunque no hayas guardado</span></span>'
+    +'<span style="color:var(--text3);font-size:12px;">'+(_cpAbierto?'▲ ocultar':'▼ ver')+'</span></div>';
+  if(!_cpAbierto||soloCabecera){box.innerHTML=hd;return;}
+  let res;
+  try{
+    const sched=(typeof _planSchedOC!=='undefined'&&_planSchedOC&&Object.keys(_planSchedOC).length)?_planSchedOC:calcScheduleCorteReal();
+    res=_cpItems(sched);
+  }catch(e){console.error('[cobros del plan]',e);box.innerHTML=hd+'<div style="padding:14px;color:var(--red);font-size:12px;">No se pudo calcular: '+escapeHtml(e.message||String(e))+'</div>';return;}
+  const hoy=new Date();hoy.setHours(12,0,0,0);
+  const todas=res.items;
+  const maqsUsadas=[...new Set(todas.flatMap(i=>i.maqs))].map(id=>(C.maq_corte||[]).find(m=>m.id===id)).filter(Boolean);
+  const items=_cpMaq?todas.filter(i=>i.maqs.map(String).includes(String(_cpMaq))):todas;
+  const sinF=_cpMaq?res.sinFecha.filter(i=>i.maqs.map(String).includes(String(_cpMaq))):res.sinFecha;
+  const cv=_cpCurvas(items,_cpModo,hoy);
+  const e30=cv.en(30),e15=cv.en(15),e7=cv.en(7);
+  const demPond=cv.total>0?Math.round(items.reduce((s,i)=>s+i.diasUsados*i.valor,0)/cv.total):0;
+  const costo=_cpTasa>0?items.reduce((s,i)=>s+i.valor*i.diasUsados*(_cpTasa/100)/30,0):0;
+  // ── controles ──
+  let h=hd+'<div style="padding:12px 14px 14px;">';
+  h+='<div class="cp-ctrl">'
+    +'<label>✂️ Cortadora <select onchange="cpSetMaq(this.value)"><option value="">Todas</option>'
+    +maqsUsadas.map(m=>'<option value="'+m.id+'"'+(String(_cpMaq)===String(m.id)?' selected':'')+'>'+escapeHtml(m.nombre)+'</option>').join('')+'</select></label>'
+    +'<label>Cómo cobro <select onchange="cpSetModo(this.value)">'
+      +'<option value="real"'+(_cpModo==='real'?' selected':'')+'>como pagan de verdad (últimos '+_CP_VENTANA+' días)</option>'
+      +'<option value="pactado"'+(_cpModo==='pactado'?' selected':'')+'>lo pactado en la ficha</option></select></label>'
+    +'<label>Tasa mensual % <input type="number" min="0" step="0.5" value="'+(_cpTasa||'')+'" placeholder="0" style="width:70px" onchange="cpSetTasa(this.value)" title="Opcional: para ponerle precio a la plata que financiás"></label>'
+  +'</div>';
+  if(!items.length){box.innerHTML=h+'<div style="padding:20px;text-align:center;color:var(--text3);">No hay OC con fecha en el cronograma'+(_cpMaq?' en esa cortadora':'')+'.</div></div>';return;}
+  // ── número rey + secundarios ──
+  const falt=e30.ya-e30.cob;
+  h+='<div class="cp-rey"><div class="cp-rey-l">En los próximos 30 días entran</div>'
+    +'<div class="cp-rey-n">'+_cpM(e30.cob)+'</div>'
+    +'<div class="cp-rey-s">si cobraras al entregar serían <b>'+_cpM(e30.ya)+'</b>'
+    +(falt>1?' · <span style="color:var(--amber);">'+_cpM(falt)+' quedan en la calle</span>':'')+'</div></div>';
+  h+='<div class="cp-kpis">'
+    +'<div class="cp-k"><div class="l">7 días</div><div class="v">'+_cpM(e7.cob)+'</div><div class="s">al entregar '+_cpM(e7.ya)+'</div></div>'
+    +'<div class="cp-k"><div class="l">15 días</div><div class="v">'+_cpM(e15.cob)+'</div><div class="s">al entregar '+_cpM(e15.ya)+'</div></div>'
+    +'<div class="cp-k"><div class="l">Máximo financiado a clientes</div><div class="v" style="color:var(--amber);">'+_cpM(cv.gapMax)+'</div><div class="s">el '+_cpFd(cv.gapFecha)+'</div></div>'
+    +'<div class="cp-k"><div class="l">Demora promedio</div><div class="v">'+demPond+' días</div><div class="s">desde que sale hasta que entra</div></div>'
+    +(costo>0?'<div class="cp-k"><div class="l">Costo de financiar</div><div class="v" style="color:var(--red);">'+_cpM(costo)+'</div><div class="s">a '+_cpTasa+'% mensual</div></div>':'')
+    +'<div class="cp-k"><div class="l">Total del plan</div><div class="v">'+_cpM(cv.total)+'</div><div class="s">'+items.length+' OC con fecha</div></div>'
+  +'</div>';
+  h+=_cpGrafico(cv,hoy);
+  // ── lista en el orden en que entra la plata ──
+  const ord=items.slice().sort((a,b)=>a.cobra-b.cobra||a.sale-b.sale);
+  let acum=0;
+  const chip=d=>{
+    if(d.origen==='real'){
+      const p=d.pactado,dif=p==null?0:d.dias-p;
+      return '<span class="cp-dem'+(dif>7?' mal':dif>2?' med':'')+'" title="Medido en '+(d.nPag+d.nImp)+' documentos'+(d.nImp?' ('+d.nImp+' impagos vencidos: paga a eso o más)':'')+'">paga a '+d.dias+'d'+(p!=null?' · pacta '+p:'')+'</span>';
+    }
+    return '<span class="cp-dem sin" title="Sin historia suficiente: se usa lo pactado'+(d.origen!=='pactado'?' (no hay dato, se asumen 30)':'')+'">'+(d.origen==='pactado'?'pacta '+d.pactado+'d':'¿30d?')+'</span>';
+  };
+  h+='<div class="cp-tabla-wrap"><table class="cp-tabla"><thead><tr><th>Entra la plata</th><th>OC · cliente</th><th>✂️ Cortadora</th><th>Termina</th><th>Sale</th><th>Cómo paga</th><th style="text-align:right">Monto</th><th style="text-align:right">Acumulado</th></tr></thead><tbody>'
+    +ord.map(it=>{acum+=it.valor;
+      const tarde=it.cobra.getTime()-it.sale.getTime()>7*_cpDia;
+      return '<tr><td class="mono"><b style="color:'+(tarde?'var(--amber)':'var(--green)')+';">'+_cpFd(it.cobra)+'</b></td>'
+        +'<td><b class="mono" style="color:var(--accent);">'+escapeHtml(it.oc.numero_orden||('OC'+it.oc.id))+'</b> · '+escapeHtml(String(it.cliNom).slice(0,28))
+          +(it.oc.estado==='Pendiente empaque'?' <span class="cp-tag ok">cortada</span>':it.oc.estado==='En proceso'?' <span class="cp-tag">cortando</span>':'')
+          +(it.freno?' <span class="cp-tag warn" title="Espera material de su OE">espera OE</span>':'')+'</td>'
+        +'<td style="color:var(--teal);white-space:nowrap;">'+escapeHtml(it.maqNom)+'</td>'
+        +'<td class="mono">'+_cpFd(it.fin)+' '+it.fin.getHours()+'h</td>'
+        +'<td class="mono">'+_cpFd(it.sale)+'</td>'
+        +'<td>'+chip(it.dem)+'</td>'
+        +'<td class="mono" style="text-align:right">'+_cpM(it.valor)+'</td>'
+        +'<td class="mono" style="text-align:right;color:var(--text2)">'+_cpM(acum)+'</td></tr>';
+    }).join('')+'</tbody></table></div>';
+  if(sinF.length){
+    const tot=sinF.reduce((s,i)=>s+i.valor,0);
+    h+='<div class="cp-nota warn">⚠ <b>'+sinF.length+' OC sin fecha en el cronograma</b> ('+_cpM(tot)+') no están en la curva: '
+      +sinF.slice(0,8).map(i=>escapeHtml(i.oc.numero_orden||('OC'+i.oc.id))+' ('+escapeHtml(i.maqNom)+')').join(', ')+(sinF.length>8?'…':'')
+      +'. Suelen ser OC sin cortadora asignada o con la OE suspendida.</div>';
+  }
+  // ── cómo paga cada cliente del plan ──
+  const cl={};items.forEach(i=>{const k=i.cliId||i.cliNom;(cl[k]=cl[k]||{nom:i.cliNom,d:i.dem,v:0}).v+=i.valor;});
+  const cls=Object.values(cl).sort((a,b)=>b.v-a.v);
+  const lentos=cls.filter(c=>c.d.origen==='real'&&c.d.pactado!=null&&c.d.dias-c.d.pactado>7);
+  h+='<details class="cp-cli"><summary>👥 Cómo paga cada cliente de este plan'+(lentos.length?' · <span style="color:var(--amber);">'+lentos.length+' pagan bastante después de lo pactado</span>':'')+'</summary>'
+    +'<table class="cp-tabla"><thead><tr><th>Cliente</th><th>Pacta</th><th>Paga de verdad</th><th>Medido en</th><th style="text-align:right">En este plan</th></tr></thead><tbody>'
+    +cls.map(c=>'<tr><td>'+escapeHtml(String(c.nom).slice(0,34))+'</td><td class="mono">'+(c.d.pactado==null?'—':c.d.pactado+' d')+'</td>'
+      +'<td class="mono">'+(c.d.origen==='real'?'<b>'+c.d.dias+' d</b>':'<span style="color:var(--text3)">sin historia</span>')+'</td>'
+      +'<td style="color:var(--text3);font-size:11px;">'+(c.d.origen==='real'?(c.d.nPag+' pagados'+(c.d.nImp?' + '+c.d.nImp+' impagos vencidos':'')):'—')+'</td>'
+      +'<td class="mono" style="text-align:right">'+_cpM(c.v)+'</td></tr>').join('')
+    +'</tbody></table></details>';
+  h+='<div class="cp-nota">🔒 Es una <b>proyección</b> de lo que falta producir: no suma al Flujo ni a la Salud financiera. No incluye lo ya entregado sin cobrar (eso está en Cuenta corriente). «Sale» = fin de corte + '+((typeof cfg!=='undefined'&&cfg&&cfg.buffer_entrega_dias)||1)+' día(s) de entrega.</div>';
+  h+='</div>';
+  box.innerHTML=h;
+}
+// Gráfico: dos escalones acumulados (al entregar vs. como cobro) y la franja entre ellos
+function _cpGrafico(cv,hoy){
+  const W=900,H=240,L=64,R=14,T=14,B=30;
+  const n=Math.max(1,cv.dias.length-1),maxY=Math.max(1,cv.total);
+  const x=i=>L+(W-L-R)*i/n,y=v=>T+(H-T-B)*(1-v/maxY);
+  const step=k=>{let d='M'+x(0)+' '+y(0);let prev=0;cv.dias.forEach(p=>{d+=' L'+x(p.i)+' '+y(prev)+' L'+x(p.i)+' '+y(p[k]);prev=p[k];});return d;};
+  let band='M'+x(0)+' '+y(0);let pv=0;cv.dias.forEach(p=>{band+=' L'+x(p.i)+' '+y(pv)+' L'+x(p.i)+' '+y(p.ya);pv=p.ya;});
+  for(let j=cv.dias.length-1;j>=0;j--){const p=cv.dias[j],prevC=j>0?cv.dias[j-1].cob:0;band+=' L'+x(p.i)+' '+y(p.cob)+' L'+x(p.i)+' '+y(prevC);}
+  band+=' Z';
+  let grid='';for(let k=0;k<=4;k++){const v=maxY*k/4;grid+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="var(--border)" stroke-width="1"/>'
+    +'<text x="'+(L-6)+'" y="'+(y(v)+4)+'" text-anchor="end" font-size="10" fill="var(--text3)">'+_cpM(v).replace('$ ','')+'</text>';}
+  let xt='';const paso=n<=21?7:n<=60?14:30;for(let i=0;i<=n;i+=paso){const d=new Date(hoy.getTime()+i*_cpDia);xt+='<text x="'+x(i)+'" y="'+(H-10)+'" text-anchor="middle" font-size="10" fill="var(--text3)">'+(i===0?'hoy':_cpFd(d))+'</text>';}
+  const d30=Math.min(30,n);
+  return '<div class="cp-graf"><svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" style="width:100%;height:240px;display:block;">'
+    +grid+xt
+    +'<path d="'+band+'" fill="rgba(245,158,11,.14)" stroke="none"/>'
+    +(n>=30?'<line x1="'+x(d30)+'" x2="'+x(d30)+'" y1="'+T+'" y2="'+(H-B)+'" stroke="var(--text3)" stroke-dasharray="3 4"/><text x="'+(x(d30)+4)+'" y="'+(T+10)+'" font-size="10" fill="var(--text3)">30 días</text>':'')
+    +'<path d="'+step('ya')+'" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6 4"/>'
+    +'<path d="'+step('cob')+'" fill="none" stroke="var(--green)" stroke-width="2.5"/>'
+    +'</svg><div class="cp-ley"><span><i style="border-top:2px dashed var(--accent)"></i>si cobraras al entregar</span>'
+    +'<span><i style="border-top:3px solid var(--green)"></i>'+(_cpModo==='pactado'?'con lo pactado':'como cobrás de verdad')+'</span>'
+    +'<span><i style="background:rgba(245,158,11,.3);height:8px;border:0"></i>plata financiada a clientes</span></div></div>';
+}
 
 
 // ====== SIMULADOR DE MP ======
