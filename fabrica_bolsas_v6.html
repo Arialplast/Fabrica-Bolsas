@@ -791,7 +791,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-27a</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-27b</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -2973,6 +2973,7 @@ body.pext-on .main{margin-left:0!important;}
         <div class="tw-bar" style="background:linear-gradient(90deg,rgba(139,92,246,.12),transparent);border-left:4px solid #9333ea;">
           <span class="tw-title" style="color:#9333ea;font-size:14px;">⚡ Extrusión <span id="plan-oe-count" style="color:var(--text3);font-weight:400;">— cargando...</span></span>
           <div class="btn-grp">
+            <button class="btn btn-sm" id="plan-oe-vista-btn" onclick="planToggleVista('oe')">☰ Vista compacta</button>
             <button class="btn btn-sm" onclick="sugerirOrdenAutomatico('oe')">🤖 Sugerir orden</button>
             <button class="btn btn-sm btn-primary" onclick="guardarPlanificacion('oe')">💾 Guardar orden de extrusión</button>
           </div>
@@ -2988,6 +2989,7 @@ body.pext-on .main{margin-left:0!important;}
         <div class="tw-bar" style="background:linear-gradient(90deg,rgba(20,184,166,.12),transparent);border-left:4px solid var(--teal);">
           <span class="tw-title" style="color:var(--teal);font-size:14px;">✂️ Corte <span id="plan-oc-count" style="color:var(--text3);font-weight:400;">— cargando...</span></span>
           <div class="btn-grp">
+            <button class="btn btn-sm" id="plan-oc-vista-btn" onclick="planToggleVista('oc')">☰ Vista compacta</button>
             <button class="btn btn-sm" onclick="sugerirOrdenAutomatico('oc')">🤖 Sugerir orden</button>
             <button class="btn btn-sm btn-primary" onclick="guardarPlanificacion('oc')">💾 Guardar orden de corte</button>
           </div>
@@ -3025,6 +3027,29 @@ body.pext-on .main{margin-left:0!important;}
         .plan-handle:active{cursor:grabbing;}
         .plan-pos{background:var(--accent);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;flex-shrink:0;margin-top:2px;}
         .plan-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+        /* Vista compacta (27b): una fila por orden; clic en la fila = .plan-open despliega el detalle */
+        .plan-pos-go{cursor:pointer;transition:transform .1s,box-shadow .1s;}
+        .plan-pos-go:hover{transform:scale(1.15);box-shadow:0 0 0 3px var(--accentbg);}
+        .plan-mini-fin{display:none;font-size:10px;font-weight:700;color:var(--text3);white-space:nowrap;}
+        .plan-mini-fin.atr{color:var(--red);}
+        .plan-card.plan-flash{border-color:var(--green)!important;box-shadow:0 0 0 3px rgba(34,197,94,.35);}
+        .plan-compact .plan-card{padding:4px 8px;margin-bottom:3px;align-items:center;gap:6px;}
+        .plan-compact .plan-card.multi{background:var(--bg2);}
+        .plan-compact .plan-pos{width:22px;height:22px;font-size:10px;margin-top:0;}
+        .plan-compact .plan-info{gap:0;cursor:pointer;}
+        .plan-compact .plan-det,.plan-compact .plan-multi-row{display:none;}
+        .plan-compact .plan-card.plan-open .plan-det,.plan-compact .plan-card.plan-open .plan-multi-row{display:block;}
+        .plan-compact .plan-card.plan-open .plan-multi-row{display:flex;}
+        .plan-compact .plan-orden{font-size:10.5px;}
+        .plan-compact .plan-producto{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .plan-compact .plan-card.plan-open .plan-producto{white-space:normal;}
+        .plan-compact .plan-cliente{font-size:10px;margin-top:0;gap:4px;flex-wrap:nowrap;overflow:hidden;}
+        .plan-compact .plan-card.plan-open .plan-cliente{flex-wrap:wrap;}
+        .plan-compact .plan-mini-fin{display:inline;}
+        .plan-compact .plan-badge{font-size:9px;padding:0 6px;}
+        .plan-compact .plan-actions{flex-direction:row;align-self:center;}
+        .plan-compact .plan-actions button{padding:1px 6px;}
+        .plan-compact .plan-card.proc .plan-info{cursor:default;}
         /* Badge multi-máquina destacado arriba */
         .plan-multi-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;}
         .plan-bob-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px;padding-top:6px;border-top:1px dashed var(--border);font-size:12px;}
@@ -5570,7 +5595,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-09-27a';   // 27a: 📋 CONTEO FÍSICO CON HORA — lo contado se compara contra el sistema A LA HORA DEL CONTEO (sale del libro mov_bolsas: ahora − lo movido después), así los cortes y remitos posteriores no se borran con el ajuste; lo tipeado queda en localStorage de la PC hasta aplicarlo; el aplicar lee stock y libro frescos de la BASE (no de la caché) y avisa qué reservas de pedidos se achican. Sin SQL.
+const APP_BUILD='2026-09-27b';   // 27b: ☰ PLANIFICADOR COMPACTO — botón «Vista compacta» por sección (Extrusión/Corte): una fila por orden, clic en la fila despliega el detalle; y clic en el número de posición → «mover a la posición N» de esa máquina (antes había que apretar ↑ veinte veces). No toca prioridades, cronograma ni guardado: todo pasa por _planOC/_planOE + _planRecalcVista y se guarda con 💾 como siempre. La vista elegida queda en localStorage. Sin SQL.
+// 27a (anterior):    // 27a: 📋 CONTEO FÍSICO CON HORA — lo contado se compara contra el sistema A LA HORA DEL CONTEO (sale del libro mov_bolsas: ahora − lo movido después), así los cortes y remitos posteriores no se borran con el ajuste; lo tipeado queda en localStorage de la PC hasta aplicarlo; el aplicar lee stock y libro frescos de la BASE (no de la caché) y avisa qué reservas de pedidos se achican. Sin SQL.
 // 25a: ✂ SALA DE PLANES Y DEUDAS — PAGAR UNA PARTE Y MANDAR EL RESTO A UN PLAN DE PAGOS. German, en el plan «Cubrir ARCA · cuota 1/2 +7»: quiere SACAR la cuota 3/3 del IVA (ARCA deuda 15, $7.387.622,17, vto 21/09) para ponerla en otro plan, y poder decir «de este IVA pago la mitad y la otra mitad la meto en un plan de pagos de ARCA». Dos huecos: (1) en el paso 2 del editor lo que cubre el plan era una línea de texto: para sacar o achicar un compromiso había que volver al paso 1. Ahora es una tabla editable (_plwObjetivosEditables) con ✕ sacar, ½, todo y monto. (2) el resto de un parcial siempre decía «queda debiendo»: ahora el objetivo lleva `resto_destino:'plan'` (+`resto_ref`) y todos los textos salen de _plwRestoTxt. (3) 🔴 en Deudas una cuota tenía UN solo desenlace: pagar la mitad con 💵 la marcaba pagada y la otra mitad DESAPARECIA. Nuevo ✂ Partir (_dfPartirCuotas/_dfUnirCuotas): la cuota se vuelve dos piezas 3a/3b que suman exacto, capital/interés prorrateados, mismo vencimiento; la b puede quedar pendiente o nacer ya consolidada en el plan de facilidades (igual que 🔄 Sin caja → plan). La pieza a conserva el nro y la clave del flujo, así el plan que la tenía la sigue encontrando; plwEditar relee el saldo de hoy. Libro de caja, Resultado, Mapa de deuda y conciliación no cambian: ven cuotas normales. Sin SQL.
 // 22b: el aviso del 22a era inusable: 225 ordenes, 212 de ellas COMPLETADAS de mayo en adelante. En una OC cerrada la diferencia entre lo cortado y lo cargado NO es mercaderia sin anotar: es la MERMA DE CORTE (recortes y falladas, 5-10 % tipico) y ya la controla el scrap del cierre. Ahora mira SOLO OC abiertas (Pendiente / En proceso / Pendiente empaque) y la tolerancia sube a 10 % con minimo de UN BOLSON entero. Sobre los datos del 22/09 quedan 13 avisos, todos reales y de septiembre, incluido el caso testigo OC-1052734 (696 paq) y su hermana OC-1052733 (689 paq). 🔴 Regla: un aviso que enciende 200 casos no se lee — antes de soltarlo hay que correrlo contra los datos de verdad y contar cuantos da.\n// 22a: 📦 OC CON BOBINAS CORTADAS Y BULTOS SIN CARGAR. Caso PED-06024 / OC-1052734: el 15/09 se asociaron y cortaron 5 bobinas (8.320 m = 696 paquetes de 00008) y NADIE cargo el empaque. La OC quedo Pendiente con produccion 0, el pedido seguia pidiendo lo que ya estaba hecho, y los 200 paquetes que salieron a VEGA el 16/09 (REM-00550) se descontaron de una fila de stock VIEJA de la OC-1052491 de AGUACA MANA, que quedo en cero. 🔴 CORTAR Y EMPAQUETAR SON DOS HECHOS DISTINTOS y el sistema solo conocia el primero: las bobinas consumidas son un dato duro (orden_corte_bobinas), los bultos son una carga manual que puede no llegar nunca. Bloque nuevo `_SB_*` arriba de renderMetrosCortos: `_sbMetrosCortados` (metros_usados del vinculo, y solo si falta se mira la bobina — nunca se le pregunta a la cache parcial C.bobinas_prod), `_sbPaqCargados` (el MAYOR entre las filas de stock de esa OC y lo declarado al cierre, nunca la suma: son dos vistas del mismo hecho), `_sbPendientes`, `_sinBultosHTML`, `renderSinBultos`, `sbYaEsta`/`sbReset` y el indice `_SB_MAP`. Tolerancia 5 % del corte y minimo 3 paquetes. Avisa en panel ambar arriba de Ordenes de corte (div `sb-wrap`) con paquetes, BOLSONES y kg, y en la fila de cada OC. Silenciador `configuracion['sin_bultos_ok']` con la clave ocId:metros, asi que si despues se corta otra bobina contra la misma OC el aviso VUELVE SOLO. Sin SQL.
 // 21a: 🏷 ETIQUETA DE BULTO NUEVA — el diseño «Etiqueta de bulto (térmica)» de Claude Design llevado de 100×70 a la etiqueta real de la Argox (52,5×45 mm, mismo corrimiento de 10 mm). LETRA DE LÍNEA en cuadro negro (A = ARIAL, P = POLIPLAST, leída de la descripción con la palabra entera; sin marca va el cliente de la OC), banda invertida GRANEL / CON FUNDAS decidida por el EMPAQUE (unidades=1) y NO por la palabra GRANEL de la descripción —hay «GRANEL … X 50UND» que van en fundas—, la MEDIDA como dato más grande, debajo cm · micrones SÓLO si la descripción los declara · color · MAX/BIO/ECO, la cantidad en recuadro (unidades sueltas, o N fundas de U un) y el pie código · OC. Sin código de barras: a 52,5 mm no entra uno legible. Helper puro nuevo `_etqBultoDatos` arriba de `imprimirEtiquetasBulto`; paq/bolsón cae a la ficha si la OC no lo tiene. Sin SQL.
@@ -39485,6 +39511,7 @@ function renderPlanSeccion(tipo){
     colsHtml+='</div></div>';
   });
   colsEl.innerHTML=colsHtml;
+  _planAplicarVista(tipo);
   // Panel resumen de OCs frenadas por material (solo sección corte).
   // Reúne en un solo lugar las OC que no pueden cortar porque su OE todavía no terminó.
   if(tipo==='oc'){
@@ -39734,17 +39761,28 @@ function renderPlanCardCompact(tipo,o,enProceso,maqId,globalIdx,posEnMaq){
     }
   }
 
+  // Vista compacta: chip corto con el fin estimado (y si atrasa el pedido) — sólo se ve en compacta.
+  let miniFin='';
+  if(_seg&&_seg.fin){
+    const _atr=/ATRASA/.test(lineaFecha);
+    miniFin='<span class="plan-mini-fin'+(_atr?' atr':'')+'" title="Fin estimado'+(_atr?' · el pedido ATRASA':'')+'">🕒 '+_fd(_seg.fin)+' '+new Date(_seg.fin).getHours()+'h'+(_atr?' ⚠':'')+'</span>';
+  }
+  const _puedeIr=globalIdx!==null&&globalIdx!==undefined&&maqId;
   return '<div class="plan-card'+(esMulti?' multi':'')+'" draggable="true" data-tipo="'+tipo+'" data-id="'+o.id+'" data-maq="'+(maqId||'')+'">'
     +'<div class="plan-handle" title="Arrastrar para reordenar">☰</div>'
-    +'<div class="plan-pos" title="Prioridad global">'+pos+'</div>'
-    +'<div class="plan-info">'
+    +'<div class="plan-pos'+(_puedeIr?' plan-pos-go':'')+'" '
+      +(_puedeIr?'onclick="event.stopPropagation();planIrAPos(\''+tipo+'\','+o.id+','+maqId+')" title="Posición en la máquina — clic para mover a otra posición"':'title="Prioridad global"')
+      +'>'+pos+'</div>'
+    +'<div class="plan-info" onclick="planToggleDet(this,event)">'
       +multiBadge
       +'<div class="plan-orden">'+lineaOrden+'</div>'
       +'<div class="plan-producto">'+lineaProducto+'</div>'
-      +'<div class="plan-cliente">'+lineaCliente+' '+badge+chipPlanOrden+'</div>'
+      +'<div class="plan-cliente">'+lineaCliente+' '+badge+chipPlanOrden+miniFin+'</div>'
+      +'<div class="plan-det">'
       +lineaBobinas
       +lineaDepOE
       +lineaFecha
+      +'</div>'
     +'</div>'
     +'<div class="plan-actions">'
       +'<button class="btn btn-sm" '+(globalIdx===0||globalIdx===null?'disabled':'')+' onclick="moverPlanGlobal(\''+tipo+'\','+o.id+',-1)" title="Subir prioridad">↑</button>'
@@ -39787,6 +39825,92 @@ function moverPlanAGlobal(tipo,id,nuevaPos){
   const [item]=lista.splice(idx,1);
   lista.splice(nuevo,0,item);
   renderPlanSeccion(tipo);
+}
+
+// ===== PLANIFICADOR: VISTA COMPACTA + MOVER A POSICIÓN (build 2026-09-27b) =====
+// Con 30+ órdenes por máquina las tarjetas grandes hacen imposible reordenar. Dos ayudas que
+// NO tocan la lógica de prioridades: (1) vista compacta por sección (una fila por orden; clic
+// en la fila despliega el detalle) y (2) clic en el número → «mover a la posición N» de ESA
+// máquina. Todo sigue pasando por _planOE/_planOC + _planRecalcVista y se guarda con 💾.
+const _PLAN_VISTA_LS='plan_vista_v1';
+let _planVista=(function(){try{const v=JSON.parse(localStorage.getItem(_PLAN_VISTA_LS)||'{}');return (v&&typeof v==='object')?v:{};}catch(_){return {};}})();
+function _planEsCompacta(tipo){return _planVista[tipo]==='compacta';}
+function _planAplicarVista(tipo){
+  const on=_planEsCompacta(tipo);
+  ['plan-'+tipo+'-cols','plan-'+tipo+'-extras'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.toggle('plan-compact',on);});
+  const b=document.getElementById('plan-'+tipo+'-vista-btn');
+  if(b){b.textContent=on?'▦ Ver tarjetas':'☰ Vista compacta';b.title=on?'Volver a las tarjetas con todo el detalle':'Una fila por orden, para reordenar rápido (clic en la fila = ver detalle)';}
+}
+function planToggleVista(tipo){
+  _planVista[tipo]=_planEsCompacta(tipo)?'tarjetas':'compacta';
+  try{localStorage.setItem(_PLAN_VISTA_LS,JSON.stringify(_planVista));}catch(_){ }
+  _planAplicarVista(tipo);
+}
+// En compacta, clic en la fila despliega/pliega su detalle (bobinas, OE, fin, pedido)
+function planToggleDet(el,ev){
+  const card=el&&el.closest?el.closest('.plan-card'):null;
+  if(!card)return;
+  const cont=card.closest('.plan-compact');
+  if(!cont)return; // en vista de tarjetas no hace nada
+  if(ev&&ev.target&&ev.target.closest&&ev.target.closest('button,a,input,select'))return;
+  card.classList.toggle('plan-open');
+}
+// Orden de la columna tal como se ve (pendientes movibles) y cuántas «en proceso» van primero
+function _planColOrden(tipo,maqId){
+  const body=document.querySelector('#plan-'+tipo+'-cols .plan-col-body[data-maq="'+maqId+'"]');
+  if(!body)return null;
+  return {
+    proc:body.querySelectorAll('.plan-card.proc').length,
+    ids:[...body.querySelectorAll('.plan-card[draggable="true"]')].map(c=>parseInt(c.dataset.id))
+  };
+}
+// Mueve la orden `id` en la lista GLOBAL para que quede en la posición `n` de la máquina `maqId`
+// (la misma numeración que muestra la columna: las en proceso ocupan las primeras). Pura: sin DOM.
+function _planMoverAPos(lista,colIds,proc,id,n){
+  const actual=colIds.indexOf(id);
+  if(actual<0)return {ok:false,motivo:'no está en esta máquina'};
+  if(!(n>=1))return {ok:false,motivo:'posición inválida'};
+  let destIdx=Math.max(0,Math.min(colIds.length-1,Math.round(n)-proc-1));
+  if(destIdx===actual)return {ok:false,motivo:'ya está en esa posición'};
+  const target=colIds[destIdx];
+  const iOrig=lista.indexOf(id);
+  if(iOrig<0||lista.indexOf(target)<0)return {ok:false,motivo:'no está en la lista de prioridad'};
+  lista.splice(iOrig,1);
+  const iT=lista.indexOf(target);
+  // Subiendo: queda justo ANTES del que ocupaba ese lugar. Bajando: justo DESPUÉS.
+  lista.splice(destIdx<actual?iT:iT+1,0,id);
+  return {ok:true,destPos:destIdx+proc+1};
+}
+function planIrAPos(tipo,id,maqId){
+  const col=_planColOrden(tipo,maqId);
+  if(!col)return;
+  const actual=col.ids.indexOf(id);
+  if(actual<0)return;
+  const maq=getMaquinasDisponibles(tipo).find(m=>m.id===maqId);
+  const fuente=tipo==='oe'?C.ordenes:C.ord_corte;
+  const o=fuente.find(x=>x.id===id);
+  const posAct=actual+col.proc+1,min=col.proc+1,max=col.proc+col.ids.length;
+  const r=prompt('Mover '+(o?.numero_orden||'la orden')+' en '+(maq?.nombre||'esta máquina')
+    +'\nAhora está en la posición '+posAct+'. ¿A qué posición la llevo? ('+min+' a '+max+')'
+    +(col.proc?'\n(las primeras '+col.proc+' están en proceso y no se mueven)':''),String(min));
+  if(r===null)return;
+  const n=parseInt(String(r).trim(),10);
+  if(!(n>=1)){toast('⚠ Poné un número de posición','red');return;}
+  const lista=tipo==='oe'?_planOE:_planOC;
+  const res=_planMoverAPos(lista,col.ids,col.proc,id,n);
+  if(!res.ok){toast('ℹ '+res.motivo);return;}
+  _planRecalcVista(tipo);
+  // El cronograma se recalcula: confirmar dónde quedó de verdad y resaltarla
+  setTimeout(()=>{
+    const c2=_planColOrden(tipo,maqId);
+    const quedo=c2?c2.ids.indexOf(id):-1;
+    const card=document.querySelector('#plan-'+tipo+'-cols .plan-col-body[data-maq="'+maqId+'"] .plan-card[data-id="'+id+'"]');
+    if(card){card.classList.add('plan-flash');card.scrollIntoView({block:'nearest',behavior:'smooth'});setTimeout(()=>card.classList.remove('plan-flash'),2200);}
+    const p=quedo>=0?quedo+c2.proc+1:null;
+    toast('↕ '+(o?.numero_orden||'Orden')+' → posición '+(p||res.destPos)
+      +(p&&p!==res.destPos?' (la corre a esa por el cronograma de las otras máquinas)':'')
+      +' · acordate de 💾 Guardar',p&&p!==res.destPos?'':'green');
+  },60);
 }
 
 // Drag & drop entre/dentro de columnas
