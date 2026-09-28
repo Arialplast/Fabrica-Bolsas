@@ -9,7 +9,7 @@ function grab(name){
   for(let k=j;k<html.length;k++){if(html[k]==='{')d++;else if(html[k]==='}'){d--;if(!d)return html.slice(i,k+1);}}
 }
 global.C={};
-const code=['_lineaBDDeOrdenPlan','_paqPedidosProducto','_repartoEnLineas','_paqYaEnOCLinea','_paqYaEnOC','_estadoLineaCalculado']
+const code=['_lineaBDDeOrdenPlan','_paqPedidosProducto','_repartoEnLineas','_paqYaEnOCLinea','_paqYaEnOC','_stockLineaRep','_estadoLineaCalculado']
   .map(grab).join('\n')+'\nfunction _lineaCancelada(l){return l.estado_linea==="cancelada";}\nfunction _granelLineaEstado(){return null;}\nfunction r2(x){return Math.round(x*100)/100;}';
 eval(code.replace(/function (\w+)\(/g,'global.$1=function $1('));
 let n=0,f=0;const ok=(c,m)=>{n++;if(!c){f++;console.log('✗',m);}else console.log('✓',m);};
@@ -48,4 +48,16 @@ const e648b=_estadoLineaCalculado(p,L[0]);
 ok(e648b.paqProducido===404&&e648b.paqEntregado===92,'blanca 404 / 92 como en pantalla');
 const rep=_repartoEnLineas([{id:1,cantidad:400},{id:2,cantidad:400}],850);
 ok(rep[1]===400&&rep[2]===450,'sobreproducción va a la última');
+// 28f — formulario de remito / estado / cerrar parcial: entregado y reservado por línea
+C.stock_bolsas=[{producto_id:93,pedido_id:329,estado:'entregado',cantidad_paquetes:218},{producto_id:93,pedido_id:329,estado:'reservado',cantidad_paquetes:182},
+  {producto_id:93,pedido_id:329,estado:'reservado',cantidad_paquetes:20},{producto_id:93,pedido_id:329,estado:'reservado',cantidad_paquetes:200}];
+const s649=_stockLineaRep(p,L[1],x=>parseFloat(x.entregado)||0),s650=_stockLineaRep(p,L[2],x=>parseFloat(x.entregado)||0);
+ok(s649.entregado===218&&s649.reservado===182,'remito 649: entregado 218 · reservado 182 → pendiente 182');
+ok(s650.entregado===0&&s650.reservado===220,'remito 650: entregado 0 · reservado 220 → pendiente 400 (antes 182)');
+ok(s649.entregado+s650.entregado===218,'estado del pedido: 218 contados una sola vez (antes 436)');
+const s648=_stockLineaRep(p,L[0],x=>7);
+ok(s648.entregado===7&&!s648.repartido,'producto en una sola línea: cuenta de siempre (stock + propio)');
+const lc={id:651,producto_id:93,cantidad:400,estado_linea:'cancelada'};
+const p2={id:329,pedido_lineas:[...L,lc]};
+ok(_stockLineaRep(p2,L[2],()=>0).entregado===0,'línea cancelada no entra al reparto');
 console.log('\n'+(n-f)+'/'+n+' ok');process.exit(f?1:0);

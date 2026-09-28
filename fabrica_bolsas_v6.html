@@ -5735,7 +5735,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-09-28e';   // 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
+const APP_BUILD='2026-09-28f';   // 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
 // (anterior) 28c:   // 28c: 📜 BOBINAS VIEJAS A DEMANDA — reload trae sólo bobinas en stock o de los últimos 60 días, y toda pantalla que miraba una OE o un período más viejo contaba de menos EN SILENCIO: el 🖨️ de ORD-05574 salía con 0 bobinas (tiene 45) y Costos de producción de julio daba 3.590 kg producidos (fueron 37.144). Ahora la MISMA caché C.bobinas_prod se completa sólo cuando hace falta: por OE (🖨️, 📊 Detalle, 📦 Lotes de MP de OE y de pedido, % de avance de la lista, Historial) o por período (Costos, Rentabilidad, con su comparación). Pieza única `// ===== 📜 BOBINAS VIEJAS A DEMANDA` (_oeBobCompleta, _bobPeriodoIncompleto, _completarBobinasDeOEs, _traerBobinasHistoricas, _bobAsegurarYRepintar), invalidada en cada reload con window._bobGen. El botón «📜 Cargar todas las históricas» de Stock usa la misma descarga. Mismos filtros que la carga inicial. Solo lectura. Sin SQL.
 // (anterior) 28b:   // 28b: 🧱 HOJA DE PALLET DE BOBINAS — botón «🧱 Pallet» en la lista de Órdenes de extrusión (y al completarse la OE al cargar la última bobina): A4 con el CLIENTE, el PRODUCTO (código + descripción), el tipo de bobina, total de bobinas/kg/metros en grande, OC, pedido, entrega, y la lista de TODAS las bobinas en stock de la OE con casilla para tildar al subirlas, firmas Armó/Controló. Las bobinas se consultan a la BASE (no a C.bobinas_prod, caché parcial). Fuera de rango/excedentes no van al pallet y se listan aparte; las reservadas a OTRA OC se marcan en gris; las ya cortadas se aclaran al pie. Solo lectura. Sin SQL.
 // (anterior) 28a:   // 28a: 💰 QUÉ PLATA TRAE ESTE ORDEN — sección nueva en Planificar producción: con el orden de extrusión y de corte (aunque no esté guardado) proyecta cuándo sale cada OC y cuándo entra la plata según cómo PAGA DE VERDAD cada cliente (remito→saldo de su factura/RV, últimos 120 días, ponderado; impagos vencidos cuentan como cota), contra cobrar al entregar. Número rey a 30 días, curva doble, plata financiada máxima, filtro por cortadora, lista OC por OC con su máquina, tabla pacta vs. paga. Proyección: no toca Flujo ni Salud. Sin SQL.
@@ -13171,7 +13171,9 @@ function onNrPedidoChange(){
     const stk=_nrStockProducto(l.producto_id,pedId);
     const paqPedido=parseFloat(l.cantidad)||0;
     // Cuánto ya se entregó de esta línea (entregas previas)
-    const yaEntregado=(C.stock_bolsas||[]).filter(s=>s.producto_id===l.producto_id&&s.pedido_id===pedId&&s.estado==='entregado').reduce((s,x)=>s+(parseFloat(x.cantidad_paquetes)||0),0)+(parseFloat(l.entregado)||0)+_entregadoSustituto(pedId,l);
+    // 28f: por LÍNEA (con el producto repetido, antes la segunda repetía lo de la primera)
+    const _sl=_stockLineaRep(ped,l,x=>(parseFloat(x.entregado)||0)+_entregadoSustituto(pedId,x));
+    const yaEntregado=_sl.entregado;
     const pendiente=Math.max(0,paqPedido-yaEntregado);
     // El input permite hasta lo PENDIENTE (aunque no haya stock — la reasignación se encarga)
     const maxEntregar=pendiente;
@@ -13184,7 +13186,9 @@ function onNrPedidoChange(){
         +'<div style="font-size:11px;font-weight:600;color:'+colorStock+'">Stock: '+stk.paqTotal.toLocaleString('es-AR')+' paq</div>'
       +'</div>'
       +'<div style="font-size:10px;color:var(--text3);margin-bottom:8px;">'
-        +'🔒 Reservado a este pedido: '+stk.paqReservadoPropio.toLocaleString('es-AR')+' paq · 📦 Libre: '+stk.paqLibre.toLocaleString('es-AR')+' paq'
+        +(_sl.repartido
+          ?'🔒 Reservado a esta línea: '+_sl.reservado.toLocaleString('es-AR')+' paq (del producto en el pedido: '+stk.paqReservadoPropio.toLocaleString('es-AR')+') · 📦 Libre: '
+          :'🔒 Reservado a este pedido: '+stk.paqReservadoPropio.toLocaleString('es-AR')+' paq · 📦 Libre: ')+stk.paqLibre.toLocaleString('es-AR')+' paq'
         +(pendiente<=0?' · <span style="color:var(--green);">✓ línea ya entregada completa</span>':' · Pendiente de entregar: '+pendiente.toLocaleString('es-AR')+' paq')
       +'</div>'
       +(pendiente>0
@@ -14264,7 +14268,7 @@ async function _ejecutarGuardarRemito(nro,pedId,cliId,fecha,obs,modo,ped,cli,lin
         let totalPedido=0,totalEntregado=0;
         lineas.forEach(l=>{totalPedido+=parseFloat(l.cantidad)||0;});
         lineas.forEach(l=>{
-          const prev=(C.stock_bolsas||[]).filter(s=>s.producto_id===l.producto_id&&s.pedido_id===pedId&&s.estado==='entregado').reduce((s,x)=>s+(parseFloat(x.cantidad_paquetes)||0),0)+(parseFloat(l.entregado)||0);
+          const prev=_stockLineaRep(ped,l,x=>parseFloat(x.entregado)||0).entregado;   // 28f: no contar dos veces
           totalEntregado+=prev;
         });
         lineasRemito.forEach(rl=>{if(rl.pedido_linea_id)totalEntregado+=rl.cantidad_paquetes;});
@@ -44407,8 +44411,9 @@ function _pcRenderDetalle(pedidoId){
     const prod=C.productos.find(x=>x.id===l.producto_id)||l.productos;
     const cant=parseFloat(l.cantidad)||0;
     // Lo que el sistema cree que está entregado
-    const yaEntregado=(C.stock_bolsas||[]).filter(s=>s.producto_id===l.producto_id&&s.pedido_id===pedidoId&&s.estado==='entregado').reduce((s,x)=>s+(parseFloat(x.cantidad_paquetes)||0),0)+(parseFloat(l.entregado)||0);
-    const reservado=(C.stock_bolsas||[]).filter(s=>s.producto_id===l.producto_id&&s.pedido_id===pedidoId&&s.estado==='reservado').reduce((s,x)=>s+(parseFloat(x.cantidad_paquetes)||0),0);
+    const _sl=_stockLineaRep(p,l,x=>parseFloat(x.entregado)||0);   // 28f: por línea
+    const yaEntregado=_sl.entregado;
+    const reservado=_sl.reservado;
     html+='<tr style="border-bottom:1px solid var(--border);" data-pc-linea="'+l.id+'" data-pc-producto="'+l.producto_id+'" data-pc-cant="'+cant+'" data-pc-yaentregado="'+yaEntregado+'">'
       +'<td style="padding:6px 8px;">'+(prod?.codigo?prod.codigo+' · ':'')+(prod?.descripcion||l.descripcion||'—')+'</td>'
       +'<td style="padding:6px 8px;text-align:right;font-weight:600;">'+cant.toLocaleString('es-AR')+'</td>'
@@ -57315,6 +57320,26 @@ function _repartoEnLineas(lineas,total){
   });
   return out;
 }
+// Entregado / reservado de UNA línea (28f). El stock es por pedido+producto: con el producto
+// en una sola línea devuelve exactamente la cuenta de siempre (stock + extraLinea(l)); con
+// varias, reparte el total en orden de línea (_repartoEnLineas). extraLinea(x) = lo que cada
+// pantalla sumaba propio de la línea (campo entregado, sustitutos…), para no cambiarle la cuenta.
+function _stockLineaRep(p,l,extraLinea){
+  const pedId=p?.id;
+  let stEnt=0,stRes=0;
+  (C.stock_bolsas||[]).forEach(s=>{
+    if(s.producto_id!==l.producto_id||s.pedido_id!==pedId)return;
+    if(s.estado==='entregado')stEnt+=parseFloat(s.cantidad_paquetes)||0;
+    else if(s.estado==='reservado')stRes+=parseFloat(s.cantidad_paquetes)||0;
+  });
+  const ex=x=>{try{return extraLinea?(parseFloat(extraLinea(x))||0):0;}catch(e){return 0;}};
+  const herm=((p?.pedido_lineas)||[]).filter(x=>x.producto_id===l.producto_id&&!_lineaCancelada(x)).sort((a,b)=>a.id-b.id);
+  if(herm.length<=1||!herm.some(x=>x.id===l.id))return {entregado:stEnt+ex(l),reservado:stRes,repartido:false};
+  const entTot=stEnt+herm.reduce((a,x)=>a+ex(x),0);
+  const ent=_repartoEnLineas(herm,entTot)[l.id]||0;
+  const prod=_repartoEnLineas(herm,entTot+stRes)[l.id]||0;
+  return {entregado:ent,reservado:Math.max(0,prod-ent),repartido:true,reservadoProducto:stRes};
+}
 // Paquetes ya en OC vigentes de UNA línea (por el vínculo pedido_ordenes_corte).
 function _paqYaEnOCLinea(pedidoId,lineaId){
   const ped=(C.pedidos||[]).find(p=>p.id===pedidoId);
@@ -59234,15 +59259,9 @@ async function confirmarCerrarPedidoParcial(pedidoId){
       for(const li of (p.pedido_lineas||[])){
         if(_lineaCancelada(li))continue; // ya estaba cancelada antes, no la toco
         const cantTotal=parseFloat(li.cantidad)||0;
-        const entregadoLinea=parseFloat(li.entregado)||parseFloat(li.remitido)||parseFloat(li.facturado)||0;
-        // Sumar también lo entregado vía stock_bolsas para este producto y pedido
-        let entregadoStock=0;
-        (C.stock_bolsas||[]).forEach(s=>{
-          if(s.producto_id===li.producto_id&&s.pedido_id===pedidoId&&s.estado==='entregado'){
-            entregadoStock+=parseFloat(s.cantidad_paquetes)||0;
-          }
-        });
-        const entregadoEfectivo=entregadoLinea+entregadoStock;
+        // Campo de la línea + lo entregado vía stock_bolsas — 28f: repartido por línea
+        // (con el producto repetido, antes a cada línea le sumaba todo lo del producto).
+        const entregadoEfectivo=_stockLineaRep(p,li,x=>parseFloat(x.entregado)||parseFloat(x.remitido)||parseFloat(x.facturado)||0).entregado;
         const aCancelar=Math.max(0,cantTotal-entregadoEfectivo);
         if(aCancelar>0){
           const{error:eLi}=await sb.from('pedido_lineas')
