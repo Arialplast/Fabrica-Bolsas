@@ -791,7 +791,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-25a</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-27a</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -3482,13 +3482,16 @@ body.pext-on .main{margin-left:0!important;}
         <div><div class="page-title">📋 Conteo físico de bolsas</div><div class="page-sub">Contar lo que hay en el depósito y ajustar el sistema a la realidad — la diferencia queda en el libro con su costo</div></div>
         <div class="btn-grp">
           <button class="btn btn-sm" onclick="cfPlanilla()">🖨 Planilla para contar</button>
-          <button class="btn btn-sm" onclick="renderConteoBolsas()">🔄 Refrescar</button>
+          <button class="btn btn-sm" onclick="cfRefrescar()">🔄 Refrescar</button>
         </div>
       </div>
       <div style="background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.3);border-radius:var(--rl);padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--text2);line-height:1.6;">
         <b>Cómo se usa.</b> 1) Imprimí la planilla y contá en el depósito (paquetes por producto, sin mirar lo que dice el sistema). 2) Volcá acá lo contado — solo en los productos que contaste; los que quedan vacíos no se tocan. 3) <b>Aplicar diferencias</b>: cada faltante o sobrante queda asentado en el libro con su motivo y su costo marginal, así el resultado del mes dice la verdad. El conteo total (disponible + reservado) se compara contra el total del sistema.
+        <br><b>🕐 La hora del conteo importa</b> (27a): la planta no para mientras se cuenta ni mientras se tipea. Poné la hora en que se contó y lo contado se compara contra lo que el sistema tenía <b>a esa hora</b> (sale del libro). Lo que se cortó o se remitió después se respeta y no se borra con el ajuste. Lo tipeado queda guardado en esta PC hasta aplicarlo.
       </div>
       <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:12px;">
+        <div class="fg" style="margin-bottom:0;min-width:200px;"><label style="font-size:11px;">🕐 Hora del conteo</label>
+          <input id="cf-hora" type="datetime-local" onchange="cfHoraCambio()"></div>
         <div class="fg" style="margin-bottom:0;flex:1;min-width:220px;"><label style="font-size:11px;">🔍 Buscar</label>
           <input id="cf-search" type="text" placeholder="código o descripción" oninput="renderConteoBolsas()"></div>
         <label style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;cursor:pointer;">
@@ -3503,6 +3506,7 @@ body.pext-on .main{margin-left:0!important;}
           <input type="radio" name="cf-modo" value="real" onchange="renderConteoBolsas()" style="margin-top:2px;">
           <span><b>Pérdida o hallazgo REAL — con costo marginal</b>: bolsas que sí existieron y se rompieron, robaron o aparecieron. Va como <i>faltante/sobrante de conteo</i> y pega en el resultado del mes.</span></label>
       </div>
+      <div id="cf-hora-info" style="margin-bottom:8px;font-size:12px;"></div>
       <div id="cf-resumen" style="margin-bottom:12px;"></div>
       <div id="cf-tbl"><div class="loading"><div class="spinner"></div></div></div>
     </div>
@@ -5566,7 +5570,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-09-25a';   // 25a: ✂ SALA DE PLANES Y DEUDAS — PAGAR UNA PARTE Y MANDAR EL RESTO A UN PLAN DE PAGOS. German, en el plan «Cubrir ARCA · cuota 1/2 +7»: quiere SACAR la cuota 3/3 del IVA (ARCA deuda 15, $7.387.622,17, vto 21/09) para ponerla en otro plan, y poder decir «de este IVA pago la mitad y la otra mitad la meto en un plan de pagos de ARCA». Dos huecos: (1) en el paso 2 del editor lo que cubre el plan era una línea de texto: para sacar o achicar un compromiso había que volver al paso 1. Ahora es una tabla editable (_plwObjetivosEditables) con ✕ sacar, ½, todo y monto. (2) el resto de un parcial siempre decía «queda debiendo»: ahora el objetivo lleva `resto_destino:'plan'` (+`resto_ref`) y todos los textos salen de _plwRestoTxt. (3) 🔴 en Deudas una cuota tenía UN solo desenlace: pagar la mitad con 💵 la marcaba pagada y la otra mitad DESAPARECIA. Nuevo ✂ Partir (_dfPartirCuotas/_dfUnirCuotas): la cuota se vuelve dos piezas 3a/3b que suman exacto, capital/interés prorrateados, mismo vencimiento; la b puede quedar pendiente o nacer ya consolidada en el plan de facilidades (igual que 🔄 Sin caja → plan). La pieza a conserva el nro y la clave del flujo, así el plan que la tenía la sigue encontrando; plwEditar relee el saldo de hoy. Libro de caja, Resultado, Mapa de deuda y conciliación no cambian: ven cuotas normales. Sin SQL.
+const APP_BUILD='2026-09-27a';   // 27a: 📋 CONTEO FÍSICO CON HORA — lo contado se compara contra el sistema A LA HORA DEL CONTEO (sale del libro mov_bolsas: ahora − lo movido después), así los cortes y remitos posteriores no se borran con el ajuste; lo tipeado queda en localStorage de la PC hasta aplicarlo; el aplicar lee stock y libro frescos de la BASE (no de la caché) y avisa qué reservas de pedidos se achican. Sin SQL.
+// 25a: ✂ SALA DE PLANES Y DEUDAS — PAGAR UNA PARTE Y MANDAR EL RESTO A UN PLAN DE PAGOS. German, en el plan «Cubrir ARCA · cuota 1/2 +7»: quiere SACAR la cuota 3/3 del IVA (ARCA deuda 15, $7.387.622,17, vto 21/09) para ponerla en otro plan, y poder decir «de este IVA pago la mitad y la otra mitad la meto en un plan de pagos de ARCA». Dos huecos: (1) en el paso 2 del editor lo que cubre el plan era una línea de texto: para sacar o achicar un compromiso había que volver al paso 1. Ahora es una tabla editable (_plwObjetivosEditables) con ✕ sacar, ½, todo y monto. (2) el resto de un parcial siempre decía «queda debiendo»: ahora el objetivo lleva `resto_destino:'plan'` (+`resto_ref`) y todos los textos salen de _plwRestoTxt. (3) 🔴 en Deudas una cuota tenía UN solo desenlace: pagar la mitad con 💵 la marcaba pagada y la otra mitad DESAPARECIA. Nuevo ✂ Partir (_dfPartirCuotas/_dfUnirCuotas): la cuota se vuelve dos piezas 3a/3b que suman exacto, capital/interés prorrateados, mismo vencimiento; la b puede quedar pendiente o nacer ya consolidada en el plan de facilidades (igual que 🔄 Sin caja → plan). La pieza a conserva el nro y la clave del flujo, así el plan que la tenía la sigue encontrando; plwEditar relee el saldo de hoy. Libro de caja, Resultado, Mapa de deuda y conciliación no cambian: ven cuotas normales. Sin SQL.
 // 22b: el aviso del 22a era inusable: 225 ordenes, 212 de ellas COMPLETADAS de mayo en adelante. En una OC cerrada la diferencia entre lo cortado y lo cargado NO es mercaderia sin anotar: es la MERMA DE CORTE (recortes y falladas, 5-10 % tipico) y ya la controla el scrap del cierre. Ahora mira SOLO OC abiertas (Pendiente / En proceso / Pendiente empaque) y la tolerancia sube a 10 % con minimo de UN BOLSON entero. Sobre los datos del 22/09 quedan 13 avisos, todos reales y de septiembre, incluido el caso testigo OC-1052734 (696 paq) y su hermana OC-1052733 (689 paq). 🔴 Regla: un aviso que enciende 200 casos no se lee — antes de soltarlo hay que correrlo contra los datos de verdad y contar cuantos da.\n// 22a: 📦 OC CON BOBINAS CORTADAS Y BULTOS SIN CARGAR. Caso PED-06024 / OC-1052734: el 15/09 se asociaron y cortaron 5 bobinas (8.320 m = 696 paquetes de 00008) y NADIE cargo el empaque. La OC quedo Pendiente con produccion 0, el pedido seguia pidiendo lo que ya estaba hecho, y los 200 paquetes que salieron a VEGA el 16/09 (REM-00550) se descontaron de una fila de stock VIEJA de la OC-1052491 de AGUACA MANA, que quedo en cero. 🔴 CORTAR Y EMPAQUETAR SON DOS HECHOS DISTINTOS y el sistema solo conocia el primero: las bobinas consumidas son un dato duro (orden_corte_bobinas), los bultos son una carga manual que puede no llegar nunca. Bloque nuevo `_SB_*` arriba de renderMetrosCortos: `_sbMetrosCortados` (metros_usados del vinculo, y solo si falta se mira la bobina — nunca se le pregunta a la cache parcial C.bobinas_prod), `_sbPaqCargados` (el MAYOR entre las filas de stock de esa OC y lo declarado al cierre, nunca la suma: son dos vistas del mismo hecho), `_sbPendientes`, `_sinBultosHTML`, `renderSinBultos`, `sbYaEsta`/`sbReset` y el indice `_SB_MAP`. Tolerancia 5 % del corte y minimo 3 paquetes. Avisa en panel ambar arriba de Ordenes de corte (div `sb-wrap`) con paquetes, BOLSONES y kg, y en la fila de cada OC. Silenciador `configuracion['sin_bultos_ok']` con la clave ocId:metros, asi que si despues se corta otra bobina contra la misma OC el aviso VUELVE SOLO. Sin SQL.
 // 21a: 🏷 ETIQUETA DE BULTO NUEVA — el diseño «Etiqueta de bulto (térmica)» de Claude Design llevado de 100×70 a la etiqueta real de la Argox (52,5×45 mm, mismo corrimiento de 10 mm). LETRA DE LÍNEA en cuadro negro (A = ARIAL, P = POLIPLAST, leída de la descripción con la palabra entera; sin marca va el cliente de la OC), banda invertida GRANEL / CON FUNDAS decidida por el EMPAQUE (unidades=1) y NO por la palabra GRANEL de la descripción —hay «GRANEL … X 50UND» que van en fundas—, la MEDIDA como dato más grande, debajo cm · micrones SÓLO si la descripción los declara · color · MAX/BIO/ECO, la cantidad en recuadro (unidades sueltas, o N fundas de U un) y el pie código · OC. Sin código de barras: a 52,5 mm no entra uno legible. Helper puro nuevo `_etqBultoDatos` arriba de `imprimirEtiquetasBulto`; paq/bolsón cae a la ficha si la OC no lo tiene. Sin SQL.
 // 18d: 🔴 UN PEDIDO CON EL NOMBRE DEL CLIENTE ESCRITO PERO SIN LA FICHA DETRAS: SE PRODUCE, ENTRA AL STOCK, DICE «LISTO COMPLETO» Y NO APARECE PARA REMITIR. German cargo PED-06078 sin elegir cliente, despues lo edito y puso GARCIA ALVARADO JUAN CRUZ. El pedido mostraba el nombre bien en todas las pantallas, la OC salio completa con 3.000 paquetes en stock —y el selector de remitos no lo tenia—. 🔴 SON DOS DATOS DISTINTOS Y EL SISTEMA LOS TRATABA COMO UNO: el pedido guarda `cliente` (el NOMBRE, texto) y `cliente_id` (el VINCULO con la ficha). Casi toda la pantalla muestra el nombre; pero REMITIR, FACTURAR y la CUENTA CORRIENTE cuelgan del vinculo (`onNrCliChange` filtra `p.cliente_id===cliId`). La edicion de pedido escribia SOLO el nombre: `updatePed` no incluia `cliente_id`, asi que el pedido quedaba con el nombre nuevo y el vinculo en NULL — visible, completo y fuera del circuito de entrega, sin un solo cartel. 🔴 Y DE ENTRADA EL PLACEHOLDER SE GUARDABA COMO SI FUERA UN CLIENTE: `guardarPedidoFinal` sacaba el nombre de `selectedOptions[0].textContent`, o sea «— seleccionar —» cuando no se elegia nada, y el cliente NO era obligatorio. Por eso PED-06078 nacio con cliente «— seleccionar —» y su OC-1052858 heredo ese texto. Ya habia pasado DOS VECES (PED-06001 el 13/08 y PED-05899 el 29/06): las dos terminaron CANCELADAS. AHORA: (1) el nombre sale de la FICHA del cliente, nunca del texto de la opcion, y sin cliente elegido el pedido NO se guarda —el remito y la factura vienen despues y ahi ya es tarde—; (2) la edicion escribe `cliente_id` (en el update y en el reintento sin notas_internas), y detecta el cambio POR ID, no por nombre, asi el caso peor —nombre correcto, vinculo roto— ahora dispara y se arregla con un aviso propio («le falta el vinculo», no «vas a cambiar el cliente»); (3) 🔴 LAS OC COMPLETADAS TAMBIEN SE REASIGNAN: estaban excluidas «para no tocar historia», pero una OC completada es justo la que tiene la mercaderia lista, la que sale en el remito con el nombre viejo —a quien pertenece es un dato del pedido, no de la produccion; sus cantidades no se tocan y el cambio queda escrito en sus observaciones—; (4) el editor preselecciona POR ID y pinta en rojo el pedido sin vincular, diciendo por que no aparece para remitir; (5) «🚚 Generar remito» dejaba de funcionar EN SILENCIO (abria la pantalla vacia): ahora lo dice y ofrece asignar el cliente en el acto; (6) panel rojo en Despacho con los pedidos sin ficha de cliente, cuanta plata frenan y su boton de arreglo, que desaparece solo al asignarlo. Datos reparados el 18/09: PED-06078 -> cliente_id=32 y OC-1052858 -> GARCIA ALVARADO JUAN CRUZ, los dos con rastro en observaciones. Verificado con smoke_cliente.cjs (24 asserts sobre los datos reales: detecta PED-06078 y sólo ese —los dos cancelados y los historicos no molestan—, el aviso se apaga solo al asignar, y los chequeos de las cuatro correcciones de codigo). Sin SQL de esquema. // 18c: 🕊 LICENCIA PAGA — LOS 3 DIAS QUE CELIA NO VINO POR EL FALLECIMIENTO DE SU MADRE FIGURABAN COMO «AUSENTE» EN ROJO. El sistema tenia UN solo lugar para decir «hoy no vino»: la excepcion de turno, con dos opciones —franco y licencia— que hacian EXACTAMENTE LO MISMO: anular el turno esperado. Eso alcanzaba para sacar el rojo de la ausencia, pero dejaba el dia en CERO HORAS, y como la quincena se liquida con las horas del fichaje, marcar la licencia le SACABA la plata de esos dias. Asi que las dos salidas estaban mal: dejarlo como ausente miente en el legajo (una licencia del art. 158 LCT no es una inasistencia) y marcarlo como licencia le descontaba 27 hs de sueldo. AHORA la licencia es un concepto propio y PAGO: el dia no se trabaja, no cuenta como ausencia, no genera deuda de horas Y SE PAGA la jornada ordinaria que le tocaba —a hora simple, con antiguedad y aportes como el resto—. 🔴 LA CLAVE ES QUE LA EXCEPCION YA NO BORRA EL TURNO, LO TAPA: `_turnoDelDia` devuelve ahora `turnoBase` con el turno que la rotacion habria dado, porque para PAGAR una licencia hay que saber que jornada se esta reponiendo, y eso es un derivado de la rotacion, no un dato que haya que volver a cargar (P1). Balde propio `horas_licencia` —la columna YA EXISTIA en horas_quincena desde el dia uno y NADIE la escribia—: no se suma a las normales porque no son horas trabajadas y meterlas ahi inflaria el tope semanal de 45 inventando hora extra de un dia que no se laburo; y el recibo las necesita separadas para el contador. Columna «Licencia» nueva en la Quincena, concepto «Licencia paga» en el detalle del neto, estado 🕊 LICENCIA en el informe (con el motivo y que turno le tocaba), tarjeta propia y un recuadro al pie que explica por que esos dias no son ausencias. El feriado que cae dentro de una licencia se paga UNA vez (por feriado, via turnoBase) y no dos. Sabado y domingo no pagan licencia: el sabado se paga solo si se viene y el domingo no es jornada. 🔴 Y EL FORMULARIO CARGA EL RANGO COMPLETO: una licencia es de dias CORRIDOS y cargarla de a un dia es la forma segura de que falte uno. Campo «hasta», catalogo de motivos del art. 158 con los dias que fija la ley (fallecimiento conyuge/hijo/padres 3, hermano 1, nacimiento 2, matrimonio 10, examen 2) que calcula la fecha final y escribe la nota solo, y del rango se cargan SOLO LOS DIAS HABILES —el sabado ocupa el mismo lugar que el tilde de «quien viene el sabado» y pisarlo romperia otra cosa—, avisando cuantos quedaron afuera y por que. Si el rango cae entero en dias no laborables no carga nada y recuerda el art. 160 (hay que darle igual un dia habil). Verificado con smoke_licencia.cjs (34 asserts sobre el caso real de CELIA del 01 al 03/09: los 3 dias dejan de ser ausencia, pagan 9 hs cada uno, la quincena da 27 hs de licencia + 45 normales sin una sola hora extra inventada, el objetivo de la semana baja a 18, el neto sube $27.000 +antiguedad −aportes, y los bordes: sabado, domingo, franco —que sigue sin pagar nada—, feriado dentro de la licencia sin doble pago, turno de 12 hs que paga 9, y los 6 casos del rango). Sin SQL. // 18b: DOS RETIROS DE $100.000 EL MISMO DIA NO SON UN REIMPORT, Y NO HABIA COMO DECIRLO. Al corregir la fecha del gasto 647 (estaba el 31/08, su pago es del 24/08) los dos retiros reales del 24/08 quedaron juntos y el detector de duplicados los marco en rojo —el mismo rojo que el caso que SI busca, las 27 filas repetidas del 25/06 por reimportar la conciliacion dos veces—. El detector agrupa por fecha+total+descripcion+categoria+dia de carga, que es una firma buena, pero no tiene forma de equivocarse una vez y aprender: German mira el caso, confirma que son dos retiros de verdad, y no puede hacer nada mas que verlo en rojo para siempre. Un rojo permanente que no se puede resolver es un rojo que se deja de mirar, y ahi abajo estaban los reimports de verdad. AHORA el aviso trae un boton «✓ No es duplicado» que guarda el grupo en configuracion['salud_dups_ok'] (sin SQL) y deja de avisarlo; no borra ni cambia ningun gasto, solo calla el aviso. 🔴 LA CLAVE DEL GRUPO SON LOS IDS ORDENADOS, no la firma: si mañana aparece un TERCER gasto igual ese mismo dia, la clave cambia y el aviso vuelve solo —que es exactamente lo que uno quiere de un «ya lo mire», porque lo que se miro fueron esos dos y no este otro—. Y lo silenciado queda A LA VISTA: el pie de la pantalla dice cuantos grupos estan marcados, con un link para volver a avisarlos todos. Verificado con smoke_salud_dup.cjs (16 asserts sobre el caso real de los dos retiros del 24/08: avisa con el boton y la clave 645-647, marcado deja de avisar, el tercer gasto lo despierta con clave nueva, otro duplicado real sigue rojo, el JSON roto se lee como lista vacia, y los dos bordes del agrupador: mismo dia con montos distintos y mismo gasto cargado en dias distintos). // 18a: UN COBRO SIN CUENTA ELEGIDA CAIA EN CAJA1 SIN QUE NADIE LO DIJERA. Revisando por que el efectivo no aparece en movimientos_caja se vio lo de fondo: no aparece PORQUE NO TIENE QUE APARECER —el Libro de caja DERIVA el ingreso del recibo mismo (P1), y solo el cheque escribe movimiento al acreditarse—, pero el recibo guarda `cuenta_id` y hay 13 recibos ($15.315.545,21, todos informales en efectivo) que lo tienen en NULL. Esos caen igual en la cuenta del plano —CAJA1— por el fallback de ccMovimientosUnificados, y el aviso «sin cuenta asignada» del libro NO los veia: miraba `sinCuenta:!cta` sobre el fallback, que nunca es nulo. Es el patron de siempre: un default silencioso tapa el dato que falta. AHORA (1) el movimiento derivado del recibo se marca con `sinCuenta` segun `r.cuenta_id` —no el fallback— y lleva `ctaAsumida` con la cuenta donde se esta contando mientras tanto; (2) el aviso del Libro de caja dice CUANTOS son, CUANTA plata y EN QUE CUENTA se estan contando, y la fila muestra «se cuenta en CAJA1» debajo del selector para asignarla; (3) la pantalla del recibo avisa en rojo apenas no hay cuenta elegida, y al guardar pide confirmacion diciendo donde va a caer la plata —solo si hay efectivo o transferencia: los cheques van a cartera, no a caja—. Helper nuevo `_nrecCuentaAsumidaNombre` con el MISMO criterio que el libro (default de cobros del plano -> primera del plano -> default global), asi la pantalla no promete una cuenta y el libro usa otra, y nunca propone la de conciliacion. Verificado con smoke_cobro_sincuenta.cjs (17 asserts: el recibo sin cuenta contado en CAJA1 y marcado, el que tiene cuenta que no se marca, el formal que asume la blanca, el cheque que no entra a caja, el total del aviso, y los bordes del helper: sin cuentas cargadas y la de conciliacion descartada). // 17a: LA NOTA DE CREDITO SOBRE UNA FACTURA YA COBRADA SALIA COMO ALERTA ROJA «cobraste de mas». German, mirando Salud del flujo despues de acreditarle a LYME el aumento que no convalido: tres rojos, uno por cada factura de septiembre. Las tres estaban bien: la factura se cobro entera y DESPUES se le hizo la NC, asi que el comprobante queda sobre-aplicado a proposito y ese excedente es SALDO A FAVOR del cliente —lo mismo que _ncCreditoDisp ofrece para aplicar a la proxima factura—. El chequeo sumaba en una sola bolsa la plata cobrada y el credito emitido, y cualquier NC posterior al cobro disparaba el rojo. AHORA se separan: rojo solo si lo COBRADO (recibos + compensaciones + credito de NC de OTROS comprobantes) supera el total —eso si es plata mal contada—, y si el excedente lo explican las NC propias sale un aviso ambar que dice cuanto le quedo a favor al cliente. Helper nuevo _montoNCPropias, mismo criterio en facturas y en RV. Verificado con smoke_salud_nc.cjs (17 asserts: los tres casos reales de LYME, una factura sobre-cobrada de verdad que sigue roja, la mixta —sobre-cobrada Y con NC— que sigue roja descontando el credito, la NC ya trasladada a otra factura que no deja aviso, el RV con NC parcial y el comprobante limpio que no dice nada). // 16c: PAGOS PARCIALES EN LA SALA DE PLANES. German: «¿es factible que una boleta de material la quiera pagar parcialmente? Por ejemplo con la cooperativa, quiero pagar entre las dos 14 millones». Tildar un compromiso era TODO O NADA: el objetivo se guardaba por el saldo entero. Para planear un parcial había que inventar un objetivo LIBRE a mano con el monto —y ese objetivo libre no queda atado a la boleta, así que el 🔗 del flujo no aparecía y nadie sabía que esa boleta ya tenía plata asignada. AHORA el objetivo guarda DOS números: `saldo` (lo que se debe) y `monto` (lo que ESTE plan se compromete a cubrir). Arrancan iguales; si se edita el monto, la diferencia es el parcial y queda dicha en todos lados. Al tildar una fila su monto se vuelve un input editable con tope en el saldo —comprometer más de lo que se debe no es un plan, es un error de tipeo, así que se recorta—, con un atajo «todo» para volver al total; la fila muestra la chapita PARCIAL y cuánto queda debiendo; y el pie del paso 1 avisa el total que este plan NO cubre. 🔴 Y CON MÁS DE UN OBJETIVO TILDADO APARECE EL REPARTIDOR, que es lo que German pidió de verdad: se escribe cuánto se quiere pagar EN TOTAL y se reparte del que vence PRIMERO al que vence último, llenando cada uno entero antes de pasar al siguiente. No se prorratea —una deuda no se paga a prorrata, se cancela la más vieja y lo que sobra va a la que sigue—. Con los 14 M de la cooperativa: cubre entera la del 03/09 ($6.230.572,96) y mete los $7.769.427,04 restantes en la del 10/09, que queda debiendo $7.638.852,96. Si la plata sobra, lo dice. El paso que se guarda en el plan DICE que es parcial y de cuánto —«Cubrir: Materia prima · COOP ($7.769.427,04) — PARCIAL de $15.408.280 (queda debiendo $7.638.852,96)»— porque dentro de un mes el monto solo se lee como si esa fuera la boleta entera. Guarda además `parcial:true` y `saldo_total`. 🔴 Y EL 🔗 DEL FLUJO SE PARTE EN DOS: un plan que cubre la boleta entera sigue con 🔗 violeta, y uno que la cubre SÓLO EN PARTE muestra 🔗½ ámbar con cuánto de cuánto —si los dos mostraran lo mismo, el flujo diría «ya está en un plan» y el resto no lo paga nadie. Los planes viejos (sin `saldo` guardado) se leen como cobertura total, que es lo que eran. Verificado con smoke_plan_parcial.cjs (33 asserts sobre las 4 boletas MP reales de la pantalla: el caso de los 14 M repartidos entre las dos de la cooperativa con los centavos exactos, el tope, el recorte al pasarse, monto negativo y texto basura, repartir más que la deuda, repartir menos que la primera, repartir sin monto, y un plan viejo sin saldo). // 16b: 🔴 EL PEDIDO DE PALAZZO TENÍA 450 KG HECHOS, PESADOS Y EN STOCK, Y EL SISTEMA DECÍA «SIN OC», «SIN OE» Y «PRODUCIDO 0». German: «en despacho no me aparece nada para remitir, pero el pedido está extrudado, pero también en el pedido no hay nada». Las tres cosas eran la misma. ORD-06227 estaba Completada con 16 rollos cargados —450,76 kg, todos `en_stock`— y PED-06073 mostraba las cuatro etapas vacías, avance 0 % y no aparecía como listo para despachar. 🔴 LA CAUSA: TODA LA CADENA PEDIDO → PRODUCCIÓN → ENTREGA ESTÁ MODELADA A TRAVÉS DE LA OC. `_estadoOperativoPedido`, `_pedidoInfoProduccion` y `_estadoLineaCalculado` miden lo producido contando `stock_bolsas` y terminan en `if(!ocs.length) return 'pendiente_oc'`. Un granel no pasa por NINGUNA de las dos: se extruye, la bobina queda en `bobinas_producidas` y se despacha entera. Así que las tres contestaban cero y «Sin OC» —y «Sin OC» es la mentira que invita a crear la OC que justamente venimos sacando (15e, 16a). El dato estaba; faltaba la pregunta. AHORA hay UNA sola cuenta, `_granelLineaEstado(p,li)`, y las tres pantallas la consumen —nadie vuelve a contar bobinas por su cuenta (P1)—: pedido = los kilos de la línea; producido = kg de las bobinas hechas contra las OE del pedido (el vínculo es `pedido_ref_id`, porque no hay OC que las ate); en stock = de ésas, las que siguen `en_stock`; entregado = kg de los `remito_lineas` de esa línea —de los REMITOS, no de `pedido_lineas.entregado`, que para un granel nadie escribe—. Bobinas anuladas o reasignadas no suman, remitos anulados no cuentan como entregados, y una OE cancelada no aporta nada. En pantalla: el pedido pasa de «Sin OC» a «Listo completo»; las cuatro etapas se leen de la OE y de los rollos («Bobinas extruidas», «16 rollos · 450,8 kg listos»); la etapa Corte deja de decir «Sin OC» en rojo y pasa a «🎞 Por kilo · no lleva corte»; los tres totales dicen kg y no paquetes; y la fila de la línea muestra su OE con link, los rollos en stock y «Listo p/ despachar». 🔴 Y SE SEPARA UN ESTADO NUEVO, `pendiente_oe` («Sin OE»): a un pedido por kilo le puede faltar la orden de extrusión —eso sí es un problema— pero nunca le falta una OC. Dos cosas distintas, dos carteles distintos. Verificado con smoke_granel_estado.cjs (32 asserts sobre los datos REALES de PED-06073: los 450,76 kg de los 16 rollos, el estado «Listo completo», el avance 100 %, la unidad en kg, la entrega parcial con 5 rollos remitidos —135,72 kg— y que lo producido no baja al despachar, más los bordes: sin OE, OE en cola, OE en máquina, OE cancelada, remito anulado, bobina anulada, bobina de otra OE y una línea normal que no entra por este camino). // 16a: EL SISTEMA YA SE PORTABA BIEN CON PALAZZO PERO SE SEGUÍA VIENDO MAL, Y EL EDITOR DE BOBINAS TENÍA UN CANDADO DE MENOS. Dos cosas, las dos del mismo día. 🔴 (1) EL PLANIFICADOR NO SABÍA QUÉ ERA UNA LÍNEA A GRANEL. El 15e arregló la CONFIRMACIÓN —PED-06073 salió perfecto: ORD-06227 sola, sin OC, 450 kg— pero `generarOrdenesCorte` siguió tratando la línea como si fuera de corte: para los 450 kg calculaba 3 bolsones y 600 paquetes (números que para una bobina entera no quieren decir nada), mostraba el cartel «SE CREARÁ OC», ofrecía empaque, paq/bolsón, máquinas de corte y tandas, y RESERVABA UN NÚMERO DE OC. En PED-06073 reservó OC-1052842, que después se la llevó una OC real de GARCIA LEONARDO: el pedido de PALAZZO quedó apuntando a la orden de otro cliente. Se portaba bien y se veía mal, que es peor que las dos juntas, porque invita a «corregir» lo que está bien. AHORA la línea a granel se planifica como lo que es: sin bolsón, sin paquetes, sin máquinas, sin tandas y sin número de OC reservado; con la OE prendida por defecto (sin OE no se produce NADA, porque no hay OC que la respalde); el encabezado dice «450 kg de bobina» en vez de «450 paq»; el cartel dice «SE VENDE POR KILO · SIN OC»; no se muestra stock de bolsas terminadas (no hay bolsas, hay bobina); queda un renglón que explica qué se va a hacer y deja editar sólo la merma; y el contador de «al guardar se generarán X órdenes de corte» ya no la cuenta, EN LOS DOS RESÚMENES (el de renderOrdenesNP y el de actualizarResumenGeneral —misma cuenta escrita dos veces, el patrón de siempre—). Los metros del granel salen ahora de los KILOS y no pasan por el empaque: si el empaque tuviera 0 u/paq los metros daban 0 y la OE se rechazaba sola. 🔴 (2) EL EDITOR DE BOBINAS DEL ADMIN ERA EL ÚNICO QUE REESCRIBÍA PRODUCCIÓN SIN pedirAdminYEjecutar. German: «la posibilidad de hacer cambios en las bobinas no quiero que le quede a los operarios, eso es peligroso». Tenía razón a medias y a medias no: la pantalla de Administración SÍ pide clave (`verificarAdminPage`), así que un operario no entra; pero ese candado es un display:none de la pantalla, y las otras tres funciones que reescriben producción —`reasignarBobina`, anular una bobina y repartir horas— pasan ADEMÁS por `pedirAdminYEjecutar`. Ésta era la única que dependía sólo de la pantalla. Ahora también pasa por el candado. Y se le agrega el campo que faltaba: LA EXTRUSORA. Hasta hoy se podían corregir metros, kg, fecha y hora, pero NO la máquina —por eso BOB-05787 y BOB-05790 hubo que moverlas por SQL—, y el kg/h por máquina, el historial de ritmo y la capacidad salen todos de ahí. Corregir metros es aritmética; mover una bobina de máquina reescribe la historia de DOS extrusoras, así que el cambio de máquina PIDE MOTIVO OBLIGATORIO (el campo aparece sólo cuando de verdad cambiás la máquina) y el motivo queda escrito en las observaciones de la bobina, no sólo en el mensaje de pantalla. Además SUMA LA MÁQUINA NUEVA A LAS EXTRUSORAS DE LA OE: si no, el Gantt y la capacidad siguen contando la orden como si fuera toda de la máquina vieja —exactamente el remiendo que hubo que hacer a mano con la ORD-06227—. Aparte, datos: se corrigió la ficha del 00309 (metros_por_bolsa 10,0604 → 10,4167 = 1 ÷ 0,0960 kg/m de su bobina). La ficha vieja hacía nacer corta TODA OE de ese producto: para los 450 kg de PED-06073 la OE pidió 4.663 m —que a 0,0960 kg/m son 447,65 kg, MENOS de lo vendido, con el 3 % de merma ya adentro— y la planta tuvo que hacer 4.830 m. Quien tenía razón era la bobina: 29.390 m producidos desde mayo pesaron 2.822,42 kg, o sea 0,09603 kg/m real contra 0,0960 de ficha. Verificado con smoke_granel_ui.cjs (34 asserts: el planificador con una línea granel y una normal en el mismo pedido, que re-planificar no le devuelve los bolsones, que seguir los kilos cuando cambian, y los 12 del editor de bobinas incluidos el candado, el motivo obligatorio, el rastro y la extrusora sumada a la OE). // 15e: 🔴 A PALAZZO LAS BOBINAS SE LE VENDEN POR KILO Y EL SISTEMA LE SEGUIA ABRIENDO ORDENES DE CORTE. German: «le vendo las bobinas por kgrs, pero las órdenes de OC y OE se cargan mal, no debería de haber OC para este caso». El producto 00309 (BOBINA RESIDUO GRANEL CARAMELO 90 60MIC X 1 KGRS) tiene `es_bobina_granel`: no se corta, se despacha la bobina tal cual y la cantidad del pedido son KILOS, no paquetes. `confirmarPedido` ya lo contemplaba desde hace meses (`if(prod.es_bobina_granel){ocsPorLinea[...]=[];o._confirmada=true;continue;}`), pero `confirmarTandasParcial` —el camino de las tandas sueltas— NO: ahí la línea granel caía en el mismo for que las demás y salía una OC por bolsones × paq/bolsón. PED-06028 (60 kg) parió OC-1052735 por 200 PAQUETES y, como los metros de la OE se derivan de esa OC, ORD-06117 por 2.072,44 m / 206 kg cuando le correspondían ~643,75 m / 61,8 kg: 3,4 veces de más. 🔴 TERCERA VEZ DEL MISMO PATRÓN —un efecto escrito en dos caminos y arreglado en uno solo— después del 26a (candado de línea confirmada) y del 14e (numerador). AHORA el camino de tandas saltea la OC para las líneas granel y les crea LA OE SOLA, con LOS MISMOS METROS QUE EL CAMINO A: los del plan (`_oeMts`, que el simulador calcula como kg × metros_por_bolsa × merma) y los kg como metros × kg/m de la bobina —así nacieron ORD-05985 y ORD-06163, las dos ventas de bobina a PALAZZO que están bien—. 🔴 TENTABA CALCULAR LOS METROS AL REVÉS (kg ÷ kg/m, que es la cuenta física) Y ESO HABRÍA SIDO EL MISMO BUG OTRA VEZ: para PED-06028 da 643,75 m donde el camino A da 621,73, o sea el mismo número con dos definiciones según por dónde se confirme (P1). La diferencia del 3,5 % es real —al 00309 le quedó metros_por_bolsa 10,0604 cuando su bobina da 1 ÷ 0,0960 = 10,4167— pero se arregla EN LA FICHA, que es donde el dato está mal, no metiendo una segunda fórmula. La OE queda colgada del pedido (`pedido_ref_id`), con `origen:'venta_bobina'` y la observación que dice por cuántos kilos se vende, y no se escribe ninguna fila en `pedido_ordenes_corte` porque no hay OC que atar. Un granel no se parte en tandas de bolsones —los bolsones no significan nada ahí—, así que la línea se confirma entera. Verificado con smoke_granel.cjs (20 asserts sobre el caso real de PALAZZO: la línea granel sin OC y la normal con la suya, los 621,73 m y los 59,69 kg, un assert explícito de que NO sale 643,75, el vínculo con el pedido, el origen, que no se toca `pedido_ordenes_corte`, y los bordes: sin extrusoras, sin metros en el plan, y la bobina sin kg/m —que no frena la OE, deja los kg en null—). Aparte quedan por limpiar los datos ya escritos (OC-1052735 y ORD-06117) y la ficha del 00309. // 15d: 🔴 RV-000225 SALIÓ DOS VECES, CON EL MISMO NÚMERO Y 4 SEGUNDOS DE DIFERENCIA. German: «se anotó dos veces en la cuenta corriente, fallaron todos los controles». Fallaron cuatro, y las cuatro estaban resueltas en el guardado de remitos desde el 11a — tercera vez que el mismo patrón aparece en otro módulo (11a remitos → 14e bobinas/OC/OE → RV). (1) El botón NO se apagaba: el único feedback era el spinner del mensaje. (2) El número salía de la CACHÉ `C.rvs`, que en el segundo click todavía no tenía el primer RV porque el `reload()` corre al final — por eso los dos sacaron RV-000225. (3) `remitos_valorizados.numero` NO tiene índice único (los remitos lo tienen desde el 11a), así que la base tampoco lo frenó. (4) No había pre-chequeo: el segundo guardado pisó `remitos.rv_id` y metió otra fila en `rv_remitos` para un remito YA valorizado. AHORA: guarda de reentrada `_rvGuardando` + botón deshabilitado; `_rvSiguienteNumero` pide el último número A LA BASE al guardar (P1: el documento que existe es la verdad, la caché es una foto vieja); reintento ante 23505 hasta 5 veces; y 🔴 PRE-CHEQUEO CONTRA LA BASE ANTES DE ESCRIBIR LA PRIMERA FILA —se re-consultan los remitos elegidos y si alguno ya tiene `rv_id` o está anulado no se emite NADA y se dice cuál—, que es lo único que frena de verdad al segundo click porque para cuando llega el primero ya escribió. 🔴 Y NO ERA LA PRIMERA VEZ: el 10/06 salieron RV-000026 y RV-000027 (PAPELERA FENIX, los mismos tres remitos, $2.055.703,60 cada uno) y el 01/09 RV-000195 y RV-000196 (QUILPLAST, el mismo remito, $343.680 cada uno). Esas dos no saltaron porque sacaron números distintos, y las dos quedaron PAGADAS: entre ambas se imputaron $2.399.383,60 de cobranza real a documentos que nunca debieron existir. La plata que entró es real y los recibos cuadran —lo que estaba mal era la deuda—, así que al borrar los fantasmas esa plata queda sin imputar, como crédito a cuenta. Datos aparte: fix_rv_duplicados_A_seguro.sql (el de hoy, sin plata, más el índice único que faltaba) y fix_rv_duplicados_B_plata.sql (los dos viejos, con el detalle de qué crédito le queda a cada cliente). Verificado con smoke_rv.cjs (13 asserts, incluidos el segundo click con la caché vieja, dos clicks simultáneos que emiten UN solo RV, el reintento ante choque de número y el remito anulado). // 15c: 🔴 NADA AVISABA CUANDO LA OE NO ALCANZA PARA SU OC. German: «los metros que me hizo la OE no me alcanzan para cubrir la OC, pero hice un 115 % de más». Las dos cosas eran ciertas: OC-1052807 (GARCIA LEONARDO, 00492, 50.000 bolsas) necesita 41.200 m y su OE ORD-06190 se creó por 33.990. La planta produjo 39.000 m —el 114,7 % de la OE y el 94,7 % de la OC— y salieron 47.330 bolsas de 50.000. Cada pantalla comparaba la producción contra LA OE y ninguna comparaba LA OE CONTRA SU OC. 🔴 EL ORIGEN ES LA FICHA: el 00492 tenía metros_por_bolsa 0,66 cuando la bolsa 60×90 lleva 0,80 —lo confirma su propio peso de ficha, 0,0142 kg ÷ 0,0177 kg/m de la bobina = 0,8023 m—; al corregirla la OC se recalculó y la OE quedó con el número viejo. Ya había pasado en agosto con OC-1052714 (30.000 pedidas, 28.000 reales) y nadie lo ató a su causa. Bloque nuevo al lado de `_ocDesalineo` (misma idea, mismo lugar): `_ocMetrosPlan` es LA cuenta (P1) y mide contra la FICHA DE HOY —unidades × metros_por_bolsa × merma— y no contra lo que dice la OC, así con una sola comparación salen los dos casos: la OE que quedó corta contra su OC ('oe_corta') y la OC que quedó corta contra la ficha y arrastró a su OE ('ficha_vieja'). `_ocMetrosCortos` filtra por órdenes ABIERTAS y tolerancia 0,5 % (abajo de eso es redondeo). El aviso aparece en la lista de Órdenes de corte, en el panel de bobinas de la OC, en el panel de corte y en 🎯 Cortar hoy —ahí SIEMPRE, aunque hoy no falte stock, porque lo que falta no se va a producir nunca—; más un panel rojo arriba de la tabla con todas y su botón de corregir. 🔴 LA CORRECCIÓN lleva la OC y la OE a los metros de la ficha (y recalcula los kg de la OE con el kg/m de su bobina), NO toca cantidades ni precios —la cantidad pedida no cambió, lo que estaba mal era cuántos metros hacen falta—, y si la OE figura Completada pero le faltan metros ofrece REABRIRLA a En proceso: si no, no aparece en ninguna cola y esos metros no se hacen nunca. Lo producido se consulta contra la BASE, no contra `C.bobinas_prod`, que es caché parcial. Rastro en las observaciones de las dos órdenes. 🔴 Y al cambiar metros_por_bolsa de un producto, guardar ahora pide confirmación listando las OC abiertas que quedan cortas con el valor nuevo, con los metros y las unidades de cada una — el aviso que no existía cuando se corrigió el 0,66. Sobre los datos reales del 15/09 detecta exactamente dos: OC-1052816 (RICCI, faltan 7.642 m ≈ 9.275 u, su OE ORD-06199 ya figura Completada) y OC-1052807 (faltan 7.210 m ≈ 8.750 u). Verificado con smoke_om.cjs (22 asserts sobre esos mismos datos, incluidos los bordes: OC cerrada, OE cancelada, ficha sin metros por bolsa y una diferencia de redondeo del 0,2 % que no dispara). // 15b: 🔴 QUE FALTEN KG AL REGULARIZAR UN PROVISORIO NO ES UN ERROR: SON DOS CASOS DISTINTOS Y EL SISTEMA NO PUEDE ADIVINAR CUÁL. Con el 15a puesto, el modal del caso del rojo mostró los dos lotes —pero 14,483 y 24,472 disponibles, no 15 y 25— y frenó pidiendo cargar un remito que no falta: desde que German cargó esos remitos la planta siguió produciendo Y CONSUMIÓ 1,045 kg CONTRA ELLOS. Esos kg salieron de la misma bolsa que el provisorio, así que también hay que sacárselos al provisorio; descontar sólo los 38,955 dejaba el sistema en 19,22 kg donde hay 18,175. El caso opuesto existe igual: el operario declaró MÁS de lo que vino por remito porque parte era sobrante nuestro, y ahí el faltante NO se descuenta —esos kg son de verdad y ya están adentro del provisorio—. La pista para distinguirlos es cuánto SALIÓ de los lotes elegidos (`ingresados − disponibles`): si alcanza para explicar el faltante es consumo, si no el remito nunca trajo tanto. Ahora el modal propone el que corresponde, deja cambiarlo y muestra CON CUÁNTO QUEDA EL PROVISORIO en cada caso; con «ya se consumieron» escribe un `ajuste_neg` extra contra el propio provisorio y baja sus kg. La opción se deshabilita sola si el provisorio no tiene saldo para cubrir el faltante. Además: repartir MÁS de lo declarado ahora se rechaza explícitamente (antes sólo decía «sobran»), y `_mpProvRemLeer` descarta las filas cuyo lote no esté en la caché — mejor que el reparto no cierre y el botón quede apagado, que escribir un movimiento contra un lote que no se pudo leer. Verificado con smoke_prov.cjs (37 asserts, 16 nuevos: reproduce el caso real con 14,483 + 24,472, detecta el faltante de 1,045, propone «ya se consumieron», dice que el provisorio queda en 18,175, exige elegir opción antes de habilitar, escribe los 3 movimientos con el del provisorio en −1,045, y con la otra opción escribe sólo 2 y no toca sus kg). // 15a: 🔴 REGULARIZAR UN PROVISORIO DE MP SÓLO ACEPTABA UN LOTE CON TODOS LOS KG. El botón «📦 Salió de un remito» filtraba los candidatos con `kg_disponibles >= kg declarados`, y eso casi nunca se cumple: el operario declara lo que VE en planta —que es la suma de lo que llegó— y lo que llegó vino en varios remitos. Caso del 15/09: MATIAS CORDOBA declaró 40 kg de COLORANTE ROJO el 14/09 porque el sistema estaba en 0,26 kg, y esos 40 kg eran dos lotes de 25 y 15 que German cargó al día siguiente. Ninguno de los dos llegaba a 40, la lista del modal salía VACÍA y el provisorio no se podía cerrar por ningún lado: el stock quedaba contado dos veces (40 kg de los remitos + 19,22 kg que quedaban del provisorio = 58,2 donde hay 19,22). AHORA EL REPARTO ES ENTRE VARIOS LOTES: se listan todos los lotes comprados con kg disponibles, con los kg editables uno por uno y prellenado del más viejo al más nuevo (el mismo FIFO con el que se consume de verdad). El botón de confirmar se habilita SÓLO si el reparto da exacto lo declarado —repartir de menos deja stock fantasma y de más le roba kg a un lote que sí los tiene— y se bloquea si a algún lote se le piden más kg de los que tiene, diciendo cuál. Cada lote de origen recibe SU propio `ajuste_neg` con SU precio, así el libro de cada uno cuenta su propia historia. Si entre todos los lotes cargados no llegan a lo declarado, lo dice y manda a cargar el remito que falta —o a cerrarlo como sobrante nuestro, que es lo que es si no hubo remito. 🔴 ADEMÁS, LOS KG QUE QUEDAN SE REPRECIAN AL PRECIO REAL (tilde, por defecto sí): el provisorio nace con un precio ESTIMADO —el del último ingreso— y al regularizar ya se sabe de qué lotes salió, así que los kg que quedan pasan al promedio ponderado real de esos lotes. En el caso del rojo el estimado era $6.761,725 y el histórico de ese material va de $6.761 a $13.341: dejarlo estimado mete ese error en el costo de cada bolsa que use colorante. Lo YA CONSUMIDO no se recostea —esas bobinas quedaron costeadas al precio del momento y no se tocan (P1, mismo criterio que el 03a)—, y por eso el repricing es un tilde visible y no un efecto silencioso. Verificado con smoke_prov.cjs (21 asserts: reproduce el caso 40 = 25 + 15, el prellenado FIFO, los tres bordes del reparto —falta, sobra, un lote sin esos kg—, que se escribe un movimiento por lote con su precio y sin impactar resultado, que los dos lotes quedan en cero y terminados, la marca REGULARIZADO contra los dos, el promedio ponderado de $8.375 y que destildando no se toca el precio). // 14e: 🔴 LA PANTALLA PROPUSO BOB-00002 Y FRENO LA PLANTA. El 14/09 11:26 Carga de bobinas ofrecio BOB-00002 —que existe desde el 5 de mayo— y el candado de numeros unicos corto la carga: "hay bobinas repetidas". EL CONTADOR ESTABA PERFECTO (5645, y la ultima bobina era BOB-05645 de las 10:32 de ese mismo dia): lo que fallo fue la LECTURA. `const next=(data?.valor||0)+1` convierte un problema de red en un numero inventado, y el que arranca de cero siempre choca con lo que ya existe. Es EXACTAMENTE el bug de los remitos del 11/09 (11a) en otro modulo: mismo ||0, misma caida a 1 — la regla ya estaba escrita y faltaba aplicarla acá. Ahora hay un numerador unico para los tres documentos que quedaban con el patron viejo (bobinas, OC, OE): _nroSiguiente = max(contador, ULTIMO DOCUMENTO QUE EXISTE) + 1; si UNA de las dos lecturas falla la otra lo salva; si fallan LAS DOS no se propone nada — se avisa y no se deja cargar, porque un numero inventado es peor que no tener numero. El numero se CONFIRMA AL GUARDAR y no al abrir la pantalla (que puede quedar abierta mientras otro carga), ante un choque 23505 se prueba el siguiente hasta 5 veces, y el contador se sincroniza despues y NUNCA baja: es una ayuda, no la fuente. Un error que no es choque (permisos, red) no se reintenta. Verificado con smoke9.cjs (17 asserts) sobre el escenario real: contador caido, tabla caida, las dos caidas, contador atrasado y adelantado, base vacia y valor en texto.
@@ -43132,6 +43137,104 @@ async function guardarAjusteStock(){
 // así el resultado del mes absorbe la verdad de una vez en lugar de arrastrarla.
 let _CF={};              // producto_id → lo contado (se conserva entre re-renders)
 let _cfAplicando=false;
+// ---- 🕐 27a: LA HORA DEL CONTEO + LO TIPEADO NO SE PIERDE ----
+// La planta corre 24 hs: entre que se cuenta el depósito y que se vuelca acá, el corte sigue
+// acreditando paquetes y los remitos siguen descontando. Comparar lo contado contra el stock
+// de AHORA metía esos movimientos dentro del ajuste: 3.000 paq cortados después del conteo
+// se «corregían» como si nunca hubieran existido (y un remito posterior se volvía a sumar).
+// Lo contado se compara contra lo que el sistema tenía A LA HORA DEL CONTEO, que sale del
+// LIBRO (P1: mov_bolsas es la historia firmada del físico): sistema_a_esa_hora = ahora −
+// movimientos posteriores. El ajuste se aplica igual sobre el stock de hoy, así lo que se
+// movió después queda intacto: final = contado + lo posterior.
+// Y lo tipeado vive en localStorage de esta PC hasta aplicarlo: 115 productos a mano no se
+// pueden perder por un F5.
+let _cfLibro={t:null,post:{},nMov:0,ok:false,cargando:false,err:null,tok:0};
+let _cfLSCargado=false;
+const _CF_LS='cf_conteo_v1';
+function _cfGuardarLS(){
+  try{localStorage.setItem(_CF_LS,JSON.stringify({cont:_CF,hora:document.getElementById('cf-hora')?.value||''}));}catch(e){}
+}
+function _cfInitLS(){
+  if(_cfLSCargado)return;
+  _cfLSCargado=true;
+  let o=null;try{o=JSON.parse(localStorage.getItem(_CF_LS)||'null');}catch(e){o=null;}
+  if(!o||typeof o!=='object')return;
+  if(o.cont&&typeof o.cont==='object')Object.keys(o.cont).forEach(k=>{
+    const v=parseFloat(o.cont[k]);const pid=parseInt(k);
+    if(pid&&!isNaN(v)&&_CF[pid]==null)_CF[pid]=v;
+  });
+  const h=document.getElementById('cf-hora');
+  if(h&&!h.value&&o.hora)h.value=o.hora;
+}
+// Instante del conteo (ISO) desde el datetime-local. null = sin hora o inválida.
+// 'YYYY-MM-DDTHH:MM' se interpreta en hora LOCAL, así que toISOString da el instante correcto.
+function _cfHoraISO(v){
+  if(!v)return null;
+  const d=new Date(v);
+  if(isNaN(d.getTime()))return null;
+  return d.toISOString();
+}
+function _cfHoraFutura(v){const d=new Date(v);return !!v&&!isNaN(d.getTime())&&d.getTime()>Date.now()+60000;}
+// Suma por producto de los movimientos del libro POSTERIORES al conteo (pura).
+// Los ajustes de ESTE MISMO conteo (obs «Conteo físico…») no cuentan como posteriores: son la
+// corrección del estado a esa hora. Si se contaran, volver a tipear un producto ya aplicado
+// duplicaría el ajuste.
+function _cfPosterior(movs,tISO){
+  const post={};let n=0;
+  if(!tISO)return {post,n};
+  const t=new Date(tISO).getTime();
+  (movs||[]).forEach(m=>{
+    const f=new Date(m.fecha||m.created_at).getTime();
+    if(!(f>t))return;
+    if(String(m.observaciones||'').indexOf('Conteo físico')===0)return;
+    const q=parseFloat(m.paquetes)||0;if(!q)return;
+    post[m.producto_id]=r2((post[m.producto_id]||0)+q);n++;
+  });
+  return {post,n};
+}
+// La cuenta de UN producto (pura): el sistema a la hora del conteo = ahora − lo posterior;
+// la diferencia se mide contra ESO y se aplica sobre lo de ahora.
+function _cfCalc(cont,vivo,posterior){
+  const sistT=r2((vivo||0)-(posterior||0));
+  const dif=r2((cont||0)-sistT);
+  return {sistT,dif,finalFis:r2((vivo||0)+dif)};
+}
+async function _cfTraerPosterior(tISO){
+  if(!tISO)return {post:{},n:0,error:null};
+  const{data,error}=await _traerQ(()=>sb.from('mov_bolsas').select('id,producto_id,paquetes,fecha,observaciones').gt('fecha',tISO).order('id',{ascending:true}));
+  if(error)return {post:{},n:0,error};
+  const r=_cfPosterior(data,tISO);
+  return {post:r.post,n:r.n,error:null};
+}
+async function _cfAsegurarLibro(){
+  const v=document.getElementById('cf-hora')?.value||'';
+  const tISO=_cfHoraFutura(v)?null:_cfHoraISO(v);
+  if(_cfLibro.t===tISO&&(_cfLibro.ok||_cfLibro.cargando||_cfLibro.err))return;   // con error no reintenta solo: 🔄 Refrescar
+  const tok=_cfLibro.tok+1;
+  _cfLibro={t:tISO,post:{},nMov:0,ok:false,cargando:true,err:null,tok};
+  const r=await _cfTraerPosterior(tISO);
+  if(tok!==_cfLibro.tok)return;   // cambiaron la hora mientras tanto
+  _cfLibro={t:tISO,post:r.post,nMov:r.n,ok:!r.error,cargando:false,err:r.error?(r.error.message||String(r.error)):null,tok};
+  renderConteoBolsas();
+}
+function cfHoraCambio(){_cfGuardarLS();_cfLibro={..._cfLibro,ok:false,cargando:false,err:null,t:'__'};renderConteoBolsas();}
+// 🔄 Refrescar: vuelve a leer el libro (los cortes y remitos de recién) y el stock.
+async function cfRefrescar(){
+  _cfLibro={..._cfLibro,ok:false,cargando:false,err:null,t:'__'};
+  try{await reload();}catch(e){}
+  renderConteoBolsas();
+}
+function _cfHoraInfoHtml(){
+  const v=document.getElementById('cf-hora')?.value||'';
+  if(!v)return '<span style="color:var(--amber);font-weight:600;">⚠ Sin hora de conteo:</span> <span style="color:var(--text2);">se compara contra el stock de <b>ahora</b>. Si desde que contaste se cortó o se remitió algo, poné la hora en que contaste.</span>';
+  if(_cfHoraFutura(v))return '<span style="color:var(--red);font-weight:600;">✖ La hora del conteo está en el futuro.</span> <span style="color:var(--text2);">Corregila: no se puede aplicar así.</span>';
+  if(_cfLibro.err)return '<span style="color:var(--red);font-weight:600;">✖ No se pudo leer el libro:</span> <span style="color:var(--text2);">'+escapeHtml(_cfLibro.err)+' — no se puede aplicar hasta que cargue (🔄 Refrescar).</span>';
+  if(!_cfLibro.ok)return '<span style="color:var(--text3);">Leyendo el libro desde esa hora…</span>';
+  const d=new Date(v);
+  const hh=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  return '<span style="color:var(--text2);">🕐 Comparando contra el sistema del <b>'+d.getDate()+'/'+(d.getMonth()+1)+' a las '+hh+'</b>'
+    +(_cfLibro.nMov?' · desde entonces hubo <b>'+_cfLibro.nMov+'</b> movimiento'+(_cfLibro.nMov===1?'':'s')+' (cortes, remitos) que se respetan':' · sin movimientos desde entonces')+'.</span>';
+}
 function _cfCostoPaq(p){
   // Mismo orden que las pantallas de precios: costo REAL (bolsas de los últimos 30 días)
   // y, si el producto no se produjo hace un mes —típico del stock viejo que justamente
@@ -43152,34 +43255,44 @@ function _cfLista(){
     if(s.estado==='disponible')vivos[s.producto_id].disp+=v;else vivos[s.producto_id].res+=v;
   });
   const todos=document.getElementById('cf-todos')?.checked;
-  const base=todos?C.productos:(C.productos||[]).filter(p=>vivos[p.id]&&(vivos[p.id].disp+vivos[p.id].res)>0);
+  // 27a: además de lo que tiene stock HOY, entra lo que tenía stock a la hora del conteo
+  // (se remitió entero después) y todo lo que ya se tipeó — que nada desaparezca de la lista.
+  const post=(_cfLibro.ok&&_cfLibro.post)||{};
+  const base=todos?C.productos:(C.productos||[]).filter(p=>(vivos[p.id]&&(vivos[p.id].disp+vivos[p.id].res)>0)||Math.abs(post[p.id]||0)>0.001||_CF[p.id]!=null);
   return _prodOrdenados(base).map(p=>{
     const v=vivos[p.id]||{disp:0,res:0};
-    return {p,disp:v.disp,res:v.res,vivo:r2(v.disp+v.res),costoPaq:_cfCostoPaq(p)};
+    const vivo=r2(v.disp+v.res);
+    const ps=r2(post[p.id]||0);
+    return {p,disp:v.disp,res:v.res,vivo,post:ps,sistT:r2(vivo-ps),costoPaq:_cfCostoPaq(p)};
   });
 }
 function renderConteoBolsas(){
   const root=document.getElementById('cf-tbl');if(!root)return;
+  _cfInitLS();
   // guardar lo tipeado antes de redibujar
   document.querySelectorAll('[id^="cf-in-"]').forEach(i=>{
     const pid=parseInt(i.id.slice(6));
     if(i.value==='')delete _CF[pid];else _CF[pid]=parseFloat(i.value);
   });
+  _cfGuardarLS();
+  const hi=document.getElementById('cf-hora-info');if(hi)hi.innerHTML=_cfHoraInfoHtml();
+  _cfAsegurarLibro();   // async: si la hora cambió, vuelve a dibujar cuando termina
   const q=(document.getElementById('cf-search')?.value||'').toLowerCase().trim();
   let lista=_cfLista();
   if(q)lista=lista.filter(({p})=>((p.codigo||'')+' '+(p.descripcion||'')).toLowerCase().includes(q));
   let filas='',nCont=0,paqDif=0,valDif=0,sinCosto=0;
-  lista.forEach(({p,disp,res,vivo,costoPaq})=>{
+  lista.forEach(({p,disp,res,vivo,post,sistT,costoPaq})=>{
     const cont=_CF[p.id];
     const tiene=cont!=null&&!isNaN(cont);
-    const dif=tiene?r2(cont-vivo):null;
+    const dif=tiene?_cfCalc(cont,vivo,post).dif:null;
     if(tiene){nCont++;if(Math.abs(dif)>0.001){paqDif+=dif;valDif+=dif*costoPaq;if(!costoPaq)sinCosto++;}}
     filas+='<tr style="border-top:1px solid var(--border);">'
       +'<td style="padding:6px 8px;font-family:monospace;">'+escapeHtml(p.codigo||'')+'</td>'
       +'<td style="padding:6px 8px;">'+escapeHtml(p.descripcion||'')+'</td>'
       +'<td style="text-align:right;padding:6px 8px;font-family:monospace;">'+disp.toLocaleString('es-AR')+'</td>'
       +'<td style="text-align:right;padding:6px 8px;font-family:monospace;color:var(--text2);">'+res.toLocaleString('es-AR')+'</td>'
-      +'<td style="text-align:right;padding:6px 8px;font-family:monospace;font-weight:700;">'+vivo.toLocaleString('es-AR')+'</td>'
+      +'<td style="text-align:right;padding:6px 8px;font-family:monospace;font-weight:700;">'+sistT.toLocaleString('es-AR')
+        +(Math.abs(post)>0.001?'<div style="font-size:10px;font-weight:400;color:var(--text3);" title="Lo que se movió después de la hora del conteo: se respeta, no entra en la diferencia">ahora '+vivo.toLocaleString('es-AR')+' ('+(post>0?'+':'')+post.toLocaleString('es-AR')+' después)</div>':'')+'</td>'
       +'<td style="padding:4px 8px;"><input id="cf-in-'+p.id+'" type="number" min="0" step="1" value="'+(tiene?cont:'')+'" oninput="cfInput('+p.id+')" style="width:110px;text-align:right;font-family:monospace;"></td>'
       +'<td id="cf-dif-'+p.id+'" style="text-align:right;padding:6px 8px;font-family:monospace;font-weight:700;color:'+(dif==null?'var(--text3)':(Math.abs(dif)<=0.001?'var(--green)':(dif<0?'var(--red)':'var(--amber)')))+';">'
         +(dif==null?'—':(Math.abs(dif)<=0.001?'✓':(dif>0?'+':'')+dif.toLocaleString('es-AR')))+'</td>'
@@ -43197,22 +43310,30 @@ function renderConteoBolsas(){
           ?'<span style="font-size:12px;font-family:monospace;color:'+(valDif<0?'var(--red)':'var(--amber)')+';">'+(valDif>0?'+':'')+'$'+r2(valDif).toLocaleString('es-AR')+' al costo marginal</span>'
             +(sinCosto?'<span style="font-size:11px;color:var(--amber);">⚠ '+sinCosto+' sin costo (se asientan sin valuar)</span>':'')
           :'<span style="font-size:12px;color:var(--text2);">sin efecto económico — corrección de carga</span>')
-        +'<button class="btn btn-sm" style="background:var(--accent);color:#fff;border:none;margin-left:auto;" onclick="cfAplicar()">✅ Aplicar diferencias</button>'
+        +(_cfPuedeAplicar()
+          ?'<button class="btn btn-sm" style="background:var(--accent);color:#fff;border:none;margin-left:auto;" onclick="cfAplicar()">✅ Aplicar diferencias</button>'
+          :'<button class="btn btn-sm" disabled style="margin-left:auto;opacity:.5;" title="Falta resolver la hora del conteo (ver arriba)">✅ Aplicar diferencias</button>')
       +'</div>':'';
   }
   root.innerHTML='<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">'
     +'<tr style="color:var(--text3);font-size:10px;text-transform:uppercase;">'
     +'<th style="text-align:left;padding:6px 8px;">Cód</th><th style="text-align:left;padding:6px 8px;">Producto</th>'
     +'<th style="text-align:right;padding:6px 8px;">Disp.</th><th style="text-align:right;padding:6px 8px;">Reserv.</th>'
-    +'<th style="text-align:right;padding:6px 8px;">Sistema</th><th style="text-align:left;padding:6px 8px;">Contado (paq)</th>'
+    +'<th style="text-align:right;padding:6px 8px;" title="Lo que el sistema tenía a la hora del conteo (sin hora: el de ahora)">Sistema al contar</th><th style="text-align:left;padding:6px 8px;">Contado (paq)</th>'
     +'<th style="text-align:right;padding:6px 8px;">Diferencia</th><th style="text-align:right;padding:6px 8px;">Costo/paq</th></tr>'
     +filas+'</table></div>'
     +(lista.length?'':'<div class="empty" style="padding:30px;text-align:center;color:var(--text3);">Nada que coincida con el filtro.</div>');
 }
 function _cfModo(){return document.querySelector('input[name="cf-modo"]:checked')?.value||'correccion';}
+function _cfPuedeAplicar(){
+  const v=document.getElementById('cf-hora')?.value||'';
+  if(_cfHoraFutura(v))return false;
+  return _cfLibro.ok&&!_cfLibro.cargando&&!_cfLibro.err;
+}
 function cfInput(pid){
   const i=document.getElementById('cf-in-'+pid);if(!i)return;
   if(i.value==='')delete _CF[pid];else _CF[pid]=parseFloat(i.value);
+  _cfGuardarLS();
   renderConteoBolsas();
 }
 function cfPlanilla(){
@@ -43243,38 +43364,65 @@ function cfPlanilla(){
 async function cfAplicar(){
   pedirAdminYEjecutar(async()=>{
     if(_cfAplicando)return;
-    // releer lo tipeado y armar los ajustes
+    // releer lo tipeado
     document.querySelectorAll('[id^="cf-in-"]').forEach(i=>{
       const pid=parseInt(i.id.slice(6));
       if(i.value==='')delete _CF[pid];else _CF[pid]=parseFloat(i.value);
     });
-    const lista=_cfLista();
-    const ajustes=[];
-    lista.forEach(({p,vivo,costoPaq})=>{
-      const cont=_CF[p.id];
-      if(cont==null||isNaN(cont))return;
-      const dif=r2(cont-vivo);
-      if(Math.abs(dif)<=0.001)return;
-      ajustes.push({p,vivo,cont,dif,costoPaq});
-    });
-    if(!ajustes.length){toast('No hay diferencias para aplicar','amber');return;}
-    const paqDif=ajustes.reduce((s,a)=>s+a.dif,0);
-    const valDif=ajustes.reduce((s,a)=>s+a.dif*a.costoPaq,0);
-    // Modo elegido arriba. CORRECCIÓN (lo normal acá): el stock sobrante nunca se produjo —
-    // no gastó materia prima ni horas — así que NO es plata perdida y el resultado no se toca
-    // (criterio de German, 21/08: "nunca la produje, no es plata que perdí"). REAL: bolsas que
-    // sí existieron y desaparecieron/aparecieron → faltante/sobrante con costo, pega al mes.
-    const modo=_cfModo();
-    if(!confirm('Se van a asentar '+ajustes.length+' ajuste(s) de conteo:\n\n'
-      +ajustes.map(a=>'  '+(a.p.codigo||'')+' '+(a.dif>0?'+':'')+a.dif.toLocaleString('es-AR')+' paq').join('\n')
-      +'\n\nTotal: '+(paqDif>0?'+':'')+r2(paqDif).toLocaleString('es-AR')+' paq.'
-      +(modo==='real'
-        ?'\nPÉRDIDA/HALLAZGO REAL: '+(valDif>0?'+':'')+'$'+r2(valDif).toLocaleString('es-AR')+' al costo marginal — pega en el resultado del mes.'
-        :'\nERROR DE REGISTRO: corrección de carga, SIN efecto económico — el resultado del mes no se toca.')
-      +'\n¿Aplicar?'))return;
+    _cfGuardarLS();
+    const horaV=document.getElementById('cf-hora')?.value||'';
+    if(_cfHoraFutura(horaV)){toast('La hora del conteo está en el futuro: corregila antes de aplicar','red');return;}
+    const tISO=_cfHoraISO(horaV);
     _cfAplicando=true;
-    let ok=0,mal=0;
     try{
+      // 27a: FOTO FRESCA contra la BASE, no contra la caché: el stock de ahora y lo que se movió
+      // desde la hora del conteo. Si cualquiera de las dos lecturas falla, no se aplica nada.
+      const{data:stk,error:e1}=await _traerQ(()=>sb.from('stock_bolsas').select('id,producto_id,cantidad_paquetes,estado').in('estado',['disponible','reservado']).order('id',{ascending:true}));
+      if(e1){toast('No se pudo leer el stock actual ('+e1.message+'): no se aplicó nada','red');return;}
+      const r=await _cfTraerPosterior(tISO);
+      if(r.error){toast('No se pudo leer el libro desde la hora del conteo ('+(r.error.message||r.error)+'): no se aplicó nada','red');return;}
+      const vivos={};
+      (stk||[]).forEach(s=>{
+        const v=parseFloat(s.cantidad_paquetes)||0;
+        if(!vivos[s.producto_id])vivos[s.producto_id]={disp:0,res:0};
+        if(s.estado==='disponible')vivos[s.producto_id].disp+=v;else vivos[s.producto_id].res+=v;
+      });
+      const ajustes=[],imposibles=[],reservas=[];
+      Object.keys(_CF).forEach(k=>{
+        const pid=parseInt(k);const cont=_CF[pid];
+        if(!pid||cont==null||isNaN(cont))return;
+        const p=(C.productos||[]).find(x=>x.id===pid);if(!p)return;
+        const v=vivos[pid]||{disp:0,res:0};
+        const vivo=r2(v.disp+v.res);
+        const post=r2(r.post[pid]||0);
+        const c=_cfCalc(cont,vivo,post);
+        if(c.finalFis<-0.001){imposibles.push({p,cont,post});return;}
+        if(Math.abs(c.dif)<=0.001){delete _CF[pid];return;}   // ya coincide: nada que asentar
+        if(c.finalFis<v.res-0.001)reservas.push({p,res:v.res,finalFis:c.finalFis});
+        ajustes.push({p,vivo,post,sistT:c.sistT,cont,dif:c.dif,costoPaq:_cfCostoPaq(p)});
+      });
+      _cfGuardarLS();
+      if(imposibles.length){
+        toast('⚠ '+imposibles.map(x=>x.p.codigo).join(', ')+': después de la hora del conteo salió más de lo contado — revisá la hora o lo contado','red');
+      }
+      if(!ajustes.length){toast(imposibles.length?'Nada aplicado':'No hay diferencias para aplicar','amber');renderConteoBolsas();return;}
+      const paqDif=ajustes.reduce((s,a)=>s+a.dif,0);
+      const valDif=ajustes.reduce((s,a)=>s+a.dif*a.costoPaq,0);
+      // Modo elegido arriba. CORRECCIÓN (lo normal acá): el stock sobrante nunca se produjo —
+      // no gastó materia prima ni horas — así que NO es plata perdida y el resultado no se toca
+      // (criterio de German, 21/08: "nunca la produje, no es plata que perdí"). REAL: bolsas que
+      // sí existieron y desaparecieron/aparecieron → faltante/sobrante con costo, pega al mes.
+      const modo=_cfModo();
+      const hTxt=tISO?(()=>{const d=new Date(tISO);return d.getDate()+'/'+(d.getMonth()+1)+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');})():'';
+      if(!confirm('Se van a asentar '+ajustes.length+' ajuste(s) de conteo'+(tISO?' (contado el '+hTxt+')':' (sin hora: contra el stock de ahora)')+':\n\n'
+        +ajustes.map(a=>'  '+(a.p.codigo||'')+' '+(a.dif>0?'+':'')+a.dif.toLocaleString('es-AR')+' paq'+(Math.abs(a.post)>0.001?'  (después del conteo: '+(a.post>0?'+':'')+a.post.toLocaleString('es-AR')+', se respeta)':'')).join('\n')
+        +'\n\nTotal: '+(paqDif>0?'+':'')+r2(paqDif).toLocaleString('es-AR')+' paq.'
+        +(reservas.length?'\n\n⚠ Quedan por debajo de lo reservado a pedidos (se achican las reservas):\n'+reservas.map(x=>'  '+(x.p.codigo||'')+': quedan '+x.finalFis.toLocaleString('es-AR')+' y había '+x.res.toLocaleString('es-AR')+' reservados').join('\n'):'')
+        +(modo==='real'
+          ?'\n\nPÉRDIDA/HALLAZGO REAL: '+(valDif>0?'+':'')+'$'+r2(valDif).toLocaleString('es-AR')+' al costo marginal — pega en el resultado del mes.'
+          :'\n\nERROR DE REGISTRO: corrección de carga, SIN efecto económico — el resultado del mes no se toca.')
+        +'\n¿Aplicar?'))return;
+      let ok=0,mal=0;
       for(const a of ajustes){
         const conCosto=modo==='real'&&a.costoPaq>0;
         const{data,error}=await sb.rpc('ajuste_stock_bolsas',{
@@ -43282,13 +43430,16 @@ async function cfAplicar(){
           p_tipo:modo==='real'?(a.dif<0?'ajuste_neg':'ajuste_pos'):'ajuste_neutro',
           p_motivo_cod:modo==='real'?(a.dif<0?'faltante':'sobrante'):'correccion',
           p_impacta:conCosto,p_costo:conCosto?a.costoPaq:null,
-          p_obs:'Conteo físico '+localDate()+': sistema '+a.vivo.toLocaleString('es-AR')+', contado '+a.cont.toLocaleString('es-AR')+(modo==='real'?'':' · error de registro, sin efecto económico')});
+          p_obs:'Conteo físico '+(tISO?hTxt:localDate()+' (sin hora)')+': sistema a esa hora '+a.sistT.toLocaleString('es-AR')+', contado '+a.cont.toLocaleString('es-AR')
+            +(Math.abs(a.post)>0.001?' · movido después '+(a.post>0?'+':'')+a.post.toLocaleString('es-AR')+' (respetado)':'')
+            +(modo==='real'?'':' · error de registro, sin efecto económico')});
         if(error||(data&&data.ok===false)){mal++;console.error('conteo:',a.p.codigo,error?.message||data?.msg);
           toast('⚠ '+(a.p.codigo||'')+': '+(error?.message||data?.msg||'no se pudo asentar'),'red');}
-        else{ok++;delete _CF[a.p.id];}
+        else{ok++;delete _CF[a.p.id];_cfGuardarLS();}
       }
+      toast(mal?('Asentados '+ok+' · fallaron '+mal+' (siguen tipeados para reintentar)'):'✅ Conteo asentado: '+ok+' ajuste(s)',mal?'amber':'green');
     }finally{_cfAplicando=false;}
-    toast(mal?('Asentados '+ok+' · fallaron '+mal):'✅ Conteo asentado: '+ok+' ajuste(s)',mal?'amber':'green');
+    _cfLibro={..._cfLibro,ok:false,cargando:false,err:null,t:'__'};
     await reload();
     renderConteoBolsas();
   });
