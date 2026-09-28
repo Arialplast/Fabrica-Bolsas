@@ -5735,7 +5735,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-09-28d';   // 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
+const APP_BUILD='2026-09-28e';   // 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
 // (anterior) 28c:   // 28c: 📜 BOBINAS VIEJAS A DEMANDA — reload trae sólo bobinas en stock o de los últimos 60 días, y toda pantalla que miraba una OE o un período más viejo contaba de menos EN SILENCIO: el 🖨️ de ORD-05574 salía con 0 bobinas (tiene 45) y Costos de producción de julio daba 3.590 kg producidos (fueron 37.144). Ahora la MISMA caché C.bobinas_prod se completa sólo cuando hace falta: por OE (🖨️, 📊 Detalle, 📦 Lotes de MP de OE y de pedido, % de avance de la lista, Historial) o por período (Costos, Rentabilidad, con su comparación). Pieza única `// ===== 📜 BOBINAS VIEJAS A DEMANDA` (_oeBobCompleta, _bobPeriodoIncompleto, _completarBobinasDeOEs, _traerBobinasHistoricas, _bobAsegurarYRepintar), invalidada en cada reload con window._bobGen. El botón «📜 Cargar todas las históricas» de Stock usa la misma descarga. Mismos filtros que la carga inicial. Solo lectura. Sin SQL.
 // (anterior) 28b:   // 28b: 🧱 HOJA DE PALLET DE BOBINAS — botón «🧱 Pallet» en la lista de Órdenes de extrusión (y al completarse la OE al cargar la última bobina): A4 con el CLIENTE, el PRODUCTO (código + descripción), el tipo de bobina, total de bobinas/kg/metros en grande, OC, pedido, entrega, y la lista de TODAS las bobinas en stock de la OE con casilla para tildar al subirlas, firmas Armó/Controló. Las bobinas se consultan a la BASE (no a C.bobinas_prod, caché parcial). Fuera de rango/excedentes no van al pallet y se listan aparte; las reservadas a OTRA OC se marcan en gris; las ya cortadas se aclaran al pie. Solo lectura. Sin SQL.
 // (anterior) 28a:   // 28a: 💰 QUÉ PLATA TRAE ESTE ORDEN — sección nueva en Planificar producción: con el orden de extrusión y de corte (aunque no esté guardado) proyecta cuándo sale cada OC y cuándo entra la plata según cómo PAGA DE VERDAD cada cliente (remito→saldo de su factura/RV, últimos 120 días, ponderado; impagos vencidos cuentan como cota), contra cobrar al entregar. Número rey a 30 días, curva doble, plata financiada máxima, filtro por cortadora, lista OC por OC con su máquina, tabla pacta vs. paga. Proyección: no toca Flujo ni Salud. Sin SQL.
@@ -12392,6 +12392,10 @@ async function acreditarStockDesdeOC(ocId){
           pedidoId=null;
         }
       }
+      // 28e: reservado y entregado se cuentan por pedido+producto (abajo), así que lo
+      // pedido también: TODAS las líneas del producto. Con 00123 × 400 + 400, antes se
+      // topeaba en 400 y lo de la segunda línea (OC-1052871) caía a stock libre.
+      if(pedidoId){const _tot=_paqPedidosProducto(p,o.producto_id);if(_tot>paqPedidos)paqPedidos=_tot;}
       break;
     }
   }
@@ -12468,6 +12472,7 @@ async function reservarStockOCalPedido(ocId){
         const li=(p.pedido_lineas||[]).find(l=>l.producto_id===o.producto_id);
         if(li){paqPedidos=parseFloat(li.cantidad)||0;pedidoLineaId=li.id;}
       }
+      {const _tot=_paqPedidosProducto(p,o.producto_id);if(_tot>paqPedidos)paqPedidos=_tot;}   // 28e
       break;
     }
   }
@@ -53933,7 +53938,17 @@ function _estadoLineaCalculado(p,li){
     if(s.estado==='entregado')paqEntregado+=parseFloat(s.cantidad_paquetes)||0;
     if(s.estado==='reservado')paqReservado+=parseFloat(s.cantidad_paquetes)||0;
   });
-  const paqProducido=paqReservado+paqEntregado;
+  let paqProducido=paqReservado+paqEntregado;
+  // 28e: el stock es por pedido+producto. Si el producto está en más de una línea, lo que
+  // se sumó arriba es de TODAS: se reparte en orden (la primera se llena primero), así la
+  // segunda línea no muestra de nuevo lo entregado de la primera.
+  const _hermanas=((p.pedido_lineas)||[]).filter(x=>x.producto_id===li.producto_id&&!_lineaCancelada(x)).sort((a,b)=>a.id-b.id);
+  if(_hermanas.length>1){
+    const entTot=_hermanas.reduce((a,x)=>a+(parseFloat(x.entregado)||0),0)-(parseFloat(li.entregado)||0)+paqEntregado;
+    const prodTot=entTot+paqReservado;
+    paqEntregado=_repartoEnLineas(_hermanas,entTot)[li.id]||0;
+    paqProducido=_repartoEnLineas(_hermanas,prodTot)[li.id]||0;
+  }
   const avance=paqPedido?Math.min(100,Math.round(paqProducido/paqPedido*100)):0;
 
   // OCs vinculadas a esta línea específica
@@ -57266,6 +57281,54 @@ async function confirmarTandaIndividual(pedidoId,idxOE,idxTanda){
 // vinculadas al pedido por pedido_ordenes_corte que no estén canceladas/anuladas.
 // Es la señal robusta — no depende de los sellos _confirmada del plan (los planes
 // viejos, anteriores al build 24b, no los tienen).
+// ===== 🔗 LÍNEAS REPETIDAS DEL MISMO PRODUCTO (build 2026-09-28e) =====
+// Un pedido puede tener DOS líneas del mismo producto (PED-06016 de DAG: 00123 × 400 + 400).
+// Todo el sistema buscaba «la línea» con find(producto_id) → siempre la primera: las OC de
+// la segunda línea se colgaban de la primera (OC-1052871 quedó en la 649 y la 650 «sin OC»),
+// la pantalla repetía el entregado de la primera en la segunda, las tandas de una aparecían
+// en las dos, y al cerrar la OC la reserva se topeaba en 400 en vez de 800 → lo producido
+// para la segunda línea caía a stock libre.
+// Regla única: la k-ésima línea del plan de un producto = la k-ésima línea BD de ese producto
+// (las líneas se insertan en bloque en el orden del plan, así que los id respetan ese orden).
+function _lineaBDDeOrdenPlan(plan,lineasBD,o){
+  const mismas=(lineasBD||[]).filter(l=>l.producto_id===o.producto_id).sort((a,b)=>a.id-b.id);
+  if(mismas.length<=1)return mismas[0]||null;
+  let k=(plan?.meta?.lineas||[]).filter(l=>l.producto_id===o.producto_id).map(l=>l.tmpId).indexOf(o.linea_id);
+  if(k<0)k=(plan?.ordenes||[]).filter(x=>x.producto_id===o.producto_id).indexOf(o);
+  return mismas[Math.max(0,Math.min(k,mismas.length-1))];
+}
+// Paquetes pedidos de un producto en el pedido, sumando TODAS sus líneas vivas.
+// El stock (stock_bolsas) no conoce la línea: reservado y entregado son por pedido+producto,
+// así que lo pedido tiene que medirse igual (misma cuenta que sanearReservasExcedentes).
+function _paqPedidosProducto(p,productoId){
+  return ((p?.pedido_lineas)||[]).filter(l=>l.producto_id===productoId&&!_lineaCancelada(l))
+    .reduce((a,l)=>a+Math.max(0,(parseFloat(l.cantidad)||0)-(parseFloat(l.cantidad_cancelada)||0)),0);
+}
+// Reparte un total del producto entre sus líneas vivas en orden (la primera se llena primero).
+// Pura. Devuelve {lineaId: cantidad}. La última se lleva el sobrante (sobreproducción).
+function _repartoEnLineas(lineas,total){
+  const out={};let resto=Math.max(0,total||0);
+  lineas.forEach((l,i)=>{
+    const cap=Math.max(0,(parseFloat(l.cantidad)||0)-(parseFloat(l.cantidad_cancelada)||0));
+    const q=i===lineas.length-1?resto:Math.min(cap,resto);
+    out[l.id]=q;resto-=q;
+  });
+  return out;
+}
+// Paquetes ya en OC vigentes de UNA línea (por el vínculo pedido_ordenes_corte).
+function _paqYaEnOCLinea(pedidoId,lineaId){
+  const ped=(C.pedidos||[]).find(p=>p.id===pedidoId);
+  if(!ped)return 0;
+  let paq=0;
+  (ped.pedido_ordenes_corte||[]).forEach(poc=>{
+    if(poc.pedido_linea_id!==lineaId)return;
+    const oc=(C.ord_corte||[]).find(o=>o.id===poc.orden_corte_id);
+    if(!oc||oc.estado==='Cancelada'||oc.estado==='Anulada')return;
+    paq+=parseFloat(oc.cantidad_paquetes)||0;
+  });
+  return paq;
+}
+
 function _paqYaEnOC(pedidoId,productoId){
   const ped=(C.pedidos||[]).find(p=>p.id===pedidoId);
   if(!ped)return 0;
@@ -57397,7 +57460,7 @@ async function confirmarTandasParcial(pedidoId,tandaIdsElegidos,prioridadBase){
       if(o.maquinas?.length){
         await sb.from('orden_corte_maquinas').insert(o.maquinas.map(m=>({orden_corte_id:ocRow.id,maquina_id:m})));
       }
-      const liBD=lineasBD.find(li=>li.producto_id===o.producto_id);
+      const liBD=_lineaBDDeOrdenPlan(plan,lineasBD,o);   // 28e: no la primera del producto
       await sb.from('pedido_ordenes_corte').insert({
         pedido_id:pedidoId,orden_corte_id:ocRow.id,pedido_linea_id:liBD?.id||null
       });
@@ -57565,7 +57628,11 @@ async function confirmarPedido(pedidoId,oeModoElegido,sinConfirmar,prioridadBase
     // Si esta línea YA tiene OC vigentes (típico: se confirmaron algunas tandas sueltas
     // y después se apretó "Confirmar pedido"), sólo se genera el faltante. Cuando no hay
     // nada lanzado (caso normal), pendPaq queda en Infinity y no cambia nada.
-    const yaPaqLinea=_paqYaEnOC(pedidoId,o.producto_id);
+    // 28e: si el producto está en más de una línea, el candado mira SU línea (si no,
+    // la segunda línea veía las OC de la primera y se salteaba entera).
+    const _liCand=_lineaBDDeOrdenPlan(plan,lineasBD,o);
+    const _prodRepetido=lineasBD.filter(li=>li.producto_id===o.producto_id).length>1;
+    const yaPaqLinea=(_prodRepetido&&_liCand)?_paqYaEnOCLinea(pedidoId,_liCand.id):_paqYaEnOC(pedidoId,o.producto_id);
     let pendPaq=yaPaqLinea>0?(cantLinea-yaPaqLinea):Infinity;
     if(yaPaqLinea>0&&pendPaq<=0){
       errores.push((prod.codigo||o.numero_orden||'línea')+': ya tenía '+yaPaqLinea.toLocaleString('es-AR')+' paq en OC (pedidos: '+cantLinea.toLocaleString('es-AR')+') — no se generó de nuevo');
@@ -57622,7 +57689,7 @@ async function confirmarPedido(pedidoId,oeModoElegido,sinConfirmar,prioridadBase
         await sb.from('orden_corte_maquinas').insert(o.maquinas.map(m=>({orden_corte_id:ocRow.id,maquina_id:m})));
       }
       // Vincular OC al pedido
-      const liBD=lineasBD.find(li=>li.producto_id===o.producto_id);
+      const liBD=_lineaBDDeOrdenPlan(plan,lineasBD,o);   // 28e: no la primera del producto
       await sb.from('pedido_ordenes_corte').insert({
         pedido_id:pedidoId,orden_corte_id:ocRow.id,pedido_linea_id:liBD?.id||null
       });
@@ -60148,7 +60215,7 @@ function _dpRenderLineas(p){
     // Si el pedido tiene plan_ordenes con tandas no _confirmada para este producto,
     // mostrarlas como filas anidadas para que el usuario vea qué falta confirmar.
     if(p.estado==='Borrador'&&p.plan_ordenes?.ordenes&&!cancelada){
-      const ordenesDelProd=p.plan_ordenes.ordenes.filter(o=>o.confirmar&&o.producto_id===l.producto_id);
+      const ordenesDelProd=p.plan_ordenes.ordenes.filter(o=>o.confirmar&&o.producto_id===l.producto_id&&_lineaBDDeOrdenPlan(p.plan_ordenes,p.pedido_lineas,o)?.id===l.id);   // 28e: sólo las de ESTA línea
       ordenesDelProd.forEach(o=>{
         const idxOEglobal=p.plan_ordenes.ordenes.indexOf(o);
         if(o.dividir&&o.tandas?.length){
