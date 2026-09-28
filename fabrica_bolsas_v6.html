@@ -791,7 +791,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-28d</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-28g</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5735,7 +5735,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-09-28f';   // 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
+const APP_BUILD='2026-09-28g';   // 28g: 🏛 CLIENTES DESDE ARCA — botón «Traer datos de ARCA» en la ficha y «Verificar N en ARCA» en la lista (Edge Function op padron): condición de IVA real, razón social oficial, domicilio, provincia y CP. Nombre de planta separado de la razón social (antes editar pisaba el nombre). Alta con CUIT se verifica sola. Provincia por cliente va a TusFacturas. SQL aplicado: clientes.provincia/codigo_postal/arca_estado/arca_verificado_el + check de condicion_iva ampliado. · 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
 // (anterior) 28c:   // 28c: 📜 BOBINAS VIEJAS A DEMANDA — reload trae sólo bobinas en stock o de los últimos 60 días, y toda pantalla que miraba una OE o un período más viejo contaba de menos EN SILENCIO: el 🖨️ de ORD-05574 salía con 0 bobinas (tiene 45) y Costos de producción de julio daba 3.590 kg producidos (fueron 37.144). Ahora la MISMA caché C.bobinas_prod se completa sólo cuando hace falta: por OE (🖨️, 📊 Detalle, 📦 Lotes de MP de OE y de pedido, % de avance de la lista, Historial) o por período (Costos, Rentabilidad, con su comparación). Pieza única `// ===== 📜 BOBINAS VIEJAS A DEMANDA` (_oeBobCompleta, _bobPeriodoIncompleto, _completarBobinasDeOEs, _traerBobinasHistoricas, _bobAsegurarYRepintar), invalidada en cada reload con window._bobGen. El botón «📜 Cargar todas las históricas» de Stock usa la misma descarga. Mismos filtros que la carga inicial. Solo lectura. Sin SQL.
 // (anterior) 28b:   // 28b: 🧱 HOJA DE PALLET DE BOBINAS — botón «🧱 Pallet» en la lista de Órdenes de extrusión (y al completarse la OE al cargar la última bobina): A4 con el CLIENTE, el PRODUCTO (código + descripción), el tipo de bobina, total de bobinas/kg/metros en grande, OC, pedido, entrega, y la lista de TODAS las bobinas en stock de la OE con casilla para tildar al subirlas, firmas Armó/Controló. Las bobinas se consultan a la BASE (no a C.bobinas_prod, caché parcial). Fuera de rango/excedentes no van al pallet y se listan aparte; las reservadas a OTRA OC se marcan en gris; las ya cortadas se aclaran al pie. Solo lectura. Sin SQL.
 // (anterior) 28a:   // 28a: 💰 QUÉ PLATA TRAE ESTE ORDEN — sección nueva en Planificar producción: con el orden de extrusión y de corte (aunque no esté guardado) proyecta cuándo sale cada OC y cuándo entra la plata según cómo PAGA DE VERDAD cada cliente (remito→saldo de su factura/RV, últimos 120 días, ponderado; impagos vencidos cuentan como cota), contra cobrar al entregar. Número rey a 30 días, curva doble, plata financiada máxima, filtro por cortadora, lista OC por OC con su máquina, tabla pacta vs. paga. Proyección: no toca Flujo ni Salud. Sin SQL.
@@ -6085,7 +6085,7 @@ async function reload(){
     sb.from('extrusoras').select('*').order('nombre'),
     _traerQ(()=>sb.from('ordenes').select('*, bobinas(*), orden_extrusoras(*, extrusoras(*))').order('prioridad').order('created_at').order('id')),
     sb.from('capacidad_semanal').select('*, extrusoras(*)'),
-    sb.from('clientes').select('*').order('razon_social'),
+    sb.from('clientes').select('*').order('nombre'),
     // Bobinas: por defecto traemos las EN STOCK + las CONSUMIDAS recientes (últimos 60 días).
     // Con producción de ~2000 bobinas/mes, esto es ~5000 registros máximo.
     // IMPORTANTE: Supabase tiene un límite duro de 1000 filas por request. Paginamos
@@ -10421,12 +10421,13 @@ function renderCliente360(){
   let h='';
   h+='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:6px;">';
   h+='<div><button class="btn btn-sm" onclick="go(\'clientes\')" style="margin-bottom:8px;">← Clientes</button>'
-    +'<div class="page-title" style="font-size:26px;">'+escapeHtml(c.razon_social||c.nombre||'Cliente')+'</div>'
+    +'<div class="page-title" style="font-size:26px;">'+escapeHtml(c.nombre||c.razon_social||'Cliente')+'</div>'
+    +(c.razon_social&&c.razon_social!==c.nombre?'<div style="font-size:12px;color:var(--text2);">'+escapeHtml(c.razon_social)+'</div>':'')
     +'<div style="font-size:12px;color:var(--text2);margin-top:4px;display:flex;gap:14px;flex-wrap:wrap;">'
       +'<span>Cód. <b class="mono">'+escapeHtml(c.codigo||'—')+'</b></span>'
       +'<span>CUIT <b class="mono">'+escapeHtml(c.cuit||'—')+'</b></span>'
-      +'<span>'+escapeHtml(c.condicion_iva||'—')+'</span>'
-      +(c.localidad?'<span>📍 '+escapeHtml(c.localidad)+'</span>':'')
+      +'<span>'+condIvaLabel(c.condicion_iva)+' '+(typeof _cliArcaBadge==='function'?_cliArcaBadge(c):'')+'</span>'
+      +(c.localidad||c.provincia?'<span>📍 '+escapeHtml([c.localidad,c.provincia].filter(Boolean).join(', '))+'</span>':'')
       +'<span>Lista: <b>'+(lista?escapeHtml(lista.nombre):'—')+'</b></span>'
       +'<span>Crédito: <b>'+(c.dias_credito||0)+' días</b></span>'
     +'</div></div>';
@@ -10617,18 +10618,130 @@ function c360VerTraza(tipo,docId){
     +'</div></div>');
 }
 
+// ===== 🏛 PADRÓN ARCA DE CLIENTES (28/09/2026) =====
+// La ficha del cliente se completa con la constancia de inscripción de ARCA vía
+// la Edge Function (op 'padron'): condición de IVA (define Factura A o B),
+// razón social oficial (la que sale en la factura), domicilio y provincia.
+// `nombre` es el nombre corto que usa la planta y ARCA no lo toca.
+// Cada consulta gasta un request del plan de TusFacturas: sólo se consulta a pedido
+// (botón) o al dar de alta un cliente con CUIT.
+const _CLI_PROVINCIAS=['BUENOS AIRES','CIUDAD AUTONOMA DE BUENOS AIRES','CATAMARCA','CHACO','CHUBUT','CORDOBA','CORRIENTES','ENTRE RIOS','FORMOSA','JUJUY','LA PAMPA','LA RIOJA','MENDOZA','MISIONES','NEUQUEN','RIO NEGRO','SALTA','SAN JUAN','SAN LUIS','SANTA CRUZ','SANTA FE','SANTIAGO DEL ESTERO','TIERRA DEL FUEGO','TUCUMAN'];
+function _cliCuitDig(c){return String(c||'').replace(/\D/g,'');}
+// Dígito verificador de CUIT (módulo 11). Pura.
+function _cliCuitValido(d){
+  d=_cliCuitDig(d);if(d.length!==11)return false;
+  const w=[5,4,3,2,7,6,5,4,3,2];let s=0;for(let i=0;i<10;i++)s+=parseInt(d[i],10)*w[i];
+  let v=11-(s%11);if(v===11)v=0;if(v===10)v=9;
+  return v===parseInt(d[10],10);
+}
+function _cliProvOpts(sel){
+  const s=String(sel||'').toUpperCase();
+  const lista=_CLI_PROVINCIAS.slice();
+  if(s&&!lista.includes(s))lista.unshift(s);
+  return '<option value="">— sin provincia —</option>'+lista.map(p=>'<option value="'+escapeHtml(p)+'" '+(p===s?'selected':'')+'>'+escapeHtml(p==='CIUDAD AUTONOMA DE BUENOS AIRES'?'CABA':p)+'</option>').join('');
+}
+// Etiqueta chica del estado en ARCA. Pura (sobre la fila del cliente).
+function _cliArcaBadge(c,largo){
+  if(!c)return '';
+  if(c.arca_verificado_el){
+    const f=String(c.arca_verificado_el).slice(0,10).split('-').reverse().join('/');
+    const est=String(c.arca_estado||'');
+    const raro=est&&est!=='ACTIVO';
+    return '<span title="Verificado en ARCA el '+f+(est?' · '+escapeHtml(est):'')+'" style="color:'+(raro?'var(--amber)':'var(--green)')+';">'
+      +(raro?'⚠ ':'✓ ')+'ARCA'+(largo?' '+f+(est?' · '+escapeHtml(est):''):'')+'</span>';
+  }
+  if(_cliCuitDig(c.cuit).length===11)return '<span style="color:var(--text3);">sin verificar</span>';
+  return '';
+}
+async function _cliPadron(ids,limite){
+  if(typeof _arcaInvoke!=='function')return {ok:false,error:'Falta la conexión con ARCA'};
+  const body={op:'padron'};
+  if(ids&&ids.length)body.cliente_ids=ids;
+  if(limite)body.limite=limite;
+  try{return await _arcaInvoke(body);}catch(e){return {ok:false,error:String(e&&e.message||e)};}
+}
+// Botón de la ficha: guarda el CUIT tipeado (si cambió) y trae todo de ARCA.
+async function cliTraerArca(id){
+  const msg=document.getElementById('msg-ecli');
+  const cuit=document.getElementById('ecli-cuit')?.value.trim()||'';
+  const d=_cliCuitDig(cuit);
+  const say=(t,col)=>{if(msg){msg.style.color=col||'var(--text2)';msg.textContent=t;}};
+  if(d.length!==11){say('Cargá un CUIT de 11 dígitos para consultar ARCA.','var(--red)');return;}
+  if(!_cliCuitValido(d)){say('El CUIT no es válido (dígito verificador). Revisalo.','var(--red)');return;}
+  const prev=(C.clientes||[]).find(x=>x.id===id)||{};
+  say('Consultando ARCA…');
+  if(_cliCuitDig(prev.cuit)!==d){
+    const{error}=await sb.from('clientes').update({cuit:cuit,arca_verificado_el:null,arca_estado:null}).eq('id',id);
+    if(error){say('No se pudo guardar el CUIT: '+error.message,'var(--red)');return;}
+  }
+  const r=await _cliPadron([id]);
+  const x=r&&r.resultados&&r.resultados[0];
+  if(!r||r.ok===false||!x){say('ARCA: '+((r&&r.error)||'sin respuesta'),'var(--red)');return;}
+  if(!x.ok){say('ARCA: '+(x.error||'no se pudo verificar'),'var(--red)');return;}
+  await reload();
+  document.getElementById('edit-cli-modal')?.remove();
+  editarCliente(id);
+  const m2=document.getElementById('msg-ecli');
+  if(m2){
+    m2.style.color=x.apoc?'var(--red)':'var(--green)';
+    m2.textContent='✓ ARCA: '+(x.condicion_arca||'')+' · '+(x.estado||'')
+      +(x.cambios&&x.cambios.length?' · '+x.cambios.length+' dato(s) actualizados':' · sin cambios')
+      +(x.apoc?' · ⚠ FIGURA EN LA BASE APOC (facturas apócrifas)':'');
+  }
+  if(typeof renderClientes==='function')renderClientes();
+}
+// Botón de la lista: verifica en tandas todos los que tienen CUIT y nunca se verificaron.
+async function cliVerificarPendientesArca(){
+  const pend=(C.clientes||[]).filter(c=>_cliCuitDig(c.cuit).length===11&&!c.arca_verificado_el).length;
+  if(!pend)return;
+  if(!confirm('Se van a consultar '+pend+' CUIT en ARCA. Cada consulta cuenta como un request de tu plan de TusFacturas. ¿Seguimos?'))return;
+  const el=document.getElementById('cli-arca-msg');
+  const say=(t,col)=>{if(el){el.style.color=col||'var(--text2)';el.textContent=t;}};
+  let hechos=0,fallas=[],apoc=[],cambIva=[];
+  for(let vuelta=0;vuelta<10;vuelta++){
+    say('Consultando ARCA… '+hechos+'/'+pend);
+    const r=await _cliPadron(null,20);
+    if(!r||r.ok===false){say('ARCA: '+((r&&r.error)||'sin respuesta'),'var(--red)');break;}
+    (r.resultados||[]).forEach(x=>{
+      if(!x.ok){if(!fallas.some(f=>f.id===x.id))fallas.push(x);return;}
+      hechos++;
+      if(x.apoc)apoc.push(x.nombre);
+      if((x.cambios||[]).some(c=>c.startsWith('IVA')))cambIva.push(x.nombre+' → '+condIvaLabel(x.condicion_iva));
+    });
+    // Los que fallan siguen sin verificar: si la tanda sólo trajo fallas, cortar.
+    if(!r.quedan||(r.resultados||[]).every(x=>!x.ok))break;
+  }
+  await reload();renderClientes();
+  const txt=['✓ '+hechos+' verificados en ARCA'];
+  if(cambIva.length)txt.push('cambió la condición de IVA de: '+cambIva.join(', '));
+  if(apoc.length)txt.push('⚠ EN BASE APOC: '+apoc.join(', '));
+  if(fallas.length)txt.push('no se pudieron verificar: '+fallas.map(f=>f.nombre).join(', '));
+  const el2=document.getElementById('cli-arca-msg');
+  if(el2){el2.style.color=apoc.length?'var(--red)':(fallas.length?'var(--amber)':'var(--green)');el2.textContent=txt.join(' · ');}
+}
+
 function renderClientes(){
   const w=document.getElementById('cli-tbl');if(!w)return;
   if(!C.clientes.length){w.innerHTML='<div class="empty">No hay clientes.</div>';return;}
-  w.innerHTML='<div style="overflow-x:auto"><table><thead><tr>'
-    +'<th>#</th><th>Código</th><th>Razón social</th><th>Lista de precios</th><th>Días crédito</th><th></th>'
+  const _pend=(C.clientes||[]).filter(c=>_cliCuitDig(c.cuit).length===11&&!c.arca_verificado_el).length;
+  const _sinCuit=(C.clientes||[]).filter(c=>_cliCuitDig(c.cuit).length!==11).length;
+  w.innerHTML='<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:12px;color:var(--text2);">'
+    +(_pend?'<button class="btn btn-sm" onclick="cliVerificarPendientesArca()">🏛 Verificar '+_pend+' en ARCA</button>':'<span style="color:var(--green);">🏛 Todos los clientes con CUIT están verificados en ARCA</span>')
+    +(_sinCuit?'<span style="color:var(--amber);">⚠ '+_sinCuit+' sin CUIT (no se les puede hacer Factura A)</span>':'')
+    +'<span id="cli-arca-msg"></span>'
+    +'</div>'
+    +'<div style="overflow-x:auto"><table><thead><tr>'
+    +'<th>#</th><th>Código</th><th>Cliente</th><th>CUIT · IVA</th><th>Lista de precios</th><th>Días crédito</th><th></th>'
     +'</tr></thead><tbody>'
     +C.clientes.map((c,i)=>{
       const lista=C.listas_precios.find(l=>l.id===c.lista_precio_id);
+      const nom=c.nombre||c.razon_social||'';
+      const rs=c.razon_social&&c.razon_social!==nom?'<div style="font-size:11px;color:var(--text3);font-weight:400;">'+escapeHtml(c.razon_social)+'</div>':'';
       return '<tr>'
         +'<td style="color:var(--text3)">'+(i+1)+'</td>'
         +'<td class="mono">'+(c.codigo||'—')+'</td>'
-        +'<td style="font-weight:500">'+(c.razon_social||c.nombre)+'</td>'
+        +'<td style="font-weight:500">'+escapeHtml(nom)+rs+'</td>'
+        +'<td style="font-size:12px;"><span class="mono">'+escapeHtml(c.cuit||'—')+'</span><div style="font-size:11px;color:var(--text2);">'+condIvaLabel(c.condicion_iva)+' '+_cliArcaBadge(c)+'</div></td>'
         +'<td>'+(lista?'<span style="color:var(--green);font-size:12px;">✓ '+lista.nombre+'</span>':'<span style="color:var(--amber);font-size:11px;">Sin lista</span>')+'</td>'
         +'<td class="mono" style="font-size:12px;">'+(c.dias_credito||'—')+'</td>'
         +'<td style="white-space:nowrap;">'
@@ -10662,18 +10775,29 @@ async function addCliente(){
   if(cod&&(C.clientes||[]).some(c=>String(c.codigo)===String(cod))){
     if(!confirm('Ya existe un cliente con el código '+cod+'. ¿Lo agrego igual?'))return;
   }
+  if(cuit&&_cliCuitDig(cuit).length===11&&!_cliCuitValido(_cliCuitDig(cuit))){if(msg){msg.style.color='var(--red)';msg.textContent='El CUIT no es válido (dígito verificador).';}return;}
   if(msg)msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div></div>';
-  const{error}=await sb.from('clientes').insert({
+  const{data:nuevo,error}=await sb.from('clientes').insert({
     codigo:cod||null,razon_social:rs,nombre:rs,
     lista_precio_id:listaId,condicion_iva:iva,
     dias_credito:dias,plazo_pago_dias:dias,
     cuit:cuit,direccion:dir,localidad:loc
-  });
+  }).select('id').single();
   if(error){if(msg){msg.style.color='var(--red)';msg.textContent='Error: '+error.message;}return;}
   ['c-cod','c-rs','c-cuit','c-loc','c-dir'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   const d=document.getElementById('c-dias');if(d)d.value='0';
   const l=document.getElementById('c-lista');if(l)l.value='';
   if(msg){msg.style.color='var(--green)';msg.textContent='✓ Cliente agregado';}
+  // Con CUIT, se completa solo desde ARCA: condición de IVA, razón social oficial y domicilio.
+  if(nuevo&&nuevo.id&&_cliCuitDig(cuit).length===11){
+    if(msg)msg.textContent='✓ Cliente agregado · consultando ARCA…';
+    const r=await _cliPadron([nuevo.id]);
+    const x=r&&r.resultados&&r.resultados[0];
+    if(msg){
+      if(x&&x.ok){msg.textContent='✓ Cliente agregado · ARCA: '+(x.condicion_arca||'')+(x.apoc?' · ⚠ figura en la base APOC':'');}
+      else{msg.style.color='var(--amber)';msg.textContent='✓ Cliente agregado · ARCA no pudo verificarlo: '+((x&&x.error)||(r&&r.error)||'sin respuesta');}
+    }
+  }
   await reload();renderClientes();
 }
 function editarCliente(id){
@@ -10684,8 +10808,11 @@ function editarCliente(id){
     +'<div class="modal-card" style="max-width:480px;">'
     +'<div class="modal-title">✏️ Editar cliente</div>'
     +'<div class="fgrid" style="margin-bottom:10px;">'
-      +'<div class="fg"><label>Código</label><input id="ecli-cod" type="text" value="'+(c.codigo||'')+'"></div>'
-      +'<div class="fg"><label>Razón social</label><input id="ecli-rs" type="text" value="'+(c.razon_social||c.nombre||'')+'"></div>'
+      +'<div class="fg"><label>Código</label><input id="ecli-cod" type="text" value="'+escapeHtml(c.codigo||'')+'"></div>'
+      +'<div class="fg"><label>Nombre <span style="font-size:11px;color:var(--text2)">(como lo conoce la planta)</span></label><input id="ecli-nom" type="text" value="'+escapeHtml(c.nombre||c.razon_social||'')+'"></div>'
+    +'</div>'
+    +'<div class="fgrid" style="margin-bottom:10px;grid-template-columns:1fr;">'
+      +'<div class="fg"><label>Razón social <span style="font-size:11px;color:var(--text2)">(la que sale en la factura)</span></label><input id="ecli-rs" type="text" value="'+escapeHtml(c.razon_social||c.nombre||'')+'"></div>'
     +'</div>'
     +'<div class="fgrid" style="margin-bottom:10px;">'
       +'<div class="fg">'
@@ -10709,11 +10836,19 @@ function editarCliente(id){
       +'</div>'
     +'</div>'
     +'<div class="fgrid" style="margin-bottom:10px;">'
-      +'<div class="fg"><label>CUIT</label><input id="ecli-cuit" type="text" placeholder="30-12345678-9" value="'+(c.cuit||'')+'"></div>'
-      +'<div class="fg"><label>Localidad</label><input id="ecli-loc" type="text" value="'+(c.localidad||'')+'"></div>'
+      +'<div class="fg"><label>CUIT</label><input id="ecli-cuit" type="text" placeholder="30-12345678-9" value="'+escapeHtml(c.cuit||'')+'">'
+        +'<div style="font-size:11px;margin-top:4px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">'
+          +'<button class="btn btn-sm" type="button" onclick="cliTraerArca('+id+')">🏛 Traer datos de ARCA</button>'
+          +_cliArcaBadge(c,true)
+        +'</div></div>'
+      +'<div class="fg"><label>Localidad</label><input id="ecli-loc" type="text" value="'+escapeHtml(c.localidad||'')+'"></div>'
+    +'</div>'
+    +'<div class="fgrid" style="margin-bottom:10px;">'
+      +'<div class="fg"><label>Provincia</label><select id="ecli-prov">'+_cliProvOpts(c.provincia)+'</select></div>'
+      +'<div class="fg"><label>Código postal</label><input id="ecli-cp" type="text" value="'+escapeHtml(c.codigo_postal||'')+'"></div>'
     +'</div>'
     +'<div class="fgrid" style="margin-bottom:10px;grid-template-columns:1fr;">'
-      +'<div class="fg"><label>Dirección</label><input id="ecli-dir" type="text" value="'+(c.direccion||'')+'"></div>'
+      +'<div class="fg"><label>Dirección</label><input id="ecli-dir" type="text" value="'+escapeHtml(c.direccion||'')+'"></div>'
     +'</div>'
     +'<div class="btn-grp" style="margin-top:1rem;">'
       +'<button class="btn btn-primary btn-sm" onclick="guardarEdicionCliente('+id+')">Guardar</button>'
@@ -10726,22 +10861,31 @@ function editarCliente(id){
 async function guardarEdicionCliente(id){
   const cod=document.getElementById('ecli-cod')?.value.trim();
   const rs=document.getElementById('ecli-rs')?.value.trim();
+  const nom=document.getElementById('ecli-nom')?.value.trim()||rs;
   const listaId=parseInt(document.getElementById('ecli-lista')?.value)||null;
   const dias=parseInt(document.getElementById('ecli-dias')?.value)||0;
   const iva=document.getElementById('ecli-iva')?.value||'con_iva';
   const cuit=document.getElementById('ecli-cuit')?.value.trim()||null;
   const dir=document.getElementById('ecli-dir')?.value.trim()||null;
   const loc=document.getElementById('ecli-loc')?.value.trim()||null;
+  const prov=document.getElementById('ecli-prov')?.value||null;
+  const cp=document.getElementById('ecli-cp')?.value.trim()||null;
   const msg=document.getElementById('msg-ecli');
   if(!rs){msg.style.color='var(--red)';msg.textContent='La razón social es obligatoria.';return;}
+  const dCuit=_cliCuitDig(cuit);
+  if(cuit&&dCuit.length===11&&!_cliCuitValido(dCuit)){msg.style.color='var(--red)';msg.textContent='El CUIT no es válido (dígito verificador).';return;}
+  const prev=(C.clientes||[]).find(x=>x.id===id)||{};
   msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div></div>';
-  const{error}=await sb.from('clientes').update({
-    codigo:cod||null,razon_social:rs,nombre:rs,
+  const upd={
+    codigo:cod||null,razon_social:rs,nombre:nom,
     lista_precio_id:listaId,
     dias_credito:dias,
     condicion_iva:iva,
-    cuit:cuit,direccion:dir,localidad:loc
-  }).eq('id',id);
+    cuit:cuit,direccion:dir,localidad:loc,provincia:prov,codigo_postal:cp
+  };
+  // Si cambió el CUIT, lo verificado en ARCA ya no vale para este cliente.
+  if(_cliCuitDig(prev.cuit)!==dCuit){upd.arca_verificado_el=null;upd.arca_estado=null;}
+  const{error}=await sb.from('clientes').update(upd).eq('id',id);
   if(error){msg.style.color='var(--red)';msg.textContent='Error: '+error.message;return;}
   msg.style.color='var(--green)';msg.textContent='✓ Guardado';
   await reload();
@@ -15973,7 +16117,7 @@ function imprimirNotaDebito(ndId){
     +(informal?'<div class="warn">⚠ DOCUMENTO INTERNO — NO VÁLIDO COMO NOTA DE DÉBITO ANTE ARCA/AFIP</div>':'')
     +'<div class="ref">Sobre: <b>'+escapeHtml(docLbl)+'</b> &nbsp;·&nbsp; Motivo: <b>'+escapeHtml(_ndMotivoLbl(nd.motivo_cod))+'</b></div>'
     +'<div class="cli"><div><span class="lbl">Cliente:</span> <b>'+escapeHtml((cli&&(cli.razon_social||cli.nombre))||'')+'</b></div>'
-      +'<div>'+((cli&&cli.cuit)?'<span class="lbl">CUIT:</span> '+escapeHtml(cli.cuit)+' &nbsp; ':'')+((cli&&cli.condicion_iva)?'<span class="lbl">Cond. IVA:</span> '+escapeHtml(cli.condicion_iva):'')+'</div></div>'
+      +'<div>'+((cli&&cli.cuit)?'<span class="lbl">CUIT:</span> '+escapeHtml(cli.cuit)+' &nbsp; ':'')+((cli&&cli.condicion_iva)?'<span class="lbl">Cond. IVA:</span> '+escapeHtml(condIvaLabel(cli.condicion_iva)):'')+'</div></div>'
     +'<table><thead><tr><th class="c" style="width:30px;">#</th><th>Detalle</th><th class="r" style="width:130px;">Importe</th></tr></thead>'
       +'<tbody><tr><td class="c">1</td><td>'+escapeHtml(nd.concepto||('Ajuste s/ '+docLbl))+'</td><td class="r mono">'+money(nd.monto)+'</td></tr>'
       +'<tr><td class="c">&nbsp;</td><td></td><td></td></tr><tr><td class="c">&nbsp;</td><td></td><td></td></tr></tbody></table>'
@@ -18227,7 +18371,7 @@ function imprimirNotaCredito(ncId){
     +'<div class="cli">'
       +'<div><span class="lbl">Cliente:</span> <b>'+escapeHtml(nc.razon_social_cliente||(cli&&(cli.razon_social||cli.nombre))||'')+'</b></div>'
       +'<div>'+((nc.cuit_cliente||(cli&&cli.cuit))?'<span class="lbl">CUIT:</span> '+escapeHtml(nc.cuit_cliente||cli.cuit)+' &nbsp; ':'')
-        +((cli&&cli.condicion_iva)?'<span class="lbl">Cond. IVA:</span> '+escapeHtml(cli.condicion_iva):'')+'</div>'
+        +((cli&&cli.condicion_iva)?'<span class="lbl">Cond. IVA:</span> '+escapeHtml(condIvaLabel(cli.condicion_iva)):'')+'</div>'
     +'</div>'
     +'<table><thead><tr><th class="c" style="width:30px;">#</th><th>Detalle</th>'
       +'<th class="c" style="width:90px;">Cantidad</th><th class="r" style="width:110px;">P. Unitario</th>'
@@ -18352,7 +18496,7 @@ function imprimirRV(rvId){
     +'<div class="cli">'
       +'<div><span class="lbl">Cliente:</span> <b>'+escapeHtml(cli?cli.razon_social||cli.nombre||'':'')+'</b></div>'
       +'<div>'+((cli&&cli.cuit)?'<span class="lbl">CUIT:</span> '+escapeHtml(cli.cuit)+' &nbsp; ':'')
-        +((cli&&cli.condicion_iva)?'<span class="lbl">Cond. IVA:</span> '+escapeHtml(cli.condicion_iva):'')+'</div>'
+        +((cli&&cli.condicion_iva)?'<span class="lbl">Cond. IVA:</span> '+escapeHtml(condIvaLabel(cli.condicion_iva)):'')+'</div>'
       +((cli&&(cli.direccion||cli.localidad))?'<div>'+escapeHtml([cli.direccion,cli.localidad].filter(Boolean).join(', '))+'</div>':'')
     +'</div>'
     +'<table><thead><tr><th class="c" style="width:30px;">#</th><th>Descripción</th>'
