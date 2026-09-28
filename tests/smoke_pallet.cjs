@@ -41,6 +41,22 @@ eval([fn('escapeHtml'),'var r1=n=>Math.round(n*10)/10;',fn('localDate'),fn('loca
  T(!h1.includes('BOB-06208')||h1.indexOf('BOB-06208')>h1.indexOf('</table>'),'VEGA: la bobina rechazada no está en la tabla');
  T(/ya salieron del stock \(rechazo\)/.test(h1),'VEGA: nota de rechazo al pie');
  T(!/var\(--/.test(h1),'hoja sin variables CSS');
+ // --- 28d: se corta BOB-06210 de ORD-06268 → sigue en la lista, tachada
+ DB[830]=DB[830].map(b=>b.numero_bobina==='BOB-06210'?Object.assign({},b,{en_stock:false}):b);
+ await imprimirPalletOE(830);const h1b=html;const c1b=_palletClasificar(DB[830],916);
+ T(c1b.pallet.length===6&&c1b.lista.length===7,'corte: 6 en el piso, 7 en la lista');
+ T(c1b.kg===148.9&&c1b.mts===8900,'corte: los totales cuentan sólo lo que queda ('+c1b.kg+' kg, '+c1b.mts+' m)');
+ const fila=h1b.slice(h1b.indexOf('<tr class="salio">'),h1b.indexOf('</tr>',h1b.indexOf('<tr class="salio">')));
+ T(fila.includes('<s>BOB-06210</s>')&&fila.includes('CORTADA'),'corte: BOB-06210 tachada con «CORTADA»');
+ T(!fila.includes('<span></span>'),'corte: la tachada no tiene casilla');
+ T(h1b.indexOf('BOB-06210')<h1b.indexOf('BOB-06212'),'corte: queda en su lugar por número');
+ T((h1b.match(/<td class="chk"><span><\/span><\/td>/g)||[]).length===6,'corte: 6 casillas');
+ T(/EN EL PISO 6/.test(h1b)&&/<div class="v">6<\/div>/.test(h1b),'corte: KPI y fila total dicen 6');
+ T(/1 bobina\(s\) tachadas/.test(h1b),'corte: la nota explica las tachadas');
+ // todas cortadas: tabla con tachadas + aviso
+ const todas=DB[838].map(b=>Object.assign({},b,{en_stock:false}));const bk=DB[838];DB[838]=todas;
+ await imprimirPalletOE(838);T(/No quedan bobinas de esta orden en el piso/.test(html)&&(html.match(/class="salio"/g)||[]).length===14,'todas cortadas: 14 tachadas + aviso');
+ DB[838]=bk;
  // --- AGUACA ORD-06276 en proceso: 14 bobinas, orden numérico
  await imprimirPalletOE(838);const h2=html;const c2=_palletClasificar(DB[838],924);
  T(c2.pallet.length===14&&c2.kg===373.2,'AGUACA: 14 bobinas / 373,2 kg ('+c2.kg+')');
@@ -59,6 +75,6 @@ eval([fn('escapeHtml'),'var r1=n=>Math.round(n*10)/10;',fn('localDate'),fn('loca
  // --- OE sin bobinas en stock
  await imprimirPalletOE(555);T(/No hay bobinas de esta orden en stock/.test(html),'sin bobinas: avisa en vez de tabla vacía');
  T(/Bobina a granel/.test(html),'sin OC: muestra la bobina en vez del producto');
- if(OUT){fs.writeFileSync(OUT+'/pallet_vega.html',h1);fs.writeFileSync(OUT+'/pallet_aguaca.html',h2);}
+ if(OUT){fs.writeFileSync(OUT+'/pallet_vega.html',h1);fs.writeFileSync(OUT+'/pallet_vega_corte.html',h1b);fs.writeFileSync(OUT+'/pallet_aguaca.html',h2);}
  console.log((bad?'✖ ':'✓ ')+ok+' ok · '+bad+' fallas');process.exit(bad?1:0);
 })();

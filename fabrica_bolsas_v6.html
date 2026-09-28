@@ -791,7 +791,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-28c</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-28d</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5735,7 +5735,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-09-28c';   // 28c: 📜 BOBINAS VIEJAS A DEMANDA — reload trae sólo bobinas en stock o de los últimos 60 días, y toda pantalla que miraba una OE o un período más viejo contaba de menos EN SILENCIO: el 🖨️ de ORD-05574 salía con 0 bobinas (tiene 45) y Costos de producción de julio daba 3.590 kg producidos (fueron 37.144). Ahora la MISMA caché C.bobinas_prod se completa sólo cuando hace falta: por OE (🖨️, 📊 Detalle, 📦 Lotes de MP de OE y de pedido, % de avance de la lista, Historial) o por período (Costos, Rentabilidad, con su comparación). Pieza única `// ===== 📜 BOBINAS VIEJAS A DEMANDA` (_oeBobCompleta, _bobPeriodoIncompleto, _completarBobinasDeOEs, _traerBobinasHistoricas, _bobAsegurarYRepintar), invalidada en cada reload con window._bobGen. El botón «📜 Cargar todas las históricas» de Stock usa la misma descarga. Mismos filtros que la carga inicial. Solo lectura. Sin SQL.
+const APP_BUILD='2026-09-28d';   // 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
+// (anterior) 28c:   // 28c: 📜 BOBINAS VIEJAS A DEMANDA — reload trae sólo bobinas en stock o de los últimos 60 días, y toda pantalla que miraba una OE o un período más viejo contaba de menos EN SILENCIO: el 🖨️ de ORD-05574 salía con 0 bobinas (tiene 45) y Costos de producción de julio daba 3.590 kg producidos (fueron 37.144). Ahora la MISMA caché C.bobinas_prod se completa sólo cuando hace falta: por OE (🖨️, 📊 Detalle, 📦 Lotes de MP de OE y de pedido, % de avance de la lista, Historial) o por período (Costos, Rentabilidad, con su comparación). Pieza única `// ===== 📜 BOBINAS VIEJAS A DEMANDA` (_oeBobCompleta, _bobPeriodoIncompleto, _completarBobinasDeOEs, _traerBobinasHistoricas, _bobAsegurarYRepintar), invalidada en cada reload con window._bobGen. El botón «📜 Cargar todas las históricas» de Stock usa la misma descarga. Mismos filtros que la carga inicial. Solo lectura. Sin SQL.
 // (anterior) 28b:   // 28b: 🧱 HOJA DE PALLET DE BOBINAS — botón «🧱 Pallet» en la lista de Órdenes de extrusión (y al completarse la OE al cargar la última bobina): A4 con el CLIENTE, el PRODUCTO (código + descripción), el tipo de bobina, total de bobinas/kg/metros en grande, OC, pedido, entrega, y la lista de TODAS las bobinas en stock de la OE con casilla para tildar al subirlas, firmas Armó/Controló. Las bobinas se consultan a la BASE (no a C.bobinas_prod, caché parcial). Fuera de rango/excedentes no van al pallet y se listan aparte; las reservadas a OTRA OC se marcan en gris; las ya cortadas se aclaran al pie. Solo lectura. Sin SQL.
 // (anterior) 28a:   // 28a: 💰 QUÉ PLATA TRAE ESTE ORDEN — sección nueva en Planificar producción: con el orden de extrusión y de corte (aunque no esté guardado) proyecta cuándo sale cada OC y cuándo entra la plata según cómo PAGA DE VERDAD cada cliente (remito→saldo de su factura/RV, últimos 120 días, ponderado; impagos vencidos cuentan como cota), contra cobrar al entregar. Número rey a 30 días, curva doble, plata financiada máxima, filtro por cortadora, lista OC por OC con su máquina, tabla pacta vs. paga. Proyección: no toca Flujo ni Salud. Sin SQL.
 // 27b (anterior):   // 27b: ☰ PLANIFICADOR COMPACTO — botón «Vista compacta» por sección (Extrusión/Corte): una fila por orden, clic en la fila despliega el detalle; y clic en el número de posición → «mover a la posición N» de esa máquina (antes había que apretar ↑ veinte veces). No toca prioridades, cronograma ni guardado: todo pasa por _planOC/_planOE + _planRecalcVista y se guarda con 💾 como siempre. La vista elegida queda en localStorage. Sin SQL.
@@ -51522,10 +51523,12 @@ function _palletClasificar(bobs,ocPropiaId){
   });
   const num=b=>{const m=String(b.numero_bobina||'').match(/(\d+)\s*$/);return m?parseInt(m[1]):0;};
   pallet.sort((a,b)=>num(a)-num(b)||a.id-b.id);
+  // 28d: la hoja muestra la OE completa: las que ya salieron van TACHADAS en su lugar
+  const lista=pallet.concat(noEsta).sort((a,b)=>num(a)-num(b)||a.id-b.id);
   const otraOC=pallet.filter(b=>b.reservada_oc_id&&b.reservada_oc_id!==ocPropiaId);
   const kg=r1(pallet.reduce((s,b)=>s+(parseFloat(b.kg_reales)||0),0));
   const mts=Math.round(pallet.reduce((s,b)=>s+(parseFloat(b.metros_reales)||0),0));
-  return{pallet,fuera,rechazo,noEsta,otraOC,kg,mts};
+  return{pallet,fuera,rechazo,noEsta,otraOC,kg,mts,lista};
 }
 function _palletFecha(f){if(!f)return '—';const p=String(f).slice(0,10).split('-');return p.length===3?p[2]+'/'+p[1]:f;}
 async function imprimirPalletOE(oeId){
@@ -51552,10 +51555,24 @@ async function imprimirPalletOE(oeId){
   const exts=[...new Set(cl.pallet.map(b=>b.extrusoras?.nombre).filter(Boolean))].join(' · ')
     ||(o.orden_extrusoras||[]).map(x=>x.extrusoras?.nombre).filter(Boolean).join(' · ')||'—';
   const ocNro=n=>(C.ord_corte||[]).find(x=>x.id===n)?.numero_orden||('#'+n);
-  const filas=cl.pallet.map((b,i)=>{
+  let _nro=0;
+  const filas=cl.lista.map(b=>{
+    const salio=b.en_stock===false||b.reasignada;
+    if(salio){
+      return '<tr class="salio">'
+        +'<td class="n">—</td>'
+        +'<td class="bob"><s>'+E(b.numero_bobina||'—')+'</s><div class="aviso">'+(b.reasignada?'MOVIDA A OTRA ORDEN':'CORTADA')+'</div></td>'
+        +'<td class="num"><s>'+Math.round(parseFloat(b.metros_reales)||0).toLocaleString('es-AR')+'</s></td>'
+        +'<td class="num"><s>'+r1(parseFloat(b.kg_reales)||0).toLocaleString('es-AR',{minimumFractionDigits:1})+'</s></td>'
+        +'<td class="ext">'+E(b.extrusoras?.nombre||'—')+'</td>'
+        +'<td class="fec">'+_palletFecha(b.fecha_produccion)+'</td>'
+        +'<td class="chk"></td>'
+        +'</tr>';
+    }
     const otra=b.reservada_oc_id&&b.reservada_oc_id!==oc?.id;
+    _nro++;
     return '<tr'+(otra?' class="otra"':'')+'>'
-      +'<td class="n">'+(i+1)+'</td>'
+      +'<td class="n">'+_nro+'</td>'
       +'<td class="bob">'+E(b.numero_bobina||'—')+(otra?'<div class="aviso">VA PARA '+E(ocNro(b.reservada_oc_id))+'</div>':'')+'</td>'
       +'<td class="num">'+Math.round(parseFloat(b.metros_reales)||0).toLocaleString('es-AR')+'</td>'
       +'<td class="num">'+r1(parseFloat(b.kg_reales)||0).toLocaleString('es-AR',{minimumFractionDigits:1})+'</td>'
@@ -51568,7 +51585,7 @@ async function imprimirPalletOE(oeId){
   if(cl.otraOC.length)notas.push('<b>'+cl.otraOC.length+' bobina(s)</b> de esta orden están reservadas para OTRA orden de corte (marcadas en la lista): separarlas del pallet.');
   if(cl.fuera.length)notas.push('<b>'+cl.fuera.length+' bobina(s) fuera de rango o excedente</b> ('+cl.fuera.map(b=>E(b.numero_bobina)).join(', ')+'): NO van a este pallet hasta que la oficina las asigne.');
   if(cl.rechazo.length)notas.push(cl.rechazo.length+' bobina(s) fuera de rango ya salieron del stock (rechazo) y no van al pallet.');
-  if(cl.noEsta.length)notas.push(cl.noEsta.length+' bobina(s) de esta orden ya se cortaron o se movieron y no tienen que estar en el piso.');
+  if(cl.noEsta.length)notas.push('<b>'+cl.noEsta.length+' bobina(s) tachadas</b>: ya se cortaron o se movieron. Figuran para que la lista muestre la OE completa, pero <b>no tienen que estar en el piso</b> y no cuentan en los totales.');
   const html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Pallet ${E(o.numero_orden)}</title>
 <style>
   @page{size:A4 portrait;margin:10mm;}
@@ -51600,6 +51617,7 @@ async function imprimirPalletOE(oeId){
   td.ext{font-size:12pt;} td.fec{font-size:12pt;font-family:'Courier New',monospace;}
   td.chk{width:46px;text-align:center;} td.chk span{display:inline-block;width:24px;height:24px;border:3px solid #000;}
   tr.otra td{background:#e5e5e5;} .aviso{font-family:Arial;font-size:10pt;font-weight:900;}
+  tr.salio td{color:#777;font-weight:400;} tr.salio td.bob{font-weight:700;} tr.salio s{text-decoration:line-through;text-decoration-thickness:2px;} tr.salio .aviso{color:#000;text-decoration:none;}
   tr.tot td{border-top:3px solid #000;border-bottom:none;font-weight:900;}
   .notas{margin-top:10px;font-size:11pt;border:2px solid #000;padding:6px 10px;}
   .notas p{margin:3px 0;}
@@ -51624,14 +51642,14 @@ async function imprimirPalletOE(oeId){
   <span>Extrusora <b>${E(exts)}</b></span>
   <span>Estado OE <b>${E(o.estado||'—')}</b></span>
 </div>
-${cl.pallet.length?`<table>
+${cl.lista.length?`<table>
   <thead>
     <tr class="rep"><th colspan="7">${E(o.numero_orden)} · ${E(cliente)} · ${E(prodTxt)}</th></tr>
     <tr><th>#</th><th>N° bobina</th><th class="num">Metros</th><th class="num">Kg</th><th>Extrusora</th><th>Fecha</th><th>✓</th></tr>
   </thead>
   <tbody>${filas}
-  <tr class="tot"><td></td><td>TOTAL ${cl.pallet.length}</td><td class="num">${cl.mts.toLocaleString('es-AR')}</td><td class="num">${cl.kg.toLocaleString('es-AR',{minimumFractionDigits:1})}</td><td colspan="3"></td></tr></tbody>
-</table>`:'<div class="notas"><p><b>No hay bobinas de esta orden en stock.</b></p></div>'}
+  <tr class="tot"><td></td><td>EN EL PISO ${cl.pallet.length}</td><td class="num">${cl.mts.toLocaleString('es-AR')}</td><td class="num">${cl.kg.toLocaleString('es-AR',{minimumFractionDigits:1})}</td><td colspan="3"></td></tr></tbody>
+</table>${cl.pallet.length?'':'<div class="notas"><p><b>No quedan bobinas de esta orden en el piso.</b></p></div>'}`:'<div class="notas"><p><b>No hay bobinas de esta orden en stock.</b></p></div>'}
 ${notas.length?'<div class="notas">'+notas.map(n=>'<p>'+n+'</p>').join('')+'</div>':''}
 <div class="firmas"><div>Armó</div><div>Controló</div><div>Fecha y hora</div></div>
 <div class="pie">Impreso ${localDate().split('-').reverse().join('/')} ${localTime().slice(0,5)} · ${E(o.numero_orden)} · build ${typeof APP_BUILD!=='undefined'?APP_BUILD:''}</div>
