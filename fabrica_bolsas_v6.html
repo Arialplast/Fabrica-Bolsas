@@ -791,7 +791,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-28b</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-28c</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5502,6 +5502,114 @@ window.addEventListener('load',()=>{
   if(k)document.getElementById('cfg-key').value=k;
 });
 
+// ===== 📜 BOBINAS VIEJAS A DEMANDA (build 2026-09-28c) =====
+// Por qué: reload() trae de bobinas_producidas sólo las EN STOCK o producidas en los
+// últimos 60 días (_traerBobinasRecientes, para no descargar ~6.000 filas cada vez).
+// Para lo de todos los días alcanza; pero toda pantalla que mira una OE VIEJA o un
+// PERÍODO VIEJO contaba de menos EN SILENCIO: el 🖨️ de la OE, 📊 Detalle, 📦 Lotes de
+// MP, el % de avance de la lista, el Historial, Costos de producción y Rentabilidad.
+// Arreglo en un solo lugar: la misma caché C.bobinas_prod se completa con lo que falta,
+// y sólo cuando alguien lo necesita — así TODAS las funciones que ya leen C.bobinas_prod
+// dan bien sin reescribirse. Mismos filtros que la carga inicial (sin fuera de rango ni
+// anuladas): lo que se agrega es exactamente lo que el recorte dejó afuera.
+const _BOB_SEL_CACHE='*, ordenes(numero_orden,metros), bobinas(*), extrusoras(nombre), operarios(nombre)';
+function _bobCorteISO(){
+  // MISMA fecha de corte que _traerBobinasRecientes
+  const d=new Date(Date.now()-60*24*3600*1000);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function _bobGenActual(){return window._bobGen||0;}
+function _bobOEOk(){
+  // Set de OE ya completadas en ESTA carga (se invalida con cada reload vía _bobGen)
+  if(!window._bobOEOkSet||window._bobOEOkGen!==_bobGenActual()){window._bobOEOkSet=new Set();window._bobOEOkGen=_bobGenActual();}
+  return window._bobOEOkSet;
+}
+// ¿La caché ya tiene TODAS las bobinas de esta OE? Una OE creada después de la fecha
+// de corte no puede tener bobinas anteriores (con un día de margen).
+function _oeBobCompleta(oe){
+  if(!oe)return true;
+  if(C._historicasCargadas)return true;
+  if(_bobOEOk().has(oe.id))return true;
+  const c=oe.created_at?String(oe.created_at).slice(0,10):'';
+  if(!c)return false;
+  const d=new Date(c+'T00:00:00');d.setDate(d.getDate()-1);
+  return localDate(d)>=_bobCorteISO();
+}
+// ¿Un período que arranca en `ini` (Date o 'YYYY-MM-DD') puede tener bobinas fuera de la caché?
+function _bobPeriodoIncompleto(ini){
+  if(C._historicasCargadas||!ini)return false;
+  const s=(ini instanceof Date)?localDate(ini):String(ini).slice(0,10);
+  return s<_bobCorteISO();
+}
+function _bobMezclar(filas){
+  if(!filas||!filas.length)return 0;
+  const ya=new Set((C.bobinas_prod||[]).map(b=>b.id));
+  const nuevas=filas.filter(b=>!ya.has(b.id));
+  if(nuevas.length)C.bobinas_prod=[...(C.bobinas_prod||[]),...nuevas];
+  return nuevas.length;
+}
+async function _bobTraerViejas(aplicar){
+  const out=[];let desde=0;
+  for(let i=0;i<60;i++){
+    let q=sb.from('bobinas_producidas').select(_BOB_SEL_CACHE)
+      .eq('fuera_de_rango',false).eq('anulada',false)
+      .eq('en_stock',false).lt('fecha_produccion',_bobCorteISO());
+    q=aplicar(q);
+    const{data,error}=await q.order('id').range(desde,desde+999);
+    if(error)throw error;
+    out.push(...(data||[]));
+    if(!data||data.length<1000)break;
+    desde+=1000;
+  }
+  return out;
+}
+// Completa la caché con las bobinas viejas de ESTAS OE. Devuelve true si quedó completo.
+async function _completarBobinasDeOEs(ids){
+  const faltan=[...new Set((ids||[]).filter(x=>x!=null))]
+    .filter(id=>!_oeBobCompleta((C.ordenes||[]).find(o=>o.id===id)||{id,created_at:null}));
+  if(!faltan.length)return true;
+  const gen=_bobGenActual();
+  try{
+    const filas=[];
+    for(let i=0;i<faltan.length;i+=100){
+      const lote=faltan.slice(i,i+100);
+      filas.push(...await _bobTraerViejas(q=>q.in('orden_id',lote)));
+    }
+    if(gen!==_bobGenActual())return false;   // hubo un reload en el medio: la caché es otra
+    _bobMezclar(filas);
+    faltan.forEach(id=>_bobOEOk().add(id));
+    return true;
+  }catch(e){
+    console.warn('[Bobinas viejas] no pude completar las OE',faltan,e);
+    if(typeof toast==='function')toast('No se pudieron traer las bobinas viejas: los números pueden estar incompletos','amber');
+    return false;
+  }
+}
+// Trae TODO el histórico (para pantallas por período). Una sola descarga a la vez.
+let _bobHistPromesa=null;
+async function _traerBobinasHistoricas(){
+  if(C._historicasCargadas)return 0;
+  if(_bobHistPromesa)return _bobHistPromesa;
+  const gen=_bobGenActual();
+  _bobHistPromesa=(async()=>{
+    const filas=await _bobTraerViejas(q=>q);
+    if(gen!==_bobGenActual())return 0;
+    const n=_bobMezclar(filas);
+    C._historicasCargadas=true;
+    return n;
+  })();
+  try{return await _bobHistPromesa;}finally{_bobHistPromesa=null;}
+}
+// Pinta ya con lo que hay y, si hacía falta, completa y vuelve a pintar UNA vez.
+const _bobPend={};
+function _bobAsegurarYRepintar(clave,necesita,cargar,repintar){
+  if(!necesita||_bobPend[clave])return;
+  _bobPend[clave]=true;
+  Promise.resolve().then(cargar).then(ok=>{delete _bobPend[clave];if(ok!==false)repintar();})
+    .catch(e=>{delete _bobPend[clave];console.warn('[Bobinas viejas]',clave,e);
+      if(typeof toast==='function')toast('No se pudieron traer las bobinas viejas: los números pueden estar incompletos','amber');});
+}
+
 // Trae bobinas en chunks de 1000 para sortear el límite duro de Supabase.
 // Filtra: en stock O producidas en los últimos 60 días. Excluye fuera de rango.
 // Devuelve {data: [...]} en el mismo formato que sb.from(...).select(...) para que
@@ -5627,7 +5735,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-09-28b';   // 28b: 🧱 HOJA DE PALLET DE BOBINAS — botón «🧱 Pallet» en la lista de Órdenes de extrusión (y al completarse la OE al cargar la última bobina): A4 con el CLIENTE, el PRODUCTO (código + descripción), el tipo de bobina, total de bobinas/kg/metros en grande, OC, pedido, entrega, y la lista de TODAS las bobinas en stock de la OE con casilla para tildar al subirlas, firmas Armó/Controló. Las bobinas se consultan a la BASE (no a C.bobinas_prod, caché parcial). Fuera de rango/excedentes no van al pallet y se listan aparte; las reservadas a OTRA OC se marcan en gris; las ya cortadas se aclaran al pie. Solo lectura. Sin SQL.
+const APP_BUILD='2026-09-28c';   // 28c: 📜 BOBINAS VIEJAS A DEMANDA — reload trae sólo bobinas en stock o de los últimos 60 días, y toda pantalla que miraba una OE o un período más viejo contaba de menos EN SILENCIO: el 🖨️ de ORD-05574 salía con 0 bobinas (tiene 45) y Costos de producción de julio daba 3.590 kg producidos (fueron 37.144). Ahora la MISMA caché C.bobinas_prod se completa sólo cuando hace falta: por OE (🖨️, 📊 Detalle, 📦 Lotes de MP de OE y de pedido, % de avance de la lista, Historial) o por período (Costos, Rentabilidad, con su comparación). Pieza única `// ===== 📜 BOBINAS VIEJAS A DEMANDA` (_oeBobCompleta, _bobPeriodoIncompleto, _completarBobinasDeOEs, _traerBobinasHistoricas, _bobAsegurarYRepintar), invalidada en cada reload con window._bobGen. El botón «📜 Cargar todas las históricas» de Stock usa la misma descarga. Mismos filtros que la carga inicial. Solo lectura. Sin SQL.
+// (anterior) 28b:   // 28b: 🧱 HOJA DE PALLET DE BOBINAS — botón «🧱 Pallet» en la lista de Órdenes de extrusión (y al completarse la OE al cargar la última bobina): A4 con el CLIENTE, el PRODUCTO (código + descripción), el tipo de bobina, total de bobinas/kg/metros en grande, OC, pedido, entrega, y la lista de TODAS las bobinas en stock de la OE con casilla para tildar al subirlas, firmas Armó/Controló. Las bobinas se consultan a la BASE (no a C.bobinas_prod, caché parcial). Fuera de rango/excedentes no van al pallet y se listan aparte; las reservadas a OTRA OC se marcan en gris; las ya cortadas se aclaran al pie. Solo lectura. Sin SQL.
 // (anterior) 28a:   // 28a: 💰 QUÉ PLATA TRAE ESTE ORDEN — sección nueva en Planificar producción: con el orden de extrusión y de corte (aunque no esté guardado) proyecta cuándo sale cada OC y cuándo entra la plata según cómo PAGA DE VERDAD cada cliente (remito→saldo de su factura/RV, últimos 120 días, ponderado; impagos vencidos cuentan como cota), contra cobrar al entregar. Número rey a 30 días, curva doble, plata financiada máxima, filtro por cortadora, lista OC por OC con su máquina, tabla pacta vs. paga. Proyección: no toca Flujo ni Salud. Sin SQL.
 // 27b (anterior):   // 27b: ☰ PLANIFICADOR COMPACTO — botón «Vista compacta» por sección (Extrusión/Corte): una fila por orden, clic en la fila despliega el detalle; y clic en el número de posición → «mover a la posición N» de esa máquina (antes había que apretar ↑ veinte veces). No toca prioridades, cronograma ni guardado: todo pasa por _planOC/_planOE + _planRecalcVista y se guarda con 💾 como siempre. La vista elegida queda en localStorage. Sin SQL.
 // 27a (anterior):    // 27a: 📋 CONTEO FÍSICO CON HORA — lo contado se compara contra el sistema A LA HORA DEL CONTEO (sale del libro mov_bolsas: ahora − lo movido después), así los cortes y remitos posteriores no se borran con el ajuste; lo tipeado queda en localStorage de la PC hasta aplicarlo; el aplicar lee stock y libro frescos de la BASE (no de la caché) y avisa qué reservas de pedidos se achican. Sin SQL.
@@ -5969,6 +6078,7 @@ async function reload(){
   // reseteamos el flag — si el usuario quiere ver las viejas, tiene que volver
   // a apretar "Cargar todas las históricas".
   if(typeof C!=='undefined')C._historicasCargadas=false;
+  window._bobGen=(window._bobGen||0)+1;   // 28c: invalida lo que se completó a demanda
   const results=await Promise.allSettled([
     sb.from('bobinas').select('*').order('nombre'),
     sb.from('extrusoras').select('*').order('nombre'),
@@ -7492,6 +7602,9 @@ function renderOrdenes(){
   w.innerHTML=html;
   // Actualizar también el resumen de OE arriba
   renderResumenOE();
+  // 28c: si hay OE viejas en la lista, completar sus bobinas y repintar el % de avance
+  const _viejas=lista.filter(o=>!_oeBobCompleta(o)).map(o=>o.id);
+  _bobAsegurarYRepintar('ordenes',_viejas.length>0,()=>_completarBobinasDeOEs(_viejas),renderOrdenes);
 }
 
 // Cambiar prioridad NO cambia nada más que un número y el orden de la lista.
@@ -25581,41 +25694,13 @@ function renderStock(){
 // más de 60 días). Las añade a C.bobinas_prod evitando duplicados por id.
 // Después rerinde la página de stock con todo el catálogo completo.
 async function cargarBobinasHistoricas(){
+  // 28c: la descarga vive en _traerBobinasHistoricas (la misma que usan Costos,
+  // Rentabilidad, etc.) — una sola copia del criterio de "qué falta".
   const btn=document.getElementById('btn-cargar-historicas');
   if(btn){btn.disabled=true;btn.textContent='⏳ Cargando históricas...';}
   try{
-    const hace60d=new Date(Date.now()-60*24*3600*1000);
-    const isoDate=hace60d.getFullYear()+'-'+String(hace60d.getMonth()+1).padStart(2,'0')+'-'+String(hace60d.getDate()).padStart(2,'0');
-    console.log('[Históricas] Buscando bobinas consumidas con fecha_produccion < '+isoDate);
-    // Paginar (Supabase tope 1000 por request)
-    const todas=[];
-    const chunk=1000;
-    let desde=0;
-    const tope=50000;
-    while(desde<tope){
-      const{data,error}=await sb.from('bobinas_producidas')
-        .select('*, ordenes(numero_orden,metros), bobinas(*), extrusoras(nombre), operarios(nombre)')
-        .eq('en_stock',false)
-        .lt('fecha_produccion',isoDate)
-        .order('fecha_produccion',{ascending:false})
-        .range(desde,desde+chunk-1);
-      if(error)throw error;
-      if(!data||!data.length)break;
-      todas.push(...data);
-      if(data.length<chunk)break;
-      desde+=chunk;
-    }
-    console.log('[Históricas] Resultado total: '+todas.length+' bobinas');
-    if(todas.length){
-      const idsExistentes=new Set(C.bobinas_prod.map(b=>b.id));
-      const nuevas=todas.filter(b=>!idsExistentes.has(b.id));
-      console.log('[Históricas] Nuevas (no duplicadas): '+nuevas.length);
-      C.bobinas_prod=[...C.bobinas_prod,...nuevas];
-      toast('✓ '+nuevas.length+' bobinas históricas cargadas','green');
-    } else {
-      toast('No había bobinas históricas adicionales','amber');
-    }
-    C._historicasCargadas=true;
+    const n=await _traerBobinasHistoricas();
+    toast(n?'✓ '+n+' bobinas históricas cargadas':'No había bobinas históricas adicionales',n?'green':'amber');
     renderStock();
   } catch(e){
     if(btn){btn.disabled=false;btn.textContent='📜 Cargar todas las históricas';}
@@ -51340,8 +51425,9 @@ function renderVistaSemana(wrap,bobs,ords){
 }
 
 // ===== DETALLE ORDEN EXTRUSIÓN =====
-function verDetalleOrden(id){
+async function verDetalleOrden(id){
   const o=C.ordenes.find(x=>x.id===id);if(!o)return;
+  if(!_oeBobCompleta(o))await _completarBobinasDeOEs([id]);   // 28c
   const bobs=C.bobinas_prod.filter(b=>b.orden_id===id);
   const mtsTotal=r1(bobs.reduce((s,b)=>s+(b.metros_reales||0),0));
   const kgTotal=r1(bobs.reduce((s,b)=>s+(b.kg_reales||0),0));
@@ -51554,11 +51640,14 @@ ${notas.length?'<div class="notas">'+notas.map(n=>'<p>'+n+'</p>').join('')+'</di
   win.document.open();win.document.write(html);win.document.close();
 }
 
-function imprimirOrden(id, tipo){
+async function imprimirOrden(id, tipo){
   const win=window.open('','_blank','width=900,height:700');
   let html='';
   if(tipo==='extrusion'){
     const o=C.ordenes.find(x=>x.id===id);if(!o)return;
+    // 28c: una OE vieja tiene bobinas fuera de la caché → completarlas antes de imprimir
+    if(!_oeBobCompleta(o)){try{win.document.write('<p style="font:16px Arial;padding:30px">Buscando todas las bobinas…</p>');}catch(e){}
+      await _completarBobinasDeOEs([id]);try{win.document.open();}catch(e){}}
     const bobs=C.bobinas_prod.filter(b=>b.orden_id===id);
     const mtsTotal=r1(bobs.reduce((s,b)=>s+(b.metros_reales||0),0));
     const kgTotal=r1(bobs.reduce((s,b)=>s+(b.kg_reales||0),0));
@@ -52334,6 +52423,9 @@ async function confirmarSuspenderOrden(id,tipo){
 
 // ===== HISTORIAL ÓRDENES =====
 function renderHistorial(){
+  // 28c: el conteo de bobinas y el error % de OE viejas necesitan sus bobinas completas
+  {const _v=C.ordenes.filter(o=>(o.estado==='Completada'||o.estado==='Suspendida'||o.estado==='Cancelada')&&!_oeBobCompleta(o)).map(o=>o.id);
+   _bobAsegurarYRepintar('historial',_v.length>0,()=>_completarBobinasDeOEs(_v),renderHistorial);}
   const tipo=document.getElementById('hist-tipo')?.value||'';
   const estado=document.getElementById('hist-estado')?.value||'';
   const desde=document.getElementById('hist-desde')?.value;
@@ -53563,6 +53655,7 @@ function renderRentabilidad(){
   const{ini,fin,label}=getRentFechas();
   const compTipo=document.getElementById('rent-comp')?.value||'';
   const comp=getRentComparacion(ini,fin,compTipo);
+  _bobAsegurarYRepintar('rent',_bobPeriodoIncompleto(ini)||(comp&&_bobPeriodoIncompleto(comp.ini)),_traerBobinasHistoricas,renderRentabilidad);   // 28c
   const sub=document.getElementById('rent-sub-lbl');
   if(sub)sub.textContent=label+(comp?' vs '+comp.label:'')+(prodFiltro?' · '+C.productos.find(p=>p.id===prodFiltro)?.descripcion:'');
   const A=calcRentPeriodo(ini,fin,gg,prodFiltro);
@@ -67339,6 +67432,7 @@ async function verLotesDeBobina(bobinaId){
 async function verLotesDeOE(oeId){
   document.getElementById('vinv-modal')?.remove();
   const oe=C.ordenes.find(o=>o.id===oeId);
+  if(!_oeBobCompleta(oe||{id:oeId}))await _completarBobinasDeOEs([oeId]);   // 28c
   const bobs=C.bobinas_prod.filter(b=>b.orden_id===oeId);
   const titulo=oe?'OE '+oe.numero_orden:'OE #'+oeId;
   document.body.insertAdjacentHTML('beforeend',
@@ -67398,6 +67492,7 @@ async function verLotesDePedido(pedidoId){
     (oc?.orden_corte_bobinas||[]).forEach(b=>bobIds.add(b.bobina_producida_id));
   });
   // Además: bobinas de OEs vinculadas directamente al pedido (aunque no se hayan cortado todavía)
+  await _completarBobinasDeOEs(C.ordenes.filter(o=>o.pedido_ref_id===pedidoId).map(o=>o.id));   // 28c
   C.ordenes.filter(o=>o.pedido_ref_id===pedidoId).forEach(oe=>{
     C.bobinas_prod.filter(b=>b.orden_id===oe.id).forEach(b=>bobIds.add(b.id));
   });
@@ -68809,6 +68904,8 @@ function renderCostos(){
   const{ini,fin,label}=getCostoFiltroFechas();
   const compPer=document.getElementById('costo-comp-periodo')?.value||'';
   const comp=compPer?getCostoComparacion(ini,fin,compPer):null;
+  // 28c: período (o comparación) de hace más de 60 días → traer el histórico y recalcular
+  _bobAsegurarYRepintar('costos',_bobPeriodoIncompleto(ini)||(comp&&_bobPeriodoIncompleto(comp.ini)),_traerBobinasHistoricas,renderCostos);
   // Update subtitle
   const sub=document.getElementById('costo-sub-lbl');
   const prodLbl=prodFiltro?(C.productos.find(p=>p.id===prodFiltro)?.codigo||''):'';

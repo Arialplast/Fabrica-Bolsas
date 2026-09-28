@@ -5,7 +5,7 @@ const fs=require('fs');const src=fs.readFileSync(process.argv[2]||'fabrica_bolsa
 const OUT=process.argv[3]||null;
 let ok=0,bad=0;const T=(c,m)=>{if(c)ok++;else{bad++;console.log('✖',m);}};
 function fn(name){const i=src.indexOf('function '+name+'(');if(i<0)throw 'no '+name;let j=src.indexOf('{',i),d=0;for(let k=j;k<src.length;k++){if(src[k]==='{')d++;else if(src[k]==='}'){d--;if(!d)return src.slice(src.lastIndexOf('\n',i)+1,k+1);}}}
-const a=src.indexOf('// ===== 🧱 HOJA DE PALLET DE BOBINAS');const b=src.indexOf('function imprimirOrden(id, tipo){');
+const a=src.indexOf('// ===== 🧱 HOJA DE PALLET DE BOBINAS');const b=(i=>i>0?i:src.indexOf('function imprimirOrden(id, tipo){'))(src.indexOf('async function imprimirOrden(id, tipo){'));
 T(a>0&&b>a,'bloque encontrado');
 const blk=src.slice(a,b);
 T(!/C\.bobinas_prod/.test(blk.replace(/\/\/.*$/gm,'')),'el bloque NO lee la caché parcial C.bobinas_prod');
