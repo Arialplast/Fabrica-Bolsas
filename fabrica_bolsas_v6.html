@@ -791,7 +791,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-28a</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-28b</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5627,7 +5627,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-09-28a';   // 28a: 💰 QUÉ PLATA TRAE ESTE ORDEN — sección nueva en Planificar producción: con el orden de extrusión y de corte (aunque no esté guardado) proyecta cuándo sale cada OC y cuándo entra la plata según cómo PAGA DE VERDAD cada cliente (remito→saldo de su factura/RV, últimos 120 días, ponderado; impagos vencidos cuentan como cota), contra cobrar al entregar. Número rey a 30 días, curva doble, plata financiada máxima, filtro por cortadora, lista OC por OC con su máquina, tabla pacta vs. paga. Proyección: no toca Flujo ni Salud. Sin SQL.
+const APP_BUILD='2026-09-28b';   // 28b: 🧱 HOJA DE PALLET DE BOBINAS — botón «🧱 Pallet» en la lista de Órdenes de extrusión (y al completarse la OE al cargar la última bobina): A4 con el CLIENTE, el PRODUCTO (código + descripción), el tipo de bobina, total de bobinas/kg/metros en grande, OC, pedido, entrega, y la lista de TODAS las bobinas en stock de la OE con casilla para tildar al subirlas, firmas Armó/Controló. Las bobinas se consultan a la BASE (no a C.bobinas_prod, caché parcial). Fuera de rango/excedentes no van al pallet y se listan aparte; las reservadas a OTRA OC se marcan en gris; las ya cortadas se aclaran al pie. Solo lectura. Sin SQL.
+// (anterior) 28a:   // 28a: 💰 QUÉ PLATA TRAE ESTE ORDEN — sección nueva en Planificar producción: con el orden de extrusión y de corte (aunque no esté guardado) proyecta cuándo sale cada OC y cuándo entra la plata según cómo PAGA DE VERDAD cada cliente (remito→saldo de su factura/RV, últimos 120 días, ponderado; impagos vencidos cuentan como cota), contra cobrar al entregar. Número rey a 30 días, curva doble, plata financiada máxima, filtro por cortadora, lista OC por OC con su máquina, tabla pacta vs. paga. Proyección: no toca Flujo ni Salud. Sin SQL.
 // 27b (anterior):   // 27b: ☰ PLANIFICADOR COMPACTO — botón «Vista compacta» por sección (Extrusión/Corte): una fila por orden, clic en la fila despliega el detalle; y clic en el número de posición → «mover a la posición N» de esa máquina (antes había que apretar ↑ veinte veces). No toca prioridades, cronograma ni guardado: todo pasa por _planOC/_planOE + _planRecalcVista y se guarda con 💾 como siempre. La vista elegida queda en localStorage. Sin SQL.
 // 27a (anterior):    // 27a: 📋 CONTEO FÍSICO CON HORA — lo contado se compara contra el sistema A LA HORA DEL CONTEO (sale del libro mov_bolsas: ahora − lo movido después), así los cortes y remitos posteriores no se borran con el ajuste; lo tipeado queda en localStorage de la PC hasta aplicarlo; el aplicar lee stock y libro frescos de la BASE (no de la caché) y avisa qué reservas de pedidos se achican. Sin SQL.
 // 25a: ✂ SALA DE PLANES Y DEUDAS — PAGAR UNA PARTE Y MANDAR EL RESTO A UN PLAN DE PAGOS. German, en el plan «Cubrir ARCA · cuota 1/2 +7»: quiere SACAR la cuota 3/3 del IVA (ARCA deuda 15, $7.387.622,17, vto 21/09) para ponerla en otro plan, y poder decir «de este IVA pago la mitad y la otra mitad la meto en un plan de pagos de ARCA». Dos huecos: (1) en el paso 2 del editor lo que cubre el plan era una línea de texto: para sacar o achicar un compromiso había que volver al paso 1. Ahora es una tabla editable (_plwObjetivosEditables) con ✕ sacar, ½, todo y monto. (2) el resto de un parcial siempre decía «queda debiendo»: ahora el objetivo lleva `resto_destino:'plan'` (+`resto_ref`) y todos los textos salen de _plwRestoTxt. (3) 🔴 en Deudas una cuota tenía UN solo desenlace: pagar la mitad con 💵 la marcaba pagada y la otra mitad DESAPARECIA. Nuevo ✂ Partir (_dfPartirCuotas/_dfUnirCuotas): la cuota se vuelve dos piezas 3a/3b que suman exacto, capital/interés prorrateados, mismo vencimiento; la b puede quedar pendiente o nacer ya consolidada en el plan de facilidades (igual que 🔄 Sin caja → plan). La pieza a conserva el nro y la clave del flujo, así el plan que la tenía la sigue encontrando; plwEditar relee el saldo de hoy. Libro de caja, Resultado, Mapa de deuda y conciliación no cambian: ven cuotas normales. Sin SQL.
@@ -7431,6 +7432,7 @@ function renderOrdenes(){
     if(!esCanc&&!esComp) btnAcc+='<button class="btn btn-sm btn-primary" onclick="abrirEditarOrdenExtrusion('+o.id+')" title="Editar orden">✏️</button>';
     if(o.estado==='En proceso') btnAcc+='<button class="btn btn-sm" onclick="recongelarBaseline('+o.id+')" title="Recongelar baseline: fija una nueva fecha comprometida de fin (úsalo si replanificaste a propósito)">🎯</button>';
     btnAcc+='<button class="btn btn-sm" onclick="imprimirOrden('+o.id+',\'extrusion\')" title="Imprimir orden">🖨️</button>';
+    if(!esCanc&&(esComp||mtsP>0)) btnAcc+='<button class="btn btn-sm'+(esComp?' btn-primary':'')+'" onclick="imprimirPalletOE('+o.id+')" title="Hoja para armar el pallet: todas las bobinas en stock de esta OE, cliente y producto en grande">🧱 Pallet</button>';
     btnAcc+='<button class="btn btn-sm" onclick="verLotesDeOE('+o.id+')" title="Ver lotes MP consumidos">📦</button>';
     if(!esCanc&&!esComp) btnAcc+='<button class="btn btn-sm btn-warn" onclick="abrirCancelarOrden('+o.id+',\'extrusion\')">Cancelar</button>';
     if(!esCanc&&!esSusp&&!esComp) btnAcc+='<button class="btn btn-sm" style="background:var(--amberbg);color:var(--amber);border:1px solid var(--amberbd)" onclick="abrirSuspenderOrden('+o.id+',\'extrusion\')">Suspender</button>';
@@ -8449,6 +8451,9 @@ async function _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,ca
       await sb.from('ordenes').update({estado:'Completada'}).eq('id',ordId);
       _oeCompletada=true;
       msg.className='msg-ok';msg.textContent=`✓ Bobina ${nro} guardada. ¡Orden ${orden.numero_orden} COMPLETADA!`;
+      // 28b: la OE terminó → ofrecer la hoja del pallet ahí mismo (botón: el click habilita el pop-up)
+      try{const bp=document.createElement('button');bp.className='btn btn-sm btn-primary';bp.style.marginLeft='10px';
+        bp.textContent='🧱 Imprimir hoja del pallet';bp.onclick=()=>imprimirPalletOE(ordId);msg.appendChild(bp);}catch(e){}
     }else{
       msg.className='msg-ok';msg.textContent=`✓ Bobina ${nro} registrada — Calidad: ${calidad}`;
     }
@@ -51399,6 +51404,156 @@ function verDetalleOrden(id){
 }
 
 // ===== IMPRESIÓN DE ÓRDENES =====
+// ===== 🧱 HOJA DE PALLET DE BOBINAS (build 2026-09-28b) =====
+// German: «una hoja para imprimir, para que armen el pallet de bobinas cuando se
+// termina una OE: todas las bobinas, cliente, tipo de bolsa, bien grande y legible».
+// Solo lectura (P1): las bobinas se consultan a la BASE por orden_id — NUNCA a
+// C.bobinas_prod, que es una caché parcial (sólo las últimas) y daría un pallet
+// incompleto en silencio. En el pallet van las que están físicamente en el piso
+// (en_stock, no anuladas); las que ya se cortaron o se reasignaron se aclaran al
+// pie para que nadie salga a buscar una bobina que no está.
+async function _palletBobinasOE(oeId){
+  const out=[];let desde=0;
+  for(let i=0;i<50;i++){
+    const{data,error}=await sb.from('bobinas_producidas')
+      .select('id,numero_bobina,metros_reales,kg_reales,fecha_produccion,hora_produccion,en_stock,anulada,reasignada,fuera_de_rango,reservada_oc_id,estado_calidad,extrusoras(nombre)')
+      .eq('orden_id',oeId).order('id').range(desde,desde+999);
+    if(error)throw error;
+    out.push(...(data||[]));
+    if(!data||data.length<1000)break;
+    desde+=1000;
+  }
+  return out;
+}
+// Clasifica las bobinas de la OE: qué va al pallet y qué no (y por qué). Pura, para test.
+function _palletClasificar(bobs,ocPropiaId){
+  const pallet=[],fuera=[],rechazo=[],noEsta=[];
+  (bobs||[]).forEach(b=>{
+    if(b.anulada)return;                                   // anulada: no existe
+    if(b.fuera_de_rango){(b.en_stock===false?rechazo:fuera).push(b);return;} // no es de la OE: fuera = está en el piso, separarla
+    if(b.en_stock===false||b.reasignada){noEsta.push(b);return;} // ya cortada o movida
+    pallet.push(b);
+  });
+  const num=b=>{const m=String(b.numero_bobina||'').match(/(\d+)\s*$/);return m?parseInt(m[1]):0;};
+  pallet.sort((a,b)=>num(a)-num(b)||a.id-b.id);
+  const otraOC=pallet.filter(b=>b.reservada_oc_id&&b.reservada_oc_id!==ocPropiaId);
+  const kg=r1(pallet.reduce((s,b)=>s+(parseFloat(b.kg_reales)||0),0));
+  const mts=Math.round(pallet.reduce((s,b)=>s+(parseFloat(b.metros_reales)||0),0));
+  return{pallet,fuera,rechazo,noEsta,otraOC,kg,mts};
+}
+function _palletFecha(f){if(!f)return '—';const p=String(f).slice(0,10).split('-');return p.length===3?p[2]+'/'+p[1]:f;}
+async function imprimirPalletOE(oeId){
+  // La ventana se abre YA (dentro del click), si no el bloqueador de pop-ups la frena.
+  const win=window.open('','_blank','width=900,height=1200');
+  if(!win){if(typeof toast==='function')toast('Habilitá los pop-ups para imprimir','amber');return;}
+  win.document.write('<p style="font:16px Arial;padding:30px">Armando la hoja del pallet…</p>');
+  const o=(C.ordenes||[]).find(x=>x.id===oeId);
+  if(!o){win.document.body.innerHTML='<p style="font:16px Arial;padding:30px">No encontré la orden.</p>';return;}
+  let bobs;
+  try{bobs=await _palletBobinasOE(oeId);}
+  catch(e){win.document.body.innerHTML='<p style="font:16px Arial;padding:30px;color:#b91c1c">No se pudieron leer las bobinas: '+escapeHtml(e.message||e)+'</p>';return;}
+  const oc=_ocDeOE(o);
+  const idx=_chIndicePedidos();
+  const ped=oc?(idx[oc.id]?.p||null):null;
+  const prod=oc?(oc.productos||(C.productos||[]).find(p=>p.id===oc.producto_id)):null;
+  const bobTipo=o.bobinas||(C.bobinas||[]).find(b=>b.id===o.bobina_id)||{};
+  const cl=_palletClasificar(bobs,oc?.id);
+  const E=escapeHtml;
+  const cliente=o.cliente||ped?.cliente||oc?.cliente||'—';
+  // Producto: código SIEMPRE con su descripción al lado. Sin OC (bobina a granel) → la bobina.
+  const prodTxt=prod?((prod.codigo?prod.codigo+' — ':'')+(prod.descripcion||'')):('Bobina a granel · '+(bobTipo.nombre||''));
+  const entrega=oc?.fecha_entrega_comprometida||ped?.fecha_entrega_est||null;
+  const exts=[...new Set(cl.pallet.map(b=>b.extrusoras?.nombre).filter(Boolean))].join(' · ')
+    ||(o.orden_extrusoras||[]).map(x=>x.extrusoras?.nombre).filter(Boolean).join(' · ')||'—';
+  const ocNro=n=>(C.ord_corte||[]).find(x=>x.id===n)?.numero_orden||('#'+n);
+  const filas=cl.pallet.map((b,i)=>{
+    const otra=b.reservada_oc_id&&b.reservada_oc_id!==oc?.id;
+    return '<tr'+(otra?' class="otra"':'')+'>'
+      +'<td class="n">'+(i+1)+'</td>'
+      +'<td class="bob">'+E(b.numero_bobina||'—')+(otra?'<div class="aviso">VA PARA '+E(ocNro(b.reservada_oc_id))+'</div>':'')+'</td>'
+      +'<td class="num">'+Math.round(parseFloat(b.metros_reales)||0).toLocaleString('es-AR')+'</td>'
+      +'<td class="num">'+r1(parseFloat(b.kg_reales)||0).toLocaleString('es-AR',{minimumFractionDigits:1})+'</td>'
+      +'<td class="ext">'+E(b.extrusoras?.nombre||'—')+'</td>'
+      +'<td class="fec">'+_palletFecha(b.fecha_produccion)+'</td>'
+      +'<td class="chk"><span></span></td>'
+      +'</tr>';
+  }).join('');
+  const notas=[];
+  if(cl.otraOC.length)notas.push('<b>'+cl.otraOC.length+' bobina(s)</b> de esta orden están reservadas para OTRA orden de corte (marcadas en la lista): separarlas del pallet.');
+  if(cl.fuera.length)notas.push('<b>'+cl.fuera.length+' bobina(s) fuera de rango o excedente</b> ('+cl.fuera.map(b=>E(b.numero_bobina)).join(', ')+'): NO van a este pallet hasta que la oficina las asigne.');
+  if(cl.rechazo.length)notas.push(cl.rechazo.length+' bobina(s) fuera de rango ya salieron del stock (rechazo) y no van al pallet.');
+  if(cl.noEsta.length)notas.push(cl.noEsta.length+' bobina(s) de esta orden ya se cortaron o se movieron y no tienen que estar en el piso.');
+  const html=`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Pallet ${E(o.numero_orden)}</title>
+<style>
+  @page{size:A4 portrait;margin:10mm;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:Arial,Helvetica,sans-serif;color:#000;}
+  .top{display:flex;justify-content:space-between;align-items:center;border-bottom:4px solid #000;padding-bottom:6px;}
+  .tit{font-size:20pt;font-weight:900;letter-spacing:.04em;}
+  .oe{font-size:30pt;font-weight:900;font-family:'Courier New',monospace;}
+  .lbl{font-size:9pt;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#333;margin-top:6px;}
+  .cli{font-size:34pt;font-weight:900;line-height:1.05;text-transform:uppercase;word-break:break-word;}
+  .prod{font-size:21pt;font-weight:800;line-height:1.15;}
+  .bobt{font-size:14pt;margin-top:2px;}
+  .kpis{display:grid;grid-template-columns:1fr 1fr 1fr;border:3px solid #000;margin-top:12px;}
+  .kpis>div{padding:4px 10px;border-right:3px solid #000;text-align:center;}
+  .kpis>div:last-child{border-right:none;}
+  .kpis .v{font-size:30pt;font-weight:900;font-family:'Courier New',monospace;line-height:1.1;}
+  .kpis .l{font-size:10pt;font-weight:700;text-transform:uppercase;letter-spacing:.08em;}
+  .refs{display:flex;flex-wrap:wrap;gap:6px 22px;font-size:13pt;margin:10px 0 8px;}
+  .refs b{font-family:'Courier New',monospace;font-size:14pt;}
+  table{width:100%;border-collapse:collapse;}
+  thead th{font-size:10pt;text-transform:uppercase;letter-spacing:.05em;border-bottom:3px solid #000;padding:5px 6px;text-align:left;}
+  thead tr.rep th{font-size:10pt;font-weight:400;text-transform:none;letter-spacing:0;border-bottom:1px solid #000;}
+  td{border-bottom:1px solid #888;padding:3px 6px;font-size:14pt;vertical-align:middle;}
+  tr{page-break-inside:avoid;}
+  td.n{width:34px;color:#444;font-size:12pt;}
+  td.bob{font-family:'Courier New',monospace;font-weight:900;font-size:18pt;}
+  td.num{font-family:'Courier New',monospace;font-weight:700;text-align:right;}
+  th.num{text-align:right;}
+  td.ext{font-size:12pt;} td.fec{font-size:12pt;font-family:'Courier New',monospace;}
+  td.chk{width:46px;text-align:center;} td.chk span{display:inline-block;width:24px;height:24px;border:3px solid #000;}
+  tr.otra td{background:#e5e5e5;} .aviso{font-family:Arial;font-size:10pt;font-weight:900;}
+  tr.tot td{border-top:3px solid #000;border-bottom:none;font-weight:900;}
+  .notas{margin-top:10px;font-size:11pt;border:2px solid #000;padding:6px 10px;}
+  .notas p{margin:3px 0;}
+  .firmas{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-top:26px;font-size:11pt;}
+  .firmas div{border-top:2px solid #000;padding-top:4px;text-align:center;}
+  .pie{margin-top:10px;font-size:8pt;color:#555;text-align:right;}
+  @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+</style></head><body>
+<div class="top"><div class="tit">PALLET DE BOBINAS</div><div class="oe">${E(o.numero_orden)}</div></div>
+<div class="lbl">Cliente</div><div class="cli">${E(cliente)}</div>
+<div class="lbl">Producto</div><div class="prod">${E(prodTxt)}</div>
+<div class="bobt">Bobina: <b>${E(bobTipo.nombre||'—')}</b>${bobTipo.descripcion?' · '+E(bobTipo.descripcion):''}</div>
+<div class="kpis">
+  <div><div class="v">${cl.pallet.length}</div><div class="l">Bobinas</div></div>
+  <div><div class="v">${cl.kg.toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:1})}</div><div class="l">Kg</div></div>
+  <div><div class="v">${cl.mts.toLocaleString('es-AR')}</div><div class="l">Metros</div></div>
+</div>
+<div class="refs">
+  ${oc?'<span>OC <b>'+E(oc.numero_orden)+'</b></span>':''}
+  ${ped?'<span>Pedido <b>'+E(ped.numero_pedido||ped.numero||('#'+ped.id))+'</b></span>':''}
+  ${entrega?'<span>Entrega <b>'+_palletFecha(entrega)+'/'+String(entrega).slice(0,4)+'</b></span>':''}
+  <span>Extrusora <b>${E(exts)}</b></span>
+  <span>Estado OE <b>${E(o.estado||'—')}</b></span>
+</div>
+${cl.pallet.length?`<table>
+  <thead>
+    <tr class="rep"><th colspan="7">${E(o.numero_orden)} · ${E(cliente)} · ${E(prodTxt)}</th></tr>
+    <tr><th>#</th><th>N° bobina</th><th class="num">Metros</th><th class="num">Kg</th><th>Extrusora</th><th>Fecha</th><th>✓</th></tr>
+  </thead>
+  <tbody>${filas}
+  <tr class="tot"><td></td><td>TOTAL ${cl.pallet.length}</td><td class="num">${cl.mts.toLocaleString('es-AR')}</td><td class="num">${cl.kg.toLocaleString('es-AR',{minimumFractionDigits:1})}</td><td colspan="3"></td></tr></tbody>
+</table>`:'<div class="notas"><p><b>No hay bobinas de esta orden en stock.</b></p></div>'}
+${notas.length?'<div class="notas">'+notas.map(n=>'<p>'+n+'</p>').join('')+'</div>':''}
+<div class="firmas"><div>Armó</div><div>Controló</div><div>Fecha y hora</div></div>
+<div class="pie">Impreso ${localDate().split('-').reverse().join('/')} ${localTime().slice(0,5)} · ${E(o.numero_orden)} · build ${typeof APP_BUILD!=='undefined'?APP_BUILD:''}</div>
+<scr`+`ipt>window.onload=()=>setTimeout(()=>window.print(),400);<\/scr`+`ipt>
+</body></html>`;
+  win.document.open();win.document.write(html);win.document.close();
+}
+
 function imprimirOrden(id, tipo){
   const win=window.open('','_blank','width=900,height:700');
   let html='';
