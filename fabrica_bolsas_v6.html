@@ -791,7 +791,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-28g</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-28h</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5735,7 +5735,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-09-28g';   // 28g: 🏛 CLIENTES DESDE ARCA — botón «Traer datos de ARCA» en la ficha y «Verificar N en ARCA» en la lista (Edge Function op padron): condición de IVA real, razón social oficial, domicilio, provincia y CP. Nombre de planta separado de la razón social (antes editar pisaba el nombre). Alta con CUIT se verifica sola. Provincia por cliente va a TusFacturas. SQL aplicado: clientes.provincia/codigo_postal/arca_estado/arca_verificado_el + check de condicion_iva ampliado. · 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
+const APP_BUILD='2026-09-28h';   // 28h: 📄 EMITIDA EN FLEXXUS — cae_estado='externo' marca las copias de comprobantes que se emitieron en Flexxus: no ofrecen 🏛 CAE (evita declarar dos veces la misma venta), botón 📄 para marcar, desmarcar con clave de admin, el impreso dice COPIA INTERNA. SQL: 128 facturas + 8 NC formales marcadas el 28/09. · 28g: 🏛 CLIENTES DESDE ARCA — botón «Traer datos de ARCA» en la ficha y «Verificar N en ARCA» en la lista (Edge Function op padron): condición de IVA real, razón social oficial, domicilio, provincia y CP. Nombre de planta separado de la razón social (antes editar pisaba el nombre). Alta con CUIT se verifica sola. Provincia por cliente va a TusFacturas. SQL aplicado: clientes.provincia/codigo_postal/arca_estado/arca_verificado_el + check de condicion_iva ampliado. · 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
 // (anterior) 28c:   // 28c: 📜 BOBINAS VIEJAS A DEMANDA — reload trae sólo bobinas en stock o de los últimos 60 días, y toda pantalla que miraba una OE o un período más viejo contaba de menos EN SILENCIO: el 🖨️ de ORD-05574 salía con 0 bobinas (tiene 45) y Costos de producción de julio daba 3.590 kg producidos (fueron 37.144). Ahora la MISMA caché C.bobinas_prod se completa sólo cuando hace falta: por OE (🖨️, 📊 Detalle, 📦 Lotes de MP de OE y de pedido, % de avance de la lista, Historial) o por período (Costos, Rentabilidad, con su comparación). Pieza única `// ===== 📜 BOBINAS VIEJAS A DEMANDA` (_oeBobCompleta, _bobPeriodoIncompleto, _completarBobinasDeOEs, _traerBobinasHistoricas, _bobAsegurarYRepintar), invalidada en cada reload con window._bobGen. El botón «📜 Cargar todas las históricas» de Stock usa la misma descarga. Mismos filtros que la carga inicial. Solo lectura. Sin SQL.
 // (anterior) 28b:   // 28b: 🧱 HOJA DE PALLET DE BOBINAS — botón «🧱 Pallet» en la lista de Órdenes de extrusión (y al completarse la OE al cargar la última bobina): A4 con el CLIENTE, el PRODUCTO (código + descripción), el tipo de bobina, total de bobinas/kg/metros en grande, OC, pedido, entrega, y la lista de TODAS las bobinas en stock de la OE con casilla para tildar al subirlas, firmas Armó/Controló. Las bobinas se consultan a la BASE (no a C.bobinas_prod, caché parcial). Fuera de rango/excedentes no van al pallet y se listan aparte; las reservadas a OTRA OC se marcan en gris; las ya cortadas se aclaran al pie. Solo lectura. Sin SQL.
 // (anterior) 28a:   // 28a: 💰 QUÉ PLATA TRAE ESTE ORDEN — sección nueva en Planificar producción: con el orden de extrusión y de corte (aunque no esté guardado) proyecta cuándo sale cada OC y cuándo entra la plata según cómo PAGA DE VERDAD cada cliente (remito→saldo de su factura/RV, últimos 120 días, ponderado; impagos vencidos cuentan como cota), contra cobrar al entregar. Número rey a 30 días, curva doble, plata financiada máxima, filtro por cortadora, lista OC por OC con su máquina, tabla pacta vs. paga. Proyección: no toca Flujo ni Salud. Sin SQL.
@@ -17241,7 +17241,39 @@ function _caeEstado(doc){
   if(e==='prueba')             return {cod:'prueba',    lbl:'prueba (sin CAE)', color:'var(--accent)'};
   if(e==='procesando')         return {cod:'procesando',lbl:'sin confirmar',    color:'var(--amber)'};
   if(e==='rechazado')          return {cod:'rechazado', lbl:'rechazado',        color:'var(--red)'};
+  if(e==='externo')            return {cod:'externo',   lbl:'emitida en Flexxus',color:'var(--text2)'};
   return {cod:'sin',lbl:'sin CAE',color:'var(--text3)'};
+}
+
+// ===== 📄 EMITIDA EN FLEXXUS (28h) =====
+// Hasta el 28/09/2026 todo se facturaba en Flexxus y el sistema guardaba una COPIA
+// para la cuenta corriente. Con ARCA en producción, el botón 🏛 CAE sobre esa copia
+// emitía una SEGUNDA factura fiscal de la misma venta. cae_estado='externo' marca
+// "este comprobante ya existe en ARCA, emitido por otro sistema": no se ofrece CAE
+// (acá ni en la Edge Function) y se puede desmarcar con clave de admin.
+async function marcarEmitidaAfuera(docTipo,docId){
+  const doc=_arcaDoc(docTipo,docId);if(!doc)return;
+  if(doc.cae){toast('Ya tiene CAE: la emitió este sistema.','amber');return;}
+  if(doc.cae_estado==='procesando'){toast('Quedó sin confirmar un pedido de CAE: tocá 🔎 Verificar primero.','amber');return;}
+  const nom=docTipo==='factura'?'la factura':docTipo==='nc'?'la nota de crédito':'la nota de débito';
+  if(!confirm('¿Marcar '+nom+' '+(doc.numero||('#'+docId))+' como YA EMITIDA EN FLEXXUS?\n\nNo se va a poder pedir el CAE desde acá (así no se declara dos veces la misma venta). Se puede desmarcar con clave de admin.'))return;
+  const tabla=docTipo==='factura'?'facturas':docTipo==='nc'?'notas_credito':'notas_debito';
+  const{error}=await sb.from(tabla).update({cae_estado:'externo'}).eq('id',docId).is('cae',null);
+  if(error){toast('No se pudo marcar: '+error.message,'red');return;}
+  doc.cae_estado='externo';
+  toast('Marcada como emitida en Flexxus','green');
+  _arcaRefrescar(docTipo);
+}
+function desmarcarEmitidaAfuera(docTipo,docId){
+  pedirAdminYEjecutar(async()=>{
+    const doc=_arcaDoc(docTipo,docId);if(!doc)return;
+    if(!confirm('¿Desmarcar? Vuelve a ofrecer 🏛 CAE: hacelo sólo si este comprobante NO se emitió en Flexxus.'))return;
+    const tabla=docTipo==='factura'?'facturas':docTipo==='nc'?'notas_credito':'notas_debito';
+    const{error}=await sb.from(tabla).update({cae_estado:null}).eq('id',docId).eq('cae_estado','externo');
+    if(error){toast('No se pudo desmarcar: '+error.message,'red');return;}
+    doc.cae_estado=null;
+    _arcaRefrescar(docTipo);
+  });
 }
 
 // Pie fiscal de un comprobante impreso: QR de ARCA (RG 4892) + CAE y su
@@ -17301,6 +17333,8 @@ function _arcaAplica(tipo,doc){
 function _caeBotones(tipo,doc){
   const ap=_arcaAplica(tipo,doc);
   const st=_caeEstado(doc);
+  if(st.cod==='externo')
+    return '<span class="btn btn-sm" style="cursor:pointer;font-size:10px;color:var(--text2);" title="Ya emitida en Flexxus: no se pide CAE desde acá. Click para desmarcar (clave de admin)." onclick="desmarcarEmitidaAfuera(\''+tipo+'\','+doc.id+')">📄 Flexxus</span> ';
   if(!ap.ok&&!doc.cae&&st.cod!=='prueba')
     return '<span style="font-size:10px;color:var(--text3);" title="'+escapeHtml(ap.motivo)+'">— no va a ARCA</span> ';
   const anulada=(tipo==='factura'&&typeof _estadoFactura==='function')?_estadoFactura(doc)==='anulada':(doc.estado==='anulada'||doc.anulada);
@@ -17325,7 +17359,8 @@ function _caeBotones(tipo,doc){
           +'<button class="btn btn-sm" onclick="solicitarCAE(\''+tipo+'\','+doc.id+')" style="font-size:10px;" title="Reintentar">↻</button> ';
   }
   if(anulada) return '';
-  return '<button class="btn btn-sm" onclick="solicitarCAE(\''+tipo+'\','+doc.id+')" style="font-size:10px;background:#0ea5e9;color:#fff;border-color:#0ea5e9;" title="Pedir el CAE a ARCA">🏛 CAE</button> ';
+  return '<button class="btn btn-sm" onclick="solicitarCAE(\''+tipo+'\','+doc.id+')" style="font-size:10px;background:#0ea5e9;color:#fff;border-color:#0ea5e9;" title="Pedir el CAE a ARCA">🏛 CAE</button> '
+    +'<button class="btn btn-sm" onclick="marcarEmitidaAfuera(\''+tipo+'\','+doc.id+')" style="font-size:10px;" title="Ya la emití en Flexxus: no pedir CAE desde acá">📄</button> ';
 }
 
 // El ambiente tiene que estar SIEMPRE a la vista. Un cartel que dice "estás en
@@ -17385,6 +17420,7 @@ async function solicitarCAE(docTipo,docId){
   if(doc.cae){toast('Este comprobante ya tiene CAE','amber');return;}
   const _ap=_arcaAplica(docTipo,doc);
   if(!_ap.ok){alert('Este comprobante no se declara a ARCA:\n\n'+_ap.motivo);return;}
+  if(doc.cae_estado==='externo'){alert('Este comprobante está marcado como YA EMITIDO EN FLEXXUS.\n\nPedir el CAE acá declararía la misma venta dos veces. Si no se emitió en Flexxus, desmarcalo primero (📄 Flexxus → clave de admin).');return;}
   if(doc.cae_estado==='procesando'){
     if(!confirm('Este comprobante quedó SIN CONFIRMAR de un intento anterior.\n\nAntes de emitir, el sistema va a preguntarle a ARCA si ya se emitió. ¿Seguimos?'))return;
   }
@@ -17688,7 +17724,8 @@ function imprimirFactura(facId){
 
   const aviso = f.cae_estado==='prueba'
       ? '<div class="band alerta">COMPROBANTE DE PRUEBA · SIN VALIDEZ FISCAL · NO ENTREGAR AL CLIENTE</div>'
-      : (!f.cae ? '<div class="band alerta rojo">SIN CAE · este comprobante todavia no fue autorizado por ARCA</div>' : '');
+      : (f.cae_estado==='externo' ? '<div class="band alerta">COPIA INTERNA · el comprobante fiscal se emitió en Flexxus</div>'
+      : (!f.cae ? '<div class="band alerta rojo">SIN CAE · este comprobante todavia no fue autorizado por ARCA</div>' : ''));
 
   // QUE ENTRE EN UNA HOJA. En vez de dejar que el navegador parta el
   // comprobante donde quiera, el impreso se aprieta segun cuantos renglones
