@@ -791,7 +791,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-28h</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-30a</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -3967,6 +3967,7 @@ body.pext-on .main{margin-left:0!important;}
         <div><div class="page-title">Facturación formal</div><div class="page-sub">Facturas A/B emitidas · Remitos pendientes de facturar</div></div>
         <div class="btn-grp">
           <button class="btn" onclick="abrirConfigArca()" title="Ambiente, punto de venta y prueba de conexión con ARCA">🏛 ARCA</button>
+          <button class="btn" onclick="abrirZipComprobantes()" title="Bajar en un ZIP los PDF de las facturas y notas con CAE de un mes">🗜 Comprobantes (ZIP)</button>
           <button class="btn btn-primary" onclick="go('nueva-factura')">+ Nueva factura</button>
         </div>
       </div>
@@ -5735,7 +5736,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-09-28h';   // 28h: 📄 EMITIDA EN FLEXXUS — cae_estado='externo' marca las copias de comprobantes que se emitieron en Flexxus: no ofrecen 🏛 CAE (evita declarar dos veces la misma venta), botón 📄 para marcar, desmarcar con clave de admin, el impreso dice COPIA INTERNA. SQL: 128 facturas + 8 NC formales marcadas el 28/09. · 28g: 🏛 CLIENTES DESDE ARCA — botón «Traer datos de ARCA» en la ficha y «Verificar N en ARCA» en la lista (Edge Function op padron): condición de IVA real, razón social oficial, domicilio, provincia y CP. Nombre de planta separado de la razón social (antes editar pisaba el nombre). Alta con CUIT se verifica sola. Provincia por cliente va a TusFacturas. SQL aplicado: clientes.provincia/codigo_postal/arca_estado/arca_verificado_el + check de condicion_iva ampliado. · 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
+const APP_BUILD='2026-09-30a';   // 30a: 🗜 RESPALDO DE COMPROBANTES — botón «Comprobantes (ZIP)» en Facturación formal: baja en un ZIP los PDF archivados con CAE de un mes (facturas, NC y ND) + indice.csv (Excel es-AR) que lista también los que tienen CAE sin PDF archivado y los que no se pudieron bajar. Usa la op nueva `pdf_lote` de la Edge Function (links firmados del bucket privado `comprobantes`); con la función vieja lo dice. Solo lectura, sin SQL. · 28h: 📄 EMITIDA EN FLEXXUS — cae_estado='externo' marca las copias de comprobantes que se emitieron en Flexxus: no ofrecen 🏛 CAE (evita declarar dos veces la misma venta), botón 📄 para marcar, desmarcar con clave de admin, el impreso dice COPIA INTERNA. SQL: 128 facturas + 8 NC formales marcadas el 28/09. · 28g: 🏛 CLIENTES DESDE ARCA — botón «Traer datos de ARCA» en la ficha y «Verificar N en ARCA» en la lista (Edge Function op padron): condición de IVA real, razón social oficial, domicilio, provincia y CP. Nombre de planta separado de la razón social (antes editar pisaba el nombre). Alta con CUIT se verifica sola. Provincia por cliente va a TusFacturas. SQL aplicado: clientes.provincia/codigo_postal/arca_estado/arca_verificado_el + check de condicion_iva ampliado. · 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
 // (anterior) 28c:   // 28c: 📜 BOBINAS VIEJAS A DEMANDA — reload trae sólo bobinas en stock o de los últimos 60 días, y toda pantalla que miraba una OE o un período más viejo contaba de menos EN SILENCIO: el 🖨️ de ORD-05574 salía con 0 bobinas (tiene 45) y Costos de producción de julio daba 3.590 kg producidos (fueron 37.144). Ahora la MISMA caché C.bobinas_prod se completa sólo cuando hace falta: por OE (🖨️, 📊 Detalle, 📦 Lotes de MP de OE y de pedido, % de avance de la lista, Historial) o por período (Costos, Rentabilidad, con su comparación). Pieza única `// ===== 📜 BOBINAS VIEJAS A DEMANDA` (_oeBobCompleta, _bobPeriodoIncompleto, _completarBobinasDeOEs, _traerBobinasHistoricas, _bobAsegurarYRepintar), invalidada en cada reload con window._bobGen. El botón «📜 Cargar todas las históricas» de Stock usa la misma descarga. Mismos filtros que la carga inicial. Solo lectura. Sin SQL.
 // (anterior) 28b:   // 28b: 🧱 HOJA DE PALLET DE BOBINAS — botón «🧱 Pallet» en la lista de Órdenes de extrusión (y al completarse la OE al cargar la última bobina): A4 con el CLIENTE, el PRODUCTO (código + descripción), el tipo de bobina, total de bobinas/kg/metros en grande, OC, pedido, entrega, y la lista de TODAS las bobinas en stock de la OE con casilla para tildar al subirlas, firmas Armó/Controló. Las bobinas se consultan a la BASE (no a C.bobinas_prod, caché parcial). Fuera de rango/excedentes no van al pallet y se listan aparte; las reservadas a OTRA OC se marcan en gris; las ya cortadas se aclaran al pie. Solo lectura. Sin SQL.
 // (anterior) 28a:   // 28a: 💰 QUÉ PLATA TRAE ESTE ORDEN — sección nueva en Planificar producción: con el orden de extrusión y de corte (aunque no esté guardado) proyecta cuándo sale cada OC y cuándo entra la plata según cómo PAGA DE VERDAD cada cliente (remito→saldo de su factura/RV, últimos 120 días, ponderado; impagos vencidos cuentan como cota), contra cobrar al entregar. Número rey a 30 días, curva doble, plata financiada máxima, filtro por cortadora, lista OC por OC con su máquina, tabla pacta vs. paga. Proyección: no toca Flujo ni Salud. Sin SQL.
@@ -17506,6 +17507,118 @@ async function abrirPdfArca(docTipo,docId){
     return;
   }
   toast('Este comprobante no tiene PDF','amber');
+}
+
+// ===== 🗜 RESPALDO DE COMPROBANTES (ZIP del mes) =====
+// Los PDF con CAE viven en el bucket PRIVADO `comprobantes` de Supabase. El
+// backup .sql NO los incluye (Storage va aparte), así que sin esto la única
+// copia fuera de Supabase era la de TusFacturas. El ZIP junta los PDF del mes
+// + un índice (indice.csv) que lista TAMBIÉN los que tienen CAE y no tienen
+// PDF archivado: un respaldo que omite en silencio lo que le falta no es un
+// respaldo. Solo lectura: no emite nada ni toca ARCA.
+function _zipMesRango(ym){
+  const m=String(ym||'').match(/^(\d{4})-(\d{2})$/); if(!m) return null;
+  const y=+m[1], mo=+m[2]; if(mo<1||mo>12) return null;
+  const ult=new Date(y,mo,0).getDate();   // local: evita el corrimiento UTC
+  return {desde:m[1]+'-'+m[2]+'-01', hasta:m[1]+'-'+m[2]+'-'+String(ult).padStart(2,'0')};
+}
+function _zipMesDe(offset){
+  const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()+(offset||0));
+  return localDate(d).slice(0,7);
+}
+function _zipNombreArchivo(it){
+  const limpio=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[\\\/:*?"<>|]+/g,' ').replace(/\s+/g,' ').trim();
+  return (limpio(it.fecha)+' '+limpio(it.comprobante)+' '+limpio(it.numero||('id'+it.id))
+    +(it.cliente?' - '+limpio(it.cliente).slice(0,60):'')).trim()+'.pdf';
+}
+function _zipCsv(items,sinPdf,fallidos){
+  const esc=v=>{const s=String(v==null?'':v);return /[;"\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+  const num=n=>(Number(n)||0).toFixed(2).replace('.',',');
+  const filas=[['fecha','comprobante','numero','cliente','cuit','total','cae','vto_cae','archivo_pdf','estado']];
+  const fallo=new Set((fallidos||[]).map(f=>f.doc_tipo+'-'+f.id));
+  (items||[]).forEach(i=>filas.push([i.fecha,i.comprobante,i.numero,i.cliente,i.cuit,num(i.total),i.cae,i.cae_vto,
+    fallo.has(i.doc_tipo+'-'+i.id)?'':_zipNombreArchivo(i), fallo.has(i.doc_tipo+'-'+i.id)?'NO SE PUDO BAJAR':'ok']));
+  (sinPdf||[]).forEach(i=>filas.push([i.fecha,i.comprobante,i.numero,i.cliente,i.cuit,num(i.total),i.cae,i.cae_vto,'','SIN PDF ARCHIVADO']));
+  return '﻿'+filas.map(f=>f.map(esc).join(';')).join('\r\n');   // BOM + ; = Excel es-AR lo abre bien
+}
+async function _zipCargarLib(){
+  if(window.JSZip) return;
+  await new Promise((res,rej)=>{const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    s.onload=res;s.onerror=()=>rej(new Error('No se pudo cargar el compresor (revisá la conexión)'));document.head.appendChild(s);});
+}
+
+function abrirZipComprobantes(){
+  const ym=_zipMesDe(0);
+  let h='<div class="modal-overlay" id="zipc-modal"><div class="modal-card" style="max-width:520px;">'
+    +'<div class="modal-title">🗜 Respaldo de comprobantes</div>'
+    +'<div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:10px;">Baja en un solo ZIP los PDF de las facturas, notas de crédito y notas de débito <b>con CAE</b> del mes, más un <b>indice.csv</b> para abrir en Excel. '
+    +'Guardalo fuera de Supabase (OneDrive, un disco): el backup .sql de la base <b>no incluye</b> los PDF.</div>'
+    +'<div class="fg"><label>Mes</label><div style="display:flex;gap:6px;align-items:center;">'
+    +'<input type="month" id="zipc-mes" value="'+ym+'" style="flex:1">'
+    +'<button class="btn btn-sm" onclick="document.getElementById(\'zipc-mes\').value=_zipMesDe(0)">Este mes</button>'
+    +'<button class="btn btn-sm" onclick="document.getElementById(\'zipc-mes\').value=_zipMesDe(-1)">Mes anterior</button></div></div>'
+    +'<div id="zipc-rta" style="font-size:12px;margin-top:8px;min-height:18px;"></div>'
+    +'<div class="btn-grp" style="margin-top:14px;justify-content:flex-end;">'
+    +'<button class="btn btn-sm" onclick="document.getElementById(\'zipc-modal\').remove()">Cerrar</button>'
+    +'<button class="btn btn-sm btn-primary" id="zipc-btn" onclick="descargarZipComprobantes()">⬇ Descargar ZIP</button></div>'
+    +'</div></div>';
+  document.getElementById('zipc-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',h);
+}
+
+let _zipcCorriendo=false;
+async function descargarZipComprobantes(){
+  if(_zipcCorriendo) return;
+  const box=document.getElementById('zipc-rta'), btn=document.getElementById('zipc-btn');
+  const decir=(t,c)=>{ if(box) box.innerHTML='<span style="color:'+(c||'var(--text2)')+'">'+t+'</span>'; };
+  const ym=(document.getElementById('zipc-mes')||{}).value;
+  const r=_zipMesRango(ym);
+  if(!r){decir('Elegí un mes.','var(--red)');return;}
+  _zipcCorriendo=true; if(btn) btn.disabled=true;
+  try{
+    decir('Buscando los comprobantes de '+ym+'…');
+    const d=await _arcaInvoke({op:'pdf_lote',desde:r.desde,hasta:r.hasta,ambiente:'produccion'});
+    if(!d.ok){
+      // La función vieja no conoce 'pdf_lote' y cae en la rama de documento.
+      const vieja=/doc_tipo/i.test(String(d.error||''));
+      decir(vieja?'La función de ARCA en Supabase todavía no tiene la operación de respaldo. Hay que actualizarla (Supabase → Edge Functions → '+escapeHtml(_arcaFn())+' → pegar el código nuevo → Deploy).'
+                 :escapeHtml(d.error||'No se pudo consultar'),'var(--red)');
+      return;
+    }
+    const items=d.comprobantes||[], sin=d.sin_pdf||[];
+    if(!items.length&&!sin.length){decir('No hay comprobantes con CAE en '+ym+'.','var(--amber)');return;}
+    await _zipCargarLib();
+    const zip=new JSZip(); const usados={}; const fallidos=[];
+    let n=0;
+    for(const it of items){
+      n++; decir('Bajando '+n+' de '+items.length+'…');
+      try{
+        if(!it.url) throw new Error(it.error||'sin link');
+        const resp=await fetch(it.url); if(!resp.ok) throw new Error('HTTP '+resp.status);
+        const buf=await resp.arrayBuffer();
+        let nom=_zipNombreArchivo(it);
+        if(usados[nom]){usados[nom]++;nom=nom.replace(/\.pdf$/,' ('+usados[nom]+').pdf');} else usados[nom]=1;
+        zip.file(nom,buf);
+      }catch(e){ fallidos.push({doc_tipo:it.doc_tipo,id:it.id,error:String(e.message||e)}); }
+    }
+    zip.file('indice.csv',_zipCsv(items,sin,fallidos));
+    decir('Comprimiendo…');
+    const blob=await zip.generateAsync({type:'blob'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='Comprobantes_ARIALPLAST_'+ym+'.zip'; document.body.appendChild(a); a.click();
+    setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},4000);
+    const ok=items.length-fallidos.length;
+    let msg='✓ ZIP con <b>'+ok+'</b> PDF de '+ym+'.';
+    if(sin.length) msg+='<br>⚠ <b>'+sin.length+'</b> comprobante(s) con CAE <b>sin PDF archivado</b> (figuran en el índice). Bajalos desde TusFacturas o ARCA.';
+    if(fallidos.length) msg+='<br>⚠ <b>'+fallidos.length+'</b> no se pudieron bajar (figuran en el índice). Probá de nuevo.';
+    decir(msg,(sin.length||fallidos.length)?'var(--amber)':'var(--green)');
+  }catch(e){
+    decir('Error: '+escapeHtml(String(e.message||e)),'var(--red)');
+  }finally{
+    _zipcCorriendo=false; if(btn) btn.disabled=false;
+  }
 }
 
 function _arcaRefrescar(docTipo){

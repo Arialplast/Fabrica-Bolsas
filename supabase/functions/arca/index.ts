@@ -14,6 +14,8 @@
 //    op = 'padron'    -> consulta la constancia de inscripcion de ARCA de uno o
 //                        varios clientes y actualiza condicion de IVA, razon
 //                        social, domicilio y provincia (28/09/2026)
+//    op = 'pdf_lote'  -> links firmados de todos los PDFs archivados de un
+//                        periodo, para el ZIP de respaldo (30/09/2026)
 //
 //  AMBIENTES — esto es lo importante:
 //  TusFacturas NO tiene sandbox por URL ni por flag en el payload. El unico
@@ -493,6 +495,104 @@ Deno.serve(async (req) => {
         resultados,
         quedan: ids.length ? 0 : Math.max(0, conCuit.length - lote.length),
         sin_cuit: ids.length ? sinCuit.map((c: any) => ({ id: c.id, nombre: c.nombre })) : sinCuit.length,
+      });
+    }
+
+    // =======================================================================
+    //  op = pdf_lote  -> links firmados de TODOS los PDFs archivados de un
+    //  periodo, para armar el ZIP de respaldo (boton del sistema y tarea
+    //  mensual). Solo lectura: no emite, no toca ARCA ni TusFacturas.
+    //
+    //  body: { op:'pdf_lote', desde:'AAAA-MM-DD', hasta:'AAAA-MM-DD',
+    //          ambiente?: 'produccion' | 'dev' (default produccion) }
+    //
+    //  Devuelve los comprobantes con CAE del periodo. Los que tienen CAE y NO
+    //  tienen PDF archivado van aparte en `sin_pdf`: el respaldo tiene que decir
+    //  que le falta, no omitirlo en silencio.
+    // =======================================================================
+    if (op === "pdf_lote") {
+      const iso = /^\d{4}-\d{2}-\d{2}$/;
+      const desde = String(body.desde || "");
+      const hasta = String(body.hasta || "");
+      if (!iso.test(desde) || !iso.test(hasta) || desde > hasta) {
+        return json({ ok: false, error: "Periodo invalido: mandar desde/hasta como AAAA-MM-DD" });
+      }
+      const ambLote = String(body.ambiente || "produccion") === "dev" ? "dev" : "produccion";
+      const TTL = Math.max(300, Math.min(parseInt(String(body.ttl ?? "3600"), 10) || 3600, 86400));
+
+      const tipos: Array<{ t: string; tabla: string; cols: string }> = [
+        { t: "factura", tabla: "facturas", cols: "id,fecha,tipo,numero,arca_numero,cliente_id,cliente,razon_social_cliente,cuit_cliente,total,cae,cae_vto,arca_pdf_path,arca_pdf_url,ambiente" },
+        { t: "nc", tabla: "notas_credito", cols: "id,fecha,numero,arca_numero,cliente_id,razon_social_cliente,cuit_cliente,total,doc_tipo,doc_id,cae,cae_vto,arca_pdf_path,arca_pdf_url,ambiente" },
+        { t: "nd", tabla: "notas_debito", cols: "id,fecha,numero,arca_numero,tipo_entidad,entidad_id,monto,doc_tipo,doc_id,cae,cae_vto,arca_pdf_path,arca_pdf_url,ambiente" },
+      ];
+
+      const filas: any[] = [];
+      for (const x of tipos) {
+        const { data, error } = await sb.from(x.tabla).select(x.cols)
+          .not("cae", "is", null).eq("ambiente", ambLote)
+          .gte("fecha", desde).lte("fecha", hasta)
+          .order("fecha").limit(1000);
+        if (error) return json({ ok: false, error: `No se pudo leer ${x.tabla}: ${error.message}` });
+        (data || []).forEach((d: any) => filas.push({ ...d, _t: x.t }));
+      }
+
+      // Letra de NC/ND = la de la factura que corrigen; nombre de cliente de la
+      // ficha cuando el comprobante no lo trae (las ND no guardan razon social).
+      const idsFac = [...new Set(filas.filter((f) => f._t !== "factura" && f.doc_tipo === "factura" && f.doc_id).map((f) => f.doc_id))];
+      const letraFac: Record<string, string> = {};
+      if (idsFac.length) {
+        const { data } = await sb.from("facturas").select("id,tipo").in("id", idsFac);
+        (data || []).forEach((f: any) => (letraFac[String(f.id)] = f.tipo || "A"));
+      }
+      const idsCli = [...new Set(filas.map((f) => f.cliente_id ?? (f.tipo_entidad === "cliente" ? f.entidad_id : null)).filter((x) => x != null))];
+      const cli: Record<string, any> = {};
+      if (idsCli.length) {
+        const { data } = await sb.from("clientes").select("id,nombre,razon_social,cuit").in("id", idsCli);
+        (data || []).forEach((c: any) => (cli[String(c.id)] = c));
+      }
+
+      const items = filas.map((f) => {
+        const letra = f._t === "factura" ? (f.tipo || "A") : (letraFac[String(f.doc_id)] || "A");
+        const cid = f.cliente_id ?? (f.tipo_entidad === "cliente" ? f.entidad_id : null);
+        const c = cid != null ? cli[String(cid)] : null;
+        return {
+          doc_tipo: f._t,
+          id: f.id,
+          comprobante: tipoComprobante(f._t, letra),
+          numero: f.arca_numero || f.numero || null,
+          fecha: f.fecha,
+          cliente: String(f.razon_social_cliente || c?.razon_social || f.cliente || c?.nombre || "").trim(),
+          cuit: String(f.cuit_cliente || c?.cuit || "").replace(/\D/g, ""),
+          total: r2(parseFloat(f.total ?? f.monto ?? 0) || 0),
+          cae: f.cae,
+          cae_vto: f.cae_vto,
+          path: f.arca_pdf_path || null,
+          url_original: f.arca_pdf_path ? null : (f.arca_pdf_url || null),
+        };
+      });
+
+      const conPdf = items.filter((i) => i.path);
+      const sinPdf = items.filter((i) => !i.path);
+      if (conPdf.length) {
+        const { data: fir, error: eF } = await sb.storage.from("comprobantes")
+          .createSignedUrls(conPdf.map((i) => i.path), TTL);
+        if (eF) return json({ ok: false, error: "No se pudieron firmar los links: " + eF.message });
+        const porPath: Record<string, string> = {};
+        (fir || []).forEach((s: any) => { if (s?.signedUrl && s?.path) porPath[s.path] = s.signedUrl; });
+        conPdf.forEach((i: any) => {
+          i.url = porPath[i.path] || null;
+          if (!i.url) i.error = "el archivo no esta en el Storage";
+        });
+      }
+
+      return json({
+        ok: true,
+        ambiente: ambLote,
+        desde, hasta,
+        cantidad: items.length,
+        comprobantes: conPdf,
+        sin_pdf: sinPdf,
+        ttl: TTL,
       });
     }
 
