@@ -791,7 +791,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-30a</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-09-30b</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5736,7 +5736,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-09-30a';   // 30a: 🗜 RESPALDO DE COMPROBANTES — botón «Comprobantes (ZIP)» en Facturación formal: baja en un ZIP los PDF archivados con CAE de un mes (facturas, NC y ND) + indice.csv (Excel es-AR) que lista también los que tienen CAE sin PDF archivado y los que no se pudieron bajar. Usa la op nueva `pdf_lote` de la Edge Function (links firmados del bucket privado `comprobantes`); con la función vieja lo dice. Solo lectura, sin SQL. · 28h: 📄 EMITIDA EN FLEXXUS — cae_estado='externo' marca las copias de comprobantes que se emitieron en Flexxus: no ofrecen 🏛 CAE (evita declarar dos veces la misma venta), botón 📄 para marcar, desmarcar con clave de admin, el impreso dice COPIA INTERNA. SQL: 128 facturas + 8 NC formales marcadas el 28/09. · 28g: 🏛 CLIENTES DESDE ARCA — botón «Traer datos de ARCA» en la ficha y «Verificar N en ARCA» en la lista (Edge Function op padron): condición de IVA real, razón social oficial, domicilio, provincia y CP. Nombre de planta separado de la razón social (antes editar pisaba el nombre). Alta con CUIT se verifica sola. Provincia por cliente va a TusFacturas. SQL aplicado: clientes.provincia/codigo_postal/arca_estado/arca_verificado_el + check de condicion_iva ampliado. · 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
+const APP_BUILD='2026-09-30b';   // 30b: 🧾 REMITO EN BLANCO CON FORMATO ARIALPLAST — imprimirRemito de un remito formal sale como el de Flexxus: logo, caja R · CODIGO Nº91, datos fiscales (configuracion empresa_* con defaults), cliente con domicilio/localidad/IVA/CUIT desde la ficha, lugar de entrega (clientes.direccion_entrega si existe, si no el domicilio), Cantidad · Código · Detalle · Bultos con total y aviso de bulto especial, RECIBI CONFORME. Número: configuracion['remito_formal_pv'] → PPPP-NNNNNNNN, si no el del sistema. El informal no cambia. Sin SQL. · 30a: 🗜 RESPALDO DE COMPROBANTES — botón «Comprobantes (ZIP)» en Facturación formal: baja en un ZIP los PDF archivados con CAE de un mes (facturas, NC y ND) + indice.csv (Excel es-AR) que lista también los que tienen CAE sin PDF archivado y los que no se pudieron bajar. Usa la op nueva `pdf_lote` de la Edge Function (links firmados del bucket privado `comprobantes`); con la función vieja lo dice. Solo lectura, sin SQL. · 28h: 📄 EMITIDA EN FLEXXUS — cae_estado='externo' marca las copias de comprobantes que se emitieron en Flexxus: no ofrecen 🏛 CAE (evita declarar dos veces la misma venta), botón 📄 para marcar, desmarcar con clave de admin, el impreso dice COPIA INTERNA. SQL: 128 facturas + 8 NC formales marcadas el 28/09. · 28g: 🏛 CLIENTES DESDE ARCA — botón «Traer datos de ARCA» en la ficha y «Verificar N en ARCA» en la lista (Edge Function op padron): condición de IVA real, razón social oficial, domicilio, provincia y CP. Nombre de planta separado de la razón social (antes editar pisaba el nombre). Alta con CUIT se verifica sola. Provincia por cliente va a TusFacturas. SQL aplicado: clientes.provincia/codigo_postal/arca_estado/arca_verificado_el + check de condicion_iva ampliado. · 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
 // (anterior) 28c:   // 28c: 📜 BOBINAS VIEJAS A DEMANDA — reload trae sólo bobinas en stock o de los últimos 60 días, y toda pantalla que miraba una OE o un período más viejo contaba de menos EN SILENCIO: el 🖨️ de ORD-05574 salía con 0 bobinas (tiene 45) y Costos de producción de julio daba 3.590 kg producidos (fueron 37.144). Ahora la MISMA caché C.bobinas_prod se completa sólo cuando hace falta: por OE (🖨️, 📊 Detalle, 📦 Lotes de MP de OE y de pedido, % de avance de la lista, Historial) o por período (Costos, Rentabilidad, con su comparación). Pieza única `// ===== 📜 BOBINAS VIEJAS A DEMANDA` (_oeBobCompleta, _bobPeriodoIncompleto, _completarBobinasDeOEs, _traerBobinasHistoricas, _bobAsegurarYRepintar), invalidada en cada reload con window._bobGen. El botón «📜 Cargar todas las históricas» de Stock usa la misma descarga. Mismos filtros que la carga inicial. Solo lectura. Sin SQL.
 // (anterior) 28b:   // 28b: 🧱 HOJA DE PALLET DE BOBINAS — botón «🧱 Pallet» en la lista de Órdenes de extrusión (y al completarse la OE al cargar la última bobina): A4 con el CLIENTE, el PRODUCTO (código + descripción), el tipo de bobina, total de bobinas/kg/metros en grande, OC, pedido, entrega, y la lista de TODAS las bobinas en stock de la OE con casilla para tildar al subirlas, firmas Armó/Controló. Las bobinas se consultan a la BASE (no a C.bobinas_prod, caché parcial). Fuera de rango/excedentes no van al pallet y se listan aparte; las reservadas a OTRA OC se marcan en gris; las ya cortadas se aclaran al pie. Solo lectura. Sin SQL.
 // (anterior) 28a:   // 28a: 💰 QUÉ PLATA TRAE ESTE ORDEN — sección nueva en Planificar producción: con el orden de extrusión y de corte (aunque no esté guardado) proyecta cuándo sale cada OC y cuándo entra la plata según cómo PAGA DE VERDAD cada cliente (remito→saldo de su factura/RV, últimos 120 días, ponderado; impagos vencidos cuentan como cota), contra cobrar al entregar. Número rey a 30 días, curva doble, plata financiada máxima, filtro por cortadora, lista OC por OC con su máquina, tabla pacta vs. paga. Proyección: no toca Flujo ni Salud. Sin SQL.
@@ -15317,6 +15317,118 @@ function renderRemitos(){
   tbl.innerHTML=html;
 }
 
+// ===== 🧾 REMITO EN BLANCO — FORMATO ARIALPLAST (30b) =====
+// German pidió que los remitos del circuito formal salgan con el mismo formato
+// que los de Flexxus (Remito 0001-00001761): logo, caja «R · CODIGO Nº91»,
+// datos fiscales de la empresa, cliente con domicilio/IVA/CUIT, lugar de
+// entrega, detalle Cantidad · Código · Detalle · Bultos, y «RECIBI CONFORME».
+// Los datos fijos de la empresa salen de configuracion con estos valores por
+// defecto (sin SQL): empresa_domicilio, empresa_provincia, empresa_telefono,
+// empresa_iibb, empresa_inicio_act, empresa_condicion_iva, empresa_cuit.
+// Numeración: si configuracion['remito_formal_pv'] tiene un punto de venta,
+// el número sale como PPPP-NNNNNNNN; si no, el del sistema tal cual.
+// El remito informal (RV) no cambia.
+const _REM_LOGO_ARIAL='data:image/jpeg;base64,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';
+function _remFmtFecha(iso){const m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[3]+'/'+m[2]+'/'+m[1]:(iso||'');}
+function _remFmtCuit(c){const d=String(c||'').replace(/\D/g,'');return d.length===11?d.slice(0,2)+'-'+d.slice(2,10)+'-'+d.slice(10):(c||'');}
+function _remIvaTexto(v){return ({con_iva:'RESPONSABLE INSCRIPTO',monotributo:'MONOTRIBUTO',exento:'EXENTO',consumidor_final:'CONSUMIDOR FINAL'})[v]||String(v||'').toUpperCase()||'-';}
+function _remNumeroFormal(nro){
+  const pv=String(getCfg('remito_formal_pv','')||'').replace(/\D/g,'');
+  const n=String(nro||'').match(/(\d+)\s*$/);
+  if(!pv||!n) return String(nro||'');
+  return pv.padStart(4,'0')+'-'+String(parseInt(n[1],10)).padStart(8,'0');
+}
+function _remitoFormalHTML(r,ped,filas,totalBultos,hayEspecial){
+  const e=escapeHtml;
+  const cli=(C.clientes||[]).find(c=>c.id===(r.cliente_id||ped?.cliente_id))||{};
+  const cp=String(cli.codigo_postal||'').replace(/^\s*CP\s*:?\s*/i,'').trim();
+  const loc=[cp,String(cli.localidad||'').trim()].filter(Boolean).join(' ');
+  const dom=String(cli.direccion||'').trim();
+  const prov=String(cli.provincia||'').trim();
+  const nomCli=String(cli.razon_social||cli.nombre||r.cliente||'').trim();
+  const emp={
+    dom:getCfg('empresa_domicilio','CALLE 65 Nº 350 - E/123 Y 124  LA PLATA'),
+    prov:getCfg('empresa_provincia','BUENOS AIRES'),
+    tel:getCfg('empresa_telefono','221 539-1164'),
+    cuit:_remFmtCuit(getCfg('empresa_cuit','30714157732')),
+    iibb:getCfg('empresa_iibb','EXENTO'),
+    ini:getCfg('empresa_inicio_act','07/2015'),
+    iva:getCfg('empresa_condicion_iva','Responsable Inscripto'),
+  };
+  const filasHtml=filas.map(f=>{
+    const cant=f.uni||f.paq||0;
+    const det=(f.prod?.descripcion||'—');
+    const sub=(f.paq&&f.uni&&f.uni!==f.paq)?'<span class="sub"> · '+f.paq.toLocaleString('es-AR')+' paq</span>':'';
+    const esp=f.esEspecial?'<div class="esp">⚠ '+f.paqPorBolson+' paq/bulto (especial)</div>':'';
+    return '<tr'+(f.esEspecial?' class="especial"':'')+'>'
+      +'<td class="c-cant">'+cant.toLocaleString('es-AR')+'</td>'
+      +'<td class="c-cod">'+e(f.prod?.codigo||'—')+'</td>'
+      +'<td>'+e(det)+sub+'</td>'
+      +'<td class="c-bul">'+(f.bultos||'—')+esp+'</td></tr>';
+  }).join('');
+  const css='@page{size:A4;margin:10mm}'
+    +'*{box-sizing:border-box;margin:0;padding:0}'
+    +'html,body{height:100%}'
+    +'body{font-family:Arial,Helvetica,sans-serif;font-size:9.5pt;color:#000;display:flex;flex-direction:column;min-height:277mm}'
+    +'.caja{border:1px solid #000;border-radius:3.5mm;padding:2.5mm 3.5mm}'
+    +'.cab{position:relative;display:grid;grid-template-columns:1fr 1fr;min-height:40mm;padding:3mm 4mm 2mm}'
+    +'.logo{height:9mm;margin:5mm 0 0 14mm;display:block}'
+    +'.emp{font-size:8pt;line-height:1.35;margin-top:9mm}'
+    +'.letra{position:absolute;left:50%;top:0;transform:translateX(-50%);text-align:center}'
+    +'.letra .box{border:1px solid #000;border-top:none;border-radius:0 0 2.5mm 2.5mm;width:19mm;height:17mm;font-size:30pt;line-height:17mm;background:#fff}'
+    +'.letra .cod{font-size:5.5pt;letter-spacing:.06em;margin-top:.8mm}'
+    +'.der{padding-left:14mm;text-align:center}'
+    +'.der .tit{font-size:13.5pt;font-weight:700;letter-spacing:.02em}'
+    +'.der .nov{font-size:6.5pt;font-weight:700;margin:1mm 0 2mm}'
+    +'.der .fec{font-size:12pt;font-weight:700;margin-bottom:1.5mm}'
+    +'.der .fis{font-size:8.5pt;line-height:1.45}.der .fis .ch{font-size:7.5pt}'
+    +'.cli{display:grid;grid-template-columns:1.55fr 1fr;gap:0 6mm;margin-top:1mm;min-height:24mm;font-size:9.5pt;line-height:1.6}'
+    +'.cli b{display:inline-block;min-width:17mm;font-size:8.5pt}'
+    +'.ent{margin-top:1mm;padding:1.2mm 3mm 1.5mm;min-height:9mm}.ent b{font-size:8pt}.ent div{padding-left:26mm;font-size:8.5pt}'
+    +'table{width:100%;border-collapse:collapse;margin-top:2mm}'
+    +'th{background:#bfbfbf;font-size:8.5pt;padding:1mm 2mm;text-align:center}th.l{text-align:left}'
+    +'td{font-size:8.5pt;padding:1.1mm 2mm;vertical-align:top}'
+    +'.c-cant{text-align:center;width:18mm}.c-cod{text-align:center;width:18mm}.c-bul{text-align:center;width:24mm}'
+    +'.sub{color:#555}.esp{font-size:6.5pt;font-weight:700;color:#92400e}tr.especial td{background:#fef3c7}'
+    +'.tot td{border-top:1px solid #000;font-weight:700;padding-top:1.5mm}'
+    +'.aviso{margin-top:2mm;border:1px solid #d97706;background:#fef3c7;padding:1.2mm 3mm;font-size:8pt}'
+    +'.obs{margin-top:2mm;font-size:8pt}'
+    +'.rec{margin-top:auto;padding:2mm 3.5mm 3mm;min-height:24mm}'
+    +'.rec .t{font-weight:700;font-size:9pt}'
+    +'.rec .l{display:flex;align-items:flex-end;gap:4mm;font-size:8pt;font-weight:700}'
+    +'.rec .l span.p{flex:1;border-bottom:1px dotted #000;height:4mm}'
+    +'@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}';
+  return '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Remito '+e(r.numero_remito)+'</title><style>'+css+'</style></head><body>'
+    +'<div class="caja cab">'
+      +'<div><img class="logo" src="'+_REM_LOGO_ARIAL+'" alt="ARIALPLAST">'
+        +'<div class="emp">'+e(emp.dom)+'<br>'+e(emp.prov)+'<br>'+e(emp.tel)+'</div></div>'
+      +'<div class="letra"><div class="box">R</div><div class="cod">CODIGO Nº91</div></div>'
+      +'<div class="der"><div class="tit">REMITO&nbsp; '+e(_remNumeroFormal(r.numero_remito))+'</div>'
+        +'<div class="nov">Documento No Válido como Factura</div>'
+        +'<div class="fec">Fecha:&nbsp;&nbsp; '+e(_remFmtFecha(r.fecha))+'</div>'
+        +'<div class="fis">CUIT&nbsp;&nbsp; '+e(emp.cuit)+'<br>Ingr. Brutos:&nbsp; '+e(emp.iibb)+'<br><span class="ch">Fecha Inicio: '+e(emp.ini)+'<br>I.V.A. '+e(emp.iva)+'</span></div></div>'
+    +'</div>'
+    +'<div class="caja cli">'
+      +'<div><b>Cliente:</b> '+e(nomCli.toUpperCase())+'<br><b>Domicilio:</b> '+e(dom||'-')+'<br><b>Provincia:</b> '+e(prov||'-')+'</div>'
+      +'<div><b>TE:</b> -<br><b>Localidad:</b> '+e(loc||'-')+'<br><b>IVA:</b> '+e(_remIvaTexto(cli.condicion_iva))+'<br><b>CUIT:</b> '+e(_remFmtCuit(cli.cuit)||'-')+'</div>'
+    +'</div>'
+    +'<div class="caja ent"><b>Lugar de Entrega</b><div>'+(String(cli.direccion_entrega||'').trim()
+        ? e(String(cli.direccion_entrega).trim()).replace(/\n/g,'<br>')
+        : e(dom||'-')+'<br>'+e([cp?'('+cp+')':'',String(cli.localidad||'').trim()+(prov?' - '+prov:'')].filter(Boolean).join(' ')))+'</div></div>'
+    +'<table><thead><tr><th>Cantidad</th><th>Código</th><th class="l" style="text-align:center">Detalle</th><th>Bultos</th></tr></thead><tbody>'
+      +filasHtml
+      +'<tr class="tot"><td></td><td></td><td style="text-align:right">Total bultos</td><td class="c-bul">'+totalBultos.toLocaleString('es-AR')+'</td></tr>'
+    +'</tbody></table>'
+    +(hayEspecial?'<div class="aviso"><b>⚠ Bultos especiales:</b> en las filas marcadas el cliente arma el bulto con otra cantidad de paquetes.</div>':'')
+    +(ped?.numero_pedido||r.observaciones?'<div class="obs">'+(ped?.numero_pedido?'Pedido '+e(ped.numero_pedido):'')+(r.observaciones?(ped?.numero_pedido?' · ':'')+e(r.observaciones):'')+'</div>':'')
+    +'<div class="caja rec"><div class="t">RECIBI CONFORME</div>'
+      +'<div class="l" style="margin:3mm 0 0 55mm;">Aclaración: <span class="p"></span></div>'
+      +'<div class="l" style="margin-top:7mm;">Firma: <span class="p"></span> DNI: <span class="p"></span> Observaciones: <span class="p"></span></div>'
+    +'</div>'
+    +'<scr'+'ipt>window.onload=function(){setTimeout(function(){try{window.print();}catch(e){}},500);};<\/scr'+'ipt>'
+    +'</body></html>';
+}
+
 function imprimirRemito(remitoId){
   const r=C.remitos.find(x=>x.id===remitoId);if(!r)return;
   const lineas=r.remito_lineas||[];
@@ -15356,6 +15468,12 @@ function imprimirRemito(remitoId){
     totalPaquetes+=paq;
     return {prod,paq,bultos,uni:l.cantidad_unidades||0,paqPorBolson,paqDef,esEspecial};
   });
+
+  // 30b: el remito del circuito formal sale con el formato ARIALPLAST (el de Flexxus).
+  if(planoRemito(r)==='formal'){
+    _imprimirHTML(_remitoFormalHTML(r,ped,filas,totalBultos,hayEspecial),'Remito '+r.numero_remito);
+    return;
+  }
 
   const html='<!DOCTYPE html><html><head><meta charset="UTF-8">'
     +'<title>Remito '+r.numero_remito+'</title>'
