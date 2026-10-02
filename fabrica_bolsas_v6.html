@@ -791,7 +791,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-02b</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-02c</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5744,7 +5744,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-02b';   // 02b: ⏱ HORA EXTRA POR BLOQUES DE 30 MIN — lo suelto no se paga (ni normal ni extra), hábiles y sábado; antes los minutos de más de la semana se iban como extra al sábado por el tope de 48. · 02a: 🧵 BOBINAS PARA FUNDAS / USO INTERNO — página nueva (Producción, al lado de Fuera de rango): se busca la bobina por número contra la base, buena o rechazo, y se registra como usada adentro (fundas para bultos u otro). Documento: stock_movimientos tipo='consumo_interno' (no 'salida', que es corte en OC). Buena → sale de stock y sigue contando en su OE. Rechazo → anulada por uso interno SIN reverso de MP y sale del panel de Fuera de rango (que ahora carga sólo no anuladas). Pre-chequeo contra la base antes de escribir, con clave de admin. Historial y kg por mes. Sin SQL de esquema. Datos: BOB-03458 y BOB-04517 pasadas a este circuito. · 01b: 🔢 NÚMERO DE OC EN EL PLAN DEL PEDIDO — la sugerencia saltaba de a dos (lastNum+_pedOrdenes.length+idx+1 contaba doble: PED-06093 mostraba 911/913/915/917/919/921 y las reales eran 911–916; la 917 sugerida era de otro cliente). Ahora la sugerencia es correlativa y, al confirmar (caminos A y B), el plan guarda el número REAL de cada OC/tanda. Sin SQL. · 01a: ⏱ VENTANA DE GRACIA EN CARGA DE BOBINAS — las OE que el sistema pasó a Completada hace menos de 3 hs (última bobina) vuelven a aparecer en el selector, aparte y marcadas ⏱, para cargar la bobina que quedó en la máquina (caso BOB-06361 / ORD-06277: la tuvo que cargar admin 2 hs tarde con la hora mal). Mismo camino de siempre (dentro de tolerancia suma; si se pasa, excedente a pendientes). La bobina queda con «⏱ Cargada sobre OE ya cerrada» en observaciones. La OE no se reabre. Sin SQL. · 30c: 🧾 remito en blanco: renglones de productos más grandes (13 pt, cantidad y bultos en negrita, bultos 15 pt, separador entre filas). · 30b: 🧾 REMITO EN BLANCO CON FORMATO ARIALPLAST — imprimirRemito de un remito formal sale como el de Flexxus: logo, caja R · CODIGO Nº91, datos fiscales (configuracion empresa_* con defaults), cliente con domicilio/localidad/IVA/CUIT desde la ficha, lugar de entrega (clientes.direccion_entrega si existe, si no el domicilio), Cantidad · Código · Detalle · Bultos con total y aviso de bulto especial, RECIBI CONFORME. Número: configuracion['remito_formal_pv'] → PPPP-NNNNNNNN, si no el del sistema. El informal no cambia. Sin SQL. · 30a: 🗜 RESPALDO DE COMPROBANTES — botón «Comprobantes (ZIP)» en Facturación formal: baja en un ZIP los PDF archivados con CAE de un mes (facturas, NC y ND) + indice.csv (Excel es-AR) que lista también los que tienen CAE sin PDF archivado y los que no se pudieron bajar. Usa la op nueva `pdf_lote` de la Edge Function (links firmados del bucket privado `comprobantes`); con la función vieja lo dice. Solo lectura, sin SQL. · 28h: 📄 EMITIDA EN FLEXXUS — cae_estado='externo' marca las copias de comprobantes que se emitieron en Flexxus: no ofrecen 🏛 CAE (evita declarar dos veces la misma venta), botón 📄 para marcar, desmarcar con clave de admin, el impreso dice COPIA INTERNA. SQL: 128 facturas + 8 NC formales marcadas el 28/09. · 28g: 🏛 CLIENTES DESDE ARCA — botón «Traer datos de ARCA» en la ficha y «Verificar N en ARCA» en la lista (Edge Function op padron): condición de IVA real, razón social oficial, domicilio, provincia y CP. Nombre de planta separado de la razón social (antes editar pisaba el nombre). Alta con CUIT se verifica sola. Provincia por cliente va a TusFacturas. SQL aplicado: clientes.provincia/codigo_postal/arca_estado/arca_verificado_el + check de condicion_iva ampliado. · 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
+const APP_BUILD='2026-10-02c';   // 02c: ↩ DÍA PAGADO A DEVOLVER — tipo nuevo en Cambio de turno: se paga como jornada normal y queda como deuda de horas; las horas extra que haga después la descuentan primero (no se pagan) hasta saldarla. Recuadro con la cuenta en el informe de asistencia. · 02b: ⏱ HORA EXTRA POR BLOQUES DE 30 MIN — lo suelto no se paga (ni normal ni extra), hábiles y sábado; antes los minutos de más de la semana se iban como extra al sábado por el tope de 48. · 02a: 🧵 BOBINAS PARA FUNDAS / USO INTERNO — página nueva (Producción, al lado de Fuera de rango): se busca la bobina por número contra la base, buena o rechazo, y se registra como usada adentro (fundas para bultos u otro). Documento: stock_movimientos tipo='consumo_interno' (no 'salida', que es corte en OC). Buena → sale de stock y sigue contando en su OE. Rechazo → anulada por uso interno SIN reverso de MP y sale del panel de Fuera de rango (que ahora carga sólo no anuladas). Pre-chequeo contra la base antes de escribir, con clave de admin. Historial y kg por mes. Sin SQL de esquema. Datos: BOB-03458 y BOB-04517 pasadas a este circuito. · 01b: 🔢 NÚMERO DE OC EN EL PLAN DEL PEDIDO — la sugerencia saltaba de a dos (lastNum+_pedOrdenes.length+idx+1 contaba doble: PED-06093 mostraba 911/913/915/917/919/921 y las reales eran 911–916; la 917 sugerida era de otro cliente). Ahora la sugerencia es correlativa y, al confirmar (caminos A y B), el plan guarda el número REAL de cada OC/tanda. Sin SQL. · 01a: ⏱ VENTANA DE GRACIA EN CARGA DE BOBINAS — las OE que el sistema pasó a Completada hace menos de 3 hs (última bobina) vuelven a aparecer en el selector, aparte y marcadas ⏱, para cargar la bobina que quedó en la máquina (caso BOB-06361 / ORD-06277: la tuvo que cargar admin 2 hs tarde con la hora mal). Mismo camino de siempre (dentro de tolerancia suma; si se pasa, excedente a pendientes). La bobina queda con «⏱ Cargada sobre OE ya cerrada» en observaciones. La OE no se reabre. Sin SQL. · 30c: 🧾 remito en blanco: renglones de productos más grandes (13 pt, cantidad y bultos en negrita, bultos 15 pt, separador entre filas). · 30b: 🧾 REMITO EN BLANCO CON FORMATO ARIALPLAST — imprimirRemito de un remito formal sale como el de Flexxus: logo, caja R · CODIGO Nº91, datos fiscales (configuracion empresa_* con defaults), cliente con domicilio/localidad/IVA/CUIT desde la ficha, lugar de entrega (clientes.direccion_entrega si existe, si no el domicilio), Cantidad · Código · Detalle · Bultos con total y aviso de bulto especial, RECIBI CONFORME. Número: configuracion['remito_formal_pv'] → PPPP-NNNNNNNN, si no el del sistema. El informal no cambia. Sin SQL. · 30a: 🗜 RESPALDO DE COMPROBANTES — botón «Comprobantes (ZIP)» en Facturación formal: baja en un ZIP los PDF archivados con CAE de un mes (facturas, NC y ND) + indice.csv (Excel es-AR) que lista también los que tienen CAE sin PDF archivado y los que no se pudieron bajar. Usa la op nueva `pdf_lote` de la Edge Function (links firmados del bucket privado `comprobantes`); con la función vieja lo dice. Solo lectura, sin SQL. · 28h: 📄 EMITIDA EN FLEXXUS — cae_estado='externo' marca las copias de comprobantes que se emitieron en Flexxus: no ofrecen 🏛 CAE (evita declarar dos veces la misma venta), botón 📄 para marcar, desmarcar con clave de admin, el impreso dice COPIA INTERNA. SQL: 128 facturas + 8 NC formales marcadas el 28/09. · 28g: 🏛 CLIENTES DESDE ARCA — botón «Traer datos de ARCA» en la ficha y «Verificar N en ARCA» en la lista (Edge Function op padron): condición de IVA real, razón social oficial, domicilio, provincia y CP. Nombre de planta separado de la razón social (antes editar pisaba el nombre). Alta con CUIT se verifica sola. Provincia por cliente va a TusFacturas. SQL aplicado: clientes.provincia/codigo_postal/arca_estado/arca_verificado_el + check de condicion_iva ampliado. · 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
 // (anterior) 28c:   // 28c: 📜 BOBINAS VIEJAS A DEMANDA — reload trae sólo bobinas en stock o de los últimos 60 días, y toda pantalla que miraba una OE o un período más viejo contaba de menos EN SILENCIO: el 🖨️ de ORD-05574 salía con 0 bobinas (tiene 45) y Costos de producción de julio daba 3.590 kg producidos (fueron 37.144). Ahora la MISMA caché C.bobinas_prod se completa sólo cuando hace falta: por OE (🖨️, 📊 Detalle, 📦 Lotes de MP de OE y de pedido, % de avance de la lista, Historial) o por período (Costos, Rentabilidad, con su comparación). Pieza única `// ===== 📜 BOBINAS VIEJAS A DEMANDA` (_oeBobCompleta, _bobPeriodoIncompleto, _completarBobinasDeOEs, _traerBobinasHistoricas, _bobAsegurarYRepintar), invalidada en cada reload con window._bobGen. El botón «📜 Cargar todas las históricas» de Stock usa la misma descarga. Mismos filtros que la carga inicial. Solo lectura. Sin SQL.
 // (anterior) 28b:   // 28b: 🧱 HOJA DE PALLET DE BOBINAS — botón «🧱 Pallet» en la lista de Órdenes de extrusión (y al completarse la OE al cargar la última bobina): A4 con el CLIENTE, el PRODUCTO (código + descripción), el tipo de bobina, total de bobinas/kg/metros en grande, OC, pedido, entrega, y la lista de TODAS las bobinas en stock de la OE con casilla para tildar al subirlas, firmas Armó/Controló. Las bobinas se consultan a la BASE (no a C.bobinas_prod, caché parcial). Fuera de rango/excedentes no van al pallet y se listan aparte; las reservadas a OTRA OC se marcan en gris; las ya cortadas se aclaran al pie. Solo lectura. Sin SQL.
 // (anterior) 28a:   // 28a: 💰 QUÉ PLATA TRAE ESTE ORDEN — sección nueva en Planificar producción: con el orden de extrusión y de corte (aunque no esté guardado) proyecta cuándo sale cada OC y cuándo entra la plata según cómo PAGA DE VERDAD cada cliente (remito→saldo de su factura/RV, últimos 120 días, ponderado; impagos vencidos cuentan como cota), contra cobrar al entregar. Número rey a 30 días, curva doble, plata financiada máxima, filtro por cortadora, lista OC por OC con su máquina, tabla pacta vs. paga. Proyección: no toca Flujo ni Salud. Sin SQL.
@@ -30309,7 +30309,7 @@ function _calendarioSecciones(){
     excMes.forEach(x=>{
       const em=(C.empleados||[]).find(e=>e.id===x.empleado_id);
       const tu=x.turno_id?_turnoById(x.turno_id):null;
-      const qué=tu?(tu.nombre+' '+_hhmm(tu.hora_entrada)+'–'+_hhmm(tu.hora_salida)):(x.tipo==='licencia'?'licencia':'franco');
+      const qué=tu?(tu.nombre+' '+_hhmm(tu.hora_entrada)+'–'+_hhmm(tu.hora_salida)):(x.tipo==='licencia'?'licencia':(x.tipo==='adelanto'?'pagado a devolver':'franco'));
       const col=tu?'var(--accent)':'var(--amber)';
       h+='<span title="'+escapeHtml(x.obs||'')+'" style="background:var(--bg3);border:1px solid '+col+';border-radius:99px;padding:3px 10px;font-size:11px;">'
         +String(x.fecha).slice(8,10)+'/'+String(x.fecha).slice(5,7)+' · <b>'+escapeHtml((em&&em.apellido_nombre)||'—')+'</b> · '+escapeHtml(qué)
@@ -30357,7 +30357,7 @@ function excAbrirForm(){
     +'<div class="fg"><label>Día (desde)</label><input id="exc-fecha" type="date" value="'+hoy+'" onchange="excChk()" style="width:100%"></div>'
     +'<div class="fg"><label>¿Qué hizo ese día?</label><select id="exc-que" onchange="excChk()" style="width:100%">'
       +turnos.map(t=>'<option value="t:'+t.id+'">'+escapeHtml(t.nombre)+' ('+_hhmm(t.hora_entrada)+'–'+_hhmm(t.hora_salida)+')</option>').join('')
-      +'<option value="franco">— Franco (no vino, no se paga) —</option><option value="licencia">— Licencia paga (art. 158) —</option>'
+      +'<option value="franco">— Franco (no vino, no se paga) —</option><option value="licencia">— Licencia paga (art. 158) —</option><option value="adelanto">— Día pagado a devolver (se paga y lo devuelve con horas extra) —</option>'
     +'</select></div>'
     +'<div class="fg" id="exc-motivo-box" style="display:none;"><label>Motivo de la licencia</label><select id="exc-motivo" onchange="excMotivo()" style="width:100%">'
       +_EXC_MOTIVOS.map((m,i)=>'<option value="'+i+'">'+escapeHtml(m.l)+(m.d?' — '+m.d+' día(s)':'')+'</option>').join('')
@@ -30425,7 +30425,7 @@ function excGuardar(){
     const{error}=await sb.from('turnos_excepcion').upsert(rows,{onConflict:'empleado_id,fecha'});
     if(error){if(msg){msg.style.color='var(--red)';msg.textContent='Error: '+error.message;}return;}
     document.getElementById('exc-modal')?.remove();
-    toast('✓ '+(rows.length>1?rows.length+' días guardados':'Cambio de turno guardado')+(tipo==='licencia'?' · licencia paga':''),'green');
+    toast('✓ '+(rows.length>1?rows.length+' días guardados':'Cambio de turno guardado')+(tipo==='licencia'?' · licencia paga':'')+(tipo==='adelanto'?' · se paga y queda como horas a devolver':''),'green');
     await reload();renderSueldos();
   })();
 }
@@ -30925,6 +30925,17 @@ function _fichHorasDia(emp,fechaStr){
       out.turnoBase=td.turnoBase||null;
       out.licenciaObs=td.obs||null;
     }
+    // ---- DÍA PAGADO A DEVOLVER (02c) ----
+    // No vino, se le paga igual la jornada que le tocaba, y esas horas quedan como DEUDA:
+    // las horas extra que haga después se descuentan primero de acá (ver _adelantoCuenta).
+    if(td.tipo==='adelanto'&&dow>=1&&dow<=5){
+      const RA=_asisReglas();
+      const durA=td.turnoBase?(_turnoHoras(td.turnoBase)||RA.jornada_diaria):RA.jornada_diaria;
+      out.adelanto=true;
+      out.adelantoHs=r2(Math.min(durA,RA.jornada_diaria));
+      out.turnoBase=td.turnoBase||null;
+      out.adelantoObs=td.obs||null;
+    }
   }
   return out;
 }
@@ -31009,27 +31020,78 @@ function _fichDiaSemanal(emp,fechaStr){
   const x=s.filas.find(f=>f.fecha===fechaStr);
   return x?{normales:x.normales,extra:x.extra,semana:s}:{normales:0,extra:0,semana:s};
 }
+// ===== ↩ DÍAS PAGADOS A DEVOLVER (02c) =====
+// Libro derivado (P1, nada se guarda): recorre día por día desde el primer "día a devolver"
+// del empleado. Cada día a devolver SUMA sus horas a la deuda; cada hora extra que hace
+// después se descuenta PRIMERO de la deuda (y no se paga como extra) hasta dejarla en 0.
+// Lo que sobra de la extra, ya con la deuda saldada, se paga como siempre.
+// Devuelve {deuda, prestado, devuelto, dev:{fecha:hs}, movs:[...]} al día `hasta` (default hoy).
+function _adelantoCuentaDe(emp,hasta,horasDia,extraDia){
+  const out={deuda:0,prestado:0,devuelto:0,dev:{},movs:[]};
+  if(!emp)return out;
+  const ads=(C.turnos_excepcion||[]).filter(x=>x.empleado_id===emp.id&&x.tipo==='adelanto')
+    .map(x=>String(x.fecha).slice(0,10)).sort();
+  if(!ads.length)return out;
+  const fin=hasta||localDate();
+  let f=ads[0],n=0;
+  while(f<=fin&&n<800){
+    const h=horasDia(emp,f);
+    if(h&&h.adelanto){
+      out.deuda=r2(out.deuda+h.adelantoHs);out.prestado=r2(out.prestado+h.adelantoHs);
+      out.movs.push({fecha:f,tipo:'adelanto',hs:h.adelantoHs,obs:h.adelantoObs||null,saldo:out.deuda});
+    }else if(out.deuda>0){
+      const ex=extraDia(emp,f)||0;
+      if(ex>0){
+        const d=r2(Math.min(ex,out.deuda));
+        out.dev[f]=d;out.deuda=r2(out.deuda-d);out.devuelto=r2(out.devuelto+d);
+        out.movs.push({fecha:f,tipo:'devolucion',hs:d,saldo:out.deuda});
+      }
+    }
+    f=_fichDiaMas(f,1);n++;
+  }
+  return out;
+}
+// Con caché: se recalcula sólo si cambian los fichajes o las excepciones.
+function _adelantoCuenta(emp,hasta){
+  if(!emp)return {deuda:0,prestado:0,devuelto:0,dev:{},movs:[]};
+  const k=emp.id+'|'+(hasta||localDate())+'|'+(window._fichIdxV)+'|'+(C.turnos_excepcion||[]).length+'|'+JSON.stringify(_asisReglas());
+  window._adCache=window._adCache||{};
+  if(window._adCache[k])return window._adCache[k];
+  const sem={};
+  const r=_adelantoCuentaDe(emp,hasta,_fichHorasDia,(e,f)=>{
+    const lun=_lunesDeStr(f);
+    if(!sem[lun])sem[lun]=_fichSemanaCalc(e,lun);
+    const x=sem[lun].filas.find(y=>y.fecha===f);return x?x.extra:0;
+  });
+  window._adCache[k]=r;return r;
+}
 function _fichHorasQuincena(emp,periodo,q){
   const yy=parseInt(periodo.slice(0,4)),mm=parseInt(periodo.slice(5,7));
   const ld=new Date(yy,mm,0).getDate();
   const desde=q===1?1:16,hasta=q===1?15:ld;
-  let n=0,ex=0,fe=0,lic=0,diasLic=0,dias=0;
+  let n=0,ex=0,fe=0,lic=0,diasLic=0,dias=0,adHs=0,adDias=0,devHs=0;
   // Las normales/extra salen del motor SEMANAL (tope de 45), no del día suelto:
   // misma fuente que el informe (P1). Se cachean las semanas que toca la quincena.
   const sem={};
+  const ad=_adelantoCuenta(emp,periodo+'-'+String(hasta).padStart(2,'0'));
   for(let d=desde;d<=hasta;d++){
     const fs=periodo+'-'+String(d).padStart(2,'0');
     const h=_fichHorasDia(emp,fs);
     if(h.trabajadas>0)dias++;
     if(h.licencia){lic+=(h.licenciaHs||0);diasLic++;}
+    // día pagado a devolver: se paga como jornada normal
+    if(h.adelanto){n+=(h.adelantoHs||0);adHs+=(h.adelantoHs||0);adDias++;}
     const lun=_lunesDeStr(fs);
     if(!sem[lun])sem[lun]=_fichSemanaCalc(emp,lun);
     const x=sem[lun].filas.find(y=>y.fecha===fs);
-    n+=(x?x.normales:h.normales);ex+=(x?x.extra:h.extra);fe+=h.feriado;
+    const dv=ad.dev[fs]||0;                    // extra que va a devolver la deuda: no se paga
+    devHs+=dv;
+    n+=(x?x.normales:h.normales);ex+=(x?x.extra:h.extra)-dv;fe+=h.feriado;
   }
   // Las de licencia NO se suman a las normales: no entran al tope semanal de 45 (no se
   // trabajaron) y el recibo las liquida con su propio concepto.
-  return {horas_normales:r2(n),horas_extra50:r2(ex),horas_feriado:r2(fe),horas_licencia:r2(lic),dias:dias,dias_licencia:diasLic};
+  return {horas_normales:r2(n),horas_extra50:r2(Math.max(0,ex)),horas_feriado:r2(fe),horas_licencia:r2(lic),dias:dias,dias_licencia:diasLic,
+    horas_adelanto:r2(adHs),dias_adelanto:adDias,horas_devueltas:r2(devHs),deuda_adelanto:ad.deuda};
 }
 // Rellena los inputs de una fila de la Quincena con lo del fichaje (para revisar antes de pagar)
 function suqTraerFichaje(eid){
@@ -31038,7 +31100,10 @@ function suqTraerFichaje(eid){
   const set=(cls,v)=>{const el=document.querySelector('#suq-row-'+eid+' .'+cls);if(el)el.value=(v||v===0)?v:'';};
   set('suq-hn',hh.horas_normales);set('suq-he50',hh.horas_extra50);set('suq-hf',hh.horas_feriado);set('suq-hl',hh.horas_licencia);
   _suqRecalc(eid);
-  toast('⟳ '+hh.dias+' día(s) de fichaje traídos'+(hh.dias_licencia?' · '+hh.dias_licencia+' de licencia paga':''),'green');
+  toast('⟳ '+hh.dias+' día(s) de fichaje traídos'+(hh.dias_licencia?' · '+hh.dias_licencia+' de licencia paga':'')
+    +(hh.dias_adelanto?' · '+hh.dias_adelanto+' día(s) pagado(s) a devolver':'')
+    +(hh.horas_devueltas?' · '+hh.horas_devueltas+' h extra devuelven deuda':'')
+    +(hh.deuda_adelanto?' · debe '+hh.deuda_adelanto+' h':''),'green');
 }
 // Calcula y GUARDA las horas de la quincena desde fichajes, para todos
 function suqTraerTodoFichaje(){
@@ -31532,6 +31597,14 @@ function _infDia(emp,fechaStr,cacheSem){
   d.semana=cs[lun];
   d.normales=sx?sx.normales:h.normales;
   d.extra=sx?sx.extra:h.extra;
+  // 02c: día pagado a devolver → cuenta como normales pagas; la extra que devuelve deuda no se paga
+  d.adelanto=!!h.adelanto;d.adelantoHs=h.adelantoHs||0;d.adelantoObs=h.adelantoObs||null;
+  if(d.adelanto)d.normales=r2(d.normales+d.adelantoHs);
+  d.devuelve=0;
+  if(d.extra>0&&(C.turnos_excepcion||[]).some(x=>x.empleado_id===emp.id&&x.tipo==='adelanto')){
+    d.devuelve=_adelantoCuenta(emp).dev[fechaStr]||0;   // el libro es causal: el de hoy sirve para cualquier día pasado
+    d.extra=r2(Math.max(0,d.extra-d.devuelve));
+  }
   d.cuenta45=sx?sx.cuenta45:false;
   d.objetivo=d.cuenta45?(h.esperadasTotal||h.esperadas||_asisReglas().jornada_diaria):0;
   // Deuda/crédito del día: solo tiene sentido en un día hábil que YA TERMINÓ.
@@ -31589,7 +31662,7 @@ function _infResumen(emp){
   const filas=dias.map(f=>_infDia(emp,f,cacheSem));
   const chk=_asisChequeo(emp,dias);
   filas.forEach(d=>{d.tardeN=chk.idx[d.fecha]||null;});
-  const t={dias:0,horas:0,normales:0,extra:0,feriado:0,licenciaHs:0,licenciaDias:0,esperadas:0,tardMin:0,tardDias:0,ausentes:0,antesMin:0,antesDias:0,abiertos:0,
+  const t={dias:0,horas:0,normales:0,extra:0,feriado:0,licenciaHs:0,licenciaDias:0,adelantoHs:0,adelantoDias:0,devuelto:0,esperadas:0,tardMin:0,tardDias:0,ausentes:0,antesMin:0,antesDias:0,abiertos:0,
     saldo:0,objetivo:0,deudaAusencias:0,deudaJornada:0,deudaExtra:0,enCurso:0,revisar:[],toleradoMin:0,toleradoDias:0,infracciones:chk.infracciones,tardeSemana:chk.max_semana,tardeMes:chk.max_mes,semanas:{}};
   filas.forEach(d=>{
     t.horas+=d.h.trabajadas; t.normales+=d.normales; t.extra+=d.extra; t.feriado+=d.h.feriado;
@@ -31613,10 +31686,12 @@ function _infResumen(emp){
     if(d.antes>0){t.antesMin+=d.antes;t.antesDias++;}
     if(d.ausente)t.ausentes++;
     if(d.licencia){t.licenciaDias++;t.licenciaHs+=d.licenciaHs;}
+    if(d.adelanto){t.adelantoDias++;t.adelantoHs+=d.adelantoHs;}
+    if(d.devuelve>0)t.devuelto+=d.devuelve;
     if(d.abierto)t.abiertos++;
     if(d.semana)t.semanas[d.semana.lunes]=d.semana;
   });
-  ['horas','normales','extra','feriado','licenciaHs','esperadas','saldo','objetivo','deudaAusencias','deudaJornada','deudaExtra'].forEach(k=>t[k]=r2(t[k]));
+  ['horas','normales','extra','feriado','licenciaHs','adelantoHs','devuelto','esperadas','saldo','objetivo','deudaAusencias','deudaJornada','deudaExtra'].forEach(k=>t[k]=r2(t[k]));
   // Topes legales de horas extra (dec. 484/2000): 30 por mes y 200 por año.
   const R2=_asisReglas(),ym=String(dias[0]).slice(0,7),yy=String(dias[0]).slice(0,4);
   t.extraMes=_asisExtraMes(emp,ym);
@@ -31866,6 +31941,22 @@ function _infSemanasHtml(r,col){
     +'</div></div>';
 }
 
+// ---- recuadro: días pagados a devolver (02c) ----
+function _infAdelantoHtml(e,r,col,px){
+  const ad=_adelantoCuenta(e);
+  if(!ad.prestado)return '';
+  const mv=ad.movs.map(m=>'<tr style="border-top:1px solid '+col.bd+';"><td style="padding:3px 6px;white-space:nowrap;">'+_fmtFecha(m.fecha).slice(0,5)+'</td>'
+    +'<td>'+(m.tipo==='adelanto'?'No vino — se pagó la jornada'+(m.obs?' <span style="color:'+col.t3+';">('+escapeHtml(m.obs)+')</span>':''):'Horas extra que devuelven')+'</td>'
+    +'<td style="text-align:right;color:'+(m.tipo==='adelanto'?col.amber:col.acc)+';">'+(m.tipo==='adelanto'?'+':'−')+_infHM(m.hs)+'</td>'
+    +'<td style="text-align:right;font-weight:700;padding-right:6px;">'+_infHM(m.saldo)+'</td></tr>').join('');
+  return '<div style="border:1px solid '+col.amber+';border-radius:8px;padding:8px 12px;margin-top:10px;'+(px?'background:#fffbeb;':'background:rgba(245,158,11,.08);')+'">'
+    +'<div style="font-size:12px;font-weight:700;color:'+col.amber+';">↩ Días pagados a devolver · '+(ad.deuda>0?'debe '+_infHM(ad.deuda):'saldado ✓')+'</div>'
+    +'<table style="width:100%;max-width:560px;font-size:11px;border-collapse:collapse;margin-top:4px;">'
+    +'<tr style="color:'+col.t3+';font-size:10px;text-transform:uppercase;text-align:left;"><th style="padding:3px 6px;">Día</th><th>Movimiento</th><th style="text-align:right;">Horas</th><th style="text-align:right;padding-right:6px;">Debe</th></tr>'
+    +mv+'</table>'
+    +'<div style="font-size:11px;color:'+col.t3+';margin-top:4px;">El día que no vino se le paga como jornada normal. Las horas extra que hace después se descuentan primero de esta deuda y <b>no se pagan</b> hasta dejarla en cero; recién ahí vuelve a cobrar extra. Se carga en 🕐 Turnos → ➕ Cambio de turno → «Día pagado a devolver».</div></div>';
+}
+
 // ---- vista de UN empleado: día por día ----
 function _infEmpleadoHtml(e,forPrint){
   const r=_infResumen(e);
@@ -31890,6 +31981,8 @@ function _infEmpleadoHtml(e,forPrint){
         (t.infracciones||[]).some(x=>String(x.tipo).indexOf('tolerancia')===0)?col.red:(t.toleradoDias?col.t2:''))
     +k('Salidas anticipadas',(t.antesDias||0)+(t.antesDias?' · '+_infMin(t.antesMin):''),t.antesDias?col.viol:'')
     +k('Ausencias',(t.ausentes||0)+(t.deudaAusencias>0?'<span style="font-size:11px;font-weight:400;color:'+col.t3+';"> · '+_infHM(t.deudaAusencias)+'</span>':''),t.ausentes?col.red:'')
+    +(_adelantoCuenta(e).prestado>0?k('Horas a devolver',(_adelantoCuenta(e).deuda>0?'debe '+_infHM(_adelantoCuenta(e).deuda):'saldado ✓')
+        +'<span style="font-size:11px;font-weight:400;color:'+col.t3+';"> · de '+_infHM(_adelantoCuenta(e).prestado)+' pagadas</span>',_adelantoCuenta(e).deuda>0?col.amber:''):'')
     +(t.licenciaDias?k('Licencia paga',t.licenciaDias+' día(s)<span style="font-size:11px;font-weight:400;color:'+col.t3+';"> · '+_infHM(t.licenciaHs)+' pagas</span>',col.acc):'')
     +k('Jornadas sin cerrar',t.abiertos||0,t.abiertos?col.naranja:'')
     +'</div>';
@@ -31900,6 +31993,7 @@ function _infEmpleadoHtml(e,forPrint){
     let tu;
     if(d.finde)tu=(dow===6?'sábado':'domingo');
     else if(d.licencia)tu='<span title="'+escapeHtml(d.licenciaObs||'licencia especial')+'">licencia'+(d.h.turnoBase?' (le tocaba '+_infReloj(d.h.turnoBase.hora_entrada)+')':'')+'</span>';
+    else if(d.adelanto)tu='<span title="'+escapeHtml(d.adelantoObs||'día pagado a devolver')+'">pagado a devolver'+(d.h.turnoBase?' (le tocaba '+_infReloj(d.h.turnoBase.hora_entrada)+')':'')+'</span>';
     else if(!d.turno)tu=(d.h.franco?(d.h.tipoDia==='licencia'?'licencia':'franco'):'—');
     else{
       const exF=d.h.extraFija||0;
@@ -31910,13 +32004,14 @@ function _infEmpleadoHtml(e,forPrint){
     let est='',estCol=col.t3;
     if(d.ausente){est='✖ AUSENTE';estCol=col.red;}
     else if(d.licencia&&!d.h.fichajes.length){est='🕊 LICENCIA';estCol=col.acc;}
+    else if(d.adelanto&&!d.h.fichajes.length){est='↩ A DEVOLVER';estCol=col.amber;}
     else if(d.tardeRevisar){est='⚠ revisar turno';estCol=col.amber;}
     else if(d.marcaRara){est='⚠ marca de prueba';estCol=col.amber;}
     else if(d.abierto){est='⚠ sin cerrar';estCol=col.naranja;}
     else if(d.feriado){est=d.h.feriado>0?'🎌 feriado trabajado':'🎌 feriado';estCol=col.amber;}
     else if(!d.h.fichajes.length){est=d.finde?'descanso':(d.sinDatos?'sin datos':(d.turno?(d.futuro?'—':'sin fichar'):(d.h.franco?'franco':'—')));}
     else est='✔';
-    const zebra=(!d.h.fichajes.length&&!d.ausente&&!d.licencia)?(px?'color:#999;':'opacity:.55;'):'';
+    const zebra=(!d.h.fichajes.length&&!d.ausente&&!d.licencia&&!d.adelanto)?(px?'color:#999;':'opacity:.55;'):'';
     const infr=!!(d.tardeN&&(d.tardeN.infSem||d.tardeN.infMes));
     const fondo=(d.ausente||infr)?(px?'background:#fef2f2;':'background:rgba(239,68,68,.07);'):'';
     // Saldo del día: cuánto le falta o le sobra para cumplir la jornada.
@@ -31926,6 +32021,7 @@ function _infEmpleadoHtml(e,forPrint){
     const tolD=R.extra_min_min/60;
     if(d.abierto&&d.h.fichajes.length){cump='en curso';cumpCol=col.naranja;}
     else if(d.licencia&&!d.h.fichajes.length){cump='paga '+_infHM(d.licenciaHs);cumpCol=col.acc;}
+    else if(d.adelanto&&!d.h.fichajes.length){cump='paga '+_infHM(d.adelantoHs)+' · debe';cumpCol=col.amber;}
     else if(d.cuenta45&&d.h.fichajes.length){
       if(d.saldoDia<0){
         // El faltante se muestra SIEMPRE, aunque sean minutos: la tolerancia corre solo
@@ -31956,7 +32052,8 @@ function _infEmpleadoHtml(e,forPrint){
       +'<td style="text-align:center;white-space:nowrap;">'+(d.abierto?'<span style="color:'+col.naranja+';">sin salida</span>':d.salida)+'</td>'
       +'<td style="text-align:center;font-weight:700;white-space:nowrap;">'+_infHM(d.h.trabajadas)+'</td>'
       +'<td style="text-align:center;white-space:nowrap;color:'+cumpCol+';font-size:11px;">'+cump+'</td>'
-      +'<td style="text-align:center;white-space:nowrap;color:'+(d.extra>0?col.acc:col.t3)+';">'+_infHM(d.extra)+'</td>'
+      +'<td style="text-align:center;white-space:nowrap;color:'+(d.extra>0?col.acc:col.t3)+';">'+_infHM(d.extra)
+        +(d.devuelve>0?'<div style="font-size:9px;color:'+col.amber+';" title="Horas extra que se descuentan de la deuda por días pagados a devolver: no se pagan.">↩ '+_infHM(d.devuelve)+' devuelve</div>':'')+'</td>'
       +'<td style="text-align:center;white-space:nowrap;color:'+(infr?col.red:(d.tardanza>0?col.amber:col.t3))+';font-weight:'+(infr?'700':'400')+';">'+tardeTxt+'</td>'
       +'<td style="text-align:center;white-space:nowrap;color:'+(d.antes>0?col.viol:col.t3)+';">'+(d.antes>0?_infMin(d.antes):'—')+'</td>'
       +'<td style="text-align:center;white-space:nowrap;color:'+estCol+';font-size:11px;">'+est+'</td>'
@@ -31999,6 +32096,7 @@ function _infEmpleadoHtml(e,forPrint){
     +'<div style="font-size:11px;color:'+col.t2+';margin-top:3px;">'
     +r.filas.filter(d=>d.licencia).map(d=>_fmtFecha(d.fecha).slice(0,5)+(d.licenciaObs?' — '+escapeHtml(d.licenciaObs):'')).join(' · ')
     +'</div><div style="font-size:11px;color:'+col.t3+';margin-top:3px;">Estos días <b>no son ausencias ni deuda de horas</b>: la licencia especial (LCT art. 158) se paga como jornada cumplida. Las '+_infHM(t.licenciaHs)+' se liquidan a hora simple y viajan a la quincena en la columna <b>Licencia</b>, aparte de las normales — no suman para el tope de las 45 hs porque no se trabajaron.</div></div>';
+  html+=_infAdelantoHtml(e,r,col,px);
   html+='<div style="font-size:10px;color:'+col.t3+';margin-top:8px;line-height:1.5;">Regla: jornada de '+_infHM(R.jornada_diaria)+', '+_infHM(R.semana_hs)+' por semana, tope legal '+_infHM(R.semana_max_hs)+'. '
     +(R.extra_base==='semanal'
       ?'La hora extra se cuenta sobre el total de la semana (criterio compensado).'
