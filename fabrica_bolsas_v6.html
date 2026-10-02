@@ -791,7 +791,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-02a</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-02b</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5744,7 +5744,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-02a';   // 02a: 🧵 BOBINAS PARA FUNDAS / USO INTERNO — página nueva (Producción, al lado de Fuera de rango): se busca la bobina por número contra la base, buena o rechazo, y se registra como usada adentro (fundas para bultos u otro). Documento: stock_movimientos tipo='consumo_interno' (no 'salida', que es corte en OC). Buena → sale de stock y sigue contando en su OE. Rechazo → anulada por uso interno SIN reverso de MP y sale del panel de Fuera de rango (que ahora carga sólo no anuladas). Pre-chequeo contra la base antes de escribir, con clave de admin. Historial y kg por mes. Sin SQL de esquema. Datos: BOB-03458 y BOB-04517 pasadas a este circuito. · 01b: 🔢 NÚMERO DE OC EN EL PLAN DEL PEDIDO — la sugerencia saltaba de a dos (lastNum+_pedOrdenes.length+idx+1 contaba doble: PED-06093 mostraba 911/913/915/917/919/921 y las reales eran 911–916; la 917 sugerida era de otro cliente). Ahora la sugerencia es correlativa y, al confirmar (caminos A y B), el plan guarda el número REAL de cada OC/tanda. Sin SQL. · 01a: ⏱ VENTANA DE GRACIA EN CARGA DE BOBINAS — las OE que el sistema pasó a Completada hace menos de 3 hs (última bobina) vuelven a aparecer en el selector, aparte y marcadas ⏱, para cargar la bobina que quedó en la máquina (caso BOB-06361 / ORD-06277: la tuvo que cargar admin 2 hs tarde con la hora mal). Mismo camino de siempre (dentro de tolerancia suma; si se pasa, excedente a pendientes). La bobina queda con «⏱ Cargada sobre OE ya cerrada» en observaciones. La OE no se reabre. Sin SQL. · 30c: 🧾 remito en blanco: renglones de productos más grandes (13 pt, cantidad y bultos en negrita, bultos 15 pt, separador entre filas). · 30b: 🧾 REMITO EN BLANCO CON FORMATO ARIALPLAST — imprimirRemito de un remito formal sale como el de Flexxus: logo, caja R · CODIGO Nº91, datos fiscales (configuracion empresa_* con defaults), cliente con domicilio/localidad/IVA/CUIT desde la ficha, lugar de entrega (clientes.direccion_entrega si existe, si no el domicilio), Cantidad · Código · Detalle · Bultos con total y aviso de bulto especial, RECIBI CONFORME. Número: configuracion['remito_formal_pv'] → PPPP-NNNNNNNN, si no el del sistema. El informal no cambia. Sin SQL. · 30a: 🗜 RESPALDO DE COMPROBANTES — botón «Comprobantes (ZIP)» en Facturación formal: baja en un ZIP los PDF archivados con CAE de un mes (facturas, NC y ND) + indice.csv (Excel es-AR) que lista también los que tienen CAE sin PDF archivado y los que no se pudieron bajar. Usa la op nueva `pdf_lote` de la Edge Function (links firmados del bucket privado `comprobantes`); con la función vieja lo dice. Solo lectura, sin SQL. · 28h: 📄 EMITIDA EN FLEXXUS — cae_estado='externo' marca las copias de comprobantes que se emitieron en Flexxus: no ofrecen 🏛 CAE (evita declarar dos veces la misma venta), botón 📄 para marcar, desmarcar con clave de admin, el impreso dice COPIA INTERNA. SQL: 128 facturas + 8 NC formales marcadas el 28/09. · 28g: 🏛 CLIENTES DESDE ARCA — botón «Traer datos de ARCA» en la ficha y «Verificar N en ARCA» en la lista (Edge Function op padron): condición de IVA real, razón social oficial, domicilio, provincia y CP. Nombre de planta separado de la razón social (antes editar pisaba el nombre). Alta con CUIT se verifica sola. Provincia por cliente va a TusFacturas. SQL aplicado: clientes.provincia/codigo_postal/arca_estado/arca_verificado_el + check de condicion_iva ampliado. · 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
+const APP_BUILD='2026-10-02b';   // 02b: ⏱ HORA EXTRA POR BLOQUES DE 30 MIN — lo suelto no se paga (ni normal ni extra), hábiles y sábado; antes los minutos de más de la semana se iban como extra al sábado por el tope de 48. · 02a: 🧵 BOBINAS PARA FUNDAS / USO INTERNO — página nueva (Producción, al lado de Fuera de rango): se busca la bobina por número contra la base, buena o rechazo, y se registra como usada adentro (fundas para bultos u otro). Documento: stock_movimientos tipo='consumo_interno' (no 'salida', que es corte en OC). Buena → sale de stock y sigue contando en su OE. Rechazo → anulada por uso interno SIN reverso de MP y sale del panel de Fuera de rango (que ahora carga sólo no anuladas). Pre-chequeo contra la base antes de escribir, con clave de admin. Historial y kg por mes. Sin SQL de esquema. Datos: BOB-03458 y BOB-04517 pasadas a este circuito. · 01b: 🔢 NÚMERO DE OC EN EL PLAN DEL PEDIDO — la sugerencia saltaba de a dos (lastNum+_pedOrdenes.length+idx+1 contaba doble: PED-06093 mostraba 911/913/915/917/919/921 y las reales eran 911–916; la 917 sugerida era de otro cliente). Ahora la sugerencia es correlativa y, al confirmar (caminos A y B), el plan guarda el número REAL de cada OC/tanda. Sin SQL. · 01a: ⏱ VENTANA DE GRACIA EN CARGA DE BOBINAS — las OE que el sistema pasó a Completada hace menos de 3 hs (última bobina) vuelven a aparecer en el selector, aparte y marcadas ⏱, para cargar la bobina que quedó en la máquina (caso BOB-06361 / ORD-06277: la tuvo que cargar admin 2 hs tarde con la hora mal). Mismo camino de siempre (dentro de tolerancia suma; si se pasa, excedente a pendientes). La bobina queda con «⏱ Cargada sobre OE ya cerrada» en observaciones. La OE no se reabre. Sin SQL. · 30c: 🧾 remito en blanco: renglones de productos más grandes (13 pt, cantidad y bultos en negrita, bultos 15 pt, separador entre filas). · 30b: 🧾 REMITO EN BLANCO CON FORMATO ARIALPLAST — imprimirRemito de un remito formal sale como el de Flexxus: logo, caja R · CODIGO Nº91, datos fiscales (configuracion empresa_* con defaults), cliente con domicilio/localidad/IVA/CUIT desde la ficha, lugar de entrega (clientes.direccion_entrega si existe, si no el domicilio), Cantidad · Código · Detalle · Bultos con total y aviso de bulto especial, RECIBI CONFORME. Número: configuracion['remito_formal_pv'] → PPPP-NNNNNNNN, si no el del sistema. El informal no cambia. Sin SQL. · 30a: 🗜 RESPALDO DE COMPROBANTES — botón «Comprobantes (ZIP)» en Facturación formal: baja en un ZIP los PDF archivados con CAE de un mes (facturas, NC y ND) + indice.csv (Excel es-AR) que lista también los que tienen CAE sin PDF archivado y los que no se pudieron bajar. Usa la op nueva `pdf_lote` de la Edge Function (links firmados del bucket privado `comprobantes`); con la función vieja lo dice. Solo lectura, sin SQL. · 28h: 📄 EMITIDA EN FLEXXUS — cae_estado='externo' marca las copias de comprobantes que se emitieron en Flexxus: no ofrecen 🏛 CAE (evita declarar dos veces la misma venta), botón 📄 para marcar, desmarcar con clave de admin, el impreso dice COPIA INTERNA. SQL: 128 facturas + 8 NC formales marcadas el 28/09. · 28g: 🏛 CLIENTES DESDE ARCA — botón «Traer datos de ARCA» en la ficha y «Verificar N en ARCA» en la lista (Edge Function op padron): condición de IVA real, razón social oficial, domicilio, provincia y CP. Nombre de planta separado de la razón social (antes editar pisaba el nombre). Alta con CUIT se verifica sola. Provincia por cliente va a TusFacturas. SQL aplicado: clientes.provincia/codigo_postal/arca_estado/arca_verificado_el + check de condicion_iva ampliado. · 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
 // (anterior) 28c:   // 28c: 📜 BOBINAS VIEJAS A DEMANDA — reload trae sólo bobinas en stock o de los últimos 60 días, y toda pantalla que miraba una OE o un período más viejo contaba de menos EN SILENCIO: el 🖨️ de ORD-05574 salía con 0 bobinas (tiene 45) y Costos de producción de julio daba 3.590 kg producidos (fueron 37.144). Ahora la MISMA caché C.bobinas_prod se completa sólo cuando hace falta: por OE (🖨️, 📊 Detalle, 📦 Lotes de MP de OE y de pedido, % de avance de la lista, Historial) o por período (Costos, Rentabilidad, con su comparación). Pieza única `// ===== 📜 BOBINAS VIEJAS A DEMANDA` (_oeBobCompleta, _bobPeriodoIncompleto, _completarBobinasDeOEs, _traerBobinasHistoricas, _bobAsegurarYRepintar), invalidada en cada reload con window._bobGen. El botón «📜 Cargar todas las históricas» de Stock usa la misma descarga. Mismos filtros que la carga inicial. Solo lectura. Sin SQL.
 // (anterior) 28b:   // 28b: 🧱 HOJA DE PALLET DE BOBINAS — botón «🧱 Pallet» en la lista de Órdenes de extrusión (y al completarse la OE al cargar la última bobina): A4 con el CLIENTE, el PRODUCTO (código + descripción), el tipo de bobina, total de bobinas/kg/metros en grande, OC, pedido, entrega, y la lista de TODAS las bobinas en stock de la OE con casilla para tildar al subirlas, firmas Armó/Controló. Las bobinas se consultan a la BASE (no a C.bobinas_prod, caché parcial). Fuera de rango/excedentes no van al pallet y se listan aparte; las reservadas a OTRA OC se marcan en gris; las ya cortadas se aclaran al pie. Solo lectura. Sin SQL.
 // (anterior) 28a:   // 28a: 💰 QUÉ PLATA TRAE ESTE ORDEN — sección nueva en Planificar producción: con el orden de extrusión y de corte (aunque no esté guardado) proyecta cuándo sale cada OC y cuándo entra la plata según cómo PAGA DE VERDAD cada cliente (remito→saldo de su factura/RV, últimos 120 días, ponderado; impagos vencidos cuentan como cota), contra cobrar al entregar. Número rey a 30 días, curva doble, plata financiada máxima, filtro por cortadora, lista OC por OC con su máquina, tabla pacta vs. paga. Proyección: no toca Flujo ni Salud. Sin SQL.
@@ -30751,13 +30751,24 @@ function _asisReglasDef(){return{
   semana_hs:45,            // jornada semanal normal (9 x 5). Es el objetivo, no el tope legal
   semana_max_hs:48,        // tope legal semanal (ley 11.544): lo que pase de acá también es extra
   extra_base:'diaria',     // 'diaria' = como manda el convenio y la ley · 'semanal' = compensando días
-  extra_min_min:15,        // minutos sueltos por debajo de esto NO son extra (no son horas autorizadas)
+  extra_min_min:30,        // la extra se paga por BLOQUES COMPLETOS de estos minutos; el resto suelto no se paga (02b: 30 min, German)
   extra_max_mes:30,        // tope legal de horas extra por mes sin autorización (dec. 484/2000)
   extra_max_anio:200,      // tope legal de horas extra por año (dec. 484/2000)
   tardanza_revisar_min:120,// más de esto no se cuenta como tardanza: es turno mal asignado o marca de prueba
   max_tolerado_mes:60,     // minutos de atraso TOLERADO acumulados en el mes que ya no son un imprevisto
   max_dias_tolerados_mes:8 // días del mes en que puede usar la tolerancia antes de que sea un hábito
 };}
+// ===== ⏱ BLOQUES DE HORA EXTRA (02b) =====
+// La extra se paga por bloques completos de extra_min_min (30 min): 3 h 04 → 3 h,
+// 0 h 34 → 0 h 30, 0 h 20 → 0. Quedarse 20 minutos sin hacer nada y fichar después
+// no genera nada: ni extra ni normal. Con extra_min_min=0 no se redondea.
+function _asisBloqueExtra(hs,R){
+  R=R||_asisReglas();
+  const h=Math.max(0,parseFloat(hs)||0);
+  const b=parseFloat(R.extra_min_min)||0;
+  if(b<=0)return r2(h);
+  return r2(Math.floor((h*60+1e-6)/b)*b/60);
+}
 function _asisReglas(){
   const d=_asisReglasDef(),c=cfg.asistencia_reglas||{},o={};
   Object.keys(d).forEach(k=>{
@@ -30871,7 +30882,8 @@ function _fichHorasDia(emp,fechaStr){
     return out;
   }
   if(dow===6){                                                 // sábado
-    if(trab>0){ out.normales=r2(Math.min(trab,3)); out.extra=r2(Math.max(0,trab-3)); }
+    // 3 hs normales; lo que pasa, extra por bloques completos (los minutos sueltos no se pagan)
+    if(trab>0){ out.normales=r2(Math.min(trab,3)); out.extra=_asisBloqueExtra(trab-3); }
     return out;
   }
   if(td.turno){
@@ -30962,9 +30974,13 @@ function _fichSemanaCalc(emp,lunesStr){
     filas.forEach(x=>{
       if(!x.cuenta45)return;
       acum+=x.h.trabajadas;
-      let e=Math.max(0,x.h.trabajadas-(x.h.esperadas||R.jornada_diaria));   // esperadas = ordinarias (tope 9 hs)
-      if(e<minE)e=0;
-      x.extra=r2(e);x.normales=r2(x.h.trabajadas-e);
+      const esp=(x.h.esperadas||R.jornada_diaria);                          // esperadas = ordinarias (tope 9 hs)
+      const sobra=Math.max(0,x.h.trabajadas-esp);
+      // 02b: extra por bloques completos; los minutos sueltos NO pasan a normales
+      // (antes 9 h 14 daba 9 h 14 normales y esos 14 min terminaban como extra del sábado
+      // por el tope de 48 hs).
+      const e=_asisBloqueExtra(sobra,R);
+      x.extra=e;x.normales=r2(Math.min(x.h.trabajadas,esp));
     });
   }
   // Segundo límite, independiente del diario: el tope legal semanal (48 hs).
@@ -31644,7 +31660,7 @@ function _infReglasHtml(){
     +inp('asr-jor',R.jornada_diaria,'hs por día')
     +inp('asr-hsem',R.semana_hs,'hs por semana (jornada normal)')
     +inp('asr-hmax',R.semana_max_hs,'hs: tope legal semanal')
-    +inp('asr-emin',R.extra_min_min,'min mínimos para que cuente como extra')
+    +inp('asr-emin',R.extra_min_min,'min: la extra se paga por bloques completos de estos minutos (lo suelto no se paga)')
     +inp('asr-emes',R.extra_max_mes,'hs extra por mes (tope legal)')
     +inp('asr-eanio',R.extra_max_anio,'hs extra por año (tope legal)')
     +inp('asr-rev',R.tardanza_revisar_min,'min: más que esto no es tardanza, es "revisar"')
