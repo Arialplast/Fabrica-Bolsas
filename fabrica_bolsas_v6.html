@@ -791,7 +791,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-02c</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-02d</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5744,7 +5744,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-02c';   // 02c: ↩ DÍA PAGADO A DEVOLVER — tipo nuevo en Cambio de turno: se paga como jornada normal y queda como deuda de horas; las horas extra que haga después la descuentan primero (no se pagan) hasta saldarla. Recuadro con la cuenta en el informe de asistencia. · 02b: ⏱ HORA EXTRA POR BLOQUES DE 30 MIN — lo suelto no se paga (ni normal ni extra), hábiles y sábado; antes los minutos de más de la semana se iban como extra al sábado por el tope de 48. · 02a: 🧵 BOBINAS PARA FUNDAS / USO INTERNO — página nueva (Producción, al lado de Fuera de rango): se busca la bobina por número contra la base, buena o rechazo, y se registra como usada adentro (fundas para bultos u otro). Documento: stock_movimientos tipo='consumo_interno' (no 'salida', que es corte en OC). Buena → sale de stock y sigue contando en su OE. Rechazo → anulada por uso interno SIN reverso de MP y sale del panel de Fuera de rango (que ahora carga sólo no anuladas). Pre-chequeo contra la base antes de escribir, con clave de admin. Historial y kg por mes. Sin SQL de esquema. Datos: BOB-03458 y BOB-04517 pasadas a este circuito. · 01b: 🔢 NÚMERO DE OC EN EL PLAN DEL PEDIDO — la sugerencia saltaba de a dos (lastNum+_pedOrdenes.length+idx+1 contaba doble: PED-06093 mostraba 911/913/915/917/919/921 y las reales eran 911–916; la 917 sugerida era de otro cliente). Ahora la sugerencia es correlativa y, al confirmar (caminos A y B), el plan guarda el número REAL de cada OC/tanda. Sin SQL. · 01a: ⏱ VENTANA DE GRACIA EN CARGA DE BOBINAS — las OE que el sistema pasó a Completada hace menos de 3 hs (última bobina) vuelven a aparecer en el selector, aparte y marcadas ⏱, para cargar la bobina que quedó en la máquina (caso BOB-06361 / ORD-06277: la tuvo que cargar admin 2 hs tarde con la hora mal). Mismo camino de siempre (dentro de tolerancia suma; si se pasa, excedente a pendientes). La bobina queda con «⏱ Cargada sobre OE ya cerrada» en observaciones. La OE no se reabre. Sin SQL. · 30c: 🧾 remito en blanco: renglones de productos más grandes (13 pt, cantidad y bultos en negrita, bultos 15 pt, separador entre filas). · 30b: 🧾 REMITO EN BLANCO CON FORMATO ARIALPLAST — imprimirRemito de un remito formal sale como el de Flexxus: logo, caja R · CODIGO Nº91, datos fiscales (configuracion empresa_* con defaults), cliente con domicilio/localidad/IVA/CUIT desde la ficha, lugar de entrega (clientes.direccion_entrega si existe, si no el domicilio), Cantidad · Código · Detalle · Bultos con total y aviso de bulto especial, RECIBI CONFORME. Número: configuracion['remito_formal_pv'] → PPPP-NNNNNNNN, si no el del sistema. El informal no cambia. Sin SQL. · 30a: 🗜 RESPALDO DE COMPROBANTES — botón «Comprobantes (ZIP)» en Facturación formal: baja en un ZIP los PDF archivados con CAE de un mes (facturas, NC y ND) + indice.csv (Excel es-AR) que lista también los que tienen CAE sin PDF archivado y los que no se pudieron bajar. Usa la op nueva `pdf_lote` de la Edge Function (links firmados del bucket privado `comprobantes`); con la función vieja lo dice. Solo lectura, sin SQL. · 28h: 📄 EMITIDA EN FLEXXUS — cae_estado='externo' marca las copias de comprobantes que se emitieron en Flexxus: no ofrecen 🏛 CAE (evita declarar dos veces la misma venta), botón 📄 para marcar, desmarcar con clave de admin, el impreso dice COPIA INTERNA. SQL: 128 facturas + 8 NC formales marcadas el 28/09. · 28g: 🏛 CLIENTES DESDE ARCA — botón «Traer datos de ARCA» en la ficha y «Verificar N en ARCA» en la lista (Edge Function op padron): condición de IVA real, razón social oficial, domicilio, provincia y CP. Nombre de planta separado de la razón social (antes editar pisaba el nombre). Alta con CUIT se verifica sola. Provincia por cliente va a TusFacturas. SQL aplicado: clientes.provincia/codigo_postal/arca_estado/arca_verificado_el + check de condicion_iva ampliado. · 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
+const APP_BUILD='2026-10-02d';   // 02d: 🕐 HORARIO ESPECIAL DE UN DÍA — en Cambio de turno, entrada/salida propias sin crear un turno (si la salida es antes que la entrada cruza la medianoche): 9 normales y el resto extra. Columnas nuevas turnos_excepcion.hora_entrada/hora_salida. · 02c: ↩ DÍA PAGADO A DEVOLVER — tipo nuevo en Cambio de turno: se paga como jornada normal y queda como deuda de horas; las horas extra que haga después la descuentan primero (no se pagan) hasta saldarla. Recuadro con la cuenta en el informe de asistencia. · 02b: ⏱ HORA EXTRA POR BLOQUES DE 30 MIN — lo suelto no se paga (ni normal ni extra), hábiles y sábado; antes los minutos de más de la semana se iban como extra al sábado por el tope de 48. · 02a: 🧵 BOBINAS PARA FUNDAS / USO INTERNO — página nueva (Producción, al lado de Fuera de rango): se busca la bobina por número contra la base, buena o rechazo, y se registra como usada adentro (fundas para bultos u otro). Documento: stock_movimientos tipo='consumo_interno' (no 'salida', que es corte en OC). Buena → sale de stock y sigue contando en su OE. Rechazo → anulada por uso interno SIN reverso de MP y sale del panel de Fuera de rango (que ahora carga sólo no anuladas). Pre-chequeo contra la base antes de escribir, con clave de admin. Historial y kg por mes. Sin SQL de esquema. Datos: BOB-03458 y BOB-04517 pasadas a este circuito. · 01b: 🔢 NÚMERO DE OC EN EL PLAN DEL PEDIDO — la sugerencia saltaba de a dos (lastNum+_pedOrdenes.length+idx+1 contaba doble: PED-06093 mostraba 911/913/915/917/919/921 y las reales eran 911–916; la 917 sugerida era de otro cliente). Ahora la sugerencia es correlativa y, al confirmar (caminos A y B), el plan guarda el número REAL de cada OC/tanda. Sin SQL. · 01a: ⏱ VENTANA DE GRACIA EN CARGA DE BOBINAS — las OE que el sistema pasó a Completada hace menos de 3 hs (última bobina) vuelven a aparecer en el selector, aparte y marcadas ⏱, para cargar la bobina que quedó en la máquina (caso BOB-06361 / ORD-06277: la tuvo que cargar admin 2 hs tarde con la hora mal). Mismo camino de siempre (dentro de tolerancia suma; si se pasa, excedente a pendientes). La bobina queda con «⏱ Cargada sobre OE ya cerrada» en observaciones. La OE no se reabre. Sin SQL. · 30c: 🧾 remito en blanco: renglones de productos más grandes (13 pt, cantidad y bultos en negrita, bultos 15 pt, separador entre filas). · 30b: 🧾 REMITO EN BLANCO CON FORMATO ARIALPLAST — imprimirRemito de un remito formal sale como el de Flexxus: logo, caja R · CODIGO Nº91, datos fiscales (configuracion empresa_* con defaults), cliente con domicilio/localidad/IVA/CUIT desde la ficha, lugar de entrega (clientes.direccion_entrega si existe, si no el domicilio), Cantidad · Código · Detalle · Bultos con total y aviso de bulto especial, RECIBI CONFORME. Número: configuracion['remito_formal_pv'] → PPPP-NNNNNNNN, si no el del sistema. El informal no cambia. Sin SQL. · 30a: 🗜 RESPALDO DE COMPROBANTES — botón «Comprobantes (ZIP)» en Facturación formal: baja en un ZIP los PDF archivados con CAE de un mes (facturas, NC y ND) + indice.csv (Excel es-AR) que lista también los que tienen CAE sin PDF archivado y los que no se pudieron bajar. Usa la op nueva `pdf_lote` de la Edge Function (links firmados del bucket privado `comprobantes`); con la función vieja lo dice. Solo lectura, sin SQL. · 28h: 📄 EMITIDA EN FLEXXUS — cae_estado='externo' marca las copias de comprobantes que se emitieron en Flexxus: no ofrecen 🏛 CAE (evita declarar dos veces la misma venta), botón 📄 para marcar, desmarcar con clave de admin, el impreso dice COPIA INTERNA. SQL: 128 facturas + 8 NC formales marcadas el 28/09. · 28g: 🏛 CLIENTES DESDE ARCA — botón «Traer datos de ARCA» en la ficha y «Verificar N en ARCA» en la lista (Edge Function op padron): condición de IVA real, razón social oficial, domicilio, provincia y CP. Nombre de planta separado de la razón social (antes editar pisaba el nombre). Alta con CUIT se verifica sola. Provincia por cliente va a TusFacturas. SQL aplicado: clientes.provincia/codigo_postal/arca_estado/arca_verificado_el + check de condicion_iva ampliado. · 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
 // (anterior) 28c:   // 28c: 📜 BOBINAS VIEJAS A DEMANDA — reload trae sólo bobinas en stock o de los últimos 60 días, y toda pantalla que miraba una OE o un período más viejo contaba de menos EN SILENCIO: el 🖨️ de ORD-05574 salía con 0 bobinas (tiene 45) y Costos de producción de julio daba 3.590 kg producidos (fueron 37.144). Ahora la MISMA caché C.bobinas_prod se completa sólo cuando hace falta: por OE (🖨️, 📊 Detalle, 📦 Lotes de MP de OE y de pedido, % de avance de la lista, Historial) o por período (Costos, Rentabilidad, con su comparación). Pieza única `// ===== 📜 BOBINAS VIEJAS A DEMANDA` (_oeBobCompleta, _bobPeriodoIncompleto, _completarBobinasDeOEs, _traerBobinasHistoricas, _bobAsegurarYRepintar), invalidada en cada reload con window._bobGen. El botón «📜 Cargar todas las históricas» de Stock usa la misma descarga. Mismos filtros que la carga inicial. Solo lectura. Sin SQL.
 // (anterior) 28b:   // 28b: 🧱 HOJA DE PALLET DE BOBINAS — botón «🧱 Pallet» en la lista de Órdenes de extrusión (y al completarse la OE al cargar la última bobina): A4 con el CLIENTE, el PRODUCTO (código + descripción), el tipo de bobina, total de bobinas/kg/metros en grande, OC, pedido, entrega, y la lista de TODAS las bobinas en stock de la OE con casilla para tildar al subirlas, firmas Armó/Controló. Las bobinas se consultan a la BASE (no a C.bobinas_prod, caché parcial). Fuera de rango/excedentes no van al pallet y se listan aparte; las reservadas a OTRA OC se marcan en gris; las ya cortadas se aclaran al pie. Solo lectura. Sin SQL.
 // (anterior) 28a:   // 28a: 💰 QUÉ PLATA TRAE ESTE ORDEN — sección nueva en Planificar producción: con el orden de extrusión y de corte (aunque no esté guardado) proyecta cuándo sale cada OC y cuándo entra la plata según cómo PAGA DE VERDAD cada cliente (remito→saldo de su factura/RV, últimos 120 días, ponderado; impagos vencidos cuentan como cota), contra cobrar al entregar. Número rey a 30 días, curva doble, plata financiada máxima, filtro por cortadora, lista OC por OC con su máquina, tabla pacta vs. paga. Proyección: no toca Flujo ni Salud. Sin SQL.
@@ -29960,6 +29960,11 @@ function _turnoDelDia(emp,fechaStr){
   if(!emp)return {turno:null};
   const ex=(C.turnos_excepcion||[]).find(x=>x.empleado_id===emp.id&&String(x.fecha)===fechaStr);
   if(ex){
+    // 02d: HORARIO ESPECIAL de un día (sin crear un turno): la excepción trae su propia
+    // entrada/salida. Se arma un turno al vuelo; si la salida es <= la entrada, cruza la
+    // medianoche. Ordinarias = min(duración, jornada 9 hs); lo que pasa es extra (bloques).
+    if(ex.hora_entrada&&ex.hora_salida)
+      return {turno:_turnoEspecialDe(ex),tipo:'especial',excepcion:true,obs:ex.obs||null};
     // Una licencia TAPA el turno, pero no lo borra de la historia: para pagarla hay que saber
     // qué jornada le tocaba ese día. Por eso el franco viaja con el turno que la rotación
     // habría dado (`turnoBase`) — derivado, no guardado (P1).
@@ -29969,6 +29974,12 @@ function _turnoDelDia(emp,fechaStr){
   return _turnoRotacion(emp,fechaStr);
 }
 // La rotación pura, sin mirar las excepciones del día.
+function _turnoEspecialDe(ex){
+  const he=String(ex.hora_entrada).slice(0,8),hs=String(ex.hora_salida).slice(0,8);
+  const toM=s=>{const p=s.split(':');return parseInt(p[0])*60+parseInt(p[1]);};
+  return {id:null,especial:true,nombre:'Horario especial',area:null,hora_entrada:he,hora_salida:hs,
+    cruza_medianoche:toM(hs)<=toM(he),tolerancia_min:10,horas_extra_fijas:0,activo:true};
+}
 function _turnoRotacion(emp,fechaStr){
   if(!emp)return {turno:null};
   if(!emp.esquema_turno_id)return {turno:null};
@@ -30309,8 +30320,9 @@ function _calendarioSecciones(){
     excMes.forEach(x=>{
       const em=(C.empleados||[]).find(e=>e.id===x.empleado_id);
       const tu=x.turno_id?_turnoById(x.turno_id):null;
-      const qué=tu?(tu.nombre+' '+_hhmm(tu.hora_entrada)+'–'+_hhmm(tu.hora_salida)):(x.tipo==='licencia'?'licencia':(x.tipo==='adelanto'?'pagado a devolver':'franco'));
-      const col=tu?'var(--accent)':'var(--amber)';
+      const qué=(x.hora_entrada&&x.hora_salida)?('horario especial '+_hhmm(x.hora_entrada)+'–'+_hhmm(x.hora_salida))
+        :(tu?(tu.nombre+' '+_hhmm(tu.hora_entrada)+'–'+_hhmm(tu.hora_salida)):(x.tipo==='licencia'?'licencia':(x.tipo==='adelanto'?'pagado a devolver':'franco')));
+      const col=(tu||x.hora_entrada)?'var(--accent)':'var(--amber)';
       h+='<span title="'+escapeHtml(x.obs||'')+'" style="background:var(--bg3);border:1px solid '+col+';border-radius:99px;padding:3px 10px;font-size:11px;">'
         +String(x.fecha).slice(8,10)+'/'+String(x.fecha).slice(5,7)+' · <b>'+escapeHtml((em&&em.apellido_nombre)||'—')+'</b> · '+escapeHtml(qué)
         +' <span onclick="excBorrar('+x.id+')" style="cursor:pointer;color:var(--red);margin-left:4px;font-weight:700;">✕</span></span>';
@@ -30357,8 +30369,11 @@ function excAbrirForm(){
     +'<div class="fg"><label>Día (desde)</label><input id="exc-fecha" type="date" value="'+hoy+'" onchange="excChk()" style="width:100%"></div>'
     +'<div class="fg"><label>¿Qué hizo ese día?</label><select id="exc-que" onchange="excChk()" style="width:100%">'
       +turnos.map(t=>'<option value="t:'+t.id+'">'+escapeHtml(t.nombre)+' ('+_hhmm(t.hora_entrada)+'–'+_hhmm(t.hora_salida)+')</option>').join('')
-      +'<option value="franco">— Franco (no vino, no se paga) —</option><option value="licencia">— Licencia paga (art. 158) —</option><option value="adelanto">— Día pagado a devolver (se paga y lo devuelve con horas extra) —</option>'
+      +'<option value="franco">— Franco (no vino, no se paga) —</option><option value="licencia">— Licencia paga (art. 158) —</option><option value="adelanto">— Día pagado a devolver (se paga y lo devuelve con horas extra) —</option><option value="especial">— Horario especial de este día (sin crear turno) —</option>'
     +'</select></div>'
+    +'<div class="fg" id="exc-esp-box" style="display:none;"><label>Horario especial</label><div style="display:flex;gap:8px;align-items:center;">'
+      +'<input id="exc-he" type="time" value="18:00" style="width:110px;"> a <input id="exc-hs" type="time" value="06:00" style="width:110px;">'
+      +'<span style="font-size:11px;color:var(--text3);">si la salida es antes que la entrada, termina al día siguiente · 9 hs normales y el resto extra</span></div></div>'
     +'<div class="fg" id="exc-motivo-box" style="display:none;"><label>Motivo de la licencia</label><select id="exc-motivo" onchange="excMotivo()" style="width:100%">'
       +_EXC_MOTIVOS.map((m,i)=>'<option value="'+i+'">'+escapeHtml(m.l)+(m.d?' — '+m.d+' día(s)':'')+'</option>').join('')
     +'</select></div>'
@@ -30377,6 +30392,7 @@ function excChk(){
   const que=document.getElementById('exc-que')?.value||'';
   const box=document.getElementById('exc-motivo-box');
   if(box)box.style.display=(que==='licencia')?'':'none';
+  const eb=document.getElementById('exc-esp-box');if(eb)eb.style.display=(que==='especial')?'':'none';
   const dias=_excRango();
   if(dias.length>1){
     // El rango se carga en DÍAS HÁBILES: el sábado ocupa el mismo lugar que el tilde de
@@ -30418,8 +30434,14 @@ function excGuardar(){
   const dias=rango.length>1?rango.filter(_excEsHabil):rango;
   if(!dias.length){if(msg){msg.style.color='var(--red)';msg.textContent='En ese rango no hay ningún día hábil';}return;}
   const tipo=que.indexOf('t:')===0?'cambio':que;
+  let he=null,hs=null;
+  if(tipo==='especial'){
+    he=document.getElementById('exc-he')?.value||'';hs=document.getElementById('exc-hs')?.value||'';
+    if(!he||!hs||he===hs){if(msg){msg.style.color='var(--red)';msg.textContent='Poné la entrada y la salida del horario especial';}return;}
+    he+=':00';hs+=':00';
+  }
   const rows=dias.map(f=>({empleado_id:empId,fecha:f,obs:obs||null,
-    turno_id:que.indexOf('t:')===0?parseInt(que.slice(2)):null,tipo:tipo}));
+    turno_id:que.indexOf('t:')===0?parseInt(que.slice(2)):null,tipo:tipo,hora_entrada:he,hora_salida:hs}));
   (async()=>{
     if(msg){msg.style.color='var(--text2)';msg.textContent='Guardando...';}
     const{error}=await sb.from('turnos_excepcion').upsert(rows,{onConflict:'empleado_id,fecha'});
