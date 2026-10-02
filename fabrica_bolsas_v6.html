@@ -791,7 +791,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-01b</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-02a</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -837,6 +837,7 @@ body.pext-on .main{margin-left:0!important;}
         <div class="nav-item" onclick="go('gantt-corte')"><div class="nav-dot"></div>Gantt corte semanal</div>
         <div class="nav-item" onclick="goAdmin('gantt-corte-diario')"><div class="nav-dot"></div>Gantt corte diario 🔐</div>
         <div class="nav-item" onclick="go('bobinas-fuera-rango')"><div class="nav-dot" style="background:var(--red)"></div>Fuera de rango</div>
+        <div class="nav-item" onclick="go('uso-interno')"><div class="nav-dot" style="background:var(--teal)"></div>🧵 Bobinas para fundas / uso interno</div>
         <div class="nav-item" onclick="go('historial-ordenes')"><div class="nav-dot"></div>Historial órdenes</div>
         <div class="nav-item" onclick="go('suspension-maquinas')"><div class="nav-dot" style="background:var(--red)"></div>Suspensión máquinas</div>
         <div class="nav-item" onclick="go('calendario-prod')"><div class="nav-dot" style="background:var(--amber)"></div>📅 Calendario de producción</div>
@@ -1837,6 +1838,13 @@ body.pext-on .main{margin-left:0!important;}
       <div class="page-hdr"><div><div class="page-title">Bobinas fuera de rango</div><div class="page-sub">No cuentan en su orden original · pendientes de reasignación admin</div></div></div>
       <div class="alert alert-warn" style="font-size:12px;">Estas bobinas superaron el límite de error tolerable. No se sumaron a los metros de su orden. Solo el administrador puede reasignarlas a otro producto.</div>
       <div id="fuera-rango-wrap"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+
+    <!-- 🧵 BOBINAS PARA FUNDAS / USO INTERNO (02a) -->
+    <div class="page" id="page-uso-interno">
+      <div class="page-hdr"><div><div class="page-title">🧵 Bobinas para fundas / uso interno</div><div class="page-sub">Bobinas que se usan adentro (fundas para armar bultos u otro uso) — buenas o rechazos. Salen del stock; la MP queda consumida.</div></div>
+        <div class="btn-grp"><button class="btn btn-sm" onclick="renderUsoInterno()">🔄 Refrescar</button></div></div>
+      <div id="uso-interno-wrap"></div>
     </div>
 
     <div class="page" id="page-balance-bobinas">
@@ -5736,7 +5744,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-01b';   // 01b: 🔢 NÚMERO DE OC EN EL PLAN DEL PEDIDO — la sugerencia saltaba de a dos (lastNum+_pedOrdenes.length+idx+1 contaba doble: PED-06093 mostraba 911/913/915/917/919/921 y las reales eran 911–916; la 917 sugerida era de otro cliente). Ahora la sugerencia es correlativa y, al confirmar (caminos A y B), el plan guarda el número REAL de cada OC/tanda. Sin SQL. · 01a: ⏱ VENTANA DE GRACIA EN CARGA DE BOBINAS — las OE que el sistema pasó a Completada hace menos de 3 hs (última bobina) vuelven a aparecer en el selector, aparte y marcadas ⏱, para cargar la bobina que quedó en la máquina (caso BOB-06361 / ORD-06277: la tuvo que cargar admin 2 hs tarde con la hora mal). Mismo camino de siempre (dentro de tolerancia suma; si se pasa, excedente a pendientes). La bobina queda con «⏱ Cargada sobre OE ya cerrada» en observaciones. La OE no se reabre. Sin SQL. · 30c: 🧾 remito en blanco: renglones de productos más grandes (13 pt, cantidad y bultos en negrita, bultos 15 pt, separador entre filas). · 30b: 🧾 REMITO EN BLANCO CON FORMATO ARIALPLAST — imprimirRemito de un remito formal sale como el de Flexxus: logo, caja R · CODIGO Nº91, datos fiscales (configuracion empresa_* con defaults), cliente con domicilio/localidad/IVA/CUIT desde la ficha, lugar de entrega (clientes.direccion_entrega si existe, si no el domicilio), Cantidad · Código · Detalle · Bultos con total y aviso de bulto especial, RECIBI CONFORME. Número: configuracion['remito_formal_pv'] → PPPP-NNNNNNNN, si no el del sistema. El informal no cambia. Sin SQL. · 30a: 🗜 RESPALDO DE COMPROBANTES — botón «Comprobantes (ZIP)» en Facturación formal: baja en un ZIP los PDF archivados con CAE de un mes (facturas, NC y ND) + indice.csv (Excel es-AR) que lista también los que tienen CAE sin PDF archivado y los que no se pudieron bajar. Usa la op nueva `pdf_lote` de la Edge Function (links firmados del bucket privado `comprobantes`); con la función vieja lo dice. Solo lectura, sin SQL. · 28h: 📄 EMITIDA EN FLEXXUS — cae_estado='externo' marca las copias de comprobantes que se emitieron en Flexxus: no ofrecen 🏛 CAE (evita declarar dos veces la misma venta), botón 📄 para marcar, desmarcar con clave de admin, el impreso dice COPIA INTERNA. SQL: 128 facturas + 8 NC formales marcadas el 28/09. · 28g: 🏛 CLIENTES DESDE ARCA — botón «Traer datos de ARCA» en la ficha y «Verificar N en ARCA» en la lista (Edge Function op padron): condición de IVA real, razón social oficial, domicilio, provincia y CP. Nombre de planta separado de la razón social (antes editar pisaba el nombre). Alta con CUIT se verifica sola. Provincia por cliente va a TusFacturas. SQL aplicado: clientes.provincia/codigo_postal/arca_estado/arca_verificado_el + check de condicion_iva ampliado. · 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
+const APP_BUILD='2026-10-02a';   // 02a: 🧵 BOBINAS PARA FUNDAS / USO INTERNO — página nueva (Producción, al lado de Fuera de rango): se busca la bobina por número contra la base, buena o rechazo, y se registra como usada adentro (fundas para bultos u otro). Documento: stock_movimientos tipo='consumo_interno' (no 'salida', que es corte en OC). Buena → sale de stock y sigue contando en su OE. Rechazo → anulada por uso interno SIN reverso de MP y sale del panel de Fuera de rango (que ahora carga sólo no anuladas). Pre-chequeo contra la base antes de escribir, con clave de admin. Historial y kg por mes. Sin SQL de esquema. Datos: BOB-03458 y BOB-04517 pasadas a este circuito. · 01b: 🔢 NÚMERO DE OC EN EL PLAN DEL PEDIDO — la sugerencia saltaba de a dos (lastNum+_pedOrdenes.length+idx+1 contaba doble: PED-06093 mostraba 911/913/915/917/919/921 y las reales eran 911–916; la 917 sugerida era de otro cliente). Ahora la sugerencia es correlativa y, al confirmar (caminos A y B), el plan guarda el número REAL de cada OC/tanda. Sin SQL. · 01a: ⏱ VENTANA DE GRACIA EN CARGA DE BOBINAS — las OE que el sistema pasó a Completada hace menos de 3 hs (última bobina) vuelven a aparecer en el selector, aparte y marcadas ⏱, para cargar la bobina que quedó en la máquina (caso BOB-06361 / ORD-06277: la tuvo que cargar admin 2 hs tarde con la hora mal). Mismo camino de siempre (dentro de tolerancia suma; si se pasa, excedente a pendientes). La bobina queda con «⏱ Cargada sobre OE ya cerrada» en observaciones. La OE no se reabre. Sin SQL. · 30c: 🧾 remito en blanco: renglones de productos más grandes (13 pt, cantidad y bultos en negrita, bultos 15 pt, separador entre filas). · 30b: 🧾 REMITO EN BLANCO CON FORMATO ARIALPLAST — imprimirRemito de un remito formal sale como el de Flexxus: logo, caja R · CODIGO Nº91, datos fiscales (configuracion empresa_* con defaults), cliente con domicilio/localidad/IVA/CUIT desde la ficha, lugar de entrega (clientes.direccion_entrega si existe, si no el domicilio), Cantidad · Código · Detalle · Bultos con total y aviso de bulto especial, RECIBI CONFORME. Número: configuracion['remito_formal_pv'] → PPPP-NNNNNNNN, si no el del sistema. El informal no cambia. Sin SQL. · 30a: 🗜 RESPALDO DE COMPROBANTES — botón «Comprobantes (ZIP)» en Facturación formal: baja en un ZIP los PDF archivados con CAE de un mes (facturas, NC y ND) + indice.csv (Excel es-AR) que lista también los que tienen CAE sin PDF archivado y los que no se pudieron bajar. Usa la op nueva `pdf_lote` de la Edge Function (links firmados del bucket privado `comprobantes`); con la función vieja lo dice. Solo lectura, sin SQL. · 28h: 📄 EMITIDA EN FLEXXUS — cae_estado='externo' marca las copias de comprobantes que se emitieron en Flexxus: no ofrecen 🏛 CAE (evita declarar dos veces la misma venta), botón 📄 para marcar, desmarcar con clave de admin, el impreso dice COPIA INTERNA. SQL: 128 facturas + 8 NC formales marcadas el 28/09. · 28g: 🏛 CLIENTES DESDE ARCA — botón «Traer datos de ARCA» en la ficha y «Verificar N en ARCA» en la lista (Edge Function op padron): condición de IVA real, razón social oficial, domicilio, provincia y CP. Nombre de planta separado de la razón social (antes editar pisaba el nombre). Alta con CUIT se verifica sola. Provincia por cliente va a TusFacturas. SQL aplicado: clientes.provincia/codigo_postal/arca_estado/arca_verificado_el + check de condicion_iva ampliado. · 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
 // (anterior) 28c:   // 28c: 📜 BOBINAS VIEJAS A DEMANDA — reload trae sólo bobinas en stock o de los últimos 60 días, y toda pantalla que miraba una OE o un período más viejo contaba de menos EN SILENCIO: el 🖨️ de ORD-05574 salía con 0 bobinas (tiene 45) y Costos de producción de julio daba 3.590 kg producidos (fueron 37.144). Ahora la MISMA caché C.bobinas_prod se completa sólo cuando hace falta: por OE (🖨️, 📊 Detalle, 📦 Lotes de MP de OE y de pedido, % de avance de la lista, Historial) o por período (Costos, Rentabilidad, con su comparación). Pieza única `// ===== 📜 BOBINAS VIEJAS A DEMANDA` (_oeBobCompleta, _bobPeriodoIncompleto, _completarBobinasDeOEs, _traerBobinasHistoricas, _bobAsegurarYRepintar), invalidada en cada reload con window._bobGen. El botón «📜 Cargar todas las históricas» de Stock usa la misma descarga. Mismos filtros que la carga inicial. Solo lectura. Sin SQL.
 // (anterior) 28b:   // 28b: 🧱 HOJA DE PALLET DE BOBINAS — botón «🧱 Pallet» en la lista de Órdenes de extrusión (y al completarse la OE al cargar la última bobina): A4 con el CLIENTE, el PRODUCTO (código + descripción), el tipo de bobina, total de bobinas/kg/metros en grande, OC, pedido, entrega, y la lista de TODAS las bobinas en stock de la OE con casilla para tildar al subirlas, firmas Armó/Controló. Las bobinas se consultan a la BASE (no a C.bobinas_prod, caché parcial). Fuera de rango/excedentes no van al pallet y se listan aparte; las reservadas a OTRA OC se marcan en gris; las ya cortadas se aclaran al pie. Solo lectura. Sin SQL.
 // (anterior) 28a:   // 28a: 💰 QUÉ PLATA TRAE ESTE ORDEN — sección nueva en Planificar producción: con el orden de extrusión y de corte (aunque no esté guardado) proyecta cuándo sale cada OC y cuándo entra la plata según cómo PAGA DE VERDAD cada cliente (remito→saldo de su factura/RV, últimos 120 días, ponderado; impagos vencidos cuentan como cota), contra cobrar al entregar. Número rey a 30 días, curva doble, plata financiada máxima, filtro por cortadora, lista OC por OC con su máquina, tabla pacta vs. paga. Proyección: no toca Flujo ni Salud. Sin SQL.
@@ -6102,7 +6110,7 @@ async function reload(){
     sb.from('tipos_empaque').select('*').order('nombre'),
     _traerQ(()=>sb.from('ordenes_corte').select('*, productos(*), tipos_empaque(*), orden_corte_maquinas(*, maquinas_corte(*)), orden_corte_bobinas(*, bobinas_producidas(id,numero_bobina,metros_reales,kg_reales,orden_id,bobina_tipo_id))').order('prioridad').order('created_at').order('id')),
     sb.from('capacidad_corte_semanal').select('*, maquinas_corte(*)'),
-    sb.from('bobinas_producidas').select('*, ordenes(numero_orden), bobinas(*), extrusoras(nombre), operarios(nombre)').eq('fuera_de_rango',true).order('created_at',{ascending:false}),
+    sb.from('bobinas_producidas').select('*, ordenes(numero_orden), bobinas(*), extrusoras(nombre), operarios(nombre)').eq('fuera_de_rango',true).eq('anulada',false).order('created_at',{ascending:false}),
     sb.from('suspensiones_maquinas').select('*, extrusoras(nombre), maquinas_corte(nombre)').order('created_at',{ascending:false}).limit(100),
     sb.from('tipos_mp').select('*').order('categoria').order('nombre'),
     sb.from('proveedores').select('*').eq('activo',true).order('nombre'),
@@ -11553,6 +11561,7 @@ function go(name){
   if(name==='historial-ordenes')renderHistorial();
   if(name==='suspension-maquinas'){renderSuspMaquinas();renderSuspHistorial();}
   if(name==='bobinas-fuera-rango')renderFueraDeRango();
+  if(name==='uso-interno')renderUsoInterno();
   if(name==='balance-bobinas')renderBalance();
   if(name==='informe-lote')renderInformeLote();
   if(name==='gastos-fijos')renderGastosFijos();
@@ -39266,6 +39275,168 @@ function _inflStatGrande(label,val,color,sub){
     +'<div style="font-size:20px;font-weight:800;color:'+color+';margin-top:4px;">'+val+'</div>'
     +(sub?'<div style="font-size:10px;color:var(--text3);margin-top:2px;font-style:italic;">'+sub+'</div>':'')
   +'</div>';
+}
+
+// ===== 🧵 USO INTERNO DE BOBINAS (FUNDAS PARA BULTOS) =====
+// 02a (02/10/2026) — German corta bobinas para hacer las FUNDAS con las que se arman
+// los bultos (BOB-03458 y BOB-04517, dos RECHAZO que estaban en Fuera de rango). Y no
+// sólo rechazos: «quizás use alguna que esté bien». Hasta acá no había forma de decirlo:
+//  · Fuera de rango sólo ofrece aceptar o reasignar a una orden de corte;
+//  · 🚫 Anular bobina devuelve la MP a los lotes — falso: el material SÍ se consumió.
+// La bobina quedaba en un limbo (pendiente para siempre, o en stock sin estarlo).
+//
+// El documento es un movimiento en `stock_movimientos` con tipo='consumo_interno'
+// (P1: los kilos usados en fundas se DERIVAN de esos movimientos). Tipo propio y no
+// 'salida', porque 'salida' es «se cortó en una OC» y lo leen el historial de corte y
+// Analytics. Sobre la bobina:
+//  · una BUENA (en stock) sale de stock y sigue contando como producción de su OE: se
+//    produjo de verdad, sólo que se usó adentro;
+//  · un RECHAZO (fuera de rango) nunca contó en su OE y sigue sin contar: se marca
+//    anulada con el motivo de uso interno — SIN reverso de MP — y deja el panel de
+//    Fuera de rango (que ahora mira sólo las no anuladas).
+// Sin SQL de esquema.
+const _UI_MOTIVOS={fundas_bultos:'Fundas para bultos',otro:'Otro uso interno'};
+// Pura: ¿se puede mandar esta bobina a uso interno? `cortes` = asociaciones a OC.
+function _uiPuedeUsar(b,cortes){
+  if(!b)return {ok:false,msg:'No existe esa bobina.'};
+  if(b.anulada)return {ok:false,msg:'La bobina está anulada'+(b.anulada_motivo?' ('+b.anulada_motivo+')':'')+'.'};
+  if((cortes||0)>0)return {ok:false,msg:'La bobina ya se cortó en una orden de corte.'};
+  if(!b.en_stock&&!b.fuera_de_rango)return {ok:false,msg:'La bobina no está en stock.'};
+  return {ok:true,esRechazo:!!b.fuera_de_rango};
+}
+// Pura: los campos que se escriben en la bobina.
+function _uiCambiosBobina(b,motivo,obs,hoy,ahoraIso){
+  const nom=_UI_MOTIVOS[motivo]||motivo;
+  const nota=hoy+': usada para '+nom.toLowerCase()+(obs?' — '+obs:'');
+  const upd={en_stock:false,reservada_oc_id:null,observaciones:(b.observaciones?b.observaciones+' | ':'')+nota};
+  if(b.fuera_de_rango){
+    upd.anulada=true;
+    upd.anulada_motivo='Uso interno: '+nom+' — el material SÍ se consumió, no se devuelve MP';
+    upd.anulada_fecha=ahoraIso;
+  }
+  return upd;
+}
+// Pura: totales por mes (YYYY-MM) de los movimientos de uso interno.
+function _uiResumenMeses(movs){
+  const out={};
+  (movs||[]).forEach(m=>{
+    const k=String(m.fecha||'').slice(0,7);if(!k)return;
+    const r=out[k]||(out[k]={n:0,kg:0,m:0});
+    r.n++;r.kg+=parseFloat(m.kg)||0;r.m+=parseFloat(m.metros)||0;
+  });
+  Object.values(out).forEach(r=>{r.kg=r2(r.kg);r.m=r2(r.m);});
+  return out;
+}
+let _uiBob=null;
+function renderUsoInterno(){
+  const w=document.getElementById('uso-interno-wrap');if(!w)return;
+  w.innerHTML='<div class="fp" style="margin-bottom:1rem;">'
+    +'<div class="fp-t">Registrar una bobina usada adentro</div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">'
+      +'<div><label style="font-size:11px;color:var(--text3)">N° de bobina</label><input id="ui-nro" placeholder="ej. 3458 o BOB-03458" style="width:200px" onkeydown="if(event.key===\'Enter\')uiBuscar()"></div>'
+      +'<button class="btn btn-primary btn-sm" onclick="uiBuscar()">Buscar</button>'
+    +'</div>'
+    +'<div id="ui-ficha" style="margin-top:12px;"></div>'
+  +'</div>'
+  +'<div id="ui-hist"><div class="loading"><div class="spinner"></div>Cargando…</div></div>';
+  uiHistorial();
+}
+async function uiBuscar(){
+  const f=document.getElementById('ui-ficha');if(!f)return;
+  const nro=_repNormNro(document.getElementById('ui-nro')?.value);
+  if(!nro){f.innerHTML='<span style="color:var(--amber)">Escribí el número de la bobina.</span>';return;}
+  f.innerHTML='<div class="loading" style="justify-content:flex-start"><div class="spinner"></div>Buscando '+escapeHtml(nro)+'…</div>';
+  // Contra la BASE: los rechazos y las bobinas viejas no están en C.bobinas_prod (28c).
+  const rb=await sb.from('bobinas_producidas').select('*, ordenes(numero_orden,cliente), bobinas(nombre,descripcion), extrusoras(nombre)').eq('numero_bobina',nro).maybeSingle();
+  if(rb.error){f.innerHTML='<span style="color:var(--red)">Error: '+escapeHtml(rb.error.message)+'</span>';return;}
+  const b=rb.data;
+  let cortes=0,ocTxt='';
+  if(b){
+    const{data:cs}=await sb.from('orden_corte_bobinas').select('id, ordenes_corte(numero_orden)').eq('bobina_producida_id',b.id);
+    cortes=(cs||[]).length;ocTxt=(cs||[]).map(x=>x.ordenes_corte?.numero_orden).filter(Boolean).join(', ');
+  }
+  const ev=_uiPuedeUsar(b,cortes);
+  _uiBob=ev.ok?b:null;
+  if(!b){f.innerHTML='<span style="color:var(--red)">No existe la bobina '+escapeHtml(nro)+'.</span>';return;}
+  const estado=b.anulada?'ANULADA':cortes?'CORTADA ('+ocTxt+')':b.fuera_de_rango?'FUERA DE RANGO ('+escapeHtml(b.estado_calidad||'')+')':b.en_stock?'EN STOCK':'SIN STOCK';
+  f.innerHTML='<div style="background:var(--bg3);border-radius:var(--r);padding:11px 13px;font-size:12.5px;line-height:1.7;">'
+      +'<b style="font-size:15px">'+escapeHtml(b.numero_bobina)+'</b> · '+escapeHtml(b.bobinas?.descripcion||b.bobinas?.nombre||'')+'<br>'
+      +'OE '+escapeHtml(b.ordenes?.numero_orden||'—')+' · '+escapeHtml(b.ordenes?.cliente||'')+' · '+escapeHtml(b.extrusoras?.nombre||'')+' · '+escapeHtml(b.fecha_produccion||'')+'<br>'
+      +'<b>'+r1(parseFloat(b.metros_reales)||0).toLocaleString('es-AR')+' m · '+r2(parseFloat(b.kg_reales)||0).toLocaleString('es-AR')+' kg</b> · Estado: <b>'+estado+'</b>'
+    +'</div>'
+    +(ev.ok
+      ?'<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:10px;">'
+        +'<div><label style="font-size:11px;color:var(--text3)">Para qué</label><select id="ui-motivo">'
+          +Object.entries(_UI_MOTIVOS).map(([k,v])=>'<option value="'+k+'">'+v+'</option>').join('')+'</select></div>'
+        +'<div style="flex:1;min-width:180px"><label style="font-size:11px;color:var(--text3)">Nota (opcional)</label><input id="ui-obs" style="width:100%"></div>'
+        +'<button class="btn btn-primary btn-sm" id="ui-btn" onclick="uiRegistrar()">🧵 Registrar uso interno</button>'
+      +'</div>'
+      +'<div style="font-size:11.5px;color:var(--text2);margin-top:8px;">'
+        +(ev.esRechazo
+          ?'Es un rechazo: sale del panel de Fuera de rango y queda anulada por uso interno. <b>La MP no vuelve a los lotes</b> (se consumió).'
+          :'Sale del stock. Sigue contando como producción de su OE (se fabricó), pero no queda disponible para cortar.')
+      +'</div>'
+      :'<div style="color:var(--red);margin-top:8px;font-size:12.5px;">⛔ '+escapeHtml(ev.msg)+'</div>');
+}
+function uiRegistrar(){
+  const b=_uiBob;if(!b){toast('Buscá la bobina primero.','amber');return;}
+  const motivo=document.getElementById('ui-motivo')?.value||'fundas_bultos';
+  const obs=(document.getElementById('ui-obs')?.value||'').trim();
+  pedirAdminYEjecutar(async()=>{
+    const btn=document.getElementById('ui-btn');if(btn)btn.disabled=true;
+    // Pre-chequeo contra la base ANTES de escribir (15d): pudo cortarse o anularse mientras tanto.
+    const[rb,rc]=await Promise.all([
+      sb.from('bobinas_producidas').select('*').eq('id',b.id).maybeSingle(),
+      sb.from('orden_corte_bobinas').select('id').eq('bobina_producida_id',b.id)
+    ]);
+    const ev=_uiPuedeUsar(rb.data,(rc.data||[]).length);
+    if(rb.error||rc.error||!ev.ok){toast('⛔ '+(ev.msg||(rb.error||rc.error).message),'red');if(btn)btn.disabled=false;return;}
+    const fresca=rb.data;
+    const upd=_uiCambiosBobina(fresca,motivo,obs,localDate(),new Date().toISOString());
+    const{error:eB}=await sb.from('bobinas_producidas').update(upd).eq('id',b.id);
+    if(eB){toast('Error: '+eB.message,'red');if(btn)btn.disabled=false;return;}
+    const mov={bobina_producida_id:b.id,tipo:'consumo_interno',motivo:motivo,orden_corte:null,
+      metros:parseFloat(fresca.metros_reales)||0,kg:parseFloat(fresca.kg_reales)||0,operario:'oficina'};
+    const{error:eM}=await sb.from('stock_movimientos').insert(mov);
+    if(eM){
+      // La bobina ya quedó marcada: dejarlo escrito en ella para que no quede sin rastro.
+      await sb.from('bobinas_producidas').update({observaciones:upd.observaciones+' | ⚠ falta el movimiento de uso interno: '+eM.message}).eq('id',b.id);
+      toast('⚠ Bobina marcada pero no se pudo registrar el movimiento: '+eM.message,'red');
+    }else toast('🧵 '+b.numero_bobina+' registrada como '+(_UI_MOTIVOS[motivo]||motivo).toLowerCase(),'green');
+    _cacheParchear([C.bobinas_prod,C.bobinas_hist],b.id,{en_stock:false,reservada_oc_id:null});
+    C.bobinas_fuera=(C.bobinas_fuera||[]).filter(x=>x.id!==b.id);
+    if(upd.anulada)C.bobinas_prod=(C.bobinas_prod||[]).filter(x=>x.id!==b.id);
+    _repintar(renderStock,renderFueraDeRango);
+    _uiBob=null;
+    const inp=document.getElementById('ui-nro');if(inp)inp.value='';
+    const f=document.getElementById('ui-ficha');if(f)f.innerHTML='';
+    uiHistorial();
+  });
+}
+async function uiHistorial(){
+  const w=document.getElementById('ui-hist');if(!w)return;
+  const{data,error}=await sb.from('stock_movimientos')
+    .select('id,fecha,motivo,metros,kg,operario,bobinas_producidas(numero_bobina,estado_calidad,bobinas(descripcion))')
+    .eq('tipo','consumo_interno').order('fecha',{ascending:false}).limit(1000);
+  if(error){w.innerHTML='<span style="color:var(--red)">Error: '+escapeHtml(error.message)+'</span>';return;}
+  const movs=data||[];
+  if(!movs.length){w.innerHTML='<div class="empty">Todavía no hay bobinas registradas como uso interno.</div>';return;}
+  const res=_uiResumenMeses(movs);
+  const mesHoy=localDate().slice(0,7);
+  const rHoy=res[mesHoy]||{n:0,kg:0,m:0};
+  w.innerHTML='<div class="stats" style="margin-bottom:1rem;">'
+      +'<div class="stat"><div class="stat-lbl">Este mes</div><div class="stat-val">'+rHoy.kg.toLocaleString('es-AR')+' kg</div><div class="stat-sub">'+rHoy.n+' bobina'+(rHoy.n===1?'':'s')+' · '+rHoy.m.toLocaleString('es-AR')+' m</div></div>'
+      +Object.keys(res).filter(k=>k!==mesHoy).sort().reverse().slice(0,3).map(k=>'<div class="stat"><div class="stat-lbl">'+k+'</div><div class="stat-val">'+res[k].kg.toLocaleString('es-AR')+' kg</div><div class="stat-sub">'+res[k].n+' bobinas</div></div>').join('')
+    +'</div>'
+    +'<div style="overflow-x:auto"><table><thead><tr><th>Fecha</th><th>Bobina</th><th>Tipo</th><th>Calidad</th><th>Para qué</th><th style="text-align:right">Metros</th><th style="text-align:right">Kg</th></tr></thead><tbody>'
+    +movs.map(m=>'<tr><td class="mono" style="font-size:11px">'+(m.fecha?new Date(m.fecha).toLocaleDateString('es-AR'):'')+'</td>'
+      +'<td class="mono">'+escapeHtml(m.bobinas_producidas?.numero_bobina||'—')+'</td>'
+      +'<td style="font-size:11px">'+escapeHtml(m.bobinas_producidas?.bobinas?.descripcion||'')+'</td>'
+      +'<td style="font-size:11px">'+escapeHtml(m.bobinas_producidas?.estado_calidad||'')+'</td>'
+      +'<td>'+escapeHtml(_UI_MOTIVOS[m.motivo]||m.motivo||'')+'</td>'
+      +'<td class="mono" style="text-align:right">'+(parseFloat(m.metros)||0).toLocaleString('es-AR')+'</td>'
+      +'<td class="mono" style="text-align:right">'+(parseFloat(m.kg)||0).toLocaleString('es-AR')+'</td></tr>').join('')
+    +'</tbody></table></div>';
 }
 
 function renderFueraDeRango(){
