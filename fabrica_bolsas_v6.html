@@ -791,7 +791,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-02e</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-03a</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5751,7 +5751,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-02e';   // 02e: 🖨️ IMPRIMIR DESDE EL PLANIFICADOR — cada tarjeta de Planificar producción (también las En proceso y en vista compacta) trae 🖨️ OC + 🏷️ etiquetas de bulto en corte y 🖨️ OE en extrusión; mismas funciones que la lista de Órdenes de corte. Sin SQL. · 02d: 🕐 HORARIO ESPECIAL DE UN DÍA — en Cambio de turno, entrada/salida propias sin crear un turno (si la salida es antes que la entrada cruza la medianoche): 9 normales y el resto extra. Columnas nuevas turnos_excepcion.hora_entrada/hora_salida. · 02c: ↩ DÍA PAGADO A DEVOLVER — tipo nuevo en Cambio de turno: se paga como jornada normal y queda como deuda de horas; las horas extra que haga después la descuentan primero (no se pagan) hasta saldarla. Recuadro con la cuenta en el informe de asistencia. · 02b: ⏱ HORA EXTRA POR BLOQUES DE 30 MIN — lo suelto no se paga (ni normal ni extra), hábiles y sábado; antes los minutos de más de la semana se iban como extra al sábado por el tope de 48. · 02a: 🧵 BOBINAS PARA FUNDAS / USO INTERNO — página nueva (Producción, al lado de Fuera de rango): se busca la bobina por número contra la base, buena o rechazo, y se registra como usada adentro (fundas para bultos u otro). Documento: stock_movimientos tipo='consumo_interno' (no 'salida', que es corte en OC). Buena → sale de stock y sigue contando en su OE. Rechazo → anulada por uso interno SIN reverso de MP y sale del panel de Fuera de rango (que ahora carga sólo no anuladas). Pre-chequeo contra la base antes de escribir, con clave de admin. Historial y kg por mes. Sin SQL de esquema. Datos: BOB-03458 y BOB-04517 pasadas a este circuito. · 01b: 🔢 NÚMERO DE OC EN EL PLAN DEL PEDIDO — la sugerencia saltaba de a dos (lastNum+_pedOrdenes.length+idx+1 contaba doble: PED-06093 mostraba 911/913/915/917/919/921 y las reales eran 911–916; la 917 sugerida era de otro cliente). Ahora la sugerencia es correlativa y, al confirmar (caminos A y B), el plan guarda el número REAL de cada OC/tanda. Sin SQL. · 01a: ⏱ VENTANA DE GRACIA EN CARGA DE BOBINAS — las OE que el sistema pasó a Completada hace menos de 3 hs (última bobina) vuelven a aparecer en el selector, aparte y marcadas ⏱, para cargar la bobina que quedó en la máquina (caso BOB-06361 / ORD-06277: la tuvo que cargar admin 2 hs tarde con la hora mal). Mismo camino de siempre (dentro de tolerancia suma; si se pasa, excedente a pendientes). La bobina queda con «⏱ Cargada sobre OE ya cerrada» en observaciones. La OE no se reabre. Sin SQL. · 30c: 🧾 remito en blanco: renglones de productos más grandes (13 pt, cantidad y bultos en negrita, bultos 15 pt, separador entre filas). · 30b: 🧾 REMITO EN BLANCO CON FORMATO ARIALPLAST — imprimirRemito de un remito formal sale como el de Flexxus: logo, caja R · CODIGO Nº91, datos fiscales (configuracion empresa_* con defaults), cliente con domicilio/localidad/IVA/CUIT desde la ficha, lugar de entrega (clientes.direccion_entrega si existe, si no el domicilio), Cantidad · Código · Detalle · Bultos con total y aviso de bulto especial, RECIBI CONFORME. Número: configuracion['remito_formal_pv'] → PPPP-NNNNNNNN, si no el del sistema. El informal no cambia. Sin SQL. · 30a: 🗜 RESPALDO DE COMPROBANTES — botón «Comprobantes (ZIP)» en Facturación formal: baja en un ZIP los PDF archivados con CAE de un mes (facturas, NC y ND) + indice.csv (Excel es-AR) que lista también los que tienen CAE sin PDF archivado y los que no se pudieron bajar. Usa la op nueva `pdf_lote` de la Edge Function (links firmados del bucket privado `comprobantes`); con la función vieja lo dice. Solo lectura, sin SQL. · 28h: 📄 EMITIDA EN FLEXXUS — cae_estado='externo' marca las copias de comprobantes que se emitieron en Flexxus: no ofrecen 🏛 CAE (evita declarar dos veces la misma venta), botón 📄 para marcar, desmarcar con clave de admin, el impreso dice COPIA INTERNA. SQL: 128 facturas + 8 NC formales marcadas el 28/09. · 28g: 🏛 CLIENTES DESDE ARCA — botón «Traer datos de ARCA» en la ficha y «Verificar N en ARCA» en la lista (Edge Function op padron): condición de IVA real, razón social oficial, domicilio, provincia y CP. Nombre de planta separado de la razón social (antes editar pisaba el nombre). Alta con CUIT se verifica sola. Provincia por cliente va a TusFacturas. SQL aplicado: clientes.provincia/codigo_postal/arca_estado/arca_verificado_el + check de condicion_iva ampliado. · 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
+const APP_BUILD='2026-10-03a';   // 03a: 🔒 CARGA DE BOBINAS SIN DOBLE CLIC — el botón «Registrar bobina» se bloquea mientras guarda y, antes de grabar, se mira la base: misma OE + extrusora + metros + kg en los últimos 90 s = ya está registrada, no se graba. Caso BOB-06481/82 (y 05648/49, 05981/82, anuladas). Anular bobina ya no duplica los kg devueltos al lote (el trigger fn_mp_recalc los recalcula del libro). Sin SQL. · 02e: 🖨️ IMPRIMIR DESDE EL PLANIFICADOR — cada tarjeta de Planificar producción (también las En proceso y en vista compacta) trae 🖨️ OC + 🏷️ etiquetas de bulto en corte y 🖨️ OE en extrusión; mismas funciones que la lista de Órdenes de corte. Sin SQL. · 02d: 🕐 HORARIO ESPECIAL DE UN DÍA — en Cambio de turno, entrada/salida propias sin crear un turno (si la salida es antes que la entrada cruza la medianoche): 9 normales y el resto extra. Columnas nuevas turnos_excepcion.hora_entrada/hora_salida. · 02c: ↩ DÍA PAGADO A DEVOLVER — tipo nuevo en Cambio de turno: se paga como jornada normal y queda como deuda de horas; las horas extra que haga después la descuentan primero (no se pagan) hasta saldarla. Recuadro con la cuenta en el informe de asistencia. · 02b: ⏱ HORA EXTRA POR BLOQUES DE 30 MIN — lo suelto no se paga (ni normal ni extra), hábiles y sábado; antes los minutos de más de la semana se iban como extra al sábado por el tope de 48. · 02a: 🧵 BOBINAS PARA FUNDAS / USO INTERNO — página nueva (Producción, al lado de Fuera de rango): se busca la bobina por número contra la base, buena o rechazo, y se registra como usada adentro (fundas para bultos u otro). Documento: stock_movimientos tipo='consumo_interno' (no 'salida', que es corte en OC). Buena → sale de stock y sigue contando en su OE. Rechazo → anulada por uso interno SIN reverso de MP y sale del panel de Fuera de rango (que ahora carga sólo no anuladas). Pre-chequeo contra la base antes de escribir, con clave de admin. Historial y kg por mes. Sin SQL de esquema. Datos: BOB-03458 y BOB-04517 pasadas a este circuito. · 01b: 🔢 NÚMERO DE OC EN EL PLAN DEL PEDIDO — la sugerencia saltaba de a dos (lastNum+_pedOrdenes.length+idx+1 contaba doble: PED-06093 mostraba 911/913/915/917/919/921 y las reales eran 911–916; la 917 sugerida era de otro cliente). Ahora la sugerencia es correlativa y, al confirmar (caminos A y B), el plan guarda el número REAL de cada OC/tanda. Sin SQL. · 01a: ⏱ VENTANA DE GRACIA EN CARGA DE BOBINAS — las OE que el sistema pasó a Completada hace menos de 3 hs (última bobina) vuelven a aparecer en el selector, aparte y marcadas ⏱, para cargar la bobina que quedó en la máquina (caso BOB-06361 / ORD-06277: la tuvo que cargar admin 2 hs tarde con la hora mal). Mismo camino de siempre (dentro de tolerancia suma; si se pasa, excedente a pendientes). La bobina queda con «⏱ Cargada sobre OE ya cerrada» en observaciones. La OE no se reabre. Sin SQL. · 30c: 🧾 remito en blanco: renglones de productos más grandes (13 pt, cantidad y bultos en negrita, bultos 15 pt, separador entre filas). · 30b: 🧾 REMITO EN BLANCO CON FORMATO ARIALPLAST — imprimirRemito de un remito formal sale como el de Flexxus: logo, caja R · CODIGO Nº91, datos fiscales (configuracion empresa_* con defaults), cliente con domicilio/localidad/IVA/CUIT desde la ficha, lugar de entrega (clientes.direccion_entrega si existe, si no el domicilio), Cantidad · Código · Detalle · Bultos con total y aviso de bulto especial, RECIBI CONFORME. Número: configuracion['remito_formal_pv'] → PPPP-NNNNNNNN, si no el del sistema. El informal no cambia. Sin SQL. · 30a: 🗜 RESPALDO DE COMPROBANTES — botón «Comprobantes (ZIP)» en Facturación formal: baja en un ZIP los PDF archivados con CAE de un mes (facturas, NC y ND) + indice.csv (Excel es-AR) que lista también los que tienen CAE sin PDF archivado y los que no se pudieron bajar. Usa la op nueva `pdf_lote` de la Edge Function (links firmados del bucket privado `comprobantes`); con la función vieja lo dice. Solo lectura, sin SQL. · 28h: 📄 EMITIDA EN FLEXXUS — cae_estado='externo' marca las copias de comprobantes que se emitieron en Flexxus: no ofrecen 🏛 CAE (evita declarar dos veces la misma venta), botón 📄 para marcar, desmarcar con clave de admin, el impreso dice COPIA INTERNA. SQL: 128 facturas + 8 NC formales marcadas el 28/09. · 28g: 🏛 CLIENTES DESDE ARCA — botón «Traer datos de ARCA» en la ficha y «Verificar N en ARCA» en la lista (Edge Function op padron): condición de IVA real, razón social oficial, domicilio, provincia y CP. Nombre de planta separado de la razón social (antes editar pisaba el nombre). Alta con CUIT se verifica sola. Provincia por cliente va a TusFacturas. SQL aplicado: clientes.provincia/codigo_postal/arca_estado/arca_verificado_el + check de condicion_iva ampliado. · 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
 // (anterior) 28c:   // 28c: 📜 BOBINAS VIEJAS A DEMANDA — reload trae sólo bobinas en stock o de los últimos 60 días, y toda pantalla que miraba una OE o un período más viejo contaba de menos EN SILENCIO: el 🖨️ de ORD-05574 salía con 0 bobinas (tiene 45) y Costos de producción de julio daba 3.590 kg producidos (fueron 37.144). Ahora la MISMA caché C.bobinas_prod se completa sólo cuando hace falta: por OE (🖨️, 📊 Detalle, 📦 Lotes de MP de OE y de pedido, % de avance de la lista, Historial) o por período (Costos, Rentabilidad, con su comparación). Pieza única `// ===== 📜 BOBINAS VIEJAS A DEMANDA` (_oeBobCompleta, _bobPeriodoIncompleto, _completarBobinasDeOEs, _traerBobinasHistoricas, _bobAsegurarYRepintar), invalidada en cada reload con window._bobGen. El botón «📜 Cargar todas las históricas» de Stock usa la misma descarga. Mismos filtros que la carga inicial. Solo lectura. Sin SQL.
 // (anterior) 28b:   // 28b: 🧱 HOJA DE PALLET DE BOBINAS — botón «🧱 Pallet» en la lista de Órdenes de extrusión (y al completarse la OE al cargar la última bobina): A4 con el CLIENTE, el PRODUCTO (código + descripción), el tipo de bobina, total de bobinas/kg/metros en grande, OC, pedido, entrega, y la lista de TODAS las bobinas en stock de la OE con casilla para tildar al subirlas, firmas Armó/Controló. Las bobinas se consultan a la BASE (no a C.bobinas_prod, caché parcial). Fuera de rango/excedentes no van al pallet y se listan aparte; las reservadas a OTRA OC se marcan en gris; las ya cortadas se aclaran al pie. Solo lectura. Sin SQL.
 // (anterior) 28a:   // 28a: 💰 QUÉ PLATA TRAE ESTE ORDEN — sección nueva en Planificar producción: con el orden de extrusión y de corte (aunque no esté guardado) proyecta cuándo sale cada OC y cuándo entra la plata según cómo PAGA DE VERDAD cada cliente (remito→saldo de su factura/RV, últimos 120 días, ponderado; impagos vencidos cuentan como cota), contra cobrar al entregar. Número rey a 30 días, curva doble, plata financiada máxima, filtro por cortadora, lista OC por OC con su máquina, tabla pacta vs. paga. Proyección: no toca Flujo ni Salud. Sin SQL.
@@ -8357,7 +8357,41 @@ async function _mpFaltante(bobinaTipoId,kgR){
   });
   return falta;
 }
+// ===== 🔒 CANDADO ANTI DOBLE CLIC EN CARGA DE BOBINAS (03a) =====
+// BOB-05648/49 (14/09), BOB-05981/82 (22/09) y BOB-06481/82 (03/10): doble clic en
+// «Registrar bobina» → dos bobinas idénticas grabadas con <1,5 s de diferencia.
+// (1) mientras se guarda, el botón queda deshabilitado y un segundo clic no hace nada;
+// (2) antes de insertar, se mira la base: misma OE + extrusora + metros + kg en los
+//     últimos 90 s = es la misma bobina (una extrusora no saca dos en 90 s) → no se graba.
+let _gbLock=false,_gbDBLock=false;
+function _gbBtn(on){
+  document.querySelectorAll('[onclick="guardarBobina()"]').forEach(b=>{
+    b.disabled=!on;b.style.opacity=on?'':'.55';
+    if(!on){if(!b.dataset.txt)b.dataset.txt=b.textContent;b.textContent='Guardando…';}
+    else if(b.dataset.txt){b.textContent=b.dataset.txt;}
+  });
+}
 async function guardarBobina(){
+  if(_gbLock||_gbDBLock)return;
+  _gbLock=true;_gbBtn(false);
+  try{await _guardarBobinaInner();}
+  finally{_gbLock=false;if(!_gbDBLock)_gbBtn(true);}
+}
+// Pura: ¿hay una bobina recién grabada igual a la que se quiere grabar?
+function _gbEsDuplicada(rows,ordId,extId,mtsR,kgR,ahoraMs,ventanaMs){
+  return (rows||[]).find(b=>!b.anulada
+    &&String(b.orden_id)===String(ordId)&&String(b.extrusora_id)===String(extId)
+    &&Math.abs((parseFloat(b.metros_reales)||0)-mtsR)<0.5
+    &&Math.abs((parseFloat(b.kg_reales)||0)-kgR)<0.005
+    &&(ahoraMs-new Date(b.created_at).getTime())<ventanaMs)||null;
+}
+async function _guardarBobinaDB(){
+  if(_gbDBLock)return;
+  _gbDBLock=true;_gbBtn(false);
+  try{await _guardarBobinaDBInner.apply(null,arguments);}
+  finally{_gbDBLock=false;if(!_gbLock)_gbBtn(true);}
+}
+async function _guardarBobinaInner(){
   // Verificar si hay inventario vencido
   if(cfg.inventario_bloquea&&cfg.ultimo_inventario){
     const ultimo=new Date(cfg.ultimo_inventario);
@@ -8461,7 +8495,7 @@ async function _oeExcesoConfirmar(){
   window._oeExcedArgs=null;
   await _guardarBobinaDB(a[0],a[1],a[2],a[3],a[4],a[5],a[6],a[7],a[8],a[9],a[10],a[11],a[12],a[13],a[14],a[15],true);
 }
-async function _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,calidad,obs,fecha,hora,orden,mtsAcum,opId,esExcedenteOE){
+async function _guardarBobinaDBInner(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,calidad,obs,fecha,hora,orden,mtsAcum,opId,esExcedenteOE){
   const msg=document.getElementById('msg-carga');
   msg.innerHTML='<div class="loading" style="padding:0.5rem 0;justify-content:flex-start"><div class="spinner"></div>Guardando...</div>';
   // El control va ACA y no en guardarBobina() porque este es el unico paso por el
@@ -8526,6 +8560,20 @@ async function _guardarBobinaDB(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errPct,ca
   // tanto, o la lectura del contador pudo fallar (que es lo que pasó el 14/09 y
   // propuso BOB-00002, una bobina de mayo). Se recalcula contra lo que EXISTE y, si
   // igual choca (23505), se prueba el siguiente. Mismo patrón que los remitos (11a).
+  // 🔒 03a — ¿ya está grabada? (doble clic, o dos pantallas abiertas)
+  {
+    const desde=new Date(Date.now()-90000).toISOString();
+    const{data:rec,error:eRec}=await sb.from('bobinas_producidas')
+      .select('numero_bobina,orden_id,extrusora_id,metros_reales,kg_reales,created_at,anulada')
+      .eq('orden_id',ordId).eq('extrusora_id',extId).gte('created_at',desde);
+    const dup=eRec?null:_gbEsDuplicada(rec,ordId,extId,mtsR,kgR,Date.now(),90000);
+    if(dup){
+      const seg=Math.max(0,Math.round((Date.now()-new Date(dup.created_at).getTime())/1000));
+      msg.className='msg-err';
+      msg.innerHTML='⛔ <b>Esta bobina ya está registrada</b> como <b>'+escapeHtml(dup.numero_bobina)+'</b> (hace '+seg+' s, mismos metros y kg en esta extrusora). No se grabó de nuevo.';
+      return;
+    }
+  }
   let bobIns=null,e1=null;
   for(let intento=0;intento<5;intento++){
     const r=await _nroSiguiente('numero_bobina','bobinas_producidas','numero_bobina','BOB-',5);
@@ -45534,9 +45582,9 @@ async function _anularBobinaEjecutar(bobId){
         motivo:'Reverso por anulación de bobina '+nro+' ('+motivo+')',
         ref_tipo:'bobina_anulada', ref_id:bobId, operario:'oficina', fecha:localDate()
       });
-      const lote=(C.lotes_mp||[]).find(l=>l.id===c.lote_id);
-      const nuevoDisp=r3((lote?.kg_disponibles||0)+kg);
-      await sb.from('lotes_mp').update({kg_disponibles:nuevoDisp, estado:'en_uso', fecha_fin_uso:null}).eq('id',c.lote_id);
+      // 03a: kg_disponibles lo recalcula el trigger fn_mp_recalc (suma de mov_mp) al insertar
+      // el reverso; sumarlo acá otra vez lo duplicaba. Sólo se reabre el lote.
+      await sb.from('lotes_mp').update({estado:'en_uso', fecha_fin_uso:null}).eq('id',c.lote_id);
     }
     // 3) Marcar la bobina anulada (no se borra) y sacarla de stock/reserva
     const{error:eB}=await sb.from('bobinas_producidas').update({
