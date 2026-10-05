@@ -821,7 +821,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-05d</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-05e</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5796,7 +5796,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-05d';   // 05d: ✋ PANEL DE CORTE: SE ESCANEA — se sacó el «+ Cargar» de cada fila de la lista de bobinas (así se tocó la BOB-05319 en vez de la 05325 el 05/10). La lista queda para ver qué hay; la excepción es «✋ Cargar a mano»: se TIPEA el número de la etiqueta, se ve qué bobina es (y si es de otro cliente) antes de confirmar, motivo obligatorio, origen='manual' en orden_corte_bobinas y nota en la OC. Confección no se tocó.
+const APP_BUILD='2026-10-05e';   // 05e: 🧱 PALLETS POR PARTES — el botón 🧱 Pallet abre un selector: se eligen las bobinas del pallet (por defecto las primeras 18 que falten, el tamaño se recuerda), se imprime como «PALLET N° n» sólo con esas, y quedan registradas en configuracion['pallet_oe_<id>'] para no imprimirlas dos veces (se relee de la base antes de guardar, por si otra terminal armó uno). Todas las que faltan en un clic, reimprimir o anular un pallet, y la lista completa de la OE como siempre. Sin SQL.
+// 05d (previo):   // 05d: ✋ PANEL DE CORTE: SE ESCANEA — se sacó el «+ Cargar» de cada fila de la lista de bobinas (así se tocó la BOB-05319 en vez de la 05325 el 05/10). La lista queda para ver qué hay; la excepción es «✋ Cargar a mano»: se TIPEA el número de la etiqueta, se ve qué bobina es (y si es de otro cliente) antes de confirmar, motivo obligatorio, origen='manual' en orden_corte_bobinas y nota en la OC. Confección no se tocó.
 // 05c (previo):   // 05c: 📦 ANTICIPO DE PEDIDO — en Nueva factura, «Facturar anticipo de un pedido (sin remito)»: se eligen los paquetes por línea del pedido (pendiente = pedido − remitido − ya anticipado), sale la factura con factura_lineas.pedido_linea_id y se le pide el CAE con 🏛. Los remitos posteriores de ese pedido que entran en el anticipo muestran «↪ Aplicar al anticipo» (Nueva factura, Pendientes de facturar y Remitos) y no se pueden volver a facturar; aplicar = factura_remitos + factura_linea_remitos + remito facturado, sin comprobante nuevo. SQL: columna factura_lineas.pedido_linea_id. Caso DAG PED-06016. · 05b: 🔖 DE QUIÉN ES LA BOBINA — caso BOB-05319 (de GRUPO ENSER, cargada a BIGVEF el 05/10 09:28): el aviso «no es de la OE asociada» saltaba con cada sobrante de una OE terminada y no decía de quién era, así que se confirmaba de memoria. Ahora: si otra OC viva (Pendiente/En proceso/Suspendida) necesita esa bobina, aviso ROJO con el cliente y los metros que le van a faltar (Panel de corte y Confección, y la lista del panel la marca «⛔ es de …»); los sobrantes de una OE sin OC viva ya no preguntan; stock libre igual que antes. Y orden_corte_bobinas.origen guarda cómo se cargó cada bobina (pistola/boton/lista/qr) — requiere alter_ocb_origen.sql; sin la columna, inserta igual sin ella.
 // 05a (previo):   // 05a: 📋 PARTE DIARIO DE CORTE — pantalla nueva en Producción (al lado de Cortar hoy): por día, las OC CERRADAS (fecha_completada, paquetes del libro mov_bolsas, máquina, hora y desvío contra la grilla = fin_baseline congelado al iniciar), las TRABAJADAS sin cerrar (bobinas asignadas ese día, metros del día y % de avance acumulado) y las que la GRILLA comprometía para ese día y no cerraron. KPI de cumplimiento (cumplidas/comprometidas), tira de 7 días e impresión A4. Todo derivado y de solo lectura, lee la base directo (no cachés parciales). Sin SQL.
 // 03b (previo):   // 03b: 🔎 BOBINA ANULADA ESCANEADA EN CORTE — antes decía «no encontrada»; ahora busca en la base y, si está anulada, avisa (no la carga) y deja «⚠ ESCANEADA EN CORTE …» en las observaciones de la bobina, para detectar una anulada por error que exista de verdad. Pistola de Confección y Panel de corte. Sin SQL. · 03a: 🔒 CARGA DE BOBINAS SIN DOBLE CLIC — el botón «Registrar bobina» se bloquea mientras guarda y, antes de grabar, se mira la base: misma OE + extrusora + metros + kg en los últimos 90 s = ya está registrada, no se graba. Caso BOB-06481/82 (y 05648/49, 05981/82, anuladas). Anular bobina ya no duplica los kg devueltos al lote (el trigger fn_mp_recalc los recalcula del libro). Sin SQL. · 02e: 🖨️ IMPRIMIR DESDE EL PLANIFICADOR — cada tarjeta de Planificar producción (también las En proceso y en vista compacta) trae 🖨️ OC + 🏷️ etiquetas de bulto en corte y 🖨️ OE en extrusión; mismas funciones que la lista de Órdenes de corte. Sin SQL. · 02d: 🕐 HORARIO ESPECIAL DE UN DÍA — en Cambio de turno, entrada/salida propias sin crear un turno (si la salida es antes que la entrada cruza la medianoche): 9 normales y el resto extra. Columnas nuevas turnos_excepcion.hora_entrada/hora_salida. · 02c: ↩ DÍA PAGADO A DEVOLVER — tipo nuevo en Cambio de turno: se paga como jornada normal y queda como deuda de horas; las horas extra que haga después la descuentan primero (no se pagan) hasta saldarla. Recuadro con la cuenta en el informe de asistencia. · 02b: ⏱ HORA EXTRA POR BLOQUES DE 30 MIN — lo suelto no se paga (ni normal ni extra), hábiles y sábado; antes los minutos de más de la semana se iban como extra al sábado por el tope de 48. · 02a: 🧵 BOBINAS PARA FUNDAS / USO INTERNO — página nueva (Producción, al lado de Fuera de rango): se busca la bobina por número contra la base, buena o rechazo, y se registra como usada adentro (fundas para bultos u otro). Documento: stock_movimientos tipo='consumo_interno' (no 'salida', que es corte en OC). Buena → sale de stock y sigue contando en su OE. Rechazo → anulada por uso interno SIN reverso de MP y sale del panel de Fuera de rango (que ahora carga sólo no anuladas). Pre-chequeo contra la base antes de escribir, con clave de admin. Historial y kg por mes. Sin SQL de esquema. Datos: BOB-03458 y BOB-04517 pasadas a este circuito. · 01b: 🔢 NÚMERO DE OC EN EL PLAN DEL PEDIDO — la sugerencia saltaba de a dos (lastNum+_pedOrdenes.length+idx+1 contaba doble: PED-06093 mostraba 911/913/915/917/919/921 y las reales eran 911–916; la 917 sugerida era de otro cliente). Ahora la sugerencia es correlativa y, al confirmar (caminos A y B), el plan guarda el número REAL de cada OC/tanda. Sin SQL. · 01a: ⏱ VENTANA DE GRACIA EN CARGA DE BOBINAS — las OE que el sistema pasó a Completada hace menos de 3 hs (última bobina) vuelven a aparecer en el selector, aparte y marcadas ⏱, para cargar la bobina que quedó en la máquina (caso BOB-06361 / ORD-06277: la tuvo que cargar admin 2 hs tarde con la hora mal). Mismo camino de siempre (dentro de tolerancia suma; si se pasa, excedente a pendientes). La bobina queda con «⏱ Cargada sobre OE ya cerrada» en observaciones. La OE no se reabre. Sin SQL. · 30c: 🧾 remito en blanco: renglones de productos más grandes (13 pt, cantidad y bultos en negrita, bultos 15 pt, separador entre filas). · 30b: 🧾 REMITO EN BLANCO CON FORMATO ARIALPLAST — imprimirRemito de un remito formal sale como el de Flexxus: logo, caja R · CODIGO Nº91, datos fiscales (configuracion empresa_* con defaults), cliente con domicilio/localidad/IVA/CUIT desde la ficha, lugar de entrega (clientes.direccion_entrega si existe, si no el domicilio), Cantidad · Código · Detalle · Bultos con total y aviso de bulto especial, RECIBI CONFORME. Número: configuracion['remito_formal_pv'] → PPPP-NNNNNNNN, si no el del sistema. El informal no cambia. Sin SQL. · 30a: 🗜 RESPALDO DE COMPROBANTES — botón «Comprobantes (ZIP)» en Facturación formal: baja en un ZIP los PDF archivados con CAE de un mes (facturas, NC y ND) + indice.csv (Excel es-AR) que lista también los que tienen CAE sin PDF archivado y los que no se pudieron bajar. Usa la op nueva `pdf_lote` de la Edge Function (links firmados del bucket privado `comprobantes`); con la función vieja lo dice. Solo lectura, sin SQL. · 28h: 📄 EMITIDA EN FLEXXUS — cae_estado='externo' marca las copias de comprobantes que se emitieron en Flexxus: no ofrecen 🏛 CAE (evita declarar dos veces la misma venta), botón 📄 para marcar, desmarcar con clave de admin, el impreso dice COPIA INTERNA. SQL: 128 facturas + 8 NC formales marcadas el 28/09. · 28g: 🏛 CLIENTES DESDE ARCA — botón «Traer datos de ARCA» en la ficha y «Verificar N en ARCA» en la lista (Edge Function op padron): condición de IVA real, razón social oficial, domicilio, provincia y CP. Nombre de planta separado de la razón social (antes editar pisaba el nombre). Alta con CUIT se verifica sola. Provincia por cliente va a TusFacturas. SQL aplicado: clientes.provincia/codigo_postal/arca_estado/arca_verificado_el + check de condicion_iva ampliado. · 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
@@ -52715,9 +52716,143 @@ function _palletClasificar(bobs,ocPropiaId){
   return{pallet,fuera,rechazo,noEsta,otraOC,kg,mts,lista};
 }
 function _palletFecha(f){if(!f)return '—';const p=String(f).slice(0,10).split('-');return p.length===3?p[2]+'/'+p[1]:f;}
+// sel (05e): {ids:Set, n:número de pallet, fecha, hora} → imprime SOLO esas bobinas como «PALLET n».
+// Sin sel → la lista completa de la OE (con las ya cortadas tachadas), como siempre.
+
+// ===== 🧱 PALLETS POR PARTES (build 2026-10-05e) =====
+// German: «en el pallet solo entran 18; selecciono las primeras 18 para imprimir, las otras
+// van a otra hoja; no imprimir dos veces; y la opción de imprimir todas».
+// Registro de qué bobina salió en qué pallet: configuracion['pallet_oe_<id>'] =
+// [{n, fecha, hora, ids:[...]}]. Sin SQL. Se RELEE de la base al abrir y otra vez justo
+// antes de guardar, así dos terminales no arman el mismo pallet.
+function _palletKey(oeId){return 'pallet_oe_'+oeId;}
+async function _palletLeerReg(oeId){
+  const{data,error}=await sb.from('configuracion').select('valor').eq('clave',_palletKey(oeId)).maybeSingle();
+  if(error)throw error;
+  try{const a=JSON.parse(data?.valor||'[]');return Array.isArray(a)?a:[];}catch(e){return [];}
+}
+async function _palletGuardarReg(oeId,reg){
+  const{error}=await sb.from('configuracion').upsert({clave:_palletKey(oeId),valor:JSON.stringify(reg)},{onConflict:'clave'});
+  if(error)throw error;
+}
+// Pura: estado de cada bobina del piso respecto de los pallets ya impresos.
+function _palletEstado(pallet,reg){
+  const en={};(reg||[]).forEach(p=>(p.ids||[]).forEach(id=>{en[id]=p.n;}));
+  const libres=pallet.filter(b=>!en[b.id]);
+  const prox=(reg||[]).reduce((m,p)=>Math.max(m,p.n||0),0)+1;
+  return {en,libres,prox};
+}
+// Pura: las primeras N libres, en orden de número de bobina
+function _palletPrimeras(libres,n){return libres.slice(0,Math.max(0,parseInt(n)||0)).map(b=>b.id);}
+
 async function imprimirPalletOE(oeId){
-  // La ventana se abre YA (dentro del click), si no el bloqueador de pop-ups la frena.
+  const o=(C.ordenes||[]).find(x=>x.id===oeId);if(!o)return;
+  document.getElementById('plt-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend','<div class="modal-overlay" id="plt-modal"><div class="modal-card" style="max-width:640px;"><div class="modal-title">🧱 Pallet · '+escapeHtml(o.numero_orden)+'</div><div id="plt-body" style="font-size:13px;color:var(--text2);">Leyendo bobinas…</div></div></div>');
+  let bobs,reg;
+  try{[bobs,reg]=await Promise.all([_palletBobinasOE(oeId),_palletLeerReg(oeId)]);}
+  catch(e){document.getElementById('plt-body').innerHTML='<span style="color:var(--red)">No se pudo leer: '+escapeHtml(e.message||e)+'</span>';return;}
+  const oc=_ocDeOE(o);
+  const cl=_palletClasificar(bobs,oc?.id);
+  window._plt={oeId,pallet:cl.pallet,reg,sel:new Set()};
+  const st=_palletEstado(cl.pallet,reg);
+  const tam=parseInt(localStorage.getItem('plt_tam')||'18')||18;
+  window._plt.sel=new Set(_palletPrimeras(st.libres,tam));
+  _pltRender();
+}
+function _pltRender(){
+  const P=window._plt;if(!P)return;
+  const st=_palletEstado(P.pallet,P.reg);
+  const sel=P.sel;
+  const selB=P.pallet.filter(b=>sel.has(b.id));
+  const kg=selB.reduce((s,b)=>s+(parseFloat(b.kg_reales)||0),0);
+  const E=escapeHtml;
+  let h='';
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">'
+    +'<span>En el piso: <b>'+P.pallet.length+'</b> · ya en pallets: <b>'+(P.pallet.length-st.libres.length)+'</b> · faltan: <b style="color:var(--accent)">'+st.libres.length+'</b></span></div>';
+  if(P.reg.length){
+    h+='<div style="background:var(--bg3);border-radius:6px;padding:6px 10px;margin-bottom:8px;">'
+      +P.reg.map(p=>{const vivas=(p.ids||[]).filter(id=>P.pallet.some(b=>b.id===id)).length;
+        return '<div style="display:flex;align-items:center;gap:8px;padding:2px 0;"><b>Pallet '+p.n+'</b><span class="pdc-s" style="color:var(--text3);font-size:11px;">'+(p.ids||[]).length+' bobinas · '+E(p.fecha||'')+' '+E(p.hora||'')+(vivas<(p.ids||[]).length?' · '+((p.ids||[]).length-vivas)+' ya cortadas':'')+'</span>'
+          +'<button class="btn btn-sm" style="margin-left:auto" onclick="pltReimprimir('+p.n+')">🖨 Reimprimir</button>'
+          +'<button class="btn btn-sm btn-del" onclick="pltAnular('+p.n+')" title="Libera sus bobinas para volver a armarlas">✕ Anular</button></div>';}).join('')
+      +'</div>';
+  }
+  if(!st.libres.length){
+    h+='<div style="padding:10px;color:var(--green);font-weight:700;">✓ Todas las bobinas del piso ya están en un pallet.</div>';
+  } else {
+    h+='<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px;">'
+      +'<span>Elegir las primeras</span><input id="plt-n" type="number" min="1" value="'+(parseInt(localStorage.getItem('plt_tam')||'18')||18)+'" style="width:64px;font-size:14px;padding:3px 6px;">'
+      +'<button class="btn btn-sm" onclick="pltPrimeras()">Seleccionar</button>'
+      +'<button class="btn btn-sm" onclick="pltTodas()">Todas las que faltan ('+st.libres.length+')</button>'
+      +'<button class="btn btn-sm" onclick="pltNinguna()">Ninguna</button></div>';
+    h+='<div style="max-height:320px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;">';
+    // las que faltan arriba (en orden de número); las que ya salieron en un pallet, al final
+    st.libres.concat(P.pallet.filter(b=>st.en[b.id])).forEach(b=>{
+      const enP=st.en[b.id];
+      h+='<label style="display:flex;align-items:center;gap:10px;padding:5px 10px;border-bottom:1px solid var(--border);'+(enP?'opacity:.45;':'cursor:pointer;')+'">'
+        +'<input type="checkbox" '+(enP?'disabled':'')+' '+(sel.has(b.id)?'checked':'')+' onchange="pltToggle('+b.id+',this.checked)">'
+        +'<span style="font-family:monospace;font-weight:700;">'+E(b.numero_bobina)+'</span>'
+        +'<span style="font-family:monospace;">'+Math.round(parseFloat(b.metros_reales)||0).toLocaleString('es-AR')+' m · '+(parseFloat(b.kg_reales)||0).toLocaleString('es-AR')+' kg</span>'
+        +(enP?'<span style="margin-left:auto;font-size:11px;">en pallet '+enP+'</span>':'')
+        +'</label>';
+    });
+    h+='</div>';
+  }
+  h+='<div class="btn-grp" style="margin-top:10px;flex-wrap:wrap;">'
+    +(st.libres.length?'<button class="btn btn-primary" '+(selB.length?'':'disabled')+' onclick="pltImprimirSel()">🖨 Imprimir pallet '+st.prox+' · '+selB.length+' bobinas · '+kg.toLocaleString('es-AR',{maximumFractionDigits:1})+' kg</button>':'')
+    +'<button class="btn" onclick="pltListaCompleta()" title="La hoja de siempre: toda la OE en una hoja, sin armar pallet">📋 Lista completa de la OE</button>'
+    +'<button class="btn" onclick="document.getElementById(\'plt-modal\').remove()">Cerrar</button></div>';
+  document.getElementById('plt-body').innerHTML=h;
+}
+function pltToggle(id,on){const P=window._plt;if(!P)return;on?P.sel.add(id):P.sel.delete(id);_pltRender();}
+function pltPrimeras(){const P=window._plt;const n=parseInt(document.getElementById('plt-n')?.value)||0;if(n>0)try{localStorage.setItem('plt_tam',String(n));}catch(e){}
+  P.sel=new Set(_palletPrimeras(_palletEstado(P.pallet,P.reg).libres,n));_pltRender();}
+function pltTodas(){const P=window._plt;P.sel=new Set(_palletEstado(P.pallet,P.reg).libres.map(b=>b.id));_pltRender();}
+function pltNinguna(){window._plt.sel=new Set();_pltRender();}
+async function pltImprimirSel(){
+  const P=window._plt;if(!P||!P.sel.size)return;
+  const win=window.open('','_blank','width=900,height=1200');   // dentro del click
+  if(!win){toast('Habilitá los pop-ups para imprimir','amber');return;}
+  win.document.write('<p style="font:16px Arial;padding:30px">Armando el pallet…</p>');
+  try{
+    // Releer justo antes de guardar: otra terminal pudo haber armado un pallet recién
+    const reg=await _palletLeerReg(P.oeId);
+    const st=_palletEstado(P.pallet,reg);
+    const choque=[...P.sel].filter(id=>st.en[id]);
+    if(choque.length){
+      win.close();P.reg=reg;choque.forEach(id=>P.sel.delete(id));_pltRender();
+      toast(choque.length+' bobina(s) ya habían salido en otro pallet (lo armaron desde otra terminal). Revisá la selección.','amber');return;
+    }
+    const nuevo={n:st.prox,fecha:localDate().split('-').reverse().join('/'),hora:localTime().slice(0,5),ids:[...P.sel]};
+    reg.push(nuevo);
+    await _palletGuardarReg(P.oeId,reg);
+    P.reg=reg;
+    const libres=_palletEstado(P.pallet,reg).libres;
+    const tam=parseInt(localStorage.getItem('plt_tam')||'18')||18;
+    P.sel=new Set(_palletPrimeras(libres,tam));
+    _pltRender();
+    await _palletImprimir(P.oeId,nuevo,win);
+  }catch(e){try{win.close();}catch(_){}toast('No se pudo registrar el pallet: '+(e.message||e),'red');}
+}
+async function pltReimprimir(n){
+  const P=window._plt;const p=(P.reg||[]).find(x=>x.n===n);if(!p)return;
   const win=window.open('','_blank','width=900,height=1200');
+  if(!win){toast('Habilitá los pop-ups para imprimir','amber');return;}
+  await _palletImprimir(P.oeId,p,win);
+}
+async function pltAnular(n){
+  const P=window._plt;
+  if(!confirm('¿Anular el pallet '+n+'?\n\nSus bobinas vuelven a quedar libres para armar otro pallet. La hoja impresa hay que tirarla.'))return;
+  try{
+    const reg=(await _palletLeerReg(P.oeId)).filter(p=>p.n!==n);
+    await _palletGuardarReg(P.oeId,reg);P.reg=reg;_pltRender();toast('Pallet '+n+' anulado','green');
+  }catch(e){toast('No se pudo anular: '+(e.message||e),'red');}
+}
+function pltListaCompleta(){_palletImprimir(window._plt.oeId,null,null);}
+
+async function _palletImprimir(oeId,sel,win){
+  if(!win)win=window.open('','_blank','width=900,height=1200');
   if(!win){if(typeof toast==='function')toast('Habilitá los pop-ups para imprimir','amber');return;}
   win.document.write('<p style="font:16px Arial;padding:30px">Armando la hoja del pallet…</p>');
   const o=(C.ordenes||[]).find(x=>x.id===oeId);
@@ -52731,6 +52866,17 @@ async function imprimirPalletOE(oeId){
   const prod=oc?(oc.productos||(C.productos||[]).find(p=>p.id===oc.producto_id)):null;
   const bobTipo=o.bobinas||(C.bobinas||[]).find(b=>b.id===o.bobina_id)||{};
   const cl=_palletClasificar(bobs,oc?.id);
+  const totOE=cl.pallet.length;
+  if(sel){
+    // 05e: sólo las elegidas para este pallet, sin tachadas; los totales son los del pallet
+    const ids=sel.ids instanceof Set?sel.ids:new Set(sel.ids||[]);
+    cl.pallet=cl.pallet.filter(b=>ids.has(b.id));
+    cl.lista=cl.pallet.slice();
+    cl.otraOC=cl.otraOC.filter(b=>ids.has(b.id));
+    cl.noEsta=[];cl.fuera=[];cl.rechazo=[];
+    cl.kg=r1(cl.pallet.reduce((s,b)=>s+(parseFloat(b.kg_reales)||0),0));
+    cl.mts=Math.round(cl.pallet.reduce((s,b)=>s+(parseFloat(b.metros_reales)||0),0));
+  }
   const E=escapeHtml;
   const cliente=o.cliente||ped?.cliente||oc?.cliente||'—';
   // Producto: código SIEMPRE con su descripción al lado. Sin OC (bobina a granel) → la bobina.
@@ -52810,7 +52956,8 @@ async function imprimirPalletOE(oeId){
   .pie{margin-top:10px;font-size:8pt;color:#555;text-align:right;}
   @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
 </style></head><body>
-<div class="top"><div class="tit">PALLET DE BOBINAS</div><div class="oe">${E(o.numero_orden)}</div></div>
+<div class="top"><div class="tit">${sel?'PALLET N° '+sel.n:'PALLET DE BOBINAS'}</div><div class="oe">${E(o.numero_orden)}</div></div>
+${sel?'<div class="refs" style="margin:6px 0 0;"><span><b>'+cl.pallet.length+'</b> bobinas en este pallet · la OE tiene <b>'+totOE+'</b> en el piso</span><span>Armado '+E(sel.fecha||'')+' '+E(sel.hora||'')+'</span></div>':''}
 <div class="lbl">Cliente</div><div class="cli">${E(cliente)}</div>
 <div class="lbl">Producto</div><div class="prod">${E(prodTxt)}</div>
 <div class="bobt">Bobina: <b>${E(bobTipo.nombre||'—')}</b>${bobTipo.descripcion?' · '+E(bobTipo.descripcion):''}</div>
@@ -52832,11 +52979,11 @@ ${cl.lista.length?`<table>
     <tr><th>#</th><th>N° bobina</th><th class="num">Metros</th><th class="num">Kg</th><th>Extrusora</th><th>Fecha</th><th>✓</th></tr>
   </thead>
   <tbody>${filas}
-  <tr class="tot"><td></td><td>EN EL PISO ${cl.pallet.length}</td><td class="num">${cl.mts.toLocaleString('es-AR')}</td><td class="num">${cl.kg.toLocaleString('es-AR',{minimumFractionDigits:1})}</td><td colspan="3"></td></tr></tbody>
+  <tr class="tot"><td></td><td>${sel?'PALLET '+sel.n+': ':'EN EL PISO '}${cl.pallet.length}</td><td class="num">${cl.mts.toLocaleString('es-AR')}</td><td class="num">${cl.kg.toLocaleString('es-AR',{minimumFractionDigits:1})}</td><td colspan="3"></td></tr></tbody>
 </table>${cl.pallet.length?'':'<div class="notas"><p><b>No quedan bobinas de esta orden en el piso.</b></p></div>'}`:'<div class="notas"><p><b>No hay bobinas de esta orden en stock.</b></p></div>'}
 ${notas.length?'<div class="notas">'+notas.map(n=>'<p>'+n+'</p>').join('')+'</div>':''}
 <div class="firmas"><div>Armó</div><div>Controló</div><div>Fecha y hora</div></div>
-<div class="pie">Impreso ${localDate().split('-').reverse().join('/')} ${localTime().slice(0,5)} · ${E(o.numero_orden)} · build ${typeof APP_BUILD!=='undefined'?APP_BUILD:''}</div>
+<div class="pie">Impreso ${localDate().split('-').reverse().join('/')} ${localTime().slice(0,5)} · ${E(o.numero_orden)}${sel?' · pallet '+sel.n:''} · build ${typeof APP_BUILD!=='undefined'?APP_BUILD:''}</div>
 <scr`+`ipt>window.onload=()=>setTimeout(()=>window.print(),400);<\/scr`+`ipt>
 </body></html>`;
   win.document.open();win.document.write(html);win.document.close();

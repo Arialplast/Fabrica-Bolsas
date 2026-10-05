@@ -31,7 +31,7 @@ global.toast=()=>{};
 eval([fn('escapeHtml'),'var r1=n=>Math.round(n*10)/10;',fn('localDate'),fn('localTime'),fn('_ocDeOE'),fn('_chIndicePedidos'),blk].join('\n').replace(/\basync function (\w+)/g,'global.$1=async function $1').replace(/^function (_\w+)\(/gm,'global.$1=function $1('));
 (async()=>{
  // --- VEGA ORD-06268: 9 bobinas, 2 rechazo fuera de rango ya fuera de stock
- await imprimirPalletOE(830);const h1=html;
+ await _palletImprimir(830,null,null);const h1=html;
  const c1=_palletClasificar(DB[830],916);
  T(c1.pallet.length===7,'VEGA: 7 bobinas al pallet ('+c1.pallet.length+')');
  T(c1.rechazo.length===2&&c1.noEsta.length===0,'VEGA: los 2 RECHAZO fuera de rango NO se leen como "cortadas"');
@@ -43,7 +43,7 @@ eval([fn('escapeHtml'),'var r1=n=>Math.round(n*10)/10;',fn('localDate'),fn('loca
  T(!/var\(--/.test(h1),'hoja sin variables CSS');
  // --- 28d: se corta BOB-06210 de ORD-06268 → sigue en la lista, tachada
  DB[830]=DB[830].map(b=>b.numero_bobina==='BOB-06210'?Object.assign({},b,{en_stock:false}):b);
- await imprimirPalletOE(830);const h1b=html;const c1b=_palletClasificar(DB[830],916);
+ await _palletImprimir(830,null,null);const h1b=html;const c1b=_palletClasificar(DB[830],916);
  T(c1b.pallet.length===6&&c1b.lista.length===7,'corte: 6 en el piso, 7 en la lista');
  T(c1b.kg===148.9&&c1b.mts===8900,'corte: los totales cuentan sólo lo que queda ('+c1b.kg+' kg, '+c1b.mts+' m)');
  const fila=h1b.slice(h1b.indexOf('<tr class="salio">'),h1b.indexOf('</tr>',h1b.indexOf('<tr class="salio">')));
@@ -55,15 +55,15 @@ eval([fn('escapeHtml'),'var r1=n=>Math.round(n*10)/10;',fn('localDate'),fn('loca
  T(/1 bobina\(s\) tachadas/.test(h1b),'corte: la nota explica las tachadas');
  // todas cortadas: tabla con tachadas + aviso
  const todas=DB[838].map(b=>Object.assign({},b,{en_stock:false}));const bk=DB[838];DB[838]=todas;
- await imprimirPalletOE(838);T(/No quedan bobinas de esta orden en el piso/.test(html)&&(html.match(/class="salio"/g)||[]).length===14,'todas cortadas: 14 tachadas + aviso');
+ await _palletImprimir(838,null,null);T(/No quedan bobinas de esta orden en el piso/.test(html)&&(html.match(/class="salio"/g)||[]).length===14,'todas cortadas: 14 tachadas + aviso');
  DB[838]=bk;
  // --- AGUACA ORD-06276 en proceso: 14 bobinas, orden numérico
- await imprimirPalletOE(838);const h2=html;const c2=_palletClasificar(DB[838],924);
+ await _palletImprimir(838,null,null);const h2=html;const c2=_palletClasificar(DB[838],924);
  T(c2.pallet.length===14&&c2.kg===373.2,'AGUACA: 14 bobinas / 373,2 kg ('+c2.kg+')');
  T(h2.indexOf('BOB-06228')<h2.indexOf('BOB-06241'),'AGUACA: orden por número de bobina');
  T(h2.includes('00049 — BOLSA RESIDUO GRANEL NEGRA 60X90'),'AGUACA: código con descripción');
  // --- borde: 1.005 bobinas, paginación y separaciones
- calls=0;await imprimirPalletOE(999);const h3=html;
+ calls=0;await _palletImprimir(999,null,null);const h3=html;
  T(calls===2,'paginación: 2 páginas de la base ('+calls+')');
  const c3=_palletClasificar(DB[999],950);
  T(c3.pallet.length===1002,'borde: 1002 al pallet (1005 − cortada − anulada − fuera)');
@@ -73,8 +73,33 @@ eval([fn('escapeHtml'),'var r1=n=>Math.round(n*10)/10;',fn('localDate'),fn('loca
  T(h3.includes('CLIENTE &lt;PRUEBA&gt; &amp; CO')&&!h3.includes('<PRUEBA>'),'borde: nombre escapado');
  T(h3.includes('15/10/2026'),'borde: promesa por etapa de la OC manda sobre el pedido');
  // --- OE sin bobinas en stock
- await imprimirPalletOE(555);T(/No hay bobinas de esta orden en stock/.test(html),'sin bobinas: avisa en vez de tabla vacía');
+ await _palletImprimir(555,null,null);T(/No hay bobinas de esta orden en stock/.test(html),'sin bobinas: avisa en vez de tabla vacía');
  T(/Bobina a granel/.test(html),'sin OC: muestra la bobina en vez del producto');
+ // --- 05e · PALLETS POR PARTES (caso German: CAGLIARDI con muchas bobinas, entran 18 por pallet)
+ {
+  const pal=Array.from({length:40},(_,i)=>({id:500+i,numero_bobina:'BOB-'+String(7000+i).padStart(5,'0'),metros_reales:1000,kg_reales:20}));
+  let st=_palletEstado(pal,[]);
+  T(st.libres.length===40&&st.prox===1,'sin pallets: 40 libres, próximo es el 1');
+  const p1=_palletPrimeras(st.libres,18);
+  T(p1.length===18&&p1[0]===500&&p1[17]===517,'primeras 18 = BOB-07000…07017');
+  const reg=[{n:1,ids:p1}];
+  st=_palletEstado(pal,reg);
+  T(st.libres.length===22&&st.prox===2&&st.en[505]===1,'después del pallet 1: 22 libres, próximo 2');
+  const p2=_palletPrimeras(st.libres,18);
+  T(p2[0]===518&&!p2.some(id=>p1.includes(id)),'el pallet 2 arranca donde terminó el 1, sin repetir');
+  reg.push({n:2,ids:p2});st=_palletEstado(pal,reg);
+  T(st.libres.length===4&&_palletPrimeras(st.libres,18).length===4,'el último pallet lleva las 4 que quedan');
+  T(_palletEstado(pal,[{n:1,ids:p1},{n:3,ids:[530]}]).prox===4,'el número sigue al mayor (no reusa un anulado)');
+  T(_palletPrimeras(st.libres,0).length===0&&_palletPrimeras(st.libres,'x').length===0,'cantidad inválida no selecciona nada');
+  // la hoja de un pallet: sólo esas bobinas, título PALLET N° y totales del pallet
+  const ids6=DB[999].filter(b=>b.en_stock&&!b.fuera_de_rango&&!b.anulada).slice(0,6).map(b=>b.id);
+  await _palletImprimir(999,{n:2,ids:ids6,fecha:'05/10/2026',hora:'16:50'},null);
+  T(/PALLET N° 2/.test(html),'hoja titulada PALLET N° 2');
+  T((html.match(/<td class="chk"><span><\/span><\/td>/g)||[]).length===6,'la hoja lista sólo las 6 bobinas del pallet');
+  T(/PALLET 2: 6/.test(html)&&!/class="salio"/.test(html),'total del pallet y sin tachadas');
+  T(/la OE tiene <b>\d+<\/b> en el piso/.test(html),'dice cuántas tiene la OE en el piso');
+  T(/· pallet 2 ·/.test(html),'el pie identifica el pallet');
+ }
  if(OUT){fs.writeFileSync(OUT+'/pallet_vega.html',h1);fs.writeFileSync(OUT+'/pallet_vega_corte.html',h1b);fs.writeFileSync(OUT+'/pallet_aguaca.html',h2);}
  console.log((bad?'✖ ':'✓ ')+ok+' ok · '+bad+' fallas');process.exit(bad?1:0);
 })();
