@@ -49,7 +49,26 @@ ok(_bobDuenaViva({id:5,orden_id:816},oc)===null,'su propia OC no es dueña ajena
   const r=await _ocbInsert([{orden_corte_id:902,bobina_producida_id:1,origen:'pistola'}]);
   ok(!r.error&&inserts.length===2&&!('origen' in inserts[1][0]),'sin la columna reintenta sin origen');
   // los caminos reales pasan el origen
-  ok(/onclick="_pcorteCargarBobina\('\+oc\.id\+','\+b\.id\+','\+\(maqId\|\|'null'\)\+',\\'boton\\'\)"/.test(src),'botón «+ Cargar» manda boton');
+  // 05d: ya no hay «+ Cargar» por fila; la excepción es «✋ Cargar a mano» con origen 'manual'
+  ok(!src.includes('+ Cargar</button>'),'05d: no queda el botón «+ Cargar» por fila');
+  ok(src.includes('onclick="pcorteManualAbrir(')&&src.includes("_pcorteCargarBobina(P.ocId,r.b.id,P.maqId,'manual',nota)"),'05d: carga a mano con origen manual y nota');
+  {
+    const c=src.indexOf('// ===== ✋ CARGA A MANO'),d=src.indexOf('async function _pcorteCargarBobina(');
+    global._repNormNro=t=>{const s=String(t||'').trim().toUpperCase();const m=s.match(/(\d+)\s*$/);return m?'BOB-'+m[1].replace(/^0+/,'').padStart(5,'0'):s;};
+    global._ocDesalineo=()=>null;global._bobEsDeSuOEDesalineada=()=>false;
+    C.productos=[{id:7,bobina_id:120}];
+    C.bobinas_prod=[{id:5382,numero_bobina:'BOB-05319',orden_id:740,bobina_tipo_id:120,en_stock:true,metros_reales:1000},
+      {id:5388,numero_bobina:'BOB-05325',orden_id:740,bobina_tipo_id:120,en_stock:false},
+      {id:9,numero_bobina:'BOB-00009',bobina_tipo_id:55,en_stock:true}];
+    (0,eval)(src.slice(c,d).replace(/^const _PCM_MOTIVOS/m,'var _PCM_MOTIVOS'));
+    const ocM={...oc,producto_id:7};
+    ok(_pcmBuscar('5319',ocM).b?.id===5382&&!_pcmBuscar('5319',ocM).err,'«5319» encuentra BOB-05319');
+    ok(_pcmBuscar('bob-05319',ocM).nro==='BOB-05319','acepta el número completo');
+    ok(/ya cortada/.test(_pcmBuscar('5325',ocM).err),'una ya cortada no se carga');
+    ok(/No encuentro/.test(_pcmBuscar('77777',ocM).err),'número inexistente avisa');
+    ok(/tipo/.test(_pcmBuscar('9',ocM).err),'otro tipo de bobina no se carga');
+    ok(_pcmBuscar('',ocM).nro===''&&_pcmBuscar('abc',ocM).nro==='','vacío o sin dígitos no busca');
+  }
   ok(src.includes("await _pcorteCargarBobina(ocId,b.id,undefined,'pistola');"),'escaneo del panel manda pistola');
   ok(src.includes("window._confBobOrigen[b.id]='pistola'")&&src.includes("window._confBobOrigen[id]='lista'")&&src.includes("window._confBobOrigen[b.id]='qr'"),'Confección marca pistola / lista / qr');
   ok(src.includes("origen:window._confBobOrigen[b.id]||'lista'"),'Confección graba el origen');

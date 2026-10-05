@@ -821,7 +821,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-05c</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-05d</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5796,7 +5796,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-05c';   // 05c: 📦 ANTICIPO DE PEDIDO — en Nueva factura, «Facturar anticipo de un pedido (sin remito)»: se eligen los paquetes por línea del pedido (pendiente = pedido − remitido − ya anticipado), sale la factura con factura_lineas.pedido_linea_id y se le pide el CAE con 🏛. Los remitos posteriores de ese pedido que entran en el anticipo muestran «↪ Aplicar al anticipo» (Nueva factura, Pendientes de facturar y Remitos) y no se pueden volver a facturar; aplicar = factura_remitos + factura_linea_remitos + remito facturado, sin comprobante nuevo. SQL: columna factura_lineas.pedido_linea_id. Caso DAG PED-06016. · 05b: 🔖 DE QUIÉN ES LA BOBINA — caso BOB-05319 (de GRUPO ENSER, cargada a BIGVEF el 05/10 09:28): el aviso «no es de la OE asociada» saltaba con cada sobrante de una OE terminada y no decía de quién era, así que se confirmaba de memoria. Ahora: si otra OC viva (Pendiente/En proceso/Suspendida) necesita esa bobina, aviso ROJO con el cliente y los metros que le van a faltar (Panel de corte y Confección, y la lista del panel la marca «⛔ es de …»); los sobrantes de una OE sin OC viva ya no preguntan; stock libre igual que antes. Y orden_corte_bobinas.origen guarda cómo se cargó cada bobina (pistola/boton/lista/qr) — requiere alter_ocb_origen.sql; sin la columna, inserta igual sin ella.
+const APP_BUILD='2026-10-05d';   // 05d: ✋ PANEL DE CORTE: SE ESCANEA — se sacó el «+ Cargar» de cada fila de la lista de bobinas (así se tocó la BOB-05319 en vez de la 05325 el 05/10). La lista queda para ver qué hay; la excepción es «✋ Cargar a mano»: se TIPEA el número de la etiqueta, se ve qué bobina es (y si es de otro cliente) antes de confirmar, motivo obligatorio, origen='manual' en orden_corte_bobinas y nota en la OC. Confección no se tocó.
+// 05c (previo):   // 05c: 📦 ANTICIPO DE PEDIDO — en Nueva factura, «Facturar anticipo de un pedido (sin remito)»: se eligen los paquetes por línea del pedido (pendiente = pedido − remitido − ya anticipado), sale la factura con factura_lineas.pedido_linea_id y se le pide el CAE con 🏛. Los remitos posteriores de ese pedido que entran en el anticipo muestran «↪ Aplicar al anticipo» (Nueva factura, Pendientes de facturar y Remitos) y no se pueden volver a facturar; aplicar = factura_remitos + factura_linea_remitos + remito facturado, sin comprobante nuevo. SQL: columna factura_lineas.pedido_linea_id. Caso DAG PED-06016. · 05b: 🔖 DE QUIÉN ES LA BOBINA — caso BOB-05319 (de GRUPO ENSER, cargada a BIGVEF el 05/10 09:28): el aviso «no es de la OE asociada» saltaba con cada sobrante de una OE terminada y no decía de quién era, así que se confirmaba de memoria. Ahora: si otra OC viva (Pendiente/En proceso/Suspendida) necesita esa bobina, aviso ROJO con el cliente y los metros que le van a faltar (Panel de corte y Confección, y la lista del panel la marca «⛔ es de …»); los sobrantes de una OE sin OC viva ya no preguntan; stock libre igual que antes. Y orden_corte_bobinas.origen guarda cómo se cargó cada bobina (pistola/boton/lista/qr) — requiere alter_ocb_origen.sql; sin la columna, inserta igual sin ella.
 // 05a (previo):   // 05a: 📋 PARTE DIARIO DE CORTE — pantalla nueva en Producción (al lado de Cortar hoy): por día, las OC CERRADAS (fecha_completada, paquetes del libro mov_bolsas, máquina, hora y desvío contra la grilla = fin_baseline congelado al iniciar), las TRABAJADAS sin cerrar (bobinas asignadas ese día, metros del día y % de avance acumulado) y las que la GRILLA comprometía para ese día y no cerraron. KPI de cumplimiento (cumplidas/comprometidas), tira de 7 días e impresión A4. Todo derivado y de solo lectura, lee la base directo (no cachés parciales). Sin SQL.
 // 03b (previo):   // 03b: 🔎 BOBINA ANULADA ESCANEADA EN CORTE — antes decía «no encontrada»; ahora busca en la base y, si está anulada, avisa (no la carga) y deja «⚠ ESCANEADA EN CORTE …» en las observaciones de la bobina, para detectar una anulada por error que exista de verdad. Pistola de Confección y Panel de corte. Sin SQL. · 03a: 🔒 CARGA DE BOBINAS SIN DOBLE CLIC — el botón «Registrar bobina» se bloquea mientras guarda y, antes de grabar, se mira la base: misma OE + extrusora + metros + kg en los últimos 90 s = ya está registrada, no se graba. Caso BOB-06481/82 (y 05648/49, 05981/82, anuladas). Anular bobina ya no duplica los kg devueltos al lote (el trigger fn_mp_recalc los recalcula del libro). Sin SQL. · 02e: 🖨️ IMPRIMIR DESDE EL PLANIFICADOR — cada tarjeta de Planificar producción (también las En proceso y en vista compacta) trae 🖨️ OC + 🏷️ etiquetas de bulto en corte y 🖨️ OE en extrusión; mismas funciones que la lista de Órdenes de corte. Sin SQL. · 02d: 🕐 HORARIO ESPECIAL DE UN DÍA — en Cambio de turno, entrada/salida propias sin crear un turno (si la salida es antes que la entrada cruza la medianoche): 9 normales y el resto extra. Columnas nuevas turnos_excepcion.hora_entrada/hora_salida. · 02c: ↩ DÍA PAGADO A DEVOLVER — tipo nuevo en Cambio de turno: se paga como jornada normal y queda como deuda de horas; las horas extra que haga después la descuentan primero (no se pagan) hasta saldarla. Recuadro con la cuenta en el informe de asistencia. · 02b: ⏱ HORA EXTRA POR BLOQUES DE 30 MIN — lo suelto no se paga (ni normal ni extra), hábiles y sábado; antes los minutos de más de la semana se iban como extra al sábado por el tope de 48. · 02a: 🧵 BOBINAS PARA FUNDAS / USO INTERNO — página nueva (Producción, al lado de Fuera de rango): se busca la bobina por número contra la base, buena o rechazo, y se registra como usada adentro (fundas para bultos u otro). Documento: stock_movimientos tipo='consumo_interno' (no 'salida', que es corte en OC). Buena → sale de stock y sigue contando en su OE. Rechazo → anulada por uso interno SIN reverso de MP y sale del panel de Fuera de rango (que ahora carga sólo no anuladas). Pre-chequeo contra la base antes de escribir, con clave de admin. Historial y kg por mes. Sin SQL de esquema. Datos: BOB-03458 y BOB-04517 pasadas a este circuito. · 01b: 🔢 NÚMERO DE OC EN EL PLAN DEL PEDIDO — la sugerencia saltaba de a dos (lastNum+_pedOrdenes.length+idx+1 contaba doble: PED-06093 mostraba 911/913/915/917/919/921 y las reales eran 911–916; la 917 sugerida era de otro cliente). Ahora la sugerencia es correlativa y, al confirmar (caminos A y B), el plan guarda el número REAL de cada OC/tanda. Sin SQL. · 01a: ⏱ VENTANA DE GRACIA EN CARGA DE BOBINAS — las OE que el sistema pasó a Completada hace menos de 3 hs (última bobina) vuelven a aparecer en el selector, aparte y marcadas ⏱, para cargar la bobina que quedó en la máquina (caso BOB-06361 / ORD-06277: la tuvo que cargar admin 2 hs tarde con la hora mal). Mismo camino de siempre (dentro de tolerancia suma; si se pasa, excedente a pendientes). La bobina queda con «⏱ Cargada sobre OE ya cerrada» en observaciones. La OE no se reabre. Sin SQL. · 30c: 🧾 remito en blanco: renglones de productos más grandes (13 pt, cantidad y bultos en negrita, bultos 15 pt, separador entre filas). · 30b: 🧾 REMITO EN BLANCO CON FORMATO ARIALPLAST — imprimirRemito de un remito formal sale como el de Flexxus: logo, caja R · CODIGO Nº91, datos fiscales (configuracion empresa_* con defaults), cliente con domicilio/localidad/IVA/CUIT desde la ficha, lugar de entrega (clientes.direccion_entrega si existe, si no el domicilio), Cantidad · Código · Detalle · Bultos con total y aviso de bulto especial, RECIBI CONFORME. Número: configuracion['remito_formal_pv'] → PPPP-NNNNNNNN, si no el del sistema. El informal no cambia. Sin SQL. · 30a: 🗜 RESPALDO DE COMPROBANTES — botón «Comprobantes (ZIP)» en Facturación formal: baja en un ZIP los PDF archivados con CAE de un mes (facturas, NC y ND) + indice.csv (Excel es-AR) que lista también los que tienen CAE sin PDF archivado y los que no se pudieron bajar. Usa la op nueva `pdf_lote` de la Edge Function (links firmados del bucket privado `comprobantes`); con la función vieja lo dice. Solo lectura, sin SQL. · 28h: 📄 EMITIDA EN FLEXXUS — cae_estado='externo' marca las copias de comprobantes que se emitieron en Flexxus: no ofrecen 🏛 CAE (evita declarar dos veces la misma venta), botón 📄 para marcar, desmarcar con clave de admin, el impreso dice COPIA INTERNA. SQL: 128 facturas + 8 NC formales marcadas el 28/09. · 28g: 🏛 CLIENTES DESDE ARCA — botón «Traer datos de ARCA» en la ficha y «Verificar N en ARCA» en la lista (Edge Function op padron): condición de IVA real, razón social oficial, domicilio, provincia y CP. Nombre de planta separado de la razón social (antes editar pisaba el nombre). Alta con CUIT se verifica sola. Provincia por cliente va a TusFacturas. SQL aplicado: clientes.provincia/codigo_postal/arca_estado/arca_verificado_el + check de condicion_iva ampliado. · 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
 // (anterior) 28c:   // 28c: 📜 BOBINAS VIEJAS A DEMANDA — reload trae sólo bobinas en stock o de los últimos 60 días, y toda pantalla que miraba una OE o un período más viejo contaba de menos EN SILENCIO: el 🖨️ de ORD-05574 salía con 0 bobinas (tiene 45) y Costos de producción de julio daba 3.590 kg producidos (fueron 37.144). Ahora la MISMA caché C.bobinas_prod se completa sólo cuando hace falta: por OE (🖨️, 📊 Detalle, 📦 Lotes de MP de OE y de pedido, % de avance de la lista, Historial) o por período (Costos, Rentabilidad, con su comparación). Pieza única `// ===== 📜 BOBINAS VIEJAS A DEMANDA` (_oeBobCompleta, _bobPeriodoIncompleto, _completarBobinasDeOEs, _traerBobinasHistoricas, _bobAsegurarYRepintar), invalidada en cada reload con window._bobGen. El botón «📜 Cargar todas las históricas» de Stock usa la misma descarga. Mismos filtros que la carga inicial. Solo lectura. Sin SQL.
@@ -54304,7 +54305,7 @@ function _pcorteBobinasHTML(oc,maqId){
       +'<span style="font-family:monospace;font-weight:600;color:'+colNum+';">'+escapeHtml(b.numero_bobina||'—')+'</span>'
       +'<span style="font-family:monospace;font-weight:700;">'+m.toLocaleString('es-AR')+' m</span>'
       +'<span style="color:var(--text3);font-size:11px;">'+fecha+oeTxt+(desal?' · <span style="color:var(--red);font-weight:800;">'+escapeHtml(des.nomOE)+'</span>':'')+'</span>'
-      +'<button class="btn" style="margin-left:auto;padding:9px 18px;font-size:14px;font-weight:800;color:'+colNum+';border-color:'+colNum+';border-width:2px;" onclick="_pcorteCargarBobina('+oc.id+','+b.id+','+(maqId||'null')+',\'boton\')">+ Cargar</button>'
+      /* 05d: sin «+ Cargar» por fila — se escanea; la excepción es «✋ Cargar a mano» con el número tipeado */
     +'</div>';
   };
   const header=(txt,color,subtitle)=>
@@ -54321,7 +54322,8 @@ function _pcorteBobinasHTML(oc,maqId){
   if(!disp.length){
     html+='<div style="font-size:12px;color:var(--text3);padding:4px 0 10px;">No hay bobinas en stock del tipo de esta orden.</div>';
   } else {
-    html+='<div style="font-size:11px;color:var(--text3);margin-bottom:6px;">Tocá <strong>+ Cargar</strong> para agregarla a mano (hace lo mismo que escanearla: la asocia y la saca del stock).</div>'
+    html+='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--text2);margin-bottom:6px;"><span>🔫 <strong>Escaneá la etiqueta</strong> de la bobina que vas a cortar. La lista es solo para ver qué hay.</span>'
+      +'<button class="btn btn-sm" style="margin-left:auto;color:var(--amber);border-color:var(--amber);" onclick="pcorteManualAbrir('+oc.id+','+(maqId||'null')+')" title="Solo si la etiqueta no se puede escanear">✋ Cargar a mano</button></div>'
       +'<div style="display:flex;flex-direction:column;gap:4px;max-height:300px;overflow-y:auto;margin-bottom:8px;">';
     // 🎯 De la OE asociada (las que corresponden a esta OC)
     if(grupoAsociada.length){
@@ -54371,7 +54373,81 @@ function _pcorteBobinasHTML(oc,maqId){
 // Cargar una bobina a mano desde el panel: hace LO MISMO que escanearla
 // (asocia a la OC, la saca del stock, registra el movimiento). Reusa la
 // validación y el insert tal como Confección.
-async function _pcorteCargarBobina(ocId,bobId,maquinaId,origen){
+
+// ===== ✋ CARGA A MANO EN EL PANEL DE CORTE (build 2026-10-05d) =====
+// German (05/10, caso BOB-05319): «sacaría el botón cargar, por defecto deberían escanear;
+// un botón aparte por si no pueden escanear, como excepción». La excepción NO es elegir de
+// una lista (así se tocó la de al lado): se TIPEA el número de la etiqueta que está en la
+// mano, se ve qué bobina es antes de confirmar, y el motivo es obligatorio. Queda
+// origen='manual' en orden_corte_bobinas y una nota en la OC.
+const _PCM_MOTIVOS=['La etiqueta está rota o no se lee','La pistola no anda','La bobina no tiene etiqueta','Otro'];
+function pcorteManualAbrir(ocId,maqId){
+  const oc=C.ord_corte.find(o=>o.id===ocId);if(!oc)return;
+  document.getElementById('pcm-modal')?.remove();
+  window._pcm={ocId,maqId};
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="pcm-modal"><div class="modal-card" style="max-width:460px;">'
+    +'<div class="modal-title" style="color:var(--amber);">✋ Cargar bobina a mano</div>'
+    +'<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">A <strong>'+escapeHtml(oc.numero_orden)+'</strong> · '+escapeHtml(oc.cliente||'')+'. Solo si no se puede escanear: <strong>escribí el número que dice la etiqueta</strong> de la bobina que tenés en la máquina.</div>'
+    +'<label style="font-size:11px;color:var(--text3);">Número de bobina</label>'
+    +'<input id="pcm-nro" inputmode="numeric" autocomplete="off" placeholder="ej. 5319" oninput="_pcmPreview()" style="width:100%;font-size:22px;font-family:monospace;padding:8px 10px;margin:4px 0 6px;">'
+    +'<div id="pcm-prev" style="min-height:38px;font-size:13px;margin-bottom:10px;"></div>'
+    +'<label style="font-size:11px;color:var(--text3);">¿Por qué no se pudo escanear?</label>'
+    +'<select id="pcm-mot" onchange="_pcmPreview()" style="width:100%;font-size:14px;padding:6px;margin:4px 0 6px;"><option value="">— elegí el motivo —</option>'+_PCM_MOTIVOS.map(m=>'<option>'+m+'</option>').join('')+'</select>'
+    +'<input id="pcm-otro" placeholder="Contá qué pasó" oninput="_pcmPreview()" style="display:none;width:100%;font-size:13px;padding:6px;margin-bottom:6px;">'
+    +'<div class="btn-grp" style="margin-top:10px;"><button class="btn btn-primary" id="pcm-ok" disabled onclick="pcorteManualOk()">Cargar</button><button class="btn" onclick="document.getElementById(\'pcm-modal\').remove()">Cancelar</button></div>'
+    +'</div></div>');
+  setTimeout(()=>document.getElementById('pcm-nro')?.focus(),50);
+}
+// Pura: del texto tipeado a la bobina (o el motivo por el que no se puede)
+function _pcmBuscar(txt,oc){
+  const nro=_repNormNro(txt);
+  if(!nro||!/\d/.test(String(txt||'')))return {nro:'',err:''};
+  const b=(C.bobinas_prod||[]).find(x=>x.numero_bobina===nro);
+  if(!b)return {nro,err:'No encuentro la '+nro+' en stock.'};
+  if(!b.en_stock)return {nro,b,err:'La '+nro+' figura como ya cortada.'};
+  if(b.fuera_de_rango)return {nro,b,err:'La '+nro+' está fuera de rango.'};
+  if(b.anulada)return {nro,b,err:'La '+nro+' está anulada.'};
+  const tipo=oc.productos?.bobina_id||(C.productos||[]).find(p=>p.id===oc.producto_id)?.bobina_id;
+  if(tipo&&(b.bobina_tipo_id??b.bobinas?.id)!==tipo&&!_bobEsDeSuOEDesalineada(b,oc,_ocDesalineo(oc)))return {nro,b,err:'La '+nro+' no es del tipo de bobina de esta orden.'};
+  return {nro,b,err:''};
+}
+function _pcmPreview(){
+  const P=window._pcm;if(!P)return;
+  const oc=C.ord_corte.find(o=>o.id===P.ocId);
+  const r=_pcmBuscar(document.getElementById('pcm-nro')?.value,oc);
+  const mot=document.getElementById('pcm-mot')?.value||'';
+  const otro=document.getElementById('pcm-otro');
+  if(otro)otro.style.display=mot==='Otro'?'block':'none';
+  const motOk=mot&&(mot!=='Otro'||(otro&&otro.value.trim().length>=3));
+  const box=document.getElementById('pcm-prev');
+  if(box){
+    if(!r.nro)box.innerHTML='';
+    else if(r.err)box.innerHTML='<span style="color:var(--red);font-weight:700;">✕ '+escapeHtml(r.err)+'</span>';
+    else{
+      const oe=r.b.orden_id?C.ordenes.find(o=>o.id===r.b.orden_id):null;
+      const cls=_bobOrigenClase(r.b,oc),dv=_bobDuenaViva(r.b,oc);
+      box.innerHTML='<span style="font-family:monospace;font-weight:800;color:var(--green);">'+escapeHtml(r.nro)+'</span> · '+(parseFloat(r.b.metros_reales)||0).toLocaleString('es-AR')+' m · '+(parseFloat(r.b.kg_reales)||0).toLocaleString('es-AR')+' kg · '+(oe?escapeHtml(oe.numero_orden):'stock libre')
+        +(cls==='propia'?' <span style="color:var(--green);">· de esta orden ✓</span>':'')
+        +(dv?'<div style="color:var(--red);font-weight:800;margin-top:3px;">⛔ es de '+escapeHtml(dv.cliente||dv.numero_orden)+' ('+escapeHtml(dv.numero_orden)+')</div>':'');
+    }
+  }
+  const ok=document.getElementById('pcm-ok');if(ok)ok.disabled=!(r.b&&!r.err&&motOk);
+}
+async function pcorteManualOk(){
+  const P=window._pcm;if(!P)return;
+  const oc=C.ord_corte.find(o=>o.id===P.ocId);
+  const r=_pcmBuscar(document.getElementById('pcm-nro')?.value,oc);
+  let mot=document.getElementById('pcm-mot')?.value||'';
+  if(mot==='Otro')mot=(document.getElementById('pcm-otro')?.value||'').trim();
+  if(!r.b||r.err||!mot){_pcmPreview();return;}
+  document.getElementById('pcm-modal')?.remove();
+  const op=(window._pcorteOperario||'').trim();
+  const nota='[✋ Carga a mano '+localDate()+' '+localTime().slice(0,5)+' · '+r.nro+' · '+mot+(op?' · '+op:'')+']';
+  await _pcorteCargarBobina(P.ocId,r.b.id,P.maqId,'manual',nota);
+}
+
+async function _pcorteCargarBobina(ocId,bobId,maquinaId,origen,nota){
   const oc=C.ord_corte.find(x=>x.id===ocId);
   const b=C.bobinas_prod.find(x=>x.id===bobId);
   if(!oc||!b){_pcorteFeedback('✕ No encontré la orden o la bobina.','var(--red)','error');return;}
@@ -54416,6 +54492,14 @@ async function _pcorteCargarBobina(ocId,bobId,maquinaId,origen){
       // esperaba a que bajara media base para que el panel le respondiera.
       // Ahora: 1 consulta que trae ESTA OC con sus bobinas asociadas.
       await _refrescarOC(ocId);
+      if(nota){
+        try{
+          const _ocN=C.ord_corte.find(x=>x.id===ocId)||oc;
+          const _obsN=((_ocN.observaciones||'').trim()+' '+nota).trim();
+          await sb.from('ordenes_corte').update({observaciones:_obsN}).eq('id',ocId);
+          _ocN.observaciones=_obsN;
+        }catch(e){console.warn('nota de carga a mano',e);}
+      }
       _cacheParchear([C.bobinas_prod,C.bobinas_hist,C.bobinas_fuera],bobId,{en_stock:false,reservada_oc_id:null});
       _cacheStockMov([{..._mov,fecha:localDate(),bobinas_producidas:{numero_bobina:b.numero_bobina}}]);
       try{anDataCache.loaded=false;}catch(e){}
