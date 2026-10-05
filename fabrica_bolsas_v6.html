@@ -821,7 +821,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-05b</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-05c</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -4111,6 +4111,7 @@ body.pext-on .main{margin-left:0!important;}
           <div id="nf-remitos-wrap" style="display:none;">
             <h4 style="margin:14px 0 8px;">Remitos a incluir</h4>
             <div id="nf-remitos"></div>
+            <div id="nf-anticipo"></div>
 
             <div style="margin-top:18px;padding:14px;background:var(--bg2);border-radius:8px;">
               <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:18px;font-size:14px;">
@@ -5795,7 +5796,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-05b';   // 05b: 🔖 DE QUIÉN ES LA BOBINA — caso BOB-05319 (de GRUPO ENSER, cargada a BIGVEF el 05/10 09:28): el aviso «no es de la OE asociada» saltaba con cada sobrante de una OE terminada y no decía de quién era, así que se confirmaba de memoria. Ahora: si otra OC viva (Pendiente/En proceso/Suspendida) necesita esa bobina, aviso ROJO con el cliente y los metros que le van a faltar (Panel de corte y Confección, y la lista del panel la marca «⛔ es de …»); los sobrantes de una OE sin OC viva ya no preguntan; stock libre igual que antes. Y orden_corte_bobinas.origen guarda cómo se cargó cada bobina (pistola/boton/lista/qr) — requiere alter_ocb_origen.sql; sin la columna, inserta igual sin ella.
+const APP_BUILD='2026-10-05c';   // 05c: 📦 ANTICIPO DE PEDIDO — en Nueva factura, «Facturar anticipo de un pedido (sin remito)»: se eligen los paquetes por línea del pedido (pendiente = pedido − remitido − ya anticipado), sale la factura con factura_lineas.pedido_linea_id y se le pide el CAE con 🏛. Los remitos posteriores de ese pedido que entran en el anticipo muestran «↪ Aplicar al anticipo» (Nueva factura, Pendientes de facturar y Remitos) y no se pueden volver a facturar; aplicar = factura_remitos + factura_linea_remitos + remito facturado, sin comprobante nuevo. SQL: columna factura_lineas.pedido_linea_id. Caso DAG PED-06016. · 05b: 🔖 DE QUIÉN ES LA BOBINA — caso BOB-05319 (de GRUPO ENSER, cargada a BIGVEF el 05/10 09:28): el aviso «no es de la OE asociada» saltaba con cada sobrante de una OE terminada y no decía de quién era, así que se confirmaba de memoria. Ahora: si otra OC viva (Pendiente/En proceso/Suspendida) necesita esa bobina, aviso ROJO con el cliente y los metros que le van a faltar (Panel de corte y Confección, y la lista del panel la marca «⛔ es de …»); los sobrantes de una OE sin OC viva ya no preguntan; stock libre igual que antes. Y orden_corte_bobinas.origen guarda cómo se cargó cada bobina (pistola/boton/lista/qr) — requiere alter_ocb_origen.sql; sin la columna, inserta igual sin ella.
 // 05a (previo):   // 05a: 📋 PARTE DIARIO DE CORTE — pantalla nueva en Producción (al lado de Cortar hoy): por día, las OC CERRADAS (fecha_completada, paquetes del libro mov_bolsas, máquina, hora y desvío contra la grilla = fin_baseline congelado al iniciar), las TRABAJADAS sin cerrar (bobinas asignadas ese día, metros del día y % de avance acumulado) y las que la GRILLA comprometía para ese día y no cerraron. KPI de cumplimiento (cumplidas/comprometidas), tira de 7 días e impresión A4. Todo derivado y de solo lectura, lee la base directo (no cachés parciales). Sin SQL.
 // 03b (previo):   // 03b: 🔎 BOBINA ANULADA ESCANEADA EN CORTE — antes decía «no encontrada»; ahora busca en la base y, si está anulada, avisa (no la carga) y deja «⚠ ESCANEADA EN CORTE …» en las observaciones de la bobina, para detectar una anulada por error que exista de verdad. Pistola de Confección y Panel de corte. Sin SQL. · 03a: 🔒 CARGA DE BOBINAS SIN DOBLE CLIC — el botón «Registrar bobina» se bloquea mientras guarda y, antes de grabar, se mira la base: misma OE + extrusora + metros + kg en los últimos 90 s = ya está registrada, no se graba. Caso BOB-06481/82 (y 05648/49, 05981/82, anuladas). Anular bobina ya no duplica los kg devueltos al lote (el trigger fn_mp_recalc los recalcula del libro). Sin SQL. · 02e: 🖨️ IMPRIMIR DESDE EL PLANIFICADOR — cada tarjeta de Planificar producción (también las En proceso y en vista compacta) trae 🖨️ OC + 🏷️ etiquetas de bulto en corte y 🖨️ OE en extrusión; mismas funciones que la lista de Órdenes de corte. Sin SQL. · 02d: 🕐 HORARIO ESPECIAL DE UN DÍA — en Cambio de turno, entrada/salida propias sin crear un turno (si la salida es antes que la entrada cruza la medianoche): 9 normales y el resto extra. Columnas nuevas turnos_excepcion.hora_entrada/hora_salida. · 02c: ↩ DÍA PAGADO A DEVOLVER — tipo nuevo en Cambio de turno: se paga como jornada normal y queda como deuda de horas; las horas extra que haga después la descuentan primero (no se pagan) hasta saldarla. Recuadro con la cuenta en el informe de asistencia. · 02b: ⏱ HORA EXTRA POR BLOQUES DE 30 MIN — lo suelto no se paga (ni normal ni extra), hábiles y sábado; antes los minutos de más de la semana se iban como extra al sábado por el tope de 48. · 02a: 🧵 BOBINAS PARA FUNDAS / USO INTERNO — página nueva (Producción, al lado de Fuera de rango): se busca la bobina por número contra la base, buena o rechazo, y se registra como usada adentro (fundas para bultos u otro). Documento: stock_movimientos tipo='consumo_interno' (no 'salida', que es corte en OC). Buena → sale de stock y sigue contando en su OE. Rechazo → anulada por uso interno SIN reverso de MP y sale del panel de Fuera de rango (que ahora carga sólo no anuladas). Pre-chequeo contra la base antes de escribir, con clave de admin. Historial y kg por mes. Sin SQL de esquema. Datos: BOB-03458 y BOB-04517 pasadas a este circuito. · 01b: 🔢 NÚMERO DE OC EN EL PLAN DEL PEDIDO — la sugerencia saltaba de a dos (lastNum+_pedOrdenes.length+idx+1 contaba doble: PED-06093 mostraba 911/913/915/917/919/921 y las reales eran 911–916; la 917 sugerida era de otro cliente). Ahora la sugerencia es correlativa y, al confirmar (caminos A y B), el plan guarda el número REAL de cada OC/tanda. Sin SQL. · 01a: ⏱ VENTANA DE GRACIA EN CARGA DE BOBINAS — las OE que el sistema pasó a Completada hace menos de 3 hs (última bobina) vuelven a aparecer en el selector, aparte y marcadas ⏱, para cargar la bobina que quedó en la máquina (caso BOB-06361 / ORD-06277: la tuvo que cargar admin 2 hs tarde con la hora mal). Mismo camino de siempre (dentro de tolerancia suma; si se pasa, excedente a pendientes). La bobina queda con «⏱ Cargada sobre OE ya cerrada» en observaciones. La OE no se reabre. Sin SQL. · 30c: 🧾 remito en blanco: renglones de productos más grandes (13 pt, cantidad y bultos en negrita, bultos 15 pt, separador entre filas). · 30b: 🧾 REMITO EN BLANCO CON FORMATO ARIALPLAST — imprimirRemito de un remito formal sale como el de Flexxus: logo, caja R · CODIGO Nº91, datos fiscales (configuracion empresa_* con defaults), cliente con domicilio/localidad/IVA/CUIT desde la ficha, lugar de entrega (clientes.direccion_entrega si existe, si no el domicilio), Cantidad · Código · Detalle · Bultos con total y aviso de bulto especial, RECIBI CONFORME. Número: configuracion['remito_formal_pv'] → PPPP-NNNNNNNN, si no el del sistema. El informal no cambia. Sin SQL. · 30a: 🗜 RESPALDO DE COMPROBANTES — botón «Comprobantes (ZIP)» en Facturación formal: baja en un ZIP los PDF archivados con CAE de un mes (facturas, NC y ND) + indice.csv (Excel es-AR) que lista también los que tienen CAE sin PDF archivado y los que no se pudieron bajar. Usa la op nueva `pdf_lote` de la Edge Function (links firmados del bucket privado `comprobantes`); con la función vieja lo dice. Solo lectura, sin SQL. · 28h: 📄 EMITIDA EN FLEXXUS — cae_estado='externo' marca las copias de comprobantes que se emitieron en Flexxus: no ofrecen 🏛 CAE (evita declarar dos veces la misma venta), botón 📄 para marcar, desmarcar con clave de admin, el impreso dice COPIA INTERNA. SQL: 128 facturas + 8 NC formales marcadas el 28/09. · 28g: 🏛 CLIENTES DESDE ARCA — botón «Traer datos de ARCA» en la ficha y «Verificar N en ARCA» en la lista (Edge Function op padron): condición de IVA real, razón social oficial, domicilio, provincia y CP. Nombre de planta separado de la razón social (antes editar pisaba el nombre). Alta con CUIT se verifica sola. Provincia por cliente va a TusFacturas. SQL aplicado: clientes.provincia/codigo_postal/arca_estado/arca_verificado_el + check de condicion_iva ampliado. · 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
 // (anterior) 28c:   // 28c: 📜 BOBINAS VIEJAS A DEMANDA — reload trae sólo bobinas en stock o de los últimos 60 días, y toda pantalla que miraba una OE o un período más viejo contaba de menos EN SILENCIO: el 🖨️ de ORD-05574 salía con 0 bobinas (tiene 45) y Costos de producción de julio daba 3.590 kg producidos (fueron 37.144). Ahora la MISMA caché C.bobinas_prod se completa sólo cuando hace falta: por OE (🖨️, 📊 Detalle, 📦 Lotes de MP de OE y de pedido, % de avance de la lista, Historial) o por período (Costos, Rentabilidad, con su comparación). Pieza única `// ===== 📜 BOBINAS VIEJAS A DEMANDA` (_oeBobCompleta, _bobPeriodoIncompleto, _completarBobinasDeOEs, _traerBobinasHistoricas, _bobAsegurarYRepintar), invalidada en cada reload con window._bobGen. El botón «📜 Cargar todas las históricas» de Stock usa la misma descarga. Mismos filtros que la carga inicial. Solo lectura. Sin SQL.
@@ -15560,7 +15561,7 @@ function renderRemitos(){
         +(r.estado==='anulado'
            ? ' <span class="badge" style="background:var(--red);color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;">ANULADO</span>'
            : (_remitoPrecioEditable(r)?' <button class="btn btn-sm" onclick="abrirEditarRemitoPrecios('+r.id+')" title="Corregir precios antes de facturar">✏ Precios</button>':'')
-             +((!r.factura_id && planoRemito(r)==='formal')?' <button class="btn btn-sm btn-primary" onclick="facturarDesdeRemito('+r.id+')">🧾 Facturar</button>':'')
+             +((!r.factura_id && planoRemito(r)==='formal')?(' '+((_antDeRemito(r)||{}).ok?_antBtnRemito(r):(_antBtnRemito(r)+' <button class="btn btn-sm btn-primary" onclick="facturarDesdeRemito('+r.id+')">🧾 Facturar</button>'))):'')
              +((!r.rv_id && planoRemito(r)==='informal')?' <button class="btn btn-sm btn-primary" onclick="rvDesdeRemito('+r.id+')">🧾 Facturar (RV)</button>':'')
              +' <button class="btn btn-sm" onclick="anularRemito('+r.id+')" style="color:var(--red);border-color:var(--red);">✕ Anular</button>')
       +'</td>'
@@ -16712,7 +16713,7 @@ function renderRemitosPendientes(){
       +'<td>'+(ped?.numero_pedido||(r.pedido_id?'#'+r.pedido_id:'—'))+'</td>'
       +'<td style="text-align:right" class="mono">'+fmtMoney(subtotal)+'</td>'
       +'<td style="white-space:nowrap"><button class="btn btn-sm" onclick="abrirEditarRemitoPrecios('+r.id+')" title="Corregir precios antes de facturar">✏ Precios</button> '
-        +'<button class="btn btn-sm btn-primary" onclick="facturarDesdeRemito('+r.id+')">🧾 Facturar</button></td>'
+        +((_antDeRemito(r)||{}).ok?_antBtnRemito(r):(_antBtnRemito(r)+' <button class="btn btn-sm btn-primary" onclick="facturarDesdeRemito('+r.id+')">🧾 Facturar</button>'))+'</td>'
       +'</tr>';
   });
   html+='</tbody></table></div>';
@@ -17177,6 +17178,7 @@ function onNfCliChange(){
     wrap.innerHTML='<div class="empty">Este cliente no tiene remitos pendientes de facturar.</div>';
     document.getElementById('nf-remitos-wrap').style.display='block';
     recalcFacturaTotal();
+    _antCtx={pedId:null,filas:[]};_antRender();
     return;
   }
   let html='<div style="overflow-x:auto"><table><thead><tr>'
@@ -17185,10 +17187,11 @@ function onNfCliChange(){
   remitos.forEach(r=>{
     const lineas=r.remito_lineas||[];
     const subtotal=lineas.reduce((s,l)=>s+(parseFloat(l.subtotal)||0),0);
+    const _cov=_antDeRemito(r);
     const ped=C.pedidos.find(p=>p.id===r.pedido_id);
     html+='<tr>'
-      +'<td><input type="checkbox" class="nf-rem-chk" data-id="'+r.id+'" data-subtotal="'+subtotal+'" onchange="recalcFacturaTotal()"></td>'
-      +'<td style="font-weight:600;">'+(r.numero_remito||'#'+r.id)+'</td>'
+      +(_cov&&_cov.ok?'<td title="Ya facturado por adelantado">—</td>':'<td><input type="checkbox" class="nf-rem-chk" data-id="'+r.id+'" data-subtotal="'+subtotal+'" onchange="recalcFacturaTotal()"></td>')
+      +'<td style="font-weight:600;">'+(r.numero_remito||'#'+r.id)+(_cov?'<div style="margin-top:3px;">'+_antBtnRemito(r)+'</div>':'')+'</td>'
       +'<td>'+(r.fecha||'')+'</td>'
       +'<td>'+(ped?.numero_pedido||(r.pedido_id?'#'+r.pedido_id:'—'))+'</td>'
       +'<td style="text-align:right" class="mono">'+fmtMoney(subtotal)+'</td>'
@@ -17198,6 +17201,7 @@ function onNfCliChange(){
   wrap.innerHTML=html;
   document.getElementById('nf-remitos-wrap').style.display='block';
   recalcFacturaTotal();
+  _antCtx={pedId:null,filas:[]};_antRender();
 }
 
 function recalcFacturaTotal(){
@@ -17223,6 +17227,8 @@ async function guardarFactura(){
   const msg=document.getElementById('msg-nf');
   if(!_facCtx.cliente){msg.style.color='var(--red)';msg.textContent='Falta cliente.';return;}
   if(!_facCtx.remitosSel.length){msg.style.color='var(--red)';msg.textContent='Seleccioná al menos un remito.';return;}
+  {const cub=_facCtx.remitosSel.map(id=>(C.remitos||[]).find(r=>r.id===id)).filter(r=>{const c=_antDeRemito(r);return c&&c.ok;});
+   if(cub.length){msg.style.color='var(--red)';msg.textContent='⛔ '+cub.map(r=>r.numero_remito).join(', ')+' ya está facturado por adelantado: usá ↪ Aplicar al anticipo.';return;}}
 
   // ── AVISO DE RENGLÓN EN $0 ───────────────────────────────────────────────
   // Un renglón sin precio en una factura es mercadería regalada, y no se nota
@@ -17321,6 +17327,196 @@ async function guardarFactura(){
   setTimeout(()=>{imprimirFactura(fac.id);go('facturacion');},800);
 }
 
+
+// ===== 📦 ANTICIPO DE PEDIDO (05c) =====
+// Caso DAG PED-06016 (05/10): facturar ~$8M adelantado para que el cliente dé el cheque
+// y comprar MP, con mercadería que todavía no se entregó (ni se fabricó). Sin Flexxus,
+// la factura sale del sistema → hace falta facturar SIN remito.
+// Modelo (P1, nada guardado aparte): un renglón de factura con pedido_linea_id = anticipo
+// de esa línea de pedido. Lo consumido = suma de factura_linea_remitos de ese renglón
+// (remitos posteriores aplicados). El resto se deriva. Un remito del pedido que entra
+// entero en el resto de UN anticipo vivo no se factura: se APLICA (queda facturado en esa
+// factura, sin comprobante nuevo). Si se pasa, se avisa — no se factura a medias.
+function _antFacturaViva(f){
+  if(!f||f.estado==='anulada')return false;
+  const tot=parseFloat(f.total)||0;
+  if(typeof _ncTotalDe==='function'&&tot>0&&_ncTotalDe('factura',f.id)>=tot-0.01)return false;
+  return true;
+}
+// Pura: renglones de anticipo con lo consumido y el resto.
+function _antLineas(facturas,flr){
+  const cons={};
+  (flr||[]).forEach(v=>{cons[v.factura_linea_id]=(cons[v.factura_linea_id]||0)+(parseFloat(v.cantidad_paquetes)||0);});
+  const out=[];
+  (facturas||[]).forEach(f=>{
+    if(!_antFacturaViva(f))return;
+    (f.factura_lineas||[]).forEach(fl=>{
+      if(!fl.pedido_linea_id)return;
+      const cant=parseFloat(fl.cantidad)||0, usado=cons[fl.id]||0;
+      out.push({fac:f,fl:fl,pl:fl.pedido_linea_id,cant:cant,usado:usado,resto:Math.max(0,cant-usado)});
+    });
+  });
+  return out;
+}
+// Pura: ¿este remito se puede aplicar a un anticipo? → null si ningún renglón tiene anticipo.
+// {ok:true, fac, asign:[{rl,fl,cant}]}  ·  {ok:false, fac, msg}
+function _antCobertura(rem,ant){
+  const lins=(rem&&rem.remito_lineas)||[];
+  const conAnt=lins.filter(rl=>rl.pedido_linea_id&&ant.some(a=>String(a.pl)===String(rl.pedido_linea_id)));
+  if(!conAnt.length)return null;
+  // candidatas: facturas con anticipo en alguna línea del remito, la más vieja primero
+  const facs=[];ant.forEach(a=>{if(conAnt.some(rl=>String(rl.pedido_linea_id)===String(a.pl))&&facs.indexOf(a.fac)<0)facs.push(a.fac);});
+  facs.sort((x,y)=>(x.id||0)-(y.id||0));
+  let mejor=null;
+  for(const f of facs){
+    const resto={};ant.filter(a=>a.fac===f).forEach(a=>{resto[a.fl.id]=a.resto;});
+    const asign=[];const faltas=[];
+    for(const rl of lins){
+      let q=parseFloat(rl.cantidad_paquetes)||0;
+      const fls=ant.filter(a=>a.fac===f&&String(a.pl)===String(rl.pedido_linea_id));
+      if(!fls.length){faltas.push({rl:rl,falta:q,sinAnt:true});continue;}
+      for(const a of fls){
+        if(q<=0)break;
+        const t=Math.min(q,resto[a.fl.id]||0);
+        if(t>0){asign.push({rl:rl,fl:a.fl,cant:t});resto[a.fl.id]-=t;q-=t;}
+      }
+      if(q>0.0001)faltas.push({rl:rl,falta:q});
+    }
+    if(!faltas.length)return {ok:true,fac:f,asign:asign};
+    if(!mejor)mejor={f:f,faltas:faltas};
+  }
+  const nro=mejor.f.arca_numero||mejor.f.numero||('#'+mejor.f.id);
+  const sinAnt=mejor.faltas.filter(x=>x.sinAnt).length;
+  const exc=mejor.faltas.filter(x=>!x.sinAnt).reduce((s,x)=>s+x.falta,0);
+  return {ok:false,fac:mejor.f,msg:'Tiene anticipo en FA '+nro+' pero '
+    +(exc>0?'se pasa en '+Math.round(exc).toLocaleString('es-AR')+' paq':'')
+    +(exc>0&&sinAnt?' y ':'')+(sinAnt?sinAnt+' renglón(es) no tienen anticipo':'')
+    +' — rehacé el remito por lo anticipado y otro por el resto.'};
+}
+function _antDeRemito(rem){
+  if(!rem||rem.factura_id||rem.estado==='anulado')return null;
+  return _antCobertura(rem,_antLineas(C.facturas,C.fac_linea_rem));
+}
+async function aplicarRemitoAnticipo(remId){
+  const rem=(C.remitos||[]).find(r=>r.id===remId);
+  const cov=_antDeRemito(rem);
+  if(!cov||!cov.ok){toast(cov?cov.msg:'Este remito no tiene anticipo para aplicar','amber');return;}
+  const nro=cov.fac.arca_numero||cov.fac.numero||('#'+cov.fac.id);
+  if(!confirm('Aplicar el remito '+(rem.numero_remito||('#'+remId))+' a la factura anticipada '+nro+'?\n\n'
+    +cov.asign.map(a=>'· '+Math.round(a.cant).toLocaleString('es-AR')+' paq — '+(a.fl.descripcion||'')).join('\n')
+    +'\n\nNo se emite factura nueva: el remito queda facturado en '+nro+'.'))return;
+  const{error:e1}=await sb.from('factura_linea_remitos').insert(cov.asign.map(a=>({factura_linea_id:a.fl.id,remito_linea_id:a.rl.id,cantidad_paquetes:a.cant})));
+  if(e1){toast('Error: '+e1.message,'red');return;}
+  await sb.from('factura_remitos').insert({factura_id:cov.fac.id,remito_id:remId});
+  const{error:e3}=await sb.from('remitos').update({factura_id:cov.fac.id,estado:'facturado'}).eq('id',remId);
+  if(e3){toast('Error: '+e3.message,'red');return;}
+  toast('✓ '+(rem.numero_remito||'Remito')+' aplicado al anticipo '+nro,'green');
+  await reload();
+  if(typeof renderRemitosPendientes==='function')renderRemitosPendientes();
+  if(typeof renderRemitos==='function')renderRemitos();
+  if(document.getElementById('nf-cli')?.value)onNfCliChange();
+}
+// Botón/aviso para las listas de remitos pendientes de facturar.
+function _antBtnRemito(rem){
+  const cov=_antDeRemito(rem);
+  if(!cov)return '';
+  if(cov.ok)return '<button class="btn btn-sm" style="background:var(--accentbg);color:var(--accent);border-color:var(--accentbd);" onclick="aplicarRemitoAnticipo('+rem.id+')" title="Ya está facturado por adelantado: se aplica, no se factura de nuevo">↪ Aplicar al anticipo '+escapeHtml(cov.fac.arca_numero||cov.fac.numero||'')+'</button>';
+  return '<span style="font-size:11px;color:var(--amber);" title="'+escapeHtml(cov.msg)+'">⚠ anticipo excedido</span>';
+}
+// ---- Facturar un anticipo (Nueva factura) ----
+let _antCtx={pedId:null,filas:[]};
+function _antPendLinea(p,l,ant){
+  const cant=(parseFloat(l.cantidad)||0)-(parseFloat(l.cantidad_cancelada)||0);
+  // remitido = todo lo entregado; sinFac = lo entregado que todavía no se facturó ni se aplicó
+  // (si entra en el anticipo, lo va a consumir: no se descuenta dos veces).
+  let rem=0,sinFac=0;(C.remitos||[]).forEach(r=>{if(r.estado==='anulado'||String(r.pedido_id)!==String(p.id))return;(r.remito_lineas||[]).forEach(rl=>{if(String(rl.pedido_linea_id)===String(l.id)){const q=parseFloat(rl.cantidad_paquetes)||0;rem+=q;if(!r.factura_id&&!r.rv_id)sinFac+=q;}});});
+  const antResto=ant.filter(a=>String(a.pl)===String(l.id)).reduce((s,a)=>s+a.resto,0);
+  return {cant:cant,remitido:rem,anticipado:antResto,pend:Math.max(0,cant-rem-Math.max(0,antResto-sinFac))};
+}
+function _antRender(){
+  const box=document.getElementById('nf-anticipo');if(!box)return;
+  const cli=_facCtx.cliente;if(!cli){box.innerHTML='';return;}
+  const peds=(C.pedidos||[]).filter(p=>String(p.cliente_id)===String(cli.id)&&['Cancelado','Entregado','Cobrado'].indexOf(p.estado)<0&&p.tipo_venta!=='negro');
+  let h='<details id="nf-ant-det"'+(_antCtx.pedId?' open':'')+' style="margin-top:16px;border:1px dashed var(--accentbd);border-radius:8px;padding:10px 12px;">'
+    +'<summary style="cursor:pointer;font-weight:700;color:var(--accent);">📦 Facturar anticipo de un pedido (sin remito)</summary>'
+    +'<div style="font-size:12px;color:var(--text2);margin:8px 0;">Para cobrar antes de entregar. Los remitos que hagas después de este pedido se <b>aplican</b> a esta factura (botón ↪), no se vuelven a facturar.</div>';
+  if(!peds.length){box.innerHTML=h+'<div class="empty">El cliente no tiene pedidos abiertos.</div></details>';return;}
+  h+='<select id="nf-ant-ped" onchange="_antCtx.pedId=parseInt(this.value)||null;_antRender()"><option value="">— elegí el pedido —</option>'
+    +peds.map(p=>'<option value="'+p.id+'"'+(String(_antCtx.pedId)===String(p.id)?' selected':'')+'>'+escapeHtml(p.numero_pedido||('#'+p.id))+' · '+escapeHtml(p.estado||'')+'</option>').join('')+'</select>';
+  const p=peds.find(x=>String(x.id)===String(_antCtx.pedId));
+  if(p){
+    const ant=_antLineas(C.facturas,C.fac_linea_rem);
+    _antCtx.filas=(p.pedido_lineas||[]).filter(l=>l.producto_id&&!(typeof _lineaCancelada==='function'&&_lineaCancelada(l))).map(l=>{
+      const prod=(C.productos||[]).find(x=>x.id===l.producto_id)||{};
+      return Object.assign({l:l,prod:prod,pu:parseFloat(l.precio_paquete)||0},_antPendLinea(p,l,ant));
+    });
+    h+='<div style="overflow-x:auto;margin-top:8px;"><table style="font-size:12px;"><thead><tr><th>Producto</th><th style="text-align:right">Pedido</th><th style="text-align:right">Remitido</th><th style="text-align:right">Ya anticipado</th><th style="text-align:right">Pendiente</th><th style="text-align:right">$/paq</th><th>A facturar (paq)</th></tr></thead><tbody>'
+      +_antCtx.filas.map((f,i)=>'<tr><td><b>'+escapeHtml(f.prod.codigo||'')+'</b> '+escapeHtml(f.prod.descripcion||f.l.descripcion||'')+'</td>'
+        +'<td class="mono" style="text-align:right">'+Math.round(f.cant).toLocaleString('es-AR')+'</td>'
+        +'<td class="mono" style="text-align:right">'+Math.round(f.remitido).toLocaleString('es-AR')+'</td>'
+        +'<td class="mono" style="text-align:right">'+Math.round(f.anticipado).toLocaleString('es-AR')+'</td>'
+        +'<td class="mono" style="text-align:right;font-weight:700">'+Math.round(f.pend).toLocaleString('es-AR')+'</td>'
+        +'<td class="mono" style="text-align:right">'+fmtMoney(f.pu)+'</td>'
+        +'<td><input type="number" min="0" max="'+f.pend+'" step="1" value="0" class="nf-ant-q" data-i="'+i+'" style="width:90px" oninput="_antCalc()"'+(f.pend<=0?' disabled':'')+'></td></tr>').join('')
+      +'</tbody></table></div>'
+      +'<div id="nf-ant-tot" style="margin-top:8px;font-size:13px;"></div>'
+      +'<div class="btn-grp" style="margin-top:8px;"><button class="btn btn-primary btn-sm" onclick="guardarFacturaAnticipo()">💾 Emitir factura anticipada</button><span id="nf-ant-msg" style="font-size:12px;margin-left:8px;"></span></div>';
+  }
+  box.innerHTML=h+'</details>';
+  _antCalc();
+}
+// Pura: totales de un anticipo.
+function _antTotales(filas,qs,tipo){
+  let neto=0;const lin=[];
+  filas.forEach((f,i)=>{const q=Math.max(0,Math.min(parseFloat(qs[i])||0,f.pend));if(q>0){const sub=r2(q*f.pu);neto=r2(neto+sub);lin.push({f:f,q:q,sub:sub});}});
+  const iva=tipo==='A'?r2(neto*0.21):0;
+  return {lin:lin,neto:neto,iva:iva,total:r2(neto+iva)};
+}
+function _antCalc(){
+  const el=document.getElementById('nf-ant-tot');if(!el)return;
+  const qs=[];document.querySelectorAll('.nf-ant-q').forEach(x=>{const i=parseInt(x.dataset.i),f=_antCtx.filas[i];if(f&&(parseFloat(x.value)||0)>f.pend)x.value=f.pend;qs[i]=x.value;});
+  const t=_antTotales(_antCtx.filas,qs,_facCtx.tipo);
+  el.innerHTML=t.lin.length?('Neto <b class="mono">'+fmtMoney(t.neto)+'</b> · IVA <b class="mono">'+fmtMoney(t.iva)+'</b> · <span style="color:var(--green)">TOTAL <b class="mono">'+fmtMoney(t.total)+'</b></span>'):'<span style="color:var(--text3)">Poné los paquetes a facturar.</span>';
+  return t;
+}
+async function guardarFacturaAnticipo(){
+  const msg=document.getElementById('nf-ant-msg');
+  const cli=_facCtx.cliente;const p=(C.pedidos||[]).find(x=>String(x.id)===String(_antCtx.pedId));
+  if(!cli||!p){if(msg){msg.style.color='var(--red)';msg.textContent='Elegí cliente y pedido.';}return;}
+  const t=_antCalc();
+  if(!t||!t.lin.length){if(msg){msg.style.color='var(--red)';msg.textContent='No hay nada para facturar.';}return;}
+  const ceros=t.lin.filter(x=>!(x.f.pu>0));
+  if(ceros.length&&!confirm('⚠ Hay renglones sin precio en el pedido. ¿Emitir igual?'))return;
+  if(!confirm('Factura ANTICIPADA a '+(cli.razon_social||cli.nombre)+' por '+fmtMoney(t.total)+' (sin remito).\n\n'
+    +t.lin.map(x=>'· '+Math.round(x.q).toLocaleString('es-AR')+' paq '+(x.f.prod.codigo||'')+' — '+fmtMoney(x.sub)).join('\n')
+    +'\n\nDespués pedile el CAE con 🏛 como a cualquier factura. ¿Seguimos?'))return;
+  if(msg){msg.style.color='var(--text2)';msg.textContent='Guardando…';}
+  const fecha=document.getElementById('nf-fecha').value||localDate();
+  const pv=parseInt(document.getElementById('nf-pv').value)||1;
+  let numero=document.getElementById('nf-num').value.trim();
+  if(!numero){
+    let max=0;(C.facturas||[]).filter(f=>f.tipo===_facCtx.tipo&&String(f.punto_venta)===String(pv)).forEach(f=>{const m=(f.numero||'').match(/(\d+)\s*$/);if(m){const n=parseInt(m[1]);if(n>max)max=n;}});
+    numero=String(pv).padStart(4,'0')+'-'+String(max+1).padStart(8,'0');
+  }
+  const obsUs=document.getElementById('nf-obs').value.trim();
+  const obs='Pedido '+(p.numero_pedido||('#'+p.id))+' — factura anticipada: mercadería a entregar con remitos posteriores'+(obsUs?' · '+obsUs:'');
+  const{data:fac,error:e1}=await sb.from('facturas').insert({
+    numero:numero,punto_venta:pv,tipo:_facCtx.tipo,pedido_id:p.id,cliente_id:cli.id,fecha:fecha,
+    subtotal:t.neto,iva_porcentaje:_facCtx.tipo==='A'?21:0,iva_monto:t.iva,percepciones:0,total:t.total,
+    saldo:t.total,estado:'pendiente',condicion_iva_cliente:cli.condicion_iva,cuit_cliente:cli.cuit,
+    razon_social_cliente:cli.razon_social||cli.nombre,observaciones:obs
+  }).select().single();
+  if(e1){if(msg){msg.style.color='var(--red)';msg.textContent='Error: '+e1.message;}return;}
+  const{error:e2}=await sb.from('factura_lineas').insert(t.lin.map((x,i)=>({
+    factura_id:fac.id,producto_id:x.f.l.producto_id,pedido_linea_id:x.f.l.id,
+    descripcion:(x.f.prod.codigo?x.f.prod.codigo+' - ':'')+(x.f.prod.descripcion||x.f.l.descripcion||'Producto'),
+    cantidad:x.q,unidad:'paq',precio_unitario:r2(x.f.pu),subtotal:x.sub,orden_visual:i})));
+  if(e2){if(msg){msg.style.color='var(--red)';msg.textContent='La factura se creó pero fallaron los renglones: '+e2.message+' — no pidas CAE, avisá.';}return;}
+  if(msg){msg.style.color='var(--green)';msg.textContent='✓ Factura anticipada '+numero+' cargada';}
+  _antCtx={pedId:null,filas:[]};
+  await reload();
+  setTimeout(()=>{imprimirFactura(fac.id);go('facturacion');},800);
+}
 
 // ============================================================================
 //  CODIGO QR — necesario para imprimir la factura con el QR de ARCA (RG 4892).
