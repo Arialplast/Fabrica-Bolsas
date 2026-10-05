@@ -821,7 +821,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-05a</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-05b</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5795,7 +5795,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-05a';   // 05a: 📋 PARTE DIARIO DE CORTE — pantalla nueva en Producción (al lado de Cortar hoy): por día, las OC CERRADAS (fecha_completada, paquetes del libro mov_bolsas, máquina, hora y desvío contra la grilla = fin_baseline congelado al iniciar), las TRABAJADAS sin cerrar (bobinas asignadas ese día, metros del día y % de avance acumulado) y las que la GRILLA comprometía para ese día y no cerraron. KPI de cumplimiento (cumplidas/comprometidas), tira de 7 días e impresión A4. Todo derivado y de solo lectura, lee la base directo (no cachés parciales). Sin SQL.
+const APP_BUILD='2026-10-05b';   // 05b: 🔖 DE QUIÉN ES LA BOBINA — caso BOB-05319 (de GRUPO ENSER, cargada a BIGVEF el 05/10 09:28): el aviso «no es de la OE asociada» saltaba con cada sobrante de una OE terminada y no decía de quién era, así que se confirmaba de memoria. Ahora: si otra OC viva (Pendiente/En proceso/Suspendida) necesita esa bobina, aviso ROJO con el cliente y los metros que le van a faltar (Panel de corte y Confección, y la lista del panel la marca «⛔ es de …»); los sobrantes de una OE sin OC viva ya no preguntan; stock libre igual que antes. Y orden_corte_bobinas.origen guarda cómo se cargó cada bobina (pistola/boton/lista/qr) — requiere alter_ocb_origen.sql; sin la columna, inserta igual sin ella.
+// 05a (previo):   // 05a: 📋 PARTE DIARIO DE CORTE — pantalla nueva en Producción (al lado de Cortar hoy): por día, las OC CERRADAS (fecha_completada, paquetes del libro mov_bolsas, máquina, hora y desvío contra la grilla = fin_baseline congelado al iniciar), las TRABAJADAS sin cerrar (bobinas asignadas ese día, metros del día y % de avance acumulado) y las que la GRILLA comprometía para ese día y no cerraron. KPI de cumplimiento (cumplidas/comprometidas), tira de 7 días e impresión A4. Todo derivado y de solo lectura, lee la base directo (no cachés parciales). Sin SQL.
 // 03b (previo):   // 03b: 🔎 BOBINA ANULADA ESCANEADA EN CORTE — antes decía «no encontrada»; ahora busca en la base y, si está anulada, avisa (no la carga) y deja «⚠ ESCANEADA EN CORTE …» en las observaciones de la bobina, para detectar una anulada por error que exista de verdad. Pistola de Confección y Panel de corte. Sin SQL. · 03a: 🔒 CARGA DE BOBINAS SIN DOBLE CLIC — el botón «Registrar bobina» se bloquea mientras guarda y, antes de grabar, se mira la base: misma OE + extrusora + metros + kg en los últimos 90 s = ya está registrada, no se graba. Caso BOB-06481/82 (y 05648/49, 05981/82, anuladas). Anular bobina ya no duplica los kg devueltos al lote (el trigger fn_mp_recalc los recalcula del libro). Sin SQL. · 02e: 🖨️ IMPRIMIR DESDE EL PLANIFICADOR — cada tarjeta de Planificar producción (también las En proceso y en vista compacta) trae 🖨️ OC + 🏷️ etiquetas de bulto en corte y 🖨️ OE en extrusión; mismas funciones que la lista de Órdenes de corte. Sin SQL. · 02d: 🕐 HORARIO ESPECIAL DE UN DÍA — en Cambio de turno, entrada/salida propias sin crear un turno (si la salida es antes que la entrada cruza la medianoche): 9 normales y el resto extra. Columnas nuevas turnos_excepcion.hora_entrada/hora_salida. · 02c: ↩ DÍA PAGADO A DEVOLVER — tipo nuevo en Cambio de turno: se paga como jornada normal y queda como deuda de horas; las horas extra que haga después la descuentan primero (no se pagan) hasta saldarla. Recuadro con la cuenta en el informe de asistencia. · 02b: ⏱ HORA EXTRA POR BLOQUES DE 30 MIN — lo suelto no se paga (ni normal ni extra), hábiles y sábado; antes los minutos de más de la semana se iban como extra al sábado por el tope de 48. · 02a: 🧵 BOBINAS PARA FUNDAS / USO INTERNO — página nueva (Producción, al lado de Fuera de rango): se busca la bobina por número contra la base, buena o rechazo, y se registra como usada adentro (fundas para bultos u otro). Documento: stock_movimientos tipo='consumo_interno' (no 'salida', que es corte en OC). Buena → sale de stock y sigue contando en su OE. Rechazo → anulada por uso interno SIN reverso de MP y sale del panel de Fuera de rango (que ahora carga sólo no anuladas). Pre-chequeo contra la base antes de escribir, con clave de admin. Historial y kg por mes. Sin SQL de esquema. Datos: BOB-03458 y BOB-04517 pasadas a este circuito. · 01b: 🔢 NÚMERO DE OC EN EL PLAN DEL PEDIDO — la sugerencia saltaba de a dos (lastNum+_pedOrdenes.length+idx+1 contaba doble: PED-06093 mostraba 911/913/915/917/919/921 y las reales eran 911–916; la 917 sugerida era de otro cliente). Ahora la sugerencia es correlativa y, al confirmar (caminos A y B), el plan guarda el número REAL de cada OC/tanda. Sin SQL. · 01a: ⏱ VENTANA DE GRACIA EN CARGA DE BOBINAS — las OE que el sistema pasó a Completada hace menos de 3 hs (última bobina) vuelven a aparecer en el selector, aparte y marcadas ⏱, para cargar la bobina que quedó en la máquina (caso BOB-06361 / ORD-06277: la tuvo que cargar admin 2 hs tarde con la hora mal). Mismo camino de siempre (dentro de tolerancia suma; si se pasa, excedente a pendientes). La bobina queda con «⏱ Cargada sobre OE ya cerrada» en observaciones. La OE no se reabre. Sin SQL. · 30c: 🧾 remito en blanco: renglones de productos más grandes (13 pt, cantidad y bultos en negrita, bultos 15 pt, separador entre filas). · 30b: 🧾 REMITO EN BLANCO CON FORMATO ARIALPLAST — imprimirRemito de un remito formal sale como el de Flexxus: logo, caja R · CODIGO Nº91, datos fiscales (configuracion empresa_* con defaults), cliente con domicilio/localidad/IVA/CUIT desde la ficha, lugar de entrega (clientes.direccion_entrega si existe, si no el domicilio), Cantidad · Código · Detalle · Bultos con total y aviso de bulto especial, RECIBI CONFORME. Número: configuracion['remito_formal_pv'] → PPPP-NNNNNNNN, si no el del sistema. El informal no cambia. Sin SQL. · 30a: 🗜 RESPALDO DE COMPROBANTES — botón «Comprobantes (ZIP)» en Facturación formal: baja en un ZIP los PDF archivados con CAE de un mes (facturas, NC y ND) + indice.csv (Excel es-AR) que lista también los que tienen CAE sin PDF archivado y los que no se pudieron bajar. Usa la op nueva `pdf_lote` de la Edge Function (links firmados del bucket privado `comprobantes`); con la función vieja lo dice. Solo lectura, sin SQL. · 28h: 📄 EMITIDA EN FLEXXUS — cae_estado='externo' marca las copias de comprobantes que se emitieron en Flexxus: no ofrecen 🏛 CAE (evita declarar dos veces la misma venta), botón 📄 para marcar, desmarcar con clave de admin, el impreso dice COPIA INTERNA. SQL: 128 facturas + 8 NC formales marcadas el 28/09. · 28g: 🏛 CLIENTES DESDE ARCA — botón «Traer datos de ARCA» en la ficha y «Verificar N en ARCA» en la lista (Edge Function op padron): condición de IVA real, razón social oficial, domicilio, provincia y CP. Nombre de planta separado de la razón social (antes editar pisaba el nombre). Alta con CUIT se verifica sola. Provincia por cliente va a TusFacturas. SQL aplicado: clientes.provincia/codigo_postal/arca_estado/arca_verificado_el + check de condicion_iva ampliado. · 28d: 🧱 HOJA DE PALLET — las bobinas que ya se cortaron (o se movieron a otra orden) siguen apareciendo en su lugar de la lista, TACHADAS, en gris, con «CORTADA»/«MOVIDA A OTRA ORDEN» y sin casilla: la hoja muestra la OE completa y se ve qué salió. Totales grandes y fila «EN EL PISO» cuentan sólo lo que queda. Sin SQL.
 // (anterior) 28c:   // 28c: 📜 BOBINAS VIEJAS A DEMANDA — reload trae sólo bobinas en stock o de los últimos 60 días, y toda pantalla que miraba una OE o un período más viejo contaba de menos EN SILENCIO: el 🖨️ de ORD-05574 salía con 0 bobinas (tiene 45) y Costos de producción de julio daba 3.590 kg producidos (fueron 37.144). Ahora la MISMA caché C.bobinas_prod se completa sólo cuando hace falta: por OE (🖨️, 📊 Detalle, 📦 Lotes de MP de OE y de pedido, % de avance de la lista, Historial) o por período (Costos, Rentabilidad, con su comparación). Pieza única `// ===== 📜 BOBINAS VIEJAS A DEMANDA` (_oeBobCompleta, _bobPeriodoIncompleto, _completarBobinasDeOEs, _traerBobinasHistoricas, _bobAsegurarYRepintar), invalidada en cada reload con window._bobGen. El botón «📜 Cargar todas las históricas» de Stock usa la misma descarga. Mismos filtros que la carga inicial. Solo lectura. Sin SQL.
 // (anterior) 28b:   // 28b: 🧱 HOJA DE PALLET DE BOBINAS — botón «🧱 Pallet» en la lista de Órdenes de extrusión (y al completarse la OE al cargar la última bobina): A4 con el CLIENTE, el PRODUCTO (código + descripción), el tipo de bobina, total de bobinas/kg/metros en grande, OC, pedido, entrega, y la lista de TODAS las bobinas en stock de la OE con casilla para tildar al subirlas, firmas Armó/Controló. Las bobinas se consultan a la BASE (no a C.bobinas_prod, caché parcial). Fuera de rango/excedentes no van al pallet y se listan aparte; las reservadas a OTRA OC se marcan en gris; las ya cortadas se aclaran al pie. Solo lectura. Sin SQL.
@@ -8862,6 +8863,54 @@ function _empNombre(id){
   return e?(e.apellido_nombre||('Empleado #'+e.id)):'';
 }
 
+
+// ===== 🔖 DE QUIÉN ES LA BOBINA + CÓMO SE CARGÓ (build 2026-10-05b) =====
+// Caso BOB-05319 (05/10): era de la OE de GRUPO ENSER (OC-1052795, sin cortar) y quedó
+// cargada a BIGVEF. El aviso «no es de la OE asociada» ya existía, pero saltaba igual con
+// CADA sobrante de una OE ya terminada (esa mañana, diez veces seguidas) y no decía de
+// quién era la bobina: se confirmaba de memoria. Ahora se distinguen tres casos:
+//   · dueña viva   → otra OC Pendiente/En proceso/Suspendida la necesita: aviso ROJO con el cliente.
+//   · sobrante     → su OE no tiene ninguna OC viva: no se pregunta nada (no le quita a nadie).
+//   · stock libre  → sin OE: se mantiene el aviso de siempre.
+// Y cada asociación guarda orden_corte_bobinas.origen: 'pistola' | 'boton' | 'lista' | 'qr'.
+const _BOB_OC_VIVA=new Set(['Pendiente','En proceso','Suspendida']);
+function _bobDuenaViva(b,oc){
+  if(!b)return null;
+  const todas=C.ord_corte||[];
+  if(b.reservada_oc_id&&(!oc||b.reservada_oc_id!==oc.id)){
+    const r=todas.find(o=>o.id===b.reservada_oc_id);
+    if(r&&_BOB_OC_VIVA.has(r.estado))return r;
+  }
+  if(!b.orden_id)return null;
+  return todas.find(o=>o.orden_extrusion_id===b.orden_id&&(!oc||o.id!==oc.id)&&_BOB_OC_VIVA.has(o.estado))||null;
+}
+// 'propia' | 'duena' | 'sobrante' | 'libre'
+function _bobOrigenClase(b,oc){
+  const oeA=oc&&oc.orden_extrusion_id||null;
+  if(oeA&&b.orden_id===oeA)return 'propia';
+  if(_bobDuenaViva(b,oc))return 'duena';
+  if(b.orden_id)return 'sobrante';
+  return 'libre';
+}
+function _bobAvisoDuena(b,oc){
+  const d=_bobDuenaViva(b,oc);if(!d)return '';
+  const oe=(C.ordenes||[]).find(o=>o.id===b.orden_id);
+  return '⛔ La bobina '+b.numero_bobina+' es de '+(d.cliente||'otro cliente')+'\n\n'
+    +'Se hizo para '+d.numero_orden+' ('+(d.cliente||'—')+')'+(oe?' · OE '+oe.numero_orden:'')+', que todavía está '+d.estado+'.\n'
+    +'Si la cortás para '+oc.numero_orden+' ('+(oc.cliente||'—')+'), a '+(d.cliente||'esa orden')+' le van a faltar '+(parseFloat(b.metros_reales)||0).toLocaleString('es-AR')+' m.\n\n'
+    +'¿Seguro que querés usar ESTA bobina?';
+}
+// Inserta asociaciones con 'origen'; si la columna todavía no existe en la base, reintenta sin ella.
+async function _ocbInsert(rows){
+  let r=await sb.from('orden_corte_bobinas').insert(rows);
+  if(r.error&&/origen/i.test(r.error.message||'')&&r.error.code!=='23505'){
+    if(!window._ocbSinOrigenAvisado){window._ocbSinOrigenAvisado=true;console.warn('orden_corte_bobinas.origen no existe todavía: correr alter_ocb_origen.sql');}
+    const sin=(Array.isArray(rows)?rows:[rows]).map(x=>{const y={...x};delete y.origen;return y;});
+    r=await sb.from('orden_corte_bobinas').insert(Array.isArray(rows)?sin:sin[0]);
+  }
+  return r;
+}
+window._confBobOrigen=window._confBobOrigen||{};
 // === Set de bobinas seleccionadas (máx 4) ===
 let _confBobSel=new Set();
 const MAX_BOBINAS_CONF=4;
@@ -9476,6 +9525,7 @@ function renderConfBobinasList(oc){
 }
 
 function toggleBobinaConf(id,checked){
+  if(checked)window._confBobOrigen[id]='lista';
   if(checked){
     if(_confBobSel.size>=MAX_BOBINAS_CONF){
       const msg=document.getElementById('msg-conf');
@@ -9823,6 +9873,7 @@ function procesarEscaneoBobina(raw){
   }
   // Agregar
   _confBobSel.add(b.id);
+  window._confBobOrigen[b.id]='pistola';
   renderConfBobinasList(oc);
   // Mensaje según origen
   const oeAsociadaId=oc.orden_extrusion_id||null;
@@ -9864,6 +9915,7 @@ function preseleccionarBobinaQR(numeroBobina){
       ocSel.value=compatibles[0].id;
       onConfOCChange();
       _confBobSel=new Set([b.id]);
+      window._confBobOrigen[b.id]='qr';
       renderConfBobinasList(compatibles[0]);
     }
   }
@@ -9912,9 +9964,10 @@ async function asociarBobinasOrdenCorte(){
 
   // === Validar origen de las bobinas vs OE asociada ===
   const oeAsociadaId=oc.orden_extrusion_id||null;
+  // 05b: los sobrantes de una OE sin ninguna OC viva no se preguntan (no le quitan nada a nadie)
   const bobinasNoAsoc=oeAsociadaId
-    ?bobs.filter(b=>b.orden_id!==oeAsociadaId)
-    :[];
+    ?bobs.filter(b=>b.orden_id!==oeAsociadaId&&_bobOrigenClase(b,oc)!=='sobrante')
+    :bobs.filter(b=>_bobOrigenClase(b,oc)==='duena');
   const requiereConfirmacionOrigen=oeAsociadaId&&bobinasNoAsoc.length>0;
 
   const ejecutar=async()=>{
@@ -9930,9 +9983,10 @@ async function asociarBobinasOrdenCorte(){
       bobina_producida_id:b.id,
       metros_usados:b.metros_reales,
       empleado_id:empId,
-      maquina_id:maqId
+      maquina_id:maqId,
+      origen:window._confBobOrigen[b.id]||'lista'
     }));
-    const{error:e1}=await sb.from('orden_corte_bobinas').insert(rows);
+    const{error:e1}=await _ocbInsert(rows);
     if(e1){msg.style.color='var(--red)';msg.textContent=(e1.code==='23505')?'Una de esas bobinas ya estaba asociada a la orden — no se duplica.':'Error: '+e1.message;return;}
     _confRecordarSel();
     // Sacar todas del stock y limpiar reserva si la tenían
@@ -9996,15 +10050,18 @@ async function asociarBobinasOrdenCorte(){
 
 function abrirModalConfirmarOrigenBobinas(oc,bobinasNoAsoc,oeAsociadaId,callback){
   const oeAsoc=C.ordenes.find(o=>o.id===oeAsociadaId);
+  const _duenas=bobinasNoAsoc.filter(b=>_bobDuenaViva(b,oc));
   const listaTxt=bobinasNoAsoc.map(b=>{
     const oe=b.orden_id?C.ordenes.find(o=>o.id===b.orden_id):null;
+    const _d=_bobDuenaViva(b,oc);
+    if(_d)return '<div style="padding:6px 8px;margin:2px 0;font-size:13px;border:1px solid var(--red);border-radius:6px;background:rgba(239,68,68,.08);"><span class="mono" style="color:var(--red);font-weight:800;">'+escapeHtml(b.numero_bobina)+'</span> · '+(b.metros_reales||0).toLocaleString('es-AR')+' m · es de <b style="color:var(--red);">'+escapeHtml(_d.cliente||'—')+'</b> ('+escapeHtml(_d.numero_orden)+', '+escapeHtml(_d.estado)+(oe?' · OE '+escapeHtml(oe.numero_orden):'')+') — <b>le van a faltar estos metros</b></div>';
     const origen=oe?'OE '+oe.numero_orden:'stock libre';
     return '<div style="padding:4px 0;font-size:12px;"><span class="mono" style="color:var(--accent);font-weight:600;">'+b.numero_bobina+'</span> · '+(b.metros_reales||0).toLocaleString('es-AR')+' m · <span style="color:var(--amber);">de '+origen+'</span></div>';
   }).join('');
   document.body.insertAdjacentHTML('beforeend',
     '<div class="modal-overlay" id="confirm-origen-modal">'
     +'<div class="modal-card" style="max-width:520px;">'
-    +'<div class="modal-title" style="color:var(--amber);">⚠ Bobinas fuera de la OE asociada</div>'
+    +(_duenas.length?'<div class="modal-title" style="color:var(--red);">⛔ '+(_duenas.length===1?'Esta bobina es de OTRO cliente':'Hay bobinas de OTROS clientes')+'</div>':'<div class="modal-title" style="color:var(--amber);">⚠ Bobinas fuera de la OE asociada</div>')
     +'<div style="font-size:13px;color:var(--text2);margin-bottom:10px;">'
       +'La OC <strong>'+oc.numero_orden+'</strong> está asociada a <strong>'+(oeAsoc?.numero_orden||'una OE')+'</strong>, pero seleccionaste '+bobinasNoAsoc.length+' bobina'+(bobinasNoAsoc.length>1?'s':'')+' que no son de esa OE:'
     +'</div>'
@@ -10015,7 +10072,7 @@ function abrirModalConfirmarOrigenBobinas(oc,bobinasNoAsoc,oeAsociadaId,callback
       +'Esto es válido si trabajás híbrido (a veces usás bobinas de stock libre o de otra OE). ¿Confirmás?'
     +'</div>'
     +'<div class="btn-grp">'
-      +'<button class="btn btn-primary btn-sm" onclick="confirmarOrigenBobinas()">✓ Sí, asociar igual</button>'
+      +(_duenas.length?'<button class="btn btn-sm" style="border-color:var(--red);color:var(--red);" onclick="confirmarOrigenBobinas()">Sí, usar la de '+escapeHtml([...new Set(_duenas.map(b=>(_bobDuenaViva(b,oc)||{}).cliente||'otro cliente'))].join(' / '))+'</button>':'<button class="btn btn-primary btn-sm" onclick="confirmarOrigenBobinas()">✓ Sí, asociar igual</button>')
       +'<button class="btn btn-sm" onclick="cancelarOrigenBobinas()">Cancelar</button>'
     +'</div>'
     +'</div></div>'
@@ -54041,7 +54098,8 @@ function _pcorteBobinasHTML(oc,maqId){
     const m=parseFloat(b.metros_reales)||0;
     const fecha=b.fecha_produccion?new Date(b.fecha_produccion+'T00:00:00').toLocaleDateString('es-AR'):'';
     const oe=b.orden_id?C.ordenes.find(o=>o.id===b.orden_id):null;
-    const oeTxt=oe?' · '+escapeHtml(oe.numero_orden):' · stock libre';
+    const _dv=_bobDuenaViva(b,oc);
+    const oeTxt=(oe?' · '+escapeHtml(oe.numero_orden):' · stock libre')+(_dv?' · <b style="color:var(--red);">⛔ es de '+escapeHtml(_dv.cliente||_dv.numero_orden)+'</b>':'');
     // Bobina de su OE pero de otro tipo que el que pide el producto: se muestra en rojo
     const desal=!!des&&tipoBobinaId&&(b.bobina_tipo_id??b.bobinas?.id)!==tipoBobinaId;
     const bg=desal?'rgba(239,68,68,.08)':(esDeOC?'rgba(34,197,94,.06)':'var(--bg3)');
@@ -54050,7 +54108,7 @@ function _pcorteBobinasHTML(oc,maqId){
       +'<span style="font-family:monospace;font-weight:600;color:'+colNum+';">'+escapeHtml(b.numero_bobina||'—')+'</span>'
       +'<span style="font-family:monospace;font-weight:700;">'+m.toLocaleString('es-AR')+' m</span>'
       +'<span style="color:var(--text3);font-size:11px;">'+fecha+oeTxt+(desal?' · <span style="color:var(--red);font-weight:800;">'+escapeHtml(des.nomOE)+'</span>':'')+'</span>'
-      +'<button class="btn" style="margin-left:auto;padding:9px 18px;font-size:14px;font-weight:800;color:'+colNum+';border-color:'+colNum+';border-width:2px;" onclick="_pcorteCargarBobina('+oc.id+','+b.id+','+(maqId||'null')+')">+ Cargar</button>'
+      +'<button class="btn" style="margin-left:auto;padding:9px 18px;font-size:14px;font-weight:800;color:'+colNum+';border-color:'+colNum+';border-width:2px;" onclick="_pcorteCargarBobina('+oc.id+','+b.id+','+(maqId||'null')+',\'boton\')">+ Cargar</button>'
     +'</div>';
   };
   const header=(txt,color,subtitle)=>
@@ -54117,7 +54175,7 @@ function _pcorteBobinasHTML(oc,maqId){
 // Cargar una bobina a mano desde el panel: hace LO MISMO que escanearla
 // (asocia a la OC, la saca del stock, registra el movimiento). Reusa la
 // validación y el insert tal como Confección.
-async function _pcorteCargarBobina(ocId,bobId,maquinaId){
+async function _pcorteCargarBobina(ocId,bobId,maquinaId,origen){
   const oc=C.ord_corte.find(x=>x.id===ocId);
   const b=C.bobinas_prod.find(x=>x.id===bobId);
   if(!oc||!b){_pcorteFeedback('✕ No encontré la orden o la bobina.','var(--red)','error');return;}
@@ -54148,9 +54206,9 @@ async function _pcorteCargarBobina(ocId,bobId,maquinaId){
   // Ejecuta la asociación real (mismo efecto que escanear)
   const ejecutar=async()=>{
     try{
-      const{error:e1}=await sb.from('orden_corte_bobinas').insert({
+      const{error:e1}=await _ocbInsert({
         orden_corte_id:ocId,bobina_producida_id:bobId,metros_usados:b.metros_reales,
-        empleado_id:empId,maquina_id:maqId
+        empleado_id:empId,maquina_id:maqId,origen:origen||'boton'
       });
       if(e1)throw e1;
       await sb.from('bobinas_producidas').update({en_stock:false,reservada_oc_id:null}).eq('id',bobId);
@@ -54183,11 +54241,13 @@ async function _pcorteCargarBobina(ocId,bobId,maquinaId){
   }
   // Advertencia si la bobina NO es de la OE asociada a esta OC (igual que Confección)
   const oeAsociadaId=oc.orden_extrusion_id||null;
-  if(oeAsociadaId&&b.orden_id!==oeAsociadaId){
+  // 05b: dueña viva → aviso rojo con el cliente · sobrante de OE terminada → sin pregunta · stock libre → como siempre
+  const _cls=_bobOrigenClase(b,oc);
+  if(_cls==='duena'){
+    if(!confirm(_bobAvisoDuena(b,oc)))return;
+  } else if(_cls==='libre'&&oeAsociadaId){
     const oeA=C.ordenes.find(o=>o.id===oeAsociadaId);
-    const oeB=b.orden_id?C.ordenes.find(o=>o.id===b.orden_id):null;
-    const origen=oeB?'la OE '+oeB.numero_orden:'stock libre';
-    if(!confirm('⚠ Atención\n\nLa orden '+oc.numero_orden+' está asociada a la OE '+(oeA?.numero_orden||'?')+', pero la bobina '+b.numero_bobina+' es de '+origen+'.\n\n¿Cargarla igual a esta orden?'))return;
+    if(!confirm('⚠ Atención\n\nLa orden '+oc.numero_orden+' está asociada a la OE '+(oeA?.numero_orden||'?')+', pero la bobina '+b.numero_bobina+' es de stock libre.\n\n¿Cargarla igual a esta orden?'))return;
   }
   await ejecutar();
 }
@@ -54292,7 +54352,7 @@ async function _pcorteEscanearBobina(raw){
     _pcorteFeedback('⚠ Hay varias OC en proceso. Tocá "📷 Cargar bobinas acá" en la que estás cortando (o escaneá primero el QR de esa OC) y volvé a escanear la bobina.','var(--amber)','error');
     return;
   }
-  await _pcorteCargarBobina(ocId,b.id);
+  await _pcorteCargarBobina(ocId,b.id,undefined,'pistola');
 }
 
 // Arrancar una OC desde el panel, registrando el operario que la inició.
