@@ -821,7 +821,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-05e</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-06a</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -1173,6 +1173,8 @@ body.pext-on .main{margin-left:0!important;}
           <div id="msg-carga" style="margin-top:10px;font-size:13px;"></div>
         </div>
         <div class="carga-right">
+          <!-- 🧵 PLAN DE BOBINAS POR PISTAS (06a) -->
+          <div id="cb-plan"></div>
           <!-- SEMÁFORO -->
           <div class="semaforo-box semaforo-neutral" id="semaforo">
             <div class="semaforo-icon">⚪</div>
@@ -5796,7 +5798,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-05e';   // 05e: 🧱 PALLETS POR PARTES — el botón 🧱 Pallet abre un selector: se eligen las bobinas del pallet (por defecto las primeras 18 que falten, el tamaño se recuerda), se imprime como «PALLET N° n» sólo con esas, y quedan registradas en configuracion['pallet_oe_<id>'] para no imprimirlas dos veces (se relee de la base antes de guardar, por si otra terminal armó uno). Todas las que faltan en un clic, reimprimir o anular un pallet, y la lista completa de la OE como siempre. Sin SQL.
+const APP_BUILD='2026-10-06a';   // 06a: 🧵 PLAN DE BOBINAS POR PISTAS — toda OE nueva sale en N × L: N múltiplo de las pistas de la bolsa (45–60 cm = 4, salvo 60 cm de más de 50 µ = 2; más de 60 cm = 2; editable en la ficha de la bobina) y todas las bobinas con los mismos metros (objetivo de la ficha = mediana histórica del tipo, ±15 %); metros de la OE = N × L, el sobrante a stock. La estación de extrusión y la carga de bobinas muestran el plan, la PRÓXIMA bobina y las pistas; si una bobina sale distinta, COMPENSA: recalcula las que faltan por pista para que todas cierren iguales y, si una pista ya tiene sus bobinas y quedó corta, pide una más de esa medida. La OE no se cierra sola hasta que las pistas cierran. Admin edita bobinas × metros en Editar OE. SQL: sql/pistas_bobinas.sql (sin correrlo funciona derivado, sin guardar).
+// 05e (previo):   // 05e: 🧱 PALLETS POR PARTES — el botón 🧱 Pallet abre un selector: se eligen las bobinas del pallet (por defecto las primeras 18 que falten, el tamaño se recuerda), se imprime como «PALLET N° n» sólo con esas, y quedan registradas en configuracion['pallet_oe_<id>'] para no imprimirlas dos veces (se relee de la base antes de guardar, por si otra terminal armó uno). Todas las que faltan en un clic, reimprimir o anular un pallet, y la lista completa de la OE como siempre. Sin SQL.
 // 05d (previo):   // 05d: ✋ PANEL DE CORTE: SE ESCANEA — se sacó el «+ Cargar» de cada fila de la lista de bobinas (así se tocó la BOB-05319 en vez de la 05325 el 05/10). La lista queda para ver qué hay; la excepción es «✋ Cargar a mano»: se TIPEA el número de la etiqueta, se ve qué bobina es (y si es de otro cliente) antes de confirmar, motivo obligatorio, origen='manual' en orden_corte_bobinas y nota en la OC. Confección no se tocó.
 // 05c (previo):   // 05c: 📦 ANTICIPO DE PEDIDO — en Nueva factura, «Facturar anticipo de un pedido (sin remito)»: se eligen los paquetes por línea del pedido (pendiente = pedido − remitido − ya anticipado), sale la factura con factura_lineas.pedido_linea_id y se le pide el CAE con 🏛. Los remitos posteriores de ese pedido que entran en el anticipo muestran «↪ Aplicar al anticipo» (Nueva factura, Pendientes de facturar y Remitos) y no se pueden volver a facturar; aplicar = factura_remitos + factura_linea_remitos + remito facturado, sin comprobante nuevo. SQL: columna factura_lineas.pedido_linea_id. Caso DAG PED-06016. · 05b: 🔖 DE QUIÉN ES LA BOBINA — caso BOB-05319 (de GRUPO ENSER, cargada a BIGVEF el 05/10 09:28): el aviso «no es de la OE asociada» saltaba con cada sobrante de una OE terminada y no decía de quién era, así que se confirmaba de memoria. Ahora: si otra OC viva (Pendiente/En proceso/Suspendida) necesita esa bobina, aviso ROJO con el cliente y los metros que le van a faltar (Panel de corte y Confección, y la lista del panel la marca «⛔ es de …»); los sobrantes de una OE sin OC viva ya no preguntan; stock libre igual que antes. Y orden_corte_bobinas.origen guarda cómo se cargó cada bobina (pistola/boton/lista/qr) — requiere alter_ocb_origen.sql; sin la columna, inserta igual sin ella.
 // 05a (previo):   // 05a: 📋 PARTE DIARIO DE CORTE — pantalla nueva en Producción (al lado de Cortar hoy): por día, las OC CERRADAS (fecha_completada, paquetes del libro mov_bolsas, máquina, hora y desvío contra la grilla = fin_baseline congelado al iniciar), las TRABAJADAS sin cerrar (bobinas asignadas ese día, metros del día y % de avance acumulado) y las que la GRILLA comprometía para ese día y no cerraron. KPI de cumplimiento (cumplidas/comprometidas), tira de 7 días e impresión A4. Todo derivado y de solo lectura, lee la base directo (no cachés parciales). Sin SQL.
@@ -7641,7 +7644,7 @@ function renderOrdenes(){
         }
         return '—';
       })()+'</td>'
-      +'<td class="mono">'+(o.metros?.toLocaleString('es-AR')||'—')+' m</td>'
+      +'<td class="mono">'+(o.metros?.toLocaleString('es-AR')||'—')+' m'+(['Pendiente','En proceso','Suspendida'].includes(o.estado)?'<div style="margin-top:3px;">'+_pbChipHtml(o)+'</div>':'')+'</td>'
       +'<td class="mono">'+(o.kg_totales?.toLocaleString('es-AR')||'—')+' kg</td>'
       +'<td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+exts+'</td>'
       +'<td class="mono">'+hs+' hs</td>'
@@ -8071,10 +8074,10 @@ async function guardarOrden(){
   const capT=exts.reduce((s,e)=>s+e.kg_por_hora,0);
   const hs=r2(kg/capT);
   msg.innerHTML='<div class="loading" style="padding:0.5rem 0;justify-content:flex-start"><div class="spinner"></div>Guardando...</div>';
-  const{data:ord,error:e1}=await sb.from('ordenes').insert({numero_orden:nord,ref_flexxus:flex||null,cliente:cli||null,bobina_id:bId,metros:mts,kg_totales:kg,prioridad:pri,fecha_inicio_ref:fecha||null,estado:est,observaciones:obs||null}).select().single();
+  const{data:ord,error:e1}=await _pbInsertOE({numero_orden:nord,ref_flexxus:flex||null,cliente:cli||null,bobina_id:bId,metros:mts,kg_totales:kg,prioridad:pri,fecha_inicio_ref:fecha||null,estado:est,observaciones:obs||null});
   if(e1){msg.className='msg-err';msg.textContent='Error: '+e1.message;return;}
   await sb.from('orden_extrusoras').insert(exts.map(e=>({orden_id:ord.id,extrusora_id:e.id,hs_estimadas:hs})));
-  msg.className='msg-ok';msg.textContent=`✓ Orden ${nord} guardada — ${kg.toLocaleString('es-AR')} kg · ${hs} hs`;
+  msg.className='msg-ok';msg.textContent=`✓ Orden ${nord} guardada — ${(ord.bobinas_plan?_pbTxtPlan({N:ord.bobinas_plan,L:ord.metros_bobina_plan,P:ord.pistas_plan})+' = '+(ord.metros||mts).toLocaleString('es-AR')+' m · ':'')}${(ord.kg_totales||kg).toLocaleString('es-AR')} kg · ${hs} hs`;
   await reload();setTimeout(()=>go('ordenes'),1500);
 }
 
@@ -8292,6 +8295,368 @@ async function generarNroBobina(){
     console.error('generarNroBobina',e);
   }
 }
+// ===== 🧵 PLAN DE BOBINAS POR PISTAS (build 2026-10-06a) =====
+// German (06/10): «que las OE tengan bobinas múltiplo de 4 para las medidas chicas y de 2
+// para las grandes, para que la máquina no quede corriendo dos pistas; y que cierren los
+// metros: no me sirven 4 bobinas de 1500, 600, 100 y 400 m — si pasa, hay que COMPENSAR
+// para poner las 4 pistas continuas. No importa pasarse, queda en stock».
+// · PISTAS: dato de la bolsa (ficha de la bobina, `bobinas.pistas`). Sin dato: 45–60 cm = 4,
+//   salvo 60 cm de más de 50 µ = 2; más de 60 cm = 2.
+// · METROS OBJETIVO por bobina: `bobinas.metros_bobina_obj` (la carga inicial de
+//   sql/pistas_bobinas.sql = mediana histórica del tipo sin el «resto» de cada OE). Sin
+//   dato: lo mismo con la caché; si no, el peso típico del ancho ÷ kg/m. Rango ±15 %.
+// · PLAN DE LA OE = N × L: N múltiplo de las pistas, todas las bobinas con los mismos L
+//   metros, el L más cercano al objetivo dentro del rango. metros de la OE = N × L; lo que
+//   sobra va a stock. Se guarda en ordenes.bobinas_plan / metros_bobina_plan / pistas_plan.
+// · COMPENSACIÓN: las bobinas hechas se reparten en las pistas (la más larga a la pista más
+//   corta, sin pasarse de las que le tocan) y lo que falta se calcula POR PISTA para que
+//   todas cierren con los mismos metros. Si una pista ya tiene sus bobinas y le faltan
+//   metros, pide una bobina más de esa medida. La OE no se cierra sola hasta que las
+//   pistas cierran (la oficina la puede cerrar a mano con admin, como siempre).
+// Sin correr sql/pistas_bobinas.sql funciona igual: el plan se deriva de los metros.
+const _PB_COLS=['bobinas_plan','metros_bobina_plan','pistas_plan'];
+function _pbRed10(x){return Math.ceil((+x||0)/10-1e-9)*10;}
+function _pbRed50(x){return Math.max(50,Math.round((+x||0)/50)*50);}
+function _pbMediana(a){
+  const v=(a||[]).map(Number).filter(x=>x>0).sort((x,y)=>x-y);
+  if(!v.length)return 0;
+  const m=Math.floor(v.length/2);
+  return v.length%2?v[m]:(v[m-1]+v[m])/2;
+}
+function _pbPistasSugeridas(bob){
+  const a=parseFloat(bob?.ancho)||0,e=parseFloat(bob?.espesor)||0;
+  if(a>60)return 2;
+  if(a>=60&&e>50)return 2;
+  return 4;
+}
+function _pbPistas(bob){const p=parseInt(bob?.pistas);return p>0?p:_pbPistasSugeridas(bob);}
+function _pbRangoPct(bob){const r=parseFloat(bob?.rango_bobina_pct);return r>0?r:15;}
+function _pbKgTipicoAncho(a){a=+a||0;return a<=50?20:a<=60?26:a<=90?32:36;}
+// PURA. bobs: [{orden_id,metros_reales,kg_reales}] de UN tipo → mediana sin la más corta
+// de cada OE (el «resto»). Mínimo 8 bobinas; si no, null.
+function _pbObjHistorial(bobs,campo){
+  const porOE={};
+  (bobs||[]).forEach(b=>{const v=parseFloat(b[campo||'metros_reales'])||0;if(!(v>0))return;
+    const k=b.orden_id??'x';(porOE[k]=porOE[k]||[]).push({v,m:parseFloat(b.metros_reales)||0});});
+  const vals=[];
+  Object.values(porOE).forEach(g=>{
+    if(g.length<2){g.forEach(x=>vals.push(x.v));return;}
+    let iMin=0;g.forEach((x,i)=>{if(x.m<g[iMin].m)iMin=i;});
+    g.forEach((x,i)=>{if(i!==iMin)vals.push(x.v);});
+  });
+  return vals.length>=8?_pbMediana(vals):null;
+}
+function _pbTipoDeBob(b){
+  if(b.bobina_tipo_id!=null)return b.bobina_tipo_id;
+  const o=(C.ordenes||[]).find(x=>x.id===b.orden_id);return o?.bobina_id??null;
+}
+function _pbObjetivo(bob){
+  if(!bob)return{m:0,fuente:'—'};
+  const v=parseFloat(bob.metros_bobina_obj);
+  if(v>0)return{m:v,fuente:'ficha'};
+  const prod=(C.bobinas_prod||[]).filter(b=>!b.anulada&&!b.fuera_de_rango);
+  const h=_pbObjHistorial(prod.filter(b=>_pbTipoDeBob(b)===bob.id));
+  if(h)return{m:_pbRed50(h),fuente:'historial'};
+  const kgm=parseFloat(bob.kg_por_metro)||0;
+  if(kgm>0){
+    const mismos=new Set((C.bobinas||[]).filter(x=>String(x.ancho)===String(bob.ancho)).map(x=>x.id));
+    const kgMed=_pbObjHistorial(prod.filter(b=>mismos.has(_pbTipoDeBob(b))),'kg_reales');
+    if(kgMed)return{m:_pbRed50(kgMed/kgm),fuente:'peso del ancho'};
+    return{m:_pbRed50(_pbKgTipicoAncho(bob.ancho)/kgm),fuente:'peso típico'};
+  }
+  return{m:1000,fuente:'sin datos'};
+}
+// PURA. M metros necesarios, P pistas, L objetivo por bobina, rango ±%.
+// Devuelve {N,L,P,metros,exceso,enRango} o null.
+// Dentro del rango: el L más cercano al objetivo (empate: menos bobinas).
+// Sin ninguno en rango (pedido chico, o justo entre dos cantidades): el más cercano al
+// objetivo que no pase del máximo; nunca bobinas de menos de la mitad del objetivo.
+function _pbCalcularPlan(M,P,L,rangoPct){
+  M=+M||0;P=Math.max(1,parseInt(P)||1);L=+L||0;
+  if(!(M>0)||!(L>0))return null;
+  const r=(rangoPct>0?rangoPct:15)/100,lmin=L*(1-r),lmax=L*(1+r),lpiso=_pbRed10(L*0.5);
+  const kMax=Math.min(5000,Math.max(1,Math.ceil(M/(P*lpiso)))+1);
+  let best=null;
+  const sc=c=>(c.L>lmax+1e-9?1e9:0)+Math.abs(c.L-L);
+  for(let k=1;k<=kMax;k++){
+    const N=P*k;
+    const l=Math.max(_pbRed10(M/N),lpiso);
+    const c={N,L:l,P,metros:N*l,exceso:Math.round(N*l-M),enRango:l>=lmin-1e-9&&l<=lmax+1e-9};
+    if(!best){best=c;continue;}
+    if(c.enRango&&!best.enRango){best=c;continue;}
+    if(c.enRango===best.enRango){
+      const a=sc(c),b=sc(best);
+      if(a<b-1e-9||(Math.abs(a-b)<1e-9&&c.N<best.N))best=c;
+    }
+  }
+  return best;
+}
+function _pbBob(id){return (C.bobinas||[]).find(b=>b.id===id)||null;}
+// Plan para una OE NUEVA de esa bobina por esos metros necesarios.
+function _pbPlanNuevo(bobinaId,metros){
+  const bob=_pbBob(bobinaId);if(!bob)return null;
+  const o=_pbObjetivo(bob);
+  const p=_pbCalcularPlan(metros,_pbPistas(bob),o.m,_pbRangoPct(bob));
+  if(!p)return null;
+  const kgm=parseFloat(bob.kg_por_metro)||(bob.gramaje?bob.gramaje/1000:0);
+  p.objetivo=o.m;p.fuente=o.fuente;p.rango=_pbRangoPct(bob);p.necesarios=+metros||0;
+  p.kg=kgm>0?r2(p.metros*kgm):null;
+  return p;
+}
+// Plan de una OE existente: el guardado; si no hay (OE vieja o sin la columna), derivado.
+function _pbPlanDeOE(oe){
+  if(!oe||oe.origen==='venta_bobina')return null;
+  const bob=oe.bobinas||_pbBob(oe.bobina_id);
+  const N=parseInt(oe.bobinas_plan),L=parseFloat(oe.metros_bobina_plan);
+  if(N>0&&L>0&&parseFloat(oe.metros)>0){
+    const P=parseInt(oe.pistas_plan)||_pbPistas(bob);
+    return{N,L,P,metros:N*L,guardado:true,rango:_pbRangoPct(bob),objetivo:L};
+  }
+  if(!(parseFloat(oe.metros)>0))return null;
+  const p=_pbPlanNuevo(oe.bobina_id,oe.metros);
+  if(p)p.derivado=true;
+  return p;
+}
+// Payload de insert de una OE → con el plan aplicado (muta y devuelve).
+function _pbAplicarAPayload(payload){
+  if(!payload||payload.origen==='venta_bobina'||!(parseFloat(payload.metros)>0))return payload;
+  const p=_pbPlanNuevo(payload.bobina_id,payload.metros);
+  if(!p)return payload;
+  payload.metros=p.metros;
+  if(p.kg>0)payload.kg_totales=p.kg;
+  payload.bobinas_plan=p.N;payload.metros_bobina_plan=p.L;payload.pistas_plan=p.P;
+  return payload;
+}
+function _pbSinColumnas(err){return _PB_COLS.some(c=>String(err?.message||'').includes(c));}
+function _pbAvisarSinSQL(){
+  if(window._pbSinSQLAvisado)return;window._pbSinSQLAvisado=true;
+  console.warn('ordenes.bobinas_plan no existe todavía: correr sql/pistas_bobinas.sql');
+}
+// Reemplaza sb.from('ordenes').insert(payload).select().single() — mismo resultado.
+async function _pbInsertOE(payload){
+  _pbAplicarAPayload(payload);
+  let r=await sb.from('ordenes').insert(payload).select().single();
+  if(r.error&&_pbSinColumnas(r.error)){
+    _pbAvisarSinSQL();
+    const sin={...payload};_PB_COLS.forEach(c=>delete sin[c]);
+    r=await sb.from('ordenes').insert(sin).select().single();
+  }
+  return r;
+}
+// Update de una OE que cambia sus metros necesarios → recalcula el plan.
+async function _pbUpdateOE(id,upd,bobinaId){
+  if(upd&&('metros' in upd)&&!(parseFloat(upd.metros)>0)){upd.bobinas_plan=null;upd.metros_bobina_plan=null;upd.pistas_plan=null;}
+  else if(upd&&parseFloat(upd.metros)>0&&!(upd.bobinas_plan>0)){
+    const p=_pbPlanNuevo(bobinaId,upd.metros);
+    if(p){upd.metros=p.metros;if(p.kg>0)upd.kg_totales=p.kg;
+      upd.bobinas_plan=p.N;upd.metros_bobina_plan=p.L;upd.pistas_plan=p.P;}
+  }
+  let r=await sb.from('ordenes').update(upd).eq('id',id);
+  if(r.error&&_pbSinColumnas(r.error)){
+    _pbAvisarSinSQL();
+    const sin={...upd};_PB_COLS.forEach(c=>delete sin[c]);
+    r=await sb.from('ordenes').update(sin).eq('id',id);
+  }
+  return r;
+}
+// Bobinas que cuentan para las pistas de una OE (las que existen y son de esa OE).
+function _pbBobinasDeOE(oeId){
+  return (C.bobinas_prod||[]).filter(b=>b.orden_id===oeId&&!b.anulada&&!b.fuera_de_rango
+    &&(parseFloat(b.metros_reales)||0)>0);
+}
+// PURA. plan {N,L,P,rango}; mts: metros de las bobinas ya hechas.
+// → {T,cap,pistas:[{n,bobs,suma,prox:[...] ,extra}],faltan:[...],nExtra,cerrada,hechas,mtsHechos}
+function _pbCompensar(plan,mts){
+  const P=Math.max(1,plan.P|0),L=+plan.L||0;
+  const porPista=Math.max(1,Math.ceil((plan.N|0)/P));
+  const hechas=(mts||[]).map(Number).filter(x=>x>0);
+  const cap=Math.max(porPista,Math.ceil(hechas.length/P));
+  const pistas=Array.from({length:P},(_,i)=>({n:i+1,bobs:[],suma:0,prox:[],extra:0}));
+  hechas.slice().sort((a,b)=>b-a).forEach(m=>{
+    let best=null;
+    pistas.forEach(p=>{
+      if(p.bobs.length>=cap)return;
+      if(!best||p.suma<best.suma-1e-9||(Math.abs(p.suma-best.suma)<1e-9&&p.bobs.length<best.bobs.length))best=p;
+    });
+    best.bobs.push(m);best.suma+=m;
+  });
+  const Tplan=porPista*L;
+  const T=Math.max(Tplan,...pistas.map(p=>p.suma));
+  const tol=Math.max(50,L*0.03);
+  const lmax=L*(1+((plan.rango>0?plan.rango:15)/100));
+  const faltan=[];let nExtra=0;
+  pistas.forEach(p=>{
+    const slots=cap-p.bobs.length;
+    // Con lugar en la pista, la compensación es gratis: sus bobinas que faltan se alargan
+    // hasta la pista más larga (sin pasar del máximo por bobina). Sin lugar, sólo se pide
+    // una bobina MÁS si quedó corta contra el plan: una pista que se pasó un poco no
+    // justifica hacer bobinitas en las otras.
+    p.meta=slots>0?Math.max(Tplan,Math.min(T,p.suma+slots*lmax)):Tplan;
+    p.deficit=Math.max(0,p.meta-p.suma);
+    p.sobra=Math.max(0,p.suma-Tplan);
+    if(p.deficit<=tol)return;                     // esta pista ya cierra
+    const nB=Math.max(1,slots,Math.ceil(p.deficit/lmax-1e-9));
+    const l=_pbRed10(p.deficit/nB);
+    for(let i=0;i<nB;i++)p.prox.push(l);
+    if(nB>slots){p.extra=nB-Math.max(0,slots);nExtra+=p.extra;}
+    faltan.push(...p.prox);
+  });
+  faltan.sort((a,b)=>b-a);
+  return{T,Tplan,cap,pistas,faltan,nExtra,cerrada:!faltan.length,hechas:hechas.length,
+    mtsHechos:Math.round(hechas.reduce((s,x)=>s+x,0)),tol};
+}
+// «4 × 1.550 · 2 × 1.500»
+function _pbAgrupar(lista){
+  const c={};(lista||[]).forEach(l=>{c[l]=(c[l]||0)+1;});
+  return Object.keys(c).map(Number).sort((a,b)=>b-a)
+    .map(l=>c[l]+' × '+l.toLocaleString('es-AR')+' m').join(' · ');
+}
+function _pbTxtPlan(p){return p?p.N+' × '+Math.round(p.L).toLocaleString('es-AR')+' m · '+p.P+' pistas':'';}
+// Estado completo de una OE (plan + compensación), con una bobina extra opcional (la
+// que se está por registrar).
+function _pbEstadoOE(oe,mtsExtra){
+  const plan=_pbPlanDeOE(oe);if(!plan)return null;
+  const mts=_pbBobinasDeOE(oe.id).map(b=>parseFloat(b.metros_reales)||0);
+  if(mtsExtra>0)mts.push(+mtsExtra);
+  return{plan,comp:_pbCompensar(plan,mts)};
+}
+// ¿Con esta bobina (mtsExtra) quedan cerradas las pistas? Sin plan: sí (como antes).
+function _pbOECierra(oe,mtsExtra){
+  try{const e=_pbEstadoOE(oe,mtsExtra);return !e||e.comp.cerrada;}catch(err){return true;}
+}
+// Chip corto para listas (Órdenes de extrusión, panel de la estación).
+function _pbChipHtml(oe,grande){
+  const e=_pbEstadoOE(oe);if(!e)return '';
+  const{plan,comp}=e;
+  const fs=grande?'13px':'11px';
+  let h='<span title="Plan de bobinas: todas iguales, múltiplo de las pistas" style="display:inline-block;font-size:'+fs+';font-weight:700;padding:2px 8px;border-radius:99px;background:var(--accentbg);border:1px solid var(--accentbd);color:var(--accent);white-space:nowrap;">🧵 '+_pbTxtPlan(plan)+'</span>';
+  if(comp.hechas&&!comp.cerrada&&comp.faltan.length&&comp.faltan.some(l=>Math.abs(l-plan.L)>comp.tol))
+    h+=' <span style="font-size:'+fs+';font-weight:700;color:var(--amber);white-space:nowrap;">⚖ compensar: '+_pbAgrupar(comp.faltan)+'</span>';
+  return h;
+}
+// Bloque grande para el extrusor (estación y carga de bobinas).
+function _pbBoxHtml(oe,mtsTipeados){
+  const e=_pbEstadoOE(oe);if(!e)return '';
+  const{plan,comp}=e;
+  const prox=comp.faltan[0]||0;
+  const pistasH=comp.pistas.map(p=>{
+    const pct=p.meta>0?Math.min(100,Math.round(p.suma/p.meta*100)):0;
+    const col=p.deficit<=comp.tol?'var(--green)':p.extra?'var(--red)':'var(--accent)';
+    return '<div style="display:flex;align-items:center;gap:6px;font-size:11px;">'
+      +'<span style="min-width:52px;color:var(--text2);">Pista '+p.n+'</span>'
+      +'<div style="flex:1;height:9px;background:var(--bg3);border-radius:5px;overflow:hidden;"><div style="height:100%;width:'+pct+'%;background:'+col+';"></div></div>'
+      +'<span class="mono" style="min-width:120px;text-align:right;">'+Math.round(p.suma).toLocaleString('es-AR')+' / '+Math.round(p.meta).toLocaleString('es-AR')+' m'
+      +(p.deficit>comp.tol?' <b style="color:'+col+'">−'+Math.round(p.deficit).toLocaleString('es-AR')+'</b>':' ✓')+'</span></div>';
+  }).join('');
+  let accion;
+  if(comp.cerrada){
+    accion='<div style="font-size:16px;font-weight:800;color:var(--green);">✓ Las '+plan.P+' pistas cierran parejas</div>';
+  }else{
+    const compensa=comp.faltan.some(l=>Math.abs(l-plan.L)>comp.tol);
+    accion='<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;">Próxima bobina</div>'
+      +'<div class="mono" style="font-size:30px;font-weight:800;line-height:1.1;color:'+(compensa?'var(--amber)':'var(--accent)')+';">'+prox.toLocaleString('es-AR')+' m</div>'
+      +'<div style="font-size:12px;margin-top:2px;">Faltan <b>'+comp.faltan.length+'</b>: '+_pbAgrupar(comp.faltan)+'</div>'
+      +(compensa?'<div style="font-size:11.5px;color:var(--amber);margin-top:4px;">⚖ Compensación: las que faltan van con estos metros para que las pistas cierren iguales.</div>':'')
+      +(comp.nExtra?'<div style="font-size:11.5px;color:var(--red);font-weight:700;margin-top:4px;">➕ '+comp.nExtra+' bobina'+(comp.nExtra>1?'s':'')+' más de lo planeado para cerrar una pista corta.</div>':'');
+  }
+  let aviso='';
+  const mt=+mtsTipeados||0;
+  if(mt>0&&prox>0){
+    const dev=(mt-prox)/prox*100;
+    if(Math.abs(dev)>5){
+      const e2=_pbEstadoOE(oe,mt);
+      aviso='<div style="margin-top:8px;padding:7px 9px;border-radius:6px;background:var(--amberbg);border:1px solid var(--amberbd);font-size:12px;color:var(--amber);line-height:1.45;">'
+        +'⚠ Esta bobina tiene <b>'+Math.round(mt).toLocaleString('es-AR')+' m</b> y el objetivo es <b>'+prox.toLocaleString('es-AR')+' m</b> ('+(dev>0?'+':'')+Math.round(dev)+' %). Se puede registrar igual'
+        +(e2&&!e2.comp.cerrada?'; las que faltan quedarían en <b>'+_pbAgrupar(e2.comp.faltan)+'</b>.':'; con ella las pistas cierran.')+'</div>';
+    }
+  }
+  return '<div class="fp" style="margin-bottom:10px;border:2px solid var(--accentbd);">'
+    +'<div class="fp-t">🧵 Plan de bobinas — '+escapeHtml(String(oe.numero_orden||''))+'</div>'
+    +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px;">'
+      +'<div style="font-size:20px;font-weight:800;">'+plan.N+' × '+Math.round(plan.L).toLocaleString('es-AR')+' m</div>'
+      +'<div style="font-size:12px;color:var(--text2);">'+plan.P+' pistas · hechas <b>'+comp.hechas+'</b> de '+plan.N+'</div>'
+    +'</div>'
+    +accion
+    +'<div style="display:flex;flex-direction:column;gap:4px;margin-top:10px;">'+pistasH+'</div>'
+    +aviso
+    +(plan.derivado?'<div style="font-size:10px;color:var(--text3);margin-top:6px;">Plan calculado sobre los metros de la OE (OE anterior al plan por pistas).</div>':'')
+    +'</div>';
+}
+// Carga de bobinas: pinta el bloque del plan arriba a la derecha.
+function _pbPintarCarga(){
+  const w=document.getElementById('cb-plan');if(!w)return;
+  const ordId=parseInt(document.getElementById('cb-orden')?.value);
+  const oe=(C.ordenes||[]).find(o=>o.id===ordId);
+  if(!oe){w.innerHTML='';return;}
+  const mt=parseFloat(document.getElementById('cb-mts')?.value)||0;
+  try{w.innerHTML=_pbBoxHtml(oe,mt);}catch(e){console.warn('plan de bobinas',e);w.innerHTML='';}
+  // la OE puede tener bobinas viejas fuera de la caché: completarlas y repintar una vez
+  if(typeof _oeBobCompleta==='function'&&!_oeBobCompleta(oe)&&typeof _completarBobinasDeOEs==='function'&&!w.dataset.pbPidio){
+    w.dataset.pbPidio='1';
+    _completarBobinasDeOEs([oe.id]).then(()=>{delete w.dataset.pbPidio;_pbPintarCarga();}).catch(()=>{});
+  }
+}
+// Pedido: línea de vista previa debajo de «Metros a extruir».
+function _pbVistaPreviaHtml(bobinaId,metros){
+  const p=_pbPlanNuevo(bobinaId,metros);if(!p)return '';
+  return '<div style="font-size:11.5px;margin-top:4px;color:var(--accent);">🧵 La OE sale en <b>'+_pbTxtPlan(p)+'</b> = '
+    +p.metros.toLocaleString('es-AR')+' m'+(p.exceso>0?' (+'+p.exceso.toLocaleString('es-AR')+' m a stock)':'')+'</div>';
+}
+// Estación de extrusión: plan + próxima bobina de la OE en proceso (sin cálculo pesado).
+function _pbPanelHtml(oe){
+  let e;try{e=_pbEstadoOE(oe);}catch(err){return '';}
+  if(!e)return '';
+  const{plan,comp}=e;const prox=comp.faltan[0]||0;
+  const compensa=comp.faltan.some(l=>Math.abs(l-plan.L)>comp.tol);
+  return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--bg2);border:1px solid var(--accentbd);border-radius:8px;padding:8px 10px;margin-bottom:10px;">'
+    +'<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;">🧵 Plan · '+plan.P+' pistas</div>'
+      +'<div style="font-size:17px;font-weight:800;">'+plan.N+' × '+Math.round(plan.L).toLocaleString('es-AR')+' m</div>'
+      +'<div style="font-size:11px;color:var(--text2);">hechas '+comp.hechas+' de '+plan.N+'</div></div>'
+    +(comp.cerrada
+      ?'<div style="font-size:13px;font-weight:800;color:var(--green);">✓ pistas parejas</div>'
+      :'<div style="text-align:right;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;">próxima bobina</div>'
+        +'<div class="mono" style="font-size:22px;font-weight:800;color:'+(compensa?'var(--amber)':'var(--accent)')+';">'+prox.toLocaleString('es-AR')+' m</div>'
+        +(compensa?'<div style="font-size:11px;color:var(--amber);font-weight:700;">⚖ '+_pbAgrupar(comp.faltan)+'</div>':'<div style="font-size:11px;color:var(--text2);">faltan '+comp.faltan.length+'</div>')
+      +'</div>')
+    +'</div>';
+}
+// Editar OE (admin): bobinas × metros por bobina; los metros de la OE salen de ahí.
+function _pbEoeHtml(o){
+  if(!o||o.origen==='venta_bobina')return '';
+  const p=_pbPlanDeOE(o);
+  const bob=o.bobinas||_pbBob(o.bobina_id);
+  return '<div style="background:var(--accentbg);border:1px solid var(--accentbd);border-radius:var(--r);padding:10px 12px;margin-bottom:12px;">'
+    +'<div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">🧵 Plan de bobinas · '+_pbPistas(bob)+' pistas</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
+      +'<div class="fg"><label>Bobinas</label><input type="number" id="eoe-pb-n" min="1" step="1" value="'+(p?p.N:'')+'" oninput="_pbEoeDesdeNL('+o.id+')"></div>'
+      +'<div class="fg"><label>Metros por bobina</label><input type="number" id="eoe-pb-l" min="1" step="10" value="'+(p?Math.round(p.L):'')+'" oninput="_pbEoeDesdeNL('+o.id+')"></div>'
+    +'</div>'
+    +'<div id="eoe-pb-info" style="font-size:11.5px;color:var(--text2);margin-top:6px;">'+_pbEoeInfo(o,p?p.N:0,p?p.L:0)+'</div>'
+  +'</div>';
+}
+function _pbEoeInfo(o,N,L){
+  const bob=o.bobinas||_pbBob(o.bobina_id);const P=_pbPistas(bob);
+  if(!(N>0&&L>0))return 'Sin plan: completá bobinas y metros por bobina.';
+  const obj=_pbObjetivo(bob).m;
+  return 'Metros de la OE = <b>'+(N*L).toLocaleString('es-AR')+' m</b>'
+    +(N%P?' · <b style="color:var(--red)">⚠ '+N+' no es múltiplo de '+P+' pistas</b>':' · múltiplo de '+P+' ✓')
+    +(obj>0?' · objetivo de la bobina '+obj.toLocaleString('es-AR')+' m':'');
+}
+function _pbEoeDesdeMetros(id){
+  const o=C.ordenes.find(x=>x.id===id);if(!o)return;
+  const m=parseFloat(document.getElementById('eoe-metros')?.value)||0;
+  const p=_pbPlanNuevo(o.bobina_id,m);
+  const n=document.getElementById('eoe-pb-n'),l=document.getElementById('eoe-pb-l'),i=document.getElementById('eoe-pb-info');
+  if(n)n.value=p?p.N:'';if(l)l.value=p?Math.round(p.L):'';
+  if(i)i.innerHTML=_pbEoeInfo(o,p?p.N:0,p?p.L:0)+(p&&p.exceso>0?' · +'+p.exceso.toLocaleString('es-AR')+' m sobre lo tipeado':'');
+}
+function _pbEoeDesdeNL(id){
+  const o=C.ordenes.find(x=>x.id===id);if(!o)return;
+  const N=parseInt(document.getElementById('eoe-pb-n')?.value)||0,L=parseFloat(document.getElementById('eoe-pb-l')?.value)||0;
+  const m=document.getElementById('eoe-metros');if(m&&N>0&&L>0)m.value=N*L;
+  const i=document.getElementById('eoe-pb-info');if(i)i.innerHTML=_pbEoeInfo(o,N,L);
+}
+// ===== FIN 🧵 PLAN DE BOBINAS POR PISTAS =====
 function onOrdenChange(){
   const ordId=parseInt(document.getElementById('cb-orden').value);
   const orden=C.ordenes.find(o=>o.id===ordId);
@@ -8321,8 +8686,10 @@ function actualizarProgresoOrden(orden){
   document.getElementById('prog-fill').style.cssText=`width:${Math.min(100,pct)}%;background:${pctColor}`;
   document.getElementById('prog-detail').textContent=`${r1(mtsP)} m producidos de ${orden.metros} m pedidos${pct>100?` — EXCEDE el total (límite admin: ${maxPct}%)`:''}`
     +(_cbEsGracia(orden)?' · ⏱ OE YA CERRADA: cargá sólo la bobina que quedó en la máquina':'');
+  try{_pbPintarCarga();}catch(e){}
 }
 function calcCarga(){
+  try{_pbPintarCarga();}catch(e){}
   const ordId=parseInt(document.getElementById('cb-orden').value);
   const orden=C.ordenes.find(o=>o.id===ordId);
   const mtsR=parseFloat(document.getElementById('cb-mts').value)||0;
@@ -8739,6 +9106,11 @@ async function _guardarBobinaDBInner(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errP
       // ⏱ 01a — la OE ya estaba Completada: no se vuelve a cerrar ni se festeja de nuevo.
       msg.className='msg-ok';
       msg.textContent=`✓ Bobina ${nro} registrada en ${orden.numero_orden} (OE ya cerrada) — Calidad: ${calidad}. Quedó marcada para que la oficina la revise.`;
+    }else if(orden&&mtsAcum>=orden.metros&&!_pbOECierra(orden,mtsR)){
+      // 🧵 06a: llegó a los metros pero las pistas no cierran parejas → la OE sigue abierta
+      const _pbE=_pbEstadoOE(orden,mtsR);
+      msg.className='msg-ok';
+      msg.innerHTML=`✓ Bobina ${nro} registrada — Calidad: ${calidad}.<br><b style="color:var(--amber)">⚖ ${escapeHtml(orden.numero_orden)} llegó a los metros pero las pistas no cierran: faltan ${_pbE?_pbAgrupar(_pbE.comp.faltan):''}.</b> La OE sigue abierta hasta compensar.`;
     }else if(orden&&mtsAcum>=orden.metros){
       await sb.from('ordenes').update({estado:'Completada'}).eq('id',ordId);
       _oeCompletada=true;
@@ -8787,6 +9159,7 @@ function limpiarCarga(){
   document.getElementById('semaforo').innerHTML='<div class="semaforo-icon">⚪</div><div class="semaforo-title">Sin datos</div><div class="semaforo-detail">Ingresá metros y kg reales</div>';
   document.getElementById('carga-calc').innerHTML='<div style="font-size:12px;color:var(--text3)">Seleccioná orden y completá medición.</div>';
   document.getElementById('progreso-orden').style.display='none';
+  const _pbw=document.getElementById('cb-plan');if(_pbw)_pbw.innerHTML='';
 }
 function renderCargaHist(){
   const w=document.getElementById('carga-hist');if(!w)return;
@@ -9385,7 +9758,7 @@ function _omFijar(ocId){
     const updOE={metros:d.mReq,observaciones:String(d.oe.observaciones||'')+marca};
     if(d.kgReq>0)updOE.kg_totales=d.kgReq;
     if(reabrir){updOE.estado='En proceso';updOE.fecha_completada=null;}
-    const{error:e2}=await sb.from('ordenes').update(updOE).eq('id',d.oe.id);
+    const{error:e2}=await _pbUpdateOE(d.oe.id,updOE,d.oe.bobina_id);   // 🧵 06a: replanifica las pistas
     if(e2){if(msg)msg.innerHTML='<span style="color:var(--amber)">La OC se corrigió pero la OE no: '+escapeHtml(e2.message)+'</span>';return;}
     document.getElementById('om-fix-modal')?.remove();
     toast('✓ '+oc.numero_orden+' y '+d.oe.numero_orden+' a '+r1(d.mReq).toLocaleString('es-AR')+' m'+(reabrir?' · OE reabierta':''),'green');
@@ -10153,13 +10526,13 @@ function renderBobinas(){
       <div style="margin-top:8px;"><button class="btn btn-primary btn-sm" onclick="alinearBobinasKgm()">🔧 Alinear las ${desal} con su espesor</button>
       <span style="margin-left:8px;color:var(--text3);">o una por una con el <b>✏</b> de la fila</span></div>
     </div>`:'';
-  w.innerHTML=aviso+`<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Nombre</th><th>Descripción</th><th>Ancho</th><th>Largo</th><th>Espesor</th><th>Kg/m</th><th></th></tr></thead>
+  w.innerHTML=aviso+`<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>Nombre</th><th>Descripción</th><th>Ancho</th><th>Largo</th><th>Espesor</th><th>Kg/m</th><th title="Pistas de la cortadora y metros por bobina del plan de la OE">🧵 Pistas · m/bobina</th><th></th></tr></thead>
     <tbody>${C.bobinas.map((b,i)=>{
       const d=_bobDesalineada(b);
       const kgmTd=d
         ? `<td class="mono" style="color:var(--amber,#f59e0b);font-weight:600;" title="El kg/m guardado corresponde a un espesor de ${d.espImplicito} µm, no a los ${d.esp} µm de la bobina. Debería ser ${d.teo}.">${b.kg_por_metro} ⚠</td>`
         : `<td class="mono">${b.kg_por_metro}</td>`;
-      return `<tr><td style="color:var(--text3)">${i+1}</td><td style="font-weight:500">${escapeHtml(String(b.nombre||''))}</td><td style="color:var(--text2)">${escapeHtml(String(b.descripcion||'—'))}</td><td class="mono">${b.ancho??'—'}</td><td class="mono">${b.largo??'—'}</td><td class="mono">${b.espesor??'—'}</td>${kgmTd}<td style="white-space:nowrap"><button class="btn btn-sm" onclick="editBobina(${b.id})" title="Editar medidas y espesor">✏</button> <button class="btn btn-sm btn-del" onclick="delBobina(${b.id})">×</button></td></tr>`;
+      return `<tr><td style="color:var(--text3)">${i+1}</td><td style="font-weight:500">${escapeHtml(String(b.nombre||''))}</td><td style="color:var(--text2)">${escapeHtml(String(b.descripcion||'—'))}</td><td class="mono">${b.ancho??'—'}</td><td class="mono">${b.largo??'—'}</td><td class="mono">${b.espesor??'—'}</td>${kgmTd}<td class="mono" style="white-space:nowrap;">${_pbPistas(b)} · ${_pbObjetivo(b).m.toLocaleString('es-AR')} m${parseFloat(b.metros_bobina_obj)>0&&parseInt(b.pistas)>0?'':' <span style="color:var(--text3);font-size:10px;" title="Sin cargar en la ficha: sale de la regla">(regla)</span>'}</td><td style="white-space:nowrap"><button class="btn btn-sm" onclick="editBobina(${b.id})" title="Editar medidas y espesor">✏</button> <button class="btn btn-sm btn-del" onclick="delBobina(${b.id})">×</button></td></tr>`;
     }).join('')}</tbody></table></div>`;
 }
 
@@ -10285,6 +10658,12 @@ function _editBobinaModal(id){
     +'<div class="fg"><label>Espesor (micrones)</label><input id="edbob-esp" type="number" step="0.1" value="'+(b.espesor??'')+'" oninput="edbobRecalc()"></div>'
     +'<div class="fg"><label>Kg/metro</label><input id="edbob-kgm" type="number" step="0.0001" value="'+(b.kg_por_metro??'')+'" oninput="edbobPintarProds()"></div>'
     +'</div>'
+    +'<div class="fgrid fgrid3">'
+    +'<div class="fg"><label>🧵 Pistas en la cortadora</label><input id="edbob-pistas" type="number" min="1" max="8" step="1" value="'+_pbPistas(b)+'"></div>'
+    +'<div class="fg"><label>Metros por bobina (objetivo)</label><input id="edbob-mobj" type="number" min="50" step="50" value="'+_pbObjetivo(b).m+'"></div>'
+    +'<div class="fg"><label>Rango aceptado ± %</label><input id="edbob-rango" type="number" min="1" max="50" step="1" value="'+_pbRangoPct(b)+'"></div>'
+    +'</div>'
+    +'<div style="font-size:11px;color:var(--text3);margin:-4px 0 10px;">Las OE nuevas de esta bobina salen con un múltiplo de las pistas y todas las bobinas con los mismos metros, dentro del rango. Las OE ya creadas no cambian.</div>'
     +'<label style="display:flex;align-items:center;gap:7px;font-size:12px;margin:2px 0 12px;cursor:pointer;">'
     +'<input type="checkbox" id="edbob-auto" checked onchange="edbobRecalc()"> '
     +'Recalcular el kg/m solo, con ancho × espesor × 0,184 / 10000</label>'
@@ -10420,6 +10799,14 @@ async function guardarBobinaEdit(){
     ancho:isNaN(anc)?null:anc,largo:isNaN(lar)?null:lar,espesor:isNaN(esp)?null:esp,
     kg_por_metro:kgm}).eq('id',EDBOB.id);
   if(up.error){msg.style.color='var(--red)';msg.textContent='Error: '+up.error.message;return;}
+  // 🧵 06a: pistas y metros por bobina (aparte: si falta la columna, lo demás ya se guardó)
+  {
+    const pis=parseInt(document.getElementById('edbob-pistas')?.value)||null;
+    const mob=parseFloat(document.getElementById('edbob-mobj')?.value)||null;
+    const ran=parseFloat(document.getElementById('edbob-rango')?.value)||null;
+    const r=await sb.from('bobinas').update({pistas:pis,metros_bobina_obj:mob,rango_bobina_pct:ran}).eq('id',EDBOB.id);
+    if(r.error)toast('Pistas y metros por bobina NO se guardaron: falta correr sql/pistas_bobinas.sql','amber');
+  }
   let okP=0;
   for(const f of aTocar){
     // granel: el peso es fijo (se vende por kilo), lo que se corrige son los metros
@@ -14887,7 +15274,7 @@ async function confirmarAjusteOC(){
           const kgNuevo=c.oeInfo.metrosActual>0?r2(kgPrev*(mtsOE/c.oeInfo.metrosActual)):kgPrev;
           const obsOEPrev=c.oeInfo.oe.observaciones||'';
           const obsOE=obsOEPrev+(obsOEPrev?' · ':'')+'[Reducida de '+c.oeInfo.metrosActual+' a '+mtsOE+' m — OC ajustada por préstamo '+localDate()+']';
-          const{error:eOE}=await sb.from('ordenes').update({metros:mtsOE,kg_totales:kgNuevo,observaciones:obsOE}).eq('id',c.oeInfo.oe.id);
+          const{error:eOE}=await _pbUpdateOE(c.oeInfo.oe.id,{metros:mtsOE,kg_totales:kgNuevo,observaciones:obsOE},c.oeInfo.oe.bobina_id);   // 🧵 06a
           if(eOE)console.error('No se pudo reducir OE '+c.oeInfo.oe.numero_orden+':',eOE);
         }
       }
@@ -15159,11 +15546,11 @@ async function confirmarReposicion(){
       const kgPorMt=bobina?(bobina.kg_por_metro||(bobina.gramaje?bobina.gramaje/1000:0)):0;
       const kgEst=kgPorMt>0?r2(d.mtsNecesarios*kgPorMt):null;
       const nroOE=await generarNroORD();
-      const{data:oe,error:eOE}=await sb.from('ordenes').insert({
+      const{data:oe,error:eOE}=await _pbInsertOE({
         numero_orden:nroOE,bobina_id:d.prod.bobina_id||null,metros:d.mtsNecesarios,
         kg_totales:kgEst,cliente:d.pOri.cliente||null,estado:'Pendiente',prioridad:1,
         observaciones:'Extrusión para reposición '+nord+' → '+(d.pOri.numero_pedido||('#'+d.pOri.id))
-      }).select().single();
+      });
       if(eOE){console.error('No se pudo crear la OE:',eOE);txtMat=' (la OC quedó sin OE: '+eOE.message+')';}
       else{
         await sb.from('ordenes_corte').update({orden_extrusion_id:oe.id}).eq('id',oc.id);
@@ -27888,7 +28275,7 @@ async function _balConfirmarCrearOE(ocId){
     const nroOrd=await generarNroORD();
     const ahora=new Date().toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
     const obsOE='Generada desde Balance ['+ahora+'] · Vinculada a '+oc.numero_orden+' ('+(oc.cliente||'—')+')'+(yaTieneOE?' · OE secundaria (ya hay '+bal.oeAsociada.numero_orden+')':'');
-    const{data:oe,error:eOE}=await sb.from('ordenes').insert({
+    const{data:oe,error:eOE}=await _pbInsertOE({
       numero_orden:nroOrd,
       bobina_id:bal.tipoBobina.id,
       metros:mts,
@@ -27898,7 +28285,7 @@ async function _balConfirmarCrearOE(ocId){
       prioridad:pri,
       origen:'balance',
       observaciones:obsOE
-    }).select().single();
+    });
     if(eOE)throw eOE;
     // 2) Vincular extrusoras
     await sb.from('orden_extrusoras').insert(extIds.map(eId=>({orden_id:oe.id,extrusora_id:eId})));
@@ -47010,7 +47397,7 @@ async function confirmarGenerarOrdenExt(ocId){
   const pedRefId=oc?.pedido_ref_id||null;
   msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Creando...</div>';
   const nro=await generarNroORD();
-  const{data:ord,error:e1}=await sb.from('ordenes').insert({
+  const{data:ord,error:e1}=await _pbInsertOE({
     numero_orden:nro,bobina_id:bobId,cliente:cli||null,
     metros:mts,kg_totales:kg,prioridad:pri,
     fecha_inicio_ref:fecha||null,
@@ -47018,13 +47405,13 @@ async function confirmarGenerarOrdenExt(ocId){
     orden_corte_origen_id:ocId,
     pedido_ref_id:pedRefId,
     observaciones:'Generada desde OC '+(oc?.numero_orden||ocId)+(cli?' · '+cli:'')+(kg?' · '+kg+' kg est.':'')
-  }).select().single();
+  });
   if(e1){msg.style.color='var(--red)';msg.textContent='Error: '+e1.message;return;}
   // Asignar extrusoras
   await sb.from('orden_extrusoras').insert(extIds.map(eid=>({orden_id:ord.id,extrusora_id:eid})));
   // Vincular OE→OC
   await sb.from('ordenes_corte').update({orden_extrusion_id:ord.id}).eq('id',ocId);
-  msg.style.color='var(--green)';msg.textContent='✓ '+nro+' creada — '+mts.toLocaleString('es-AR')+' m · '+kg+' kg · prioridad '+pri;
+  msg.style.color='var(--green)';msg.textContent='✓ '+nro+' creada — '+(ord.bobinas_plan?_pbTxtPlan({N:ord.bobinas_plan,L:ord.metros_bobina_plan,P:ord.pistas_plan})+' = ':'')+(ord.metros||mts).toLocaleString('es-AR')+' m · '+(ord.kg_totales||kg)+' kg · prioridad '+pri;
   await reload();
   setTimeout(()=>{document.getElementById('gen-ext-modal')?.remove();go('ordenes');},1500);
 }
@@ -54086,6 +54473,7 @@ function renderPanelOperario(){
           +'<div style="font-size:18px;font-weight:800;margin-bottom:2px;">'+enProceso.numero_orden+(enProceso.cliente?' <span style="font-size:13px;font-weight:600;color:var(--accent)">· 👤 '+enProceso.cliente+'</span>':'')+'</div>'
           +'<div style="font-size:14px;font-weight:600;color:var(--text1);margin-bottom:1px;">'+( enProceso.bobinas?.nombre||'—')+'</div>'
           +(enProceso.bobinas?.descripcion?'<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">'+enProceso.bobinas.descripcion+'</div>':'<div style="margin-bottom:8px;"></div>')
+          +_pbPanelHtml(enProceso)
           // Barra de progreso grande
           +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">'
             +'<div style="flex:1;height:14px;background:var(--bg3);border-radius:7px;overflow:hidden;">'
@@ -54123,6 +54511,7 @@ function renderPanelOperario(){
             +'<div style="font-size:14px;font-weight:600">'+sig.numero_orden+(sig.cliente?' <span style="font-weight:500;color:var(--accent)">· 👤 '+sig.cliente+'</span>':'')+'</div>'
             +'<div style="font-size:13px;color:var(--text2)">'+( sig.bobinas?.nombre||'—')+'</div>'
             +(sig.bobinas?.descripcion?'<div style="font-size:11px;color:var(--text3)">'+sig.bobinas.descripcion+'</div>':'')
+            +'<div style="margin-top:5px;">'+_pbChipHtml(sig,true)+'</div>'
             +'<div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--text3);">'
               +'<span>'+(sig.metros||0).toLocaleString('es-AR')+' m · '+(sig.kg_totales||0).toLocaleString('es-AR')+' kg</span>'
               +'<span>Inicio est: '+(sSig?fmtDt(sSig.ini):'—')+'</span>'
@@ -54143,6 +54532,7 @@ function renderPanelOperario(){
             +'<div style="font-size:15px;font-weight:700">'+sig.numero_orden+(sig.cliente?' <span style="font-size:13px;font-weight:600;color:var(--accent)">· 👤 '+sig.cliente+'</span>':'')+'</div>'
             +'<div style="font-size:13px;font-weight:600">'+( sig.bobinas?.nombre||'—')+'</div>'
             +(sig.bobinas?.descripcion?'<div style="font-size:11px;color:var(--text2)">'+sig.bobinas.descripcion+'</div>':'')
+            +'<div style="margin-top:6px;">'+_pbChipHtml(sig,true)+'</div>'
             +'<div style="font-size:11px;color:var(--text3);margin-top:6px;">'+(sig.metros||0).toLocaleString('es-AR')+' m · '+(sig.kg_totales||0).toLocaleString('es-AR')+' kg</div>'
             +(sSig?'<div style="font-size:11px;color:var(--accent);margin-top:4px;">Inicio est: <strong>'+fmtDt(sSig.ini)+'</strong></div>':'')
             +'<button class="btn btn-primary btn-sm" style="width:100%;margin-top:10px" onclick="arrancarOE('+sig.id+')">▶ Arrancar '+sig.numero_orden+'</button>'
@@ -54165,6 +54555,7 @@ function renderPanelOperario(){
               +'<div style="font-size:12px;font-weight:600">'+(idx+2)+'° '+o.numero_orden+(o.cliente?' <span style="color:var(--accent)">· 👤 '+o.cliente+'</span>':'')+'</div>'
               +'<div style="font-size:11px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(o.bobinas?.nombre||'—')+(o.bobinas?.descripcion?' · '+o.bobinas.descripcion:'')+'</div>'
               +'<div style="font-size:10px;color:var(--text3)">'+(o.metros||0).toLocaleString('es-AR')+' m · '+(o.kg_totales||0).toLocaleString('es-AR')+' kg</div>'
+              +'<div style="margin-top:3px;">'+_pbChipHtml(o)+'</div>'
             +'</div>'
             +'<button class="btn btn-sm" style="white-space:nowrap" onclick="arrancarOE('+o.id+')" title="Arrancar esta">▶</button>'
           +'</div>';
@@ -58160,7 +58551,8 @@ function renderOrdenesNP(){
             '<div style="margin-top:10px;background:var(--bg2);border-radius:var(--r);padding:10px;">'
               +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">'
                 +'<div class="fg"><label style="font-size:11px">Metros a extruir</label>'
-                  +'<input type="number" value="'+mtsNecesarios+'" id="oe-mts-'+o.linea_id+'" style="font-weight:700;color:var(--amber);font-size:14px;" oninput="renderOrdenesNP()"></div>'
+                  +'<input type="number" value="'+mtsNecesarios+'" id="oe-mts-'+o.linea_id+'" style="font-weight:700;color:var(--amber);font-size:14px;" oninput="renderOrdenesNP()">'
+                  +_pbVistaPreviaHtml(prod?.bobina_id,mtsNecesarios)+'</div>'
                 +'<div class="fg"><label style="font-size:11px">Prioridad (1=más urgente)</label>'
                   +'<input type="number" min="1" max="99" value="'+(o.prioridad||1)+'" id="oe-pri-'+o.linea_id+'" style="width:80px;">'
                 +'</div>'
@@ -58925,12 +59317,12 @@ async function confirmarTandasParcial(pedidoId,tandaIdsElegidos,prioridadBase){
       const kgEst=kgPorMt>0?r2(ocInfo.mts*kgPorMt):null;
       const nroOrd=await generarNroORD();
       const tandaTxt=ocInfo.nota?' · '+ocInfo.nota:'';
-      const{data:oe,error:eOE}=await sb.from('ordenes').insert({
+      const{data:oe,error:eOE}=await _pbInsertOE({
         numero_orden:nroOrd,bobina_id:prod.bobina_id,metros:ocInfo.mts,
         kg_totales:kgEst,cliente:cliNom,estado:'Pendiente',prioridad:ocInfo.prioridad,
         pedido_ref_id:pedidoId,
         observaciones:'Pedido '+nro+(cliNom?' · '+cliNom:'')+tandaTxt+(kgEst?' · '+kgEst+' kg est.':'')+' (parcial)'
-      }).select().single();
+      });
       if(eOE){errores.push('OE '+nroOrd+': '+eOE.message);continue;}
       if(oe){
         await sb.from('orden_extrusoras').insert(extIds.map(eId=>({orden_id:oe.id,extrusora_id:eId})));
@@ -59166,12 +59558,12 @@ async function confirmarPedido(pedidoId,oeModoElegido,sinConfirmar,prioridadBase
         const kgEst=kgPorMt>0?r2(ocInfo.mts*kgPorMt):null;
         const nroOrd=await generarNroORD();
         const tandaTxt=ocInfo.nota?' · '+ocInfo.nota:'';
-        const{data:oe,error:eOE}=await sb.from('ordenes').insert({
+        const{data:oe,error:eOE}=await _pbInsertOE({
           numero_orden:nroOrd,bobina_id:prod.bobina_id,metros:ocInfo.mts,
           kg_totales:kgEst,cliente:cliNom,estado:'Pendiente',prioridad:ocInfo.prioridad,
           pedido_ref_id:pedidoId,
           observaciones:'Pedido '+nro+(cliNom?' · '+cliNom:'')+tandaTxt+(kgEst?' · '+kgEst+' kg est.':'')
-        }).select().single();
+        });
         if(eOE){errores.push('OE '+nroOrd+': '+eOE.message);console.error('Error insert OE',eOE);continue;}
         if(oe&&extIds.length){
           const{error:eExt}=await sb.from('orden_extrusoras').insert(extIds.map(eId=>({orden_id:oe.id,extrusora_id:eId})));
@@ -59183,12 +59575,12 @@ async function confirmarPedido(pedidoId,oeModoElegido,sinConfirmar,prioridadBase
     } else {
       const kgEstimados=kgPorMt>0?r2(mtsInput*kgPorMt):null;
       const nroOrd=await generarNroORD();
-      const{data:oe,error:eOE}=await sb.from('ordenes').insert({
+      const{data:oe,error:eOE}=await _pbInsertOE({
         numero_orden:nroOrd,bobina_id:prod.bobina_id,metros:mtsInput,
         kg_totales:kgEstimados,cliente:cliNom,estado:'Pendiente',prioridad:priInput,
         pedido_ref_id:pedidoId,...(prod.es_bobina_granel?{origen:'venta_bobina'}:{}),
         observaciones:'Pedido '+nro+(cliNom?' · '+cliNom:'')+(kgEstimados?' · '+kgEstimados+' kg est.':'')
-      }).select().single();
+      });
       if(eOE){errores.push('OE '+nroOrd+': '+eOE.message);console.error('Error insert OE',eOE);continue;}
       if(oe&&extIds.length){
         const{error:eExt}=await sb.from('orden_extrusoras').insert(extIds.map(eId=>({orden_id:oe.id,extrusora_id:eId})));
@@ -62241,10 +62633,11 @@ function _abrirEditarOrdenExtrusion(id){
     // Metros
     +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">'
       +'<div class="fg"><label>Metros a extruir</label>'
-        +'<input type="number" id="eoe-metros" value="'+o.metros+'" min="1" step="10" style="font-weight:700;font-size:15px;"></div>'
+        +'<input type="number" id="eoe-metros" value="'+o.metros+'" min="1" step="10" style="font-weight:700;font-size:15px;" oninput="_pbEoeDesdeMetros('+id+')"></div>'
       +'<div class="fg"><label>Prioridad <span style="font-size:11px;color:var(--text3)">(1=más urgente)</span></label>'
         +'<input type="number" id="eoe-prioridad" value="'+(o.prioridad||1)+'" min="1" max="99"></div>'
     +'</div>'
+    +_pbEoeHtml(o)
 
     // Extrusoras
     +'<div class="fg" style="margin-bottom:14px;">'
@@ -62296,11 +62689,17 @@ async function confirmarEditarOrdenExtrusion(id){
 
   msg.innerHTML='<div class="loading" style="display:inline-flex;gap:4px;align-items:center"><div class="spinner" style="width:12px;height:12px"></div></div>';
 
-  // 1. Actualizar la orden
-  const{error:e1}=await sb.from('ordenes').update({
-    metros,prioridad,
-    observaciones:obs||null
-  }).eq('id',id);
+  // 1. Actualizar la orden (🧵 06a: con el plan de bobinas; metros = N × L)
+  const _oeAnt=C.ordenes.find(x=>x.id===id);
+  const _pbN=parseInt(document.getElementById('eoe-pb-n')?.value)||0;
+  const _pbL=parseFloat(document.getElementById('eoe-pb-l')?.value)||0;
+  const _upd={metros,prioridad,observaciones:obs||null};
+  if(_pbN>0&&_pbL>0&&_oeAnt?.origen!=='venta_bobina'){
+    const _bobE=_oeAnt?.bobinas||_pbBob(_oeAnt?.bobina_id);
+    _upd.metros=r2(_pbN*_pbL);_upd.bobinas_plan=_pbN;_upd.metros_bobina_plan=_pbL;_upd.pistas_plan=_pbPistas(_bobE);
+    const _kgm=parseFloat(_bobE?.kg_por_metro)||0;if(_kgm>0)_upd.kg_totales=r2(_upd.metros*_kgm);
+  }
+  const{error:e1}=await _pbUpdateOE(id,_upd,_oeAnt?.bobina_id);
   if(e1){msg.style.color='var(--red)';msg.textContent='Error: '+e1.message;return;}
 
   // 2. Reemplazar extrusoras — borrar las actuales e insertar las nuevas
