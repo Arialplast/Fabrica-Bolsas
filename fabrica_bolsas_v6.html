@@ -177,6 +177,18 @@ tr:hover td{background:rgba(255,255,255,0.02);}
 
 /* CARGA BOBINAS - special layout */
 .carga-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+/* ⚖ 06b balanza de extrusión */
+.bal-box{background:var(--bg2);border:2px solid var(--border);border-radius:var(--rl);padding:12px 16px 14px;margin-bottom:14px;}
+.bal-box.bal-ok{border-color:var(--green);} .bal-box.bal-mov{border-color:var(--amber);}
+.bal-hdr{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
+.bal-con{font-size:13px;font-weight:600;}
+.bal-peso{font-family:'DM Mono','Courier New',monospace;font-size:88px;font-weight:700;line-height:1.05;text-align:center;margin-top:6px;letter-spacing:-.02em;color:var(--text);}
+.bal-peso small{font-size:34px;font-weight:500;color:var(--text2);margin-left:6px;}
+.bal-estado{text-align:center;font-size:22px;font-weight:800;letter-spacing:.06em;min-height:28px;}
+.bal-neto{text-align:center;font-size:15px;color:var(--text2);margin-top:6px;line-height:1.5;}
+.bal-neto b.bal-n{font-size:30px;color:var(--text);font-family:'DM Mono','Courier New',monospace;}
+.bal-manual{margin-top:10px;} .bal-manual label{font-size:12px;color:var(--text2);display:block;margin-bottom:4px;}
+
 .carga-left{display:flex;flex-direction:column;gap:0;}
 .carga-right{display:flex;flex-direction:column;gap:12px;}
 .semaforo-box{border-radius:var(--rl);padding:1.25rem;text-align:center;transition:all .3s;}
@@ -821,7 +833,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-06a</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-06b</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -1122,6 +1134,29 @@ body.pext-on .main{margin-left:0!important;}
       <div id="cb-retro-banda" style="display:none;margin-bottom:1rem;"></div>
       <div class="carga-grid">
         <div class="carga-left">
+          <!-- ⚖ BALANZA DE EXTRUSIÓN (06b) -->
+          <div class="bal-box" id="bal-box">
+            <div class="bal-hdr">
+              <span id="bal-con" class="bal-con">⚪ Balanza no conectada</span>
+              <span class="btn-grp" style="margin:0;">
+                <button id="bal-btn" class="btn btn-sm" onclick="balConectar()">🔌 Conectar balanza</button>
+                <button class="btn btn-sm" onclick="balTarasEditar()" title="Peso del tubo de cartón por ancho de bobina (admin)">⚙ Tubos</button>
+              </span>
+            </div>
+            <div id="bal-peso" class="bal-peso">—</div>
+            <div id="bal-estado" class="bal-estado"></div>
+            <div id="bal-neto" class="bal-neto"></div>
+            <div id="bal-manual" class="fg bal-manual" style="display:none;">
+              <label>✍ Peso de la balanza <b>con tubo</b>, como lo marca el visor (kg)</label>
+              <div style="display:flex;gap:6px;align-items:center;">
+                <input id="cb-bruto" type="number" step="0.01" placeholder="ej: 61.6" autocomplete="off"
+                  oninput="onMedicionInput('cb-bruto','lock-bruto');balManualInput()" style="flex:1;font-size:20px;">
+                <button id="lock-bruto" class="btn btn-sm" style="display:none;padding:4px 8px;font-size:11px;"
+                  onclick="desbloquearCampo('cb-bruto','lock-bruto')" title="Solo admin puede editar">🔒</button>
+              </div>
+              <span style="font-size:10px;color:var(--amber);margin-top:2px;display:block;" id="hint-bruto">⚠ Una vez ingresado no se puede borrar sin admin</span>
+            </div>
+          </div>
           <div class="fp">
             <div class="fp-t">Datos de la bobina</div>
             <div class="fgrid">
@@ -1149,14 +1184,17 @@ body.pext-on .main{margin-left:0!important;}
                 </div>
                 <span style="font-size:10px;color:var(--amber);margin-top:2px;" id="hint-mts">⚠ Una vez ingresado no se puede borrar sin admin</span>
               </div>
-              <div class="fg"><label>Kg reales</label>
+              <div class="fg"><label>Kg reales <span style="font-weight:400;color:var(--text3);">(neto, sin tubo)</span></label>
                 <div style="display:flex;gap:6px;align-items:center;">
-                  <input id="cb-kg" type="number" step="0.01" placeholder="ej: 183.2"
-                    oninput="onMedicionInput('cb-kg','lock-kg')" autocomplete="off" style="flex:1;">
+                  <!-- ⚖ 06b: se completa solo (balanza o peso manual de arriba, menos el tubo). No se tipea. -->
+                  <input id="cb-kg" type="number" step="0.01" placeholder="sale de la balanza" readonly
+                    title="Sale de la balanza (o del peso manual de arriba) menos el tubo"
+                    oninput="onMedicionInput('cb-kg','lock-kg')" autocomplete="off" style="flex:1;background:var(--bg3);">
                   <button id="lock-kg" class="btn btn-sm" style="display:none;padding:4px 8px;font-size:11px;"
                     onclick="desbloquearCampo('cb-kg','lock-kg')" title="Solo admin puede editar">🔒</button>
                 </div>
-                <span style="font-size:10px;color:var(--amber);margin-top:2px;" id="hint-kg">⚠ Una vez ingresado no se puede borrar sin admin</span>
+                <span style="display:none" id="hint-kg"></span>
+                <span style="font-size:10px;color:var(--text3);margin-top:2px;" id="cb-kg-origen">⚖ Sale de la balanza, sin el tubo</span>
               </div>
             </div>
             <div class="fgrid">
@@ -5798,7 +5836,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-06a';   // 06a: 🧵 PLAN DE BOBINAS POR PISTAS — toda OE nueva sale en N × L: N múltiplo de las pistas de la bolsa (45–60 cm = 4, salvo 60 cm de más de 50 µ = 2; más de 60 cm = 2; editable en la ficha de la bobina) y todas las bobinas con los mismos metros (objetivo de la ficha = mediana histórica del tipo, ±15 %); metros de la OE = N × L, el sobrante a stock. La estación de extrusión y la carga de bobinas muestran el plan, la PRÓXIMA bobina y las pistas; si una bobina sale distinta, COMPENSA: recalcula las que faltan por pista para que todas cierren iguales y, si una pista ya tiene sus bobinas y quedó corta, pide una más de esa medida. La OE no se cierra sola hasta que las pistas cierran. Admin edita bobinas × metros en Editar OE. SQL: sql/pistas_bobinas.sql (sin correrlo funciona derivado, sin guardar).
+const APP_BUILD='2026-10-06b';   // 06b: ⚖ BALANZA KRETZ EN LA CARGA DE BOBINAS — Web Serial (CH340, 9600 8N1, trama continua), peso en vivo grande, ESTABLE = ±0,04 kg 2 s con >5 kg, toma automática; kg_reales = NETO (bruto − tubo por ancho, configuracion.taras_tubo, ⚙ Tubos con admin; 90 cm = 1,1 kg, el resto estimado proporcional); guarda peso_bruto_kg / tara_tubo_kg / peso_origen; peso manual (bruto del visor) sólo sin balanza o en turno atrasado, marcado ✍ en listados y Análisis de extrusión. SQL: sql/balanza_bobinas.sql.
+// build anterior → 06a:   // 06a: 🧵 PLAN DE BOBINAS POR PISTAS — toda OE nueva sale en N × L: N múltiplo de las pistas de la bolsa (45–60 cm = 4, salvo 60 cm de más de 50 µ = 2; más de 60 cm = 2; editable en la ficha de la bobina) y todas las bobinas con los mismos metros (objetivo de la ficha = mediana histórica del tipo, ±15 %); metros de la OE = N × L, el sobrante a stock. La estación de extrusión y la carga de bobinas muestran el plan, la PRÓXIMA bobina y las pistas; si una bobina sale distinta, COMPENSA: recalcula las que faltan por pista para que todas cierren iguales y, si una pista ya tiene sus bobinas y quedó corta, pide una más de esa medida. La OE no se cierra sola hasta que las pistas cierran. Admin edita bobinas × metros en Editar OE. SQL: sql/pistas_bobinas.sql (sin correrlo funciona derivado, sin guardar).
 // 05e (previo):   // 05e: 🧱 PALLETS POR PARTES — el botón 🧱 Pallet abre un selector: se eligen las bobinas del pallet (por defecto las primeras 18 que falten, el tamaño se recuerda), se imprime como «PALLET N° n» sólo con esas, y quedan registradas en configuracion['pallet_oe_<id>'] para no imprimirlas dos veces (se relee de la base antes de guardar, por si otra terminal armó uno). Todas las que faltan en un clic, reimprimir o anular un pallet, y la lista completa de la OE como siempre. Sin SQL.
 // 05d (previo):   // 05d: ✋ PANEL DE CORTE: SE ESCANEA — se sacó el «+ Cargar» de cada fila de la lista de bobinas (así se tocó la BOB-05319 en vez de la 05325 el 05/10). La lista queda para ver qué hay; la excepción es «✋ Cargar a mano»: se TIPEA el número de la etiqueta, se ve qué bobina es (y si es de otro cliente) antes de confirmar, motivo obligatorio, origen='manual' en orden_corte_bobinas y nota en la OC. Confección no se tocó.
 // 05c (previo):   // 05c: 📦 ANTICIPO DE PEDIDO — en Nueva factura, «Facturar anticipo de un pedido (sin remito)»: se eligen los paquetes por línea del pedido (pendiente = pedido − remitido − ya anticipado), sale la factura con factura_lineas.pedido_linea_id y se le pide el CAE con 🏛. Los remitos posteriores de ese pedido que entran en el anticipo muestran «↪ Aplicar al anticipo» (Nueva factura, Pendientes de facturar y Remitos) y no se pueden volver a facturar; aplicar = factura_remitos + factura_linea_remitos + remito facturado, sin comprobante nuevo. SQL: columna factura_lineas.pedido_linea_id. Caso DAG PED-06016. · 05b: 🔖 DE QUIÉN ES LA BOBINA — caso BOB-05319 (de GRUPO ENSER, cargada a BIGVEF el 05/10 09:28): el aviso «no es de la OE asociada» saltaba con cada sobrante de una OE terminada y no decía de quién era, así que se confirmaba de memoria. Ahora: si otra OC viva (Pendiente/En proceso/Suspendida) necesita esa bobina, aviso ROJO con el cliente y los metros que le van a faltar (Panel de corte y Confección, y la lista del panel la marca «⛔ es de …»); los sobrantes de una OE sin OC viva ya no preguntan; stock libre igual que antes. Y orden_corte_bobinas.origen guarda cómo se cargó cada bobina (pistola/boton/lista/qr) — requiere alter_ocb_origen.sql; sin la columna, inserta igual sin ella.
@@ -8217,6 +8256,8 @@ function initCarga(){
   renderCargaHist();
   setupMedicionField('cb-mts','lock-mts');
   setupMedicionField('cb-kg','lock-kg');
+  setupMedicionField('cb-bruto','lock-bruto');
+  try{balInitPantalla();}catch(e){console.warn('balanza',e);}
 }
 // ===== NUMERACIÓN SEGURA DE DOCUMENTOS (bobinas, OC, OE) =====
 // 🔴 14e — El 14/09 a las 11:26 la pantalla de Carga de bobinas propuso BOB-00002,
@@ -8662,7 +8703,7 @@ function onOrdenChange(){
   const orden=C.ordenes.find(o=>o.id===ordId);
   const extSel=document.getElementById('cb-ext');
   const tipEl=document.getElementById('cb-tipo');
-  if(!orden){if(extSel)extSel.innerHTML='<option>— seleccionar orden primero —</option>';if(tipEl)tipEl.value='';document.getElementById('progreso-orden').style.display='none';return;}
+  if(!orden){if(extSel)extSel.innerHTML='<option>— seleccionar orden primero —</option>';if(tipEl)tipEl.value='';document.getElementById('progreso-orden').style.display='none';try{_balAplicarKg(true);}catch(e){}return;}
   // Solo extrusoras asignadas a la orden
   if(extSel){
     extSel.innerHTML='<option value="">— seleccionar extrusora —</option>';
@@ -8672,6 +8713,7 @@ function onOrdenChange(){
   }
   if(tipEl)tipEl.value=orden.bobinas?`${orden.bobinas.nombre}${orden.bobinas.descripcion?' — '+orden.bobinas.descripcion:''}`:' ';
   actualizarProgresoOrden(orden);
+  try{_balAplicarKg(true);}catch(e){}
 }
 function actualizarProgresoOrden(orden){
   const mtsXOrden={};C.bobinas_prod.forEach(b=>{if(b.orden_id){mtsXOrden[b.orden_id]=(mtsXOrden[b.orden_id]||0)+(b.metros_reales||0);}});
@@ -8773,6 +8815,394 @@ async function _mpFaltante(bobinaTipoId,kgR){
   });
   return falta;
 }
+// ===== ⚖ BALANZA DE EXTRUSIÓN (06b) =====
+// Kretz 5700 F (máx 250 kg, e=0,1 kg) en la PC de extrusión, cable CH340 → COM4,
+// 9600 8N1, transmisión CONTINUA: <STX>061.64<CR>. Se lee desde Chrome con Web
+// Serial (probado en planta el 06/10/2026 con lector_balanza.html).
+// · La trama no trae bandera de estable: ESTABLE = variación ≤ 0,04 kg durante 2 s
+//   con más de 5 kg; el peso es el promedio de esa ventana (_balEstabilidad, pura).
+// · Desde este build kg_reales es el NETO (bruto − tubo de cartón), así kg/h, scrap y
+//   costos dejan de llevar el cartón. Cada bobina guarda peso_bruto_kg, tara_tubo_kg y
+//   peso_origen ('balanza'|'manual'). Bobinas con peso_origen NULL = régimen viejo
+//   (kg con tubo, ~3 % más): ésa es la marca de corte, no hace falta una fecha aparte.
+// · Tara por ancho: configuracion.taras_tubo (JSON {"90":1.1}), UN solo lugar, ⚙ Tubos
+//   con admin. Anchos sin pesar → proporcional al ancho (kg/cm de los pesados), marcado
+//   «estimado». La tara queda escrita en la bobina: cambiar la tabla no toca lo viejo.
+// · Peso manual sólo sin balanza (no conectada, o conectada sin señal > 5 s) o en carga
+//   de turno atrasado: se tipea el BRUTO que marca el visor y la bobina queda 'manual'.
+// · Tras registrar, la captura se desarma hasta que la balanza baje de 5 kg (sacaron la
+//   bobina): el mismo rollo no se puede volver a tomar para la bobina siguiente.
+// · P4 (cuentametros): acá no se muestra ningún kg estimado ni kg/h en vivo.
+var BAL=window.BAL||{port:null,reader:null,conectada:false,abriendo:false,cerrando:false,
+  muestras:[],captura:null,armada:true,timer:null,eventos:false,sinSenalDesde:0,
+  est:null,ultimoCalc:null,error:''};
+window.BAL=BAL;
+const _BAL_COLS=['peso_bruto_kg','tara_tubo_kg','peso_origen'];
+const _BAL_TARA_DEF={'90':1.1};
+const _BAL_MANUAL_TRAS_MS=5000;
+
+// ---- puras ----
+function _balParsearTrama(t){
+  const m=String(t==null?'':t).replace(/[\x00-\x1f]/g,'').match(/-?\d+[.,]\d+/);
+  if(!m)return null;
+  const v=parseFloat(m[0].replace(',','.'));
+  return isFinite(v)?v:null;
+}
+function _balSeparar(buf){
+  const partes=String(buf==null?'':buf).split(/[\r\n]/);
+  const resto=partes.pop();
+  return{tramas:partes.filter(x=>x.replace(/[\x00-\x1f\s]/g,'').length),resto:resto};
+}
+// muestras: [{t:ms,kg}] en orden. Devuelve {estado:'sin_senal'|'bajo'|'moviendo'|'estable', kg, vivo}
+function _balEstabilidad(muestras,ahora,op){
+  op=op||{};
+  const V=op.ventanaMs||2000, T=(op.tolKg!=null?op.tolKg:0.04), MIN=(op.minKg!=null?op.minKg:5), SS=op.sinSenalMs||1500;
+  if(!muestras||!muestras.length)return{estado:'sin_senal',kg:null,vivo:null};
+  const ult=muestras[muestras.length-1];
+  if(ahora-ult.t>SS)return{estado:'sin_senal',kg:null,vivo:ult.kg};
+  if(!(ult.kg>MIN))return{estado:'bajo',kg:null,vivo:ult.kg};
+  const win=muestras.filter(m=>m.t>=ahora-V&&m.t<=ahora);
+  if(win.length<3||(win[win.length-1].t-win[0].t)<V*0.8)return{estado:'moviendo',kg:null,vivo:ult.kg};
+  let mn=Infinity,mx=-Infinity,sum=0;
+  win.forEach(m=>{if(m.kg<mn)mn=m.kg;if(m.kg>mx)mx=m.kg;sum+=m.kg;});
+  if(mx-mn>T+1e-9||!(mn>MIN))return{estado:'moviendo',kg:null,vivo:ult.kg};
+  return{estado:'estable',kg:Math.round(sum/win.length*100)/100,vivo:ult.kg};
+}
+// tabla {ancho_cm: kg}. Ancho pesado → ese valor; si no, proporcional (kg/cm promedio de los pesados).
+function _balTaraAncho(ancho,tabla){
+  const a=parseFloat(ancho);
+  if(!(a>0))return null;
+  const med=Object.keys(tabla||{}).map(k=>({a:parseFloat(k),kg:parseFloat(tabla[k])}))
+    .filter(x=>x.a>0&&isFinite(x.kg)&&x.kg>=0);
+  const ex=med.find(x=>Math.abs(x.a-a)<0.01);
+  if(ex)return{kg:Math.round(ex.kg*100)/100,estimado:false};
+  const base=med.filter(x=>x.kg>0);
+  const kgcm=base.length?base.reduce((s,x)=>s+x.kg/x.a,0)/base.length:1.1/90;
+  return{kg:Math.round(a*kgcm*100)/100,estimado:true};
+}
+// ¿qué va al formulario? fuente: manual (si está permitido y tipeado) o lo tomado de la balanza
+function _balCalcPuro(captura,manualKg,manualOk,ancho,tabla,hayOrden){
+  let f=null;
+  if(manualOk&&manualKg>0)f={bruto:Math.round(manualKg*100)/100,origen:'manual'};
+  else if(captura&&captura.bruto>0)f={bruto:captura.bruto,origen:'balanza'};
+  if(!f)return null;
+  if(!hayOrden)return Object.assign(f,{tara:null,neto:null,sinOrden:true});
+  const t=_balTaraAncho(ancho,tabla);
+  if(!t)return Object.assign(f,{tara:null,neto:null,sinAncho:true});
+  return Object.assign(f,{tara:t.kg,taraEstimada:t.estimado,ancho:parseFloat(ancho),
+    neto:Math.round((f.bruto-t.kg)*100)/100});
+}
+
+// ---- lectura de configuración / pantalla ----
+function _balTablaTaras(){
+  let v=(typeof cfg!=='undefined'&&cfg)?cfg.taras_tubo:null;
+  if(typeof v==='string'){try{v=JSON.parse(v);}catch(e){v=null;}}
+  if(!v||typeof v!=='object'||!Object.keys(v).length)v=Object.assign({},_BAL_TARA_DEF);
+  return v;
+}
+function _balOpciones(){
+  const t=parseFloat(typeof cfg!=='undefined'&&cfg?cfg.balanza_tol_kg:NaN);
+  return{ventanaMs:2000,tolKg:t>0?t:0.04,minKg:5,sinSenalMs:1500};
+}
+function _balRetro(){try{return typeof _cbRetroActivo==='function'&&_cbRetroActivo();}catch(e){return false;}}
+function _balOrdenSel(){
+  const id=parseInt((document.getElementById('cb-orden')||{}).value);
+  return id?(C.ordenes||[]).find(o=>o.id===id)||null:null;
+}
+function _balAnchoOrden(o){
+  if(!o)return null;
+  const a=o.bobinas&&o.bobinas.ancho;
+  if(a!=null&&a!=='')return a;
+  const b=(C.bobinas||[]).find(x=>x.id===o.bobina_id);
+  return b?b.ancho:null;
+}
+function _balManualPermitido(){
+  if(_balRetro())return true;
+  if(!BAL.conectada)return true;
+  return BAL.sinSenalDesde>0&&(Date.now()-BAL.sinSenalDesde)>=_BAL_MANUAL_TRAS_MS;
+}
+function _balVisible(){
+  const pg=document.getElementById('page-carga-bobinas');
+  return !!pg&&(pg.classList.contains('active')||pg.classList.contains('carga-embed'));
+}
+function _balF(n){return (parseFloat(n)||0).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+
+function _balCalculo(){
+  const o=_balOrdenSel();
+  const mEl=document.getElementById('cb-bruto');
+  const man=mEl?parseFloat(mEl.value):NaN;
+  return _balCalcPuro(BAL.captura,man,_balManualPermitido(),_balAnchoOrden(o),_balTablaTaras(),!!o);
+}
+// Pone el neto en «Kg reales». Sólo recalcula el semáforo si el valor cambió.
+function _balAplicarKg(forzar){
+  const kgEl=document.getElementById('cb-kg');
+  if(!kgEl)return;
+  const mEl=document.getElementById('cb-bruto');
+  if(mEl&&mEl.value!==''&&!_balManualPermitido()){
+    // volvió la balanza: lo tipeado a mano deja de valer
+    mEl.value='';const lb=document.getElementById('lock-bruto');if(lb)lb.style.display='none';
+  }
+  const c=_balCalculo();
+  BAL.ultimoCalc=c;
+  const nuevo=(c&&c.neto>0)?String(c.neto):'';
+  if(kgEl.value!==nuevo){kgEl.value=nuevo;try{calcCarga();}catch(e){}}
+  else if(forzar){try{calcCarga();}catch(e){}}
+  _balPintar();
+}
+function balManualInput(){_balAplicarKg(true);}
+
+// ---- lo que se graba ----
+function _balPesoParaGuardar(kgR){
+  const c=_balCalculo();
+  if(!c||!(c.neto>0)||!(Math.abs(c.neto-kgR)<0.005))return null;
+  return{bruto:c.bruto,tara:c.tara,neto:c.neto,origen:c.origen,estimada:!!c.taraEstimada};
+}
+function _balColsBobina(kgR){
+  const s=window._balPesoSnap;
+  if(s&&Math.abs(s.neto-kgR)<0.005)return{peso_bruto_kg:s.bruto,tara_tubo_kg:s.tara,peso_origen:s.origen};
+  return{peso_origen:'manual'};
+}
+function _balSinColumnas(err){const m=String((err&&err.message)||'');return _BAL_COLS.some(c=>m.includes(c));}
+function _balAvisarSinSQL(){
+  if(window._balSinSQLAvisado)return;window._balSinSQLAvisado=true;
+  console.warn('bobinas_producidas.peso_bruto_kg no existe todavía: correr sql/balanza_bobinas.sql');
+  try{toast('⚖ Falta correr sql/balanza_bobinas.sql en Supabase — el bruto y el tubo se anotan en observaciones','amber');}catch(e){}
+}
+function _balPayloadSinCols(p){
+  const sin=Object.assign({},p);
+  _BAL_COLS.forEach(c=>delete sin[c]);
+  if(p.peso_origen){
+    const nota='⚖ '+(p.peso_origen==='balanza'?'Balanza':'Peso manual')
+      +(p.peso_bruto_kg!=null?': bruto '+p.peso_bruto_kg+' − tubo '+p.tara_tubo_kg+' = neto '+p.kg_reales+' kg':'');
+    sin.observaciones=(p.observaciones?p.observaciones+' | ':'')+nota;
+  }
+  return sin;
+}
+function _balTrasGuardar(){
+  BAL.captura=null;
+  if(BAL.conectada)BAL.armada=false;   // se rearma cuando la balanza baja de 5 kg
+}
+function _balLimpiar(){BAL.captura=null;BAL.ultimoCalc=null;_balPintar();}
+function _balMsgSinKg(){
+  const e=BAL.est&&BAL.est.estado;
+  if(BAL.conectada&&!_balManualPermitido()){
+    if(!BAL.armada)return '⏳ Sacá de la balanza la bobina que ya registraste y poné la nueva.';
+    if(e==='moviendo')return '⏳ Esperá a que la balanza marque <b>ESTABLE</b> — el peso se toma solo.';
+    if(e==='bajo')return '⚖ Poné la bobina en la balanza: marca menos de 5 kg.';
+    const c=BAL.ultimoCalc;
+    if(c&&c.sinAncho)return '⚠ La bobina de esta orden no tiene ancho cargado: no se puede descontar el tubo. Avisá a la oficina.';
+    return '⚖ Esperando el peso de la balanza.';
+  }
+  const c=BAL.ultimoCalc;
+  if(c&&c.sinAncho)return '⚠ La bobina de esta orden no tiene ancho cargado: no se puede descontar el tubo. Avisá a la oficina.';
+  if(c&&!(c.neto>0))return '⚠ El peso no alcanza ni para el tubo — revisalo.';
+  return '✍ Escribí el peso que marca la balanza (con tubo) en el recuadro de arriba.';
+}
+
+// ---- pintar ----
+function _balPintar(){
+  const box=document.getElementById('bal-box');if(!box)return;
+  const con=document.getElementById('bal-con'),btn=document.getElementById('bal-btn');
+  const pe=document.getElementById('bal-peso'),es=document.getElementById('bal-estado');
+  const ne=document.getElementById('bal-neto'),man=document.getElementById('bal-manual');
+  const est=BAL.est||{estado:'desconectada'};
+  const soporta=typeof navigator!=='undefined'&&!!navigator.serial;
+  box.classList.remove('bal-ok','bal-mov');
+  if(!soporta){
+    con.innerHTML='⚪ Este navegador no lee la balanza <span style="font-weight:400;color:var(--text3);">(usá Chrome en la PC de extrusión)</span>';
+    btn.style.display='none';
+  }else if(BAL.conectada){
+    con.innerHTML=est.estado==='sin_senal'?'🟠 Balanza conectada · <b>sin señal</b> (¿está apagada?)':'🟢 Balanza conectada';
+    btn.style.display='none';
+  }else{
+    con.innerHTML='⚪ Balanza no conectada'+(BAL.error?' <span style="font-weight:400;color:var(--red);">· '+escapeHtml(BAL.error)+'</span>':'');
+    btn.style.display='';btn.disabled=!!BAL.abriendo;
+  }
+  pe.innerHTML=(BAL.conectada&&est.vivo!=null)?_balF(est.vivo)+'<small>kg</small>':'—';
+  pe.style.display=BAL.conectada?'':'none';
+  let et='',ec='var(--text3)';
+  if(BAL.conectada){
+    if(!BAL.armada&&est.estado!=='sin_senal'){et='✓ REGISTRADA — sacá la bobina de la balanza';ec='var(--accent)';}
+    else if(est.estado==='estable'){et='● ESTABLE';ec='var(--green)';box.classList.add('bal-ok');}
+    else if(est.estado==='moviendo'){et='Moviéndose…';ec='var(--amber)';box.classList.add('bal-mov');}
+    else if(est.estado==='bajo'){et='Menos de 5 kg';}
+    else if(est.estado==='sin_senal'){et='Sin señal de la balanza';ec='var(--red)';}
+  }
+  es.textContent=et;es.style.color=ec;
+  const c=BAL.ultimoCalc;
+  let nh='';
+  if(c&&c.neto>0){
+    nh=(c.origen==='balanza'?'Tomado <b>'+_balF(c.bruto)+'</b>':'✍ Manual <b>'+_balF(c.bruto)+'</b>')
+      +' − tubo '+c.ancho+' cm <b>'+_balF(c.tara)+'</b>'
+      +(c.taraEstimada?' <span style="color:var(--amber);font-size:12px;" title="Este ancho todavía no se pesó: sale proporcional al ancho">(estimado)</span>':'')
+      +'<br>NETO <b class="bal-n">'+_balF(c.neto)+' kg</b>';
+  }else if(c&&c.sinOrden)nh='Elegí la orden para descontar el tubo';
+  else if(c&&c.sinAncho)nh='<span style="color:var(--red)">⚠ La bobina de la orden no tiene ancho cargado: no se puede descontar el tubo</span>';
+  else if(c&&!(c.neto>0))nh='<span style="color:var(--red)">⚠ El peso no alcanza ni para el tubo</span>';
+  else if(BAL.conectada&&BAL.armada)nh='Poné la bobina en la balanza y esperá ESTABLE — el peso se toma solo';
+  ne.innerHTML=nh;
+  if(man)man.style.display=_balManualPermitido()?'':'none';
+  const ho=document.getElementById('cb-kg-origen');
+  if(ho){
+    if(c&&c.neto>0&&c.origen==='manual'){ho.textContent='✍ Peso manual — la bobina queda marcada como «manual»';ho.style.color='var(--amber)';}
+    else if(c&&c.neto>0){ho.textContent='⚖ De la balanza, sin el tubo';ho.style.color='var(--green)';}
+    else{ho.textContent=_balManualPermitido()?'✍ Sale del peso manual de arriba, menos el tubo':'⚖ Sale de la balanza, sin el tubo';ho.style.color='var(--text3)';}
+  }
+}
+
+// ---- ciclo: cada 400 ms con la pantalla a la vista ----
+function _balTick(){
+  const ahora=Date.now();
+  BAL.muestras=BAL.muestras.filter(m=>m.t>=ahora-3000);
+  const est=BAL.conectada?_balEstabilidad(BAL.muestras,ahora,_balOpciones()):{estado:'desconectada',kg:null,vivo:null};
+  BAL.est=est;
+  if(BAL.conectada&&est.estado==='sin_senal'){if(!BAL.sinSenalDesde)BAL.sinSenalDesde=ahora;}
+  else BAL.sinSenalDesde=0;
+  if(!BAL.armada&&(est.estado==='bajo'||!BAL.conectada))BAL.armada=true;
+  if(BAL.armada&&est.estado==='estable'){
+    if(!BAL.captura||Math.abs(BAL.captura.bruto-est.kg)>0.05)BAL.captura={bruto:est.kg,t:ahora};
+  }
+  _balAplicarKg(false);
+}
+function _balMuestra(kg){
+  const t=Date.now();
+  BAL.muestras.push({t:t,kg:kg});
+  if(BAL.muestras.length>200)BAL.muestras=BAL.muestras.filter(m=>m.t>=t-3000);
+}
+
+// ---- Web Serial ----
+async function balConectar(){
+  if(!navigator.serial){toast('Este navegador no puede leer la balanza: abrí el sistema en Chrome.','red');return;}
+  try{
+    const p=await navigator.serial.requestPort();
+    await _balAbrir(p);
+  }catch(e){
+    if(e&&e.name==='NotFoundError')return;     // cerró el cuadro sin elegir
+    BAL.error=(e&&e.message)||String(e);_balPintar();
+    toast('No se pudo abrir la balanza: '+BAL.error,'red');
+  }
+}
+async function balAutoConectar(){
+  if(!navigator.serial||BAL.conectada||BAL.abriendo)return;
+  try{
+    const ps=await navigator.serial.getPorts();
+    if(!ps.length)return;
+    // preferir el cable CH340 (vendor 0x1A86) si hay más de un puerto autorizado
+    const p=ps.find(x=>{try{return (x.getInfo()||{}).usbVendorId===0x1A86;}catch(e){return false;}})||ps[0];
+    await _balAbrir(p);
+  }catch(e){BAL.error=(e&&e.message)||String(e);console.warn('balanza:',e);}
+  _balPintar();
+}
+async function _balAbrir(p){
+  if(BAL.port===p&&BAL.conectada)return;
+  if(BAL.port&&BAL.port!==p)await _balCerrar();
+  BAL.abriendo=true;_balPintar();
+  try{
+    try{await p.open({baudRate:9600,dataBits:8,stopBits:1,parity:'none'});}
+    catch(e){if(!/already open/i.test((e&&e.message)||''))throw e;}
+    BAL.port=p;BAL.conectada=true;BAL.cerrando=false;BAL.muestras=[];BAL.error='';BAL.armada=true;
+    _balLeer(p);
+  }finally{BAL.abriendo=false;_balPintar();}
+}
+async function _balLeer(p){
+  const dec=new TextDecoder();
+  let buf='';
+  while(BAL.port===p&&p.readable&&!BAL.cerrando){
+    const reader=p.readable.getReader();
+    BAL.reader=reader;
+    try{
+      for(;;){
+        const r=await reader.read();
+        if(r.done)break;
+        buf+=dec.decode(r.value,{stream:true});
+        const sp=_balSeparar(buf);buf=sp.resto;
+        sp.tramas.forEach(t=>{const kg=_balParsearTrama(t);if(kg!=null)_balMuestra(kg);});
+        if(buf.length>200)buf=buf.slice(-40);
+      }
+    }catch(e){console.warn('balanza (lectura):',e);}   // error de trama: se sigue leyendo
+    finally{try{reader.releaseLock();}catch(e){}BAL.reader=null;}
+    if(BAL.cerrando)break;
+    await new Promise(res=>setTimeout(res,300));
+  }
+  if(BAL.port===p)_balPerdida();
+}
+function _balPerdida(){
+  BAL.conectada=false;BAL.port=null;BAL.reader=null;BAL.muestras=[];BAL.est=null;BAL.armada=true;
+  // lo ya TOMADO sigue valiendo: es el peso real del rollo
+  try{_balAplicarKg(false);}catch(e){}
+}
+async function _balCerrar(){
+  const p=BAL.port;if(!p)return;
+  BAL.cerrando=true;
+  try{if(BAL.reader)await BAL.reader.cancel();}catch(e){}
+  try{await p.close();}catch(e){}
+  BAL.port=null;BAL.conectada=false;BAL.cerrando=false;BAL.muestras=[];
+}
+function balInitPantalla(){
+  if(typeof navigator!=='undefined'&&navigator.serial&&!BAL.eventos){
+    BAL.eventos=true;
+    navigator.serial.addEventListener('disconnect',ev=>{
+      if(BAL.port&&(ev.target===BAL.port||ev.port===BAL.port)){_balPerdida();}
+    });
+    navigator.serial.addEventListener('connect',()=>{if(_balVisible())balAutoConectar();});
+  }
+  if(!BAL.timer)BAL.timer=setInterval(()=>{if(_balVisible())_balTick();},400);
+  balAutoConectar();
+  _balAplicarKg(false);
+}
+
+// ---- ⚙ Tubos: peso del tubo por ancho (admin, un solo lugar) ----
+function balTarasEditar(){pedirAdminYEjecutar(()=>_balTarasModal());}
+function _balTarasModal(){
+  document.getElementById('baltara-modal')?.remove();
+  const tabla=_balTablaTaras();
+  const anchos=[...new Set((C.bobinas||[]).map(b=>parseFloat(b.ancho)).filter(a=>a>0)
+    .concat(Object.keys(tabla).map(parseFloat).filter(a=>a>0)))].sort((a,b)=>a-b);
+  const filas=anchos.map((a,i)=>{
+    const ex=Object.keys(tabla).find(k=>Math.abs(parseFloat(k)-a)<0.01);
+    const est=_balTaraAncho(a,tabla);
+    return '<tr><td class="mono" style="padding:4px 8px;">'+a+' cm</td>'
+      +'<td style="padding:4px 8px;"><input id="baltara-'+i+'" data-ancho="'+a+'" type="number" step="0.01" min="0" style="width:90px;" '
+      +'value="'+(ex!=null?tabla[ex]:'')+'" placeholder="'+(est?est.kg:'')+'"></td>'
+      +'<td style="padding:4px 8px;font-size:11px;color:var(--text3);">'+(ex!=null?'pesado':'estimado '+(est?_balF(est.kg):'')+' kg')+'</td></tr>';
+  }).join('');
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="baltara-modal"><div class="modal-card" style="max-width:460px;">'
+    +'<div class="modal-title">⚙ Peso del tubo de cartón por ancho</div>'
+    +'<div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:10px;">Cargá el peso <b>pesado</b> del tubo vacío. '
+    +'Los anchos en blanco se estiman proporcional al ancho de los que sí están pesados. '
+    +'El tubo se descuenta de cada bobina nueva; las ya registradas guardan el que tenían.</div>'
+    +'<div style="max-height:340px;overflow-y:auto;"><table><thead><tr><th>Ancho</th><th>Tubo (kg)</th><th></th></tr></thead><tbody>'+filas+'</tbody></table></div>'
+    +'<div class="btn-grp" style="margin-top:12px;"><button class="btn btn-primary btn-sm" onclick="_balTarasGuardar()">Guardar</button>'
+    +'<button class="btn btn-sm" onclick="document.getElementById(\'baltara-modal\').remove()">Cancelar</button></div>'
+    +'</div></div>');
+}
+async function _balTarasGuardar(){
+  const obj={};
+  let mal=false;
+  document.querySelectorAll('#baltara-modal input[data-ancho]').forEach(inp=>{
+    if(inp.value==='')return;
+    const v=parseFloat(inp.value);
+    if(!(v>=0)||v>10){mal=true;return;}
+    obj[String(parseFloat(inp.dataset.ancho))]=Math.round(v*100)/100;
+  });
+  if(mal){toast('Hay un peso de tubo inválido (entre 0 y 10 kg).','red');return;}
+  if(!Object.values(obj).some(v=>v>0)){toast('Tiene que quedar al menos un ancho pesado.','red');return;}
+  const txt=JSON.stringify(obj);
+  const{error}=await sb.from('configuracion').upsert({clave:'taras_tubo',valor:txt},{onConflict:'clave'});
+  if(error){toast('No se pudo guardar: '+error.message,'red');return;}
+  cfg.taras_tubo=txt;
+  document.getElementById('baltara-modal')?.remove();
+  toast('✓ Pesos de tubo guardados','green');
+  _balAplicarKg(true);
+}
+// Marca en listados: ⚖ balanza · ✍ manual · nada = régimen viejo (kg con tubo)
+function _balMarca(b){
+  if(!b||!b.peso_origen)return '';
+  if(b.peso_origen==='manual')return ' <span title="Peso manual (sin balanza)'+(b.peso_bruto_kg!=null?': bruto '+b.peso_bruto_kg+' − tubo '+b.tara_tubo_kg:'')+'" style="color:var(--amber);">✍</span>';
+  return ' <span title="Balanza: bruto '+b.peso_bruto_kg+' − tubo '+b.tara_tubo_kg+' kg" style="color:var(--green);">⚖</span>';
+}
+
 // ===== 🔒 CANDADO ANTI DOBLE CLIC EN CARGA DE BOBINAS (03a) =====
 // BOB-05648/49 (14/09), BOB-05981/82 (22/09) y BOB-06481/82 (03/10): doble clic en
 // «Registrar bobina» → dos bobinas idénticas grabadas con <1,5 s de diferencia.
@@ -8848,6 +9278,9 @@ async function _guardarBobinaInner(){
   const obs=document.getElementById('cb-obs').value.trim();
   const msg=document.getElementById('msg-carga');
   if(!nro){msg.className='msg-err';msg.innerHTML='⛔ <b>No hay número de bobina</b> — no se pudo leer la numeración. Refrescá la pantalla antes de cargar.';return;}
+  // ⚖ 06b: los kg vienen de la balanza (o del peso manual) menos el tubo — se fotografían acá
+  if(ordId&&!kgR){msg.className='msg-err';msg.innerHTML=_balMsgSinKg();return;}
+  window._balPesoSnap=(typeof _balPesoParaGuardar==='function')?_balPesoParaGuardar(kgR):null;
   if(!ordId||!extId||!mtsR||!kgR||!opId){msg.className='msg-err';msg.textContent='Completá todos los campos incluyendo el operario.';return;}
   const orden=C.ordenes.find(o=>o.id===ordId);
   const bob=orden?.bobinas;
@@ -8995,7 +9428,7 @@ async function _guardarBobinaDBInner(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errP
     const r=await _nroSiguiente('numero_bobina','bobinas_producidas','numero_bobina','BOB-',5);
     if(r.err){msg.className='msg-err';msg.textContent='No se pudo leer la numeración de bobinas: '+r.err+'. No se guardó nada — refrescá y probá de nuevo.';return;}
     nro=r.txt;window._nextNroBobina=r.n;window._strNroBobina=r.txt;
-    const ins=await sb.from('bobinas_producidas').insert({
+    const _bobPayload={
       numero_bobina:nro,orden_id:ordId,extrusora_id:extId,bobina_tipo_id:bob.id,
       metros_teoricos:mtsR,metros_reales:mtsR,kg_teoricos:kgT,kg_reales:kgR,
       error_kg:errKgStore,error_pct:errPctStore,estado_calidad:calidad,
@@ -9003,8 +9436,17 @@ async function _guardarBobinaDBInner(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errP
       en_stock:!fueraDeRango,
       fuera_de_rango:fueraDeRango,
       motivo_fuera_rango:fueraDeRango?motivoFR:null,
-      operario_id:opId,operario:opNom,observaciones:obs||null
-    }).select('id').single();
+      operario_id:opId,operario:opNom,observaciones:obs||null,
+      ..._balColsBobina(kgR)          // ⚖ 06b: bruto / tara / neto / origen
+    };
+    let ins=await sb.from('bobinas_producidas').insert(_bobPayload).select('id').single();
+    if(ins.error&&_balSinColumnas(ins.error)){
+      // sin sql/balanza_bobinas.sql: se graba igual, el bruto y el tubo quedan en observaciones
+      _balAvisarSinSQL();
+      const sin=_balPayloadSinCols(_bobPayload);
+      obs=sin.observaciones||obs;
+      ins=await sb.from('bobinas_producidas').insert(sin).select('id').single();
+    }
     if(!ins.error){bobIns=ins.data;e1=null;break;}
     e1=ins.error;
     if(!_esChoqueNro(ins.error))break;      // un error que no es choque no se reintenta
@@ -9146,6 +9588,7 @@ async function _guardarBobinaDBInner(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errP
             renderStock,renderCargaHist,renderFueraDeRango,renderConfHistorial);
   const _panel=document.getElementById('page-panel-operario');
   if(_panel&&_panel.classList.contains('active'))_repintar(renderPanelOperario);
+  try{_balTrasGuardar();}catch(e){}
   limpiarCarga();
   initCarga();
   try{_cbRetroAvanzar();}catch(e){}
@@ -9160,6 +9603,7 @@ function limpiarCarga(){
   document.getElementById('carga-calc').innerHTML='<div style="font-size:12px;color:var(--text3)">Seleccioná orden y completá medición.</div>';
   document.getElementById('progreso-orden').style.display='none';
   const _pbw=document.getElementById('cb-plan');if(_pbw)_pbw.innerHTML='';
+  try{_balLimpiar();}catch(e){}
 }
 function renderCargaHist(){
   const w=document.getElementById('carga-hist');if(!w)return;
@@ -9175,7 +9619,7 @@ function renderCargaHist(){
         <td style="font-size:12px">${b.bobinas?.nombre||'—'}</td>
         <td class="mono">${b.metros_reales} m</td>
         <td class="mono">${b.kg_teoricos} kg</td>
-        <td class="mono">${b.kg_reales} kg</td>
+        <td class="mono">${b.kg_reales} kg${_balMarca(b)}</td>
         <td class="mono" style="color:${b.error_kg>0?'var(--amber)':'var(--accent)'}">${b.error_kg>0?'+':''}${b.error_kg}</td>
         <td class="mono" style="color:${Math.abs(b.error_pct)>cfg.tolerancia_pesada_pct?'var(--red)':'var(--green)'}">${b.error_pct>0?'+':''}${b.error_pct}%</td>
         <td><span class="${qcls}">${b.estado_calidad}</span></td>
@@ -26807,20 +27251,24 @@ function desbloquearCampo(fieldId, lockId){
     if(lockBtn){lockBtn.style.display='none';}
     if(hint){hint.textContent='✓ Desbloqueado — ingresá el valor correcto';hint.style.color='var(--green)';}
     calcCarga();
+    if(fieldId==='cb-bruto'&&typeof balManualInput==='function')balManualInput();
   });
 }
 function resetLocks(){
-  ['cb-mts','cb-kg'].forEach(id=>{
+  ['cb-mts','cb-kg','cb-bruto'].forEach(id=>{
     const f=document.getElementById(id);
     if(f){f.value='';f.style.outline='';}
   });
-  ['lock-mts','lock-kg'].forEach(id=>{const b=document.getElementById(id);if(b)b.style.display='none';});
+  ['lock-mts','lock-kg','lock-bruto'].forEach(id=>{const b=document.getElementById(id);if(b)b.style.display='none';});
+  const hintBr=document.getElementById('hint-bruto');
+  if(hintBr){hintBr.textContent='⚠ Una vez ingresado no se puede borrar sin admin';hintBr.style.color='var(--amber)';}
   const hintMts=document.getElementById('hint-mts');
   if(hintMts){hintMts.textContent='⚠ Una vez ingresado no se puede borrar sin admin';hintMts.style.color='var(--amber)';}
   const hintKg=document.getElementById('hint-kg');
   if(hintKg){hintKg.textContent='⚠ Una vez ingresado no se puede borrar sin admin';hintKg.style.color='var(--amber)';}
   setupMedicionField('cb-mts','lock-mts');
   setupMedicionField('cb-kg','lock-kg');
+  setupMedicionField('cb-bruto','lock-bruto');
 }
 
 // ===== STOCK MEJORADO =====
@@ -26901,7 +27349,7 @@ function renderStock(){
           +(b.bobinas?.descripcion?'<div style="font-size:10px;color:var(--text2)">'+b.bobinas.descripcion+'</div>':'')
         +'</td>'
         +'<td class="mono">'+b.metros_reales+' m</td>'
-        +'<td class="mono">'+b.kg_reales+' kg</td>'
+        +'<td class="mono">'+b.kg_reales+' kg'+_balMarca(b)+'</td>'
         +'<td><span class="'+qcls+'">'+b.estado_calidad+'</span></td>'
         +'<td>'
           +'<span class="'+(b.flexxus==='Pasada'?'tag-flexxus-si':'tag-flexxus-no')+'">'+b.flexxus+'</span>'
@@ -37480,6 +37928,7 @@ function _bobinasExtRango(iniStr,finStr){
       metros:parseFloat(b.metros_reales)||0,
       oeNum:oeNumMap[b.orden_id]||'',
       fueraRango:!!b.fuera_de_rango,
+      pesoOrigen:b.peso_origen||null,
       num:b.numero_bobina||''
     });
   });
@@ -37858,6 +38307,13 @@ async function renderAnalisisExtrusion(){
     }
   }
 
+  // ⚖ 06b: cuántas bobinas del período se pesaron con la balanza y cuántas a mano
+  {
+    const nB=bobs.filter(b=>b.pesoOrigen==='balanza').length,nM=bobs.filter(b=>b.pesoOrigen==='manual').length,nV=bobs.length-nB-nM;
+    if(nB||nM)html='<div style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:8px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);">'
+      +'⚖ Peso: <b style="color:var(--green)">'+nB+'</b> con balanza (neto) · <b style="color:'+(nM?'var(--amber)':'var(--text2)')+'">'+nM+' ✍ manual</b>'
+      +(nV?' · '+nV+' antes de la balanza (kg con tubo, ~3 % más)':'')+'</div>'+html;
+  }
   root.innerHTML=html;
 }
 
