@@ -833,7 +833,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-06b</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-06c</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5836,7 +5836,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-06b';   // 06b: ⚖ BALANZA KRETZ EN LA CARGA DE BOBINAS — Web Serial (CH340, 9600 8N1, trama continua), peso en vivo grande, ESTABLE = ±0,04 kg 2 s con >5 kg, toma automática; kg_reales = NETO (bruto − tubo por ancho, configuracion.taras_tubo, ⚙ Tubos con admin; 90 cm = 1,1 kg, el resto estimado proporcional); guarda peso_bruto_kg / tara_tubo_kg / peso_origen; peso manual (bruto del visor) sólo sin balanza o en turno atrasado, marcado ✍ en listados y Análisis de extrusión. SQL: sql/balanza_bobinas.sql.
+const APP_BUILD='2026-10-06c';   // 06c: 🎯 la calidad de la bobina (semáforo, error %, fuera de rango) se vuelve a juzgar con el peso CON TUBO como antes del 06b; kg_reales sigue siendo el neto (costos, kg/h, consumo de MP).
+// build anterior → 06b:   // 06b: ⚖ BALANZA KRETZ EN LA CARGA DE BOBINAS — Web Serial (CH340, 9600 8N1, trama continua), peso en vivo grande, ESTABLE = ±0,04 kg 2 s con >5 kg, toma automática; kg_reales = NETO (bruto − tubo por ancho, configuracion.taras_tubo, ⚙ Tubos con admin; 90 cm = 1,1 kg, el resto estimado proporcional); guarda peso_bruto_kg / tara_tubo_kg / peso_origen; peso manual (bruto del visor) sólo sin balanza o en turno atrasado, marcado ✍ en listados y Análisis de extrusión. SQL: sql/balanza_bobinas.sql.
 // build anterior → 06a:   // 06a: 🧵 PLAN DE BOBINAS POR PISTAS — toda OE nueva sale en N × L: N múltiplo de las pistas de la bolsa (45–60 cm = 4, salvo 60 cm de más de 50 µ = 2; más de 60 cm = 2; editable en la ficha de la bobina) y todas las bobinas con los mismos metros (objetivo de la ficha = mediana histórica del tipo, ±15 %); metros de la OE = N × L, el sobrante a stock. La estación de extrusión y la carga de bobinas muestran el plan, la PRÓXIMA bobina y las pistas; si una bobina sale distinta, COMPENSA: recalcula las que faltan por pista para que todas cierren iguales y, si una pista ya tiene sus bobinas y quedó corta, pide una más de esa medida. La OE no se cierra sola hasta que las pistas cierran. Admin edita bobinas × metros en Editar OE. SQL: sql/pistas_bobinas.sql (sin correrlo funciona derivado, sin guardar).
 // 05e (previo):   // 05e: 🧱 PALLETS POR PARTES — el botón 🧱 Pallet abre un selector: se eligen las bobinas del pallet (por defecto las primeras 18 que falten, el tamaño se recuerda), se imprime como «PALLET N° n» sólo con esas, y quedan registradas en configuracion['pallet_oe_<id>'] para no imprimirlas dos veces (se relee de la base antes de guardar, por si otra terminal armó uno). Todas las que faltan en un clic, reimprimir o anular un pallet, y la lista completa de la OE como siempre. Sin SQL.
 // 05d (previo):   // 05d: ✋ PANEL DE CORTE: SE ESCANEA — se sacó el «+ Cargar» de cada fila de la lista de bobinas (así se tocó la BOB-05319 en vez de la 05325 el 05/10). La lista queda para ver qué hay; la excepción es «✋ Cargar a mano»: se TIPEA el número de la etiqueta, se ve qué bobina es (y si es de otro cliente) antes de confirmar, motivo obligatorio, origen='manual' en orden_corte_bobinas y nota en la OC. Confección no se tocó.
@@ -8743,7 +8744,9 @@ function calcCarga(){
   const kgT=r2(mtsR*bob.kg_por_metro);
   // errKg: positivo = más pesada (pesa más que teórico) → mostrar negativo
   // errKg: negativo = más liviana (pesa menos que teórico) → mostrar positivo
-  const errKg=r2(kgR-kgT);
+  // 🎯 06c: la calidad se juzga con el peso CON TUBO (como siempre); kg_reales se graba neto
+  const kgQ=_balKgCalidad(kgR,false);
+  const errKg=r2(kgQ-kgT);
   const errPct=kgT>0?r2((errKg/kgT)*100):0;
   // Para display: invertimos signo (pesada = negativo, liviana = positivo)
   const errPctDisplay=r2(-errPct);
@@ -8778,6 +8781,7 @@ function calcCarga(){
       <div><span style="color:var(--text2)">Diferencia en kg</span><div class="mono" style="font-size:13px;color:${errKg>0?'var(--amber)':'var(--accent)'}">${errKgDisplay}</div></div>
       <div><span style="color:var(--text2)">Error %</span><div class="mono" style="font-size:20px;font-weight:700;color:${estado==='ok'?'var(--green)':estado==='warn'?'var(--amber)':'var(--red)'}">${errDisplay}</div></div>
     </div>
+    ${kgQ!==kgR?`<div style="font-size:11px;color:var(--text2);margin-top:8px;">Se compara con el peso <b>con tubo</b> (${r2(kgQ)} kg), como siempre. Se graba neto: ${r2(kgR)} kg.</div>`:''}
     <div style="font-size:11px;color:var(--text3);margin-top:8px;">OK pesada: −${cfg.tolerancia_advertencia_pesada_pct}% · OK liviana: +${cfg.tolerancia_advertencia_liviana_pct}% · Rechazo pesada: −${cfg.tolerancia_pesada_pct}% · Rechazo liviana: +${cfg.tolerancia_liviana_pct}%</div>`;
   // Store with inverted convention: pesada=negative, liviana=positive
   const errKgStore=errKg>0?-Math.abs(errKg):Math.abs(errKg);
@@ -8977,6 +8981,17 @@ function _balPayloadSinCols(p){
     sin.observaciones=(p.observaciones?p.observaciones+' | ':'')+nota;
   }
   return sin;
+}
+// 🎯 06c — kg contra los que se juzga la calidad (semáforo, error %, fuera de rango).
+// Con el neto, el 06b corría todo ~3 % a «liviano» (el tubo es 2,9–3,7 % de la bobina):
+// con 60 días reales, los OK bajaban de 69 % a 52 % y los rechazos subían de 2,3 % a
+// 7,5 %, y el semáforo pedía engordar el film en 9 de cada 10 bobinas. La planta está
+// calibrada con el tubo adentro → la calidad se sigue juzgando con el BRUTO hasta que
+// se decida mover el objetivo de espesor a propósito. kg_reales (costos, kg/h, MP) = neto.
+function _balKgCalidad(kgR,usarFoto){
+  const f=usarFoto?window._balPesoSnap:_balPesoParaGuardar(kgR);
+  if(f&&f.neto>0&&f.tara>0&&Math.abs(f.neto-kgR)<0.005)return Math.round((kgR+f.tara)*100)/100;
+  return kgR;
 }
 function _balTrasGuardar(){
   BAL.captura=null;
@@ -9287,7 +9302,9 @@ async function _guardarBobinaInner(){
   if(!bob){msg.className='msg-err';msg.textContent='Error: bobina no encontrada.';return;}
   const kgT=r2(mtsR*bob.kg_por_metro);
   // SIGNO: negativo = más pesada que lo teórico, positivo = más liviana
-  const errKg=r2(kgR-kgT);
+  // 🎯 06c: la calidad se juzga con el peso CON TUBO (como siempre); kg_reales se graba neto
+  const kgQ=_balKgCalidad(kgR,true);
+  const errKg=r2(kgQ-kgT);
   const errPct=kgT>0?r2((errKg/kgT)*100):0;
   const absE=Math.abs(errPct);
   // Pesada = kgR > kgT = errKg > 0 → usar tolerancia pesada

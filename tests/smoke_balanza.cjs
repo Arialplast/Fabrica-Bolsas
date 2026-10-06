@@ -153,6 +153,12 @@ t(_balPayloadSinCols({kg_reales:5,peso_origen:'manual'}).observaciones==='⚖ Pe
 t(_balSinColumnas({message:'Could not find the \'peso_bruto_kg\' column of \'bobinas_producidas\''})&&!_balSinColumnas({message:'otra cosa'}),'detecta columnas faltantes');
 // marcas
 t(_balMarca({peso_origen:'manual'}).includes('✍')&&_balMarca({peso_origen:'balanza',peso_bruto_kg:1,tara_tubo_kg:1}).includes('⚖')&&_balMarca({})==='','marcas ✍ / ⚖ / nada (viejas)');
+// 🎯 06c: calidad con el bruto
+window._balPesoSnap={bruto:61.64,tara:1.1,neto:60.54,origen:'balanza'};
+t(_balKgCalidad(60.54,true)===61.64,'06c: la calidad se juzga con el bruto (60,54 + 1,10)');
+t(_balKgCalidad(59,true)===59,'06c: kg que no son de la foto → se juzga con lo que hay');
+window._balPesoSnap=null;
+t(_balKgCalidad(42,true)===42,'06c: sin foto → kg tal cual');
 Date.now=ahoraReal;
 
 // ---- enganches en el resto del archivo ----
@@ -163,5 +169,6 @@ t(/id="cb-kg"[^>]*readonly/.test(src),'Kg reales no se tipea');
 t(src.includes("try{balInitPantalla();}"),'initCarga engancha la balanza');
 t(src.includes("pesoOrigen:b.peso_origen||null"),'análisis de extrusión lee el origen');
 t((src.match(/_balMarca\(b\)/g)||[]).length>=2,'historial y stock marcan el origen');
-t(src.includes("const APP_BUILD='2026-10-06b'")&&src.includes('build 2026-10-06b</span>'),'sello 06b en los dos lugares');
+t(src.includes("const APP_BUILD='2026-10-06c'")&&src.includes('build 2026-10-06c</span>'),'sello 06c en los dos lugares');
+t((src.match(/const kgQ=_balKgCalidad\(kgR,(true|false)\);\n  const errKg=r2\(kgQ-kgT\);/g)||[]).length===2,'06c: semáforo y guardado usan el bruto para la calidad');
 console.log(ok+' ok · '+bad+' fallas');process.exit(bad?1:0);
