@@ -213,6 +213,37 @@ t(_evvJuicio(9).k==='bad'&&_evvJuicio(-11).k==='bad','pasando +8 % / −10 % →
   t(!/_eeIndicacion\(/.test(src),'07m: no queda la cuenta vieja por kg/h ÷ m/min');
 }
 
+// ---- 07n estado al instante + cambio de velocidad ----
+{
+  const T=AHORA;let br=1000,sp=500;const h=[];
+  const muestra=(k,dbr,dsp)=>{br+=dbr;sp+=dsp;h.push({t:T-(30-k)*2000,br,sf:sp,sp});};
+  for(let k=0;k<=20;k++)muestra(k,1,2);                       // produciendo
+  t(_plcVivoEstado(h,T-18000).est==='P','vivo: con pulsos y segundos produciendo → PRODUCIENDO');
+  // se pincha: el rodillo sigue, el PLC deja de sumar producción
+  for(let k=21;k<=24;k++)muestra(k,1,0);
+  t(_plcVivoEstado(h,T-12000).est==='F','vivo: rodillo gira y no suma producción → SIN FILM a los pocos segundos');
+  // vuelve el film: en la muestra siguiente ya es PRODUCIENDO (antes tardaba hasta 3 min)
+  muestra(25,1,2);
+  t(_plcVivoEstado(h,T-10000).est==='P','vivo: vuelve el film → PRODUCIENDO en la muestra siguiente');
+  // se para el rodillo 10 s
+  for(let k=26;k<=30;k++)muestra(k,0,2);
+  const vp=_plcVivoEstado(h,T);t(vp.est==='S'&&vp.min===0,'vivo: sin pulsos 8 s → PARADA aunque el PLC siga sumando por su ventana de 20 s');
+  t(_plcVivoEstado(h,T+30000)===null,'vivo: la PC no sube hace 20 s → no inventa (usa los minutos)');
+  t(_plcVivoEstado(h.slice(-1),T)===null,'vivo: con una sola muestra no decide');
+  // velocidad de los últimos 5 minutos produciendo: 39 pulsos/min × 0,793 = 30,9
+  const mv=[];for(let i=0;i<10;i++)mv.push({ts:new Date(T-(10-i)*60000).toISOString(),odo_bruto:5000+i*39,seg_prod:100+i*60});
+  const va=_plcVelAhora(mv,0.793);t(va&&Math.abs(va.v-30.93)<0.01&&va.n===5,'velocidad: 39 pulsos/min → 30,9 m/min');
+  const mv2=mv.map((m,i)=>i===9?Object.assign({},m,{seg_prod:m.seg_prod-40}):m);
+  t(_plcVelAhora(mv2,0.793).n===5,'velocidad: un minuto con parada no entra');
+  const R={vUlt:31.0,nroUlt:'BOB-06590',J:{a:'ENGORDAR'}};
+  const cv=_plcCambioVel({v:32.6},R);
+  t(cv&&cv.sube&&cv.ef==='AFINASTE'&&/al revés/.test(cv.rel),'cambio: +5 % con ENGORDAR pendiente → AFINASTE, ojo va al revés');
+  const cb=_plcCambioVel({v:29.5},R);
+  t(cb&&!cb.sube&&cb.ef==='ENGORDASTE'&&/para el lado/.test(cb.rel),'cambio: −5 % con ENGORDAR → ENGORDASTE, va para el lado que pide');
+  t(_plcCambioVel({v:31.5},R)===null,'cambio: +1,6 % no avisa (ruido de 1 pulso/min)');
+  t(_plcCambioVel({v:33},{J:null})===null,'cambio: sin bobina pesada de referencia no avisa');
+}
+
 console.log((bad?'✗ ':'✓ ')+ok+' ok · '+bad+' fallas');
 process.exit(bad?1:0);
 })().catch(e=>{console.log('✗ excepción',e);process.exit(1);});
