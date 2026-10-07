@@ -267,6 +267,25 @@ t(_evvJuicio(9).k==='bad'&&_evvJuicio(-11).k==='bad','pasando +8 % / −10 % →
   t(_eeBarInfo({meta:{cerrada:true}}).cerrada,'barra: pistas cerradas → lo dice');
 }
 
+// ---- 07p qué orden corre en cada máquina ----
+{
+  const sw=new Date(AHORA-40*60000).toISOString();
+  const A={id:884,numero_orden:'ORD-06322',estado:'En proceso',orden_extrusoras:[{id:1,extrusora_id:3,fecha_inicio:null,fecha_fin:null},{id:2,extrusora_id:7}]};
+  const B={id:891,numero_orden:'ORD-06329',estado:'En proceso',orden_extrusoras:[{id:3,extrusora_id:3,fecha_inicio:null,fecha_fin:null},{id:4,extrusora_id:7}]};
+  t(_oeEnMaquina([A],3)===A,'orden en máquina: una sola En proceso → esa');
+  t(_oeEnMaquina([A,B],3)===null,'orden en máquina: dos En proceso sin marca → no se sabe (pide elegir)');
+  A.orden_extrusoras[0].fecha_fin=sw;B.orden_extrusoras[0].fecha_inicio=sw;
+  t(_oeEnMaquina([A,B],3)===B,'orden en máquina: EXT-03 cambiada a la 06329 → la 06329');
+  t(_oeEnMaquina([A,B],3,AHORA-60*60000)===A,'orden en máquina: una bobina cerrada antes del cambio → la orden de antes');
+  t(_oeEnMaquina([A,B],7)===null,'orden en máquina: EXT-07 con las dos sin marca → pide elegir');
+  B.orden_extrusoras[1].fecha_fin=sw;
+  t(_oeEnMaquina([A,B],7)===A,'orden en máquina: EXT-07 dejó la 06329 → sigue la 06322');
+  // la referencia de velocidad es sólo del mismo tipo de bobina
+  const cc=(id,min,m,mp)=>({id,cerrado_en:new Date(AHORA-min*60000).toISOString(),metros:m,minProd:mp});
+  const R=_plcRefMaquina([cc(1,100,1500,48)],new Map([[1,{id:1,numero_bobina:'B1',kg_reales:29.6,peso_bruto_kg:29.6,bobina_tipo_id:12}]]),0.0177);
+  t(R&&!R.vUlt&&_plcCambioVel({v:42},R)===null,'cambio de velocidad: no compara contra bobinas de otro producto');
+}
+
 console.log((bad?'✗ ':'✓ ')+ok+' ok · '+bad+' fallas');
 process.exit(bad?1:0);
 })().catch(e=>{console.log('✗ excepción',e);process.exit(1);});

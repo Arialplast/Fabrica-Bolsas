@@ -234,6 +234,10 @@ tr:hover td{background:rgba(255,255,255,0.02);}
 .ee-oe{padding:11px 16px;border-bottom:1px solid var(--border);background:var(--bg3);display:flex;flex-direction:column;gap:3px;}
 .ee-oe .oe{font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--accent);}
 .ee-oe .prod{font-size:13px;color:var(--text2);}
+.ee-oe-r{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+.ee-cambiar{font-size:12px;font-weight:600;padding:5px 10px;border-radius:8px;background:var(--bg2);border:1px solid var(--accentbd);color:var(--accent);cursor:pointer;white-space:nowrap;}
+.ee-oe-amb{background:var(--amberbg);gap:6px;}.ee-oe-amb .prod{color:var(--amber);}
+.ee-raro b{color:var(--red);font-size:20px;}
 .ee-read{padding:22px 16px 16px;display:flex;flex-direction:column;align-items:center;gap:2px;}
 .ee-read .cap{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--text3);font-weight:600;}
 .ee-read .big{font-family:'DM Mono',monospace;font-weight:800;font-size:var(--ee-digit);line-height:1.02;letter-spacing:-.03em;font-variant-numeric:tabular-nums;}
@@ -1001,7 +1005,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-07q</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-07r</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6154,7 +6158,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-07q';   // 07q: 🔧 botón «Generar OE» en la línea por kilo que está sin OE (el ✏️ Editar no rearma la producción): crea la OE venta_bobina con extrusora y metros, alinea el plan y confirma el pedido si sólo faltaba eso (PED-06106).
+const APP_BUILD='2026-10-07r';   // 07r: ⇄ QUÉ ORDEN CORRE EN CADA MÁQUINA: con dos OE En proceso en la misma extrusora manda la marca por máquina (orden_extrusoras.fecha_inicio/fecha_fin, ya existían sin uso). Estación: botón «⇄ Cambiar orden» (pregunta si la bobina en curso ya es de la nueva), si hay varias sin marca pide elegir; la carga propone la orden que corría cuando se cerró la bobina. Aviso «¿CAMBIASTE DE PRODUCTO?» si lo que sale se aleja más de 20 % (g/m o velocidad) de la orden; el aviso de velocidad sólo compara contra bobinas del mismo tipo. (Caso 07/10 20:00: EXT-03 pasó a ORD-06329 50 cm y seguía mostrando la ORD-06322 de 60.)
+// 07q: 🔧 botón «Generar OE» en la línea por kilo que está sin OE (el ✏️ Editar no rearma la producción): crea la OE venta_bobina con extrusora y metros, alinea el plan y confirma el pedido si sólo faltaba eso (PED-06106).
 // 07p: 🎞 cambiar una línea de bolsa a «por kilo» (o al revés) rearma la orden planificada con el producto nuevo y la OE tildada (PED-06106 quedó sin OE); candado al confirmar si el plan no es del producto de la línea; aviso si un granel se confirma sin OE.
 // 07o: 🏭 estación: barra de la BOBINA EN CURSO contra la «próxima bobina» del plan (con compensación de pistas), «PREPARATE» al 95 % y «LLEGASTE: CORTÁ» al 100 %, minutos produciendo; SEMÁFORO en vivo (rojo AFINAR / amarillo ENGORDAR / verde OK) con el g/m estimado = kg/h con tubo de las últimas pesadas del mismo tipo ÷ velocidad de ahora, advertencia «no muevas la velocidad del tornillo» y el real de la balanza debajo; velocidad m/min y kg/h a la vista (decisión de German, a prueba). Extrusión en vivo muestra el mismo semáforo. · 07n: 🏭 estado de la máquina AL INSTANTE (cada 2 s, de plc_estado): parada sin pulsos 8 s, sin film cuando el PLC deja de sumar producción, produciendo en cuanto vuelve el film; en la estación y en Extrusión en vivo. ⚡ Aviso de cambio de velocidad contra la última bobina pesada (±3 %): «SUBISTE LA VELOCIDAD → AFINASTE, esperá la próxima bobina pesada», a los operarios y al dueño (con g/m estimado sólo para el dueño). · 07m: ⚖ pesada/liviana IGUAL en la estación y en Extrusión en vivo: una sola cuenta (_plcRefMaquina) = g/m REAL de las últimas 3 bobinas pesadas atadas a un cierre (últimas 12 h, misma bobina de la orden) = kg con tubo ÷ metros PLC, contra el teórico de la orden, con las tolerancias de la carga. Se saca la estimación kg/h ÷ m/min. Tu pantalla muestra kg/h sin tubo y entre paréntesis el con tubo que ve el operario. · 07l: 🏭 últimas bobinas de la estación con encabezado (bobina · metros · kg · kg/h · pesada a las). · 07k: 🏭 los metros de la estación corren en vivo (cada 2 s, como el display del ZQ); la recarga completa cada 30 s o al aparecer un cierre nuevo. · 07j: ⚖ pesada/liviana con UN SOLO criterio en todo el MES (las tolerancias de la carga: OK +2 % / −5 %, rechazo +8 % / −10 %) y texto claro: «Sale X g/m (estimado) · la orden pide Y g/m (teórico) → LIVIANA −Z % → ENGORDAR». · 07i: 📏 metros del PLC OFICIALES: con un cierre elegido, «Metros reales» = cuentametros (no se tipean); sin cierre o EXT-01, a mano. 🏭 Estación: kg/h real de las bobinas pesadas y AFINAR / OK / ENGORDAR en vivo (P4 nueva: nunca un peso estimado). Tu pantalla: alarma de metros ≠ al 3 % y peso manual por turno. · 07h: 🏭 ESTACIÓN DE EXTRUSIÓN (diseño aprobado 07/09) con datos reales del PLC: arriba «Pendientes de pesar» (cierres del pulsador), una tarjeta por máquina con los metros de esta bobina en grande, estado y parada del turno; vista de todas o una sola a pantalla completa; sin kg/h ni kg estimados. Es la entrada de la estación Extrusión; el panel de órdenes sigue en «📋 Órdenes y cola». Se saca el bloque del panel de la 07g. · 07g: 📏 panel operario de extrusión: cada máquina con PLC muestra la bobina en curso (metros en vivo), si produce o está parada, y las bobinas cerradas con el pulsador para pesar; tocar una abre la carga de siempre con orden, extrusora y cierre puestos (metros: los sigue escribiendo el operario). Factor PLC E3/E7 = 0,793 fijado. · 07f: 🧾 la balanza ya NO descuenta el cartón: «Kg reales» = lo que marca el visor (con tubo), como siempre; el tubo queda guardado aparte (tara_tubo_kg) y el neto sólo se ve en 📏 Extrusión en vivo. · 07e: 📏 cuentametros PLC → MES: la Carga de bobinas propone el cierre del pulsador (el más viejo sin bobina de esa extrusora), muestra sus metros y la bobina en curso, y graba plc_cierre_id; nueva pantalla 📏 Extrusión en vivo 🔐 (velocidad, uso, kg/h y g/m por máquina, línea de tiempo 24 h, cierres/bobinas, turnos, paradas). SQL: sql/plc_cuentametros.sql. · 07d: 🔀 cargar en una cortadora que la OC no tiene asignada pregunta (no bloquea); queda en la máquina del operario y avisa en Órdenes de corte y Tablero hasta reasignar. · 07c: 👷 panel de corte: recuadros grandes de quién carga y en qué máquina (rojo si falta), tarjeta de la máquina activa resaltada, otras atenuadas. · 07b: ⏳ cartel «Guardando…» que bloquea la pantalla en TODA la app mientras se graba algo pedido por el usuario; 📢 panel de corte: cartel gigante al escanear (cargada / ya estaba / no se cargó), el mensaje ya no se borra al repintar, lista de cargadas grande con la última arriba. (07a: valores de contado nacen acreditados)
 // build anterior → 06b:   // 06b: ⚖ BALANZA KRETZ EN LA CARGA DE BOBINAS — Web Serial (CH340, 9600 8N1, trama continua), peso en vivo grande, ESTABLE = ±0,04 kg 2 s con >5 kg, toma automática; kg_reales = NETO (bruto − tubo por ancho, configuracion.taras_tubo, ⚙ Tubos con admin; 90 cm = 1,1 kg, el resto estimado proporcional); guarda peso_bruto_kg / tara_tubo_kg / peso_origen; peso manual (bruto del visor) sólo sin balanza o en turno atrasado, marcado ✍ en listados y Análisis de extrusión. SQL: sql/balanza_bobinas.sql.
@@ -9444,7 +9449,11 @@ function _plcPanelTimer(){
 async function plcPanelPesar(extId,cierreId){
   abrirCargaEmbebida();
   try{await poblarCargaSelects();}catch(e){}
-  const cands=(C.ordenes||[]).filter(o=>o.estado==='En proceso'&&o.orden_extrusoras?.some(oe=>String(oe.extrusora_id)===String(extId)));
+  // 07p: la orden que corría en ESTA máquina cuando se cerró la bobina (marca por máquina)
+  let tC=Date.now();
+  try{const dd=(typeof EST!=='undefined'&&EST.datos[extId])||PLC.datos;const c=dd&&dd.pend&&dd.pend.find(x=>x.id===cierreId);if(c&&c.cerrado_en)tC=new Date(c.cerrado_en).getTime()-1000;}catch(e){}
+  const oSel=_oeEnMaquina(_oeCandMaq(extId),extId,tC);
+  const cands=oSel?[oSel]:_oeCandMaq(extId);
   const so=document.getElementById('cb-orden');
   if(so&&cands.length===1&&[...so.options].some(op=>op.value===String(cands[0].id))){
     so.value=String(cands[0].id);
@@ -9492,9 +9501,24 @@ function _eeMinParada(mins){
 function _eeExts(){
   return (C.extrusoras||[]).filter(e=>e.en_servicio!==false).sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre)));
 }
-function _eeOE(extId){
-  return (C.ordenes||[]).find(o=>o.estado==='En proceso'&&o.orden_extrusoras?.some(oe=>String(oe.extrusora_id)===String(extId)))||null;
+// 07p — QUÉ ORDEN CORRE EN CADA MÁQUINA. El estado «En proceso» vive en la ORDEN (vale para
+// todas sus máquinas), así que con dos órdenes En proceso en la misma máquina el sistema no
+// sabía cuál se estaba haciendo (07/10 20:00: EXT-03 pasó a 50 cm y seguía mostrando la de 60).
+// Ahora manda la marca POR MÁQUINA: orden_extrusoras.fecha_inicio / fecha_fin (columnas que ya
+// existían sin uso). La pone «Cambiar orden» de la estación.
+function _oeFilaMaq(o,extId){return (o&&o.orden_extrusoras||[]).find(x=>String(x.extrusora_id)===String(extId))||null;}
+function _oeCandMaq(extId){return (C.ordenes||[]).filter(o=>o.estado==='En proceso'&&_oeFilaMaq(o,extId));}
+// Pura: la orden que corría en la máquina en el instante t (ms). null = no se puede saber.
+function _oeEnMaquina(cands,extId,t){
+  if(!cands||!cands.length)return null;
+  const T=t||Date.now(),ms=x=>x?new Date(x).getTime():null;
+  const vig=cands.map(o=>({o,r:_oeFilaMaq(o,extId)})).filter(x=>x.r)
+    .filter(x=>!(x.r.fecha_inicio&&ms(x.r.fecha_inicio)>T)&&!(x.r.fecha_fin&&ms(x.r.fecha_fin)<=T));
+  const marc=vig.filter(x=>x.r.fecha_inicio).sort((a,b)=>ms(b.r.fecha_inicio)-ms(a.r.fecha_inicio));
+  if(marc.length)return marc[0].o;
+  return vig.length===1?vig[0].o:null;
 }
+function _eeOE(extId){return _oeEnMaquina(_oeCandMaq(extId),extId);}
 async function _eeDatos(ext){
   const d=await _plcDatosExt(ext.id);
   if(!d)return null;
@@ -9555,10 +9579,10 @@ function _plcRefMaquina(calc,bobPorCierre,kpmOrden){
     kgh:conH.length?S(conH,x=>x.kq)/S(conH,x=>x.h):null,          // con tubo (lo que ve el operario)
     kghNeto:conH.length?S(conH,x=>x.kn)/S(conH,x=>x.h):null,      // sin tubo (producción real)
     gpm:null,gt:null,dv:null,J:null};
-  const uu=u[u.length-1];
-  if(uu.h>5/60){r.vUlt=uu.m/(uu.h*60);r.nroUlt=uu.b.numero_bobina;}   // m/min de la última pesada (07n)
   const gt=kpmOrden>0?kpmOrden*1000:u[u.length-1].gt;
   const mismas=u.filter(x=>x.gt&&gt&&Math.abs(x.gt-gt)<1e-6);
+  const uu=mismas.length?mismas[mismas.length-1]:null;   // 07p: velocidad de referencia sólo del MISMO tipo de bobina
+  if(uu&&uu.h>5/60){r.vUlt=uu.m/(uu.h*60);r.nroUlt=uu.b.numero_bobina;}
   if(gt&&mismas.length){
     r.gt=gt;r.gpm=S(mismas,x=>x.kq)*1000/S(mismas,x=>x.m);r.nJ=mismas.length;
     const mh=mismas.filter(x=>x.h>5/60);if(mh.length)r.kghJ=S(mh,x=>x.kq)/S(mh,x=>x.h);   // kg/h con tubo de esas mismas bobinas (07o)
@@ -9671,6 +9695,65 @@ function _eeCola(exts){
       +'<button class="ee-pesar'+(k===0?' prim':'')+'" onclick="plcPanelPesar('+it.e.id+','+it.c.id+')">⚖ Pesar</button></div>').join('')
     +'</div>';
 }
+// 07p — cabecera de la orden con «Cambiar orden»; si hay varias En proceso sin marca, pide elegir.
+function _eeOEHtml(e,oe){
+  const cands=_oeCandMaq(e.id);
+  const btn='<button class="ee-cambiar" onclick="eeElegirOE('+e.id+')">⇄ Cambiar orden</button>';
+  if(oe)return '<div class="ee-oe"><div class="ee-oe-r"><div class="oe">'+escapeHtml(oe.numero_orden)+(oe.cliente?' · '+escapeHtml(oe.cliente):'')+'</div>'+btn+'</div>'
+    +'<div class="prod">'+escapeHtml(oe.bobinas?.nombre||'')+(oe.bobinas?.descripcion?' · '+escapeHtml(oe.bobinas.descripcion):'')+'</div></div>';
+  if(cands.length>1)return '<div class="ee-oe ee-oe-amb"><div class="prod"><b>⚠ Hay '+cands.length+' órdenes en proceso en esta máquina. Tocá la que estás haciendo:</b></div>'
+    +cands.map(o=>'<button class="ee-pesar" style="text-align:left" onclick="eeCambiarOE('+e.id+','+o.id+')"><b>'+escapeHtml(o.numero_orden)+'</b> · '+escapeHtml(o.bobinas?.descripcion||o.bobinas?.nombre||'')+'</button>').join('')+'</div>';
+  return '<div class="ee-oe"><div class="ee-oe-r"><div class="prod" style="color:var(--amber)">Sin orden en proceso en esta máquina</div>'+btn+'</div></div>';
+}
+function _eeModal(html){
+  const v=document.getElementById('ee-modal');if(v)v.remove();
+  document.body.insertAdjacentHTML('beforeend','<div class="modal-overlay" id="ee-modal" onclick="if(event.target===this)this.remove()"><div class="modal-card" style="max-width:520px">'+html+'</div></div>');
+}
+function eeElegirOE(extId){
+  const ext=(C.extrusoras||[]).find(x=>String(x.id)===String(extId))||{nombre:'?'};
+  const act=_eeOE(extId);
+  const lista=(C.ordenes||[]).filter(o=>(o.estado==='En proceso'||o.estado==='Pendiente')&&_oeFilaMaq(o,extId))
+    .sort((a,b)=>(a.estado==='En proceso'?0:1)-(b.estado==='En proceso'?0:1)||(a.prioridad||99)-(b.prioridad||99)).slice(0,8);
+  _eeModal('<div class="modal-title">⇄ ¿Qué orden vas a hacer en '+escapeHtml(ext.nombre)+'?</div>'
+    +'<div style="font-size:13px;color:var(--text2);margin-bottom:10px">Cuando cambies de bobina en la máquina, cambiala acá también: así la barra, el semáforo y la carga usan la orden correcta.</div>'
+    +'<div style="display:flex;flex-direction:column;gap:6px">'+(lista.length?lista.map(o=>'<button class="ee-pesar'+(act&&act.id===o.id?' prim':'')+'" style="text-align:left" '+(act&&act.id===o.id?'disabled':'onclick="eeCambiarOE('+extId+','+o.id+')"')+'>'
+      +'<b>'+escapeHtml(o.numero_orden)+'</b>'+(o.cliente?' · '+escapeHtml(o.cliente):'')+'<br><span style="font-size:13px">'+escapeHtml(o.bobinas?.descripcion||o.bobinas?.nombre||'')+'</span>'
+      +'<span style="float:right;font-size:12px;color:var(--text3)">'+(act&&act.id===o.id?'la de ahora':o.estado)+'</span></button>').join('')
+      :'<div style="font-size:13px;color:var(--text3)">No hay órdenes asignadas a esta máquina.</div>')+'</div>'
+    +'<div class="btn-grp" style="margin-top:12px"><button class="btn btn-sm" onclick="document.getElementById(\'ee-modal\').remove()">Cancelar</button></div>');
+}
+function eeCambiarOE(extId,oid){
+  const ext=(C.extrusoras||[]).find(x=>String(x.id)===String(extId))||{nombre:'?'};
+  const o=(C.ordenes||[]).find(x=>x.id===oid);if(!o)return;
+  const d=EST.datos[extId];
+  const ini=d&&d.ult?d.ult.cerrado_en:null;
+  const cur=d&&d.enCurso!=null?d.enCurso:null;
+  _eeModal('<div class="modal-title">'+escapeHtml(ext.nombre)+' → '+escapeHtml(o.numero_orden)+'</div>'
+    +'<div style="font-size:14px;margin-bottom:12px"><b>'+escapeHtml(o.bobinas?.descripcion||o.bobinas?.nombre||'')+'</b>'+(o.cliente?' · '+escapeHtml(o.cliente):'')+'</div>'
+    +(ini?'<div style="font-size:14px;margin-bottom:10px">La bobina que está corriendo ahora'+(cur!=null?' (<b>'+_eeF(cur)+' m</b>, desde las '+_plcHora(ini)+')':'')+', ¿ya es de esta orden?</div>'
+      +'<div style="display:flex;flex-direction:column;gap:6px">'
+      +'<button class="ee-pesar prim" onclick="eeCambiarOk('+extId+','+oid+',\''+ini+'\')">Sí, ya es de '+escapeHtml(o.numero_orden)+' (desde las '+_plcHora(ini)+')</button>'
+      +'<button class="ee-pesar" onclick="eeCambiarOk('+extId+','+oid+',null)">No, la cambio ahora: apreto el pulsador al empezar la nueva</button></div>'
+      :'<button class="ee-pesar prim" style="width:100%" onclick="eeCambiarOk('+extId+','+oid+',null)">Cambiar desde ahora</button>')
+    +'<div class="btn-grp" style="margin-top:12px"><button class="btn btn-sm" onclick="document.getElementById(\'ee-modal\').remove()">Cancelar</button></div>');
+}
+async function eeCambiarOk(extId,oid,desdeIso){
+  const desde=desdeIso||new Date().toISOString();
+  const o=(C.ordenes||[]).find(x=>x.id===oid);if(!o)return;
+  const fila=_oeFilaMaq(o,extId);if(!fila){alert('Esa orden no está asignada a esta máquina.');return;}
+  try{
+    // las otras órdenes En proceso de ESTA máquina dejan de correr acá (la orden sigue En proceso en sus otras máquinas)
+    for(const x of _oeCandMaq(extId)){
+      if(x.id===oid)continue;const r=_oeFilaMaq(x,extId);
+      if(r&&!r.fecha_fin){const{error}=await sb.from('orden_extrusoras').update({fecha_fin:desde}).eq('id',r.id);if(error)throw error;}
+    }
+    const{error:e1}=await sb.from('orden_extrusoras').update({fecha_inicio:desde,fecha_fin:null}).eq('id',fila.id);if(e1)throw e1;
+    if(o.estado!=='En proceso'){const{error:e2}=await sb.from('ordenes').update({estado:'En proceso'}).eq('id',oid);if(e2)throw e2;}
+  }catch(err){alert('No se pudo cambiar la orden: '+(err.message||err));return;}
+  const m=document.getElementById('ee-modal');if(m)m.remove();
+  try{await reload();}catch(e){}
+  EST.datos={};renderEstacionExt();
+}
 function _eeTarjeta(e){
   const d=EST.datos[e.id];
   const oe=_eeOE(e.id);
@@ -9680,9 +9763,7 @@ function _eeTarjeta(e){
   const st=_eeSt(d);
   let h='<section class="ee-st"><div class="ee-st-hd"><div class="ee-id">'+escapeHtml(e.nombre)+'</div>'
     +'<div class="ee-pill '+st[0]+'" id="ee-pill-'+e.id+'"><span class="dot"></span><span class="tx">'+st[1]+'</span></div></div>'
-    +'<div class="ee-oe">'+(oe?'<div class="oe">'+escapeHtml(oe.numero_orden)+(oe.cliente?' · '+escapeHtml(oe.cliente):'')+'</div>'
-      +'<div class="prod">'+escapeHtml(oe.bobinas?.nombre||'')+(oe.bobinas?.descripcion?' · '+escapeHtml(oe.bobinas.descripcion):'')+'</div>'
-      :'<div class="prod" style="color:var(--amber)">Sin orden en proceso en esta máquina</div>')+'</div>';
+    +_eeOEHtml(e,oe);
   const kghB=_eeKghBobinas(e.id,d);
   const kpm=oe&&oe.bobinas?parseFloat(oe.bobinas.kg_por_metro):null;
   const R=d?_plcRefMaquina(d.calc,d.bobPorCierre,kpm):null;   // 07m: la MISMA cuenta que Extrusión en vivo
@@ -9699,8 +9780,15 @@ function _eeTarjeta(e){
     }
     // semáforo: con la máquina produciendo, el estimado de ahora; si no, el real de las pesadas
     const J=SM?SM.J:(R&&R.J);
+    // 07p: lo que sale no se parece a la orden (±20 % de g/m o de velocidad contra el mismo tipo) → ¿cambió el producto?
+    const raro=!!(R&&R.J&&((SM&&Math.abs(SM.dv)>20)||(CV&&Math.abs(CV.pct)>20)));
     let sema;
-    if(J){
+    if(raro){
+      sema='<div class="ee-ind bad ee-raro"><div class="ee-sema-t"><b>¿CAMBIASTE DE PRODUCTO?</b>'
+        +'<span>Lo que sale ahora'+(SM?' (~'+_f1(SM.g)+' g/m':' (')+(d.vel?', '+_f1(d.vel.v)+' m/min':'')+') no se parece a '+escapeHtml(oe.numero_orden)+' ('+_f1(R.gt)+' g/m'+(R.vUlt?', '+_f1(R.vUlt)+' m/min':'')+').</span>'
+        +'<span class="tz">Si cambiaste de bobina, tocá «Cambiar orden» ANTES de pesar. Si no cambiaste, avisá a la oficina.</span>'
+        +'<button class="ee-pesar prim" style="margin-top:6px" onclick="eeElegirOE('+e.id+')">⇄ Cambiar orden</button></div></div>';
+    }else if(J){
       const lu=J.a==='AFINAR'?'r':J.a==='ENGORDAR'?'y':'g',cl=lu==='r'?'bad':lu==='y'?'warn':'ok';
       sema='<div class="ee-ind ee-sema '+cl+'"><span class="ee-lamp"><i class="r'+(lu==='r'?' on':'')+'"></i><i class="y'+(lu==='y'?' on':'')+'"></i><i class="g'+(lu==='g'?' on':'')+'"></i></span>'
         +'<div class="ee-sema-t"><b>'+J.a+'</b>'
@@ -9715,7 +9803,7 @@ function _eeTarjeta(e){
       +'<div class="big" id="ee-big-'+e.id+'">'+(d.enCurso!=null&&!d.estadoViejo?_eeF(d.enCurso):'—')+'</div><div class="unit">METROS</div></div>'
       +_eeBarHtml(e.id,d)
       +sema
-      +(CV?'<div class="ee-vel"><b>'+CV.t+' '+(CV.pct>0?'+':'')+_f1(CV.pct)+' %</b><span>'+_f1(CV.vRef)+' → '+_f1(CV.vAhora)+' m/min desde la última pesada ('+escapeHtml(CV.nro||'')+'). '
+      +(CV&&!raro?'<div class="ee-vel"><b>'+CV.t+' '+(CV.pct>0?'+':'')+_f1(CV.pct)+' %</b><span>'+_f1(CV.vRef)+' → '+_f1(CV.vAhora)+' m/min desde la última pesada ('+escapeHtml(CV.nro||'')+'). '
         +'Si no tocaste el tornillo, <b>'+CV.ef+'</b>: esperá la próxima bobina pesada para ver si quedó bien.'+(CV.rel?' <i>'+CV.rel+'.</i>':'')+'</span></div>':'')
       +'<div class="ee-mets ee-mets4"><div class="met"><div class="k">velocidad</div><div class="v">'+(d.vel&&st[0]==='run'?_f1(d.vel.v):'—')+'<small> m/min</small></div></div>'
       +'<div class="met"><div class="k">kg/h últimas pesadas</div><div class="v">'+(kghRef!=null?_f1(kghRef):'—')+'</div></div>'
@@ -10020,7 +10108,8 @@ function _evvPintar(w,maqs,bobsSinPlc,bobinas,cfgP,t0){
     const SM=st==='P'?_plcSemaforo(m.R,m.velA):null;   // 07o: el mismo semáforo en vivo que el operario
     if(SM){
       const R=m.R,J=SM.J;sc=J.c;
-      sema='<div class="evv-sema" style="border-color:'+sc+'"><span class="evv-dot" style="background:'+sc+'"></span><span>'
+      if(Math.abs(SM.dv)>20){sc='var(--red)';sema='<div class="evv-sema" style="border-color:var(--red)"><span class="evv-dot" style="background:var(--red)"></span><span><b style="color:var(--red)">⚠ ¿Cambio de producto sin cambiar la orden en el MES?</b> Sale ~'+_evvF(SM.g,1)+' g/m a '+_evvF(SM.v,1)+' m/min y la orden pide '+_evvF(SM.gt,1)+' g/m. El operario ve «¿CAMBIASTE DE PRODUCTO?».</span></div>';}
+      else sema='<div class="evv-sema" style="border-color:'+sc+'"><span class="evv-dot" style="background:'+sc+'"></span><span>'
         +'Ahora ~<b class="mono">'+_evvF(SM.g,1)+' g/m</b> (estimado: kg/h con tubo de las pesadas ÷ '+_evvF(SM.v,1)+' m/min, tornillo igual) · la orden pide <b class="mono">'+_evvF(SM.gt,1)+'</b>'
         +'<br><b style="color:'+sc+'">'+J.t+' '+(SM.dv>=0?'+':'')+_evvF(SM.dv,1)+' % → el operario ve: '+J.a+'</b>'
         +'<br><span style="color:var(--text3)">Real últimas '+R.nJ+' pesadas: '+_evvF(R.gpm,1)+' g/m ('+(R.dv>=0?'+':'')+_evvF(R.dv,1)+' %, '+R.J.t+')</span></span></div>';
