@@ -92,7 +92,7 @@ global.localTime=()=>'08:00:00';
 global.C={extrusoras:[{id:1,nombre:'EXT-01',en_servicio:true},{id:3,nombre:'EXT-03',en_servicio:true},{id:7,nombre:'EXT-07',en_servicio:true},{id:2,nombre:'EXT-02',en_servicio:false}],
   bobinas:[{id:10,nombre:'B90-14',kg_por_metro:0.0200},{id:11,nombre:'B100',kg_por_metro:0.028}],
   ordenes:[{id:874,numero_orden:'ORD-06311'},{id:879,numero_orden:'ORD-06307'}],operarios:[{id:5,nombre:'MASSI'}]};
-eval(src.slice(a,b).replace(/^const (PLC|PLCP|EVV|PLC_VINCULO_DESDE_DEF)=/gm,'global.$1='));
+eval(src.slice(a,b).replace(/^const (PLC|PLCP|EST|EVV|PLC_VINCULO_DESDE_DEF)=/gm,'global.$1='));
 
 (async()=>{
 // ---- puras ----
@@ -173,7 +173,10 @@ const hp=_plcpHtml(3,{pend:[{id:9,cerrado_en:new Date(AHORA-600000).toISOString(
 t(/BOBINA EN CURSO/.test(hp)&&/320/.test(hp)&&/2 BOBINAS PARA PESAR/.test(hp)&&/plcPanelPesar\(3,9\)/.test(hp)&&/la más vieja/.test(hp),'panel: bobina en curso y bobinas para pesar, la más vieja primero');
 t(!/kg\/h|kg estimad/i.test(hp),'panel P4: sin kg estimados ni kg/h');
 t(/Sin cuentametros/.test(_plcpHtml(1,null)),'panel: máquina sin PLC lo dice');
-t(src.includes("if(!fuera)html+='<div class=\"pop-plc\" id=\"pop-plc-'+ext.id+'\"></div>';"),'panel: la tarjeta tiene el lugar del PLC');
+// ---- 07h estación de extrusión ----
+t(_eeMinParada([mm(1,100,100),mm(2,100,100),mm(3,100,100),mm(4,140,140),mm(5,140,140)])===3,'estación: minutos parada en el turno');
+t(src.includes("go('estacion-ext'); document.body.classList.add('pext-on');"),'estación: la estación Extrusión entra a la pantalla nueva');
+t(!src.includes('pop-plc-\'+ext.id'),'estación: se sacó el bloque de la 07g del panel');
 
 console.log((bad?'✗ ':'✓ ')+ok+' ok · '+bad+' fallas');
 process.exit(bad?1:0);
