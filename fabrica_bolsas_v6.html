@@ -833,7 +833,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-06c</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-07a</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5836,7 +5836,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-06c';   // 06c: 🎯 la calidad de la bobina (semáforo, error %, fuera de rango) se vuelve a juzgar con el peso CON TUBO como antes del 06b; kg_reales sigue siendo el neto (costos, kg/h, consumo de MP).
+const APP_BUILD='2026-10-07a';   // 07a: 💵 efectivo/transferencia nacen acreditados (no 'en cartera'), método obligatorio en recibos y cheque con N°/Vto, regularización de los viejos desde Cartera, tablero lee bien los cheques en cartera
 // build anterior → 06b:   // 06b: ⚖ BALANZA KRETZ EN LA CARGA DE BOBINAS — Web Serial (CH340, 9600 8N1, trama continua), peso en vivo grande, ESTABLE = ±0,04 kg 2 s con >5 kg, toma automática; kg_reales = NETO (bruto − tubo por ancho, configuracion.taras_tubo, ⚙ Tubos con admin; 90 cm = 1,1 kg, el resto estimado proporcional); guarda peso_bruto_kg / tara_tubo_kg / peso_origen; peso manual (bruto del visor) sólo sin balanza o en turno atrasado, marcado ✍ en listados y Análisis de extrusión. SQL: sql/balanza_bobinas.sql.
 // build anterior → 06a:   // 06a: 🧵 PLAN DE BOBINAS POR PISTAS — toda OE nueva sale en N × L: N múltiplo de las pistas de la bolsa (45–60 cm = 4, salvo 60 cm de más de 50 µ = 2; más de 60 cm = 2; editable en la ficha de la bobina) y todas las bobinas con los mismos metros (objetivo de la ficha = mediana histórica del tipo, ±15 %); metros de la OE = N × L, el sobrante a stock. La estación de extrusión y la carga de bobinas muestran el plan, la PRÓXIMA bobina y las pistas; si una bobina sale distinta, COMPENSA: recalcula las que faltan por pista para que todas cierren iguales y, si una pista ya tiene sus bobinas y quedó corta, pide una más de esa medida. La OE no se cierra sola hasta que las pistas cierran. Admin edita bobinas × metros en Editar OE. SQL: sql/pistas_bobinas.sql (sin correrlo funciona derivado, sin guardar).
 // 05e (previo):   // 05e: 🧱 PALLETS POR PARTES — el botón 🧱 Pallet abre un selector: se eligen las bobinas del pallet (por defecto las primeras 18 que falten, el tamaño se recuerda), se imprime como «PALLET N° n» sólo con esas, y quedan registradas en configuracion['pallet_oe_<id>'] para no imprimirlas dos veces (se relee de la base antes de guardar, por si otra terminal armó uno). Todas las que faltan en un clic, reimprimir o anular un pallet, y la lista completa de la OE como siempre. Sin SQL.
@@ -21251,9 +21251,13 @@ async function guardarRecibo(){
     }
   }
 
+  const fecha=document.getElementById('nrec-fecha').value||localDate();
+  // 07a: validar los valores ANTES de crear el recibo (método obligatorio — P2 —; cheque con N° y Vto).
+  {const _pv=_recValoresParaGuardar(_recCtx.valores,C.metodos_pago,C.bancos,null,fecha);
+   if(_pv.error){msg.style.color='var(--red)';msg.textContent=_pv.error;return;}}
+
   msg.innerHTML='<div class="loading" style="display:inline-flex;gap:6px;align-items:center"><div class="spinner" style="width:14px;height:14px"></div>Guardando…</div>';
 
-  const fecha=document.getElementById('nrec-fecha').value||localDate();
   const obs=document.getElementById('nrec-obs').value.trim()||null;
 
   const prefix=_recCtx.plano==='formal'?'REC':'RECI';
@@ -21280,17 +21284,12 @@ async function guardarRecibo(){
   if(e1){msg.style.color='var(--red)';msg.textContent='Error: '+e1.message;return;}
   await _recCruceConciliacion(rec,totValores,fecha);
 
-  const valoresIns=_recCtx.valores.filter(v=>(parseFloat(v.monto)||0)>0).map(v=>{
-    const m=C.metodos_pago.find(mp=>mp.id===v.metodo_id);
-    return {
-      recibo_id:rec.id,metodo_pago_id:v.metodo_id||null,metodo_nombre:m?.nombre||null,
-      monto:r2(v.monto),banco:(C.bancos||[]).find(b=>b.id===v.banco_id)?.nombre||v.banco||null,
-      banco_id:v.banco_id||null,numero_cheque:v.numero||null,
-      es_tercero:!!v.es_tercero,nombre_emisor:v.es_tercero?(v.nombre_emisor||null):null,cuit_emisor:v.es_tercero?(v.cuit_emisor||null):null,
-      fecha_vto:v.vto||null,detalle:v.detalle||null
-    };
-  });
-  if(valoresIns.length)await sb.from('recibo_valores').insert(valoresIns);
+  // 07a: efectivo/transferencia nacen 'acreditado' (fecha del recibo); los cheques, en cartera.
+  const valoresIns=_recValoresParaGuardar(_recCtx.valores,C.metodos_pago,C.bancos,rec.id,fecha).rows||[];
+  if(valoresIns.length){
+    const{error:eV}=await sb.from('recibo_valores').insert(valoresIns);
+    if(eV){msg.style.color='var(--red)';msg.textContent='El recibo '+numero+' se creó pero sus valores no se guardaron: '+eV.message+'. Anulalo y volvé a cargarlo.';return;}
+  }
 
   const retIns=_recCtx.retenciones.filter(r=>(parseFloat(r.monto)||0)>0).map(r=>({
     recibo_id:rec.id,tipo_retencion_id:r.tipo_id||null,tipo_nombre:r.tipo_nombre||null,
@@ -38417,7 +38416,9 @@ async function renderTablero(){
   // deuda viva total
   let deudaViva=0;(C.deudas_financieras||[]).forEach(d=>{if(d.estado!=='activo'&&d.estado!=='activa')return;(d.cuotas||[]).forEach(q=>{if(q.estado!=='pagado'&&q.estado!=='pagada')deudaViva+=parseFloat(q.monto)||0;});});
   // cheques de terceros no acreditados
-  let chequesEnCartera=0;(C.cheques||[]).forEach(ch=>{if(ch.estado==='en_cartera'||ch.estado==='cartera')chequesEnCartera+=parseFloat(ch.monto)||0;});
+  // 07a: antes leía C.cheques, que nunca se carga (daba $0). Misma fuente que la pantalla de Cartera.
+  let chequesEnCartera=0;try{_chequesCartera().forEach(ch=>{chequesEnCartera+=parseFloat(ch.monto)||0;});}catch(e){}
+  chequesEnCartera=r2(chequesEnCartera);
 
   // ───────── P3: ¿Entrego a tiempo? (promesas en riesgo + cuello + robos) ─────────
   const ABIERTOS=new Set(['pendiente_oc','pendiente_producir','esperando_bobinas','en_produccion','listo_parcial','listo_entregar','entregado_parcial']);
@@ -68541,6 +68542,114 @@ function renderConciliacion(){
   wrap.innerHTML=html;
 }
 
+// ===== 💵 VALORES DE CONTADO: NACEN ACREDITADOS (07a) =====
+// Un valor de recibo es CHEQUE si su método es Cheque/E-cheq. El resto (efectivo,
+// transferencia) entra a caja con el recibo mismo (ver libro de caja: total_cobrado −
+// cheques), así que no tiene paso posterior: nace 'acreditado' con fecha_acreditacion =
+// fecha del recibo, SIN movimiento propio (crearlo sería contar dos veces la plata).
+// Antes nacía 'en_cartera' (default de la tabla) y quedaba ahí para siempre.
+// Regla única de clasificación: la misma regex del formulario. Para que chEsCheque()
+// (número o vencimiento) diga lo mismo, a un valor de contado NO se le guardan número,
+// vencimiento, banco ni emisor aunque hayan quedado tipeados al cambiar de método.
+function _recEsMetodoCheque(m){return !!(m&&/cheque|e-?cheq/i.test(String(m.nombre||'')));}
+// Pura: valida y arma las filas a insertar. Devuelve {error} o {rows}.
+function _recValoresParaGuardar(valores,metodos,bancos,reciboId,fecha){
+  const rows=[];
+  const vals=(valores||[]).filter(v=>(parseFloat(v.monto)||0)>0);
+  for(let i=0;i<vals.length;i++){
+    const v=vals[i];
+    const m=(metodos||[]).find(mp=>mp.id===v.metodo_id);
+    const n='Valor '+(i+1)+' ('+fmtMoney(r2(v.monto))+')';
+    if(!m)return{error:n+': elegí el método de pago (efectivo, transferencia, cheque…).'};
+    const esCh=_recEsMetodoCheque(m);
+    if(esCh&&!String(v.numero||'').trim())return{error:n+': falta el número del cheque.'};
+    if(esCh&&!v.vto)return{error:n+': falta la fecha de vencimiento del cheque (sin ella la cartera y el descuento calculan mal).'};
+    const row={
+      recibo_id:reciboId,metodo_pago_id:m.id,metodo_nombre:m.nombre||null,monto:r2(v.monto),
+      banco:esCh?((bancos||[]).find(b=>b.id===v.banco_id)?.nombre||v.banco||null):null,
+      banco_id:esCh?(v.banco_id||null):null,numero_cheque:esCh?String(v.numero).trim():null,
+      es_tercero:esCh?!!v.es_tercero:false,
+      nombre_emisor:esCh&&v.es_tercero?(v.nombre_emisor||null):null,
+      cuit_emisor:esCh&&v.es_tercero?(v.cuit_emisor||null):null,
+      fecha_vto:esCh?v.vto:null,detalle:v.detalle||null
+    };
+    if(!esCh){row.estado='acreditado';row.fecha_acreditacion=fecha;}
+    rows.push(row);
+  }
+  return{rows};
+}
+// Valores de contado que quedaron 'en_cartera' por el defecto viejo (recibos vivos).
+function _valContadoEnCartera(){
+  const out=[];
+  (C.recibos||[]).forEach(r=>{
+    if(r.estado==='anulado')return;
+    (r.recibo_valores||[]).forEach(v=>{
+      if(chEsCheque(v))return;
+      if((v.estado||'en_cartera')!=='en_cartera')return;
+      out.push({id:v.id,monto:parseFloat(v.monto)||0,metodo_pago_id:v.metodo_pago_id||null,metodo_nombre:v.metodo_nombre||null,
+        recibo_numero:r.numero,recibo_fecha:String(r.fecha||'').slice(0,10),cliente_id:r.cliente_id});
+    });
+  });
+  return out.sort((a,b)=>String(a.recibo_fecha).localeCompare(String(b.recibo_fecha)));
+}
+function _valContadoBannerHtml(){
+  const L=_valContadoEnCartera();if(!L.length)return'';
+  const tot=r2(L.reduce((s,x)=>s+x.monto,0));
+  const sinM=L.filter(x=>!x.metodo_pago_id&&!x.metodo_nombre).length;
+  return '<div style="border:1px solid var(--amber,#f59e0b);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;display:flex;gap:10px;align-items:center;">'
+    +'<div style="flex:1">💵 Hay <b>'+L.length+'</b> cobro'+(L.length===1?'':'s')+' en efectivo/transferencia por <b>'+fmtMoney(tot)+'</b> marcados todavía «en cartera» (defecto de carga viejo). '
+    +'No cambian ningún saldo ni la caja — esa plata ya entró con su recibo — pero ensucian la foto de valores.'
+    +(sinM?' <b>'+sinM+'</b> no tiene'+(sinM===1?'':'n')+' método cargado: se lo elegís al regularizar.':'')+'</div>'
+    +'<button class="btn btn-sm" onclick="valRegularizarContado()">Regularizar</button></div>';
+}
+function valRegularizarContado(){
+  pedirAdminYEjecutar(()=>{
+    const L=_valContadoEnCartera();if(!L.length){toast('No hay nada para regularizar','green');return;}
+    const noCh=(C.metodos_pago||[]).filter(m=>!_recEsMetodoCheque(m));
+    const conM=L.filter(x=>x.metodo_pago_id||x.metodo_nombre), sinM=L.filter(x=>!x.metodo_pago_id&&!x.metodo_nombre);
+    const tot=a=>fmtMoney(r2(a.reduce((s,x)=>s+x.monto,0)));
+    const porM={};conM.forEach(x=>{const k=x.metodo_nombre||'?';porM[k]=porM[k]||[];porM[k].push(x);});
+    let h='<div class="modal-title">💵 Regularizar cobros de contado</div>'
+      +'<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Pasan a <b>Acreditado</b> con la fecha de su recibo. No se crea ningún movimiento de caja (ya está) ni cambia ningún saldo.</div>'
+      +'<table><thead><tr><th>Método</th><th style="text-align:right">Cant.</th><th style="text-align:right">Monto</th></tr></thead><tbody>'
+      +Object.keys(porM).sort().map(k=>'<tr><td>'+escapeHtml(k)+'</td><td style="text-align:right">'+porM[k].length+'</td><td style="text-align:right">'+tot(porM[k])+'</td></tr>').join('')
+      +'</tbody></table>';
+    if(sinM.length){
+      h+='<div style="font-size:12px;margin:12px 0 6px;"><b>Sin método cargado</b> — elegí cuál fue (si no sabés, dejalo en blanco y queda como está):</div>'
+        +'<table><thead><tr><th>Recibo</th><th>Fecha</th><th>Cliente</th><th style="text-align:right">Monto</th><th>Método</th></tr></thead><tbody>'
+        +sinM.map(x=>'<tr><td>'+escapeHtml(x.recibo_numero||'')+'</td><td>'+escapeHtml(x.recibo_fecha)+'</td><td>'+escapeHtml(lcCliNombre(x.cliente_id))+'</td><td style="text-align:right">'+fmtMoney(x.monto)+'</td>'
+          +'<td><select id="valreg-m-'+x.id+'"><option value="">— dejar —</option>'+noCh.map(m=>'<option value="'+m.id+'">'+escapeHtml(m.nombre)+'</option>').join('')+'</select></td></tr>').join('')
+        +'</tbody></table>';
+    }
+    h+='<div id="valreg-msg" style="font-size:12px;margin-top:8px;"></div>'
+      +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;"><button class="btn" onclick="document.getElementById(\'valreg-modal\')?.remove()">Cancelar</button>'
+      +'<button class="btn btn-primary" id="valreg-ok" onclick="_valRegularizarAplicar()">Regularizar</button></div>';
+    document.getElementById('valreg-modal')?.remove();
+    document.body.insertAdjacentHTML('beforeend','<div class="modal-overlay" id="valreg-modal"><div class="modal-card" style="max-width:720px;width:94%;max-height:90vh;overflow:auto;">'+h+'</div></div>');
+  });
+}
+async function _valRegularizarAplicar(){
+  const btn=document.getElementById('valreg-ok');if(btn){if(btn.disabled)return;btn.disabled=true;}
+  const msg=document.getElementById('valreg-msg');
+  const L=_valContadoEnCartera();
+  let ok=0,salt=0,err=0,ultErr='';
+  for(const x of L){
+    const upd={estado:'acreditado',fecha_acreditacion:x.recibo_fecha||localDate()};
+    if(!x.metodo_pago_id&&!x.metodo_nombre){
+      const sel=document.getElementById('valreg-m-'+x.id);const mid=parseInt(sel&&sel.value)||null;
+      const m=(C.metodos_pago||[]).find(mp=>mp.id===mid);
+      if(!m||_recEsMetodoCheque(m)){salt++;continue;}
+      upd.metodo_pago_id=m.id;upd.metodo_nombre=m.nombre;
+    }
+    // Candado: sólo toca lo que sigue en cartera y sin datos de cheque.
+    const{data,error}=await sb.from('recibo_valores').update(upd).eq('id',x.id).eq('estado','en_cartera').is('numero_cheque',null).is('fecha_vto',null).select('id');
+    if(error){err++;ultErr=error.message;}else if(!(data||[]).length)salt++;else ok++;
+  }
+  if(msg){msg.style.color=err?'var(--red)':'var(--green)';msg.textContent='✓ '+ok+' regularizado'+(ok===1?'':'s')+(salt?' · '+salt+' quedaron como estaban (sin método elegido o ya no estaban en cartera)':'')+(err?' · '+err+' con error: '+ultErr:'');}
+  await reload();renderCartera();
+  if(!err)setTimeout(()=>document.getElementById('valreg-modal')?.remove(),1200);else if(btn)btn.disabled=false;
+}
+
 // ==================== CARTERA DE CHEQUES DE TERCEROS ====================
 let CH={filtro:'en_cartera'};
 function chEsCheque(v){return !!(v&&(v.numero_cheque||v.fecha_vto));}
@@ -68693,7 +68802,7 @@ function renderCartera(){
   const todos=chCheques();
   const porEstado={};CH_ESTADOS.forEach(s=>porEstado[s.v]=todos.filter(c=>c.estado===s.v));
   // KPIs por estado
-  let html='<div class="stats" style="margin-bottom:1.2rem;">';
+  let html=_valContadoBannerHtml()+'<div class="stats" style="margin-bottom:1.2rem;">';
   CH_ESTADOS.forEach(s=>{
     const arr=porEstado[s.v];const tot=r2(arr.reduce((a,c)=>a+(parseFloat(c.monto)||0),0));
     html+='<div class="stat" style="cursor:pointer;'+(CH.filtro===s.v?'outline:2px solid '+s.col+';':'')+'" onclick="CH.filtro=\''+s.v+'\';renderCartera();"><div class="stat-lbl">'+s.ic+' '+s.l+' ('+arr.length+')</div><div class="stat-val" style="font-size:18px;color:'+s.col+'">$'+tot.toLocaleString('es-AR')+'</div></div>';

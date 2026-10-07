@@ -169,6 +169,6 @@ t(/id="cb-kg"[^>]*readonly/.test(src),'Kg reales no se tipea');
 t(src.includes("try{balInitPantalla();}"),'initCarga engancha la balanza');
 t(src.includes("pesoOrigen:b.peso_origen||null"),'análisis de extrusión lee el origen');
 t((src.match(/_balMarca\(b\)/g)||[]).length>=2,'historial y stock marcan el origen');
-t(src.includes("const APP_BUILD='2026-10-06c'")&&src.includes('build 2026-10-06c</span>'),'sello 06c en los dos lugares');
+{const m=src.match(/const APP_BUILD='([^']+)'/);t(m&&m[1]>='2026-10-06c'&&src.includes('build '+m[1]+'</span>'),'sello (06c o posterior) igual en los dos lugares');}
 t((src.match(/const kgQ=_balKgCalidad\(kgR,(true|false)\);\n  const errKg=r2\(kgQ-kgT\);/g)||[]).length===2,'06c: semáforo y guardado usan el bruto para la calidad');
 console.log(ok+' ok · '+bad+' fallas');process.exit(bad?1:0);
