@@ -95,22 +95,22 @@ function pesar(kg,ms){for(let x=0;x<ms;x+=100){AHORA+=100;_balMuestra(kg);if(x%4
 el('cb-orden').value='1';
 pesar(30,500);t(el('cb-kg').value==='','moviéndose → Kg reales vacío');
 pesar(61.64,2600);
-t(el('cb-kg').value==='60.54','ESTABLE → Kg reales = neto 60.54 solo');
+t(el('cb-kg').value==='61.64','07f: ESTABLE → Kg reales = 61,64, tal cual el visor (con tubo)');
 t(el('bal-estado').textContent==='● ESTABLE','pinta ESTABLE');
 t(el('bal-manual').style.display==='none','con balanza no aparece el peso manual');
-t(/NETO/.test(el('bal-neto').innerHTML)&&/1,10/.test(el('bal-neto').innerHTML),'muestra tubo y neto');
-const snap=_balPesoParaGuardar(60.54);
+t(!/NETO|tubo/i.test(el('bal-neto').innerHTML)&&/61,64/.test(el('bal-neto').innerHTML),'07f: al operario no se le muestra tubo ni neto, sólo lo que marca la balanza');
+const snap=_balPesoParaGuardar(61.64);
 t(snap&&snap.bruto===61.64&&snap.tara===1.1&&snap.origen==='balanza','foto para guardar: bruto/tara/origen');
 t(_balPesoParaGuardar(60.0)===null,'si los kg del formulario no son los de la balanza → no se atribuyen');
 window._balPesoSnap=snap;
-let cols=_balColsBobina(60.54);
+let cols=_balColsBobina(61.64);
 t(cols.peso_bruto_kg===61.64&&cols.tara_tubo_kg===1.1&&cols.peso_origen==='balanza','columnas de la bobina');
 t(_balColsBobina(59).peso_origen==='manual'&&!('peso_bruto_kg' in _balColsBobina(59)),'kg que no coinciden con la foto → manual sin bruto');
 // cambio de orden → otro ancho
 el('cb-orden').value='2';_balAplicarKg(true);
-t(el('cb-kg').value==='60.66','orden de 80 cm → 61,64 − 0,98 = 60,66');
+t(el('cb-kg').value==='61.64'&&BAL.ultimoCalc.tara===0.98,'07f: orden de 80 cm → kg igual (61,64); el tubo 0,98 sólo se guarda');
 el('cb-orden').value='3';_balAplicarKg(true);
-t(el('cb-kg').value===''&&/ancho/.test(el('bal-neto').innerHTML),'orden sin ancho → no completa y avisa');
+t(el('cb-kg').value==='61.64'&&BAL.ultimoCalc.tara===null,'07f: orden sin ancho → completa igual (sin tubo guardado)');
 el('cb-orden').value='1';_balAplicarKg(true);
 // guardar → desarmar
 _balTrasGuardar();_balLimpiar();el('cb-kg').value='';
@@ -121,7 +121,7 @@ t(/Sacá de la balanza/.test(_balMsgSinKg()),'registrar sin peso → explica que
 pesar(0.2,600);
 t(BAL.armada===true,'bajó de 5 kg → se rearma');
 pesar(58.3,2600);
-t(el('cb-kg').value==='57.2','la siguiente: 58,30 − 1,10 = 57,20');
+t(el('cb-kg').value==='58.3','07f: la siguiente: 58,30 tal cual');
 // sin señal > 5 s → se habilita el manual
 pesar(58.3,0);AHORA+=1600;_balTick();
 t(BAL.est.estado==='sin_senal','balanza apagada → sin señal');
@@ -130,32 +130,32 @@ t(!_balManualPermitido(),'sin señal hace 3 s → todavía no se habilita el man
 AHORA+=2100;_balTick();
 t(_balManualPermitido()&&el('bal-manual').style.display==='','sin señal > 5 s → aparece el peso manual');
 el('cb-bruto').value='45';_balAplicarKg(true);
-t(el('cb-kg').value==='43.9'&&BAL.ultimoCalc.origen==='manual','manual 45 − 1,10 = 43,90 marcado manual');
+t(el('cb-kg').value==='45'&&BAL.ultimoCalc.origen==='manual','07f: manual 45 → 45, marcado manual');
 // vuelve la señal → se borra lo manual
 pesar(58.3,2600);
-t(el('cb-bruto').value===''&&el('cb-kg').value==='57.2'&&BAL.ultimoCalc.origen==='balanza','vuelve la balanza → se borra el manual y manda la balanza');
+t(el('cb-bruto').value===''&&el('cb-kg').value==='58.3'&&BAL.ultimoCalc.origen==='balanza','vuelve la balanza → se borra el manual y manda la balanza');
 // desconectada
 _balPerdida();
 t(!BAL.conectada&&_balManualPermitido(),'cable desenchufado → manual permitido');
-t(el('cb-kg').value==='57.2','lo ya tomado no se pierde al desconectar');
+t(el('cb-kg').value==='58.3','lo ya tomado no se pierde al desconectar');
 _balLimpiar();el('cb-bruto').value='70';_balAplicarKg(true);
-t(el('cb-kg').value==='68.9'&&_balPesoParaGuardar(68.9).origen==='manual','sin balanza: manual 70 → 68,90');
+t(el('cb-kg').value==='70'&&_balPesoParaGuardar(70).origen==='manual','07f: sin balanza: manual 70 → 70');
 // turno atrasado con balanza conectada
 el('cb-bruto').value='';BAL.conectada=true;retro=true;
 t(_balManualPermitido(),'turno atrasado → se permite manual aunque haya balanza');
 retro=false;
 // payload sin SQL
-const pl={numero_bobina:'BOB-1',kg_reales:60.54,observaciones:'x',peso_bruto_kg:61.64,tara_tubo_kg:1.1,peso_origen:'balanza'};
+const pl={numero_bobina:'BOB-1',kg_reales:61.64,observaciones:'x',peso_bruto_kg:61.64,tara_tubo_kg:1.1,peso_origen:'balanza'};
 const sin=_balPayloadSinCols(pl);
 t(!('peso_origen' in sin)&&!('peso_bruto_kg' in sin)&&!('tara_tubo_kg' in sin),'sin SQL: saca las 3 columnas');
-t(sin.observaciones==='x | ⚖ Balanza: bruto 61.64 − tubo 1.1 = neto 60.54 kg','sin SQL: lo deja en observaciones');
+t(sin.observaciones==='x | ⚖ Balanza: 61.64 kg con tubo (tubo 1.1)','sin SQL: lo deja en observaciones');
 t(_balPayloadSinCols({kg_reales:5,peso_origen:'manual'}).observaciones==='⚖ Peso manual','manual sin bruto → nota corta');
 t(_balSinColumnas({message:'Could not find the \'peso_bruto_kg\' column of \'bobinas_producidas\''})&&!_balSinColumnas({message:'otra cosa'}),'detecta columnas faltantes');
 // marcas
 t(_balMarca({peso_origen:'manual'}).includes('✍')&&_balMarca({peso_origen:'balanza',peso_bruto_kg:1,tara_tubo_kg:1}).includes('⚖')&&_balMarca({})==='','marcas ✍ / ⚖ / nada (viejas)');
 // 🎯 06c: calidad con el bruto
 window._balPesoSnap={bruto:61.64,tara:1.1,neto:60.54,origen:'balanza'};
-t(_balKgCalidad(60.54,true)===61.64,'06c: la calidad se juzga con el bruto (60,54 + 1,10)');
+t(_balKgCalidad(61.64,true)===61.64,'07f: kg_reales ya es con tubo → la calidad se juzga con lo mismo');
 t(_balKgCalidad(59,true)===59,'06c: kg que no son de la foto → se juzga con lo que hay');
 window._balPesoSnap=null;
 t(_balKgCalidad(42,true)===42,'06c: sin foto → kg tal cual');

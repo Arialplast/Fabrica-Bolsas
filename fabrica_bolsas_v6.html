@@ -894,7 +894,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-07e</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-07f</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -1247,17 +1247,17 @@ body.pext-on .main{margin-left:0!important;}
                 </div>
                 <span style="font-size:10px;color:var(--amber);margin-top:2px;" id="hint-mts">⚠ Una vez ingresado no se puede borrar sin admin</span>
               </div>
-              <div class="fg"><label>Kg reales <span style="font-weight:400;color:var(--text3);">(neto, sin tubo)</span></label>
+              <div class="fg"><label>Kg reales <span style="font-weight:400;color:var(--text3);">(con tubo, como la balanza)</span></label>
                 <div style="display:flex;gap:6px;align-items:center;">
-                  <!-- ⚖ 06b: se completa solo (balanza o peso manual de arriba, menos el tubo). No se tipea. -->
+                  <!-- ⚖ 06b/07f: se completa solo con lo que marca la balanza (con tubo). No se tipea. -->
                   <input id="cb-kg" type="number" step="0.01" placeholder="sale de la balanza" readonly
-                    title="Sale de la balanza (o del peso manual de arriba) menos el tubo"
+                    title="Sale de la balanza (o del peso manual de arriba), con tubo"
                     oninput="onMedicionInput('cb-kg','lock-kg')" autocomplete="off" style="flex:1;background:var(--bg3);">
                   <button id="lock-kg" class="btn btn-sm" style="display:none;padding:4px 8px;font-size:11px;"
                     onclick="desbloquearCampo('cb-kg','lock-kg')" title="Solo admin puede editar">🔒</button>
                 </div>
                 <span style="display:none" id="hint-kg"></span>
-                <span style="font-size:10px;color:var(--text3);margin-top:2px;" id="cb-kg-origen">⚖ Sale de la balanza, sin el tubo</span>
+                <span style="font-size:10px;color:var(--text3);margin-top:2px;" id="cb-kg-origen">⚖ Sale de la balanza, tal cual (con tubo)</span>
               </div>
             </div>
             <div class="fgrid">
@@ -6030,7 +6030,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-07e';   // 07e: 📏 cuentametros PLC → MES: la Carga de bobinas propone el cierre del pulsador (el más viejo sin bobina de esa extrusora), muestra sus metros y la bobina en curso, y graba plc_cierre_id; nueva pantalla 📏 Extrusión en vivo 🔐 (velocidad, uso, kg/h y g/m por máquina, línea de tiempo 24 h, cierres/bobinas, turnos, paradas). SQL: sql/plc_cuentametros.sql. · 07d: 🔀 cargar en una cortadora que la OC no tiene asignada pregunta (no bloquea); queda en la máquina del operario y avisa en Órdenes de corte y Tablero hasta reasignar. · 07c: 👷 panel de corte: recuadros grandes de quién carga y en qué máquina (rojo si falta), tarjeta de la máquina activa resaltada, otras atenuadas. · 07b: ⏳ cartel «Guardando…» que bloquea la pantalla en TODA la app mientras se graba algo pedido por el usuario; 📢 panel de corte: cartel gigante al escanear (cargada / ya estaba / no se cargó), el mensaje ya no se borra al repintar, lista de cargadas grande con la última arriba. (07a: valores de contado nacen acreditados)
+const APP_BUILD='2026-10-07f';   // 07f: 🧾 la balanza ya NO descuenta el cartón: «Kg reales» = lo que marca el visor (con tubo), como siempre; el tubo queda guardado aparte (tara_tubo_kg) y el neto sólo se ve en 📏 Extrusión en vivo. · 07e: 📏 cuentametros PLC → MES: la Carga de bobinas propone el cierre del pulsador (el más viejo sin bobina de esa extrusora), muestra sus metros y la bobina en curso, y graba plc_cierre_id; nueva pantalla 📏 Extrusión en vivo 🔐 (velocidad, uso, kg/h y g/m por máquina, línea de tiempo 24 h, cierres/bobinas, turnos, paradas). SQL: sql/plc_cuentametros.sql. · 07d: 🔀 cargar en una cortadora que la OC no tiene asignada pregunta (no bloquea); queda en la máquina del operario y avisa en Órdenes de corte y Tablero hasta reasignar. · 07c: 👷 panel de corte: recuadros grandes de quién carga y en qué máquina (rojo si falta), tarjeta de la máquina activa resaltada, otras atenuadas. · 07b: ⏳ cartel «Guardando…» que bloquea la pantalla en TODA la app mientras se graba algo pedido por el usuario; 📢 panel de corte: cartel gigante al escanear (cargada / ya estaba / no se cargó), el mensaje ya no se borra al repintar, lista de cargadas grande con la última arriba. (07a: valores de contado nacen acreditados)
 // build anterior → 06b:   // 06b: ⚖ BALANZA KRETZ EN LA CARGA DE BOBINAS — Web Serial (CH340, 9600 8N1, trama continua), peso en vivo grande, ESTABLE = ±0,04 kg 2 s con >5 kg, toma automática; kg_reales = NETO (bruto − tubo por ancho, configuracion.taras_tubo, ⚙ Tubos con admin; 90 cm = 1,1 kg, el resto estimado proporcional); guarda peso_bruto_kg / tara_tubo_kg / peso_origen; peso manual (bruto del visor) sólo sin balanza o en turno atrasado, marcado ✍ en listados y Análisis de extrusión. SQL: sql/balanza_bobinas.sql.
 // build anterior → 06a:   // 06a: 🧵 PLAN DE BOBINAS POR PISTAS — toda OE nueva sale en N × L: N múltiplo de las pistas de la bolsa (45–60 cm = 4, salvo 60 cm de más de 50 µ = 2; más de 60 cm = 2; editable en la ficha de la bobina) y todas las bobinas con los mismos metros (objetivo de la ficha = mediana histórica del tipo, ±15 %); metros de la OE = N × L, el sobrante a stock. La estación de extrusión y la carga de bobinas muestran el plan, la PRÓXIMA bobina y las pistas; si una bobina sale distinta, COMPENSA: recalcula las que faltan por pista para que todas cierren iguales y, si una pista ya tiene sus bobinas y quedó corta, pide una más de esa medida. La OE no se cierra sola hasta que las pistas cierran. Admin edita bobinas × metros en Editar OE. SQL: sql/pistas_bobinas.sql (sin correrlo funciona derivado, sin guardar).
 // 05e (previo):   // 05e: 🧱 PALLETS POR PARTES — el botón 🧱 Pallet abre un selector: se eligen las bobinas del pallet (por defecto las primeras 18 que falten, el tamaño se recuerda), se imprime como «PALLET N° n» sólo con esas, y quedan registradas en configuracion['pallet_oe_<id>'] para no imprimirlas dos veces (se relee de la base antes de guardar, por si otra terminal armó uno). Todas las que faltan en un clic, reimprimir o anular un pallet, y la lista completa de la OE como siempre. Sin SQL.
@@ -8940,7 +8940,7 @@ function calcCarga(){
   const kgT=r2(mtsR*bob.kg_por_metro);
   // errKg: positivo = más pesada (pesa más que teórico) → mostrar negativo
   // errKg: negativo = más liviana (pesa menos que teórico) → mostrar positivo
-  // 🎯 06c: la calidad se juzga con el peso CON TUBO (como siempre); kg_reales se graba neto
+  // 🧾 07f: kg_reales es el peso con tubo (como siempre); _balKgCalidad lo devuelve igual
   const kgQ=_balKgCalidad(kgR,false);
   const errKg=r2(kgQ-kgT);
   const errPct=kgT>0?r2((errKg/kgT)*100):0;
@@ -9216,7 +9216,7 @@ function _plcTimer(){
 // (plc_cierres) + las bobinas del MES atadas a cada cierre. Nada guardado acá.
 // · Estado de cada minuto: produciendo (≥30 s produciendo según el PLC = film + pulsos),
 //   gira sin film (pulsos pero sin film), parada (sin pulsos), sin dato (no llegó el minuto).
-// · m/min = pulsos del minuto × factor. kg/h de una bobina = kg neto ÷ horas produciendo
+// · m/min = pulsos del minuto × factor. kg/h de una bobina = kg neto (kg_reales − tubo, sólo acá) ÷ horas produciendo
 //   entre su cierre y el anterior (las paradas no bajan el kg/h; bajan el uso).
 // · g/m real = kg con tubo (como juzga la carga) ÷ metros del PLC. Contra el teórico de su bobina.
 // · kg/h y g/m EN VIVO son estimados y se muestran SOLO acá (pantalla con clave), nunca al
@@ -9247,6 +9247,11 @@ function _evvParadas(mins,minimo){
   });
   if(ini!==null&&n>=minimo)res.push({desde:mins[ini].ts,min:Math.round(n),sigue:true});
   return res;
+}
+// 07f: kg_reales es con tubo (como la balanza). El neto sólo existe acá, para el dueño.
+function _evvKgNeto(b){
+  const k=parseFloat(b.kg_reales)||0,t=parseFloat(b.tara_tubo_kg);
+  return (b.peso_origen&&t>0)?Math.round((k-t)*100)/100:k;
 }
 function _evvKgCalidad(b){
   const br=parseFloat(b.peso_bruto_kg);
@@ -9286,7 +9291,7 @@ async function renderExtrusionVivo(){
         const b=porCierre.get(c.id)||null;
         const o={c,b};
         if(b&&c.metros>0){
-          const kq=_evvKgCalidad(b),kn=parseFloat(b.kg_reales)||0;
+          const kq=_evvKgCalidad(b),kn=_evvKgNeto(b);
           const tipo=(C.bobinas||[]).find(x=>String(x.id)===String(b.bobina_tipo_id));
           o.gpm=kq*1000/c.metros;
           o.gpmT=tipo&&tipo.kg_por_metro?tipo.kg_por_metro*1000:null;
@@ -9476,7 +9481,7 @@ function _evvPintar(w,maqs,bobsSinPlc,bobinas,cfgP,t0){
     +(pars.length?pars.slice(0,30).map(p=>'<tr><td class="mono">'+(new Date(p.desde).getTime()-t0<120000?'antes de ':'')+_plcHora(p.desde)+'</td><td>'+escapeHtml(p.maq)+'</td><td class="r mono"'+(p.min>=30?' style="color:var(--red)"':'')+'>'+(p.min>=90?_evvF(p.min/60,1)+' h':p.min+' min')+(p.sigue?' (sigue)':'')+'</td></tr>').join('')
       :'<tr><td colspan="3" style="color:var(--text3)">Sin paradas largas.</td></tr>')
     +'</tbody></table></div></div></div>';
-  h+='<div class="evv-pie">Uso = minutos produciendo (con film y con pulsos) ÷ minutos del período · kg/h = kg neto de la balanza ÷ horas produciendo entre el cierre de esa bobina y el anterior · g/m = peso con tubo ÷ metros del PLC (como juzga la carga) · kg/h y g/m en vivo se ven sólo acá, nunca en la pantalla del operario.</div>';
+  h+='<div class="evv-pie">Uso = minutos produciendo (con film y con pulsos) ÷ minutos del período · kg/h = kg neto (balanza menos el tubo; el tubo se descuenta sólo en esta pantalla) ÷ horas produciendo entre el cierre de esa bobina y el anterior · g/m = peso con tubo, como lo marca la balanza, ÷ metros del PLC (como juzga la carga) · kg/h y g/m en vivo se ven sólo acá, nunca en la pantalla del operario.</div>';
   w.innerHTML=h;
   const ts=document.getElementById('evv-ts');if(ts)ts.textContent='Actualizado '+localTime();
 }
@@ -9560,6 +9565,9 @@ function _balCalcPuro(captura,manualKg,manualOk,ancho,tabla,hayOrden){
   if(manualOk&&manualKg>0)f={bruto:Math.round(manualKg*100)/100,origen:'manual'};
   else if(captura&&captura.bruto>0)f={bruto:captura.bruto,origen:'balanza'};
   if(!f)return null;
+  // 🧾 07f: el kg que se registra es el BRUTO, tal cual lo marca el visor (con tubo).
+  // El tubo se guarda aparte (tara_tubo_kg) y el neto es sólo un cálculo para el dueño.
+  f.kg=f.bruto;
   if(!hayOrden)return Object.assign(f,{tara:null,neto:null,sinOrden:true});
   const t=_balTaraAncho(ancho,tabla);
   if(!t)return Object.assign(f,{tara:null,neto:null,sinAncho:true});
@@ -9618,7 +9626,7 @@ function _balAplicarKg(forzar){
   }
   const c=_balCalculo();
   BAL.ultimoCalc=c;
-  const nuevo=(c&&c.neto>0)?String(c.neto):'';
+  const nuevo=(c&&c.kg>0)?String(c.kg):'';   // 07f: con tubo, como el visor
   if(kgEl.value!==nuevo){kgEl.value=nuevo;try{calcCarga();}catch(e){}}
   else if(forzar){try{calcCarga();}catch(e){}}
   _balPintar();
@@ -9628,12 +9636,12 @@ function balManualInput(){_balAplicarKg(true);}
 // ---- lo que se graba ----
 function _balPesoParaGuardar(kgR){
   const c=_balCalculo();
-  if(!c||!(c.neto>0)||!(Math.abs(c.neto-kgR)<0.005))return null;
-  return{bruto:c.bruto,tara:c.tara,neto:c.neto,origen:c.origen,estimada:!!c.taraEstimada};
+  if(!c||!(c.kg>0)||!(Math.abs(c.kg-kgR)<0.005))return null;
+  return{kg:c.kg,bruto:c.bruto,tara:c.tara,neto:c.neto,origen:c.origen,estimada:!!c.taraEstimada};
 }
 function _balColsBobina(kgR){
   const s=window._balPesoSnap;
-  if(s&&Math.abs(s.neto-kgR)<0.005)return{peso_bruto_kg:s.bruto,tara_tubo_kg:s.tara,peso_origen:s.origen};
+  if(s&&Math.abs((s.kg!=null?s.kg:s.bruto)-kgR)<0.005)return{peso_bruto_kg:s.bruto,tara_tubo_kg:s.tara,peso_origen:s.origen};
   return{peso_origen:'manual'};
 }
 function _balSinColumnas(err){const m=String((err&&err.message)||'');return _BAL_COLS.some(c=>m.includes(c));}
@@ -9647,11 +9655,16 @@ function _balPayloadSinCols(p){
   _BAL_COLS.forEach(c=>delete sin[c]);
   if(p.peso_origen){
     const nota='⚖ '+(p.peso_origen==='balanza'?'Balanza':'Peso manual')
-      +(p.peso_bruto_kg!=null?': bruto '+p.peso_bruto_kg+' − tubo '+p.tara_tubo_kg+' = neto '+p.kg_reales+' kg':'');
+      +(p.peso_bruto_kg!=null?': '+p.peso_bruto_kg+' kg con tubo (tubo '+p.tara_tubo_kg+')':'');
     sin.observaciones=(p.observaciones?p.observaciones+' | ':'')+nota;
   }
   return sin;
 }
+// 🧾 07f — DECISIÓN DE GERMAN (07/10): el peso de la bobina es el que marca la balanza, CON
+// tubo. Descontar el cartón confundía al operario (la balanza decía una cosa y la bobina
+// otra), no dejaba controlar el peso de la bobina y se perdía el margen de contención (la
+// bobina con el cartón adentro es, en realidad, un poco más liviana). kg_reales = bruto,
+// como siempre. El tubo queda guardado (tara_tubo_kg) y el neto lo ve sólo el dueño.
 // 🎯 06c — kg contra los que se juzga la calidad (semáforo, error %, fuera de rango).
 // Con el neto, el 06b corría todo ~3 % a «liviano» (el tubo es 2,9–3,7 % de la bobina):
 // con 60 días reales, los OK bajaban de 69 % a 52 % y los rechazos subían de 2,3 % a
@@ -9659,9 +9672,7 @@ function _balPayloadSinCols(p){
 // calibrada con el tubo adentro → la calidad se sigue juzgando con el BRUTO hasta que
 // se decida mover el objetivo de espesor a propósito. kg_reales (costos, kg/h, MP) = neto.
 function _balKgCalidad(kgR,usarFoto){
-  const f=usarFoto?window._balPesoSnap:_balPesoParaGuardar(kgR);
-  if(f&&f.neto>0&&f.tara>0&&Math.abs(f.neto-kgR)<0.005)return Math.round((kgR+f.tara)*100)/100;
-  return kgR;
+  return kgR;   // 07f: kgR ya es el peso con tubo
 }
 function _balTrasGuardar(){
   BAL.captura=null;
@@ -9674,13 +9685,8 @@ function _balMsgSinKg(){
     if(!BAL.armada)return '⏳ Sacá de la balanza la bobina que ya registraste y poné la nueva.';
     if(e==='moviendo')return '⏳ Esperá a que la balanza marque <b>ESTABLE</b> — el peso se toma solo.';
     if(e==='bajo')return '⚖ Poné la bobina en la balanza: marca menos de 5 kg.';
-    const c=BAL.ultimoCalc;
-    if(c&&c.sinAncho)return '⚠ La bobina de esta orden no tiene ancho cargado: no se puede descontar el tubo. Avisá a la oficina.';
     return '⚖ Esperando el peso de la balanza.';
   }
-  const c=BAL.ultimoCalc;
-  if(c&&c.sinAncho)return '⚠ La bobina de esta orden no tiene ancho cargado: no se puede descontar el tubo. Avisá a la oficina.';
-  if(c&&!(c.neto>0))return '⚠ El peso no alcanza ni para el tubo — revisalo.';
   return '✍ Escribí el peso que marca la balanza (con tubo) en el recuadro de arriba.';
 }
 
@@ -9716,22 +9722,17 @@ function _balPintar(){
   es.textContent=et;es.style.color=ec;
   const c=BAL.ultimoCalc;
   let nh='';
-  if(c&&c.neto>0){
-    nh=(c.origen==='balanza'?'Tomado <b>'+_balF(c.bruto)+'</b>':'✍ Manual <b>'+_balF(c.bruto)+'</b>')
-      +' − tubo '+c.ancho+' cm <b>'+_balF(c.tara)+'</b>'
-      +(c.taraEstimada?' <span style="color:var(--amber);font-size:12px;" title="Este ancho todavía no se pesó: sale proporcional al ancho">(estimado)</span>':'')
-      +'<br>NETO <b class="bal-n">'+_balF(c.neto)+' kg</b>';
-  }else if(c&&c.sinOrden)nh='Elegí la orden para descontar el tubo';
-  else if(c&&c.sinAncho)nh='<span style="color:var(--red)">⚠ La bobina de la orden no tiene ancho cargado: no se puede descontar el tubo</span>';
-  else if(c&&!(c.neto>0))nh='<span style="color:var(--red)">⚠ El peso no alcanza ni para el tubo</span>';
-  else if(BAL.conectada&&BAL.armada)nh='Poné la bobina en la balanza y esperá ESTABLE — el peso se toma solo';
+  if(c&&c.kg>0){
+    // 07f: el operario ve exactamente lo que marca la balanza, sin descontar nada
+    nh=(c.origen==='balanza'?'Tomado de la balanza':'✍ Peso manual')+'<br><b class="bal-n">'+_balF(c.kg)+' kg</b>';
+  }else if(BAL.conectada&&BAL.armada)nh='Poné la bobina en la balanza y esperá ESTABLE — el peso se toma solo';
   ne.innerHTML=nh;
   if(man)man.style.display=_balManualPermitido()?'':'none';
   const ho=document.getElementById('cb-kg-origen');
   if(ho){
-    if(c&&c.neto>0&&c.origen==='manual'){ho.textContent='✍ Peso manual — la bobina queda marcada como «manual»';ho.style.color='var(--amber)';}
-    else if(c&&c.neto>0){ho.textContent='⚖ De la balanza, sin el tubo';ho.style.color='var(--green)';}
-    else{ho.textContent=_balManualPermitido()?'✍ Sale del peso manual de arriba, menos el tubo':'⚖ Sale de la balanza, sin el tubo';ho.style.color='var(--text3)';}
+    if(c&&c.kg>0&&c.origen==='manual'){ho.textContent='✍ Peso manual — la bobina queda marcada como «manual»';ho.style.color='var(--amber)';}
+    else if(c&&c.kg>0){ho.textContent='⚖ De la balanza, tal cual (con tubo)';ho.style.color='var(--green)';}
+    else{ho.textContent=_balManualPermitido()?'✍ Sale del peso manual de arriba':'⚖ Sale de la balanza, tal cual (con tubo)';ho.style.color='var(--text3)';}
   }
 }
 
@@ -9972,7 +9973,7 @@ async function _guardarBobinaInner(){
   if(!bob){msg.className='msg-err';msg.textContent='Error: bobina no encontrada.';return;}
   const kgT=r2(mtsR*bob.kg_por_metro);
   // SIGNO: negativo = más pesada que lo teórico, positivo = más liviana
-  // 🎯 06c: la calidad se juzga con el peso CON TUBO (como siempre); kg_reales se graba neto
+  // 🧾 07f: kg_reales es el peso con tubo (como siempre); _balKgCalidad lo devuelve igual
   const kgQ=_balKgCalidad(kgR,true);
   const errKg=r2(kgQ-kgT);
   const errPct=kgT>0?r2((errKg/kgT)*100):0;
@@ -39007,8 +39008,8 @@ async function renderAnalisisExtrusion(){
   {
     const nB=bobs.filter(b=>b.pesoOrigen==='balanza').length,nM=bobs.filter(b=>b.pesoOrigen==='manual').length,nV=bobs.length-nB-nM;
     if(nB||nM)html='<div style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:8px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);">'
-      +'⚖ Peso: <b style="color:var(--green)">'+nB+'</b> con balanza (neto) · <b style="color:'+(nM?'var(--amber)':'var(--text2)')+'">'+nM+' ✍ manual</b>'
-      +(nV?' · '+nV+' antes de la balanza (kg con tubo, ~3 % más)':'')+'</div>'+html;
+      +'⚖ Peso: <b style="color:var(--green)">'+nB+'</b> con balanza · <b style="color:'+(nM?'var(--amber)':'var(--text2)')+'">'+nM+' ✍ manual</b>'
+      +(nV?' · '+nV+' cargadas antes de la balanza':'')+'</div>'+html;
   }
   root.innerHTML=html;
 }

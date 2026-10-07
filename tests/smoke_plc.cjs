@@ -43,7 +43,7 @@ const estado=[{grupo:1,actualizado_en:new Date(AHORA-5000).toISOString(),odo_bru
               {grupo:3,actualizado_en:new Date(AHORA-5000).toISOString(),odo_bruto:52500,odo_film:52400,cierres:13,film_cierre:51300,prod_cierre:7600}];
 // bobinas del MES: la del cierre 131 y la del 132 ya cargadas y atadas
 const bobinas=[
-  {id:501,numero_bobina:'BOB-06574',extrusora_id:3,orden_id:874,bobina_tipo_id:10,metros_reales:1500,kg_reales:28.9,peso_bruto_kg:30.0,tara_tubo_kg:1.1,peso_origen:'balanza',fecha_produccion:'2026-10-06',hora_produccion:'05:30:00',operario:'MARTIN MASSI',plc_cierre_id:2,anulada:false},
+  {id:501,numero_bobina:'BOB-06574',extrusora_id:3,orden_id:874,bobina_tipo_id:10,metros_reales:1500,kg_reales:30.0,peso_bruto_kg:30.0,tara_tubo_kg:1.1,peso_origen:'balanza',fecha_produccion:'2026-10-06',hora_produccion:'05:30:00',operario:'MARTIN MASSI',plc_cierre_id:2,anulada:false},
   {id:502,numero_bobina:'BOB-06576',extrusora_id:3,orden_id:874,bobina_tipo_id:10,metros_reales:1400,kg_reales:30.0,peso_bruto_kg:null,peso_origen:null,fecha_produccion:'2026-10-06',hora_produccion:'06:15:00',operario:'MARTIN MASSI',plc_cierre_id:3,anulada:false},
   {id:503,numero_bobina:'BOB-06572',extrusora_id:1,orden_id:879,bobina_tipo_id:11,metros_reales:900,kg_reales:25.4,fecha_produccion:'2026-10-06',hora_produccion:'04:15:00',operario:'MAURO PAVONI',plc_cierre_id:null,anulada:false}];
 const cfgRows=[{clave:'plc_factor',valor:'{"3":{"m_pulso":0.80,"congelado":false},"7":{"m_pulso":0.80,"congelado":false}}'},
@@ -143,7 +143,7 @@ t(mins1[0].mmin===32,'40 pulsos/min × 0,80 = 32 m/min');
 const par=_evvParadas(mins1,5);
 t(par.length===1&&par[0].min===50,'una parada de 50 min');
 t(_evvMinutos([{ts:'2026-10-06T00:00:00Z',odo_bruto:10,odo_film:10,seg_prod:10},{ts:'2026-10-06T00:01:00Z',odo_bruto:5,odo_film:5,seg_prod:5}],0.8)[0].est==='X','odómetro que baja → minuto marcado (PLC reiniciado)');
-t(_evvKgCalidad({kg_reales:28.9,peso_bruto_kg:30})===30&&_evvKgCalidad({kg_reales:30,peso_bruto_kg:null})===30,'g/m se juzga con tubo (bruto o régimen viejo)');
+t(_evvKgNeto({kg_reales:30,tara_tubo_kg:1.1,peso_origen:'balanza'})===28.9&&_evvKgNeto({kg_reales:30})===30&&_evvKgCalidad({kg_reales:30,peso_bruto_kg:30})===30&&_evvKgCalidad({kg_reales:30,peso_bruto_kg:null})===30,'g/m se juzga con tubo (bruto o régimen viejo)');
 await renderExtrusionVivo();
 const H=els['evv-body'].innerHTML;
 t(!/No se pudieron/.test(H),'la pantalla se arma sin error');
