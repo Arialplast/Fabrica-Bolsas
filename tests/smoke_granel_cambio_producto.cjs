@@ -79,6 +79,32 @@ eval(cand.replace(/function (_\w+)\(/g,'global.$1=function('));
   t('aviso: granel con OE no avisa',_planGranelSinOE({ordenes:[{linea_id:1,producto_id:48,confirmar:true,genOE:true}]}).length===0);
   t('aviso: bolsa sin OE no avisa',_planGranelSinOE({ordenes:[{linea_id:1,producto_id:126,confirmar:true,genOE:false}]}).length===0);
 
+  // 07q — 🔧 Generar OE desde la línea
+  global.r2=n=>Math.round(n*100)/100;
+  let gq=bloque('// ===== 🎞 GENERAR OE DE UNA LÍNEA POR KILO','function abrirOEGranelLinea(');
+  eval(gq.replace(/function (_\w+)\(/g,'global.$1=function('));
+  const p00309={metros_por_bolsa:10.4167,merma_pct:3};
+  t('mts default: 450 kg 00309',_granelOEMtsDefault(p00309,450)===r2(450*10.4167*1.03));
+  t('mts default: sin merma → 5 %',_granelOEMtsDefault({metros_por_bolsa:10},100)===1050);
+  t('mts default: 0 kg → 0',_granelOEMtsDefault(p00309,0)===0);
+  t('mts default: sin metros/bolsa → 0',_granelOEMtsDefault({},100)===0);
+  // El plan real de PED-06106 después de Recuperar a Borrador
+  const planB={meta:{lineas:[{tmpId:1,cantidad:450,producto_id:48}]},
+    ordenes:[{genOE:false,esGranel:true,linea_id:1,producto_id:126,confirmar:true,numero_orden:null,extrusoras:[],_oeMts:0}]};
+  const listo=_granelPlanSincronizar(planB,{id:870,producto_id:48},{extrusoras:[3],mts:4827.14});
+  t('sync: producto de la línea',planB.ordenes[0].producto_id===48);
+  t('sync: OE tildada y confirmada',planB.ordenes[0].genOE===true&&planB.ordenes[0]._confirmada===true);
+  t('sync: guarda extrusoras y metros',planB.ordenes[0].extrusoras[0]===3&&planB.ordenes[0]._oeMts===4827.14);
+  t('sync: nada pendiente → se confirma',listo===true);
+  t('sync: después no hay desalineo',_planDesalineado(planB).length===0);
+  t('sync: después no avisa granel sin OE',_planGranelSinOE(planB).length===0);
+  // Pedido mixto: la otra línea (bolsa) sigue pendiente → no se confirma
+  const planM={meta:{lineas:[{tmpId:1,producto_id:48},{tmpId:2,producto_id:126}]},
+    ordenes:[{linea_id:1,producto_id:48,confirmar:true,genOE:false},{linea_id:2,producto_id:126,confirmar:true,dividir:true,tandas:[{bolsones:1,_confirmada:true},{bolsones:2}]}]};
+  t('mixto: queda la tanda de bolsa pendiente',_granelPlanSincronizar(planM,{producto_id:48},null)===false);
+  t('mixto: no toca la línea de bolsa',planM.ordenes[1].producto_id===126&&planM.ordenes[1].dividir===true);
+  t('sync: plan nulo no rompe',_granelPlanSincronizar(null,{producto_id:48})===null);
+
   console.log((fail?'✗ ':'✓ ')+ok+' OK · '+fail+' fallaron');
   process.exit(fail?1:0);
 })();

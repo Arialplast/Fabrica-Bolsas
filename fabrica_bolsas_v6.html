@@ -1001,7 +1001,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-07p</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-07q</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6154,7 +6154,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-07p';   // 07p: 🎞 cambiar una línea de bolsa a «por kilo» (o al revés) rearma la orden planificada con el producto nuevo y la OE tildada (PED-06106 quedó sin OE); candado al confirmar si el plan no es del producto de la línea; aviso si un granel se confirma sin OE.
+const APP_BUILD='2026-10-07q';   // 07q: 🔧 botón «Generar OE» en la línea por kilo que está sin OE (el ✏️ Editar no rearma la producción): crea la OE venta_bobina con extrusora y metros, alinea el plan y confirma el pedido si sólo faltaba eso (PED-06106).
+// 07p: 🎞 cambiar una línea de bolsa a «por kilo» (o al revés) rearma la orden planificada con el producto nuevo y la OE tildada (PED-06106 quedó sin OE); candado al confirmar si el plan no es del producto de la línea; aviso si un granel se confirma sin OE.
 // 07o: 🏭 estación: barra de la BOBINA EN CURSO contra la «próxima bobina» del plan (con compensación de pistas), «PREPARATE» al 95 % y «LLEGASTE: CORTÁ» al 100 %, minutos produciendo; SEMÁFORO en vivo (rojo AFINAR / amarillo ENGORDAR / verde OK) con el g/m estimado = kg/h con tubo de las últimas pesadas del mismo tipo ÷ velocidad de ahora, advertencia «no muevas la velocidad del tornillo» y el real de la balanza debajo; velocidad m/min y kg/h a la vista (decisión de German, a prueba). Extrusión en vivo muestra el mismo semáforo. · 07n: 🏭 estado de la máquina AL INSTANTE (cada 2 s, de plc_estado): parada sin pulsos 8 s, sin film cuando el PLC deja de sumar producción, produciendo en cuanto vuelve el film; en la estación y en Extrusión en vivo. ⚡ Aviso de cambio de velocidad contra la última bobina pesada (±3 %): «SUBISTE LA VELOCIDAD → AFINASTE, esperá la próxima bobina pesada», a los operarios y al dueño (con g/m estimado sólo para el dueño). · 07m: ⚖ pesada/liviana IGUAL en la estación y en Extrusión en vivo: una sola cuenta (_plcRefMaquina) = g/m REAL de las últimas 3 bobinas pesadas atadas a un cierre (últimas 12 h, misma bobina de la orden) = kg con tubo ÷ metros PLC, contra el teórico de la orden, con las tolerancias de la carga. Se saca la estimación kg/h ÷ m/min. Tu pantalla muestra kg/h sin tubo y entre paréntesis el con tubo que ve el operario. · 07l: 🏭 últimas bobinas de la estación con encabezado (bobina · metros · kg · kg/h · pesada a las). · 07k: 🏭 los metros de la estación corren en vivo (cada 2 s, como el display del ZQ); la recarga completa cada 30 s o al aparecer un cierre nuevo. · 07j: ⚖ pesada/liviana con UN SOLO criterio en todo el MES (las tolerancias de la carga: OK +2 % / −5 %, rechazo +8 % / −10 %) y texto claro: «Sale X g/m (estimado) · la orden pide Y g/m (teórico) → LIVIANA −Z % → ENGORDAR». · 07i: 📏 metros del PLC OFICIALES: con un cierre elegido, «Metros reales» = cuentametros (no se tipean); sin cierre o EXT-01, a mano. 🏭 Estación: kg/h real de las bobinas pesadas y AFINAR / OK / ENGORDAR en vivo (P4 nueva: nunca un peso estimado). Tu pantalla: alarma de metros ≠ al 3 % y peso manual por turno. · 07h: 🏭 ESTACIÓN DE EXTRUSIÓN (diseño aprobado 07/09) con datos reales del PLC: arriba «Pendientes de pesar» (cierres del pulsador), una tarjeta por máquina con los metros de esta bobina en grande, estado y parada del turno; vista de todas o una sola a pantalla completa; sin kg/h ni kg estimados. Es la entrada de la estación Extrusión; el panel de órdenes sigue en «📋 Órdenes y cola». Se saca el bloque del panel de la 07g. · 07g: 📏 panel operario de extrusión: cada máquina con PLC muestra la bobina en curso (metros en vivo), si produce o está parada, y las bobinas cerradas con el pulsador para pesar; tocar una abre la carga de siempre con orden, extrusora y cierre puestos (metros: los sigue escribiendo el operario). Factor PLC E3/E7 = 0,793 fijado. · 07f: 🧾 la balanza ya NO descuenta el cartón: «Kg reales» = lo que marca el visor (con tubo), como siempre; el tubo queda guardado aparte (tara_tubo_kg) y el neto sólo se ve en 📏 Extrusión en vivo. · 07e: 📏 cuentametros PLC → MES: la Carga de bobinas propone el cierre del pulsador (el más viejo sin bobina de esa extrusora), muestra sus metros y la bobina en curso, y graba plc_cierre_id; nueva pantalla 📏 Extrusión en vivo 🔐 (velocidad, uso, kg/h y g/m por máquina, línea de tiempo 24 h, cierres/bobinas, turnos, paradas). SQL: sql/plc_cuentametros.sql. · 07d: 🔀 cargar en una cortadora que la OC no tiene asignada pregunta (no bloquea); queda en la máquina del operario y avisa en Órdenes de corte y Tablero hasta reasignar. · 07c: 👷 panel de corte: recuadros grandes de quién carga y en qué máquina (rojo si falta), tarjeta de la máquina activa resaltada, otras atenuadas. · 07b: ⏳ cartel «Guardando…» que bloquea la pantalla en TODA la app mientras se graba algo pedido por el usuario; 📢 panel de corte: cartel gigante al escanear (cargada / ya estaba / no se cargó), el mensaje ya no se borra al repintar, lista de cargadas grande con la última arriba. (07a: valores de contado nacen acreditados)
 // build anterior → 06b:   // 06b: ⚖ BALANZA KRETZ EN LA CARGA DE BOBINAS — Web Serial (CH340, 9600 8N1, trama continua), peso en vivo grande, ESTABLE = ±0,04 kg 2 s con >5 kg, toma automática; kg_reales = NETO (bruto − tubo por ancho, configuracion.taras_tubo, ⚙ Tubos con admin; 90 cm = 1,1 kg, el resto estimado proporcional); guarda peso_bruto_kg / tara_tubo_kg / peso_origen; peso manual (bruto del visor) sólo sin balanza o en turno atrasado, marcado ✍ en listados y Análisis de extrusión. SQL: sql/balanza_bobinas.sql.
 // build anterior → 06a:   // 06a: 🧵 PLAN DE BOBINAS POR PISTAS — toda OE nueva sale en N × L: N múltiplo de las pistas de la bolsa (45–60 cm = 4, salvo 60 cm de más de 50 µ = 2; más de 60 cm = 2; editable en la ficha de la bobina) y todas las bobinas con los mismos metros (objetivo de la ficha = mediana histórica del tipo, ±15 %); metros de la OE = N × L, el sobrante a stock. La estación de extrusión y la carga de bobinas muestran el plan, la PRÓXIMA bobina y las pistas; si una bobina sale distinta, COMPENSA: recalcula las que faltan por pista para que todas cierren iguales y, si una pista ya tiene sus bobinas y quedó corta, pide una más de esa medida. La OE no se cierra sola hasta que las pistas cierran. Admin edita bobinas × metros en Editar OE. SQL: sql/pistas_bobinas.sql (sin correrlo funciona derivado, sin guardar).
@@ -62325,6 +62326,123 @@ function duplicarPedido(pedidoId){
   },600);
 }
 
+// ===== 🎞 GENERAR OE DE UNA LÍNEA POR KILO (07q) =====
+// PED-06106: la línea por kilo quedó sin OE y el ✏️ Editar del pedido sólo toca cantidad
+// y precio — no había forma de armarle la OE desde la pantalla. Este botón vive en la
+// línea («sin OE») y crea la OE igual que confirmarPedido: bobina de la ficha, metros =
+// kg × metros/bolsa × (1+merma), origen venta_bobina, vínculo por pedido_ref_id (que es
+// lo único que _granelLineaEstado mira). Después alinea el plan guardado (producto de la
+// línea, OE tildada, confirmada) para que el candado 07p no lo marque y, si el pedido
+// estaba en Borrador sólo por esta línea, lo pasa a Confirmado.
+function _granelOEMtsDefault(prod,kg){
+  const mpb=parseFloat(prod?.metros_por_bolsa)||0;
+  if(!(kg>0)||!(mpb>0))return 0;
+  return r2(kg*mpb*(1+(parseFloat(prod?.merma_pct)||5)/100));
+}
+// Pura: sincroniza el plan con la línea por kilo que ya tiene OE. Devuelve true si
+// después de esto no queda nada del plan sin confirmar.
+function _granelPlanSincronizar(plan,li,extra){
+  if(!plan||!Array.isArray(plan.ordenes))return null;
+  const metas=(plan.meta?.lineas||[]).filter(m=>Number(m.producto_id)===Number(li.producto_id));
+  const tmpIds=new Set(metas.map(m=>m.tmpId));
+  plan.ordenes.forEach(o=>{
+    if(!tmpIds.has(o.linea_id))return;
+    o.producto_id=li.producto_id;o.esGranel=true;o.genOE=true;o._confirmada=true;
+    o.numero_orden=null;o.maquinas=[];o.dividir=false;o.tandas=[];
+    o.bolsones=0;o.paqPorBolson=0;o.totalPaq=0;o.totalUni=0;
+    if(extra){if(extra.extrusoras)o.extrusoras=extra.extrusoras;if(extra.mts)o._oeMts=extra.mts;}
+  });
+  return !plan.ordenes.filter(o=>o.confirmar).some(o=>
+    (o.dividir&&o.tandas?.length)
+      ?o.tandas.some(t=>!t._confirmada&&(t.bolsones||0)>0)
+      :!o._confirmada);
+}
+function abrirOEGranelLinea(pedidoId,lineaId){
+  const p=C.pedidos.find(x=>x.id===pedidoId);
+  const li=(p?.pedido_lineas||[]).find(l=>l.id===lineaId);
+  if(!p||!li){toast('Línea no encontrada','red');return;}
+  const prod=C.productos.find(x=>x.id===li.producto_id);
+  if(!prod?.es_bobina_granel){toast('Esta línea no se vende por kilo','red');return;}
+  if(!prod.bobina_id){toast('El producto '+(prod.codigo||'')+' no tiene bobina configurada en su ficha','red');return;}
+  const g=_granelLineaEstado(p,li)||{kgPedidos:parseFloat(li.cantidad)||0,kgProducidos:0,hayOE:false};
+  const kgFalta=r2(Math.max(0,g.kgPedidos-g.kgProducidos));
+  const mts=_granelOEMtsDefault(prod,kgFalta);
+  const bob=C.bobinas.find(b=>b.id===prod.bobina_id);
+  let pmax=0;(C.ordenes||[]).forEach(o=>{if((o.prioridad||0)>pmax)pmax=o.prioridad;});
+  const exts=(C.extrusoras||[]).filter(e=>e.en_servicio!==false);
+  document.getElementById('oegr-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend',
+    '<div class="modal-overlay" id="oegr-modal"><div class="modal-card" style="max-width:560px;max-height:92vh;overflow-y:auto;">'
+    +'<div class="modal-title">🔧 Generar OE — '+escapeHtml(p.numero_pedido||'')+'</div>'
+    +'<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">'+escapeHtml(p.cliente||'')+' · <span class="mono" style="color:var(--text3);">'+escapeHtml(prod.codigo||'')+'</span> '+escapeHtml(prod.descripcion||'')+'</div>'
+    +(g.hayOE?'<div style="background:rgba(245,158,11,.1);border:1px solid var(--amber);border-radius:var(--r);padding:8px 10px;font-size:12px;color:var(--amber);margin-bottom:10px;">⚠ Esta línea ya tiene OE. Generá otra sólo si hace falta producir más.</div>':'')
+    +'<div style="font-size:12px;margin-bottom:10px;">Pedido <strong>'+g.kgPedidos.toLocaleString('es-AR')+' kg</strong> · producido '+(g.kgProducidos||0).toLocaleString('es-AR')+' kg · <strong style="color:var(--amber);">falta '+kgFalta.toLocaleString('es-AR')+' kg</strong>'
+      +' · bobina <strong>'+escapeHtml(bob?.nombre||('#'+prod.bobina_id))+'</strong></div>'
+    +'<div style="display:grid;grid-template-columns:1fr 120px;gap:10px;">'
+      +'<div class="fg"><label style="font-size:11px">Metros a extruir</label><input type="number" id="oegr-mts" value="'+mts+'" style="font-weight:700;color:var(--amber);font-size:14px;">'
+        +'<div style="font-size:10px;color:var(--text3);margin-top:2px;">'+kgFalta+' kg × '+(prod.metros_por_bolsa||0)+' m/kg × (1 + '+(prod.merma_pct||5)+'% merma)</div></div>'
+      +'<div class="fg"><label style="font-size:11px">Prioridad</label><input type="number" min="1" id="oegr-pri" value="'+(pmax+1)+'"></div>'
+    +'</div>'
+    +'<div class="fg"><label style="font-size:11px">Extrusoras</label><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">'
+      +exts.map(e=>'<label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;padding:5px 10px;border-radius:var(--r);border:1px solid var(--border);"><input type="checkbox" class="oegr-ext" value="'+e.id+'" style="width:13px;height:13px;"><strong>'+escapeHtml(e.nombre||'')+'</strong></label>').join('')
+    +'</div></div>'
+    +'<div id="oegr-msg" style="font-size:12px;min-height:16px;margin:6px 0;"></div>'
+    +'<div style="display:flex;gap:8px;"><button class="btn btn-primary" id="oegr-btn" onclick="crearOEGranelLinea('+pedidoId+','+lineaId+')">🔧 Crear OE</button>'
+    +'<button class="btn" onclick="document.getElementById(\'oegr-modal\').remove()">Cancelar</button></div>'
+    +'</div></div>');
+}
+async function crearOEGranelLinea(pedidoId,lineaId){
+  const msg=document.getElementById('oegr-msg');const btn=document.getElementById('oegr-btn');
+  const err=t=>{if(msg){msg.style.color='var(--red)';msg.textContent=t;}};
+  const p=C.pedidos.find(x=>x.id===pedidoId);
+  const li=(p?.pedido_lineas||[]).find(l=>l.id===lineaId);
+  const prod=li&&C.productos.find(x=>x.id===li.producto_id);
+  if(!p||!li||!prod?.bobina_id)return err('Línea o bobina no encontrada');
+  const mts=parseFloat(document.getElementById('oegr-mts')?.value)||0;
+  const pri=parseInt(document.getElementById('oegr-pri')?.value)||1;
+  const extIds=[...document.querySelectorAll('.oegr-ext:checked')].map(x=>parseInt(x.value)).filter(Boolean);
+  if(!(mts>0))return err('Poné los metros a extruir');
+  if(!extIds.length)return err('Elegí al menos una extrusora');
+  if(btn){if(btn.disabled)return;btn.disabled=true;btn.textContent='Creando…';}
+  try{
+    const bob=C.bobinas.find(b=>b.id===prod.bobina_id);
+    const kgPorMt=bob?.kg_por_metro||(bob?.gramaje?bob.gramaje/1000:0);
+    const kgEst=kgPorMt>0?r2(mts*kgPorMt):null;
+    const cliNom=p.cliente||null;
+    const kgLinea=parseFloat(li.cantidad)||0;
+    const nroOrd=await generarNroORD();
+    const{data:oe,error:eOE}=await _pbInsertOE({
+      numero_orden:nroOrd,bobina_id:prod.bobina_id,metros:mts,
+      kg_totales:kgEst,cliente:cliNom,estado:'Pendiente',prioridad:pri,
+      pedido_ref_id:pedidoId,origen:'venta_bobina',
+      observaciones:'Pedido '+p.numero_pedido+(cliNom?' · '+cliNom:'')+(kgLinea>0?' · '+kgLinea+' kg de bobina (se vende por kilo, sin corte)':'')+(kgEst?' · '+kgEst+' kg est.':'')+' (OE generada desde la línea)'
+    });
+    if(eOE)throw eOE;
+    const{error:eExt}=await sb.from('orden_extrusoras').insert(extIds.map(eId=>({orden_id:oe.id,extrusora_id:eId})));
+    if(eExt)toast('OE '+nroOrd+' creada, pero falló asignar extrusoras: '+eExt.message,'amber');
+    // Alinear el plan guardado y, si sólo faltaba esto, confirmar el pedido
+    const plan=p.plan_ordenes?JSON.parse(JSON.stringify(p.plan_ordenes)):null;
+    const upd={};
+    if(plan){
+      const nadaPendiente=_granelPlanSincronizar(plan,li,{extrusoras:extIds,mts});
+      upd.plan_ordenes=plan;
+      if(p.estado==='Borrador'&&nadaPendiente)upd.estado='Confirmado';
+    }
+    if(Object.keys(upd).length){
+      const{error:eP}=await sb.from('pedidos').update(upd).eq('id',pedidoId);
+      if(eP)toast('OE creada; no se pudo actualizar el pedido: '+eP.message,'amber');
+    }
+    document.getElementById('oegr-modal')?.remove();
+    toast('✓ '+nroOrd+' creada para '+p.numero_pedido+(upd.estado?' · pedido Confirmado':''),'green');
+    await reload();
+    if(typeof renderDetallePedidoPagina==='function')renderDetallePedidoPagina(pedidoId);
+  }catch(e){
+    console.error('crearOEGranelLinea',e);
+    err('Error: '+(e.message||e));
+    if(btn){btn.disabled=false;btn.textContent='🔧 Crear OE';}
+  }
+}
+
 // ===== EDITAR PEDIDO (datos + notas + líneas) =====
 function abrirEditarPedido(pedidoId){
   const p=C.pedidos.find(x=>x.id===pedidoId);
@@ -64057,7 +64175,10 @@ function _dpRenderLineas(p){
         ?'<div style="font-size:10px;"><span style="color:var(--text3);">🔧 OE:</span> '
           +'<a href="javascript:void(0)" onclick="event.stopPropagation();irAOE(\''+oe.numero+'\')" style="color:'+oeCol+';font-weight:600;text-decoration:underline;cursor:pointer;" title="Ir a esta OE">'+oe.numero+'</a>'
           +' <span style="color:'+oeCol+';font-weight:600;">· '+(oe.estado==='Completada'?'✓ extruida':oe.estado==='En proceso'?'🏭 extruyendo '+oe.avanceOE+'%':'⏸️ '+oe.estado)+'</span></div>'
-        :'<div style="font-size:10px;color:var(--red);">⚡ sin OE — el pedido no se va a producir</div>')
+        :'<div style="font-size:10px;color:var(--red);">⚡ sin OE — el pedido no se va a producir</div>'
+          +(p.estado!=='Cancelado'&&p.estado!=='Anulado'
+            ?'<button class="btn btn-sm" style="margin:3px 0;font-size:10.5px;padding:2px 8px;color:var(--amber);border-color:var(--amber);" onclick="event.stopPropagation();abrirOEGranelLinea('+p.id+','+l.id+')" title="Crear la OE de esta línea por kilo">🔧 Generar OE</button>'
+            :''))
         +'<div style="font-size:10px;"><span style="color:var(--text3);">🎞 Por kilo:</span> <span style="color:var(--text1);font-weight:600;">no lleva corte</span></div>'
         +(g.rollosEnStock>0
           ?'<div style="font-size:10px;color:#10b981;font-weight:600;">📦 '+g.rollosEnStock+' rollo'+(g.rollosEnStock===1?'':'s')+' en stock · '+r1(g.kgEnStock).toLocaleString('es-AR')+' kg</div>'
