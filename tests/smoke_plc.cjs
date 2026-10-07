@@ -92,7 +92,7 @@ global.localTime=()=>'08:00:00';
 global.C={extrusoras:[{id:1,nombre:'EXT-01',en_servicio:true},{id:3,nombre:'EXT-03',en_servicio:true},{id:7,nombre:'EXT-07',en_servicio:true},{id:2,nombre:'EXT-02',en_servicio:false}],
   bobinas:[{id:10,nombre:'B90-14',kg_por_metro:0.0200},{id:11,nombre:'B100',kg_por_metro:0.028}],
   ordenes:[{id:874,numero_orden:'ORD-06311'},{id:879,numero_orden:'ORD-06307'}],operarios:[{id:5,nombre:'MASSI'}]};
-eval(src.slice(a,b).replace(/^const (PLC|EVV|PLC_VINCULO_DESDE_DEF)=/gm,'global.$1='));
+eval(src.slice(a,b).replace(/^const (PLC|PLCP|EVV|PLC_VINCULO_DESDE_DEF)=/gm,'global.$1='));
 
 (async()=>{
 // ---- puras ----
@@ -162,6 +162,18 @@ t(/provisorio/.test(H),'avisa factor provisorio');
 t(/Paradas de 5 min o más/.test(H)&&/50 min/.test(H),'tabla de paradas con la de 50 min');
 t(/Por turno/.test(H)&&/MARTIN MASSI/.test(H),'tabla por turno con el operario');
 t(/kg\/h y g\/m en vivo se ven sólo acá/.test(H),'pie de P4');
+
+// ---- 07g panel operario ----
+const mm=(n,br,fi)=>({ts:new Date(AHORA-(10-n)*60000).toISOString(),odo_bruto:br,odo_film:fi});
+t(_plcpEstado([mm(1,100,100),mm(2,140,140),mm(3,180,180)]).est==='P','panel: pulsos con film → produciendo');
+t(_plcpEstado([mm(1,100,100),mm(2,140,100),mm(3,180,100),mm(4,220,100)]).est==='F','panel: pulsos sin film → gira sin film');
+const pz=_plcpEstado([mm(1,100,100),mm(2,140,140),mm(3,140,140),mm(4,140,140),mm(5,140,140)]);
+t(pz.est==='S'&&pz.min===3,'panel: parada hace 3 min');
+const hp=_plcpHtml(3,{pend:[{id:9,cerrado_en:new Date(AHORA-600000).toISOString(),metros:1452},{id:10,cerrado_en:new Date(AHORA).toISOString(),metros:1440}],enCurso:320,estadoViejo:false,estado:{est:'P'}});
+t(/BOBINA EN CURSO/.test(hp)&&/320/.test(hp)&&/2 BOBINAS PARA PESAR/.test(hp)&&/plcPanelPesar\(3,9\)/.test(hp)&&/la más vieja/.test(hp),'panel: bobina en curso y bobinas para pesar, la más vieja primero');
+t(!/kg\/h|kg estimad/i.test(hp),'panel P4: sin kg estimados ni kg/h');
+t(/Sin cuentametros/.test(_plcpHtml(1,null)),'panel: máquina sin PLC lo dice');
+t(src.includes("if(!fuera)html+='<div class=\"pop-plc\" id=\"pop-plc-'+ext.id+'\"></div>';"),'panel: la tarjeta tiene el lugar del PLC');
 
 console.log((bad?'✗ ':'✓ ')+ok+' ok · '+bad+' fallas');
 process.exit(bad?1:0);

@@ -193,6 +193,21 @@ tr:hover td{background:rgba(255,255,255,0.02);}
 
 /* CARGA BOBINAS - special layout */
 .carga-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+/* 📏 07g cuentametros en el panel operario */
+.pop-plc{margin-bottom:12px;}
+.pop-plc:empty{display:none;}
+.pop-plc-top{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;}
+.pop-plc-lbl{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:0.08em;}
+.pop-plc-m{font-size:34px;font-weight:800;font-family:'DM Mono',monospace;line-height:1.05;}
+.pop-plc-m small{font-size:14px;color:var(--text3);font-weight:600;}
+.pop-plc-st{font-size:13px;font-weight:700;text-align:right;}
+.pop-plc-btn{display:block;width:100%;text-align:left;margin-top:6px;padding:12px 14px;border-radius:8px;border:1px solid var(--accentbd);background:var(--bg2);color:var(--text);font-size:15px;cursor:pointer;}
+.pop-plc-btn.prim{background:var(--accentbg);border:2px solid var(--accent);}
+.pop-plc-btn:hover{border-color:var(--accent);}
+.pop-plc-viejo{font-size:11px;color:var(--amber);margin-left:6px;}
+.pop-plc-av{font-size:11.5px;color:var(--amber);margin-top:6px;}
+.pop-plc-ok{font-size:12px;color:var(--text3);margin-top:8px;}
+.pop-plc-sin{font-size:12px;color:var(--text3);background:var(--bg3);border:1px dashed var(--border);border-radius:8px;padding:8px 10px;}
 /* 📏 07e cuentametros PLC (carga de bobinas + extrusión en vivo) */
 .plc-box{border:1px solid var(--accentbd);background:var(--accentbg);border-radius:var(--r);padding:9px 11px;margin-bottom:10px;font-size:12.5px;display:flex;flex-direction:column;gap:5px;}
 .plc-hdr{font-size:12px;}
@@ -894,7 +909,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-07f</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-07g</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6030,7 +6045,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-07f';   // 07f: 🧾 la balanza ya NO descuenta el cartón: «Kg reales» = lo que marca el visor (con tubo), como siempre; el tubo queda guardado aparte (tara_tubo_kg) y el neto sólo se ve en 📏 Extrusión en vivo. · 07e: 📏 cuentametros PLC → MES: la Carga de bobinas propone el cierre del pulsador (el más viejo sin bobina de esa extrusora), muestra sus metros y la bobina en curso, y graba plc_cierre_id; nueva pantalla 📏 Extrusión en vivo 🔐 (velocidad, uso, kg/h y g/m por máquina, línea de tiempo 24 h, cierres/bobinas, turnos, paradas). SQL: sql/plc_cuentametros.sql. · 07d: 🔀 cargar en una cortadora que la OC no tiene asignada pregunta (no bloquea); queda en la máquina del operario y avisa en Órdenes de corte y Tablero hasta reasignar. · 07c: 👷 panel de corte: recuadros grandes de quién carga y en qué máquina (rojo si falta), tarjeta de la máquina activa resaltada, otras atenuadas. · 07b: ⏳ cartel «Guardando…» que bloquea la pantalla en TODA la app mientras se graba algo pedido por el usuario; 📢 panel de corte: cartel gigante al escanear (cargada / ya estaba / no se cargó), el mensaje ya no se borra al repintar, lista de cargadas grande con la última arriba. (07a: valores de contado nacen acreditados)
+const APP_BUILD='2026-10-07g';   // 07g: 📏 panel operario de extrusión: cada máquina con PLC muestra la bobina en curso (metros en vivo), si produce o está parada, y las bobinas cerradas con el pulsador para pesar; tocar una abre la carga de siempre con orden, extrusora y cierre puestos (metros: los sigue escribiendo el operario). Factor PLC E3/E7 = 0,793 fijado. · 07f: 🧾 la balanza ya NO descuenta el cartón: «Kg reales» = lo que marca el visor (con tubo), como siempre; el tubo queda guardado aparte (tara_tubo_kg) y el neto sólo se ve en 📏 Extrusión en vivo. · 07e: 📏 cuentametros PLC → MES: la Carga de bobinas propone el cierre del pulsador (el más viejo sin bobina de esa extrusora), muestra sus metros y la bobina en curso, y graba plc_cierre_id; nueva pantalla 📏 Extrusión en vivo 🔐 (velocidad, uso, kg/h y g/m por máquina, línea de tiempo 24 h, cierres/bobinas, turnos, paradas). SQL: sql/plc_cuentametros.sql. · 07d: 🔀 cargar en una cortadora que la OC no tiene asignada pregunta (no bloquea); queda en la máquina del operario y avisa en Órdenes de corte y Tablero hasta reasignar. · 07c: 👷 panel de corte: recuadros grandes de quién carga y en qué máquina (rojo si falta), tarjeta de la máquina activa resaltada, otras atenuadas. · 07b: ⏳ cartel «Guardando…» que bloquea la pantalla en TODA la app mientras se graba algo pedido por el usuario; 📢 panel de corte: cartel gigante al escanear (cargada / ya estaba / no se cargó), el mensaje ya no se borra al repintar, lista de cargadas grande con la última arriba. (07a: valores de contado nacen acreditados)
 // build anterior → 06b:   // 06b: ⚖ BALANZA KRETZ EN LA CARGA DE BOBINAS — Web Serial (CH340, 9600 8N1, trama continua), peso en vivo grande, ESTABLE = ±0,04 kg 2 s con >5 kg, toma automática; kg_reales = NETO (bruto − tubo por ancho, configuracion.taras_tubo, ⚙ Tubos con admin; 90 cm = 1,1 kg, el resto estimado proporcional); guarda peso_bruto_kg / tara_tubo_kg / peso_origen; peso manual (bruto del visor) sólo sin balanza o en turno atrasado, marcado ✍ en listados y Análisis de extrusión. SQL: sql/balanza_bobinas.sql.
 // build anterior → 06a:   // 06a: 🧵 PLAN DE BOBINAS POR PISTAS — toda OE nueva sale en N × L: N múltiplo de las pistas de la bolsa (45–60 cm = 4, salvo 60 cm de más de 50 µ = 2; más de 60 cm = 2; editable en la ficha de la bobina) y todas las bobinas con los mismos metros (objetivo de la ficha = mediana histórica del tipo, ±15 %); metros de la OE = N × L, el sobrante a stock. La estación de extrusión y la carga de bobinas muestran el plan, la PRÓXIMA bobina y las pistas; si una bobina sale distinta, COMPENSA: recalcula las que faltan por pista para que todas cierren iguales y, si una pista ya tiene sus bobinas y quedó corta, pide una más de esa medida. La OE no se cierra sola hasta que las pistas cierran. Admin edita bobinas × metros en Editar OE. SQL: sql/pistas_bobinas.sql (sin correrlo funciona derivado, sin guardar).
 // 05e (previo):   // 05e: 🧱 PALLETS POR PARTES — el botón 🧱 Pallet abre un selector: se eligen las bobinas del pallet (por defecto las primeras 18 que falten, el tamaño se recuerda), se imprime como «PALLET N° n» sólo con esas, y quedan registradas en configuracion['pallet_oe_<id>'] para no imprimirlas dos veces (se relee de la base antes de guardar, por si otra terminal armó uno). Todas las que faltan en un clic, reimprimir o anular un pallet, y la lista completa de la OE como siempre. Sin SQL.
@@ -9209,6 +9224,106 @@ function _plcTimer(){
     if(document.getElementById('plc-desc-modal'))return;
     plcCbRefrescar();
   },15000);
+}
+
+// ===== 📏 CUENTAMETROS EN EL PANEL OPERARIO (07g) =====
+// La estación de extrusión, armada alrededor de la máquina: en la tarjeta de cada extrusora
+// conectada al PLC se ve la bobina en curso (metros en vivo, del mismo odómetro que el ZQ),
+// si está produciendo o parada, y la fila de bobinas cerradas con el pulsador que todavía no
+// se pesaron. Tocar una abre la MISMA carga de bobinas de siempre (mismo guardado, mismas
+// validaciones de MP, numeración, calidad y balanza), con la orden, la extrusora y el cierre
+// ya puestos. Durante la prueba los metros los sigue escribiendo el operario: valen ésos.
+// · Nada de kg estimados ni kg/h (P4). No hay botón para cerrar bobina: es el pulsador.
+// · Máquinas sin PLC (EXT-01 hasta que se conecte): la tarjeta lo dice y se carga como siempre.
+const PLCP={cache:{},timer:null,cargando:false};
+// Pura: estado de la máquina a partir de los últimos minutos del PLC (orden ascendente)
+function _plcpEstado(mins){
+  const xs=(mins||[]).slice().sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+  if(xs.length<2)return{est:'?'};
+  const u=xs[xs.length-1],p=xs[xs.length-2];
+  if(u.odo_bruto>p.odo_bruto){
+    // ¿gira con film? (los últimos 3 minutos)
+    const a=xs[Math.max(0,xs.length-4)];
+    const db=u.odo_bruto-a.odo_bruto,df=u.odo_film-a.odo_film;
+    return{est:(db>0&&df/db<0.5)?'F':'P'};
+  }
+  let i=xs.length-1;while(i>0&&xs[i].odo_bruto===xs[i-1].odo_bruto)i--;
+  return{est:'S',desde:i>0?xs[i].ts:null,min:Math.round((new Date(u.ts)-new Date(xs[i].ts))/60000)};
+}
+async function _plcpDatos(extId){
+  const d=await _plcDatosExt(extId);
+  if(!d)return null;
+  const{data}=await sb.from('plc_minutos').select('ts,odo_bruto,odo_film').eq('grupo',d.grupo)
+    .gte('ts',new Date(Date.now()-90*60000).toISOString()).order('ts',{ascending:false}).limit(90);
+  d.estado=_plcpEstado(data||[]);
+  return d;
+}
+function _plcpHtml(extId,d){
+  if(!d)return '<div class="pop-plc-sin">📏 Sin cuentametros conectado en esta máquina. Cargá las bobinas con <b>+ Cargar bobina</b>, como siempre.</div>';
+  const viejo=d.estadoViejo;
+  const e=d.estado||{est:'?'};
+  const st=viejo?['⚪','Sin datos de la PC del medidor','var(--text3)']
+    :e.est==='P'?['🟢','Produciendo','var(--green)']
+    :e.est==='F'?['🟠','Gira sin film','var(--amber)']
+    :e.est==='S'?['🔴','Parada'+(e.min!=null?' hace '+e.min+' min':''),'var(--red)']:['⚪','—','var(--text3)'];
+  let h='<div class="pop-plc-top"><div><div class="pop-plc-lbl">BOBINA EN CURSO</div>'
+    +'<div class="pop-plc-m">'+(d.enCurso!=null&&!viejo?d.enCurso.toLocaleString('es-AR'):'—')+'<small> m</small></div></div>'
+    +'<div class="pop-plc-st" style="color:'+st[2]+'">'+st[0]+' '+st[1]+'</div></div>';
+  if(d.pend.length){
+    h+='<div class="pop-plc-lbl" style="margin-top:8px;">'+(d.pend.length===1?'1 BOBINA PARA PESAR':d.pend.length+' BOBINAS PARA PESAR')+'</div>';
+    d.pend.forEach((c,i)=>{
+      h+='<button class="pop-plc-btn'+(i===0?' prim':'')+'" onclick="plcPanelPesar('+extId+','+c.id+')">'
+        +'⚖ Pesar la bobina de las <b>'+_plcHora(c.cerrado_en)+'</b> · <span class="mono">'+(c.metros!=null?c.metros.toLocaleString('es-AR'):'—')+' m</span>'
+        +(i===0&&d.pend.length>1?' <span class="pop-plc-viejo">la más vieja</span>':'')+'</button>';
+    });
+    if(d.pend.length>1)h+='<div class="pop-plc-av">⚠ Hay más de una bobina sin pesar en esta máquina. Pesalas en orden, de la más vieja a la más nueva.</div>';
+  }else{
+    h+='<div class="pop-plc-ok">✓ No hay bobinas sin pesar. Al terminar una, apretá el pulsador de la máquina.</div>';
+  }
+  return h;
+}
+function _plcpPintarCache(){
+  Object.keys(PLCP.cache).forEach(id=>{const w=document.getElementById('pop-plc-'+id);if(w)w.innerHTML=PLCP.cache[id];});
+}
+async function plcPanelRefrescar(){
+  _plcpPintarCache();
+  if(PLCP.cargando)return;
+  PLCP.cargando=true;
+  try{
+    const exts=(C.extrusoras||[]).filter(e=>e.en_servicio!==false&&document.getElementById('pop-plc-'+e.id));
+    for(const e of exts){
+      try{PLCP.cache[e.id]=_plcpHtml(e.id,await _plcpDatos(e.id));}
+      catch(err){console.warn('PLC panel',err);PLCP.cache[e.id]='<div class="pop-plc-sin">📏 No se pudo leer el cuentametros. Cargá la bobina igual.</div>';}
+    }
+    _plcpPintarCache();
+  }finally{PLCP.cargando=false;}
+}
+function _plcPanelTimer(){
+  if(PLCP.timer)return;
+  PLCP.timer=setInterval(()=>{
+    const pg=document.getElementById('page-panel-operario');
+    if(!pg||!pg.classList.contains('active'))return;
+    if(typeof _cargaEmbebida!=='undefined'&&_cargaEmbebida)return;   // cargando: no molestar
+    plcPanelRefrescar();
+  },15000);
+}
+// Abre la carga de siempre con todo puesto. La orden: la que está En proceso en esa máquina.
+async function plcPanelPesar(extId,cierreId){
+  abrirCargaEmbebida();
+  try{await poblarCargaSelects();}catch(e){}
+  const cands=(C.ordenes||[]).filter(o=>o.estado==='En proceso'&&o.orden_extrusoras?.some(oe=>String(oe.extrusora_id)===String(extId)));
+  const so=document.getElementById('cb-orden');
+  if(so&&cands.length===1&&[...so.options].some(op=>op.value===String(cands[0].id))){
+    so.value=String(cands[0].id);
+    onOrdenChange();
+    const se=document.getElementById('cb-ext');
+    if(se&&[...se.options].some(op=>op.value===String(extId)))se.value=String(extId);
+  }
+  PLC.ext=parseInt((document.getElementById('cb-ext')||{}).value)||null;
+  PLC.sel=cierreId;
+  try{await plcCbRefrescar();}catch(e){}
+  const msg=document.getElementById('msg-carga');
+  if(msg&&!(cands.length===1)){msg.className='msg-err';msg.textContent=cands.length?'Esta máquina tiene más de una orden En proceso: elegí la orden y la extrusora.':'Esta máquina no tiene orden En proceso: elegí la orden.';}
 }
 
 // ===== 📏 EXTRUSIÓN EN VIVO — pantalla del dueño (07e) =====
@@ -55694,6 +55809,8 @@ function renderPanelOperario(){
         +'</div>'
       +'</div>';
 
+      // 📏 07g: bobina en curso y bobinas para pesar, del cuentametros (se llena aparte)
+      if(!fuera)html+='<div class="pop-plc" id="pop-plc-'+ext.id+'"></div>';
       if(fuera){
         html+='<div style="text-align:center;padding:20px 0;color:var(--red);">'
           +'<div style="font-size:28px;margin-bottom:8px;">🔧</div>'
@@ -55807,6 +55924,7 @@ function renderPanelOperario(){
       html+='</div>';
     });
     extDiv.innerHTML=html||'<div class="empty">Sin extrusoras configuradas.</div>';
+    try{plcPanelRefrescar();_plcPanelTimer();}catch(e){console.warn('plc panel',e);}
   }
 
   // Cola general de pendientes
