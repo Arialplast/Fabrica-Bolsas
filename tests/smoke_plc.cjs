@@ -86,7 +86,7 @@ function el(id){if(!els[id])els[id]={id,value:'',innerHTML:'',textContent:'',sty
 el('page-carga-bobinas').classList.add('active');
 global.window=global;
 global.document={getElementById:id=>els[id]||null,querySelectorAll:()=>[],body:{insertAdjacentHTML(){}}};
-global.escapeHtml=x=>String(x==null?'':x);global.toast=()=>{};
+global.escapeHtml=x=>String(x==null?'':x);global.toast=()=>{};global.cfg={tolerancia_advertencia_pesada_pct:'2',tolerancia_advertencia_liviana_pct:'5',tolerancia_pesada_pct:'8',tolerancia_liviana_pct:'10'};
 global.localDate=d=>{const x=d||new Date();return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');};
 global.localTime=()=>'08:00:00';
 global.C={extrusoras:[{id:1,nombre:'EXT-01',en_servicio:true},{id:3,nombre:'EXT-03',en_servicio:true},{id:7,nombre:'EXT-07',en_servicio:true},{id:2,nombre:'EXT-02',en_servicio:false}],
@@ -190,6 +190,12 @@ PLC.datos={pend:[{id:77,metros:1452}]};PLC.sel=77;_plcAplicarMetros();
 t(els['cb-mts'].value==='1452'&&els['cb-mts'].readOnly===true,'07i: con cierre, metros del PLC y no se tipean');
 PLC.sel=null;_plcAplicarMetros();
 t(els['cb-mts'].value===''&&els['cb-mts'].readOnly===false,'07i: sin cierre, metros a mano');
+
+// ---- 07j un solo criterio ----
+t(_evvJuicio(-8.8).t==='LIVIANA'&&_evvJuicio(-8.8).a==='ENGORDAR'&&_evvJuicio(-8.8).k==='warn','−8,8 % → LIVIANA, engordar (advertencia)');
+t(_evvJuicio(-4.9).t==='EN RANGO','−4,9 % → en rango (OK liviana hasta −5 %)');
+t(_evvJuicio(3).t==='PESADA'&&_evvJuicio(3).a==='AFINAR','+3 % → PESADA, afinar (OK pesada sólo hasta +2 %)');
+t(_evvJuicio(9).k==='bad'&&_evvJuicio(-11).k==='bad','pasando +8 % / −10 % → rechazo');
 
 console.log((bad?'✗ ':'✓ ')+ok+' ok · '+bad+' fallas');
 process.exit(bad?1:0);
