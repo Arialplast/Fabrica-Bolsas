@@ -75,6 +75,22 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:1.5rem;}
 .stat{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:1rem 1.2rem;position:relative;overflow:hidden;}
 .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;}
+/* ⏳ 07b: cartel de guardado global */
+#gs-ov{position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:20px;cursor:wait;}
+#gs-ov .gs-card{background:var(--bg2,#1e2433);border:3px solid var(--accent,#3b82f6);border-radius:18px;padding:34px 46px;text-align:center;max-width:560px;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+#gs-ov .gs-spin{width:64px;height:64px;margin:0 auto 18px;border:7px solid rgba(255,255,255,.15);border-top-color:var(--accent,#3b82f6);border-radius:50%;animation:gsgira .8s linear infinite;}
+#gs-ov .gs-t{font-size:40px;font-weight:800;color:var(--text,#fff);letter-spacing:.02em;}
+#gs-ov .gs-s{font-size:17px;color:var(--text2,#cbd5e1);margin-top:10px;}
+#gs-ov .gs-lento{font-size:14px;color:var(--amber,#f59e0b);margin-top:16px;cursor:default;}
+#gs-ov .gs-lento .btn{margin-top:8px;}
+@keyframes gsgira{to{transform:rotate(360deg);}}
+/* 📢 07b: cartel grande del lector del panel de corte (no toma foco ni clics) */
+#pcc-ov{position:fixed;inset:0;z-index:2147482000;display:none;align-items:center;justify-content:center;pointer-events:none;background:rgba(0,0,0,.35);padding:20px;}
+#pcc-ov .pcc-card{background:var(--bg2,#1e2433);border:6px solid;border-radius:22px;padding:30px 50px;text-align:center;max-width:90vw;box-shadow:0 20px 70px rgba(0,0,0,.6);}
+#pcc-ov .pcc-tit{font-size:44px;font-weight:900;letter-spacing:.03em;}
+#pcc-ov .pcc-num{font-family:'Courier New',monospace;font-size:96px;font-weight:900;color:var(--text,#fff);line-height:1.05;margin:8px 0;}
+#pcc-ov .pcc-det{font-size:28px;font-weight:700;color:var(--text2,#cbd5e1);}
+#pcc-ov .pcc-msg{font-size:32px;font-weight:700;color:var(--text,#fff);margin-top:10px;max-width:900px;}
 .modal-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--rl);padding:20px;max-width:600px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,.4);}
 .modal-title{font-family:'Syne',sans-serif;font-weight:700;font-size:18px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border);}
 .cc-tab.active{background:var(--accent);color:white;border-color:var(--accent);}
@@ -833,7 +849,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-07a</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-07b</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -5577,13 +5593,126 @@ let anDataCache={bobinas:null,ordenes_corte:null,movimientos:null,loaded:false};
 const MAQCOLORS=['#6c8ef5','#4ade80','#fbbf24','#f87171','#c084fc','#2dd4bf','#fb923c','#e879f9'];
 
 // ===== CONNECT =====
+// ===== ⏳ CARTEL DE GUARDADO EN TODA LA APP (07b) =====
+// German (07/10): «cuando algo se está guardando, que bloquee y aparezca un cartel grande».
+// Un solo lugar para todas las pantallas: se envuelve el cliente de Supabase al conectar.
+// Toda ESCRITURA (insert/update/upsert/delete, rpc, funciones) que arranca dentro de los
+// 2,5 s de un clic o un Enter del usuario (o mientras el cartel ya está arriba) cuenta como
+// "guardando". Si tarda más de 300 ms aparece el cartel a pantalla completa, que tapa los
+// clics hasta que termina la última escritura de la cadena. Las lecturas nunca lo muestran,
+// y las escrituras de fondo (sin gesto del usuario) tampoco. No cambia QUÉ se graba ni el
+// resultado de ninguna llamada: sólo mira cuándo empieza y cuándo termina.
+let _gsN=0,_gsGesto=0,_gsVisible=false,_gsShowT=null,_gsHideT=null,_gsLentoT=null,_gsDesde=0;
+const _GS_VENTANA_MS=2500,_GS_DEMORA_MS=300,_GS_LENTO_MS=20000;
+function _gsMarcarGesto(){_gsGesto=Date.now();}
+// ¿Esta escritura la pidió el usuario? (pura, para el smoke)
+function _gsCuenta(ahora,gesto,visible,enCurso){return !!(visible||enCurso>0||(ahora-gesto)<_GS_VENTANA_MS);}
+function _gsMostrar(){
+  _gsShowT=null;if(_gsVisible||_gsN<=0)return;
+  _gsVisible=true;_gsDesde=Date.now();
+  let ov=document.getElementById('gs-ov');
+  if(!ov){
+    ov=document.createElement('div');ov.id='gs-ov';
+    ov.innerHTML='<div class="gs-card"><div class="gs-spin"></div><div class="gs-t">Guardando…</div>'
+      +'<div class="gs-s">Esperá a que termine. No toques nada ni cierres la pantalla.</div>'
+      +'<div class="gs-lento" id="gs-lento" style="display:none;">Está tardando más de lo normal (puede ser la conexión).<br>'
+      +'<button class="btn btn-sm" onclick="_gsOcultarForzado()">Ocultar este cartel</button></div></div>';
+    document.body.appendChild(ov);
+  }
+  const l=document.getElementById('gs-lento');if(l)l.style.display='none';
+  ov.style.display='flex';
+  try{const a=document.activeElement;if(a&&a.tagName==='BUTTON')a.blur();}catch(e){}
+  clearTimeout(_gsLentoT);_gsLentoT=setTimeout(()=>{const x=document.getElementById('gs-lento');if(x&&_gsVisible)x.style.display='block';},_GS_LENTO_MS);
+}
+function _gsOcultar(){
+  _gsHideT=null;if(_gsN>0)return;
+  _gsVisible=false;clearTimeout(_gsLentoT);
+  const ov=document.getElementById('gs-ov');if(ov)ov.style.display='none';
+}
+// Escape manual si la red se cuelga: saca el cartel; las escrituras siguen su curso.
+function _gsOcultarForzado(){_gsN=0;clearTimeout(_gsShowT);_gsShowT=null;_gsOcultar();}
+function _gsInicio(){
+  if(!_gsCuenta(Date.now(),_gsGesto,_gsVisible,_gsN))return false;
+  _gsN++;clearTimeout(_gsHideT);_gsHideT=null;
+  if(!_gsVisible&&!_gsShowT)_gsShowT=setTimeout(_gsMostrar,_GS_DEMORA_MS);
+  return true;
+}
+function _gsFin(){
+  _gsN=Math.max(0,_gsN-1);
+  if(_gsN>0)return;
+  if(_gsShowT){clearTimeout(_gsShowT);_gsShowT=null;}
+  // pequeña espera: si el código encadena otra escritura enseguida, el cartel no parpadea
+  clearTimeout(_gsHideT);_gsHideT=setTimeout(_gsOcultar,180);
+}
+function _gsSeguir(p){
+  if(!_gsInicio())return p;
+  let fin=false;const f=()=>{if(!fin){fin=true;_gsFin();}};
+  try{p.then(f,f);}catch(e){f();}
+  return p;
+}
+// Envuelve un builder de postgrest: su then() dispara el pedido; lo seguimos sin tocar el resultado.
+function _gsEnvolverBuilder(b){
+  if(!b||typeof b.then!=='function'||b.__gs)return b;
+  const ot=b.then;
+  try{
+    Object.defineProperty(b,'__gs',{value:true});
+    b.then=function(onF,onR){
+      const p=ot.call(this,x=>x,e=>{throw e;});
+      _gsSeguir(p);
+      return p.then(onF,onR);
+    };
+  }catch(e){}
+  return b;
+}
+function _gsInstalar(cli){
+  if(!cli||cli.__gs)return cli;
+  try{
+    Object.defineProperty(cli,'__gs',{value:true});
+    const oFrom=cli.from.bind(cli);
+    cli.from=function(t){
+      const qb=oFrom(t);
+      ['insert','update','upsert','delete'].forEach(m=>{
+        const om=qb&&qb[m];if(typeof om!=='function')return;
+        qb[m]=function(){return _gsEnvolverBuilder(om.apply(qb,arguments));};
+      });
+      return qb;
+    };
+    if(typeof cli.rpc==='function'){const oR=cli.rpc.bind(cli);cli.rpc=function(){return _gsEnvolverBuilder(oR.apply(null,arguments));};}
+    if(cli.functions&&typeof cli.functions.invoke==='function'){
+      const oI=cli.functions.invoke.bind(cli.functions);
+      cli.functions.invoke=function(){return _gsSeguir(oI.apply(null,arguments));};
+    }
+  }catch(e){console.warn('_gsInstalar',e);}
+  return cli;
+}
+(function(){
+  try{
+    // Gesto = clic/toque o Enter (tipear en un campo no cuenta).
+    document.addEventListener('pointerdown',_gsMarcarGesto,true);
+    document.addEventListener('keydown',ev=>{
+      if(ev.key==='Enter')_gsMarcarGesto();
+      // Con el cartel arriba, un Enter/Espacio sobre un botón no puede volver a disparar el guardado.
+      if(_gsVisible&&(ev.key==='Enter'||ev.key===' ')){
+        const t=ev.target,tag=(t&&t.tagName||'').toUpperCase(),ty=(t&&t.type||'').toLowerCase();
+        const esTexto=(tag==='INPUT'&&!['button','submit','checkbox','radio'].includes(ty))||tag==='TEXTAREA';
+        if(!esTexto){ev.preventDefault();ev.stopPropagation();}
+      }
+    },true);
+    // Lo que se graba después de un confirm()/prompt() también lo pidió el usuario.
+    ['confirm','prompt','alert'].forEach(k=>{
+      const o=window[k];if(typeof o!=='function')return;
+      window[k]=function(){try{return o.apply(window,arguments);}finally{_gsMarcarGesto();}};
+    });
+  }catch(e){}
+})();
+
 async function conectar(){
   const url=document.getElementById('cfg-url').value.trim();
   const key=document.getElementById('cfg-key').value.trim();
   const err=document.getElementById('setup-err');
   if(!url||!key){err.style.display='block';err.textContent='Completá los dos campos.';return;}
   try{
-    sb=supabase.createClient(url,key);
+    sb=_gsInstalar(supabase.createClient(url,key)); // 07b: cartel de guardado
     const{error}=await sb.from('bobinas').select('id').limit(1);
     if(error)throw error;
     localStorage.setItem('sb_url',url);localStorage.setItem('sb_key',key);
@@ -5836,7 +5965,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-07a';   // 07a: 💵 efectivo/transferencia nacen acreditados (no 'en cartera'), método obligatorio en recibos y cheque con N°/Vto, regularización de los viejos desde Cartera, tablero lee bien los cheques en cartera
+const APP_BUILD='2026-10-07b';   // 07b: ⏳ cartel «Guardando…» que bloquea la pantalla en TODA la app mientras se graba algo pedido por el usuario; 📢 panel de corte: cartel gigante al escanear (cargada / ya estaba / no se cargó), el mensaje ya no se borra al repintar, lista de cargadas grande con la última arriba. (07a: valores de contado nacen acreditados)
 // build anterior → 06b:   // 06b: ⚖ BALANZA KRETZ EN LA CARGA DE BOBINAS — Web Serial (CH340, 9600 8N1, trama continua), peso en vivo grande, ESTABLE = ±0,04 kg 2 s con >5 kg, toma automática; kg_reales = NETO (bruto − tubo por ancho, configuracion.taras_tubo, ⚙ Tubos con admin; 90 cm = 1,1 kg, el resto estimado proporcional); guarda peso_bruto_kg / tara_tubo_kg / peso_origen; peso manual (bruto del visor) sólo sin balanza o en turno atrasado, marcado ✍ en listados y Análisis de extrusión. SQL: sql/balanza_bobinas.sql.
 // build anterior → 06a:   // 06a: 🧵 PLAN DE BOBINAS POR PISTAS — toda OE nueva sale en N × L: N múltiplo de las pistas de la bolsa (45–60 cm = 4, salvo 60 cm de más de 50 µ = 2; más de 60 cm = 2; editable en la ficha de la bobina) y todas las bobinas con los mismos metros (objetivo de la ficha = mediana histórica del tipo, ±15 %); metros de la OE = N × L, el sobrante a stock. La estación de extrusión y la carga de bobinas muestran el plan, la PRÓXIMA bobina y las pistas; si una bobina sale distinta, COMPENSA: recalcula las que faltan por pista para que todas cierren iguales y, si una pista ya tiene sus bobinas y quedó corta, pide una más de esa medida. La OE no se cierra sola hasta que las pistas cierran. Admin edita bobinas × metros en Editar OE. SQL: sql/pistas_bobinas.sql (sin correrlo funciona derivado, sin guardar).
 // 05e (previo):   // 05e: 🧱 PALLETS POR PARTES — el botón 🧱 Pallet abre un selector: se eligen las bobinas del pallet (por defecto las primeras 18 que falten, el tamaño se recuerda), se imprime como «PALLET N° n» sólo con esas, y quedan registradas en configuracion['pallet_oe_<id>'] para no imprimirlas dos veces (se relee de la base antes de guardar, por si otra terminal armó uno). Todas las que faltan en un clic, reimprimir o anular un pallet, y la lista completa de la OE como siempre. Sin SQL.
@@ -55273,6 +55402,9 @@ function _pintarPanelCorte(){
   });
   html+='</div></div>';
   root.innerHTML=html;
+  // 07b: el último mensaje del lector sobrevive al repintado (2 min)
+  try{const u=window._pcorteUltFb,el=document.getElementById('pcorte-fb');
+    if(u&&el&&Date.now()-u.t<120000){el.textContent=u.msg;el.style.color=u.color;}}catch(e){}
   // Restaurar operario elegido y foco
   setTimeout(()=>document.getElementById('pcorte-pistola-input')?.focus(),200);
 }
@@ -55361,17 +55493,21 @@ function _pcorteBobinasHTML(oc,maqId){
 
   // ── ABAJO: ya cargadas a esta orden ──
   html+='<div style="border-top:1px dashed var(--border);margin-top:6px;padding-top:10px;">'
-    +'<div style="font-size:13px;font-weight:800;color:var(--green);margin-bottom:6px;">✓ Ya cargadas a esta orden ('+asoc.length+')</div>';
+    +'<div style="font-size:18px;font-weight:800;color:var(--green);margin-bottom:8px;">✓ Ya cargadas a esta orden ('+asoc.length+') <span style="font-size:12px;font-weight:600;color:var(--text3);">· la última arriba</span></div>';
   if(!asoc.length){
     html+='<div style="font-size:12px;color:var(--text3);padding:4px 0;">Ninguna cargada todavía. Escaneá o tocá + Cargar arriba.</div>';
   } else {
     let mtsAsoc=0;
-    html+='<div style="display:flex;flex-direction:column;gap:4px;">'
-      +asoc.map(b=>{
+    html+='<div style="display:flex;flex-direction:column;gap:6px;">'
+      +_pcorteAsocOrden(asoc).map(b=>{
         const bp=b.bobinas_producidas;const m=parseFloat(bp?.metros_reales)||0;mtsAsoc+=m;
-        return '<div style="display:flex;align-items:center;gap:8px;background:rgba(34,197,94,.06);border-radius:6px;padding:6px 10px;font-size:13px;">'
-          +'<span style="font-family:monospace;font-weight:700;color:var(--green);">'+escapeHtml(bp?.numero_bobina||'—')+'</span>'
-          +'<span style="margin-left:auto;font-family:monospace;font-weight:700;">'+m.toLocaleString('es-AR')+' m</span>'
+        const rec=window._pcorteUltBobId!=null&&b.bobina_producida_id===window._pcorteUltBobId;
+        const hora=_pcorteHora(b.fecha_asignacion);
+        return '<div style="display:flex;align-items:center;gap:12px;background:'+(rec?'rgba(34,197,94,.22)':'rgba(34,197,94,.06)')+';border:'+(rec?'2px solid var(--green)':'1px solid transparent')+';border-radius:8px;padding:10px 14px;">'
+          +'<span style="font-family:monospace;font-weight:800;font-size:22px;color:var(--green);">'+escapeHtml(bp?.numero_bobina||'—')+'</span>'
+          +(rec?'<span style="font-size:13px;font-weight:800;background:var(--green);color:#04210f;border-radius:6px;padding:3px 8px;">◀ RECIÉN CARGADA</span>':'')
+          +(hora?'<span style="font-size:14px;color:var(--text3);">'+hora+'</span>':'')
+          +'<span style="margin-left:auto;font-family:monospace;font-weight:700;font-size:18px;">'+m.toLocaleString('es-AR')+' m</span>'
         +'</div>';
       }).join('')
       +'</div>'
@@ -55465,7 +55601,8 @@ async function _pcorteCargarBobina(ocId,bobId,maquinaId,origen,nota){
   if(!oc||!b){_pcorteFeedback('✕ No encontré la orden o la bobina.','var(--red)','error');return;}
   // Validar que no esté ya asociada
   if((oc.orden_corte_bobinas||[]).some(x=>x.bobina_producida_id===bobId)){
-    _pcorteFeedback('La bobina '+b.numero_bobina+' ya está en esta orden.','var(--amber)','error');return;
+    _pcorteFeedback('La bobina '+b.numero_bobina+' YA ESTABA cargada en esta orden — no se carga dos veces.','var(--amber)','error',
+      {titulo:'✓ YA ESTABA CARGADA',numero:b.numero_bobina,detalle:'en '+oc.numero_orden+' · no se carga dos veces'});return;
   }
   // Validar mismo tipo (candado que ya existía: no se carga bobina de otro tipo).
   // Única excepción: la hizo la OE de ESTA orden y el tipo no coincide porque al
@@ -55517,10 +55654,14 @@ async function _pcorteCargarBobina(ocId,bobId,maquinaId,origen,nota){
       try{anDataCache.loaded=false;}catch(e){}
       _repintar(renderOrdenesCorte,renderGanttCorte,renderStock,renderConfHistorial);
       const maqNom=maqId?(C.maq_corte.find(m=>m.id===maqId)?.nombre||''):'';
-      _pcorteFeedback('+ Bobina '+b.numero_bobina+' → '+(maqNom?maqNom+' · ':'')+oc.numero_orden+' ('+(parseFloat(b.metros_reales)||0).toLocaleString('es-AR')+' m)','var(--green)','ok');
+      window._pcorteUltBobId=bobId;
+      _pcorteFeedback('✓ Bobina '+b.numero_bobina+' CARGADA → '+(maqNom?maqNom+' · ':'')+oc.numero_orden+' ('+(parseFloat(b.metros_reales)||0).toLocaleString('es-AR')+' m)','var(--green)','ok',
+        {titulo:'✓ BOBINA CARGADA',numero:b.numero_bobina,detalle:(maqNom?maqNom+' · ':'')+oc.numero_orden+' · '+(parseFloat(b.metros_reales)||0).toLocaleString('es-AR')+' m'});
       _pintarPanelCorte();
     }catch(e){
-      _pcorteFeedback(e&&e.code==='23505'?'La bobina '+b.numero_bobina+' ya estaba asociada a la orden — no se duplica.':'✕ Error cargando la bobina: '+(e.message||e),'var(--red)','error');
+      if(e&&e.code==='23505')_pcorteFeedback('La bobina '+b.numero_bobina+' YA ESTABA cargada en la orden — no se duplica.','var(--amber)','error',
+        {titulo:'✓ YA ESTABA CARGADA',numero:b.numero_bobina,detalle:'en '+oc.numero_orden+' · no se carga dos veces'});
+      else _pcorteFeedback('✕ Error cargando la bobina: '+(e.message||e),'var(--red)','error');
     }
   };
   // Advertencia de desalineo: es de su OE pero de otro espesor que el que pide el producto
@@ -55553,10 +55694,51 @@ function _pcorteSetOperario(id){
   setTimeout(()=>document.getElementById('pcorte-pistola-input')?.focus(),50);
 }
 
+// ===== 📢 CARTEL GRANDE DEL LECTOR (07b) =====
+// German (07/10): los operarios dudaban si la bobina se cargó y la buscaban en la lista
+// (chica). Ahora cada escaneo muestra un cartel enorme en el centro: verde con el número
+// si se cargó, rojo/ámbar con el motivo si no. No toma el foco ni tapa clics (la pistola
+// sigue escribiendo en su campo) y se va solo; el próximo escaneo lo reemplaza.
+function _pcorteAsocOrden(asoc){ // pura: la última cargada primero
+  return (asoc||[]).slice().sort((a,b)=>String(b.fecha_asignacion||'').localeCompare(String(a.fecha_asignacion||''))||((b.id||0)-(a.id||0)));
+}
+function _pcorteHora(ts){
+  if(!ts||String(ts).length<12)return '';
+  const d=new Date(ts);if(isNaN(d))return '';
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+function _pcorteCartelHtml(tipo,c,color){ // pura
+  const ok=tipo==='ok';
+  let h='<div class="pcc-card" style="border-color:'+color+';">';
+  if(c.numero){
+    h+='<div class="pcc-tit" style="color:'+color+';">'+escapeHtml(c.titulo||(ok?'✓ CARGADA':'⚠ ATENCIÓN'))+'</div>'
+      +'<div class="pcc-num">'+escapeHtml(c.numero)+'</div>'
+      +(c.detalle?'<div class="pcc-det">'+escapeHtml(c.detalle)+'</div>':'');
+  }else{
+    h+='<div class="pcc-tit" style="color:'+color+';">'+(ok?'✓':'✕ NO SE CARGÓ')+'</div>'
+      +'<div class="pcc-msg">'+escapeHtml(c.texto||'')+'</div>';
+  }
+  return h+'</div>';
+}
+let _pccT=null;
+function _pcorteCartel(tipo,c,color){
+  try{
+    let ov=document.getElementById('pcc-ov');
+    if(!ov){ov=document.createElement('div');ov.id='pcc-ov';document.body.appendChild(ov);}
+    ov.innerHTML=_pcorteCartelHtml(tipo,c||{},color||'var(--accent)');
+    ov.style.display='flex';
+    clearTimeout(_pccT);_pccT=setTimeout(()=>{const x=document.getElementById('pcc-ov');if(x)x.style.display='none';},tipo==='ok'?3500:6000);
+  }catch(e){}
+}
+
 // Feedback grande del lector del panel
-function _pcorteFeedback(msg,color,beep){
+function _pcorteFeedback(msg,color,beep,cartel){
+  // 07b: se guarda para volver a ponerlo después de cada repintado del panel (antes
+  // _pintarPanelCorte lo borraba en el mismo instante en que se escribía).
+  window._pcorteUltFb={msg,color,t:Date.now()};
   const el=document.getElementById('pcorte-fb');
   if(el){el.textContent=msg;el.style.color=color;}
+  if(beep)_pcorteCartel(beep,cartel||{texto:msg},color);
   if(beep&&typeof pistolaFeedback==='function'){
     // Reusar el beep de Confección (crea su propio audio, no toca el DOM de conf)
     try{
