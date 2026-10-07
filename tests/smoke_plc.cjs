@@ -179,10 +179,6 @@ t(src.includes("go('estacion-ext'); document.body.classList.add('pext-on');"),'e
 t(!src.includes('pop-plc-\'+ext.id'),'estación: se sacó el bloque de la 07g del panel');
 
 // ---- 07i ----
-{const i1=_eeIndicacion(36,40,0.0150,5,5);t(i1&&i1.t==='OK','indicación: 15,0 g/m vs 15,0 → OK');}
-{const i2=_eeIndicacion(36,40,0.0130,5,5);t(i2&&i2.t==='AFINAR','indicación: 15,0 vs 13,0 (+15 %) → AFINAR');}
-{const i3=_eeIndicacion(36,40,0.0170,5,5);t(i3&&i3.t==='ENGORDAR','indicación: 15,0 vs 17,0 (−12 %) → ENGORDAR');}
-t(_eeIndicacion(null,40,0.015,5,5)===null&&_eeIndicacion(36,0,0.015,5,5)===null,'indicación: sin pesadas o sin velocidad → nada');
 t(Math.round(_eeMmin([mm(1,100,100),mm(2,150,150),mm(3,200,200)],0.8))===40,'m/min: 50 pulsos/min × 0,8 = 40');
 // metros del PLC en la carga
 el('cb-mts');el('hint-mts');el('lock-mts');global.calcCarga=()=>{};
@@ -196,6 +192,26 @@ t(_evvJuicio(-8.8).t==='LIVIANA'&&_evvJuicio(-8.8).a==='ENGORDAR'&&_evvJuicio(-8
 t(_evvJuicio(-4.9).t==='EN RANGO','−4,9 % → en rango (OK liviana hasta −5 %)');
 t(_evvJuicio(3).t==='PESADA'&&_evvJuicio(3).a==='AFINAR','+3 % → PESADA, afinar (OK pesada sólo hasta +2 %)');
 t(_evvJuicio(9).k==='bad'&&_evvJuicio(-11).k==='bad','pasando +8 % / −10 % → rechazo');
+
+// ---- 07m una sola cuenta de pesada/liviana (estación = Extrusión en vivo) ----
+{
+  C.bobinas.push({id:12,nombre:'Lyme',kg_por_metro:0.0199});
+  const cc=(id,min,m,mp,desc)=>({id,cerrado_en:new Date(AHORA-min*60000).toISOString(),metros:m,minProd:mp,descartado:!!desc});
+  const bb=(id,kg,br,tipo,an)=>({id,numero_bobina:'BOB-'+id,kg_reales:kg,peso_bruto_kg:br,tara_tubo_kg:0.73,peso_origen:'balanza',bobina_tipo_id:tipo,anulada:!!an});
+  // EXT-07 real del 07/10: 06585 9,66/489 · 06588 30,12/1599 · 06589 28,40/1527 → 18,86 g/m (−5,2 %)
+  const calc=[cc(1,900,860,31.6),cc(2,200,489,17.2),cc(3,140,1599,56.3),cc(4,80,1527,53.7),cc(5,20,1504,54.1)];
+  const mp=new Map([[1,bb(6581,16.61,17.34,12)],[2,bb(6585,8.93,9.66,12)],[3,bb(6588,30.12,30.12,12)],[4,bb(6589,28.40,28.4,12)]]);
+  const R=_plcRefMaquina(calc,mp,0.0199);
+  t(R&&R.nJ===3&&Math.abs(R.gpm-18.86)<0.01,'07m: g/m real = kg con tubo ÷ metros PLC de las últimas 3 pesadas (18,86)');
+  t(R.J.a==='ENGORDAR'&&R.J.t==='LIVIANA','07m: EXT-07 −5,2 % → LIVIANA / ENGORDAR');
+  t(R.nros.join()==='BOB-6585,BOB-6588,BOB-6589','07m: la de hace 15 h queda afuera (últimas 12 h)');
+  t(R.kgh>R.kghNeto,'07m: kg/h con tubo (operario) > sin tubo (dueño)');
+  // la estación y el dueño llaman a la misma función con los mismos datos → mismo veredicto
+  const R2=_plcRefMaquina(calc,mp,0.0199);t(JSON.stringify(R)===JSON.stringify(R2),'07m: misma entrada, mismo veredicto en las dos pantallas');
+  t(_plcRefMaquina(calc,mp,0.028).J===null,'07m: si la orden cambió de bobina, no se juzga con las pesadas de la anterior');
+  t(_plcRefMaquina(calc,new Map(),0.0199)===null,'07m: sin pesadas → sin indicación');
+  t(!/_eeIndicacion\(/.test(src),'07m: no queda la cuenta vieja por kg/h ÷ m/min');
+}
 
 console.log((bad?'✗ ':'✓ ')+ok+' ok · '+bad+' fallas');
 process.exit(bad?1:0);
