@@ -849,7 +849,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-07c</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-07d</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -2038,6 +2038,7 @@ body.pext-on .main{margin-left:0!important;}
           <button class="btn btn-primary btn-sm" onclick="go('nueva-corte')">+ Nueva orden</button>
         </div>
       </div>
+      <div id="oc-maqna-wrap"></div>
       <div id="om-cortas-wrap"></div>
       <div id="sb-wrap"></div>
       <div class="tw"><div id="oc-tbl"><div class="loading"><div class="spinner"></div></div></div></div>
@@ -5965,7 +5966,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-07c';   // 07c: 👷 panel de corte: recuadros grandes de quién carga y en qué máquina (rojo si falta), tarjeta de la máquina activa resaltada, otras atenuadas. · 07b: ⏳ cartel «Guardando…» que bloquea la pantalla en TODA la app mientras se graba algo pedido por el usuario; 📢 panel de corte: cartel gigante al escanear (cargada / ya estaba / no se cargó), el mensaje ya no se borra al repintar, lista de cargadas grande con la última arriba. (07a: valores de contado nacen acreditados)
+const APP_BUILD='2026-10-07d';   // 07d: 🔀 cargar en una cortadora que la OC no tiene asignada pregunta (no bloquea); queda en la máquina del operario y avisa en Órdenes de corte y Tablero hasta reasignar. · 07c: 👷 panel de corte: recuadros grandes de quién carga y en qué máquina (rojo si falta), tarjeta de la máquina activa resaltada, otras atenuadas. · 07b: ⏳ cartel «Guardando…» que bloquea la pantalla en TODA la app mientras se graba algo pedido por el usuario; 📢 panel de corte: cartel gigante al escanear (cargada / ya estaba / no se cargó), el mensaje ya no se borra al repintar, lista de cargadas grande con la última arriba. (07a: valores de contado nacen acreditados)
 // build anterior → 06b:   // 06b: ⚖ BALANZA KRETZ EN LA CARGA DE BOBINAS — Web Serial (CH340, 9600 8N1, trama continua), peso en vivo grande, ESTABLE = ±0,04 kg 2 s con >5 kg, toma automática; kg_reales = NETO (bruto − tubo por ancho, configuracion.taras_tubo, ⚙ Tubos con admin; 90 cm = 1,1 kg, el resto estimado proporcional); guarda peso_bruto_kg / tara_tubo_kg / peso_origen; peso manual (bruto del visor) sólo sin balanza o en turno atrasado, marcado ✍ en listados y Análisis de extrusión. SQL: sql/balanza_bobinas.sql.
 // build anterior → 06a:   // 06a: 🧵 PLAN DE BOBINAS POR PISTAS — toda OE nueva sale en N × L: N múltiplo de las pistas de la bolsa (45–60 cm = 4, salvo 60 cm de más de 50 µ = 2; más de 60 cm = 2; editable en la ficha de la bobina) y todas las bobinas con los mismos metros (objetivo de la ficha = mediana histórica del tipo, ±15 %); metros de la OE = N × L, el sobrante a stock. La estación de extrusión y la carga de bobinas muestran el plan, la PRÓXIMA bobina y las pistas; si una bobina sale distinta, COMPENSA: recalcula las que faltan por pista para que todas cierren iguales y, si una pista ya tiene sus bobinas y quedó corta, pide una más de esa medida. La OE no se cierra sola hasta que las pistas cierran. Admin edita bobinas × metros en Editar OE. SQL: sql/pistas_bobinas.sql (sin correrlo funciona derivado, sin guardar).
 // 05e (previo):   // 05e: 🧱 PALLETS POR PARTES — el botón 🧱 Pallet abre un selector: se eligen las bobinas del pallet (por defecto las primeras 18 que falten, el tamaño se recuerda), se imprime como «PALLET N° n» sólo con esas, y quedan registradas en configuracion['pallet_oe_<id>'] para no imprimirlas dos veces (se relee de la base antes de guardar, por si otra terminal armó uno). Todas las que faltan en un clic, reimprimir o anular un pallet, y la lista completa de la OE como siempre. Sin SQL.
@@ -38750,7 +38751,7 @@ async function renderTablero(){
 
   html+='<div style="margin-top:18px;font-size:11px;color:var(--text3);text-align:center;">Cada tarjeta te lleva a su pantalla · los números se derivan en vivo, no hay nada cargado a mano.</div>';
 
-  wrap.innerHTML=html;
+  wrap.innerHTML=_ocmnaTableroHTML()+html; // 07d: aviso de corte en máquina no asignada
 }
 
 async function renderResultadoMes(){
@@ -41412,8 +41413,94 @@ function updateOCCliLabel(){
   else if(sel.length===1)lbl.textContent=sel[0].value;
   else lbl.textContent=sel.length+' clientes';
 }
+// ===== 🔀 CARGAS EN MÁQUINA NO ASIGNADA (07d) =====
+// German (07/10): las máquinas de cada OC las asigna él. Si el operario carga bobinas en
+// una cortadora que la OC no tiene asignada, NO se bloquea (de noche o sin él se pararía el
+// corte): el panel pregunta y, si confirma, la carga queda en la máquina que eligió el
+// operario. German lo ve acá y en el Tablero hasta que reasigna la máquina.
+// P1: nada se guarda aparte — se DERIVA de orden_corte_bobinas (maquina_id, empleado_id,
+// fecha_asignacion) contra orden_corte_maquinas. Al asignar la máquina, el aviso se va solo.
+const _OCMNA_CERRADAS=new Set(['Completada','Cancelada']);
+function _ocMaqAsignada(oc,maqId){return (oc&&oc.orden_corte_maquinas||[]).some(m=>m.maquina_id===maqId);}
+function _ocCargasFueraDeMaquina(ords,maqs,emps){ // pura
+  const nomM=id=>((maqs||[]).find(m=>m.id===id)||{}).nombre||('Máquina #'+id);
+  const nomE=id=>{const e=(emps||[]).find(x=>x.id===id);return e?(e.apellido_nombre||('Empleado #'+id)):'';};
+  const out=[];
+  (ords||[]).forEach(oc=>{
+    if(_OCMNA_CERRADAS.has(oc.estado))return;
+    const asig=new Set((oc.orden_corte_maquinas||[]).map(m=>m.maquina_id));
+    const por={};
+    (oc.orden_corte_bobinas||[]).forEach(b=>{
+      if(b.maquina_id==null||asig.has(b.maquina_id))return;
+      const k=b.maquina_id;const x=por[k]=por[k]||{maqId:k,nombre:nomM(k),n:0,metros:0,ult:'',ops:new Set()};
+      x.n++;x.metros+=parseFloat(b.metros_usados)||0;
+      const f=String(b.fecha_asignacion||'');if(f>x.ult)x.ult=f;
+      const en=nomE(b.empleado_id);if(en)x.ops.add(en);
+    });
+    const usadas=Object.values(por).map(x=>Object.assign(x,{ops:[...x.ops]}));
+    if(usadas.length)out.push({oc,asignadas:[...asig].map(nomM),usadas,ult:usadas.reduce((m,u)=>u.ult>m?u.ult:m,'')});
+  });
+  return out.sort((a,b)=>String(b.ult).localeCompare(String(a.ult)));
+}
+function _ocmnaFecha(ts){
+  if(!ts||String(ts).length<12)return '';const d=new Date(ts);if(isNaN(d))return '';
+  return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+function renderMaqNoAsignada(){
+  const box=document.getElementById('oc-maqna-wrap');if(!box)return;
+  const L=_ocCargasFueraDeMaquina(C.ord_corte,C.maq_corte,C.empleados);
+  if(!L.length){box.innerHTML='';return;}
+  box.innerHTML='<div style="border:2.5px solid var(--red);border-radius:var(--r);padding:12px 14px;margin-bottom:14px;background:rgba(239,68,68,.07);">'
+    +'<div style="font-weight:800;color:var(--red);font-size:15px;">🔀 '+L.length+' orden'+(L.length===1?'':'es')+' de corte cargada'+(L.length===1?'':'s')+' en una máquina que no tiene'+(L.length===1?'':'n')+' asignada</div>'
+    +'<div style="font-size:12px;color:var(--text2);margin:3px 0 10px;">El operario confirmó en el panel que la está cortando ahí, y las bobinas quedaron registradas en esa máquina. Reasigná la máquina de la OC (✏️) para que el Gantt y la programación lo reflejen; el aviso se va solo.</div>'
+    +'<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">'
+    +'<tr style="color:var(--text3);font-size:10px;text-transform:uppercase;"><th style="text-align:left;padding:4px 8px;">OC</th><th style="text-align:left;padding:4px 8px;">Producto</th><th style="text-align:left;padding:4px 8px;">Asignada a</th><th style="text-align:left;padding:4px 8px;">Cargada en</th><th></th></tr>'
+    +L.map(d=>{
+      const prod=d.oc.productos||(C.productos||[]).find(p=>p.id===d.oc.producto_id)||{};
+      return '<tr style="border-top:1px solid var(--border);">'
+        +'<td style="padding:6px 8px;font-family:monospace;font-weight:700;">'+escapeHtml(d.oc.numero_orden||'')+'<div style="font-size:10px;color:var(--text3);font-family:inherit;font-weight:400;">'+escapeHtml(d.oc.cliente||'—')+' · '+escapeHtml(d.oc.estado||'')+'</div></td>'
+        +'<td style="padding:6px 8px;">'+escapeHtml(prod.codigo||'—')+'<div style="font-size:10px;color:var(--text3);">'+escapeHtml(prod.descripcion||'')+'</div></td>'
+        +'<td style="padding:6px 8px;">'+(d.asignadas.length?escapeHtml(d.asignadas.join(', ')):'<span style="color:var(--amber);">ninguna</span>')+'</td>'
+        +'<td style="padding:6px 8px;">'+d.usadas.map(u=>'<div><b style="color:var(--red);">'+escapeHtml(u.nombre)+'</b> · '+u.n+' bobina'+(u.n===1?'':'s')+(u.ops.length?' · '+escapeHtml(u.ops.join(', ')):'')+(u.ult?' · <span style="color:var(--text3);">última '+_ocmnaFecha(u.ult)+'</span>':'')+'</div>').join('')+'</td>'
+        +'<td style="padding:6px 8px;text-align:right;white-space:nowrap;">'
+          +'<button class="btn btn-sm" style="color:var(--red);border-color:var(--red);font-weight:700;" onclick="abrirEditarOrdenCorte('+d.oc.id+')">✏️ Reasignar máquina</button> '
+          +'<button class="btn btn-sm" onclick="chVerOC(\''+escapeHtml(d.oc.numero_orden||'')+'\')">👁 Ver OC</button></td>'
+        +'</tr>';}).join('')
+    +'</table></div></div>';
+}
+function _ocmnaTableroHTML(){
+  let L=[];try{L=_ocCargasFueraDeMaquina(C.ord_corte,C.maq_corte,C.empleados);}catch(e){}
+  if(!L.length)return '';
+  return '<div onclick="go(\'ordenes-corte\')" style="cursor:pointer;border:2.5px solid var(--red);border-radius:12px;padding:12px 16px;margin-bottom:14px;background:rgba(239,68,68,.08);">'
+    +'<div style="font-weight:800;color:var(--red);font-size:15px;">🔀 Corte: '+L.length+' OC cargada'+(L.length===1?'':'s')+' en una máquina no asignada — reasigná la máquina →</div>'
+    +'<div style="font-size:12px;color:var(--text2);margin-top:4px;">'+L.slice(0,4).map(d=>escapeHtml(d.oc.numero_orden||'')+' en '+escapeHtml(d.usadas.map(u=>u.nombre).join(' y '))).join(' · ')+(L.length>4?' · …':'')+'</div></div>';
+}
+// Panel: pregunta grande, una vez por OC+máquina en esta terminal (hasta recargar).
+window._pcorteOkFueraMaq=window._pcorteOkFueraMaq||{};
+function _pcorteConfirmarMaquina(oc,maqId){
+  return new Promise(res=>{
+    const maqNom=((C.maq_corte||[]).find(m=>m.id===maqId)||{}).nombre||('Máquina #'+maqId);
+    const asig=(oc.orden_corte_maquinas||[]).map(m=>((C.maq_corte||[]).find(x=>x.id===m.maquina_id)||{}).nombre).filter(Boolean);
+    if(typeof window._pcmnaRes==='function'){try{window._pcmnaRes(false);}catch(e){}} // una pregunta nueva cierra la anterior como «No»
+    document.getElementById('pcmna-modal')?.remove();
+    window._pcmnaRes=v=>{document.getElementById('pcmna-modal')?.remove();window._pcmnaRes=null;res(v);setTimeout(()=>document.getElementById('pcorte-pistola-input')?.focus(),50);};
+    document.body.insertAdjacentHTML('beforeend','<div class="modal-overlay" id="pcmna-modal" style="z-index:2147482500;"><div class="modal-card" style="max-width:760px;width:94%;border:5px solid var(--amber);text-align:center;padding:28px;">'
+      +'<div style="font-size:30px;font-weight:900;color:var(--amber);">⚠ ¿EN QUÉ MÁQUINA ESTÁS?</div>'
+      +'<div style="font-size:22px;font-weight:700;margin:16px 0;line-height:1.35;">La orden <b>'+escapeHtml(oc.numero_orden||'')+'</b> está asignada a <b>'+(asig.length?escapeHtml(asig.join(' y ')):'ninguna máquina')+'</b>.<br>¿La estás cortando en la <b style="color:var(--amber);">'+escapeHtml(String(maqNom).toUpperCase())+'</b>?</div>'
+      +'<div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:18px;">'
+        +'<button class="btn" style="flex:1;min-width:220px;padding:20px;font-size:20px;font-weight:900;color:#04210f;background:var(--green);border-color:var(--green);" onclick="_pcmnaRes(true)">Sí, la corto en '+escapeHtml(maqNom)+'</button>'
+        +'<button id="pcmna-no" class="btn" style="flex:1;min-width:220px;padding:20px;font-size:20px;font-weight:900;color:var(--red);border:3px solid var(--red);" onclick="_pcmnaRes(false)">No</button>'
+      +'</div>'
+      +'<div style="font-size:14px;color:var(--text3);margin-top:16px;">Si decís que sí, la bobina queda registrada en '+escapeHtml(maqNom)+' y le avisa a la oficina para reasignar la máquina.</div>'
+      +'</div></div>');
+    // Foco en «No»: un Enter de la pistola (otra bobina escaneada) nunca contesta «Sí» solo.
+    setTimeout(()=>{try{document.getElementById('pcmna-no')?.focus();}catch(e){}},30);
+  });
+}
+
 function renderOrdenesCorte(){
   try{renderMetrosCortos();}catch(e){}
+  try{renderMaqNoAsignada();}catch(e){}
   try{renderSinBultos();}catch(e){}
   // Poblar selects — siempre actualizar
   const sProd=document.getElementById('filtro-oc-producto');
@@ -55663,6 +55750,12 @@ async function _pcorteCargarBobina(ocId,bobId,maquinaId,origen,nota){
       else _pcorteFeedback('✕ Error cargando la bobina: '+(e.message||e),'var(--red)','error');
     }
   };
+  // 07d: máquina que la OC no tiene asignada → se pregunta (no se bloquea). Una vez por OC+máquina.
+  if(!_ocMaqAsignada(oc,maqId)&&!window._pcorteOkFueraMaq[ocId+'-'+maqId]){
+    const si=await _pcorteConfirmarMaquina(oc,maqId);
+    if(!si){_pcorteFeedback('No se cargó la bobina '+b.numero_bobina+'. Tocá «📷 Cargar bobinas acá» en la tarjeta de la máquina donde estás cortando.','var(--red)','error');return;}
+    window._pcorteOkFueraMaq[ocId+'-'+maqId]=true;
+  }
   // Advertencia de desalineo: es de su OE pero de otro espesor que el que pide el producto
   if(confirmarDesal){
     if(!confirm('⚠ Atención — el producto pide otra bobina\n\n'
@@ -55722,7 +55815,9 @@ function _pcorteActivoHTML(o){ // pura salvo lecturas de C
   let tMaq;
   if(oc&&maq){
     const sub=[oc.numero_orden,oc.cliente,prod&&(prod.descripcion||prod.codigo)].filter(Boolean).map(escapeHtml).join(' · ');
-    tMaq=tile(true,'✂️ MÁQUINA ACTIVA',escapeHtml(String(maq.nombre||'').toUpperCase()),'Bobinas → '+sub);
+    const noAsig=!(oc.orden_corte_maquinas||[]).some(m=>m.maquina_id===maq.id);
+    tMaq=tile(true,'✂️ MÁQUINA ACTIVA',escapeHtml(String(maq.nombre||'').toUpperCase()),'Bobinas → '+sub
+      +(noAsig?'<div style="color:var(--amber);font-weight:800;margin-top:4px;">⚠ esta OC no está asignada a esta máquina — al escanear se va a preguntar</div>':''));
   }else if(oc&&!maq){
     tMaq=tile(false,'✂️ MÁQUINA','⚠ ELEGÍ LA MÁQUINA','tocá «📷 Cargar bobinas acá» en la tarjeta de tu cortadora ('+escapeHtml(oc.numero_orden)+')');
   }else if(o.enProcCount>1){
