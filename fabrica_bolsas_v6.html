@@ -241,6 +241,29 @@ tr:hover td{background:rgba(255,255,255,0.02);}
 .ee-read .unit{font-family:'DM Mono',monospace;font-size:15px;color:var(--text2);letter-spacing:.1em;}
 .ee-mets{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
 .ee-mets.ee-mets3{grid-template-columns:1fr 1fr 1fr;}
+.ee-mets.ee-mets4{grid-template-columns:repeat(4,1fr);}
+.ee-mets .v small{font-size:11px;color:var(--text3);font-weight:500;}
+.ee-bar{margin:0 16px 14px;display:flex;flex-direction:column;gap:5px;}
+.ee-bar-hd,.ee-bar-ft{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--text2);flex-wrap:wrap;}
+.ee-bar-hd>span:first-child{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);font-weight:600;}
+.ee-bar-hd .mono{font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--text);}
+.ee-bar-tr{height:14px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;overflow:hidden;}
+.ee-bar-tr>i{display:block;height:100%;background:var(--accent);transition:width .6s linear;}
+.ee-bar .ee-cortar,.ee-bar .ee-cerca{display:none;font-size:13px;letter-spacing:.04em;}
+.ee-bar.cerca .ee-bar-tr>i{background:var(--amber);}.ee-bar.cerca .ee-cerca{display:inline;color:var(--amber);}
+.ee-bar.cortar .ee-bar-tr>i{background:var(--green);}.ee-bar.cortar .ee-cortar{display:inline;color:var(--green);font-size:15px;}
+.ee-bar.cortar .ee-bar-tr{border-color:var(--green);}
+.ee-bar.ok .ee-bar-hd>span:last-child{color:var(--green);font-weight:600;}
+.ee-sema{align-items:flex-start;}
+.ee-lamp{display:flex;flex-direction:column;gap:5px;padding-top:3px;}
+.ee-lamp i{width:16px;height:16px;border-radius:50%;background:var(--border2);display:block;}
+.ee-lamp i.on.r{background:var(--red);box-shadow:0 0 10px var(--red);}
+.ee-lamp i.on.y{background:var(--amber);box-shadow:0 0 10px var(--amber);}
+.ee-lamp i.on.g{background:var(--green);box-shadow:0 0 10px var(--green);}
+.ee-sema-t{display:flex;flex-direction:column;gap:3px;min-width:0;}
+.ee-sema-t .n{font-size:14px;font-family:'DM Mono',monospace;letter-spacing:0;}
+.ee-sema-t .sub{font-size:12px;color:var(--text3);}
+.ee-sema-t .tz{font-size:12px;color:var(--amber);font-weight:600;}
 .ee-vel{margin:-6px 16px 14px;padding:9px 14px;border-radius:10px;border:2px dashed var(--amber);background:var(--bg3);font-size:13px;color:var(--text2);display:flex;flex-direction:column;gap:3px;}
 .ee-vel>b{font-size:16px;color:var(--amber);letter-spacing:.03em;}
 .ee-ind{margin:0 16px 14px;padding:10px 14px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;gap:12px;font-size:13px;color:var(--text3);}
@@ -978,7 +1001,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-07n</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-07o</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6131,7 +6154,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-07n';   // 07n: 🏭 estado de la máquina AL INSTANTE (cada 2 s, de plc_estado): parada sin pulsos 8 s, sin film cuando el PLC deja de sumar producción, produciendo en cuanto vuelve el film; en la estación y en Extrusión en vivo. ⚡ Aviso de cambio de velocidad contra la última bobina pesada (±3 %): «SUBISTE LA VELOCIDAD → AFINASTE, esperá la próxima bobina pesada», a los operarios y al dueño (con g/m estimado sólo para el dueño). · 07m: ⚖ pesada/liviana IGUAL en la estación y en Extrusión en vivo: una sola cuenta (_plcRefMaquina) = g/m REAL de las últimas 3 bobinas pesadas atadas a un cierre (últimas 12 h, misma bobina de la orden) = kg con tubo ÷ metros PLC, contra el teórico de la orden, con las tolerancias de la carga. Se saca la estimación kg/h ÷ m/min. Tu pantalla muestra kg/h sin tubo y entre paréntesis el con tubo que ve el operario. · 07l: 🏭 últimas bobinas de la estación con encabezado (bobina · metros · kg · kg/h · pesada a las). · 07k: 🏭 los metros de la estación corren en vivo (cada 2 s, como el display del ZQ); la recarga completa cada 30 s o al aparecer un cierre nuevo. · 07j: ⚖ pesada/liviana con UN SOLO criterio en todo el MES (las tolerancias de la carga: OK +2 % / −5 %, rechazo +8 % / −10 %) y texto claro: «Sale X g/m (estimado) · la orden pide Y g/m (teórico) → LIVIANA −Z % → ENGORDAR». · 07i: 📏 metros del PLC OFICIALES: con un cierre elegido, «Metros reales» = cuentametros (no se tipean); sin cierre o EXT-01, a mano. 🏭 Estación: kg/h real de las bobinas pesadas y AFINAR / OK / ENGORDAR en vivo (P4 nueva: nunca un peso estimado). Tu pantalla: alarma de metros ≠ al 3 % y peso manual por turno. · 07h: 🏭 ESTACIÓN DE EXTRUSIÓN (diseño aprobado 07/09) con datos reales del PLC: arriba «Pendientes de pesar» (cierres del pulsador), una tarjeta por máquina con los metros de esta bobina en grande, estado y parada del turno; vista de todas o una sola a pantalla completa; sin kg/h ni kg estimados. Es la entrada de la estación Extrusión; el panel de órdenes sigue en «📋 Órdenes y cola». Se saca el bloque del panel de la 07g. · 07g: 📏 panel operario de extrusión: cada máquina con PLC muestra la bobina en curso (metros en vivo), si produce o está parada, y las bobinas cerradas con el pulsador para pesar; tocar una abre la carga de siempre con orden, extrusora y cierre puestos (metros: los sigue escribiendo el operario). Factor PLC E3/E7 = 0,793 fijado. · 07f: 🧾 la balanza ya NO descuenta el cartón: «Kg reales» = lo que marca el visor (con tubo), como siempre; el tubo queda guardado aparte (tara_tubo_kg) y el neto sólo se ve en 📏 Extrusión en vivo. · 07e: 📏 cuentametros PLC → MES: la Carga de bobinas propone el cierre del pulsador (el más viejo sin bobina de esa extrusora), muestra sus metros y la bobina en curso, y graba plc_cierre_id; nueva pantalla 📏 Extrusión en vivo 🔐 (velocidad, uso, kg/h y g/m por máquina, línea de tiempo 24 h, cierres/bobinas, turnos, paradas). SQL: sql/plc_cuentametros.sql. · 07d: 🔀 cargar en una cortadora que la OC no tiene asignada pregunta (no bloquea); queda en la máquina del operario y avisa en Órdenes de corte y Tablero hasta reasignar. · 07c: 👷 panel de corte: recuadros grandes de quién carga y en qué máquina (rojo si falta), tarjeta de la máquina activa resaltada, otras atenuadas. · 07b: ⏳ cartel «Guardando…» que bloquea la pantalla en TODA la app mientras se graba algo pedido por el usuario; 📢 panel de corte: cartel gigante al escanear (cargada / ya estaba / no se cargó), el mensaje ya no se borra al repintar, lista de cargadas grande con la última arriba. (07a: valores de contado nacen acreditados)
+const APP_BUILD='2026-10-07o';   // 07o: 🏭 estación: barra de la BOBINA EN CURSO contra la «próxima bobina» del plan (con compensación de pistas), «PREPARATE» al 95 % y «LLEGASTE: CORTÁ» al 100 %, minutos produciendo; SEMÁFORO en vivo (rojo AFINAR / amarillo ENGORDAR / verde OK) con el g/m estimado = kg/h con tubo de las últimas pesadas del mismo tipo ÷ velocidad de ahora, advertencia «no muevas la velocidad del tornillo» y el real de la balanza debajo; velocidad m/min y kg/h a la vista (decisión de German, a prueba). Extrusión en vivo muestra el mismo semáforo. · 07n: 🏭 estado de la máquina AL INSTANTE (cada 2 s, de plc_estado): parada sin pulsos 8 s, sin film cuando el PLC deja de sumar producción, produciendo en cuanto vuelve el film; en la estación y en Extrusión en vivo. ⚡ Aviso de cambio de velocidad contra la última bobina pesada (±3 %): «SUBISTE LA VELOCIDAD → AFINASTE, esperá la próxima bobina pesada», a los operarios y al dueño (con g/m estimado sólo para el dueño). · 07m: ⚖ pesada/liviana IGUAL en la estación y en Extrusión en vivo: una sola cuenta (_plcRefMaquina) = g/m REAL de las últimas 3 bobinas pesadas atadas a un cierre (últimas 12 h, misma bobina de la orden) = kg con tubo ÷ metros PLC, contra el teórico de la orden, con las tolerancias de la carga. Se saca la estimación kg/h ÷ m/min. Tu pantalla muestra kg/h sin tubo y entre paréntesis el con tubo que ve el operario. · 07l: 🏭 últimas bobinas de la estación con encabezado (bobina · metros · kg · kg/h · pesada a las). · 07k: 🏭 los metros de la estación corren en vivo (cada 2 s, como el display del ZQ); la recarga completa cada 30 s o al aparecer un cierre nuevo. · 07j: ⚖ pesada/liviana con UN SOLO criterio en todo el MES (las tolerancias de la carga: OK +2 % / −5 %, rechazo +8 % / −10 %) y texto claro: «Sale X g/m (estimado) · la orden pide Y g/m (teórico) → LIVIANA −Z % → ENGORDAR». · 07i: 📏 metros del PLC OFICIALES: con un cierre elegido, «Metros reales» = cuentametros (no se tipean); sin cierre o EXT-01, a mano. 🏭 Estación: kg/h real de las bobinas pesadas y AFINAR / OK / ENGORDAR en vivo (P4 nueva: nunca un peso estimado). Tu pantalla: alarma de metros ≠ al 3 % y peso manual por turno. · 07h: 🏭 ESTACIÓN DE EXTRUSIÓN (diseño aprobado 07/09) con datos reales del PLC: arriba «Pendientes de pesar» (cierres del pulsador), una tarjeta por máquina con los metros de esta bobina en grande, estado y parada del turno; vista de todas o una sola a pantalla completa; sin kg/h ni kg estimados. Es la entrada de la estación Extrusión; el panel de órdenes sigue en «📋 Órdenes y cola». Se saca el bloque del panel de la 07g. · 07g: 📏 panel operario de extrusión: cada máquina con PLC muestra la bobina en curso (metros en vivo), si produce o está parada, y las bobinas cerradas con el pulsador para pesar; tocar una abre la carga de siempre con orden, extrusora y cierre puestos (metros: los sigue escribiendo el operario). Factor PLC E3/E7 = 0,793 fijado. · 07f: 🧾 la balanza ya NO descuenta el cartón: «Kg reales» = lo que marca el visor (con tubo), como siempre; el tubo queda guardado aparte (tara_tubo_kg) y el neto sólo se ve en 📏 Extrusión en vivo. · 07e: 📏 cuentametros PLC → MES: la Carga de bobinas propone el cierre del pulsador (el más viejo sin bobina de esa extrusora), muestra sus metros y la bobina en curso, y graba plc_cierre_id; nueva pantalla 📏 Extrusión en vivo 🔐 (velocidad, uso, kg/h y g/m por máquina, línea de tiempo 24 h, cierres/bobinas, turnos, paradas). SQL: sql/plc_cuentametros.sql. · 07d: 🔀 cargar en una cortadora que la OC no tiene asignada pregunta (no bloquea); queda en la máquina del operario y avisa en Órdenes de corte y Tablero hasta reasignar. · 07c: 👷 panel de corte: recuadros grandes de quién carga y en qué máquina (rojo si falta), tarjeta de la máquina activa resaltada, otras atenuadas. · 07b: ⏳ cartel «Guardando…» que bloquea la pantalla en TODA la app mientras se graba algo pedido por el usuario; 📢 panel de corte: cartel gigante al escanear (cargada / ya estaba / no se cargó), el mensaje ya no se borra al repintar, lista de cargadas grande con la última arriba. (07a: valores de contado nacen acreditados)
 // build anterior → 06b:   // 06b: ⚖ BALANZA KRETZ EN LA CARGA DE BOBINAS — Web Serial (CH340, 9600 8N1, trama continua), peso en vivo grande, ESTABLE = ±0,04 kg 2 s con >5 kg, toma automática; kg_reales = NETO (bruto − tubo por ancho, configuracion.taras_tubo, ⚙ Tubos con admin; 90 cm = 1,1 kg, el resto estimado proporcional); guarda peso_bruto_kg / tara_tubo_kg / peso_origen; peso manual (bruto del visor) sólo sin balanza o en turno atrasado, marcado ✍ en listados y Análisis de extrusión. SQL: sql/balanza_bobinas.sql.
 // build anterior → 06a:   // 06a: 🧵 PLAN DE BOBINAS POR PISTAS — toda OE nueva sale en N × L: N múltiplo de las pistas de la bolsa (45–60 cm = 4, salvo 60 cm de más de 50 µ = 2; más de 60 cm = 2; editable en la ficha de la bobina) y todas las bobinas con los mismos metros (objetivo de la ficha = mediana histórica del tipo, ±15 %); metros de la OE = N × L, el sobrante a stock. La estación de extrusión y la carga de bobinas muestran el plan, la PRÓXIMA bobina y las pistas; si una bobina sale distinta, COMPENSA: recalcula las que faltan por pista para que todas cierren iguales y, si una pista ya tiene sus bobinas y quedó corta, pide una más de esa medida. La OE no se cierra sola hasta que las pistas cierran. Admin edita bobinas × metros en Editar OE. SQL: sql/pistas_bobinas.sql (sin correrlo funciona derivado, sin guardar).
 // 05e (previo):   // 05e: 🧱 PALLETS POR PARTES — el botón 🧱 Pallet abre un selector: se eligen las bobinas del pallet (por defecto las primeras 18 que falten, el tamaño se recuerda), se imprime como «PALLET N° n» sólo con esas, y quedan registradas en configuracion['pallet_oe_<id>'] para no imprimirlas dos veces (se relee de la base antes de guardar, por si otra terminal armó uno). Todas las que faltan en un clic, reimprimir o anular un pallet, y la lista completa de la OE como siempre. Sin SQL.
@@ -9536,9 +9559,28 @@ function _plcRefMaquina(calc,bobPorCierre,kpmOrden){
   const mismas=u.filter(x=>x.gt&&gt&&Math.abs(x.gt-gt)<1e-6);
   if(gt&&mismas.length){
     r.gt=gt;r.gpm=S(mismas,x=>x.kq)*1000/S(mismas,x=>x.m);r.nJ=mismas.length;
+    const mh=mismas.filter(x=>x.h>5/60);if(mh.length)r.kghJ=S(mh,x=>x.kq)/S(mh,x=>x.h);   // kg/h con tubo de esas mismas bobinas (07o)
     r.dv=(r.gpm/gt-1)*100;r.J=_evvJuicio(r.dv);
   }
   return r;
+}
+// 07o — SEMÁFORO EN VIVO (decisión de German 07/10): g/m estimado AHORA = kg/h con tubo de las
+// últimas pesadas del MISMO tipo de bobina que la orden ÷ (m/min de ahora × 60). Supone que el
+// tornillo no se tocó (la máquina casi no varía los kg/h): por eso lleva la advertencia. Con la
+// velocidad igual a la de esas bobinas da exactamente el g/m real de la balanza. Mismo criterio
+// de tolerancias (_evvJuicio). Sin velocidad (parada / arrancando) → null y se muestra el real.
+function _plcSemaforo(R,velA){
+  if(!R||!R.J||!(R.kghJ>0)||!velA||!(velA.v>0)||!(R.gt>0))return null;
+  const g=R.kghJ*1000/(velA.v*60),dv=(g/R.gt-1)*100;
+  return{g,dv,gt:R.gt,J:_evvJuicio(dv),v:velA.v};
+}
+// Meta de la bobina en curso: la «próxima bobina» del plan de la OE con la compensación de pistas.
+function _plcMetaBobina(oe){
+  let e=null;try{e=oe?_pbEstadoOE(oe):null;}catch(err){e=null;}
+  if(!e)return null;
+  if(e.comp.cerrada)return{cerrada:true};
+  const m=e.comp.faltan[0];
+  return{m,compensa:Math.abs(m-e.plan.L)>e.comp.tol,lista:e.comp.faltan};
 }
 // 07n — ESTADO AL INSTANTE. La PC sube plc_estado cada ~2 s: se guardan las muestras de los
 // últimos 60 s por grupo y el estado sale de lo que cambió en los últimos ~8 s:
@@ -9646,16 +9688,35 @@ function _eeTarjeta(e){
   if(d){
     const _f1=x=>x.toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:1});
     const CV=st[0]==='run'?_plcCambioVel(d.vel,R):null;   // 07n: aviso de cambio de velocidad
-    const ind=(R&&R.J)?{c:R.J.a==='AFINAR'?'bad':R.J.a==='ENGORDAR'?'warn':'ok',t:R.J.a,
-      s:(R.J.a==='AFINAR'?'sale más pesada que lo que pide la orden — reducí el espesor':R.J.a==='ENGORDAR'?'sale más liviana que lo que pide la orden — aumentá el espesor':'el espesor está dentro de lo que pide la orden')
-        +' · últimas '+R.nJ+' pesadas: '+_f1(R.gpm)+' g/m · la orden pide '+_f1(R.gt)+' g/m'}:null;
+    const SM=st[0]==='run'?_plcSemaforo(R,d.vel):null;    // 07o: semáforo en vivo (estimado)
+    d.meta=_plcMetaBobina(oe);                            // 07o: barra de la bobina en curso
+    if(d.meta&&d.meta.lista&&oe){   // dos máquinas en la misma OE: a cada una su bobina de la lista
+      const misma=_eeExts().filter(x=>EST.datos[x.id]&&_eeOE(x.id)&&_eeOE(x.id).id===oe.id).map(x=>x.id);
+      const k=Math.max(0,misma.indexOf(e.id));
+      if(k<d.meta.lista.length)d.meta.m=d.meta.lista[k];else d.meta={cerrada:true,otra:true};
+    }
+    // semáforo: con la máquina produciendo, el estimado de ahora; si no, el real de las pesadas
+    const J=SM?SM.J:(R&&R.J);
+    let sema;
+    if(J){
+      const lu=J.a==='AFINAR'?'r':J.a==='ENGORDAR'?'y':'g',cl=lu==='r'?'bad':lu==='y'?'warn':'ok';
+      sema='<div class="ee-ind ee-sema '+cl+'"><span class="ee-lamp"><i class="r'+(lu==='r'?' on':'')+'"></i><i class="y'+(lu==='y'?' on':'')+'"></i><i class="g'+(lu==='g'?' on':'')+'"></i></span>'
+        +'<div class="ee-sema-t"><b>'+J.a+'</b>'
+        +(SM?'<span>ahora ~<b class="n">'+_f1(SM.g)+' g/m</b> (estimado) · la orden pide '+_f1(SM.gt)+' g/m</span>'
+            +'<span class="sub">últimas '+R.nJ+' pesadas: '+_f1(R.gpm)+' g/m real de la balanza</span>'
+            +'<span class="tz">⚠ No muevas la velocidad del tornillo: el semáforo supone que el tornillo está igual.</span>'
+          :'<span>últimas '+R.nJ+' pesadas: <b class="n">'+_f1(R.gpm)+' g/m</b> real · la orden pide '+_f1(R.gt)+' g/m</span>'
+            +'<span class="sub">'+(st[0]==='run'?'el estimado en vivo aparece con 3 minutos produciendo':'con la máquina produciendo se ve el estimado en vivo')+'</span>')
+        +'</div></div>';
+    }else sema='<div class="ee-ind"><span>'+(!oe?'Semáforo de espesor: falta arrancar la orden en esta máquina.':'Semáforo de espesor: aparece con la primera bobina pesada de esta orden.')+'</span></div>';
     h+='<div class="ee-read'+(st[0]==='stop'?' held':'')+'" id="ee-read-'+e.id+'"><div class="cap">Metros de esta bobina</div>'
       +'<div class="big" id="ee-big-'+e.id+'">'+(d.enCurso!=null&&!d.estadoViejo?_eeF(d.enCurso):'—')+'</div><div class="unit">METROS</div></div>'
-      +(ind?'<div class="ee-ind '+ind.c+'"><b>'+ind.t+'</b><span>'+ind.s+'</span></div>'
-        :'<div class="ee-ind"><span>'+(!oe?'Indicación de espesor: falta arrancar la orden en esta máquina.':'Indicación de espesor: aparece con la primera bobina pesada.')+'</span></div>')
+      +_eeBarHtml(e.id,d)
+      +sema
       +(CV?'<div class="ee-vel"><b>'+CV.t+' '+(CV.pct>0?'+':'')+_f1(CV.pct)+' %</b><span>'+_f1(CV.vRef)+' → '+_f1(CV.vAhora)+' m/min desde la última pesada ('+escapeHtml(CV.nro||'')+'). '
         +'Si no tocaste el tornillo, <b>'+CV.ef+'</b>: esperá la próxima bobina pesada para ver si quedó bien.'+(CV.rel?' <i>'+CV.rel+'.</i>':'')+'</span></div>':'')
-      +'<div class="ee-mets ee-mets3"><div class="met"><div class="k">kg/h últimas pesadas</div><div class="v">'+(kghRef!=null?kghRef.toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:1}):'—')+'</div></div>'
+      +'<div class="ee-mets ee-mets4"><div class="met"><div class="k">velocidad</div><div class="v">'+(d.vel&&st[0]==='run'?_f1(d.vel.v):'—')+'<small> m/min</small></div></div>'
+      +'<div class="met"><div class="k">kg/h últimas pesadas</div><div class="v">'+(kghRef!=null?_f1(kghRef):'—')+'</div></div>'
       +'<div class="met"><div class="k">para pesar</div><div class="v'+(d.pend.length?' amb':'')+'">'+d.pend.length+'</div></div>'
       +'<div class="met"><div class="k">parada en el turno</div><div class="v'+(d.paradaTurno>0?' amb':'')+'">'+_eeF(d.paradaTurno)+' min</div></div></div>';
   }else{
@@ -9671,6 +9732,32 @@ function _eeTarjeta(e){
   if(d&&d.estadoViejo)h+='<div class="ee-av">⚠ La PC del medidor no manda datos hace más de 2 minutos. Avisá a la oficina.</div>';
   h+='</section>';
   return h;
+}
+// 07o — barra de la bobina en curso: metros hechos contra la «próxima bobina» del plan.
+function _eeBarInfo(d){
+  const M=d&&d.meta;if(!M)return null;
+  if(M.cerrada)return{cerrada:true};
+  const cur=d.enCurso!=null&&!d.estadoViejo?d.enCurso:null;
+  const p=cur!=null&&M.m>0?cur/M.m:0;
+  const minP=(d.est&&d.ult&&d.est.seg_prod!=null&&d.ult.prod_cierre!=null)?Math.max(0,Math.round((d.est.seg_prod-d.ult.prod_cierre)/60)):null;
+  return{cur,m:M.m,p,cls:p>=1?'cortar':p>=0.95?'cerca':'',minP,desde:d.ult?d.ult.cerrado_en:null,compensa:M.compensa};
+}
+function _eeBarHtml(id,d){
+  const b=_eeBarInfo(d);if(!b)return '';
+  if(b.cerrada)return '<div class="ee-bar ok"><div class="ee-bar-hd"><span>Bobina en curso</span><span>'+(d.meta.otra?'✓ la otra máquina hace la bobina que falta · consultá en la oficina':'✓ pistas parejas: la orden ya cierra · consultá en la oficina')+'</span></div></div>';
+  return '<div class="ee-bar '+b.cls+'" id="ee-bar-'+id+'"><div class="ee-bar-hd"><span>Bobina en curso'+(b.compensa?' · <b style="color:var(--amber)">⚖ compensar pistas</b>':'')+'</span>'
+    +'<span class="mono" id="ee-bar-t-'+id+'">'+(b.cur!=null?_eeF(b.cur):'—')+' / '+_eeF(b.m)+' m</span></div>'
+    +'<div class="ee-bar-tr"><i id="ee-bar-f-'+id+'" style="width:'+Math.min(100,b.p*100).toFixed(1)+'%"></i></div>'
+    +'<div class="ee-bar-ft"><span id="ee-bar-s-'+id+'">'+(b.minP!=null?b.minP+' min produciendo':'')+(b.desde?' · desde '+_plcHora(b.desde):'')+'</span>'
+    +'<b class="ee-cortar">LLEGASTE: CORTÁ</b><b class="ee-cerca">PREPARATE PARA CORTAR</b></div></div>';
+}
+function _eeBarVivo(id,d){
+  const w=document.getElementById('ee-bar-'+id);if(!w)return;
+  const b=_eeBarInfo(d);if(!b||b.cerrada)return;
+  w.className='ee-bar '+b.cls;
+  const t=document.getElementById('ee-bar-t-'+id);if(t)t.textContent=(b.cur!=null?_eeF(b.cur):'—')+' / '+_eeF(b.m)+' m';
+  const f=document.getElementById('ee-bar-f-'+id);if(f)f.style.width=Math.min(100,b.p*100).toFixed(1)+'%';
+  const sp=document.getElementById('ee-bar-s-'+id);if(sp)sp.textContent=(b.minP!=null?b.minP+' min produciendo':'')+(b.desde?' · desde '+_plcHora(b.desde):'');
 }
 function _eePintar(){
   const w=document.getElementById('ee-body');if(!w)return;
@@ -9726,6 +9813,7 @@ async function _eeTick(){
       if(d.ult)d.enCurso=Math.max(0,Math.round((est.odo_bruto-d.ult.odo_bruto)*d.fac.m));
       const b=document.getElementById('ee-big-'+e.id);
       if(b){const v=(d.enCurso!=null&&!d.estadoViejo)?_eeF(d.enCurso):'—';if(b.textContent!==v)b.textContent=v;}
+      _eeBarVivo(e.id,d);
       // 07n: estado al instante (produciendo / sin film / parada)
       const st=_eeSt(d),pl=document.getElementById('ee-pill-'+e.id);
       if(pl){
@@ -9927,7 +10015,14 @@ function _evvPintar(w,maqs,bobsSinPlc,bobinas,cfgP,t0){
     const st=_evvSt(m);
     const stTxt=_EVV_STTXT[st];
     let sema='',sc='var(--text3)';
-    if(m.R&&m.R.J){   // 07m: la misma indicación que ve el operario en la estación
+    const SM=st==='P'?_plcSemaforo(m.R,m.velA):null;   // 07o: el mismo semáforo en vivo que el operario
+    if(SM){
+      const R=m.R,J=SM.J;sc=J.c;
+      sema='<div class="evv-sema" style="border-color:'+sc+'"><span class="evv-dot" style="background:'+sc+'"></span><span>'
+        +'Ahora ~<b class="mono">'+_evvF(SM.g,1)+' g/m</b> (estimado: kg/h con tubo de las pesadas ÷ '+_evvF(SM.v,1)+' m/min, tornillo igual) · la orden pide <b class="mono">'+_evvF(SM.gt,1)+'</b>'
+        +'<br><b style="color:'+sc+'">'+J.t+' '+(SM.dv>=0?'+':'')+_evvF(SM.dv,1)+' % → el operario ve: '+J.a+'</b>'
+        +'<br><span style="color:var(--text3)">Real últimas '+R.nJ+' pesadas: '+_evvF(R.gpm,1)+' g/m ('+(R.dv>=0?'+':'')+_evvF(R.dv,1)+' %, '+R.J.t+')</span></span></div>';
+    }else if(m.R&&m.R.J){   // 07m: la misma indicación que ve el operario en la estación
       const R=m.R,J=R.J;sc=J.c;
       sema='<div class="evv-sema" style="border-color:'+sc+'"><span class="evv-dot" style="background:'+sc+'"></span><span>'
         +'Últimas '+R.nJ+' pesadas: <b class="mono">'+_evvF(R.gpm,1)+' g/m</b> real (balanza con tubo ÷ metros PLC) · la orden pide <b class="mono">'+_evvF(R.gt,1)+' g/m</b> (teórico)'

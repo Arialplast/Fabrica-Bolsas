@@ -244,6 +244,29 @@ t(_evvJuicio(9).k==='bad'&&_evvJuicio(-11).k==='bad','pasando +8 % / −10 % →
   t(_plcCambioVel({v:33},{J:null})===null,'cambio: sin bobina pesada de referencia no avisa');
 }
 
+// ---- 07o semáforo en vivo + barra de la bobina en curso ----
+{
+  const cc=(id,min,m,mp)=>({id,cerrado_en:new Date(AHORA-min*60000).toISOString(),metros:m,minProd:mp});
+  const bb=(id,kg,tipo)=>({id,numero_bobina:'BOB-'+id,kg_reales:kg,peso_bruto_kg:kg,bobina_tipo_id:tipo});
+  const calc=[cc(2,200,489,17.2),cc(3,140,1599,56.3),cc(4,80,1527,53.7)];
+  const mp=new Map([[2,bb(6585,9.66,12)],[3,bb(6588,30.12,12)],[4,bb(6589,28.4,12)]]);
+  const R=_plcRefMaquina(calc,mp,0.0199);
+  const vB=3615/127.2;   // m/min de esas mismas bobinas
+  const S0=_plcSemaforo(R,{v:vB});
+  t(S0&&Math.abs(S0.g-R.gpm)<0.01,'semáforo: a la misma velocidad que las pesadas, el estimado = el real de la balanza');
+  t(S0.J.a===R.J.a,'semáforo: misma velocidad → mismo veredicto que el real');
+  const S1=_plcSemaforo(R,{v:vB*0.94});
+  t(S1.g>R.gpm&&S1.J.a==='OK','semáforo: bajar 6 % la velocidad engorda → pasa de ENGORDAR a OK');
+  t(_plcSemaforo(R,null)===null&&_plcSemaforo(null,{v:30})===null,'semáforo: sin velocidad o sin pesadas → nada (se ve el real)');
+  t(_plcSemaforo(_plcRefMaquina(calc,mp,0.028),{v:30})===null,'semáforo: otro tipo de bobina en la orden → no estima');
+  const base={meta:{m:1500},est:{seg_prod:5000},ult:{prod_cierre:2000,cerrado_en:new Date(AHORA-3600000).toISOString()}};
+  const b1=_eeBarInfo(Object.assign({},base,{enCurso:700}));t(b1.cls===''&&Math.abs(b1.p-0.4667)<0.001&&b1.minP===50,'barra: 700/1500 m, 50 min produciendo');
+  t(_eeBarInfo(Object.assign({},base,{enCurso:1440})).cls==='cerca','barra: 96 % → PREPARATE');
+  t(_eeBarInfo(Object.assign({},base,{enCurso:1500})).cls==='cortar','barra: 100 % → LLEGASTE: CORTÁ');
+  t(_eeBarInfo(Object.assign({},base,{enCurso:900,estadoViejo:true})).cur===null,'barra: sin datos de la PC no muestra metros');
+  t(_eeBarInfo({meta:{cerrada:true}}).cerrada,'barra: pistas cerradas → lo dice');
+}
+
 console.log((bad?'✗ ':'✓ ')+ok+' ok · '+bad+' fallas');
 process.exit(bad?1:0);
 })().catch(e=>{console.log('✗ excepción',e);process.exit(1);});
