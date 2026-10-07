@@ -178,6 +178,19 @@ t(_eeMinParada([mm(1,100,100),mm(2,100,100),mm(3,100,100),mm(4,140,140),mm(5,140
 t(src.includes("go('estacion-ext'); document.body.classList.add('pext-on');"),'estación: la estación Extrusión entra a la pantalla nueva');
 t(!src.includes('pop-plc-\'+ext.id'),'estación: se sacó el bloque de la 07g del panel');
 
+// ---- 07i ----
+{const i1=_eeIndicacion(36,40,0.0150,5,5);t(i1&&i1.t==='OK','indicación: 15,0 g/m vs 15,0 → OK');}
+{const i2=_eeIndicacion(36,40,0.0130,5,5);t(i2&&i2.t==='AFINAR','indicación: 15,0 vs 13,0 (+15 %) → AFINAR');}
+{const i3=_eeIndicacion(36,40,0.0170,5,5);t(i3&&i3.t==='ENGORDAR','indicación: 15,0 vs 17,0 (−12 %) → ENGORDAR');}
+t(_eeIndicacion(null,40,0.015,5,5)===null&&_eeIndicacion(36,0,0.015,5,5)===null,'indicación: sin pesadas o sin velocidad → nada');
+t(Math.round(_eeMmin([mm(1,100,100),mm(2,150,150),mm(3,200,200)],0.8))===40,'m/min: 50 pulsos/min × 0,8 = 40');
+// metros del PLC en la carga
+el('cb-mts');el('hint-mts');el('lock-mts');global.calcCarga=()=>{};
+PLC.datos={pend:[{id:77,metros:1452}]};PLC.sel=77;_plcAplicarMetros();
+t(els['cb-mts'].value==='1452'&&els['cb-mts'].readOnly===true,'07i: con cierre, metros del PLC y no se tipean');
+PLC.sel=null;_plcAplicarMetros();
+t(els['cb-mts'].value===''&&els['cb-mts'].readOnly===false,'07i: sin cierre, metros a mano');
+
 console.log((bad?'✗ ':'✓ ')+ok+' ok · '+bad+' fallas');
 process.exit(bad?1:0);
 })().catch(e=>{console.log('✗ excepción',e);process.exit(1);});

@@ -240,6 +240,12 @@ tr:hover td{background:rgba(255,255,255,0.02);}
 .ee-read.held .big{color:var(--amber);}
 .ee-read .unit{font-family:'DM Mono',monospace;font-size:15px;color:var(--text2);letter-spacing:.1em;}
 .ee-mets{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border-top:1px solid var(--border);border-bottom:1px solid var(--border);}
+.ee-mets.ee-mets3{grid-template-columns:1fr 1fr 1fr;}
+.ee-ind{margin:0 16px 14px;padding:10px 14px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;gap:12px;font-size:13px;color:var(--text3);}
+.ee-ind b{font-size:22px;font-weight:800;letter-spacing:.04em;}
+.ee-ind.ok{border-color:var(--green);color:var(--text2);}.ee-ind.ok b{color:var(--green);}
+.ee-ind.bad{border-color:var(--red);background:var(--redbg,rgba(248,113,113,.10));color:var(--text);}.ee-ind.bad b{color:var(--red);}
+.ee-ind.warn{border-color:var(--amber);background:var(--amberbg);color:var(--text);}.ee-ind.warn b{color:var(--amber);}
 .ee-mets .met{background:var(--bg2);padding:11px 10px;display:flex;flex-direction:column;align-items:center;gap:2px;}
 .ee-mets .k{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);font-weight:600;}
 .ee-mets .v{font-family:'DM Mono',monospace;font-size:20px;font-weight:700;}
@@ -248,7 +254,7 @@ tr:hover td{background:rgba(255,255,255,0.02);}
 .ee-hist{padding:0 16px 14px;display:flex;flex-direction:column;gap:5px;}
 .ee-hist .hh{font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--text3);font-weight:600;padding-top:10px;}
 .ee-hist ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;}
-.ee-hist li{display:grid;grid-template-columns:1.2fr 1fr 1fr .8fr;gap:8px;font-family:'DM Mono',monospace;font-size:12px;color:var(--text2);background:var(--bg3);border-radius:6px;padding:6px 9px;}
+.ee-hist li{display:grid;grid-template-columns:1.2fr .9fr 1fr 1fr .9fr;gap:8px;font-family:'DM Mono',monospace;font-size:12px;color:var(--text2);background:var(--bg3);border-radius:6px;padding:6px 9px;}
 .ee-hist li b{color:var(--text);font-weight:600;}
 .ee-hist .none{font-size:12px;color:var(--text3);font-style:italic;}
 .ee-av{padding:9px 16px;font-size:12px;color:var(--amber);border-top:1px solid var(--border);}
@@ -969,7 +975,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-07h</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-07i</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6122,7 +6128,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-07h';   // 07h: 🏭 ESTACIÓN DE EXTRUSIÓN (diseño aprobado 07/09) con datos reales del PLC: arriba «Pendientes de pesar» (cierres del pulsador), una tarjeta por máquina con los metros de esta bobina en grande, estado y parada del turno; vista de todas o una sola a pantalla completa; sin kg/h ni kg estimados. Es la entrada de la estación Extrusión; el panel de órdenes sigue en «📋 Órdenes y cola». Se saca el bloque del panel de la 07g. · 07g: 📏 panel operario de extrusión: cada máquina con PLC muestra la bobina en curso (metros en vivo), si produce o está parada, y las bobinas cerradas con el pulsador para pesar; tocar una abre la carga de siempre con orden, extrusora y cierre puestos (metros: los sigue escribiendo el operario). Factor PLC E3/E7 = 0,793 fijado. · 07f: 🧾 la balanza ya NO descuenta el cartón: «Kg reales» = lo que marca el visor (con tubo), como siempre; el tubo queda guardado aparte (tara_tubo_kg) y el neto sólo se ve en 📏 Extrusión en vivo. · 07e: 📏 cuentametros PLC → MES: la Carga de bobinas propone el cierre del pulsador (el más viejo sin bobina de esa extrusora), muestra sus metros y la bobina en curso, y graba plc_cierre_id; nueva pantalla 📏 Extrusión en vivo 🔐 (velocidad, uso, kg/h y g/m por máquina, línea de tiempo 24 h, cierres/bobinas, turnos, paradas). SQL: sql/plc_cuentametros.sql. · 07d: 🔀 cargar en una cortadora que la OC no tiene asignada pregunta (no bloquea); queda en la máquina del operario y avisa en Órdenes de corte y Tablero hasta reasignar. · 07c: 👷 panel de corte: recuadros grandes de quién carga y en qué máquina (rojo si falta), tarjeta de la máquina activa resaltada, otras atenuadas. · 07b: ⏳ cartel «Guardando…» que bloquea la pantalla en TODA la app mientras se graba algo pedido por el usuario; 📢 panel de corte: cartel gigante al escanear (cargada / ya estaba / no se cargó), el mensaje ya no se borra al repintar, lista de cargadas grande con la última arriba. (07a: valores de contado nacen acreditados)
+const APP_BUILD='2026-10-07i';   // 07i: 📏 metros del PLC OFICIALES: con un cierre elegido, «Metros reales» = cuentametros (no se tipean); sin cierre o EXT-01, a mano. 🏭 Estación: kg/h real de las bobinas pesadas y AFINAR / OK / ENGORDAR en vivo (P4 nueva: nunca un peso estimado). Tu pantalla: alarma de metros ≠ al 3 % y peso manual por turno. · 07h: 🏭 ESTACIÓN DE EXTRUSIÓN (diseño aprobado 07/09) con datos reales del PLC: arriba «Pendientes de pesar» (cierres del pulsador), una tarjeta por máquina con los metros de esta bobina en grande, estado y parada del turno; vista de todas o una sola a pantalla completa; sin kg/h ni kg estimados. Es la entrada de la estación Extrusión; el panel de órdenes sigue en «📋 Órdenes y cola». Se saca el bloque del panel de la 07g. · 07g: 📏 panel operario de extrusión: cada máquina con PLC muestra la bobina en curso (metros en vivo), si produce o está parada, y las bobinas cerradas con el pulsador para pesar; tocar una abre la carga de siempre con orden, extrusora y cierre puestos (metros: los sigue escribiendo el operario). Factor PLC E3/E7 = 0,793 fijado. · 07f: 🧾 la balanza ya NO descuenta el cartón: «Kg reales» = lo que marca el visor (con tubo), como siempre; el tubo queda guardado aparte (tara_tubo_kg) y el neto sólo se ve en 📏 Extrusión en vivo. · 07e: 📏 cuentametros PLC → MES: la Carga de bobinas propone el cierre del pulsador (el más viejo sin bobina de esa extrusora), muestra sus metros y la bobina en curso, y graba plc_cierre_id; nueva pantalla 📏 Extrusión en vivo 🔐 (velocidad, uso, kg/h y g/m por máquina, línea de tiempo 24 h, cierres/bobinas, turnos, paradas). SQL: sql/plc_cuentametros.sql. · 07d: 🔀 cargar en una cortadora que la OC no tiene asignada pregunta (no bloquea); queda en la máquina del operario y avisa en Órdenes de corte y Tablero hasta reasignar. · 07c: 👷 panel de corte: recuadros grandes de quién carga y en qué máquina (rojo si falta), tarjeta de la máquina activa resaltada, otras atenuadas. · 07b: ⏳ cartel «Guardando…» que bloquea la pantalla en TODA la app mientras se graba algo pedido por el usuario; 📢 panel de corte: cartel gigante al escanear (cargada / ya estaba / no se cargó), el mensaje ya no se borra al repintar, lista de cargadas grande con la última arriba. (07a: valores de contado nacen acreditados)
 // build anterior → 06b:   // 06b: ⚖ BALANZA KRETZ EN LA CARGA DE BOBINAS — Web Serial (CH340, 9600 8N1, trama continua), peso en vivo grande, ESTABLE = ±0,04 kg 2 s con >5 kg, toma automática; kg_reales = NETO (bruto − tubo por ancho, configuracion.taras_tubo, ⚙ Tubos con admin; 90 cm = 1,1 kg, el resto estimado proporcional); guarda peso_bruto_kg / tara_tubo_kg / peso_origen; peso manual (bruto del visor) sólo sin balanza o en turno atrasado, marcado ✍ en listados y Análisis de extrusión. SQL: sql/balanza_bobinas.sql.
 // build anterior → 06a:   // 06a: 🧵 PLAN DE BOBINAS POR PISTAS — toda OE nueva sale en N × L: N múltiplo de las pistas de la bolsa (45–60 cm = 4, salvo 60 cm de más de 50 µ = 2; más de 60 cm = 2; editable en la ficha de la bobina) y todas las bobinas con los mismos metros (objetivo de la ficha = mediana histórica del tipo, ±15 %); metros de la OE = N × L, el sobrante a stock. La estación de extrusión y la carga de bobinas muestran el plan, la PRÓXIMA bobina y las pistas; si una bobina sale distinta, COMPENSA: recalcula las que faltan por pista para que todas cierren iguales y, si una pista ya tiene sus bobinas y quedó corta, pide una más de esa medida. La OE no se cierra sola hasta que las pistas cierran. Admin edita bobinas × metros en Editar OE. SQL: sql/pistas_bobinas.sql (sin correrlo funciona derivado, sin guardar).
 // 05e (previo):   // 05e: 🧱 PALLETS POR PARTES — el botón 🧱 Pallet abre un selector: se eligen las bobinas del pallet (por defecto las primeras 18 que falten, el tamaño se recuerda), se imprime como «PALLET N° n» sólo con esas, y quedan registradas en configuracion['pallet_oe_<id>'] para no imprimirlas dos veces (se relee de la base antes de guardar, por si otra terminal armó uno). Todas las que faltan en un clic, reimprimir o anular un pallet, y la lista completa de la OE como siempre. Sin SQL.
@@ -9212,12 +9218,12 @@ async function _plcDatosExt(extId){
     estadoViejo=(Date.now()-new Date(est.actualizado_en).getTime())>120000;
     if(ult&&est.cierres===ult.n_cierre)enCurso=Math.max(0,Math.round((est.odo_bruto-ult.odo_bruto)*fac.m));
   }
-  return{grupo:g.grupo,fac,pend,asignados,ult,est,enCurso,estadoViejo,desde:cfgP.desde};
+  return{grupo:g.grupo,fac,pend,asignados,ult,est,enCurso,estadoViejo,desde:cfgP.desde,calc};
 }
 async function plcCbRefrescar(){
   const w=document.getElementById('cb-plc');if(!w)return;
   const extId=parseInt((document.getElementById('cb-ext')||{}).value)||null;
-  if(!extId){w.innerHTML='';PLC.ext=null;PLC.datos=null;PLC.sel=undefined;return;}
+  if(!extId){w.innerHTML='';PLC.ext=null;PLC.datos=null;PLC.sel=undefined;_plcAplicarMetros();return;}
   if(PLC.cargando)return;
   PLC.cargando=true;
   try{
@@ -9225,7 +9231,7 @@ async function plcCbRefrescar(){
     if(String(extId)!==String(parseInt((document.getElementById('cb-ext')||{}).value)||'')){return;}
     if(PLC.ext!==extId){PLC.sel=undefined;}
     PLC.ext=extId;PLC.datos=d;
-    if(!d){w.innerHTML='';PLC.sel=null;return;}
+    if(!d){w.innerHTML='';PLC.sel=null;_plcAplicarMetros();return;}
     // la selección se mantiene si sigue pendiente; si no, se propone el más viejo
     if(PLC.sel===undefined||(PLC.sel!==null&&!d.pend.some(c=>c.id===PLC.sel)))
       PLC.sel=d.pend.length?d.pend[0].id:null;
@@ -9261,8 +9267,28 @@ function _plcCbPintar(){
   if(d.estadoViejo)h+='<div class="plc-curso" style="color:var(--amber);">⚠ La PC del medidor no manda datos hace más de 2 min'+(d.est?' (último: '+_plcHora(d.est.actualizado_en)+')':'')+'.</div>';
   h+='</div>';
   w.innerHTML=h;
+  _plcAplicarMetros();
 }
 function plcCbElegir(id){PLC.sel=id;_plcCbPintar();}
+// 📏 07i — DECISIÓN DE GERMAN (07/10): con un cierre del PLC elegido, los metros de la bobina
+// son los del cuentametros (factor fijado 0,793 = ZQ) y no se tipean. «Sin cierre» o máquina
+// sin PLC (EXT-01): los escribe el operario, como siempre.
+function _plcAplicarMetros(){
+  const f=document.getElementById('cb-mts');if(!f)return;
+  const d=PLC.datos,c=(d&&PLC.sel)?d.pend.find(x=>x.id===PLC.sel):null;
+  const hint=document.getElementById('hint-mts'),lb=document.getElementById('lock-mts');
+  if(c&&c.metros>0){
+    const v=String(c.metros);
+    f.value=v;f.readOnly=true;f.style.background='var(--bg3)';PLC.autoM=true;
+    if(lb)lb.style.display='none';
+    if(hint){hint.textContent='📏 Metros del cuentametros — no se tipean';hint.style.color='var(--green)';}
+    try{calcCarga();}catch(e){}
+  }else if(PLC.autoM){
+    f.value='';f.readOnly=false;f.style.background='';PLC.autoM=false;
+    if(hint){hint.textContent='⚠ Una vez ingresado no se puede borrar sin admin';hint.style.color='var(--amber)';}
+    try{calcCarga();}catch(e){}
+  }
+}
 function plcCbDescartar(id){
   const c=PLC.datos&&PLC.datos.pend.find(x=>x.id===id);if(!c)return;
   document.getElementById('plc-desc-modal')?.remove();
@@ -9293,7 +9319,8 @@ function _plcEsChoqueCierre(err){
   const m=String((err&&err.message)||'')+' '+String((err&&err.details)||'');
   return /plc_cierre/i.test(m);
 }
-function _plcLimpiar(){PLC.sel=undefined;PLC.ext=null;PLC.datos=null;const w=document.getElementById('cb-plc');if(w)w.innerHTML='';}
+function _plcLimpiar(){PLC.sel=undefined;PLC.ext=null;PLC.datos=null;const w=document.getElementById('cb-plc');if(w)w.innerHTML='';
+  const f=document.getElementById('cb-mts');if(f){f.readOnly=false;f.style.background='';}PLC.autoM=false;}
 // Mientras la pantalla está abierta, se refresca sola cada 15 s (llegan cierres nuevos)
 function _plcTimer(){
   if(PLC.timer)return;
@@ -9448,7 +9475,40 @@ async function _eeDatos(ext){
     .gte('ts',new Date(desde.getTime()-60000).toISOString()).order('ts').limit(600);
   d.estado=_plcpEstado(data||[]);
   d.paradaTurno=_eeMinParada(data||[]);
+  d.mmin=_eeMmin(data||[],d.fac.m);
   return d;
+}
+// Pura: m/min de los últimos minutos con pulsos (hasta 3), con el factor de la máquina
+function _eeMmin(mins,fac){
+  const xs=(mins||[]).slice().sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+  const v=[];
+  for(let i=xs.length-1;i>0&&v.length<3&&i>xs.length-8;i--){
+    const dt=(new Date(xs[i].ts)-new Date(xs[i-1].ts))/60000,db=xs[i].odo_bruto-xs[i-1].odo_bruto;
+    if(dt>0&&db>0)v.push(db*fac/dt);
+  }
+  return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;
+}
+// 07i — kg/h REAL de cada bobina ya pesada (kg de la balanza ÷ horas produciendo entre su
+// cierre y el anterior). Es un dato que ya pasó por la balanza: no le da al operario un número
+// para «llenar». Devuelve {id_bobina: kgh}.
+function _eeKghBobinas(extId,d){
+  const out={};if(!d||!d.calc)return out;
+  const porC={};d.calc.forEach(c=>{porC[c.id]=c;});
+  (C.bobinas_prod||[]).forEach(b=>{
+    if(String(b.extrusora_id)!==String(extId)||b.anulada||!b.plc_cierre_id)return;
+    const c=porC[b.plc_cierre_id];const kg=parseFloat(b.kg_reales)||0;
+    if(c&&c.minProd>5&&kg>0)out[b.id]=Math.round(kg/(c.minProd/60)*10)/10;
+  });
+  return out;
+}
+// Pura: indicación en vivo. g/m estimado = kg/h de referencia ÷ (m/min × 60) contra el teórico
+// de la bobina de la orden, con las MISMAS tolerancias de «OK» que la carga de bobinas.
+function _eeIndicacion(kghRef,mmin,kpm,tolP,tolL){
+  if(!(kghRef>0)||!(mmin>0)||!(kpm>0))return null;
+  const g=kghRef*1000/(mmin*60),gt=kpm*1000,dv=(g/gt-1)*100;
+  if(dv>tolP)return{c:'bad',t:'AFINAR',s:'sale más gruesa de lo pedido — reducí el espesor'};
+  if(dv<-tolL)return{c:'warn',t:'ENGORDAR',s:'sale más fina de lo pedido — aumentá el espesor'};
+  return{c:'ok',t:'OK',s:'el espesor está bien'};
 }
 function eeModo(m){EST.modo=m;try{localStorage.setItem('ee_modo',m);}catch(e){}_eePintar();}
 function eeFoco(id){EST.foco=id;EST.modo='una';try{localStorage.setItem('ee_foco',String(id));localStorage.setItem('ee_modo','una');}catch(e){}_eePintar();}
@@ -9485,10 +9545,21 @@ function _eeTarjeta(e){
     +'<div class="ee-oe">'+(oe?'<div class="oe">'+escapeHtml(oe.numero_orden)+(oe.cliente?' · '+escapeHtml(oe.cliente):'')+'</div>'
       +'<div class="prod">'+escapeHtml(oe.bobinas?.nombre||'')+(oe.bobinas?.descripcion?' · '+escapeHtml(oe.bobinas.descripcion):'')+'</div>'
       :'<div class="prod" style="color:var(--amber)">Sin orden en proceso en esta máquina</div>')+'</div>';
+  const kghB=_eeKghBobinas(e.id,d);
+  const hace12=Date.now()-12*3600000;
+  const conKgh=(C.bobinas_prod||[]).filter(b=>kghB[b.id]!=null&&new Date(b.created_at||0).getTime()>=hace12)
+    .sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))).slice(0,3);
+  const kghRef=conKgh.length?conKgh.reduce((s,b)=>s+kghB[b.id],0)/conKgh.length:null;
   if(d){
+    const kpm=oe&&oe.bobinas?parseFloat(oe.bobinas.kg_por_metro):null;
+    const ind=(st[0]==='run')?_eeIndicacion(kghRef,d.mmin,kpm,
+      parseFloat(cfg&&cfg.tolerancia_advertencia_pesada_pct)||5,parseFloat(cfg&&cfg.tolerancia_advertencia_liviana_pct)||5):null;
     h+='<div class="ee-read'+(st[0]==='stop'?' held':'')+'"><div class="cap">Metros de esta bobina</div>'
       +'<div class="big">'+(d.enCurso!=null&&!d.estadoViejo?_eeF(d.enCurso):'—')+'</div><div class="unit">METROS</div></div>'
-      +'<div class="ee-mets"><div class="met"><div class="k">para pesar</div><div class="v'+(d.pend.length?' amb':'')+'">'+d.pend.length+'</div></div>'
+      +(ind?'<div class="ee-ind '+ind.c+'"><b>'+ind.t+'</b><span>'+ind.s+'</span></div>'
+        :'<div class="ee-ind"><span>'+(st[0]!=='run'?'Indicación de espesor: con la máquina produciendo.':!oe?'Indicación de espesor: falta arrancar la orden en esta máquina.':'Indicación de espesor: aparece con la primera bobina pesada.')+'</span></div>')
+      +'<div class="ee-mets ee-mets3"><div class="met"><div class="k">kg/h últimas pesadas</div><div class="v">'+(kghRef!=null?kghRef.toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:1}):'—')+'</div></div>'
+      +'<div class="met"><div class="k">para pesar</div><div class="v'+(d.pend.length?' amb':'')+'">'+d.pend.length+'</div></div>'
       +'<div class="met"><div class="k">parada en el turno</div><div class="v'+(d.paradaTurno>0?' amb':'')+'">'+_eeF(d.paradaTurno)+' min</div></div></div>';
   }else{
     h+='<div class="ee-sin">Esta máquina todavía no está conectada al cuentametros. Cargá las bobinas como siempre.'
@@ -9497,6 +9568,7 @@ function _eeTarjeta(e){
   h+='<div class="ee-hist"><div class="hh">Últimas bobinas cargadas</div>'
     +(ult.length?'<ul>'+ult.map(b=>'<li><b>'+escapeHtml(b.numero_bobina||'')+'</b><span>'+_eeF(b.metros_reales)+' m</span><span>'
       +(parseFloat(b.kg_reales)||0).toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})+' kg</span><span>'
+      +(kghB[b.id]!=null?kghB[b.id].toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:1})+' kg/h':'')+'</span><span>'
       +(b.fecha_produccion===hoy?'':String(b.fecha_produccion||'').slice(8,10)+'/'+String(b.fecha_produccion||'').slice(5,7)+' ')+String(b.hora_produccion||'').slice(0,5)+'</span></li>').join('')+'</ul>'
       :'<div class="none">Sin bobinas cargadas todavía.</div>')+'</div>';
   if(d&&d.estadoViejo)h+='<div class="ee-av">⚠ La PC del medidor no manda datos hace más de 2 minutos. Avisá a la oficina.</div>';
@@ -9738,7 +9810,7 @@ function _evvPintar(w,maqs,bobsSinPlc,bobinas,cfgP,t0){
     if(m.filmPct!=null&&m.filmPct<0.95&&m.ahoraEst!=='S')al.push(['warn',m.ext.nombre+': fotocélula','En la última hora vio film en el '+_evvF(m.filmPct*100,1)+' % de los metros. Revisar que apunte al centro del film.']);
     m.bobs.filter(o=>o.dg!=null&&Math.abs(o.dg)>0.05).slice(-3).forEach(o=>
       al.push([o.dg>0?'bad':'warn',m.ext.nombre+': '+o.b.numero_bobina+(o.dg>0?' pesada':' liviana'),_evvF(o.gpm,1)+' g/m contra '+_evvF(o.gpmT,1)+' ('+(o.dg>0?'+':'')+_evvF(o.dg*100,1)+' %) con los metros del PLC.']));
-    m.bobs.filter(o=>o.b&&o.c.metros>0&&Math.abs((parseFloat(o.b.metros_reales)||0)/o.c.metros-1)>0.08).slice(-3).forEach(o=>
+    m.bobs.filter(o=>o.b&&o.c.metros>0&&Math.abs((parseFloat(o.b.metros_reales)||0)/o.c.metros-1)>0.03).slice(-3).forEach(o=>
       al.push(['warn',m.ext.nombre+': '+o.b.numero_bobina+' metros distintos','Cargada con '+_evvF(o.b.metros_reales)+' m; el PLC midió '+_evvF(o.c.metros)+' m. ¿Cierre equivocado?']));
   });
   if(al.length){
@@ -9774,7 +9846,7 @@ function _evvPintar(w,maqs,bobsSinPlc,bobinas,cfgP,t0){
     else if(!b)av.push('<span class="evv-tag">antes del vínculo</span>');
     if(o.dg!=null&&Math.abs(o.dg)>0.05)av.push('<span class="evv-tag '+(o.dg>0?'bad':'warn')+'">'+(o.dg>0?'PESADA':'LIVIANA')+'</span>');
     if(c.filmPct!=null&&c.filmPct<90)av.push('<span class="evv-tag warn">FILM '+_evvF(c.filmPct)+' %</span>');
-    if(b&&c.metros>0&&Math.abs((parseFloat(b.metros_reales)||0)/c.metros-1)>0.08)av.push('<span class="evv-tag warn">METROS ≠</span>');
+    if(b&&c.metros>0&&Math.abs((parseFloat(b.metros_reales)||0)/c.metros-1)>0.03)av.push('<span class="evv-tag warn">METROS ≠</span>');
     h+='<tr><td class="mono">'+_plcHora(c.cerrado_en)+'</td><td>'+escapeHtml(o.maq)+'</td><td class="mono">'+(b?escapeHtml(b.numero_bobina):'—')+'</td>'
       +'<td>'+(o.ord?escapeHtml(o.ord.numero_orden):'—')+'</td>'
       +'<td class="r mono">'+_evvF(c.metros)+'</td><td class="r mono">'+(b?_evvF(b.metros_reales):'—')+'</td>'
@@ -9791,7 +9863,7 @@ function _evvPintar(w,maqs,bobsSinPlc,bobinas,cfgP,t0){
    let fin=new Date(d);const hh=fin.getHours();fin.setHours(hh<6?6:hh<14?14:hh<22?22:30);
    for(let i=0;i<Math.ceil(EVV.horas/8)+1;i++){const ini=new Date(fin.getTime()-8*3600000);if(fin.getTime()<=t0)break;turnos.push({ini,fin:new Date(fin)});fin=ini;}}
   h+='<div class="evv-two"><div class="tw"><div class="tw-bar"><span class="tw-title">Por turno</span></div><div style="overflow-x:auto"><table class="evv-tab"><thead><tr><th>Turno</th><th>Operario</th><th class="r">kg</th>'
-    +maqs.map(m=>'<th class="r">kg/h '+escapeHtml(m.ext.nombre)+'</th><th class="r">uso '+escapeHtml(m.ext.nombre)+'</th>').join('')+'<th class="r">parada</th></tr></thead><tbody>';
+    +maqs.map(m=>'<th class="r">kg/h '+escapeHtml(m.ext.nombre)+'</th><th class="r">uso '+escapeHtml(m.ext.nombre)+'</th>').join('')+'<th class="r">parada</th><th class="r">✍ peso manual</th></tr></thead><tbody>';
   turnos.forEach(t=>{
     const a=t.ini.getTime(),z=t.fin.getTime();
     const bs=bobinas.filter(b=>{const q=new Date(b.fecha_produccion+'T'+(b.hora_produccion||'00:00')+'-03:00').getTime();return q>=a&&q<z;});
@@ -9807,7 +9879,8 @@ function _evvPintar(w,maqs,bobsSinPlc,bobinas,cfgP,t0){
       return '<td class="r mono">'+(mp?_evvF(os.reduce((s,o)=>s+o.kg,0)/(mp/60),1):'—')+'</td><td class="r mono">'+(tot?_evvF(p/tot*100)+' %':'—')+'</td>';
     }).join('');
     const lbl=String(t.ini.getDate()).padStart(2,'0')+'/'+String(t.ini.getMonth()+1).padStart(2,'0')+' '+String(t.ini.getHours()).padStart(2,'0')+'–'+String(t.fin.getHours()).padStart(2,'0')+(z>Date.now()?' (en curso)':'');
-    h+='<tr><td class="mono">'+lbl+'</td><td>'+escapeHtml(op)+'</td><td class="r mono">'+_evvF(bs.reduce((s,b)=>s+(parseFloat(b.kg_reales)||0),0))+'</td>'+cel+'<td class="r mono"'+(par>60?' style="color:var(--red)"':'')+'>'+_evvF(par)+' min</td></tr>';
+    h+='<tr><td class="mono">'+lbl+'</td><td>'+escapeHtml(op)+'</td><td class="r mono">'+_evvF(bs.reduce((s,b)=>s+(parseFloat(b.kg_reales)||0),0))+'</td>'+cel+'<td class="r mono"'+(par>60?' style="color:var(--red)"':'')+'>'+_evvF(par)+' min</td>'
+      +(()=>{const nm=bs.filter(b=>b.peso_origen==='manual').length;return '<td class="r mono"'+(nm?' style="color:var(--amber)"':'')+'>'+nm+'</td>';})()+'</tr>';
   });
   h+='</tbody></table></div></div>';
   const pars=maqs.flatMap(m=>m.paradas.map(p=>Object.assign({maq:m.ext.nombre},p))).sort((a,b)=>new Date(b.desde)-new Date(a.desde));
