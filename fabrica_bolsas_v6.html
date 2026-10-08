@@ -1113,7 +1113,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-08b</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-08c</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6266,7 +6266,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-08b';   // 08b: 🧵 bobinas de LARGO FIJO (la ficha, = mediana histórica): se apaga el múltiplo de pistas y la compensación (vuelve con configuracion.bobinas_plan_pistas='si'). OE nueva: se redondea para arriba a bobinas enteras. Próxima bobina = largo de la ficha; la última absorbe un resto menor a medio largo (no más bobinitas). La OE cierra al llegar a los metros, como antes. (Caso 07/10: 50 poli pedía 830 m ≈ 20 min a 40 m/min.)
+const APP_BUILD='2026-10-08c';   // 08c: 🧵 PISTAS CON LARGO FIJO Y PISO (OE nuevas y viejas): largo de la ficha, siempre de a una bobina por pista y para arriba; sólo la última vuelta cambia: más corta pero ≥ 2/3 del largo, o estirando la vuelta anterior hasta +25 % si sobra poco. La compensación nunca pide menos que el piso (a la pista que le falta menos, se la da por cerrada). El largo fijo sin pistas de la 08b queda con configuracion.bobinas_plan_pistas='no'.
+// 08b: 🧵 bobinas de LARGO FIJO (la ficha, = mediana histórica): se apaga el múltiplo de pistas y la compensación (vuelve con configuracion.bobinas_plan_pistas='si'). OE nueva: se redondea para arriba a bobinas enteras. Próxima bobina = largo de la ficha; la última absorbe un resto menor a medio largo (no más bobinitas). La OE cierra al llegar a los metros, como antes. (Caso 07/10: 50 poli pedía 830 m ≈ 20 min a 40 m/min.)
 // 08a: 🚦 semáforo y seguimiento con UNA sola cuenta: los dos parten de la última bobina pesada (su g/m y la velocidad a la que se hizo); el seguimiento dice «YA SALE EN RANGO» cuando el semáforo está verde (nunca alarma con verde), y siempre la velocidad objetivo en m/min. Velocidad medida hasta juntar 100 pulsos (a 5 m/min ~15 min): un pulso de diferencia ya no da «corregiste al revés». (Caso EXT-07 08/10: 6–7 pulsos/min constantes y aparecía −3 %.)
 // 07v: 🚨 ALARMA en la estación si a los 10 min produciendo de pesar una bobina fuera de rango no se corrigió la velocidad (o se corrigió al revés): la tarjeta titila, suena cada 30 s y pregunta «¿POR QUÉ NO CORREGISTE?» (tornillo / no da más / el globo no aguanta / ahora lo corrijo / a propósito + motivo / otro + motivo). La respuesta queda en plc_respuestas (sólo agregar y leer; sql/plc_respuestas.sql). «Ahora lo corrijo» vuelve a preguntar a los 10 min. Extrusión en vivo muestra la respuesta o «sin respuesta» en la tarjeta, la tabla y las alertas.
 // 07u: 🧭 QUÉ HIZO EL OPERARIO después de pesar una bobina fuera de rango: velocidad 5 min antes de pesar vs los últimos 5 min después (hasta la próxima pesada), contra lo que hacía falta (≈ el % del desvío). CORRIGIÓ / CORRIGIÓ POCO / AL REVÉS / NO SE TOCÓ LA VELOCIDAD. Estación: recuadro en rojo si no hizo nada. Extrusión en vivo: en la tarjeta, columna «Qué hizo después» en la tabla, alerta «no corrigió» a los 10 min y «Sin corregir» por turno.
@@ -8858,7 +8859,27 @@ function _pbObjetivo(bob){
 // la ficha (que coincide con la mediana histórica: 50 poli 1.500 m), la OE NUEVA se redondea para
 // arriba a bobinas enteras, sin múltiplo de pistas y sin compensación. El modo por pistas queda
 // guardado: se vuelve a prender con configuracion.bobinas_plan_pistas = 'si'.
-function _pbModoPistas(){try{return String((typeof cfg!=='undefined'&&cfg&&cfg.bobinas_plan_pistas)||'').toLowerCase()==='si';}catch(e){return false;}}
+function _pbModoPistas(){try{return String((typeof cfg!=='undefined'&&cfg&&cfg.bobinas_plan_pistas)||'').toLowerCase()!=='no';}catch(e){return true;}}
+// 08c — PISTAS CON LARGO FIJO Y PISO (decisión de German 08/10 18:18, para OE nuevas Y viejas):
+//   · largo = la ficha (mediana histórica); siempre de a P bobinas (una por pista); siempre para arriba;
+//   · sólo la ÚLTIMA vuelta puede ser distinta: más corta pero nunca por debajo del PISO (2/3 del largo),
+//     o, si lo que sobra es poco, se estiran las bobinas de la vuelta anterior hasta +25 %;
+//   · la compensación nunca pide una bobina por debajo del piso: a una pista que le falta menos
+//     que el piso se la da por cerrada.
+const _PB_PISO=2/3,_PB_ESTIRA=1.25;
+function _pbPiso(L){return _pbRed10((+L||0)*_PB_PISO);}
+// Pura: lo que le falta a una pista (D) en bobinas: (n−1) de largo L y la última con el resto entre el piso
+// y el máximo; se busca la cantidad más cercana a las que quedaban planeadas (s). Si ninguna cuadra,
+// partes iguales sin bajar del piso.
+function _pbRestoPista(D,L,piso,lmax,s){
+  let best=null;
+  for(let n=1;n<=Math.max(s,Math.ceil(D/piso))+1&&n<200;n++){
+    const r=D-(n-1)*L;
+    if(r>=piso-1e-6&&r<=lmax+1e-6){if(!best||Math.abs(n-s)<Math.abs(best-s))best=n;}
+  }
+  if(best){const out=[];for(let i=0;i<best-1;i++)out.push(Math.round(L));out.push(_pbRed10(D-(best-1)*L));return out;}
+  const n=Math.max(1,Math.ceil(D/lmax-1e-9)),l=_pbRed10(D/n);return Array(n).fill(l);
+}
 // Pura: lo que falta de una OE en largo fijo → lista de bobinas. La última absorbe un resto
 // chico (menos de medio largo) para no hacer bobinitas; si falta menos de una bobina, es esa.
 function _pbFaltanFijo(F,L){
@@ -8874,6 +8895,14 @@ function _pbCalcularPlan(M,P,L,rangoPct){
   M=+M||0;P=Math.max(1,parseInt(P)||1);L=+L||0;
   if(!(M>0)||!(L>0))return null;
   if(!_pbModoPistas()){const N=Math.max(1,Math.ceil(M/L-1e-9));return{N,L,P,metros:N*L,exceso:Math.round(N*L-M),enRango:true,fijo:true};}
+  {const piso=_pbPiso(L),k=Math.floor(M/(P*L)+1e-9),r=M-k*P*L;let N,lU;
+   if(r<=0.5){N=k*P;lU=L;}
+   else{const l=_pbRed10(r/P);
+     if(l>=piso){N=(k+1)*P;lU=l;}
+     else if(k>=1&&L+l<=L*_PB_ESTIRA+1e-9){N=k*P;lU=L+l;}
+     else{N=(k+1)*P;lU=piso;}}
+   const metros=(N-P)*L+P*lU;
+   return{N,L,P,lU,piso,metros,exceso:Math.round(metros-M),enRango:true,v2:true};}
   const r=(rangoPct>0?rangoPct:15)/100,lmin=L*(1-r),lmax=L*(1+r),lpiso=_pbRed10(L*0.5);
   const kMax=Math.min(5000,Math.max(1,Math.ceil(M/(P*lpiso)))+1);
   let best=null;
@@ -8912,6 +8941,7 @@ function _pbPlanDeOE(oe){
     const L=_pbObjetivo(bob).m;if(!(L>0))return null;
     return{N:_pbFaltanFijo(M,L).length,L,P:_pbPistas(bob),metros:M,fijo:true,rango:_pbRangoPct(bob),objetivo:L};
   }
+  {const p=parseFloat(oe.metros)>0?_pbPlanNuevo(oe.bobina_id,oe.metros):null;if(p)return p;}   // 08c: siempre con la regla nueva
   const N=parseInt(oe.bobinas_plan),L=parseFloat(oe.metros_bobina_plan);
   if(N>0&&L>0&&parseFloat(oe.metros)>0){
     const P=parseInt(oe.pistas_plan)||_pbPistas(bob);
@@ -8985,10 +9015,11 @@ function _pbCompensar(plan,mts){
     });
     best.bobs.push(m);best.suma+=m;
   });
-  const Tplan=porPista*L;
+  const v2=!!plan.v2,piso=v2?(plan.piso||_pbPiso(L)):0;
+  const Tplan=v2?(porPista-1)*L+(plan.lU||L):porPista*L;
   const T=Math.max(Tplan,...pistas.map(p=>p.suma));
-  const tol=Math.max(50,L*0.03);
-  const lmax=L*(1+((plan.rango>0?plan.rango:15)/100));
+  const tol=v2?Math.max(50,piso-1):Math.max(50,L*0.03);   // 08c: falta menos que el piso → la pista cierra
+  const lmax=v2?L*_PB_ESTIRA:L*(1+((plan.rango>0?plan.rango:15)/100));
   const faltan=[];let nExtra=0;
   pistas.forEach(p=>{
     const slots=cap-p.bobs.length;
@@ -9000,15 +9031,21 @@ function _pbCompensar(plan,mts){
     p.deficit=Math.max(0,p.meta-p.suma);
     p.sobra=Math.max(0,p.suma-Tplan);
     if(p.deficit<=tol)return;                     // esta pista ya cierra
-    const nB=Math.max(1,slots,Math.ceil(p.deficit/lmax-1e-9));
-    const l=_pbRed10(p.deficit/nB);
-    for(let i=0;i<nB;i++)p.prox.push(l);
+    let nB;
+    if(v2){   // 08c: las que faltan van con el largo fijo y la última con el resto (entre el piso y +25 %)
+      const lista=_pbRestoPista(p.deficit,L,piso,lmax,Math.max(1,slots));
+      nB=lista.length;lista.forEach(x=>p.prox.push(x));
+    }else{
+      nB=Math.max(1,slots,Math.ceil(p.deficit/lmax-1e-9));
+      const l=_pbRed10(p.deficit/nB);
+      for(let i=0;i<nB;i++)p.prox.push(l);
+    }
     if(nB>slots){p.extra=nB-Math.max(0,slots);nExtra+=p.extra;}
     faltan.push(...p.prox);
   });
   faltan.sort((a,b)=>b-a);
   return{T,Tplan,cap,pistas,faltan,nExtra,cerrada:!faltan.length,hechas:hechas.length,
-    mtsHechos:Math.round(hechas.reduce((s,x)=>s+x,0)),tol};
+    mtsHechos:Math.round(hechas.reduce((s,x)=>s+x,0)),tol:v2?Math.max(50,L*0.03):tol,piso};
 }
 // «4 × 1.550 · 2 × 1.500»
 function _pbAgrupar(lista){
@@ -9016,7 +9053,11 @@ function _pbAgrupar(lista){
   return Object.keys(c).map(Number).sort((a,b)=>b-a)
     .map(l=>c[l]+' × '+l.toLocaleString('es-AR')+' m').join(' · ');
 }
-function _pbTxtPlan(p){return p?p.N+' × '+Math.round(p.L).toLocaleString('es-AR')+' m'+(p.fijo?'':' · '+p.P+' pistas'):'';}
+function _pbEsComp(plan,l,tol){const t=tol||50;return Math.abs(l-plan.L)>t&&!(plan.lU&&Math.abs(l-plan.lU)<=t);}
+function _pbTxtPlanN(p){if(!p)return '';const f=x=>Math.round(x).toLocaleString('es-AR');
+  if(p.lU&&Math.abs(p.lU-p.L)>1)return (p.N>p.P?(p.N-p.P)+' × '+f(p.L)+' + ':'')+p.P+' × '+f(p.lU)+' m';
+  return p.N+' × '+f(p.L)+' m';}
+function _pbTxtPlan(p){return p?_pbTxtPlanN(p)+(p.fijo?'':' · '+p.P+' pistas'):'';}
 // Estado completo de una OE (plan + compensación), con una bobina extra opcional (la
 // que se está por registrar).
 function _pbEstadoOE(oe,mtsExtra){
@@ -9040,7 +9081,7 @@ function _pbChipHtml(oe,grande){
   const{plan,comp}=e;
   const fs=grande?'13px':'11px';
   let h='<span title="Plan de bobinas: todas iguales, múltiplo de las pistas" style="display:inline-block;font-size:'+fs+';font-weight:700;padding:2px 8px;border-radius:99px;background:var(--accentbg);border:1px solid var(--accentbd);color:var(--accent);white-space:nowrap;">🧵 '+_pbTxtPlan(plan)+'</span>';
-  if(comp.hechas&&!comp.cerrada&&comp.faltan.length&&comp.faltan.some(l=>Math.abs(l-plan.L)>comp.tol))
+  if(comp.hechas&&!comp.cerrada&&comp.faltan.length&&comp.faltan.some(l=>_pbEsComp(plan,l,comp.tol)))
     h+=' <span style="font-size:'+fs+';font-weight:700;color:var(--amber);white-space:nowrap;">⚖ compensar: '+_pbAgrupar(comp.faltan)+'</span>';
   return h;
 }
@@ -9051,18 +9092,18 @@ function _pbBoxHtml(oe,mtsTipeados){
   const prox=comp.faltan[0]||0;
   const pistasH=comp.pistas.map(p=>{
     const pct=p.meta>0?Math.min(100,Math.round(p.suma/p.meta*100)):0;
-    const col=p.deficit<=comp.tol?'var(--green)':p.extra?'var(--red)':'var(--accent)';
+    const okP=!p.prox.length,col=okP?'var(--green)':p.extra?'var(--red)':'var(--accent)';
     return '<div style="display:flex;align-items:center;gap:6px;font-size:11px;">'
       +'<span style="min-width:52px;color:var(--text2);">Pista '+p.n+'</span>'
       +'<div style="flex:1;height:9px;background:var(--bg3);border-radius:5px;overflow:hidden;"><div style="height:100%;width:'+pct+'%;background:'+col+';"></div></div>'
       +'<span class="mono" style="min-width:120px;text-align:right;">'+Math.round(p.suma).toLocaleString('es-AR')+' / '+Math.round(p.meta).toLocaleString('es-AR')+' m'
-      +(p.deficit>comp.tol?' <b style="color:'+col+'">−'+Math.round(p.deficit).toLocaleString('es-AR')+'</b>':' ✓')+'</span></div>';
+      +(!okP?' <b style="color:'+col+'">−'+Math.round(p.deficit).toLocaleString('es-AR')+'</b>':(p.deficit>50?' ✓ <span style="color:var(--text3)">(corta '+Math.round(p.deficit).toLocaleString('es-AR')+', menos que el piso)</span>':' ✓'))+'</span></div>';
   }).join('');
   let accion;
   if(comp.cerrada){
     accion='<div style="font-size:16px;font-weight:800;color:var(--green);">'+(plan.fijo?'✓ La orden llegó a los metros':'✓ Las '+plan.P+' pistas cierran parejas')+'</div>';
   }else{
-    const compensa=comp.faltan.some(l=>Math.abs(l-plan.L)>comp.tol);
+    const compensa=comp.faltan.some(l=>_pbEsComp(plan,l,comp.tol));
     accion='<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;">Próxima bobina</div>'
       +'<div class="mono" style="font-size:30px;font-weight:800;line-height:1.1;color:'+(compensa?'var(--amber)':'var(--accent)')+';">'+prox.toLocaleString('es-AR')+' m</div>'
       +'<div style="font-size:12px;margin-top:2px;">Faltan <b>'+comp.faltan.length+'</b>: '+_pbAgrupar(comp.faltan)+'</div>'
@@ -9083,7 +9124,7 @@ function _pbBoxHtml(oe,mtsTipeados){
   return '<div class="fp" style="margin-bottom:10px;border:2px solid var(--accentbd);">'
     +'<div class="fp-t">🧵 Plan de bobinas — '+escapeHtml(String(oe.numero_orden||''))+'</div>'
     +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px;">'
-      +'<div style="font-size:20px;font-weight:800;">'+plan.N+' × '+Math.round(plan.L).toLocaleString('es-AR')+' m</div>'
+      +'<div style="font-size:20px;font-weight:800;">'+_pbTxtPlanN(plan)+'</div>'
       +'<div style="font-size:12px;color:var(--text2);">'+(plan.fijo?'largo fijo de la ficha':plan.P+' pistas')+' · hechas <b>'+comp.hechas+'</b> de '+(plan.fijo?(comp.hechas+comp.faltan.length):plan.N)+'</div>'
     +'</div>'
     +accion
@@ -9117,10 +9158,10 @@ function _pbPanelHtml(oe){
   let e;try{e=_pbEstadoOE(oe);}catch(err){return '';}
   if(!e)return '';
   const{plan,comp}=e;const prox=comp.faltan[0]||0;
-  const compensa=comp.faltan.some(l=>Math.abs(l-plan.L)>comp.tol);
+  const compensa=comp.faltan.some(l=>_pbEsComp(plan,l,comp.tol));
   return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--bg2);border:1px solid var(--accentbd);border-radius:8px;padding:8px 10px;margin-bottom:10px;">'
     +'<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;">🧵 Plan · '+(plan.fijo?'largo fijo':plan.P+' pistas')+'</div>'
-      +'<div style="font-size:17px;font-weight:800;">'+plan.N+' × '+Math.round(plan.L).toLocaleString('es-AR')+' m</div>'
+      +'<div style="font-size:17px;font-weight:800;">'+_pbTxtPlanN(plan)+'</div>'
       +'<div style="font-size:11px;color:var(--text2);">hechas '+comp.hechas+' de '+(plan.fijo?comp.hechas+comp.faltan.length:plan.N)+'</div></div>'
     +(comp.cerrada
       ?'<div style="font-size:13px;font-weight:800;color:var(--green);">'+(plan.fijo?'✓ llegó a los metros':'✓ pistas parejas')+'</div>'
@@ -9795,7 +9836,7 @@ function _plcMetaBobina(oe){
   if(!e)return null;
   if(e.comp.cerrada)return{cerrada:true};
   const m=e.comp.faltan[0];
-  return{m,compensa:Math.abs(m-e.plan.L)>e.comp.tol,lista:e.comp.faltan};
+  return{m,compensa:_pbEsComp(e.plan,m,e.comp.tol),lista:e.comp.faltan};
 }
 // 07n — ESTADO AL INSTANTE. La PC sube plc_estado cada ~2 s: se guardan las muestras de los
 // últimos 60 s por grupo y el estado sale de lo que cambió en los últimos ~8 s:
