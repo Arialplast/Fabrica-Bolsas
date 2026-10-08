@@ -287,6 +287,21 @@ t(_evvJuicio(9).k==='bad'&&_evvJuicio(-11).k==='bad','pasando +8 % / −10 % →
   t(R&&!R.vUlt&&_plcCambioVel({v:42},R)===null,'cambio de velocidad: no compara contra bobinas de otro producto');
 }
 
+// ---- 07u qué hizo el operario después de pesar ----
+{
+  const T=AHORA-30*60000;
+  const serie=(pAntes,pDesp)=>{const r=[];let br=0,sp=0;for(let i=-20;i<=30;i++){const p=i<=0?pAntes:pDesp;br+=p;sp+=60;r.push({ts:new Date(T+i*60000).toISOString(),odo_bruto:br,seg_prod:sp});}return r;};
+  const J=_evvJuicio(-6.7);
+  t(_plcReaccion(serie(40,40),0.8,new Date(T).toISOString(),-6.7,J).estado==='nada','reacción: liviana y la velocidad igual → NO SE TOCÓ');
+  const rc=_plcReaccion(serie(40,37),0.8,new Date(T).toISOString(),-6.7,J);
+  t(rc.estado==='corrigio'&&Math.abs(rc.pct+7.5)<0.01,'reacción: liviana −6,7 % y bajó 7,5 % → CORRIGIÓ');
+  t(_plcReaccion(serie(40,39),0.8,new Date(T).toISOString(),-6.7,J).estado==='poco','reacción: bajó 2,5 % de 6,7 necesario → CORRIGIÓ POCO');
+  t(_plcReaccion(serie(40,38),0.8,new Date(T).toISOString(),-6.7,J).estado==='corrigio','reacción: bajó 5 % de 6,7 (más de la mitad) → CORRIGIÓ');
+  t(_plcReaccion(serie(40,43),0.8,new Date(T).toISOString(),-6.7,J).estado==='reves','reacción: liviana y SUBIÓ la velocidad → AL REVÉS');
+  t(_plcReaccion(serie(40,40),0.8,new Date(T).toISOString(),1,_evvJuicio(1)).estado==='ok','reacción: bobina en rango → nada que seguir');
+  t(_plcReaccion(serie(40,40),0.8,new Date(AHORA-60000).toISOString(),-6.7,J).estado==='esperando','reacción: recién pesada → esperando');
+}
+
 console.log((bad?'✗ ':'✓ ')+ok+' ok · '+bad+' fallas');
 process.exit(bad?1:0);
 })().catch(e=>{console.log('✗ excepción',e);process.exit(1);});
