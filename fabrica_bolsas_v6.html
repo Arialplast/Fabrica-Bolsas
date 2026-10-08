@@ -382,6 +382,10 @@ tr:hover td{background:rgba(255,255,255,0.02);}
 .evx-mh h3{font-size:1.6rem;font-weight:700;}
 .evx-pill{font-family:'DM Mono',monospace;font-size:.7rem;font-weight:700;letter-spacing:.08em;padding:3px 8px;border-radius:3px;text-transform:uppercase;color:var(--muted);background:var(--panel2);}
 .evx-pill.evv-pP{color:var(--ok);background:var(--okbg);}.evx-pill.evv-pS{color:var(--bad);background:var(--badbg);}.evx-pill.evv-pF{color:var(--warn);background:var(--warnbg);}
+.evx-prod{display:flex;flex-direction:column;gap:2px;padding:9px 11px;border-radius:4px;background:var(--panel2);border-left:3px solid var(--acc);margin-top:-4px;}
+.evx-prod .cod{font-family:'DM Mono',monospace;font-size:1.25rem;font-weight:600;color:var(--acc);line-height:1.1;}
+.evx-prod .nom{font-size:.95rem;font-weight:600;color:var(--fg);}
+.evx-prod .oe{font-family:'DM Mono',monospace;font-size:.74rem;color:var(--muted);}
 .evx-big{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .evx-big .v{font-family:'DM Mono',monospace;font-size:2rem;font-weight:500;line-height:1.1;}
 .evx-est{font-size:.68rem;color:var(--muted);font-family:'DM Mono',monospace;}
@@ -1090,7 +1094,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-07s</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-07t</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6243,7 +6247,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-07s';   // 07s: 📏 Extrusión en vivo con el diseño del «Tablero de Extrusión» que eligió German: barra de estado (PLC hace X s, factor, versión), KPIs, tarjetas por máquina con semáforo de luces y bobina en curso con barra (en vivo cada 2 s), alertas al costado, línea de 24 h con color por máquina, gráficos de kg/h por bobina y gramaje real vs orden (banda OK de la carga), tabla de cierres con filtros (Todas / por máquina / Con aviso), turnos y paradas. Mismas cuentas que antes.
+const APP_BUILD='2026-10-07t';   // 07t: 📏 Extrusión en vivo: el CÓDIGO y el NOMBRE del producto que hace cada máquina siempre a la vista arriba de la tarjeta (con la orden y el cliente); sin orden marcada muestra el de la última bobina, avisado.
+// 07s: 📏 Extrusión en vivo con el diseño del «Tablero de Extrusión» que eligió German: barra de estado (PLC hace X s, factor, versión), KPIs, tarjetas por máquina con semáforo de luces y bobina en curso con barra (en vivo cada 2 s), alertas al costado, línea de 24 h con color por máquina, gráficos de kg/h por bobina y gramaje real vs orden (banda OK de la carga), tabla de cierres con filtros (Todas / por máquina / Con aviso), turnos y paradas. Mismas cuentas que antes.
 // 07r: ⇄ QUÉ ORDEN CORRE EN CADA MÁQUINA: con dos OE En proceso en la misma extrusora manda la marca por máquina (orden_extrusoras.fecha_inicio/fecha_fin, ya existían sin uso). Estación: botón «⇄ Cambiar orden» (pregunta si la bobina en curso ya es de la nueva), si hay varias sin marca pide elegir; la carga propone la orden que corría cuando se cerró la bobina. Aviso «¿CAMBIASTE DE PRODUCTO?» si lo que sale se aleja más de 20 % (g/m o velocidad) de la orden; el aviso de velocidad sólo compara contra bobinas del mismo tipo. (Caso 07/10 20:00: EXT-03 pasó a ORD-06329 50 cm y seguía mostrando la ORD-06322 de 60.)
 // 07q: 🔧 botón «Generar OE» en la línea por kilo que está sin OE (el ✏️ Editar no rearma la producción): crea la OE venta_bobina con extrusora y metros, alinea el plan y confirma el pedido si sólo faltaba eso (PED-06106).
 // 07p: 🎞 cambiar una línea de bolsa a «por kilo» (o al revés) rearma la orden planificada con el producto nuevo y la OE tildada (PED-06106 quedó sin OE); candado al confirmar si el plan no es del producto de la línea; aviso si un granel se confirma sin OE.
@@ -10172,6 +10177,15 @@ function _evvBarInfo(m){
   if(!M||M.cerrada||!(M.m>0))return{M,cur:m.enCurso,p:null};
   return{M,cur:m.enCurso,p:m.enCurso!=null?m.enCurso/M.m:null};
 }
+// 07t — producto SIEMPRE a la vista: código y nombre de la bobina de la orden que corre en la
+// máquina; si no hay orden marcada, el de la última bobina cargada (avisado).
+function _evvProd(oe,tipoUlt){
+  const t=oe&&oe.bobinas?oe.bobinas:tipoUlt;
+  if(!t)return '<div class="evx-prod"><span class="cod">—</span><span class="nom warnTxt">sin orden en proceso</span></div>';
+  return '<div class="evx-prod"><span class="cod">'+escapeHtml(String(t.nombre||''))+'</span><span class="nom">'+escapeHtml(t.descripcion||'')+'</span>'
+    +(oe?'<span class="oe">'+escapeHtml(oe.numero_orden)+(oe.cliente?' · '+escapeHtml(oe.cliente):'')+'</span>'
+       :'<span class="oe warnTxt">de la última bobina cargada · sin orden en proceso marcada</span>')+'</div>';
+}
 function _evvCard(m){
   const st=_evvSt(m),stTxt=_EVV_STTXT[st];
   const SM=st==='P'?_plcSemaforo(m.R,m.velA):null;
@@ -10194,6 +10208,7 @@ function _evvCard(m){
   const oe=m.oeAct;
   return '<article class="evx-panel evx-card evx-'+st+'" id="evv-maq-'+g+'">'
     +'<div class="evx-mh"><h3>'+escapeHtml(m.ext.nombre)+'</h3><span class="evx-pill evv-p'+st+'" id="evv-pill-'+g+'">'+stTxt+'</span></div>'
+    +_evvProd(oe,m.tipoAct)
     +'<div class="evx-big"><div><span class="evx-lbl">Velocidad</span><div class="v">'+_evvF(m.mminVivo,1)+'<small>m/min</small></div><span class="evx-est">últimos 5 min produciendo</span></div>'
     +'<div><span class="evx-lbl">kg/h</span><div class="v">'+_evvF(m.kghRef,1)+'<small>kg/h</small></div><span class="evx-est">últimas 3 pesadas, sin tubo'+(m.R&&m.R.kgh?' · '+_evvF(m.R.kgh,1)+' con tubo':'')+'</span></div></div>'
     +sema
@@ -10202,8 +10217,6 @@ function _evvCard(m){
       +'<div class="evx-bar"><i id="evv-bar-'+g+'" class="'+(B.p>=1?'cortar':B.p>=0.95?'cerca':'')+'" style="width:'+(B.p!=null?Math.min(100,B.p*100).toFixed(1):0)+'%"></i></div>'
       +'<span class="evx-est" id="evv-curs-'+g+'">'+(minP!=null?minP+' min produciendo':'')+(m.ultC?' · desde '+_plcHora(m.ultC.cerrado_en):'')+(B.M&&B.M.cerrada?' · la orden ya cierra':'')+'</span></div>'
     +'<dl class="evx-rows">'
-      +'<dt>Orden</dt><dd>'+(oe?escapeHtml(oe.numero_orden)+(oe.cliente?' · '+escapeHtml(oe.cliente):''):'<span class="warnTxt">sin orden / varias sin marcar</span>')+'</dd>'
-      +(oe?'<dt>Bobina</dt><dd>'+escapeHtml(oe.bobinas?.descripcion||oe.bobinas?.nombre||'')+'</dd>':'')
       +'<dt>Uso '+EVV.horas+' h</dt><dd>'+(m.uso!=null?_evvF(m.uso*100,1)+' %':'—')+'</dd>'
       +'<dt>kg '+EVV.horas+' h · kg/h real</dt><dd>'+_evvF(m.kg24)+' kg · '+_evvF(m.kghReal,1)+'</dd>'
       +'<dt>Film / bruto, última hora</dt><dd'+(m.filmPct!=null&&m.filmPct<0.95?' class="warnTxt"':'')+'>'+(m.filmPct!=null?_evvF(m.filmPct*100,1)+' %':'—')+'</dd>'
@@ -10213,12 +10226,12 @@ function _evvCard(m){
 function _evvCardNo(x){
   const kg=x.bs.reduce((a,b)=>a+(parseFloat(b.kg_reales)||0),0),last=x.bs[x.bs.length-1];
   const oe=_eeOE(x.e.id);
-  return '<article class="evx-panel evx-card evx-N"><div class="evx-mh"><h3>'+escapeHtml(x.e.nombre)+'</h3><span class="evx-pill">Sin medición</span></div>'
+  const tU=last?(C.bobinas||[]).find(q=>String(q.id)===String(last.bobina_tipo_id)):null;
+  return '<article class="evx-panel evx-card evx-N"><div class="evx-mh"><h3>'+escapeHtml(x.e.nombre)+'</h3><span class="evx-pill">Sin medición</span></div>'+_evvProd(oe,tU)
     +'<div class="evx-nomeas">Cuentametros todavía sin conectar al PLC. Lo de abajo sale sólo de las cargas del MES (metros del operario).</div>'
     +'<div class="evx-big"><div><span class="evx-lbl">kg '+EVV.horas+' h</span><div class="v">'+_evvF(kg)+'<small>kg</small></div></div>'
     +'<div><span class="evx-lbl">Bobinas</span><div class="v">'+x.bs.length+'</div></div></div>'
-    +'<dl class="evx-rows"><dt>Orden</dt><dd>'+(oe?escapeHtml(oe.numero_orden)+(oe.cliente?' · '+escapeHtml(oe.cliente):''):'—')+'</dd>'
-    +'<dt>Última bobina</dt><dd>'+(last?escapeHtml(last.numero_bobina)+' · '+String(last.hora_produccion||'').slice(0,5)+' · '+_evvF(parseFloat(last.kg_reales),2)+' kg':'—')+'</dd></dl></article>';
+    +'<dl class="evx-rows"><dt>Última bobina</dt><dd>'+(last?escapeHtml(last.numero_bobina)+' · '+String(last.hora_produccion||'').slice(0,5)+' · '+_evvF(parseFloat(last.kg_reales),2)+' kg':'—')+'</dd></dl></article>';
 }
 // gráfico de puntos por bobina (x = hora de cierre); band = [min,max] de la banda OK
 function _evvScatter(series,t0,t1,ymin,ymax,ticks,fmtY,band){
