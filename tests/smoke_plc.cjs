@@ -233,9 +233,9 @@ t(_evvJuicio(9).k==='bad'&&_evvJuicio(-11).k==='bad','pasando +8 % / −10 % →
   t(_plcVivoEstado(h.slice(-1),T)===null,'vivo: con una sola muestra no decide');
   // velocidad de los últimos 5 minutos produciendo: 39 pulsos/min × 0,793 = 30,9
   const mv=[];for(let i=0;i<10;i++)mv.push({ts:new Date(T-(10-i)*60000).toISOString(),odo_bruto:5000+i*39,seg_prod:100+i*60});
-  const va=_plcVelAhora(mv,0.793);t(va&&Math.abs(va.v-30.93)<0.01&&va.n===5,'velocidad: 39 pulsos/min → 30,9 m/min');
+  const va=_plcVelAhora(mv,0.793);t(va&&Math.abs(va.v-30.93)<0.01&&va.n===3&&va.pulsos===117,'velocidad: 39 pulsos/min → 30,9 m/min (ventana hasta juntar 100 pulsos)');
   const mv2=mv.map((m,i)=>i===9?Object.assign({},m,{seg_prod:m.seg_prod-40}):m);
-  t(_plcVelAhora(mv2,0.793).n===5,'velocidad: un minuto con parada no entra');
+  t(_plcVelAhora(mv2,0.793).pulsos===117,'velocidad: un minuto con parada no entra');
   const R={vUlt:31.0,nroUlt:'BOB-06590',J:{a:'ENGORDAR'}};
   const cv=_plcCambioVel({v:32.6},R);
   t(cv&&cv.sube&&cv.ef==='AFINASTE'&&/al revés/.test(cv.rel),'cambio: +5 % con ENGORDAR pendiente → AFINASTE, ojo va al revés');
@@ -252,12 +252,12 @@ t(_evvJuicio(9).k==='bad'&&_evvJuicio(-11).k==='bad','pasando +8 % / −10 % →
   const calc=[cc(2,200,489,17.2),cc(3,140,1599,56.3),cc(4,80,1527,53.7)];
   const mp=new Map([[2,bb(6585,9.66,12)],[3,bb(6588,30.12,12)],[4,bb(6589,28.4,12)]]);
   const R=_plcRefMaquina(calc,mp,0.0199);
-  const vB=3615/127.2;   // m/min de esas mismas bobinas
+  const vB=R.ult.vB;   // 07w: m/min de la ÚLTIMA bobina pesada
   const S0=_plcSemaforo(R,{v:vB});
-  t(S0&&Math.abs(S0.g-R.gpm)<0.01,'semáforo: a la misma velocidad que las pesadas, el estimado = el real de la balanza');
-  t(S0.J.a===R.J.a,'semáforo: misma velocidad → mismo veredicto que el real');
+  t(S0&&Math.abs(S0.g-R.ult.gB)<0.01,'semáforo: a la velocidad de la última pesada, el estimado = su g/m real');
+  t(S0.J.a===R.ult.J.a,'semáforo: misma velocidad → mismo veredicto que la última pesada');
   const S1=_plcSemaforo(R,{v:vB*0.94});
-  t(S1.g>R.gpm&&S1.J.a==='OK','semáforo: bajar 6 % la velocidad engorda → pasa de ENGORDAR a OK');
+  t(S1.g>R.ult.gB&&S1.J.a==='OK','semáforo: bajar 6 % la velocidad engorda → pasa de ENGORDAR a OK');
   t(_plcSemaforo(R,null)===null&&_plcSemaforo(null,{v:30})===null,'semáforo: sin velocidad o sin pesadas → nada (se ve el real)');
   t(_plcSemaforo(_plcRefMaquina(calc,mp,0.028),{v:30})===null,'semáforo: otro tipo de bobina en la orden → no estima');
   const base={meta:{m:1500},est:{seg_prod:5000},ult:{prod_cierre:2000,cerrado_en:new Date(AHORA-3600000).toISOString()}};
@@ -291,13 +291,17 @@ t(_evvJuicio(9).k==='bad'&&_evvJuicio(-11).k==='bad','pasando +8 % / −10 % →
 {
   const T=AHORA-30*60000;
   const serie=(pAntes,pDesp)=>{const r=[];let br=0,sp=0;for(let i=-20;i<=30;i++){const p=i<=0?pAntes:pDesp;br+=p;sp+=60;r.push({ts:new Date(T+i*60000).toISOString(),odo_bruto:br,seg_prod:sp});}return r;};
-  const J=_evvJuicio(-6.7);
-  t(_plcReaccion(serie(40,40),0.8,new Date(T).toISOString(),-6.7,J).estado==='nada','reacción: liviana y la velocidad igual → NO SE TOCÓ');
-  const rc=_plcReaccion(serie(40,37),0.8,new Date(T).toISOString(),-6.7,J);
-  t(rc.estado==='corrigio'&&Math.abs(rc.pct+7.5)<0.01,'reacción: liviana −6,7 % y bajó 7,5 % → CORRIGIÓ');
-  t(_plcReaccion(serie(40,39),0.8,new Date(T).toISOString(),-6.7,J).estado==='poco','reacción: bajó 2,5 % de 6,7 necesario → CORRIGIÓ POCO');
-  t(_plcReaccion(serie(40,38),0.8,new Date(T).toISOString(),-6.7,J).estado==='corrigio','reacción: bajó 5 % de 6,7 (más de la mitad) → CORRIGIÓ');
-  t(_plcReaccion(serie(40,43),0.8,new Date(T).toISOString(),-6.7,J).estado==='reves','reacción: liviana y SUBIÓ la velocidad → AL REVÉS');
+  const J=_evvJuicio(-6.7),vB=32;   // la bobina se hizo a 40 pulsos/min × 0,8 = 32 m/min
+  t(_plcReaccion(serie(40,40),0.8,new Date(T).toISOString(),-6.7,J,null,vB).estado==='nada','reacción: liviana y la velocidad igual → NO SE TOCÓ');
+  const rc=_plcReaccion(serie(40,37),0.8,new Date(T).toISOString(),-6.7,J,null,vB);
+  t(rc.estado==='enrango'&&Math.abs(rc.vObj-29.856)<0.01,'reacción: liviana −6,7 % y bajó 7,5 % → YA ESTÁ EN RANGO; objetivo 29,9 m/min');
+  const J10=_evvJuicio(-10);
+  t(_plcReaccion(serie(40,39),0.8,new Date(T).toISOString(),-10,J10,null,vB).estado==='poco','reacción: −10 % y bajó 2,5 % → FALTA CORREGIR');
+  t(_plcReaccion(serie(40,43),0.8,new Date(T).toISOString(),-6.7,J,null,vB).estado==='reves','reacción: liviana y SUBIÓ la velocidad → AL REVÉS');
+  // caso real 08/10 EXT-07: 6 y 7 pulsos/min alternados (5,15 m/min) sin tocar nada → NO es «al revés»
+  const lenta=[];{let br=0,sp=0;for(let i=-40;i<=50;i++){br+=(i%2?6:7);sp+=60;lenta.push({ts:new Date(T+i*60000).toISOString(),odo_bruto:br,seg_prod:sp});}}
+  const rl=_plcReaccion(lenta,0.793,new Date(T).toISOString(),4.9,_evvJuicio(4.9),null,5.15);
+  t(rl.estado==='nada'&&rl.res>1.5,'reacción: a 5 m/min un pulso de diferencia no cuenta como «al revés» (se mide con más pulsos)');
   t(_plcReaccion(serie(40,40),0.8,new Date(T).toISOString(),1,_evvJuicio(1)).estado==='ok','reacción: bobina en rango → nada que seguir');
   t(_plcReaccion(serie(40,40),0.8,new Date(AHORA-60000).toISOString(),-6.7,J).estado==='esperando','reacción: recién pesada → esperando');
 }

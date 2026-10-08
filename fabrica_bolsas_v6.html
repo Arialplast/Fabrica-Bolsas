@@ -1113,7 +1113,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-07v</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-08a</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6266,7 +6266,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-07v';   // 07v: 🚨 ALARMA en la estación si a los 10 min produciendo de pesar una bobina fuera de rango no se corrigió la velocidad (o se corrigió al revés): la tarjeta titila, suena cada 30 s y pregunta «¿POR QUÉ NO CORREGISTE?» (tornillo / no da más / el globo no aguanta / ahora lo corrijo / a propósito + motivo / otro + motivo). La respuesta queda en plc_respuestas (sólo agregar y leer; sql/plc_respuestas.sql). «Ahora lo corrijo» vuelve a preguntar a los 10 min. Extrusión en vivo muestra la respuesta o «sin respuesta» en la tarjeta, la tabla y las alertas.
+const APP_BUILD='2026-10-08a';   // 08a: 🚦 semáforo y seguimiento con UNA sola cuenta: los dos parten de la última bobina pesada (su g/m y la velocidad a la que se hizo); el seguimiento dice «YA SALE EN RANGO» cuando el semáforo está verde (nunca alarma con verde), y siempre la velocidad objetivo en m/min. Velocidad medida hasta juntar 100 pulsos (a 5 m/min ~15 min): un pulso de diferencia ya no da «corregiste al revés». (Caso EXT-07 08/10: 6–7 pulsos/min constantes y aparecía −3 %.)
+// 07v: 🚨 ALARMA en la estación si a los 10 min produciendo de pesar una bobina fuera de rango no se corrigió la velocidad (o se corrigió al revés): la tarjeta titila, suena cada 30 s y pregunta «¿POR QUÉ NO CORREGISTE?» (tornillo / no da más / el globo no aguanta / ahora lo corrijo / a propósito + motivo / otro + motivo). La respuesta queda en plc_respuestas (sólo agregar y leer; sql/plc_respuestas.sql). «Ahora lo corrijo» vuelve a preguntar a los 10 min. Extrusión en vivo muestra la respuesta o «sin respuesta» en la tarjeta, la tabla y las alertas.
 // 07u: 🧭 QUÉ HIZO EL OPERARIO después de pesar una bobina fuera de rango: velocidad 5 min antes de pesar vs los últimos 5 min después (hasta la próxima pesada), contra lo que hacía falta (≈ el % del desvío). CORRIGIÓ / CORRIGIÓ POCO / AL REVÉS / NO SE TOCÓ LA VELOCIDAD. Estación: recuadro en rojo si no hizo nada. Extrusión en vivo: en la tarjeta, columna «Qué hizo después» en la tabla, alerta «no corrigió» a los 10 min y «Sin corregir» por turno.
 // 07t: 📏 Extrusión en vivo: el CÓDIGO y el NOMBRE del producto que hace cada máquina siempre a la vista arriba de la tarjeta (con la orden y el cliente); sin orden marcada muestra el de la última bobina, avisado.
 // 07s: 📏 Extrusión en vivo con el diseño del «Tablero de Extrusión» que eligió German: barra de estado (PLC hace X s, factor, versión), KPIs, tarjetas por máquina con semáforo de luces y bobina en curso con barra (en vivo cada 2 s), alertas al costado, línea de 24 h con color por máquina, gráficos de kg/h por bobina y gramaje real vs orden (banda OK de la carga), tabla de cierres con filtros (Todas / por máquina / Con aviso), turnos y paradas. Mismas cuentas que antes.
@@ -9706,7 +9707,8 @@ function _plcRefMaquina(calc,bobPorCierre,kpmOrden){
     r.dv=(r.gpm/gt-1)*100;r.J=_evvJuicio(r.dv);
     // 07u: la ÚLTIMA bobina pesada de ese tipo, sola (lo que el operario ve en la balanza)
     const dvU=(uu.kq*1000/uu.m/gt-1)*100;
-    r.ult={id:uu.b.id,nro:uu.b.numero_bobina,op:uu.b.operario||'',t:uu.b.created_at||uu.c.cerrado_en,dv:dvU,J:_evvJuicio(dvU)};
+    r.ult={id:uu.b.id,nro:uu.b.numero_bobina,op:uu.b.operario||'',t:uu.b.created_at||uu.c.cerrado_en,dv:dvU,J:_evvJuicio(dvU),
+      gB:uu.kq*1000/uu.m,vB:uu.h>5/60?uu.m/(uu.h*60):null};   // 07w: g/m y velocidad de ESA bobina
   }
   return r;
 }
@@ -9716,32 +9718,48 @@ function _plcRefMaquina(calc,bobPorCierre,kpmOrden){
 // de los 5 min produciendo ANTES de pesar con la de los últimos 5 min DESPUÉS (hasta tFin: la
 // siguiente pesada, o ahora). Umbral de «tocó»: 2 % (1 pulso/min ≈ 2,6 %, en 5 min ≈ 0,5 %).
 // → {estado:'ok'|'esperando'|'nada'|'poco'|'corrigio'|'reves', pct, nec, vA, vD, min}
-function _plcReaccion(mins,fac,t,dv,J,tFin){
+// 07w — UNA SOLA CUENTA con el semáforo: la referencia es la velocidad a la que se hizo ESA bobina
+// (vB = metros ÷ minutos produciendo). Con la velocidad de ahora (vD) el g/m previsto es
+// g/m de la bobina × vB ÷ vD — exactamente lo que muestra el semáforo. Entonces:
+//   · previsto en rango                         → 'enrango' (semáforo verde: nunca hay alarma)
+//   · la velocidad no cambió (menos que lo que se puede medir) → 'nada'
+//   · cambió para el lado correcto pero no alcanza → 'poco' (se le dice a qué velocidad ir)
+//   · cambió para el otro lado                  → 'reves'
+// vObj = velocidad a la que esa bobina habría salido justa (vB × (1 + desvío)).
+function _plcReaccion(mins,fac,t,dv,J,tFin,vB){
   if(!J||J.k==='ok')return{estado:'ok'};
   const T=new Date(t).getTime(),F=tFin?new Date(tFin).getTime():Date.now();
-  const antes=(mins||[]).filter(x=>new Date(x.ts).getTime()<=T);
   const desp=(mins||[]).filter(x=>{const q=new Date(x.ts).getTime();return q>T&&q<=F;});
-  const vA=_plcVelAhora(antes.slice(-30),fac),vD=_plcVelAhora(desp,fac);
+  let vA=vB>0?vB:null;
+  if(!vA){const a=_plcVelAhora((mins||[]).filter(x=>new Date(x.ts).getTime()<=T).slice(-40),fac);vA=a?a.v:null;}
+  const vD=_plcVelAhora(desp,fac);
   const min=Math.max(0,Math.round((F-T)/60000));
   if(!vA)return{estado:'esperando',nec:dv,min};
-  if(!vD)return{estado:'esperando',nec:dv,min,vA:vA.v};
-  const pct=(vD.v/vA.v-1)*100;
+  const vObj=vA*(1+dv/100);
+  if(!vD)return{estado:'esperando',nec:dv,min,vA,vObj};
+  const pct=(vD.v/vA-1)*100,res=Math.max(1.5,2*vD.res);
+  const dvP=((1+dv/100)*vA/vD.v-1)*100,JP=_evvJuicio(dvP);
   let estado;
-  if(Math.abs(pct)<2)estado='nada';
-  else if(Math.sign(pct)!==Math.sign(dv))estado='reves';
-  else estado=Math.abs(pct)>=Math.abs(dv)*0.5?'corrigio':'poco';
-  return{estado,pct,nec:dv,vA:vA.v,vD:vD.v,min};
+  if(JP.k==='ok')estado='enrango';
+  else if(Math.abs(pct)<res)estado='nada';
+  else if(Math.sign(pct)===Math.sign(dv))estado='poco';
+  else estado='reves';
+  return{estado,pct,nec:dv,vA,vD:vD.v,vObj,dvP,res,min};
 }
-const _REAC_TXT={nada:'NO SE TOCÓ LA VELOCIDAD',poco:'CORRIGIÓ POCO',corrigio:'CORRIGIÓ',reves:'CORRIGIÓ AL REVÉS',esperando:'ESPERANDO'};
+const _REAC_TXT={nada:'NO SE TOCÓ LA VELOCIDAD',poco:'FALTA CORREGIR',enrango:'YA ESTÁ EN RANGO',corrigio:'YA ESTÁ EN RANGO',reves:'CORRIGIÓ AL REVÉS',esperando:'ESPERANDO'};
 // 07o — SEMÁFORO EN VIVO (decisión de German 07/10): g/m estimado AHORA = kg/h con tubo de las
 // últimas pesadas del MISMO tipo de bobina que la orden ÷ (m/min de ahora × 60). Supone que el
 // tornillo no se tocó (la máquina casi no varía los kg/h): por eso lleva la advertencia. Con la
 // velocidad igual a la de esas bobinas da exactamente el g/m real de la balanza. Mismo criterio
 // de tolerancias (_evvJuicio). Sin velocidad (parada / arrancando) → null y se muestra el real.
 function _plcSemaforo(R,velA){
-  if(!R||!R.J||!(R.kghJ>0)||!velA||!(velA.v>0)||!(R.gt>0))return null;
-  const g=R.kghJ*1000/(velA.v*60),dv=(g/R.gt-1)*100;
-  return{g,dv,gt:R.gt,J:_evvJuicio(dv),v:velA.v};
+  if(!R||!R.J||!velA||!(velA.v>0)||!(R.gt>0))return null;
+  let g;
+  if(R.ult&&R.ult.vB>0&&R.ult.gB>0)g=R.ult.gB*R.ult.vB/velA.v;   // 07w: desde la ÚLTIMA pesada (igual que el seguimiento)
+  else if(R.kghJ>0)g=R.kghJ*1000/(velA.v*60);
+  else return null;
+  const dv=(g/R.gt-1)*100;
+  return{g,dv,gt:R.gt,J:_evvJuicio(dv),v:velA.v,res:velA.res};
 }
 // Meta de la bobina en curso: la «próxima bobina» del plan de la OE con la compensación de pistas.
 function _plcMetaBobina(oe){
@@ -9783,22 +9801,25 @@ function _plcVivoEstado(h,ahora,ultMov){
 }
 // m/min de los últimos 5 minutos produciendo enteros (plc_minutos ascendente), con el factor.
 // Misma cuenta que la velocidad de una bobina (metros ÷ minutos produciendo).
+// 07w: la ventana se alarga hasta juntar 100 pulsos (máx. 30 min): a 30 m/min son ~3 min, a 5 m/min
+// son ~15 min. Con 5 min fijos, a 5 m/min (6–7 pulsos/min) un solo pulso de diferencia movía la
+// velocidad 3 % y aparecía «corregiste al revés» sin que nadie tocara nada. res = % que vale 1 pulso.
 function _plcVelAhora(mins,fac){
   const xs=(mins||[]).slice().sort((a,b)=>new Date(a.ts)-new Date(b.ts));
   let db=0,ds=0,n=0;const tf=xs.length?new Date(xs[xs.length-1].ts).getTime():0;
-  for(let i=xs.length-1;i>0&&n<5;i--){
-    const t=new Date(xs[i].ts).getTime();if(tf-t>15*60000)break;
+  for(let i=xs.length-1;i>0&&(n<3||db<100)&&n<30;i--){
+    const t=new Date(xs[i].ts).getTime();if(tf-t>45*60000)break;
     const dt=(t-new Date(xs[i-1].ts).getTime())/1000,dsp=xs[i].seg_prod-xs[i-1].seg_prod,dbr=xs[i].odo_bruto-xs[i-1].odo_bruto;
     if(dt>50&&dt<75&&dsp>=dt-5&&dbr>0){db+=dbr;ds+=dsp;n++;}
   }
-  return n>=3?{v:db*fac/(ds/60),n}:null;
+  return n>=3?{v:db*fac/(ds/60),n,pulsos:db,res:db>0?100/db:100}:null;
 }
 // Pura: ¿cambió la velocidad respecto de la última bobina pesada? Con el tornillo igual, más
 // velocidad = más fina; menos velocidad = más gruesa. Umbral 3 % (1 pulso/min ≈ 2,6 %).
 function _plcCambioVel(vAhora,R,umbral){
   if(!vAhora||!R||!(R.vUlt>0))return null;
   const pct=(vAhora.v/R.vUlt-1)*100;
-  if(Math.abs(pct)<(umbral||3))return null;
+  if(Math.abs(pct)<Math.max(umbral||3,2*(vAhora.res||0)))return null;
   const sube=pct>0;
   let rel='';
   if(R.J){
@@ -9934,7 +9955,7 @@ function _eeBeep(){
 function _eeAlarmaHtml(extId,u,RX,_f1){
   return '<div class="ee-alarma" role="alert"><b class="tit">⚠ ¿POR QUÉ NO CORREGISTE?</b>'
     +'<span><b>'+escapeHtml(u.nro)+'</b> salió '+(u.dv>0?'PESADA':'LIVIANA')+' '+(u.dv>0?'+':'')+_f1(u.dv)+' % a las '+_plcHora(u.t)+'. '
-    +(RX.estado==='nada'?'Pasaron '+RX.min+' min y la velocidad no se tocó':'La velocidad se movió para el otro lado ('+(RX.pct>0?'+':'')+_f1(RX.pct)+' %)')+'. Había que '+(u.dv>0?'subirla':'bajarla')+' ~'+_f1(Math.abs(u.dv))+' %.</span>'
+    +(RX.estado==='nada'?'Pasaron '+RX.min+' min y la velocidad del rodillo no cambió':'La velocidad se movió para el otro lado')+'. Había que llevarla a <b>'+(RX.vObj?RX.vObj.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}):'—')+' m/min</b>'+(RX.vD?' (está en '+RX.vD.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})+')':'')+'.</span>'
     +'<div class="ee-resp">'+Object.keys(_RESP_MOT).map(k=>'<button class="ee-pesar'+(k==='ya_corrijo'?' prim':'')+'" onclick="eeResp('+extId+',\''+k+'\')">'+escapeHtml(_RESP_MOT[k])+'</button>').join('')+'</div>'
     +'<span class="sub">La respuesta queda registrada. «Ahora lo corrijo» vuelve a preguntar en 10 min si la velocidad sigue igual.</span></div>';
 }
@@ -9945,14 +9966,17 @@ function _eeRespTxt(rs){
   return '<div class="ee-respdada">Respuesta '+_plcHora(r.creado_en)+(r.operario?' · '+escapeHtml(r.operario):'')+': <b>'+escapeHtml(_RESP_MOT[r.motivo]||r.motivo)+'</b>'+(r.detalle?' — «'+escapeHtml(r.detalle)+'»':'')+'</div>';
 }
 function _eeSegHtml(u,RX,_f1){
-  const pes=u.dv>0,acc=pes?'AFINAR':'ENGORDAR',como=pes?'subir':'bajar';
-  const cab='<b>'+escapeHtml(u.nro)+'</b> salió <b>'+(pes?'PESADA':'LIVIANA')+' '+(u.dv>0?'+':'')+_f1(u.dv)+' %</b> · pesada a las '+_plcHora(u.t)+' · había que '+acc+': '+como+' la velocidad ~'+_f1(Math.abs(u.dv))+' %';
+  const pes=u.dv>0;
+  const _f2=x=>x.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const cab='<b>'+escapeHtml(u.nro)+'</b> salió <b>'+(pes?'PESADA':'LIVIANA')+' '+(u.dv>0?'+':'')+_f1(u.dv)+' %</b> (pesada a las '+_plcHora(u.t)+')'
+    +(RX.vA?' · se hizo a '+_f2(RX.vA)+' m/min':'');
+  const obj=RX.vObj?'Llevá la velocidad a <b>'+_f2(RX.vObj)+' m/min</b>'+(RX.vD?' (ahora '+_f2(RX.vD)+')':'')+'.':'';
   let cls,tit,txt;
-  if(RX.estado==='nada'){cls='bad';tit='✗ NO TOCASTE LA VELOCIDAD';txt='Hace '+RX.min+' min que se pesó y la velocidad sigue igual ('+_f1(RX.vD)+' m/min). Si corregiste con el tornillo, avisá: el sistema todavía no lo ve.';}
-  else if(RX.estado==='reves'){cls='bad';tit='✗ CORREGISTE AL REVÉS';txt='La velocidad '+(RX.pct>0?'subió':'bajó')+' '+_f1(Math.abs(RX.pct))+' % ('+_f1(RX.vA)+' → '+_f1(RX.vD)+' m/min): eso '+(RX.pct>0?'afina':'engorda')+' más.';}
-  else if(RX.estado==='poco'){cls='warn';tit='◐ CORREGISTE POCO';txt=(RX.pct>0?'Subiste':'Bajaste')+' '+_f1(Math.abs(RX.pct))+' % ('+_f1(RX.vA)+' → '+_f1(RX.vD)+' m/min); hacía falta ~'+_f1(Math.abs(u.dv))+' %.';}
-  else if(RX.estado==='corrigio'){cls='ok';tit='✓ CORREGISTE';txt=(RX.pct>0?'Subiste':'Bajaste')+' '+_f1(Math.abs(RX.pct))+' % ('+_f1(RX.vA)+' → '+_f1(RX.vD)+' m/min). Esperá la próxima bobina pesada para ver si quedó bien.';}
-  else {cls='';tit='… ESPERANDO';txt='Todavía no hay 3 minutos produciendo desde que se pesó.';}
+  if(RX.estado==='enrango'||RX.estado==='corrigio'){cls='ok';tit='✓ A ESTA VELOCIDAD YA SALE EN RANGO';txt='Previsto '+(RX.dvP>=0?'+':'')+_f1(RX.dvP)+' % ('+_f2(RX.vD)+' m/min). No toques nada más y esperá la próxima pesada.';}
+  else if(RX.estado==='nada'){cls='bad';tit='✗ NO TOCASTE LA VELOCIDAD';txt='Pasaron '+RX.min+' min y la velocidad del rodillo sigue igual. '+obj+' Si tocaste el tornillo, el sistema todavía no lo ve: avisalo.';}
+  else if(RX.estado==='reves'){cls='bad';tit='✗ LA VELOCIDAD FUE PARA EL OTRO LADO';txt='Eso '+(RX.pct>0?'afina':'engorda')+' más. '+obj;}
+  else if(RX.estado==='poco'){cls='warn';tit='◐ FALTA CORREGIR';txt='Vas bien pero no alcanza: previsto '+(RX.dvP>=0?'+':'')+_f1(RX.dvP)+' %. '+obj;}
+  else {cls='';tit='… MIDIENDO LA VELOCIDAD';txt=obj+' Todavía no hay datos suficientes desde que se pesó.';}
   return '<div class="ee-seg '+cls+'"><span class="cab">'+cab+'</span><b class="tit">'+tit+'</b><span>'+txt+'</span></div>';
 }
 function _eeTarjeta(e){
@@ -9972,7 +9996,7 @@ function _eeTarjeta(e){
   if(d){
     const _f1=x=>x.toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:1});
     // 07u: seguimiento de la última pesada fuera de rango: ¿se corrigió la velocidad?
-    const RX=(R&&R.ult)?_plcReaccion(d.mins,d.fac.m,R.ult.t,R.ult.dv,R.ult.J):null;
+    const RX=(R&&R.ult)?_plcReaccion(d.mins,d.fac.m,R.ult.t,R.ult.dv,R.ult.J,null,R.ult.vB):null;
     const CV=st[0]==='run'&&!(RX&&RX.estado!=='ok')?_plcCambioVel(d.vel,R):null;   // 07n: aviso de cambio de velocidad
     const rsU=(R&&R.ult)?(d.resp||[]).filter(r=>String(r.bobina_id)===String(R.ult.id)):[];
     const PM=d.respOk!==false&&R&&R.ult&&_plcPideMotivo(RX,rsU,st[0]==='run');
@@ -9986,7 +10010,8 @@ function _eeTarjeta(e){
       if(k<d.meta.lista.length)d.meta.m=d.meta.lista[k];else d.meta={cerrada:true,otra:true};
     }
     // semáforo: con la máquina produciendo, el estimado de ahora; si no, el real de las pesadas
-    const J=SM?SM.J:(R&&R.J);
+    const J=SM?SM.J:(R&&R.ult?R.ult.J:(R&&R.J));
+    const U=R&&R.ult;
     // 07p: lo que sale no se parece a la orden (±20 % de g/m o de velocidad contra el mismo tipo) → ¿cambió el producto?
     const raro=!!(R&&R.J&&((SM&&Math.abs(SM.dv)>20)||(CV&&Math.abs(CV.pct)>20)));
     let sema;
@@ -10000,9 +10025,10 @@ function _eeTarjeta(e){
       sema='<div class="ee-ind ee-sema '+cl+'"><span class="ee-lamp"><i class="r'+(lu==='r'?' on':'')+'"></i><i class="y'+(lu==='y'?' on':'')+'"></i><i class="g'+(lu==='g'?' on':'')+'"></i></span>'
         +'<div class="ee-sema-t"><b>'+J.a+'</b>'
         +(SM?'<span>ahora ~<b class="n">'+_f1(SM.g)+' g/m</b> (estimado) · la orden pide '+_f1(SM.gt)+' g/m</span>'
-            +'<span class="sub">últimas '+R.nJ+' pesadas: '+_f1(R.gpm)+' g/m real de la balanza</span>'
+            +'<span class="sub">'+(U?'última pesada ('+escapeHtml(U.nro)+'): '+_f1(U.gB)+' g/m real a '+(U.vB?U.vB.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2})+' m/min':'—'):'últimas '+R.nJ+' pesadas: '+_f1(R.gpm)+' g/m real')+'</span>'
+            +(d.vel&&d.vel.n>=8?'<span class="sub">A esta velocidad la medición promedia los últimos '+d.vel.n+' min: después de tocar, el semáforo tarda eso en mostrar el cambio completo.</span>':'')
             +'<span class="tz">⚠ No muevas la velocidad del tornillo: el semáforo supone que el tornillo está igual.</span>'
-          :'<span>últimas '+R.nJ+' pesadas: <b class="n">'+_f1(R.gpm)+' g/m</b> real · la orden pide '+_f1(R.gt)+' g/m</span>'
+          :'<span>'+(U?'última pesada ('+escapeHtml(U.nro)+'): <b class="n">'+_f1(U.gB)+' g/m</b>':'últimas '+R.nJ+' pesadas: <b class="n">'+_f1(R.gpm)+' g/m</b>')+' real · la orden pide '+_f1(R.gt)+' g/m</span>'
             +'<span class="sub">'+(st[0]==='run'?'el estimado en vivo aparece con 3 minutos produciendo':'con la máquina produciendo se ve el estimado en vivo')+'</span>')
         +'</div></div>';
     }else sema='<div class="ee-ind"><span>'+(!oe?'Semáforo de espesor: falta arrancar la orden en esta máquina.':'Semáforo de espesor: aparece con la primera bobina pesada de esta orden.')+'</span></div>';
@@ -10323,11 +10349,11 @@ function _evvCard(m){
       +'<br><span class="'+(k==='r'?'badTxt':k==='y'?'warnTxt':'okTxt')+'">'+J.t+' '+(dv>=0?'+':'')+_evvF(dv,1)+' % → el operario ve '+J.a+'</span>'
       +(SM?'<br><span class="mut">real últimas '+m.R.nJ+' pesadas: '+_evvF(m.R.gpm,1)+' g/m ('+(m.R.dv>=0?'+':'')+_evvF(m.R.dv,1)+' %)</span>':'')+'</span></div>';
   }else sema='<div class="evx-sema">'+_evvLamp('')+'<span class="t mut">Semáforo: aparece con la primera bobina pesada de la orden en curso.</span></div>';
-  const RX=(m.R&&m.R.ult)?_plcReaccion(m.minsRaw,m.fac.m,m.R.ult.t,m.R.ult.dv,m.R.ult.J):null;
+  const RX=(m.R&&m.R.ult)?_plcReaccion(m.minsRaw,m.fac.m,m.R.ult.t,m.R.ult.dv,m.R.ult.J,null,m.R.ult.vB):null;
   if(RX&&RX.estado!=='ok'){
-    const u=m.R.ult,k=RX.estado==='nada'||RX.estado==='reves'?'bad':RX.estado==='poco'?'warn':RX.estado==='corrigio'?'ok':'';
-    sema+='<div class="evx-seg '+k+'"><span class="mut">'+escapeHtml(u.nro)+' '+(u.dv>0?'pesada':'liviana')+' '+(u.dv>0?'+':'')+_evvF(u.dv,1)+' % · pesada '+_plcHora(u.t)+' · había que '+(u.dv>0?'subir':'bajar')+' ~'+_evvF(Math.abs(u.dv),1)+' %</span><br>'
-      +'<b>'+_REAC_TXT[RX.estado]+'</b>'+(RX.vD?' · '+_evvF(RX.vA,1)+' → '+_evvF(RX.vD,1)+' m/min ('+(RX.pct>=0?'+':'')+_evvF(RX.pct,1)+' %)':'')+' · hace '+RX.min+' min'
+    const u=m.R.ult,k=RX.estado==='nada'||RX.estado==='reves'?'bad':RX.estado==='poco'?'warn':(RX.estado==='enrango'||RX.estado==='corrigio')?'ok':'';
+    sema+='<div class="evx-seg '+k+'"><span class="mut">'+escapeHtml(u.nro)+' '+(u.dv>0?'pesada':'liviana')+' '+(u.dv>0?'+':'')+_evvF(u.dv,1)+' % · pesada '+_plcHora(u.t)+' · se hizo a '+_evvF(RX.vA,2)+' m/min · objetivo '+_evvF(RX.vObj,2)+' m/min</span><br>'
+      +'<b>'+_REAC_TXT[RX.estado]+'</b>'+(RX.vD?' · ahora '+_evvF(RX.vD,2)+' m/min ('+(RX.pct>=0?'+':'')+_evvF(RX.pct,1)+' %, se mide ±'+_evvF(RX.res,1)+' %) · previsto '+(RX.dvP>=0?'+':'')+_evvF(RX.dvP,1)+' %':'')+' · hace '+RX.min+' min'
       +'<br>'+_evvRxResp((EVV.resp||[]).filter(r=>String(r.bobina_id)===String(u.id)),RX)+'</div>';
   }
   if(CV&&!(RX&&RX.estado!=='ok')&&!(SM&&Math.abs(SM.dv)>20))sema+='<div class="evx-cv"><b>'+CV.t+' '+(CV.pct>0?'+':'')+_evvF(CV.pct,1)+' %</b> · '+_evvF(CV.vRef,1)+' → '+_evvF(CV.vAhora,1)+' m/min desde '+escapeHtml(CV.nro||'la última pesada')
@@ -10397,7 +10423,7 @@ function _evvRxResp(rs,rx){
 }
 function _evvRxTag(rx,rs){
   if(!rx||rx.estado==='ok')return '';
-  const k=rx.estado==='nada'||rx.estado==='reves'?'bad':rx.estado==='poco'?'warn':rx.estado==='corrigio'?'ok':'mut';
+  const k=rx.estado==='nada'||rx.estado==='reves'?'bad':rx.estado==='poco'?'warn':(rx.estado==='corrigio'||rx.estado==='enrango')?'ok':'mut';
   const r=(rs||[]).filter(x=>x.motivo!=='ya_corrijo').slice(-1)[0]||(rs||[]).slice(-1)[0];
   return '<span class="evx-tag '+k+'">'+_REAC_TXT[rx.estado]+'</span>'+(rx.vD?' <span class="mut">'+(rx.pct>=0?'+':'')+_evvF(rx.pct,1)+' %</span>':'')
     +(r?'<br><span class="mut" title="'+escapeHtml(r.detalle||'')+'">↳ '+escapeHtml(_RESP_MOT[r.motivo]||r.motivo)+(r.detalle?': «'+escapeHtml(r.detalle.slice(0,40))+'»':'')+'</span>'
@@ -10455,7 +10481,7 @@ function _evvPintar(w,maqs,bobsSinPlc,bobinas,cfgP,t0){
   // 07u: reacción del operario después de cada pesada fuera de rango
   maqs.forEach(m=>{
     const pz=m.bobs.filter(o=>o.b&&o.dg!=null).sort((a,b)=>new Date(a.b.created_at||a.c.cerrado_en)-new Date(b.b.created_at||b.c.cerrado_en));
-    pz.forEach((o,i)=>{const dv=o.dg*100;o.resp=(EVV.resp||[]).filter(r=>String(r.bobina_id)===String(o.b.id));o.rx=_plcReaccion(m.minsRaw,m.fac.m,o.b.created_at||o.c.cerrado_en,dv,_evvJuicio(dv),pz[i+1]?(pz[i+1].b.created_at||pz[i+1].c.cerrado_en):null);});
+    pz.forEach((o,i)=>{const dv=o.dg*100;o.resp=(EVV.resp||[]).filter(r=>String(r.bobina_id)===String(o.b.id));o.rx=_plcReaccion(m.minsRaw,m.fac.m,o.b.created_at||o.c.cerrado_en,dv,_evvJuicio(dv),pz[i+1]?(pz[i+1].b.created_at||pz[i+1].c.cerrado_en):null,o.c.minProd>5?o.c.metros/o.c.minProd:null);});
   });
   // ---- alertas
   const al=[];
