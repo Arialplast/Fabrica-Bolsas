@@ -302,6 +302,19 @@ t(_evvJuicio(9).k==='bad'&&_evvJuicio(-11).k==='bad','pasando +8 % / −10 % →
   t(_plcReaccion(serie(40,40),0.8,new Date(AHORA-60000).toISOString(),-6.7,J).estado==='esperando','reacción: recién pesada → esperando');
 }
 
+// ---- 07v pedir el motivo ----
+{
+  const RXn={estado:'nada',min:14},A=AHORA;
+  t(_plcPideMotivo(RXn,[],true,A)===true,'motivo: no corrigió, 14 min, produciendo, sin respuesta → pregunta');
+  t(_plcPideMotivo({estado:'nada',min:6},[],true,A)===false,'motivo: antes de los 10 min no pregunta');
+  t(_plcPideMotivo(RXn,[],false,A)===false,'motivo: máquina parada → no pregunta');
+  t(_plcPideMotivo({estado:'corrigio',min:30},[],true,A)===false,'motivo: corrigió → no pregunta');
+  t(_plcPideMotivo(RXn,[{motivo:'no_da',creado_en:new Date(A-60000).toISOString()}],true,A)===false,'motivo: ya respondió → no vuelve a preguntar');
+  t(_plcPideMotivo(RXn,[{motivo:'ya_corrijo',creado_en:new Date(A-5*60000).toISOString()}],true,A)===false,'motivo: «ahora lo corrijo» hace 5 min → espera');
+  t(_plcPideMotivo(RXn,[{motivo:'ya_corrijo',creado_en:new Date(A-12*60000).toISOString()}],true,A)===true,'motivo: «ahora lo corrijo» hace 12 min y sigue igual → vuelve a preguntar');
+  t(_plcPideMotivo({estado:'reves',min:20},[],true,A)===true,'motivo: corrigió al revés → pregunta');
+}
+
 console.log((bad?'✗ ':'✓ ')+ok+' ok · '+bad+' fallas');
 process.exit(bad?1:0);
 })().catch(e=>{console.log('✗ excepción',e);process.exit(1);});

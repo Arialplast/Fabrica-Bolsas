@@ -268,6 +268,16 @@ tr:hover td{background:rgba(255,255,255,0.02);}
 .ee-sema-t .n{font-size:14px;font-family:'DM Mono',monospace;letter-spacing:0;}
 .ee-sema-t .sub{font-size:12px;color:var(--text3);}
 .ee-sema-t .tz{font-size:12px;color:var(--amber);font-weight:600;}
+.ee-alarma{margin:-6px 16px 14px;padding:12px 14px;border-radius:10px;border:3px solid var(--red);background:var(--redbg);display:flex;flex-direction:column;gap:6px;font-size:14px;color:var(--text);}
+.ee-alarma .tit{font-size:22px;color:var(--red);letter-spacing:.02em;}
+.ee-alarma .sub{font-size:12px;color:var(--text2);}
+.ee-resp{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.ee-resp .ee-pesar{font-size:14px;padding:10px 8px;}
+.ee-st-alarma{border-color:var(--red);box-shadow:0 0 0 2px var(--red);animation:ee-alarm 1.2s ease-in-out infinite;}
+@keyframes ee-alarm{0%,100%{box-shadow:0 0 0 2px var(--red)}50%{box-shadow:0 0 0 6px rgba(248,113,113,.35)}}
+@media (prefers-reduced-motion:reduce){.ee-st-alarma{animation:none;}}
+.ee-respdada{margin:-8px 16px 14px;font-size:12.5px;color:var(--text2);padding:6px 10px;border-left:3px solid var(--border2);}
+.ee-respdada b{color:var(--text);}
 .ee-seg{margin:-6px 16px 14px;padding:9px 14px;border-radius:10px;border:2px solid var(--border2);background:var(--bg3);font-size:13px;color:var(--text2);display:flex;flex-direction:column;gap:3px;}
 .ee-seg .cab{font-size:12px;color:var(--text2);}.ee-seg .cab b{color:var(--text);}
 .ee-seg .tit{font-size:18px;letter-spacing:.03em;color:var(--text);}
@@ -1103,7 +1113,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-07u</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-07v</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6256,7 +6266,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-07u';   // 07u: 🧭 QUÉ HIZO EL OPERARIO después de pesar una bobina fuera de rango: velocidad 5 min antes de pesar vs los últimos 5 min después (hasta la próxima pesada), contra lo que hacía falta (≈ el % del desvío). CORRIGIÓ / CORRIGIÓ POCO / AL REVÉS / NO SE TOCÓ LA VELOCIDAD. Estación: recuadro en rojo si no hizo nada. Extrusión en vivo: en la tarjeta, columna «Qué hizo después» en la tabla, alerta «no corrigió» a los 10 min y «Sin corregir» por turno.
+const APP_BUILD='2026-10-07v';   // 07v: 🚨 ALARMA en la estación si a los 10 min produciendo de pesar una bobina fuera de rango no se corrigió la velocidad (o se corrigió al revés): la tarjeta titila, suena cada 30 s y pregunta «¿POR QUÉ NO CORREGISTE?» (tornillo / no da más / el globo no aguanta / ahora lo corrijo / a propósito + motivo / otro + motivo). La respuesta queda en plc_respuestas (sólo agregar y leer; sql/plc_respuestas.sql). «Ahora lo corrijo» vuelve a preguntar a los 10 min. Extrusión en vivo muestra la respuesta o «sin respuesta» en la tarjeta, la tabla y las alertas.
+// 07u: 🧭 QUÉ HIZO EL OPERARIO después de pesar una bobina fuera de rango: velocidad 5 min antes de pesar vs los últimos 5 min después (hasta la próxima pesada), contra lo que hacía falta (≈ el % del desvío). CORRIGIÓ / CORRIGIÓ POCO / AL REVÉS / NO SE TOCÓ LA VELOCIDAD. Estación: recuadro en rojo si no hizo nada. Extrusión en vivo: en la tarjeta, columna «Qué hizo después» en la tabla, alerta «no corrigió» a los 10 min y «Sin corregir» por turno.
 // 07t: 📏 Extrusión en vivo: el CÓDIGO y el NOMBRE del producto que hace cada máquina siempre a la vista arriba de la tarjeta (con la orden y el cliente); sin orden marcada muestra el de la última bobina, avisado.
 // 07s: 📏 Extrusión en vivo con el diseño del «Tablero de Extrusión» que eligió German: barra de estado (PLC hace X s, factor, versión), KPIs, tarjetas por máquina con semáforo de luces y bobina en curso con barra (en vivo cada 2 s), alertas al costado, línea de 24 h con color por máquina, gráficos de kg/h por bobina y gramaje real vs orden (banda OK de la carga), tabla de cierres con filtros (Todas / por máquina / Con aviso), turnos y paradas. Mismas cuentas que antes.
 // 07r: ⇄ QUÉ ORDEN CORRE EN CADA MÁQUINA: con dos OE En proceso en la misma extrusora manda la marca por máquina (orden_extrusoras.fecha_inicio/fecha_fin, ya existían sin uso). Estación: botón «⇄ Cambiar orden» (pregunta si la bobina en curso ya es de la nueva), si hay varias sin marca pide elegir; la carga propone la orden que corría cuando se cerró la bobina. Aviso «¿CAMBIASTE DE PRODUCTO?» si lo que sale se aleja más de 20 % (g/m o velocidad) de la orden; el aviso de velocidad sólo compara contra bobinas del mismo tipo. (Caso 07/10 20:00: EXT-03 pasó a ORD-06329 50 cm y seguía mostrando la ORD-06322 de 60.)
@@ -9338,7 +9349,7 @@ async function _plcDatosExt(extId){
   const ids=cierres.map(c=>c.id);
   const asignados=new Map(),bobPorCierre=new Map();
   if(ids.length){
-    const{data:bs,error:eb}=await sb.from('bobinas_producidas').select('id,numero_bobina,plc_cierre_id,kg_reales,peso_bruto_kg,tara_tubo_kg,peso_origen,bobina_tipo_id,anulada,created_at')
+    const{data:bs,error:eb}=await sb.from('bobinas_producidas').select('id,numero_bobina,plc_cierre_id,kg_reales,peso_bruto_kg,tara_tubo_kg,peso_origen,bobina_tipo_id,anulada,created_at,operario')
       .in('plc_cierre_id',ids);
     if(eb)throw eb;
     (bs||[]).forEach(b=>{asignados.set(b.plc_cierre_id,b.numero_bobina);if(!b.anulada)bobPorCierre.set(b.plc_cierre_id,b);});
@@ -9629,6 +9640,8 @@ async function _eeDatos(ext){
   const{data}=await sb.from('plc_minutos').select('ts,odo_bruto,odo_film,seg_prod').eq('grupo',d.grupo)
     .gte('ts',new Date(d13).toISOString()).order('ts').limit(1000);
   d.mins=data||[];
+  // 07v: respuestas del operario (si la tabla todavía no existe, sigue sin ellas)
+  try{const rr=await sb.from('plc_respuestas').select('*').eq('extrusora_id',ext.id).gte('creado_en',new Date(Date.now()-13*3600000).toISOString()).order('creado_en');d.resp=rr.error?[]:(rr.data||[]);d.respOk=!rr.error;}catch(e){d.resp=[];d.respOk=false;}
   d.estado=_plcpEstado(data||[]);
   d.vel=_plcVelAhora(data||[],d.fac.m);
   if(d.est)_plcVivoPush([d.est]);
@@ -9693,7 +9706,7 @@ function _plcRefMaquina(calc,bobPorCierre,kpmOrden){
     r.dv=(r.gpm/gt-1)*100;r.J=_evvJuicio(r.dv);
     // 07u: la ÚLTIMA bobina pesada de ese tipo, sola (lo que el operario ve en la balanza)
     const dvU=(uu.kq*1000/uu.m/gt-1)*100;
-    r.ult={nro:uu.b.numero_bobina,t:uu.b.created_at||uu.c.cerrado_en,dv:dvU,J:_evvJuicio(dvU)};
+    r.ult={id:uu.b.id,nro:uu.b.numero_bobina,op:uu.b.operario||'',t:uu.b.created_at||uu.c.cerrado_en,dv:dvU,J:_evvJuicio(dvU)};
   }
   return r;
 }
@@ -9884,7 +9897,53 @@ async function eeCambiarOk(extId,oid,desdeIso){
   try{await reload();}catch(e){}
   EST.datos={};renderEstacionExt();
 }
+// 07v — ALARMA: la bobina salió fuera de rango, pasaron 10 min produciendo y no corrigió (o al revés):
+// la tarjeta pide el motivo. La respuesta queda guardada (plc_respuestas: sólo agregar y leer).
+const _RESP_MOT={tornillo:'Corregí con el tornillo',no_da:'La máquina no da más velocidad',globo:'El globo / el film no aguanta el cambio',ya_corrijo:'Ahora lo corrijo',a_proposito:'Lo dejo así a propósito',otro:'Otro motivo'};
+// Pura: ¿hay que pedirle el motivo? rs = respuestas de esa bobina
+function _plcPideMotivo(RX,rs,producing,ahora){
+  if(!RX||!(RX.estado==='nada'||RX.estado==='reves')||!producing||!(RX.min>=10))return false;
+  const T=ahora||Date.now();
+  return !(rs||[]).some(r=>r.motivo!=='ya_corrijo'||(T-new Date(r.creado_en).getTime())<10*60000);
+}
+function eeResp(extId,mot){
+  const a=EST.alarma&&EST.alarma[extId];if(!a)return;
+  if(mot==='a_proposito'||mot==='otro'){
+    _eeModal('<div class="modal-title">'+escapeHtml(_RESP_MOT[mot])+'</div>'
+      +'<div style="font-size:13px;color:var(--text2);margin-bottom:8px">'+escapeHtml(a.nro)+' salió '+(a.dv>0?'pesada':'liviana')+' y no se corrigió la velocidad. Contá por qué:</div>'
+      +'<div class="fg"><label for="ee-resp-txt">Motivo</label><textarea id="ee-resp-txt" rows="3" style="width:100%"></textarea></div>'
+      +'<div class="btn-grp" style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="eeRespOk('+extId+',\''+mot+'\')">Guardar</button><button class="btn btn-sm" onclick="document.getElementById(\'ee-modal\').remove()">Cancelar</button></div>');
+    return;
+  }
+  eeRespOk(extId,mot);
+}
+async function eeRespOk(extId,mot){
+  const a=EST.alarma&&EST.alarma[extId];if(!a)return;
+  const tx=document.getElementById('ee-resp-txt');const det=tx?tx.value.trim():'';
+  if((mot==='a_proposito'||mot==='otro')&&det.length<4){alert('Escribí el motivo.');return;}
+  const{error}=await sb.from('plc_respuestas').insert({extrusora_id:extId,bobina_id:a.id,numero_bobina:a.nro,desvio_pct:Math.round(a.dv*10)/10,estado:a.estado,
+    vel_antes:a.vA!=null?Math.round(a.vA*10)/10:null,vel_despues:a.vD!=null?Math.round(a.vD*10)/10:null,motivo:mot,detalle:det||null,operario:a.op||null});
+  if(error){alert('No se pudo guardar la respuesta: '+error.message);return;}
+  const m=document.getElementById('ee-modal');if(m)m.remove();
+  EST.datos={};renderEstacionExt();
+}
+function _eeBeep(){
+  try{const C2=window.AudioContext||window.webkitAudioContext;if(!C2)return;const ac=EST.ac||(EST.ac=new C2());
+    [0,0.35].forEach(dt=>{const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=880;g.gain.value=0.15;o.connect(g);g.connect(ac.destination);o.start(ac.currentTime+dt);o.stop(ac.currentTime+dt+0.2);});}catch(e){}
+}
+function _eeAlarmaHtml(extId,u,RX,_f1){
+  return '<div class="ee-alarma" role="alert"><b class="tit">⚠ ¿POR QUÉ NO CORREGISTE?</b>'
+    +'<span><b>'+escapeHtml(u.nro)+'</b> salió '+(u.dv>0?'PESADA':'LIVIANA')+' '+(u.dv>0?'+':'')+_f1(u.dv)+' % a las '+_plcHora(u.t)+'. '
+    +(RX.estado==='nada'?'Pasaron '+RX.min+' min y la velocidad no se tocó':'La velocidad se movió para el otro lado ('+(RX.pct>0?'+':'')+_f1(RX.pct)+' %)')+'. Había que '+(u.dv>0?'subirla':'bajarla')+' ~'+_f1(Math.abs(u.dv))+' %.</span>'
+    +'<div class="ee-resp">'+Object.keys(_RESP_MOT).map(k=>'<button class="ee-pesar'+(k==='ya_corrijo'?' prim':'')+'" onclick="eeResp('+extId+',\''+k+'\')">'+escapeHtml(_RESP_MOT[k])+'</button>').join('')+'</div>'
+    +'<span class="sub">La respuesta queda registrada. «Ahora lo corrijo» vuelve a preguntar en 10 min si la velocidad sigue igual.</span></div>';
+}
 // 07u: recuadro de seguimiento para el operario (queda en evidencia si no hizo nada)
+function _eeRespTxt(rs){
+  const r=(rs||[]).filter(x=>x.motivo!=='ya_corrijo').slice(-1)[0]||(rs||[]).slice(-1)[0];
+  if(!r)return '';
+  return '<div class="ee-respdada">Respuesta '+_plcHora(r.creado_en)+(r.operario?' · '+escapeHtml(r.operario):'')+': <b>'+escapeHtml(_RESP_MOT[r.motivo]||r.motivo)+'</b>'+(r.detalle?' — «'+escapeHtml(r.detalle)+'»':'')+'</div>';
+}
 function _eeSegHtml(u,RX,_f1){
   const pes=u.dv>0,acc=pes?'AFINAR':'ENGORDAR',como=pes?'subir':'bajar';
   const cab='<b>'+escapeHtml(u.nro)+'</b> salió <b>'+(pes?'PESADA':'LIVIANA')+' '+(u.dv>0?'+':'')+_f1(u.dv)+' %</b> · pesada a las '+_plcHora(u.t)+' · había que '+acc+': '+como+' la velocidad ~'+_f1(Math.abs(u.dv))+' %';
@@ -9903,7 +9962,7 @@ function _eeTarjeta(e){
   const ult=(C.bobinas_prod||[]).filter(b=>String(b.extrusora_id)===String(e.id)&&!b.anulada)
     .sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))).slice(0,3);
   const st=_eeSt(d);
-  let h='<section class="ee-st"><div class="ee-st-hd"><div class="ee-id">'+escapeHtml(e.nombre)+'</div>'
+  let h='<section class="ee-st'+(EST.alarma&&EST.alarma[e.id]?' ee-st-alarma':'')+'"><div class="ee-st-hd"><div class="ee-id">'+escapeHtml(e.nombre)+'</div>'
     +'<div class="ee-pill '+st[0]+'" id="ee-pill-'+e.id+'"><span class="dot"></span><span class="tx">'+st[1]+'</span></div></div>'
     +_eeOEHtml(e,oe);
   const kghB=_eeKghBobinas(e.id,d);
@@ -9915,6 +9974,10 @@ function _eeTarjeta(e){
     // 07u: seguimiento de la última pesada fuera de rango: ¿se corrigió la velocidad?
     const RX=(R&&R.ult)?_plcReaccion(d.mins,d.fac.m,R.ult.t,R.ult.dv,R.ult.J):null;
     const CV=st[0]==='run'&&!(RX&&RX.estado!=='ok')?_plcCambioVel(d.vel,R):null;   // 07n: aviso de cambio de velocidad
+    const rsU=(R&&R.ult)?(d.resp||[]).filter(r=>String(r.bobina_id)===String(R.ult.id)):[];
+    const PM=d.respOk!==false&&R&&R.ult&&_plcPideMotivo(RX,rsU,st[0]==='run');
+    EST.alarma=EST.alarma||{};
+    if(PM)EST.alarma[e.id]={id:R.ult.id,nro:R.ult.nro,dv:R.ult.dv,estado:RX.estado,vA:RX.vA,vD:RX.vD,op:R.ult.op};else delete EST.alarma[e.id];
     const SM=st[0]==='run'?_plcSemaforo(R,d.vel):null;    // 07o: semáforo en vivo (estimado)
     d.meta=_plcMetaBobina(oe);                            // 07o: barra de la bobina en curso
     if(d.meta&&d.meta.lista&&oe){   // dos máquinas en la misma OE: a cada una su bobina de la lista
@@ -9947,7 +10010,7 @@ function _eeTarjeta(e){
       +'<div class="big" id="ee-big-'+e.id+'">'+(d.enCurso!=null&&!d.estadoViejo?_eeF(d.enCurso):'—')+'</div><div class="unit">METROS</div></div>'
       +_eeBarHtml(e.id,d)
       +sema
-      +(RX&&RX.estado!=='ok'&&!raro?_eeSegHtml(R.ult,RX,_f1):'')
+      +(RX&&RX.estado!=='ok'&&!raro?(PM?_eeAlarmaHtml(e.id,R.ult,RX,_f1):_eeSegHtml(R.ult,RX,_f1)+_eeRespTxt(rsU)):'')
       +(CV&&!raro?'<div class="ee-vel"><b>'+CV.t+' '+(CV.pct>0?'+':'')+_f1(CV.pct)+' %</b><span>'+_f1(CV.vRef)+' → '+_f1(CV.vAhora)+' m/min desde la última pesada ('+escapeHtml(CV.nro||'')+'). '
         +'Si no tocaste el tornillo, <b>'+CV.ef+'</b>: esperá la próxima bobina pesada para ver si quedó bien.'+(CV.rel?' <i>'+CV.rel+'.</i>':'')+'</span></div>':'')
       +'<div class="ee-mets ee-mets4"><div class="met"><div class="k">velocidad</div><div class="v">'+(d.vel&&st[0]==='run'?_f1(d.vel.v):'—')+'<small> m/min</small></div></div>'
@@ -10004,6 +10067,8 @@ function _eePintar(){
   const bt=document.getElementById('ee-m-todas'),bu=document.getElementById('ee-m-una');
   if(bt)bt.setAttribute('aria-pressed',EST.modo!=='una');if(bu)bu.setAttribute('aria-pressed',EST.modo==='una');
   const r=document.getElementById('ee-reloj');if(r)r.textContent=localTime().slice(0,5);
+  // 07v: alarma sonora cada 30 s mientras haya una pregunta sin responder
+  if(EST.alarma&&Object.keys(EST.alarma).length&&(!EST.beepT||Date.now()-EST.beepT>30000)){EST.beepT=Date.now();_eeBeep();}
 }
 async function renderEstacionExt(){
   _eePintar();
@@ -10155,6 +10220,9 @@ async function renderExtrusionVivo(){
         .select('id,numero_bobina,extrusora_id,orden_id,bobina_tipo_id,metros_reales,kg_reales,peso_bruto_kg,tara_tubo_kg,peso_origen,fecha_produccion,hora_produccion,operario,plc_cierre_id,anulada,created_at')
         .gte('fecha_produccion',localDate(new Date(Date.now()-(EVV.horas+30)*3600000))).order('created_at').order('id'))]);
     [rm,rc,re,rb].forEach(r=>{if(r.error)throw r.error;});
+    // 07v: respuestas de los operarios (tabla nueva: si no existe, sigue sin ellas)
+    let resp=[];try{const rr=await sb.from('plc_respuestas').select('*').gte('creado_en',desde2).order('creado_en');if(!rr.error)resp=rr.data||[];}catch(e){}
+    EVV.resp=resp;
     _plcVivoPush(re.data||[]);
     const bobinas=(rb.data||[]).filter(b=>!b.anulada);
     const porCierre=new Map();bobinas.forEach(b=>{if(b.plc_cierre_id)porCierre.set(b.plc_cierre_id,b);});
@@ -10259,7 +10327,8 @@ function _evvCard(m){
   if(RX&&RX.estado!=='ok'){
     const u=m.R.ult,k=RX.estado==='nada'||RX.estado==='reves'?'bad':RX.estado==='poco'?'warn':RX.estado==='corrigio'?'ok':'';
     sema+='<div class="evx-seg '+k+'"><span class="mut">'+escapeHtml(u.nro)+' '+(u.dv>0?'pesada':'liviana')+' '+(u.dv>0?'+':'')+_evvF(u.dv,1)+' % · pesada '+_plcHora(u.t)+' · había que '+(u.dv>0?'subir':'bajar')+' ~'+_evvF(Math.abs(u.dv),1)+' %</span><br>'
-      +'<b>'+_REAC_TXT[RX.estado]+'</b>'+(RX.vD?' · '+_evvF(RX.vA,1)+' → '+_evvF(RX.vD,1)+' m/min ('+(RX.pct>=0?'+':'')+_evvF(RX.pct,1)+' %)':'')+' · hace '+RX.min+' min</div>';
+      +'<b>'+_REAC_TXT[RX.estado]+'</b>'+(RX.vD?' · '+_evvF(RX.vA,1)+' → '+_evvF(RX.vD,1)+' m/min ('+(RX.pct>=0?'+':'')+_evvF(RX.pct,1)+' %)':'')+' · hace '+RX.min+' min'
+      +'<br>'+_evvRxResp((EVV.resp||[]).filter(r=>String(r.bobina_id)===String(u.id)),RX)+'</div>';
   }
   if(CV&&!(RX&&RX.estado!=='ok')&&!(SM&&Math.abs(SM.dv)>20))sema+='<div class="evx-cv"><b>'+CV.t+' '+(CV.pct>0?'+':'')+_evvF(CV.pct,1)+' %</b> · '+_evvF(CV.vRef,1)+' → '+_evvF(CV.vAhora,1)+' m/min desde '+escapeHtml(CV.nro||'la última pesada')
     +(m.R&&m.R.gpm?' · tornillo igual ≈ '+_evvF(m.R.gpm/(1+CV.pct/100),1)+' g/m':'')+'<br><span class="mut">El operario ve: '+CV.ef+(CV.rel?' · '+CV.rel:'')+'</span></div>';
@@ -10321,10 +10390,18 @@ function _evvAvisos(o,cfgP){
   if(b&&c.metros>0&&Math.abs((parseFloat(b.metros_reales)||0)/c.metros-1)>0.03)av.push('<span class="evx-tag warn">METROS ≠</span>');
   return av;
 }
-function _evvRxTag(rx){
+function _evvRxResp(rs,rx){
+  const r=(rs||[]).filter(x=>x.motivo!=='ya_corrijo').slice(-1)[0]||(rs||[]).slice(-1)[0];
+  if(r)return '<span>Operario'+(r.operario?' '+escapeHtml(r.operario):'')+' a las '+_plcHora(r.creado_en)+': <b>'+escapeHtml(_RESP_MOT[r.motivo]||r.motivo)+'</b>'+(r.detalle?' — «'+escapeHtml(r.detalle)+'»':'')+'</span>';
+  return (rx.estado==='nada'||rx.estado==='reves')?(rx.min>=10?'<span class="badTxt">Se le preguntó por qué: sin respuesta todavía</span>':'<span class="mut">a los 10 min se le pregunta por qué</span>'):'';
+}
+function _evvRxTag(rx,rs){
   if(!rx||rx.estado==='ok')return '';
   const k=rx.estado==='nada'||rx.estado==='reves'?'bad':rx.estado==='poco'?'warn':rx.estado==='corrigio'?'ok':'mut';
-  return '<span class="evx-tag '+k+'">'+_REAC_TXT[rx.estado]+'</span>'+(rx.vD?' <span class="mut">'+(rx.pct>=0?'+':'')+_evvF(rx.pct,1)+' %</span>':'');
+  const r=(rs||[]).filter(x=>x.motivo!=='ya_corrijo').slice(-1)[0]||(rs||[]).slice(-1)[0];
+  return '<span class="evx-tag '+k+'">'+_REAC_TXT[rx.estado]+'</span>'+(rx.vD?' <span class="mut">'+(rx.pct>=0?'+':'')+_evvF(rx.pct,1)+' %</span>':'')
+    +(r?'<br><span class="mut" title="'+escapeHtml(r.detalle||'')+'">↳ '+escapeHtml(_RESP_MOT[r.motivo]||r.motivo)+(r.detalle?': «'+escapeHtml(r.detalle.slice(0,40))+'»':'')+'</span>'
+       :((rx.estado==='nada'||rx.estado==='reves')&&rx.min>=10?'<br><span class="badTxt">↳ sin respuesta</span>':''));
 }
 function _evvTabla(){
   const f=EVV.filtro||'Todas',cfgP=EVV.cfgP||{};
@@ -10337,7 +10414,7 @@ function _evvTabla(){
       return '<tr><td>'+_plcHora(c.cerrado_en)+'</td><td class="l">'+escapeHtml(o.maq)+'</td><td class="l">'+(b?escapeHtml(b.numero_bobina):'—')+'</td><td class="l">'+(o.ord?escapeHtml(o.ord.numero_orden):'—')+'</td>'
         +'<td>'+_evvF(c.metros)+'</td><td>'+(b?_evvF(b.metros_reales):'—')+'</td><td>'+_evvF(c.minProd)+'</td><td>'+(c.minProd>0?_evvF(c.metros/c.minProd,1):'—')+'</td>'
         +'<td>'+(b?_evvF(o.kg,2):'—')+'</td><td>'+_evvF(o.gpm,1)+'</td><td class="'+(J&&J.k!=='ok'?(J.t==='PESADA'?'badTxt':'warnTxt'):'')+'">'+(o.dg!=null?(o.dg>=0?'+':'')+_evvF(o.dg*100,1)+' %':'—')+'</td>'
-        +'<td>'+_evvF(o.kgh,1)+'</td><td class="l">'+(b&&b.peso_origen?(b.peso_origen==='balanza'?'<span class="evx-tag ok">BALANZA</span>':'<span class="evx-tag mut">MANUAL</span>'):'')+'</td><td class="l">'+_evvRxTag(o.rx)+'</td><td class="l">'+_evvAvisos(o,cfgP).join(' ')+'</td></tr>';}).join('')
+        +'<td>'+_evvF(o.kgh,1)+'</td><td class="l">'+(b&&b.peso_origen?(b.peso_origen==='balanza'?'<span class="evx-tag ok">BALANZA</span>':'<span class="evx-tag mut">MANUAL</span>'):'')+'</td><td class="l">'+_evvRxTag(o.rx,o.resp)+'</td><td class="l">'+_evvAvisos(o,cfgP).join(' ')+'</td></tr>';}).join('')
       :'<tr><td colspan="15" class="l mut">Sin cierres para este filtro.</td></tr>')+'</tbody>';
 }
 function _evvPintar(w,maqs,bobsSinPlc,bobinas,cfgP,t0){
@@ -10378,7 +10455,7 @@ function _evvPintar(w,maqs,bobsSinPlc,bobinas,cfgP,t0){
   // 07u: reacción del operario después de cada pesada fuera de rango
   maqs.forEach(m=>{
     const pz=m.bobs.filter(o=>o.b&&o.dg!=null).sort((a,b)=>new Date(a.b.created_at||a.c.cerrado_en)-new Date(b.b.created_at||b.c.cerrado_en));
-    pz.forEach((o,i)=>{const dv=o.dg*100;o.rx=_plcReaccion(m.minsRaw,m.fac.m,o.b.created_at||o.c.cerrado_en,dv,_evvJuicio(dv),pz[i+1]?(pz[i+1].b.created_at||pz[i+1].c.cerrado_en):null);});
+    pz.forEach((o,i)=>{const dv=o.dg*100;o.resp=(EVV.resp||[]).filter(r=>String(r.bobina_id)===String(o.b.id));o.rx=_plcReaccion(m.minsRaw,m.fac.m,o.b.created_at||o.c.cerrado_en,dv,_evvJuicio(dv),pz[i+1]?(pz[i+1].b.created_at||pz[i+1].c.cerrado_en):null);});
   });
   // ---- alertas
   const al=[];
@@ -10390,7 +10467,9 @@ function _evvPintar(w,maqs,bobsSinPlc,bobinas,cfgP,t0){
     if(!m.oeAct&&_oeCandMaq(m.ext.id).length>1)al.push(['warn',m.ext.nombre+': varias órdenes en proceso','La estación le pide al operario que elija cuál está haciendo.','ahora']);
     {const ul=m.bobs.filter(o=>o.rx&&o.rx.estado!=='ok').slice(-1)[0];
      if(ul&&(ul.rx.estado==='nada'||ul.rx.estado==='reves')&&ul.rx.min>=10&&!m.bobs.some(o=>o.rx&&new Date(o.b.created_at)>new Date(ul.b.created_at)))
-       al.push(['bad',m.ext.nombre+': '+(ul.rx.estado==='nada'?'no corrigió':'corrigió al revés'),ul.b.numero_bobina+' salió '+(ul.dg>0?'pesada':'liviana')+' ('+(ul.dg>0?'+':'')+_evvF(ul.dg*100,1)+' %) a las '+_plcHora(ul.b.created_at)+(ul.rx.estado==='nada'?' y la velocidad no se tocó.':' y la velocidad se movió para el otro lado ('+(ul.rx.pct>0?'+':'')+_evvF(ul.rx.pct,1)+' %).'),'hace '+ul.rx.min+' min']);}
+       {const rr=(ul.resp||[]).filter(x=>x.motivo!=='ya_corrijo').slice(-1)[0]||(ul.resp||[]).slice(-1)[0];
+        al.push([rr&&rr.motivo!=='ya_corrijo'?'warn':'bad',m.ext.nombre+': '+(ul.rx.estado==='nada'?'no corrigió':'corrigió al revés'),ul.b.numero_bobina+' salió '+(ul.dg>0?'pesada':'liviana')+' ('+(ul.dg>0?'+':'')+_evvF(ul.dg*100,1)+' %) a las '+_plcHora(ul.b.created_at)+(ul.rx.estado==='nada'?' y la velocidad no se tocó.':' y la velocidad se movió para el otro lado ('+(ul.rx.pct>0?'+':'')+_evvF(ul.rx.pct,1)+' %).')
+          +(rr?' Operario'+(rr.operario?' ('+rr.operario+')':'')+': «'+(_RESP_MOT[rr.motivo]||rr.motivo)+(rr.detalle?' — '+rr.detalle:'')+'».':' Sin respuesta del operario.'),'hace '+ul.rx.min+' min']);}}
     m.sinBob.filter(o=>Date.now()-new Date(o.c.cerrado_en).getTime()>30*60000).forEach(o=>
       al.push(['bad',m.ext.nombre+': cierre sin bobina','Pulsador a las '+_plcHora(o.c.cerrado_en)+' ('+_evvF(o.c.metros)+' m) y no hay bobina cargada.','hace '+Math.round((Date.now()-new Date(o.c.cerrado_en).getTime())/60000)+' min']));
     if(m.filmPct!=null&&m.filmPct<0.95&&m.ahoraEst!=='S')al.push(['warn',m.ext.nombre+': fotocélula','Vio film en el '+_evvF(m.filmPct*100,1)+' % de los metros de la última hora.','última hora']);
