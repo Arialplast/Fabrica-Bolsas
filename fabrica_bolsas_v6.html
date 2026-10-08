@@ -1113,7 +1113,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-08a</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-08b</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6266,7 +6266,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-08a';   // 08a: 🚦 semáforo y seguimiento con UNA sola cuenta: los dos parten de la última bobina pesada (su g/m y la velocidad a la que se hizo); el seguimiento dice «YA SALE EN RANGO» cuando el semáforo está verde (nunca alarma con verde), y siempre la velocidad objetivo en m/min. Velocidad medida hasta juntar 100 pulsos (a 5 m/min ~15 min): un pulso de diferencia ya no da «corregiste al revés». (Caso EXT-07 08/10: 6–7 pulsos/min constantes y aparecía −3 %.)
+const APP_BUILD='2026-10-08b';   // 08b: 🧵 bobinas de LARGO FIJO (la ficha, = mediana histórica): se apaga el múltiplo de pistas y la compensación (vuelve con configuracion.bobinas_plan_pistas='si'). OE nueva: se redondea para arriba a bobinas enteras. Próxima bobina = largo de la ficha; la última absorbe un resto menor a medio largo (no más bobinitas). La OE cierra al llegar a los metros, como antes. (Caso 07/10: 50 poli pedía 830 m ≈ 20 min a 40 m/min.)
+// 08a: 🚦 semáforo y seguimiento con UNA sola cuenta: los dos parten de la última bobina pesada (su g/m y la velocidad a la que se hizo); el seguimiento dice «YA SALE EN RANGO» cuando el semáforo está verde (nunca alarma con verde), y siempre la velocidad objetivo en m/min. Velocidad medida hasta juntar 100 pulsos (a 5 m/min ~15 min): un pulso de diferencia ya no da «corregiste al revés». (Caso EXT-07 08/10: 6–7 pulsos/min constantes y aparecía −3 %.)
 // 07v: 🚨 ALARMA en la estación si a los 10 min produciendo de pesar una bobina fuera de rango no se corrigió la velocidad (o se corrigió al revés): la tarjeta titila, suena cada 30 s y pregunta «¿POR QUÉ NO CORREGISTE?» (tornillo / no da más / el globo no aguanta / ahora lo corrijo / a propósito + motivo / otro + motivo). La respuesta queda en plc_respuestas (sólo agregar y leer; sql/plc_respuestas.sql). «Ahora lo corrijo» vuelve a preguntar a los 10 min. Extrusión en vivo muestra la respuesta o «sin respuesta» en la tarjeta, la tabla y las alertas.
 // 07u: 🧭 QUÉ HIZO EL OPERARIO después de pesar una bobina fuera de rango: velocidad 5 min antes de pesar vs los últimos 5 min después (hasta la próxima pesada), contra lo que hacía falta (≈ el % del desvío). CORRIGIÓ / CORRIGIÓ POCO / AL REVÉS / NO SE TOCÓ LA VELOCIDAD. Estación: recuadro en rojo si no hizo nada. Extrusión en vivo: en la tarjeta, columna «Qué hizo después» en la tabla, alerta «no corrigió» a los 10 min y «Sin corregir» por turno.
 // 07t: 📏 Extrusión en vivo: el CÓDIGO y el NOMBRE del producto que hace cada máquina siempre a la vista arriba de la tarjeta (con la orden y el cliente); sin orden marcada muestra el de la última bobina, avisado.
@@ -8853,9 +8854,26 @@ function _pbObjetivo(bob){
 // Dentro del rango: el L más cercano al objetivo (empate: menos bobinas).
 // Sin ninguno en rango (pedido chico, o justo entre dos cantidades): el más cercano al
 // objetivo que no pase del máximo; nunca bobinas de menos de la mitad del objetivo.
+// 08b — MODO «LARGO FIJO» (decisión de German 08/10, por defecto): todas las bobinas con el largo de
+// la ficha (que coincide con la mediana histórica: 50 poli 1.500 m), la OE NUEVA se redondea para
+// arriba a bobinas enteras, sin múltiplo de pistas y sin compensación. El modo por pistas queda
+// guardado: se vuelve a prender con configuracion.bobinas_plan_pistas = 'si'.
+function _pbModoPistas(){try{return String((typeof cfg!=='undefined'&&cfg&&cfg.bobinas_plan_pistas)||'').toLowerCase()==='si';}catch(e){return false;}}
+// Pura: lo que falta de una OE en largo fijo → lista de bobinas. La última absorbe un resto
+// chico (menos de medio largo) para no hacer bobinitas; si falta menos de una bobina, es esa.
+function _pbFaltanFijo(F,L){
+  const out=[];F=+F||0;L=+L||0;if(!(L>0))return out;
+  const piso=L*0.5;let g=0;
+  while(F>0.5&&g++<500){
+    if(F<=L+piso){out.push(_pbRed10(F));break;}
+    out.push(Math.round(L));F-=L;
+  }
+  return out;
+}
 function _pbCalcularPlan(M,P,L,rangoPct){
   M=+M||0;P=Math.max(1,parseInt(P)||1);L=+L||0;
   if(!(M>0)||!(L>0))return null;
+  if(!_pbModoPistas()){const N=Math.max(1,Math.ceil(M/L-1e-9));return{N,L,P,metros:N*L,exceso:Math.round(N*L-M),enRango:true,fijo:true};}
   const r=(rangoPct>0?rangoPct:15)/100,lmin=L*(1-r),lmax=L*(1+r),lpiso=_pbRed10(L*0.5);
   const kMax=Math.min(5000,Math.max(1,Math.ceil(M/(P*lpiso)))+1);
   let best=null;
@@ -8889,6 +8907,11 @@ function _pbPlanNuevo(bobinaId,metros){
 function _pbPlanDeOE(oe){
   if(!oe||oe.origen==='venta_bobina')return null;
   const bob=oe.bobinas||_pbBob(oe.bobina_id);
+  if(!_pbModoPistas()){   // 08b: largo de la ficha; los metros de la OE no se tocan
+    const M=parseFloat(oe.metros);if(!(M>0)||!bob)return null;
+    const L=_pbObjetivo(bob).m;if(!(L>0))return null;
+    return{N:_pbFaltanFijo(M,L).length,L,P:_pbPistas(bob),metros:M,fijo:true,rango:_pbRangoPct(bob),objetivo:L};
+  }
   const N=parseInt(oe.bobinas_plan),L=parseFloat(oe.metros_bobina_plan);
   if(N>0&&L>0&&parseFloat(oe.metros)>0){
     const P=parseInt(oe.pistas_plan)||_pbPistas(bob);
@@ -8993,17 +9016,22 @@ function _pbAgrupar(lista){
   return Object.keys(c).map(Number).sort((a,b)=>b-a)
     .map(l=>c[l]+' × '+l.toLocaleString('es-AR')+' m').join(' · ');
 }
-function _pbTxtPlan(p){return p?p.N+' × '+Math.round(p.L).toLocaleString('es-AR')+' m · '+p.P+' pistas':'';}
+function _pbTxtPlan(p){return p?p.N+' × '+Math.round(p.L).toLocaleString('es-AR')+' m'+(p.fijo?'':' · '+p.P+' pistas'):'';}
 // Estado completo de una OE (plan + compensación), con una bobina extra opcional (la
 // que se está por registrar).
 function _pbEstadoOE(oe,mtsExtra){
   const plan=_pbPlanDeOE(oe);if(!plan)return null;
   const mts=_pbBobinasDeOE(oe.id).map(b=>parseFloat(b.metros_reales)||0);
   if(mtsExtra>0)mts.push(+mtsExtra);
+  if(plan.fijo){   // 08b: sin compensación de pistas
+    const hechos=mts.reduce((a,b)=>a+b,0),faltan=_pbFaltanFijo(plan.metros-hechos,plan.L);
+    return{plan,comp:{T:plan.metros,Tplan:plan.metros,cap:plan.N,pistas:[],faltan,nExtra:0,cerrada:!faltan.length,hechas:mts.length,mtsHechos:Math.round(hechos),tol:plan.L}};
+  }
   return{plan,comp:_pbCompensar(plan,mts)};
 }
 // ¿Con esta bobina (mtsExtra) quedan cerradas las pistas? Sin plan: sí (como antes).
 function _pbOECierra(oe,mtsExtra){
+  if(!_pbModoPistas())return true;   // 08b: la OE cierra al llegar a los metros, como antes del plan
   try{const e=_pbEstadoOE(oe,mtsExtra);return !e||e.comp.cerrada;}catch(err){return true;}
 }
 // Chip corto para listas (Órdenes de extrusión, panel de la estación).
@@ -9032,7 +9060,7 @@ function _pbBoxHtml(oe,mtsTipeados){
   }).join('');
   let accion;
   if(comp.cerrada){
-    accion='<div style="font-size:16px;font-weight:800;color:var(--green);">✓ Las '+plan.P+' pistas cierran parejas</div>';
+    accion='<div style="font-size:16px;font-weight:800;color:var(--green);">'+(plan.fijo?'✓ La orden llegó a los metros':'✓ Las '+plan.P+' pistas cierran parejas')+'</div>';
   }else{
     const compensa=comp.faltan.some(l=>Math.abs(l-plan.L)>comp.tol);
     accion='<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;">Próxima bobina</div>'
@@ -9049,14 +9077,14 @@ function _pbBoxHtml(oe,mtsTipeados){
       const e2=_pbEstadoOE(oe,mt);
       aviso='<div style="margin-top:8px;padding:7px 9px;border-radius:6px;background:var(--amberbg);border:1px solid var(--amberbd);font-size:12px;color:var(--amber);line-height:1.45;">'
         +'⚠ Esta bobina tiene <b>'+Math.round(mt).toLocaleString('es-AR')+' m</b> y el objetivo es <b>'+prox.toLocaleString('es-AR')+' m</b> ('+(dev>0?'+':'')+Math.round(dev)+' %). Se puede registrar igual'
-        +(e2&&!e2.comp.cerrada?'; las que faltan quedarían en <b>'+_pbAgrupar(e2.comp.faltan)+'</b>.':'; con ella las pistas cierran.')+'</div>';
+        +(e2&&!e2.comp.cerrada?'; las que faltan quedarían en <b>'+_pbAgrupar(e2.comp.faltan)+'</b>.':(plan.fijo?'; con ella la orden llega a los metros.':'; con ella las pistas cierran.'))+'</div>';
     }
   }
   return '<div class="fp" style="margin-bottom:10px;border:2px solid var(--accentbd);">'
     +'<div class="fp-t">🧵 Plan de bobinas — '+escapeHtml(String(oe.numero_orden||''))+'</div>'
     +'<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px;">'
       +'<div style="font-size:20px;font-weight:800;">'+plan.N+' × '+Math.round(plan.L).toLocaleString('es-AR')+' m</div>'
-      +'<div style="font-size:12px;color:var(--text2);">'+plan.P+' pistas · hechas <b>'+comp.hechas+'</b> de '+plan.N+'</div>'
+      +'<div style="font-size:12px;color:var(--text2);">'+(plan.fijo?'largo fijo de la ficha':plan.P+' pistas')+' · hechas <b>'+comp.hechas+'</b> de '+(plan.fijo?(comp.hechas+comp.faltan.length):plan.N)+'</div>'
     +'</div>'
     +accion
     +'<div style="display:flex;flex-direction:column;gap:4px;margin-top:10px;">'+pistasH+'</div>'
@@ -9091,11 +9119,11 @@ function _pbPanelHtml(oe){
   const{plan,comp}=e;const prox=comp.faltan[0]||0;
   const compensa=comp.faltan.some(l=>Math.abs(l-plan.L)>comp.tol);
   return '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--bg2);border:1px solid var(--accentbd);border-radius:8px;padding:8px 10px;margin-bottom:10px;">'
-    +'<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;">🧵 Plan · '+plan.P+' pistas</div>'
+    +'<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;">🧵 Plan · '+(plan.fijo?'largo fijo':plan.P+' pistas')+'</div>'
       +'<div style="font-size:17px;font-weight:800;">'+plan.N+' × '+Math.round(plan.L).toLocaleString('es-AR')+' m</div>'
-      +'<div style="font-size:11px;color:var(--text2);">hechas '+comp.hechas+' de '+plan.N+'</div></div>'
+      +'<div style="font-size:11px;color:var(--text2);">hechas '+comp.hechas+' de '+(plan.fijo?comp.hechas+comp.faltan.length:plan.N)+'</div></div>'
     +(comp.cerrada
-      ?'<div style="font-size:13px;font-weight:800;color:var(--green);">✓ pistas parejas</div>'
+      ?'<div style="font-size:13px;font-weight:800;color:var(--green);">'+(plan.fijo?'✓ llegó a los metros':'✓ pistas parejas')+'</div>'
       :'<div style="text-align:right;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;">próxima bobina</div>'
         +'<div class="mono" style="font-size:22px;font-weight:800;color:'+(compensa?'var(--amber)':'var(--accent)')+';">'+prox.toLocaleString('es-AR')+' m</div>'
         +(compensa?'<div style="font-size:11px;color:var(--amber);font-weight:700;">⚖ '+_pbAgrupar(comp.faltan)+'</div>':'<div style="font-size:11px;color:var(--text2);">faltan '+comp.faltan.length+'</div>')
@@ -10068,7 +10096,7 @@ function _eeBarInfo(d){
 }
 function _eeBarHtml(id,d){
   const b=_eeBarInfo(d);if(!b)return '';
-  if(b.cerrada)return '<div class="ee-bar ok"><div class="ee-bar-hd"><span>Bobina en curso</span><span>'+(d.meta.otra?'✓ la otra máquina hace la bobina que falta · consultá en la oficina':'✓ pistas parejas: la orden ya cierra · consultá en la oficina')+'</span></div></div>';
+  if(b.cerrada)return '<div class="ee-bar ok"><div class="ee-bar-hd"><span>Bobina en curso</span><span>'+(d.meta.otra?'✓ la otra máquina hace la bobina que falta · consultá en la oficina':(_pbModoPistas()?'✓ pistas parejas: la orden ya cierra · consultá en la oficina':'✓ la orden llegó a los metros · consultá en la oficina'))+'</span></div></div>';
   return '<div class="ee-bar '+b.cls+'" id="ee-bar-'+id+'"><div class="ee-bar-hd"><span>Bobina en curso'+(b.compensa?' · <b style="color:var(--amber)">⚖ compensar pistas</b>':'')+'</span>'
     +'<span class="mono" id="ee-bar-t-'+id+'">'+(b.cur!=null?_eeF(b.cur):'—')+' / '+_eeF(b.m)+' m</span></div>'
     +'<div class="ee-bar-tr"><i id="ee-bar-f-'+id+'" style="width:'+Math.min(100,b.p*100).toFixed(1)+'%"></i></div>'

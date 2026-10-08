@@ -6,6 +6,7 @@ const a=src.indexOf('// ===== 🧵 PLAN DE BOBINAS POR PISTAS');
 const b=src.indexOf('// ===== FIN 🧵 PLAN DE BOBINAS POR PISTAS =====');
 if(a<0||b<0||b<a){console.error('no se encontró el bloque');process.exit(1);}
 globalThis.C={bobinas:[],ordenes:[],bobinas_prod:[]};
+globalThis.cfg={bobinas_plan_pistas:'si'};   // 08b: el modo por pistas quedó apagado por defecto; acá se sigue probando
 globalThis.r2=x=>Math.round(x*100)/100;
 globalThis.escapeHtml=s=>String(s);
 eval(src.slice(a,b).replace('const _PB_COLS=','globalThis._PB_COLS='));
@@ -72,6 +73,23 @@ t(_pbOECierra(C.ordenes[0],1500)===false&&_pbEstadoOE(C.ordenes[0],1500).comp.fa
 C.bobinas_prod.push({orden_id:9,metros_reales:1500},{orden_id:9,metros_reales:640});
 t(_pbOECierra(C.ordenes[0],0),'con la compensación, cierra');
 t(_pbOECierra({id:77,origen:'venta_bobina',metros:100},0),'sin plan: cierra como siempre');
+
+// --- 08b largo fijo (modo por defecto) ---
+cfg.bobinas_plan_pistas='';
+{let q=_pbCalcularPlan(4800,4,1500,15);t(q.fijo&&q.N===4&&q.L===1500&&q.metros===6000,'fijo: OE nueva de 4.800 m → se redondea para arriba a 4 × 1.500');
+ q=_pbCalcularPlan(7040,4,1500,15);t(q.N===5&&q.metros===7500,'fijo: 7.040 m → 5 × 1.500 (sin múltiplo de pistas)');
+ t(_pbFaltanFijo(7040,1500).join()==='1500,1500,1500,1500,1040','fijo: OE existente de 7.040 → 4 × 1.500 + la última de 1.040');
+ t(_pbFaltanFijo(1900,1500).join()==='1900','fijo: si sobra menos de medio largo, la última lo absorbe (1.900, no 1.500 + 400)');
+ t(_pbFaltanFijo(2400,1500).join()==='1500,900','fijo: sobra 900 (más de medio largo) → 1.500 + 900');
+ t(_pbFaltanFijo(0,1500).length===0,'fijo: llegó a los metros → nada');
+ const bob={id:91,ancho:50,espesor:18,pistas:4,metros_bobina_obj:1500,kg_por_metro:0.0156};C.bobinas.push(bob);
+ const oe={id:991,bobina_id:91,metros:7040,bobinas_plan:8,metros_bobina_plan:880,pistas_plan:4,numero_orden:'ORD-X'};
+ C.bobinas_prod.push({orden_id:991,metros_reales:1554},{orden_id:991,metros_reales:1500});
+ const e=_pbEstadoOE(oe);
+ t(e.plan.fijo&&e.plan.L===1500&&e.comp.faltan.join()==='1500,1500,990','fijo: la OE con plan viejo (8 × 880) pasa a pedir 1.500 por bobina');
+ t(_pbOECierra(oe,100),'fijo: la OE cierra al llegar a los metros (no espera pistas)');
+ t(!/pistas/.test(_pbTxtPlan(e.plan)),'fijo: el texto del plan no habla de pistas');
+ cfg.bobinas_plan_pistas='si';}
 
 console.log((bad?'✗ ':'✓ ')+ok+' ok'+(bad?' · '+bad+' fallaron':''));
 process.exit(bad?1:0);
