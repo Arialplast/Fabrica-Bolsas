@@ -148,7 +148,7 @@ await renderExtrusionVivo();
 const H=els['evv-body'].innerHTML;
 t(!/No se pudieron/.test(H),'la pantalla se arma sin error');
 t(/EXT-03/.test(H)&&/EXT-07/.test(H)&&/EXT-01/.test(H)&&!/EXT-02/.test(H),'tarjetas: E3 y E7 con PLC, E1 sin PLC, E2 fuera de servicio no aparece');
-t(/Sin PLC/.test(H),'EXT-01 marcada sin PLC');
+t(/Sin medición/.test(H)&&/EXT-01 sin PLC/.test(H),'EXT-01 marcada sin PLC (tarjeta y barra de estado)');
 // uso EXT-03 = 1390/1440
 t(H.includes('96,5 %'),'uso EXT-03 = 1.390/1.440 = 96,5 %');
 // kg/h de la BOB-06574: 28,9 kg / 0,75 h = 38,5
@@ -161,7 +161,8 @@ t(/fotocélula/.test(H),'alerta de fotocélula (film 90 % la última hora)');
 t(/provisorio/.test(H),'avisa factor provisorio');
 t(/Paradas de 5 min o más/.test(H)&&/50 min/.test(H),'tabla de paradas con la de 50 min');
 t(/Por turno/.test(H)&&/MARTIN MASSI/.test(H),'tabla por turno con el operario');
-t(/kg\/h y g\/m en vivo se ven sólo acá/.test(H),'pie de P4');
+t(/estimados sólo acá/.test(H)&&/el operario ve la advertencia/.test(H),'pie: estimados sólo acá y advertencia del operario');
+t(/Gramaje real vs orden/.test(H)&&/kg\/h por bobina/.test(H)&&/evx-filt/.test(H),'07s: gráficos por bobina y filtros de la tabla');
 
 // ---- 07g panel operario ----
 const mm=(n,br,fi)=>({ts:new Date(AHORA-(10-n)*60000).toISOString(),odo_bruto:br,odo_film:fi});
