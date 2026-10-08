@@ -1113,7 +1113,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-08c</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-08d</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6266,7 +6266,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-08c';   // 08c: 🧵 PISTAS CON LARGO FIJO Y PISO (OE nuevas y viejas): largo de la ficha, siempre de a una bobina por pista y para arriba; sólo la última vuelta cambia: más corta pero ≥ 2/3 del largo, o estirando la vuelta anterior hasta +25 % si sobra poco. La compensación nunca pide menos que el piso (a la pista que le falta menos, se la da por cerrada). El largo fijo sin pistas de la 08b queda con configuracion.bobinas_plan_pistas='no'.
+const APP_BUILD='2026-10-08d';   // 08d: 🧵 las bobinas de largo normal se piden primero y la del resto al final. Fichas: las 95 cm de DAG (blanca, amarilla, magenta, 40 µ) pasan a 1 pista; 190 y 193 (80 µ amarilla y magenta) a 350 m como la blanca.
+// 08c: 🧵 PISTAS CON LARGO FIJO Y PISO (OE nuevas y viejas): largo de la ficha, siempre de a una bobina por pista y para arriba; sólo la última vuelta cambia: más corta pero ≥ 2/3 del largo, o estirando la vuelta anterior hasta +25 % si sobra poco. La compensación nunca pide menos que el piso (a la pista que le falta menos, se la da por cerrada). El largo fijo sin pistas de la 08b queda con configuracion.bobinas_plan_pistas='no'.
 // 08b: 🧵 bobinas de LARGO FIJO (la ficha, = mediana histórica): se apaga el múltiplo de pistas y la compensación (vuelve con configuracion.bobinas_plan_pistas='si'). OE nueva: se redondea para arriba a bobinas enteras. Próxima bobina = largo de la ficha; la última absorbe un resto menor a medio largo (no más bobinitas). La OE cierra al llegar a los metros, como antes. (Caso 07/10: 50 poli pedía 830 m ≈ 20 min a 40 m/min.)
 // 08a: 🚦 semáforo y seguimiento con UNA sola cuenta: los dos parten de la última bobina pesada (su g/m y la velocidad a la que se hizo); el seguimiento dice «YA SALE EN RANGO» cuando el semáforo está verde (nunca alarma con verde), y siempre la velocidad objetivo en m/min. Velocidad medida hasta juntar 100 pulsos (a 5 m/min ~15 min): un pulso de diferencia ya no da «corregiste al revés». (Caso EXT-07 08/10: 6–7 pulsos/min constantes y aparecía −3 %.)
 // 07v: 🚨 ALARMA en la estación si a los 10 min produciendo de pesar una bobina fuera de rango no se corrigió la velocidad (o se corrigió al revés): la tarjeta titila, suena cada 30 s y pregunta «¿POR QUÉ NO CORREGISTE?» (tornillo / no da más / el globo no aguanta / ahora lo corrijo / a propósito + motivo / otro + motivo). La respuesta queda en plc_respuestas (sólo agregar y leer; sql/plc_respuestas.sql). «Ahora lo corrijo» vuelve a preguntar a los 10 min. Extrusión en vivo muestra la respuesta o «sin respuesta» en la tarjeta, la tabla y las alertas.
@@ -9043,7 +9044,8 @@ function _pbCompensar(plan,mts){
     if(nB>slots){p.extra=nB-Math.max(0,slots);nExtra+=p.extra;}
     faltan.push(...p.prox);
   });
-  faltan.sort((a,b)=>b-a);
+  if(v2)faltan.sort((a,b)=>(Math.abs(a-L)<1?0:1)-(Math.abs(b-L)<1?0:1)||b-a);   // 08d: primero las de largo normal, la del resto al final
+  else faltan.sort((a,b)=>b-a);
   return{T,Tplan,cap,pistas,faltan,nExtra,cerrada:!faltan.length,hechas:hechas.length,
     mtsHechos:Math.round(hechas.reduce((s,x)=>s+x,0)),tol:v2?Math.max(50,L*0.03):tol,piso};
 }
