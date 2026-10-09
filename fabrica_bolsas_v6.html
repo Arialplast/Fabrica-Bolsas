@@ -1113,7 +1113,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-08d</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-09a</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6266,7 +6266,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-08d';   // 08d: 🧵 las bobinas de largo normal se piden primero y la del resto al final. Fichas: las 95 cm de DAG (blanca, amarilla, magenta, 40 µ) pasan a 1 pista; 190 y 193 (80 µ amarilla y magenta) a 350 m como la blanca.
+const APP_BUILD='2026-10-09a';   // 09a: 🧵 el tope de exceso de metros se mide contra el plan (siempre para arriba), no sólo contra los metros de la OE; y al «Aceptar tal cual» una bobina pendiente se revisa si la OE ya quedó completa (metros y pistas) y se cierra. (ORD-06337: la 4ª bobina que pedía el plan se fue a pendientes y la OE quedó abierta.)
+// 08d: 🧵 las bobinas de largo normal se piden primero y la del resto al final. Fichas: las 95 cm de DAG (blanca, amarilla, magenta, 40 µ) pasan a 1 pista; 190 y 193 (80 µ amarilla y magenta) a 350 m como la blanca.
 // 08c: 🧵 PISTAS CON LARGO FIJO Y PISO (OE nuevas y viejas): largo de la ficha, siempre de a una bobina por pista y para arriba; sólo la última vuelta cambia: más corta pero ≥ 2/3 del largo, o estirando la vuelta anterior hasta +25 % si sobra poco. La compensación nunca pide menos que el piso (a la pista que le falta menos, se la da por cerrada). El largo fijo sin pistas de la 08b queda con configuracion.bobinas_plan_pistas='no'.
 // 08b: 🧵 bobinas de LARGO FIJO (la ficha, = mediana histórica): se apaga el múltiplo de pistas y la compensación (vuelve con configuracion.bobinas_plan_pistas='si'). OE nueva: se redondea para arriba a bobinas enteras. Próxima bobina = largo de la ficha; la última absorbe un resto menor a medio largo (no más bobinitas). La OE cierra al llegar a los metros, como antes. (Caso 07/10: 50 poli pedía 830 m ≈ 20 min a 40 m/min.)
 // 08a: 🚦 semáforo y seguimiento con UNA sola cuenta: los dos parten de la última bobina pesada (su g/m y la velocidad a la que se hizo); el seguimiento dice «YA SALE EN RANGO» cuando el semáforo está verde (nunca alarma con verde), y siempre la velocidad objetivo en m/min. Velocidad medida hasta juntar 100 pulsos (a 5 m/min ~15 min): un pulso de diferencia ya no da «corregiste al revés». (Caso EXT-07 08/10: 6–7 pulsos/min constantes y aparecía −3 %.)
@@ -11191,7 +11192,12 @@ async function _guardarBobinaInner(){
   const calidad=absE>tolMax?'RECHAZO':absE>tolAdv?'ADVERTENCIA':'OK';
   const mtsXOrden={};C.bobinas_prod.filter(b=>b.orden_id===ordId).forEach(b=>{mtsXOrden[ordId]=(mtsXOrden[ordId]||0)+(b.metros_reales||0);});
   const mtsAcum=(mtsXOrden[ordId]||0)+mtsR;
-  const pctAcum=orden.metros?mtsAcum/orden.metros*100:0;
+  // 09a: el tope de exceso se mide contra lo que pide el PLAN (siempre para arriba), no sólo contra
+  // los metros de la OE: la ORD-06337 pedía 2.840 m, el plan 4 × 940 = 3.760 m, y la 4ª bobina (que
+  // el plan pedía para cerrar las pistas) se fue a «pendientes de asignación» y la OE nunca cerró.
+  let _metaOE=+orden.metros||0;
+  try{const _pe=_pbEstadoOE(orden);if(_pe&&_pe.plan&&_pe.plan.metros>_metaOE)_metaOE=_pe.plan.metros;}catch(e){}
+  const pctAcum=_metaOE?mtsAcum/_metaOE*100:0;
   if(pctAcum>(100+cfg.tolerancia_exceso_mts)){
     // 🔴 11b — ANTES esto pedia clave de admin y listo. A las 3 de la mañana no hay
     // admin: el operario cerraba la pantalla y esas bobinas no se cargaban nunca.
@@ -42813,7 +42819,21 @@ async function aceptarBobinaOriginal(id){
       // Mantener bobina_tipo_id original y orden_id original
     }).eq('id',id);
     await reload();
+    try{await _oeCerrarSiCorresponde(b.orden_id);}catch(e){console.warn('cerrar OE',e);}
   });
+}
+// 09a: al aceptar una bobina que estaba pendiente, su OE puede quedar completa (metros y pistas):
+// antes nadie la cerraba porque el cierre sólo se miraba al cargar una bobina nueva.
+async function _oeCerrarSiCorresponde(ordId){
+  const o=(C.ordenes||[]).find(x=>x.id===ordId);
+  if(!o||o.estado==='Completada'||o.estado==='Cancelada')return false;
+  const mts=(C.bobinas_prod||[]).filter(b=>b.orden_id===ordId&&!b.anulada&&!b.fuera_de_rango).reduce((a,b)=>a+(parseFloat(b.metros_reales)||0),0);
+  if(!(mts>=(+o.metros||0)-0.5)||!_pbOECierra(o,0))return false;
+  const{error}=await sb.from('ordenes').update({estado:'Completada',fecha_completada:new Date().toISOString()}).eq('id',ordId);
+  if(error)throw error;
+  toast('✓ '+o.numero_orden+' completada','green');
+  await reload();
+  return true;
 }
 
 
