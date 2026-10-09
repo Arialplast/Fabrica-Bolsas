@@ -340,6 +340,12 @@ t(_evvJuicio(9).k==='bad'&&_evvJuicio(-11).k==='bad','pasando +8 % / −10 % →
   t(m[0].mmin===0&&m[0].est==='F','09d: rodillo suelto sin film → 0 m/min y estado GIRA SIN FILM');
 }
 
+
+// ---- 09f: aro punteado para bobinas con la fotocélula sin film ----
+{
+  const sv=_evvScatter([{n:'EXT-03',col:'#0aa',pts:[{t:AHORA-3600000,v:-14.7,lbl:'a'},{t:AHORA-1800000,v:6.9,fc:true,lbl:'b'}]}],AHORA-7200000,AHORA,-15,15,[-15,0,15],v=>String(v),[-5,2]);
+  t((sv.match(/stroke-dasharray="2 2"/g)||[]).length===1,'09f: sólo la bobina con fotocélula sin film va con aro punteado');
+}
 console.log((bad?'✗ ':'✓ ')+ok+' ok · '+bad+' fallas');
 process.exit(bad?1:0);
 })().catch(e=>{
