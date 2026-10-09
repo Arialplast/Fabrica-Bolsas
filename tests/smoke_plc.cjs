@@ -210,6 +210,12 @@ t(_evvJuicio(9).k==='bad'&&_evvJuicio(-11).k==='bad','pasando +8 % / −10 % →
   // la estación y el dueño llaman a la misma función con los mismos datos → mismo veredicto
   const R2=_plcRefMaquina(calc,mp,0.0199);t(JSON.stringify(R)===JSON.stringify(R2),'07m: misma entrada, mismo veredicto en las dos pantallas');
   t(_plcRefMaquina(calc,mp,0.028).J===null,'07m: si la orden cambió de bobina, no se juzga con las pesadas de la anterior');
+  // 09e: un cierre con la fotocélula sin ver film (film 26 % del giro) no entra en la referencia
+  const calcF=calc.map(c=>c.id===4?Object.assign({},c,{filmPct:26.4,minProd:18.5}):c);
+  const RF=_plcRefMaquina(calcF,mp,0.0199);
+  t(RF&&RF.nros.join()==='BOB-6585,BOB-6588'&&RF.nJ===2,'09e: la bobina con film 26 % queda afuera de la referencia');
+  t(Math.abs(RF.kgh-(9.66+30.12)/((17.2+56.3)/60))<1e-9,'09e: kg/h sin la bobina de minutos cortados');
+  t(_plcCierreSano({filmPct:95})&&!_plcCierreSano({filmPct:94.9})&&_plcCierreSano({filmPct:null}),'09e: sano = film ≥ 95 % (o sin dato)');
   t(_plcRefMaquina(calc,new Map(),0.0199)===null,'07m: sin pesadas → sin indicación');
   t(!/_eeIndicacion\(/.test(src),'07m: no queda la cuenta vieja por kg/h ÷ m/min');
 }

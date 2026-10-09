@@ -1131,7 +1131,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-09d</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-09e</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6291,7 +6291,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-09d';   // 09d: 📏 P2 — los metros de la bobina salen SÓLO del odómetro CON FILM (antes del bruto: el rodillo suelto tras un pinchazo se sumaba). Bobina en curso, barra, velocidad y g/m también con film; el bruto queda de referencia. Estación: alarma «EL RODILLO GIRA Y NO SE VE FILM» (titila y pita) al minuto; en la carga, aviso si el cierre tuvo film en menos del 95 % del giro.   // 09c: 📏 Excedentes de OE en su propia pestaña (Producción, al lado de Fuera de rango), agrupados por OE con cliente; Fuera de rango muestra sólo las de calidad. Mismas acciones (aceptar / reasignar), sin SQL.   // 09b: 🎯 Cortar hoy — cada OC del pedido es una tarjeta propia (franja del color de su estado, cabecera sombreada, «OC n/N», guía vertical del pedido): con muchas OC no se distinguían los renglones. Sólo CSS + marcado, sin tocar cálculos. // 09a: 🧵 el tope de exceso de metros se mide contra el plan (siempre para arriba), no sólo contra los metros de la OE; y al «Aceptar tal cual» una bobina pendiente se revisa si la OE ya quedó completa (metros y pistas) y se cierra. (ORD-06337: la 4ª bobina que pedía el plan se fue a pendientes y la OE quedó abierta.)
+const APP_BUILD='2026-10-09e';   // 09e: 📏 un cierre con la fotocélula sin ver film (film < 95 % del giro) no entra en ninguna referencia (kg/h, semáforo, velocidad de la última pesada, alarmas): con minutos cortados y kg enteros daba 52,5 kg/h y «¿CAMBIASTE DE PRODUCTO?» falso en EXT-03 al cambiar de color.   // 09d: 📏 P2 — los metros de la bobina salen SÓLO del odómetro CON FILM (antes del bruto: el rodillo suelto tras un pinchazo se sumaba). Bobina en curso, barra, velocidad y g/m también con film; el bruto queda de referencia. Estación: alarma «EL RODILLO GIRA Y NO SE VE FILM» (titila y pita) al minuto; en la carga, aviso si el cierre tuvo film en menos del 95 % del giro.   // 09c: 📏 Excedentes de OE en su propia pestaña (Producción, al lado de Fuera de rango), agrupados por OE con cliente; Fuera de rango muestra sólo las de calidad. Mismas acciones (aceptar / reasignar), sin SQL.   // 09b: 🎯 Cortar hoy — cada OC del pedido es una tarjeta propia (franja del color de su estado, cabecera sombreada, «OC n/N», guía vertical del pedido): con muchas OC no se distinguían los renglones. Sólo CSS + marcado, sin tocar cálculos. // 09a: 🧵 el tope de exceso de metros se mide contra el plan (siempre para arriba), no sólo contra los metros de la OE; y al «Aceptar tal cual» una bobina pendiente se revisa si la OE ya quedó completa (metros y pistas) y se cierra. (ORD-06337: la 4ª bobina que pedía el plan se fue a pendientes y la OE quedó abierta.)
 // 08d: 🧵 las bobinas de largo normal se piden primero y la del resto al final. Fichas: las 95 cm de DAG (blanca, amarilla, magenta, 40 µ) pasan a 1 pista; 190 y 193 (80 µ amarilla y magenta) a 350 m como la blanca.
 // 08c: 🧵 PISTAS CON LARGO FIJO Y PISO (OE nuevas y viejas): largo de la ficha, siempre de a una bobina por pista y para arriba; sólo la última vuelta cambia: más corta pero ≥ 2/3 del largo, o estirando la vuelta anterior hasta +25 % si sobra poco. La compensación nunca pide menos que el piso (a la pista que le falta menos, se la da por cerrada). El largo fijo sin pistas de la 08b queda con configuracion.bobinas_plan_pistas='no'.
 // 08b: 🧵 bobinas de LARGO FIJO (la ficha, = mediana histórica): se apaga el múltiplo de pistas y la compensación (vuelve con configuracion.bobinas_plan_pistas='si'). OE nueva: se redondea para arriba a bobinas enteras. Próxima bobina = largo de la ficha; la última absorbe un resto menor a medio largo (no más bobinitas). La OE cierra al llegar a los metros, como antes. (Caso 07/10: 50 poli pedía 830 m ≈ 20 min a 40 m/min.)
@@ -9405,6 +9405,13 @@ function _plcCalcCierres(cierres,factor){
       desde:p?p.cerrado_en:null});
   });
 }
+// 09e — ¿Los datos del PLC de este cierre sirven de referencia? Si la fotocélula vio film en menos
+// del 95 % del giro (fotocélula sin señal o desapuntada), los minutos produciendo y los metros con film
+// quedan cortos pero los kg de la balanza son los de toda la bobina: kg/h, g/m y velocidad salen
+// inflados. 09/10: BOB-06754 (film 26 %) y BOB-06757 (~72 %) daban 52,5 kg/h (real ~35) y la estación
+// mostró «¿CAMBIASTE DE PRODUCTO?» cuando sólo se había cambiado el color. Esos cierres no entran
+// en ninguna referencia (kg/h, semáforo, velocidad de la última pesada, alarmas de corrección).
+function _plcCierreSano(c){return !c||c.filmPct==null||c.filmPct>=95;}
 // Pura: metros CON FILM de la bobina en curso (estado vivo − último cierre). P2.
 function _plcEnCurso(est,ult,factor){
   if(!est||!ult||est.odo_film==null||ult.film_cierre==null)return null;
@@ -9778,7 +9785,7 @@ function _eeKghBobinas(extId,d){
   (C.bobinas_prod||[]).forEach(b=>{
     if(String(b.extrusora_id)!==String(extId)||b.anulada||!b.plc_cierre_id)return;
     const c=porC[b.plc_cierre_id];const kg=parseFloat(b.kg_reales)||0;
-    if(c&&c.minProd>5&&kg>0)out[b.id]=Math.round(kg/(c.minProd/60)*10)/10;
+    if(c&&_plcCierreSano(c)&&c.minProd>5&&kg>0)out[b.id]=Math.round(kg/(c.minProd/60)*10)/10;   // 09e
   });
   return out;
 }
@@ -9794,6 +9801,7 @@ function _plcRefMaquina(calc,bobPorCierre,kpmOrden){
   (calc||[]).forEach(c=>{
     const b=bobPorCierre&&bobPorCierre.get(c.id);
     if(!b||b.anulada||c.descartado||!(c.metros>0)||new Date(c.cerrado_en).getTime()<t0)return;
+    if(!_plcCierreSano(c))return;   // 09e: fotocélula sin ver film → no sirve de referencia
     const kq=_evvKgCalidad(b);if(!(kq>0))return;
     const tipo=(C.bobinas||[]).find(x=>String(x.id)===String(b.bobina_tipo_id));
     it.push({b,c,kq,kn:_evvKgNeto(b),m:c.metros,h:c.minProd>0?c.minProd/60:0,gt:tipo&&tipo.kg_por_metro?tipo.kg_por_metro*1000:null});
@@ -10399,8 +10407,9 @@ async function renderExtrusionVivo(){
           const tipo=(C.bobinas||[]).find(x=>String(x.id)===String(b.bobina_tipo_id));
           o.gpm=kq*1000/c.metros;
           o.gpmT=tipo&&tipo.kg_por_metro?tipo.kg_por_metro*1000:null;
-          o.dg=o.gpmT?(o.gpm/o.gpmT-1):null;
-          o.kgh=c.minProd>0?kn/(c.minProd/60):null;
+          o.sano=_plcCierreSano(c);   // 09e: con la fotocélula sin ver film, g/m y kg/h no valen
+          o.dg=(o.gpmT&&o.sano)?(o.gpm/o.gpmT-1):null;
+          o.kgh=(c.minProd>0&&o.sano)?kn/(c.minProd/60):null;
           o.kg=kn;
           o.ord=(C.ordenes||[]).find(x=>String(x.id)===String(b.orden_id));
         }
