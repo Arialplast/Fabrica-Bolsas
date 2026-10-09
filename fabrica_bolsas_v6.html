@@ -1131,7 +1131,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-09b</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-09c</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -1179,6 +1179,7 @@ body.pext-on .main{margin-left:0!important;}
         <div class="nav-item" onclick="go('gantt-corte')"><div class="nav-dot"></div>Gantt corte semanal</div>
         <div class="nav-item" onclick="goAdmin('gantt-corte-diario')"><div class="nav-dot"></div>Gantt corte diario 🔐</div>
         <div class="nav-item" onclick="go('bobinas-fuera-rango')"><div class="nav-dot" style="background:var(--red)"></div>Fuera de rango</div>
+        <div class="nav-item" onclick="go('bobinas-excedentes')"><div class="nav-dot" style="background:var(--amber)"></div>📏 Excedentes de OE</div>
         <div class="nav-item" onclick="go('uso-interno')"><div class="nav-dot" style="background:var(--teal)"></div>🧵 Bobinas para fundas / uso interno</div>
         <div class="nav-item" onclick="go('historial-ordenes')"><div class="nav-dot"></div>Historial órdenes</div>
         <div class="nav-item" onclick="go('suspension-maquinas')"><div class="nav-dot" style="background:var(--red)"></div>Suspensión máquinas</div>
@@ -2243,6 +2244,12 @@ body.pext-on .main{margin-left:0!important;}
       <div class="page-hdr"><div><div class="page-title">Bobinas fuera de rango</div><div class="page-sub">No cuentan en su orden original · pendientes de reasignación admin</div></div></div>
       <div class="alert alert-warn" style="font-size:12px;">Estas bobinas superaron el límite de error tolerable. No se sumaron a los metros de su orden. Solo el administrador puede reasignarlas a otro producto.</div>
       <div id="fuera-rango-wrap"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+
+    <!-- 📏 EXCEDENTES DE OE (09c) -->
+    <div class="page" id="page-bobinas-excedentes">
+      <div class="page-hdr"><div><div class="page-title">📏 Bobinas excedentes de OE</div><div class="page-sub">Bobinas que se pasan de los metros de su orden · pendientes de asignación admin</div></div></div>
+      <div id="excedentes-wrap"><div class="loading"><div class="spinner"></div></div></div>
     </div>
 
     <!-- 🧵 BOBINAS PARA FUNDAS / USO INTERNO (02a) -->
@@ -6284,7 +6291,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-09b';   // 09b: 🎯 Cortar hoy — cada OC del pedido es una tarjeta propia (franja del color de su estado, cabecera sombreada, «OC n/N», guía vertical del pedido): con muchas OC no se distinguían los renglones. Sólo CSS + marcado, sin tocar cálculos. // 09a: 🧵 el tope de exceso de metros se mide contra el plan (siempre para arriba), no sólo contra los metros de la OE; y al «Aceptar tal cual» una bobina pendiente se revisa si la OE ya quedó completa (metros y pistas) y se cierra. (ORD-06337: la 4ª bobina que pedía el plan se fue a pendientes y la OE quedó abierta.)
+const APP_BUILD='2026-10-09c';   // 09c: 📏 Excedentes de OE en su propia pestaña (Producción, al lado de Fuera de rango), agrupados por OE con cliente; Fuera de rango muestra sólo las de calidad. Mismas acciones (aceptar / reasignar), sin SQL.   // 09b: 🎯 Cortar hoy — cada OC del pedido es una tarjeta propia (franja del color de su estado, cabecera sombreada, «OC n/N», guía vertical del pedido): con muchas OC no se distinguían los renglones. Sólo CSS + marcado, sin tocar cálculos. // 09a: 🧵 el tope de exceso de metros se mide contra el plan (siempre para arriba), no sólo contra los metros de la OE; y al «Aceptar tal cual» una bobina pendiente se revisa si la OE ya quedó completa (metros y pistas) y se cierra. (ORD-06337: la 4ª bobina que pedía el plan se fue a pendientes y la OE quedó abierta.)
 // 08d: 🧵 las bobinas de largo normal se piden primero y la del resto al final. Fichas: las 95 cm de DAG (blanca, amarilla, magenta, 40 µ) pasan a 1 pista; 190 y 193 (80 µ amarilla y magenta) a 350 m como la blanca.
 // 08c: 🧵 PISTAS CON LARGO FIJO Y PISO (OE nuevas y viejas): largo de la ficha, siempre de a una bobina por pista y para arriba; sólo la última vuelta cambia: más corta pero ≥ 2/3 del largo, o estirando la vuelta anterior hasta +25 % si sobra poco. La compensación nunca pide menos que el piso (a la pista que le falta menos, se la da por cerrada). El largo fijo sin pistas de la 08b queda con configuracion.bobinas_plan_pistas='no'.
 // 08b: 🧵 bobinas de LARGO FIJO (la ficha, = mediana histórica): se apaga el múltiplo de pistas y la compensación (vuelve con configuracion.bobinas_plan_pistas='si'). OE nueva: se redondea para arriba a bobinas enteras. Próxima bobina = largo de la ficha; la última absorbe un resto menor a medio largo (no más bobinitas). La OE cierra al llegar a los metros, como antes. (Caso 07/10: 50 poli pedía 830 m ≈ 20 min a 40 m/min.)
@@ -6669,7 +6676,7 @@ async function reload(){
     sb.from('tipos_empaque').select('*').order('nombre'),
     _traerQ(()=>sb.from('ordenes_corte').select('*, productos(*), tipos_empaque(*), orden_corte_maquinas(*, maquinas_corte(*)), orden_corte_bobinas(*, bobinas_producidas(id,numero_bobina,metros_reales,kg_reales,orden_id,bobina_tipo_id))').order('prioridad').order('created_at').order('id')),
     sb.from('capacidad_corte_semanal').select('*, maquinas_corte(*)'),
-    sb.from('bobinas_producidas').select('*, ordenes(numero_orden), bobinas(*), extrusoras(nombre), operarios(nombre)').eq('fuera_de_rango',true).eq('anulada',false).order('created_at',{ascending:false}),
+    sb.from('bobinas_producidas').select('*, ordenes(numero_orden,cliente), bobinas(*), extrusoras(nombre), operarios(nombre)').eq('fuera_de_rango',true).eq('anulada',false).order('created_at',{ascending:false}),
     sb.from('suspensiones_maquinas').select('*, extrusoras(nombre), maquinas_corte(nombre)').order('created_at',{ascending:false}).limit(100),
     sb.from('tipos_mp').select('*').order('categoria').order('nombre'),
     sb.from('proveedores').select('*').eq('activo',true).order('nombre'),
@@ -14503,6 +14510,7 @@ function go(name){
   if(name==='historial-ordenes')renderHistorial();
   if(name==='suspension-maquinas'){renderSuspMaquinas();renderSuspHistorial();}
   if(name==='bobinas-fuera-rango')renderFueraDeRango();
+  if(name==='bobinas-excedentes')renderFueraDeRango();
   if(name==='uso-interno')renderUsoInterno();
   if(name==='balance-bobinas')renderBalance();
   if(name==='informe-lote')renderInformeLote();
@@ -42725,19 +42733,44 @@ async function uiHistorial(){
     +'</tbody></table></div>';
 }
 
+// ===== 📏 EXCEDENTES DE OE SEPARADOS DE FUERA DE RANGO (09c) =====
+// Las dos clases viajan por el mismo circuito (fuera_de_rango=true, C.bobinas_fuera);
+// el excedente se reconoce por el motivo «EXCEDENTE DE OE…». Cada pestaña pinta su
+// parte; renderFueraDeRango pinta las dos, así todos los repintados existentes
+// (reload, _repintar, aceptar, reasignar) actualizan ambas sin tocarlos.
+function _bobEsExcedente(b){return /^EXCEDENTE DE OE/.test(String(b&&b.motivo_fuera_rango||''));}
+function _bobExcTambienPeso(b){return _bobEsExcedente(b)&&/·\s*(Pesada|Liviana)/.test(String(b.motivo_fuera_rango||''));}
 function renderFueraDeRango(){
-  const w=document.getElementById('fuera-rango-wrap');if(!w)return;
-  const lista=C.bobinas_fuera||[];
-  if(!lista.length){w.innerHTML='<div class="empty" style="color:var(--green)">✓ No hay bobinas fuera de rango.</div>';return;}
+  const todas=C.bobinas_fuera||[];
+  _pintarPendBob('fuera-rango-wrap',todas.filter(b=>!_bobEsExcedente(b)),false);
+  const exc=todas.filter(_bobEsExcedente)
+    .sort((a,b)=>(a.orden_id||0)-(b.orden_id||0)||String(a.numero_bobina).localeCompare(String(b.numero_bobina)));
+  _pintarPendBob('excedentes-wrap',exc,true);
+}
+function _pintarPendBob(wrapId,lista,modoExc){
+  const w=document.getElementById(wrapId);if(!w)return;
+  if(!lista.length){w.innerHTML='<div class="empty" style="color:var(--green)">✓ '+(modoExc?'No hay bobinas excedentes de OE pendientes.':'No hay bobinas fuera de rango.')+'</div>';return;}
   const totMts=r1(lista.reduce((s,b)=>s+(b.metros_reales||0),0));
   const totKg=r1(lista.reduce((s,b)=>s+(b.kg_reales||0),0));
   let html='<div class="stats" style="margin-bottom:1.25rem;">'
-    +'<div class="stat"><div class="stat-lbl">Total bobinas</div><div class="stat-val">'+lista.length+'</div></div>'
-    +'<div class="stat"><div class="stat-lbl">Total metros</div><div class="stat-val">'+totMts+' m</div><div class="stat-sub">pendientes reasignación</div></div>'
+    +'<div class="stat"><div class="stat-lbl">'+(modoExc?'Bobinas excedentes':'Total bobinas')+'</div><div class="stat-val">'+lista.length+'</div></div>'
+    +(modoExc?'<div class="stat"><div class="stat-lbl">OE con excedente</div><div class="stat-val">'+new Set(lista.map(b=>b.orden_id)).size+'</div></div>':'')
+    +'<div class="stat"><div class="stat-lbl">Total metros</div><div class="stat-val">'+totMts+' m</div><div class="stat-sub">'+(modoExc?'pendientes de asignación':'pendientes reasignación')+'</div></div>'
     +'<div class="stat"><div class="stat-lbl">Total kg</div><div class="stat-val">'+totKg+' kg</div></div>'
     +'</div>'
-    +'<div class="alert alert-warn" style="font-size:12px;margin-bottom:1rem;">Solo el administrador puede reasignar bobinas. El sistema sugiere tipos compatibles por ancho exacto y tolerancia de peso.</div>';
+    +'<div class="alert alert-warn" style="font-size:12px;margin-bottom:1rem;">'+(modoExc
+      ?'Bobinas buenas que sobran respecto de los metros de su OE. Lo habitual es «Aceptar tal cual» (se suman a su orden) o mandarlas a otra orden. Solo el administrador.'
+      :'Solo el administrador puede reasignar bobinas. El sistema sugiere tipos compatibles por ancho exacto y tolerancia de peso.')+'</div>';
+  let ordAnt=null;
   lista.forEach(b=>{
+    if(modoExc&&b.orden_id!==ordAnt){
+      ordAnt=b.orden_id;
+      const deOE=lista.filter(x=>x.orden_id===b.orden_id);
+      const oe=Object.assign({},(C.ordenes||[]).find(o=>o.id===b.orden_id)||{},b.ordenes||{});
+      html+='<div style="font-size:13px;font-weight:700;margin:1.25rem 0 .5rem;color:var(--amber)">'
+        +escapeHtml(oe.numero_orden||'OE ?')+(oe.cliente?' · '+escapeHtml(oe.cliente):'')
+        +' <span style="font-weight:400;color:var(--text2);font-size:12px">— '+deOE.length+' bobina'+(deOE.length===1?'':'s')+' · '+r1(deOE.reduce((s,x)=>s+(x.metros_reales||0),0)).toLocaleString('es-AR')+' m</span></div>';
+    }
     const recom=calcRecomendaciones(b);
     // Un excedente de OE llega por el mismo circuito pero NO es un problema de
     // calidad: la bobina está bien, sobra respecto de los metros de su orden. Se
@@ -42749,7 +42782,7 @@ function renderFueraDeRango(){
     const errColor=errPctOrig>0?'var(--accent)':'var(--amber)'; // liviana=verde, pesada=amarillo
     html+='<div class="fp" style="margin-bottom:1rem;">'
       +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
-        +'<div class="fp-t" style="color:'+(esExc?'var(--amber)':'var(--red)')+';margin:0">'+(esExc?'📏 '+b.numero_bobina+' — Excedente de OE (la bobina está bien)':'⚠ '+b.numero_bobina+' — Fuera de rango')+'</div>'
+        +'<div class="fp-t" style="color:'+(esExc?'var(--amber)':'var(--red)')+';margin:0">'+(esExc?'📏 '+b.numero_bobina+(_bobExcTambienPeso(b)?' — Excedente de OE <span style="color:var(--red)">· además fuera de tolerancia de peso</span>':' — Excedente de OE (la bobina está bien)'):'⚠ '+b.numero_bobina+' — Fuera de rango')+'</div>'
         +'<button class="btn btn-sm" onclick="imprimirTarjetaBobina(\''+b.numero_bobina+'\')" title="Imprimir tarjeta">🖨️</button>'
       +'</div>'
       // Datos originales
