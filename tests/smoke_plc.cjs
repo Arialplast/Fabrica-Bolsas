@@ -116,7 +116,7 @@ await plcCbRefrescar();
 t(PLC.sel===cierres.find(c=>c.n_cierre===134).id,'propone el 134 (el más viejo sin bobina)');
 t(/2<\/b> cierres sin bobina/.test(els['cb-plc'].innerHTML),'avisa que hay 2 cierres sin bobina');
 t(/1\.414 m/.test(els['cb-plc'].innerHTML)&&/1\.440 m/.test(els['cb-plc'].innerHTML),'muestra los metros de cada cierre');
-t(/Bobina en curso en la máquina: <b class="mono">560 m/.test(els['cb-plc'].innerHTML),'bobina en curso: (207.900−207.200)×0,80 = 560 m');
+t(/Bobina en curso en la máquina: <b class="mono">480 m/.test(els['cb-plc'].innerHTML),'09d bobina en curso CON FILM: (207.300−206.700)×0,80 = 480 m (el bruto daría 560)');
 t(!/kg\/h|kg estimad/i.test(els['cb-plc'].innerHTML),'P4: el operario no ve kg estimados ni kg/h');
 t(JSON.stringify(_plcColsBobina())===JSON.stringify({plc_cierre_id:PLC.sel}),'el insert lleva plc_cierre_id');
 plcCbElegir(null);
@@ -232,7 +232,7 @@ t(_evvJuicio(9).k==='bad'&&_evvJuicio(-11).k==='bad','pasando +8 % / −10 % →
   t(_plcVivoEstado(h,T+30000)===null,'vivo: la PC no sube hace 20 s → no inventa (usa los minutos)');
   t(_plcVivoEstado(h.slice(-1),T)===null,'vivo: con una sola muestra no decide');
   // velocidad de los últimos 5 minutos produciendo: 39 pulsos/min × 0,793 = 30,9
-  const mv=[];for(let i=0;i<10;i++)mv.push({ts:new Date(T-(10-i)*60000).toISOString(),odo_bruto:5000+i*39,seg_prod:100+i*60});
+  const mv=[];for(let i=0;i<10;i++)mv.push({ts:new Date(T-(10-i)*60000).toISOString(),odo_bruto:5000+i*45,odo_film:4000+i*39,seg_prod:100+i*60});   // 09d: la velocidad sale del film (el bruto acá va más rápido a propósito)
   const va=_plcVelAhora(mv,0.793);t(va&&Math.abs(va.v-30.93)<0.01&&va.n===3&&va.pulsos===117,'velocidad: 39 pulsos/min → 30,9 m/min (ventana hasta juntar 100 pulsos)');
   const mv2=mv.map((m,i)=>i===9?Object.assign({},m,{seg_prod:m.seg_prod-40}):m);
   t(_plcVelAhora(mv2,0.793).pulsos===117,'velocidad: un minuto con parada no entra');
@@ -290,7 +290,7 @@ t(_evvJuicio(9).k==='bad'&&_evvJuicio(-11).k==='bad','pasando +8 % / −10 % →
 // ---- 07u qué hizo el operario después de pesar ----
 {
   const T=AHORA-30*60000;
-  const serie=(pAntes,pDesp)=>{const r=[];let br=0,sp=0;for(let i=-20;i<=30;i++){const p=i<=0?pAntes:pDesp;br+=p;sp+=60;r.push({ts:new Date(T+i*60000).toISOString(),odo_bruto:br,seg_prod:sp});}return r;};
+  const serie=(pAntes,pDesp)=>{const r=[];let br=0,sp=0;for(let i=-20;i<=30;i++){const p=i<=0?pAntes:pDesp;br+=p;sp+=60;r.push({ts:new Date(T+i*60000).toISOString(),odo_bruto:br,odo_film:br,seg_prod:sp});}return r;};
   const J=_evvJuicio(-6.7),vB=32;   // la bobina se hizo a 40 pulsos/min × 0,8 = 32 m/min
   t(_plcReaccion(serie(40,40),0.8,new Date(T).toISOString(),-6.7,J,null,vB).estado==='nada','reacción: liviana y la velocidad igual → NO SE TOCÓ');
   const rc=_plcReaccion(serie(40,37),0.8,new Date(T).toISOString(),-6.7,J,null,vB);
@@ -299,7 +299,7 @@ t(_evvJuicio(9).k==='bad'&&_evvJuicio(-11).k==='bad','pasando +8 % / −10 % →
   t(_plcReaccion(serie(40,39),0.8,new Date(T).toISOString(),-10,J10,null,vB).estado==='poco','reacción: −10 % y bajó 2,5 % → FALTA CORREGIR');
   t(_plcReaccion(serie(40,43),0.8,new Date(T).toISOString(),-6.7,J,null,vB).estado==='reves','reacción: liviana y SUBIÓ la velocidad → AL REVÉS');
   // caso real 08/10 EXT-07: 6 y 7 pulsos/min alternados (5,15 m/min) sin tocar nada → NO es «al revés»
-  const lenta=[];{let br=0,sp=0;for(let i=-40;i<=50;i++){br+=(i%2?6:7);sp+=60;lenta.push({ts:new Date(T+i*60000).toISOString(),odo_bruto:br,seg_prod:sp});}}
+  const lenta=[];{let br=0,sp=0;for(let i=-40;i<=50;i++){br+=(i%2?6:7);sp+=60;lenta.push({ts:new Date(T+i*60000).toISOString(),odo_bruto:br,odo_film:br,seg_prod:sp});}}
   const rl=_plcReaccion(lenta,0.793,new Date(T).toISOString(),4.9,_evvJuicio(4.9),null,5.15);
   t(rl.estado==='nada'&&rl.res>1.5,'reacción: a 5 m/min un pulso de diferencia no cuenta como «al revés» (se mide con más pulsos)');
   t(_plcReaccion(serie(40,40),0.8,new Date(T).toISOString(),1,_evvJuicio(1)).estado==='ok','reacción: bobina en rango → nada que seguir');
@@ -319,6 +319,22 @@ t(_evvJuicio(9).k==='bad'&&_evvJuicio(-11).k==='bad','pasando +8 % / −10 % →
   t(_plcPideMotivo({estado:'reves',min:20},[],true,A)===true,'motivo: corrigió al revés → pregunta');
 }
 
+// ---- 09d: P2 — los metros de la bobina salen SÓLO del odómetro con film ----
+{
+  // caso real 09/10 EXT-03: cierre 198 → 199 (fotocélula sin señal 13:44–14:53 y rodillo suelto a las 14:09)
+  const cs=[{id:248,grupo:1,n_cierre:198,cerrado_en:'2026-10-09T16:22:19Z',odo_bruto:254613,film_cierre:247957,prod_cierre:551528},
+            {id:250,grupo:1,n_cierre:199,cerrado_en:'2026-10-09T17:36:31Z',odo_bruto:255098,film_cierre:248085,prod_cierre:552639}];
+  const k=_plcCalcCierres(cs,0.793)[1];
+  t(k.metros===102&&k.pulsos===128,'09d: BOB-06754 = 128 pulsos con film = 102 m (no los 385 del rodillo)');
+  t(k.metrosBruto===385&&k.pulsosBruto===485,'09d: el bruto queda de referencia (385 m)');
+  t(k.filmPct===26.4,'09d: film 26,4 % del giro');
+  t(_plcEnCurso({odo_film:248112,odo_bruto:255244},{film_cierre:248085,odo_bruto:255098},0.793)===21,'09d: en curso con film 27 pulsos = 21 m (bruto daría 116)');
+  t(_plcEnCurso({odo_bruto:255244},{film_cierre:248085},0.793)===null,'09d: sin odo_film en el estado no inventa');
+  const m=_evvMinutos([{ts:'2026-10-09T17:00:00Z',odo_bruto:100,odo_film:50,seg_prod:0},{ts:'2026-10-09T17:01:00Z',odo_bruto:142,odo_film:50,seg_prod:0}],0.793);
+  t(m[0].mmin===0&&m[0].est==='F','09d: rodillo suelto sin film → 0 m/min y estado GIRA SIN FILM');
+}
+
 console.log((bad?'✗ ':'✓ ')+ok+' ok · '+bad+' fallas');
 process.exit(bad?1:0);
-})().catch(e=>{console.log('✗ excepción',e);process.exit(1);});
+})().catch(e=>{
+console.log('✗ excepción',e);process.exit(1);});

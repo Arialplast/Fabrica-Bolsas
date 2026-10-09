@@ -1131,7 +1131,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-09c</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-09d</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6291,7 +6291,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-09c';   // 09c: 📏 Excedentes de OE en su propia pestaña (Producción, al lado de Fuera de rango), agrupados por OE con cliente; Fuera de rango muestra sólo las de calidad. Mismas acciones (aceptar / reasignar), sin SQL.   // 09b: 🎯 Cortar hoy — cada OC del pedido es una tarjeta propia (franja del color de su estado, cabecera sombreada, «OC n/N», guía vertical del pedido): con muchas OC no se distinguían los renglones. Sólo CSS + marcado, sin tocar cálculos. // 09a: 🧵 el tope de exceso de metros se mide contra el plan (siempre para arriba), no sólo contra los metros de la OE; y al «Aceptar tal cual» una bobina pendiente se revisa si la OE ya quedó completa (metros y pistas) y se cierra. (ORD-06337: la 4ª bobina que pedía el plan se fue a pendientes y la OE quedó abierta.)
+const APP_BUILD='2026-10-09d';   // 09d: 📏 P2 — los metros de la bobina salen SÓLO del odómetro CON FILM (antes del bruto: el rodillo suelto tras un pinchazo se sumaba). Bobina en curso, barra, velocidad y g/m también con film; el bruto queda de referencia. Estación: alarma «EL RODILLO GIRA Y NO SE VE FILM» (titila y pita) al minuto; en la carga, aviso si el cierre tuvo film en menos del 95 % del giro.   // 09c: 📏 Excedentes de OE en su propia pestaña (Producción, al lado de Fuera de rango), agrupados por OE con cliente; Fuera de rango muestra sólo las de calidad. Mismas acciones (aceptar / reasignar), sin SQL.   // 09b: 🎯 Cortar hoy — cada OC del pedido es una tarjeta propia (franja del color de su estado, cabecera sombreada, «OC n/N», guía vertical del pedido): con muchas OC no se distinguían los renglones. Sólo CSS + marcado, sin tocar cálculos. // 09a: 🧵 el tope de exceso de metros se mide contra el plan (siempre para arriba), no sólo contra los metros de la OE; y al «Aceptar tal cual» una bobina pendiente se revisa si la OE ya quedó completa (metros y pistas) y se cierra. (ORD-06337: la 4ª bobina que pedía el plan se fue a pendientes y la OE quedó abierta.)
 // 08d: 🧵 las bobinas de largo normal se piden primero y la del resto al final. Fichas: las 95 cm de DAG (blanca, amarilla, magenta, 40 µ) pasan a 1 pista; 190 y 193 (80 µ amarilla y magenta) a 350 m como la blanca.
 // 08c: 🧵 PISTAS CON LARGO FIJO Y PISO (OE nuevas y viejas): largo de la ficha, siempre de a una bobina por pista y para arriba; sólo la última vuelta cambia: más corta pero ≥ 2/3 del largo, o estirando la vuelta anterior hasta +25 % si sobra poco. La compensación nunca pide menos que el piso (a la pista que le falta menos, se la da por cerrada). El largo fijo sin pistas de la 08b queda con configuracion.bobinas_plan_pistas='no'.
 // 08b: 🧵 bobinas de LARGO FIJO (la ficha, = mediana histórica): se apaga el múltiplo de pistas y la compensación (vuelve con configuracion.bobinas_plan_pistas='si'). OE nueva: se redondea para arriba a bobinas enteras. Próxima bobina = largo de la ficha; la última absorbe un resto menor a medio largo (no más bobinitas). La OE cierra al llegar a los metros, como antes. (Caso 07/10: 50 poli pedía 830 m ≈ 20 min a 40 m/min.)
@@ -9384,21 +9384,31 @@ function _plcFactor(cfgObj,extId){
 }
 // Pura: a cada cierre (de un mismo grupo) le calcula los pulsos/metros/minutos desde el
 // cierre anterior. Entra en cualquier orden, sale ordenado por n_cierre ascendente.
+// 09d — P2 (GERMAN, 09/10): «sin film no se cuenta». Los metros de la bobina salen SÓLO del
+// odómetro CON FILM (film_cierre). Hasta 09c salían del bruto: el rodillo girando suelto
+// después de un pinchazo (embalamiento) se sumaba a la bobina. El bruto queda como referencia
+// (metrosBruto, filmPct) para ver una fotocélula que no ve el film.
 function _plcCalcCierres(cierres,factor){
   const xs=(cierres||[]).slice().sort((a,b)=>a.n_cierre-b.n_cierre);
   return xs.map((c,i)=>{
     const p=i>0?xs[i-1]:null;
     const contiguo=p&&(c.n_cierre-p.n_cierre===1);
-    const pulsos=contiguo?(c.odo_bruto-p.odo_bruto):null;
-    const pulsosFilm=contiguo?(c.film_cierre-p.film_cierre):null;
+    const pulsosBruto=contiguo?(c.odo_bruto-p.odo_bruto):null;
+    const pulsos=contiguo?(c.film_cierre-p.film_cierre):null;   // con film: los que valen
     const minProd=contiguo?(c.prod_cierre-p.prod_cierre)/60:null;
+    const metros=pulsos!=null?Math.round(pulsos*factor):null;
     return Object.assign({},c,{
-      pulsos,metros:pulsos!=null?Math.round(pulsos*factor):null,
-      metrosFilm:pulsosFilm!=null?Math.round(pulsosFilm*factor):null,
+      pulsos,metros,metrosFilm:metros,
+      pulsosBruto,metrosBruto:pulsosBruto!=null?Math.round(pulsosBruto*factor):null,
       minProd:minProd!=null?Math.round(minProd*10)/10:null,
-      filmPct:(pulsos>0&&pulsosFilm!=null)?Math.round(pulsosFilm/pulsos*1000)/10:null,
+      filmPct:(pulsosBruto>0&&pulsos!=null)?Math.round(pulsos/pulsosBruto*1000)/10:null,
       desde:p?p.cerrado_en:null});
   });
+}
+// Pura: metros CON FILM de la bobina en curso (estado vivo − último cierre). P2.
+function _plcEnCurso(est,ult,factor){
+  if(!est||!ult||est.odo_film==null||ult.film_cierre==null)return null;
+  return Math.max(0,Math.round((est.odo_film-ult.film_cierre)*factor));
 }
 // Pura: cierres que esperan su bobina (sin bobina, no descartados, después del arranque
 // del vínculo y con un cierre anterior conocido), del más viejo al más nuevo.
@@ -9459,7 +9469,7 @@ async function _plcDatosExt(extId){
   let enCurso=null,estadoViejo=true;
   if(est){
     estadoViejo=(Date.now()-new Date(est.actualizado_en).getTime())>120000;
-    if(ult&&est.cierres===ult.n_cierre)enCurso=Math.max(0,Math.round((est.odo_bruto-ult.odo_bruto)*fac.m));
+    if(ult&&est.cierres===ult.n_cierre)enCurso=_plcEnCurso(est,ult,fac.m);
   }
   return{grupo:g.grupo,fac,pend,asignados,bobPorCierre,ult,est,enCurso,estadoViejo,desde:cfgP.desde,calc};
 }
@@ -9501,6 +9511,8 @@ function _plcCbPintar(){
         +' · <b class="mono">'+(c.metros!=null?c.metros.toLocaleString('es-AR'):'—')+' m</b>'
         +(c.minProd!=null?' · '+Math.round(c.minProd)+' min produciendo':'')
         +(i===0?' <span style="color:var(--text3);">(el más viejo)</span>':'')
+        // 09d: el rodillo giró más de lo que la fotocélula vio film (P2: sólo cuenta con film)
+        +(c.filmPct!=null&&c.filmPct<95?' <span style="color:var(--amber);font-weight:600;" title="Metros del rodillo: '+(c.metrosBruto!=null?c.metrosBruto.toLocaleString('es-AR'):'—')+' m. Sólo se cuentan los metros con film.">⚠ con film '+c.filmPct.toLocaleString('es-AR')+' % del giro (rodillo '+(c.metrosBruto!=null?c.metrosBruto.toLocaleString('es-AR'):'—')+' m)</span>':'')
         +' <button type="button" class="btn btn-sm plc-desc" onclick="event.preventDefault();plcCbDescartar('+c.id+')" title="Ese cierre fue una prueba o un toque de más">no fue bobina</button></label>';
     });
   }
@@ -9752,7 +9764,7 @@ function _eeMmin(mins,fac){
   const xs=(mins||[]).slice().sort((a,b)=>new Date(a.ts)-new Date(b.ts));
   const v=[];
   for(let i=xs.length-1;i>0&&v.length<3&&i>xs.length-8;i--){
-    const dt=(new Date(xs[i].ts)-new Date(xs[i-1].ts))/60000,db=xs[i].odo_bruto-xs[i-1].odo_bruto;
+    const dt=(new Date(xs[i].ts)-new Date(xs[i-1].ts))/60000,db=xs[i].odo_film-xs[i-1].odo_film;   // 09d: con film (P2)
     if(dt>0&&db>0)v.push(db*fac/dt);
   }
   return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;
@@ -9906,7 +9918,7 @@ function _plcVelAhora(mins,fac){
   let db=0,ds=0,n=0;const tf=xs.length?new Date(xs[xs.length-1].ts).getTime():0;
   for(let i=xs.length-1;i>0&&(n<3||db<100)&&n<30;i--){
     const t=new Date(xs[i].ts).getTime();if(tf-t>45*60000)break;
-    const dt=(t-new Date(xs[i-1].ts).getTime())/1000,dsp=xs[i].seg_prod-xs[i-1].seg_prod,dbr=xs[i].odo_bruto-xs[i-1].odo_bruto;
+    const dt=(t-new Date(xs[i-1].ts).getTime())/1000,dsp=xs[i].seg_prod-xs[i-1].seg_prod,dbr=xs[i].odo_film-xs[i-1].odo_film;   // 09d: con film (P2)
     if(dt>50&&dt<75&&dsp>=dt-5&&dbr>0){db+=dbr;ds+=dsp;n++;}
   }
   return n>=3?{v:db*fac/(ds/60),n,pulsos:db,res:db>0?100/db:100}:null;
@@ -10076,6 +10088,21 @@ function _eeSegHtml(u,RX,_f1){
   else {cls='';tit='… MIDIENDO LA VELOCIDAD';txt=obj+' Todavía no hay datos suficientes desde que se pesó.';}
   return '<div class="ee-seg '+cls+'"><span class="cab">'+cab+'</span><b class="tit">'+tit+'</b><span>'+txt+'</span></div>';
 }
+// 09d — RODILLO SIN FILM (P2). Si el rodillo gira y el PLC no ve film, esos metros NO se cuentan
+// en la bobina. 09/10 13:44–14:53 EXT-03 produjo ~70 min con la entrada de la fotocélula apagada
+// y nadie se enteró. Pasado 1 minuto así, la tarjeta titila y pita cada 30 s hasta que vuelva el film.
+// Devuelve los minutos sin film (≥1) o null.
+function _eeSinFilm(id,st){
+  EST.sf=EST.sf||{};
+  if(st&&st[0]==='hold'){if(!EST.sf[id])EST.sf[id]=Date.now();}else delete EST.sf[id];
+  const t=EST.sf[id];
+  return (t&&Date.now()-t>=60000)?Math.max(1,Math.round((Date.now()-t)/60000)):null;
+}
+function _eeSinFilmHtml(min){
+  return '<div class="ee-alarma" role="alert"><b class="tit">⚠ EL RODILLO GIRA Y NO SE VE FILM</b>'
+    +'<span>Hace <b>'+min+' min</b> que la fotocélula no ve film: <b>estos metros NO se cuentan en la bobina.</b></span>'
+    +'<span class="sub">Si el film está yendo a la bobina, la fotocélula no lo está viendo: fijate que apunte al centro del film y que su luz esté prendida, y avisá a la oficina YA.</span></div>';
+}
 function _eeTarjeta(e){
   const d=EST.datos[e.id];
   const oe=_eeOE(e.id);
@@ -10083,7 +10110,9 @@ function _eeTarjeta(e){
   const ult=(C.bobinas_prod||[]).filter(b=>String(b.extrusora_id)===String(e.id)&&!b.anulada)
     .sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))).slice(0,3);
   const st=_eeSt(d);
-  let h='<section class="ee-st'+(EST.alarma&&EST.alarma[e.id]?' ee-st-alarma':'')+'"><div class="ee-st-hd"><div class="ee-id">'+escapeHtml(e.nombre)+'</div>'
+  const SF=d?_eeSinFilm(e.id,st):null;   // 09d
+  EST.sfVis=EST.sfVis||{};EST.sfVis[e.id]=SF!=null;
+  let h='<section class="ee-st'+((EST.alarma&&EST.alarma[e.id])||SF!=null?' ee-st-alarma':'')+'"><div class="ee-st-hd"><div class="ee-id">'+escapeHtml(e.nombre)+'</div>'
     +'<div class="ee-pill '+st[0]+'" id="ee-pill-'+e.id+'"><span class="dot"></span><span class="tx">'+st[1]+'</span></div></div>'
     +_eeOEHtml(e,oe);
   const kghB=_eeKghBobinas(e.id,d);
@@ -10129,6 +10158,7 @@ function _eeTarjeta(e){
             +'<span class="sub">'+(st[0]==='run'?'el estimado en vivo aparece con 3 minutos produciendo':'con la máquina produciendo se ve el estimado en vivo')+'</span>')
         +'</div></div>';
     }else sema='<div class="ee-ind"><span>'+(!oe?'Semáforo de espesor: falta arrancar la orden en esta máquina.':'Semáforo de espesor: aparece con la primera bobina pesada de esta orden.')+'</span></div>';
+    if(SF!=null)h+=_eeSinFilmHtml(SF);   // 09d
     h+='<div class="ee-read'+(st[0]==='stop'?' held':'')+'" id="ee-read-'+e.id+'"><div class="cap">Metros de esta bobina</div>'
       +'<div class="big" id="ee-big-'+e.id+'">'+(d.enCurso!=null&&!d.estadoViejo?_eeF(d.enCurso):'—')+'</div><div class="unit">METROS</div></div>'
       +_eeBarHtml(e.id,d)
@@ -10191,7 +10221,8 @@ function _eePintar(){
   if(bt)bt.setAttribute('aria-pressed',EST.modo!=='una');if(bu)bu.setAttribute('aria-pressed',EST.modo==='una');
   const r=document.getElementById('ee-reloj');if(r)r.textContent=localTime().slice(0,5);
   // 07v: alarma sonora cada 30 s mientras haya una pregunta sin responder
-  if(EST.alarma&&Object.keys(EST.alarma).length&&(!EST.beepT||Date.now()-EST.beepT>30000)){EST.beepT=Date.now();_eeBeep();}
+  const sfOn=EST.sf&&Object.keys(EST.sf).some(k=>Date.now()-EST.sf[k]>=60000);   // 09d: rodillo sin film
+  if(((EST.alarma&&Object.keys(EST.alarma).length)||sfOn)&&(!EST.beepT||Date.now()-EST.beepT>30000)){EST.beepT=Date.now();_eeBeep();}
 }
 async function renderEstacionExt(){
   _eePintar();
@@ -10224,7 +10255,7 @@ async function _eeTick(){
   if(!ds.length)return;
   EST.tickando=true;
   try{
-    const{data,error}=await sb.from('plc_estado').select('grupo,actualizado_en,odo_bruto,seg_film,seg_prod,cierres').in('grupo',ds.map(x=>x[1].grupo));
+    const{data,error}=await sb.from('plc_estado').select('grupo,actualizado_en,odo_bruto,odo_film,seg_film,seg_prod,cierres').in('grupo',ds.map(x=>x[1].grupo));
     if(error||!data)return;
     _plcVivoPush(data);
     let nuevoCierre=false,cambioEst=false;
@@ -10233,12 +10264,15 @@ async function _eeTick(){
       if(d.ult&&est.cierres!==d.ult.n_cierre){nuevoCierre=true;return;}
       d.est=Object.assign({},d.est||{},est);
       d.estadoViejo=(Date.now()-new Date(est.actualizado_en).getTime())>120000;
-      if(d.ult)d.enCurso=Math.max(0,Math.round((est.odo_bruto-d.ult.odo_bruto)*d.fac.m));
+      if(d.ult)d.enCurso=_plcEnCurso(est,d.ult,d.fac.m);
       const b=document.getElementById('ee-big-'+e.id);
       if(b){const v=(d.enCurso!=null&&!d.estadoViejo)?_eeF(d.enCurso):'—';if(b.textContent!==v)b.textContent=v;}
       _eeBarVivo(e.id,d);
       // 07n: estado al instante (produciendo / sin film / parada)
       const st=_eeSt(d),pl=document.getElementById('ee-pill-'+e.id);
+      // 09d: aparece / se va la alarma de rodillo sin film
+      const sfN=_eeSinFilm(e.id,st),sfV=!!(EST.sfVis&&EST.sfVis[e.id]);
+      if((sfN!=null)!==sfV){EST.sfVis=EST.sfVis||{};EST.sfVis[e.id]=sfN!=null;cambioEst=true;}
       if(pl){
         if(!pl.classList.contains(st[0]))cambioEst=true;
         else{const tx=pl.querySelector('.tx');if(tx&&tx.textContent!==st[1])tx.textContent=st[1];}
@@ -10286,7 +10320,7 @@ function _evvMinutos(rows,factor){
     if(db<0||df<0||dp<0){out.push({ts:b.ts,est:'X',mmin:0,dtMin});continue;}   // odómetro bajó: PLC reiniciado
     const porMin=dp/dtMin;
     const est=porMin>=30?'P':(db>0?'F':'S');
-    out.push({ts:b.ts,est,mmin:Math.round(db*factor/dtMin*10)/10,film:df,bruto:db,dtMin});
+    out.push({ts:b.ts,est,mmin:Math.round(df*factor/dtMin*10)/10,film:df,bruto:db,dtMin});   // 09d: m/min con film (P2)
   }
   return out;
 }
@@ -10389,7 +10423,7 @@ async function renderExtrusionVivo(){
       const tipoAct=ultConB?(C.bobinas||[]).find(x=>String(x.id)===String(ultConB.b.bobina_tipo_id)):null;
       const gpmEst=R&&R.J?R.gpm:null;
       const ultC=calc.length?calc[calc.length-1]:null;
-      const enCurso=(est&&ultC&&est.cierres===ultC.n_cierre)?Math.max(0,Math.round((est.odo_bruto-ultC.odo_bruto)*fac.m)):null;
+      const enCurso=(est&&ultC&&est.cierres===ultC.n_cierre)?_plcEnCurso(est,ultC,fac.m):null;
       const kg24=pes.reduce((s,o)=>s+o.kg,0);
       const minProdPes=pes.reduce((s,o)=>s+o.c.minProd,0);
       return{g,ext,fac,mins,bobs,est,kghRef,uso:nTot?nP/nTot:null,nP,nTot,mminVivo,ahoraEst,
@@ -10694,7 +10728,7 @@ async function _evvTick(){
   if(!pg||!pg.classList.contains('active')||EVV.cargando||EVV.tickando||!EVV.maqs)return;
   EVV.tickando=true;
   try{
-    const{data,error}=await sb.from('plc_estado').select('grupo,actualizado_en,odo_bruto,seg_film,seg_prod,cierres');
+    const{data,error}=await sb.from('plc_estado').select('grupo,actualizado_en,odo_bruto,odo_film,seg_film,seg_prod,cierres');
     if(error||!data)return;
     _plcVivoPush(data);
     let cambio=false;
@@ -10705,7 +10739,7 @@ async function _evvTick(){
       if(pl&&!pl.classList.contains('evv-p'+st))cambio=true;
       // 07s: bobina en curso y su barra cada 2 s
       if(e&&m.ultC&&e.cierres===m.ultC.n_cierre){
-        m.enCurso=Math.max(0,Math.round((e.odo_bruto-m.ultC.odo_bruto)*m.fac.m));
+        m.enCurso=_plcEnCurso(e,m.ultC,m.fac.m);
         const B=_evvBarInfo(m),c=document.getElementById('evv-cur-'+m.g.grupo),br=document.getElementById('evv-bar-'+m.g.grupo);
         if(c)c.textContent=_evvF(B.cur)+(B.M&&B.M.m>0?' / '+_evvF(B.M.m)+' m':' m');
         if(br&&B.p!=null){br.style.width=Math.min(100,B.p*100).toFixed(1)+'%';br.className=B.p>=1?'cortar':B.p>=0.95?'cerca':'';}
