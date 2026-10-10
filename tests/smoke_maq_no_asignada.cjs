@@ -40,6 +40,23 @@ t(/OC-A/.test(box.innerHTML)&&/Reasignar máquina/.test(box.innerHTML)&&/abrirEd
 t(/00123/.test(box.innerHTML)&&/Bolsa 45x60/.test(box.innerHTML),'producto con código y descripción');
 t(/OC-A en CORTE-02/.test(_ocmnaTableroHTML()),'tablero: aviso con OC y máquina');
 C.ord_corte=[ords[3]];renderMaqNoAsignada();t(box.innerHTML===''&&_ocmnaTableroHTML()==='','sin casos no muestra nada');
+// 10a: carga suelta vs. OC mudada
+const R=[
+  {id:11,numero_orden:'OC-SUELTA',estado:'Pendiente empaque',orden_corte_maquinas:[{maquina_id:2}],orden_corte_bobinas:[
+    {maquina_id:1,empleado_id:7},{maquina_id:1,empleado_id:7},{maquina_id:2},{maquina_id:2},{maquina_id:2},{maquina_id:2},{maquina_id:2}]},
+  {id:12,numero_orden:'OC-MUDADA',estado:'En proceso',orden_corte_maquinas:[{maquina_id:1}],orden_corte_bobinas:[{maquina_id:1},{maquina_id:2},{maquina_id:2},{maquina_id:2}]},
+  {id:13,numero_orden:'OC-EMPATE',estado:'En proceso',orden_corte_maquinas:[{maquina_id:1}],orden_corte_bobinas:[{maquina_id:1},{maquina_id:1},{maquina_id:2},{maquina_id:2}]},
+];
+const LR=_ocCargasFueraDeMaquina(R,maqs,emps);const g=n=>LR.find(x=>x.oc.numero_orden===n);
+t(g('OC-SUELTA')&&g('OC-SUELTA').grave===false&&g('OC-SUELTA').nAsig===5,'caso OC-1052795: 5 en la asignada + 2 sueltas → informativo');
+t(g('OC-MUDADA')&&g('OC-MUDADA').grave===true,'más en otra máquina que en la asignada → rojo');
+t(g('OC-EMPATE')&&g('OC-EMPATE').grave===false,'empate → no es mudanza');
+t(L.find(x=>x.oc.numero_orden==='OC-C').grave===true,'sin máquina asignada → siempre rojo');
+C.ord_corte=[R[0]];renderMaqNoAsignada();t(box.innerHTML===''&&_ocmnaTableroHTML()==='','la carga suelta no pinta rojo ni va al Tablero');
+C.ord_corte=[R[1]];renderMaqNoAsignada();t(/OC-MUDADA/.test(box.innerHTML)&&/avisos-corte/.test(_ocmnaTableroHTML()),'la mudada sí, y el Tablero lleva a Avisos de corte');
+t(/id="page-avisos-corte"/.test(src)&&/if\(name==='avisos-corte'\)renderAvisosCorte\(\);/.test(src),'hoja propia de avisos');
+const pg=src.slice(src.indexOf('id="page-ordenes-corte"'),src.indexOf('id="page-avisos-corte"'));
+t(!/oc-maqna-wrap|om-cortas-wrap|sb-wrap/.test(pg)&&/oc-avisos-btn/.test(pg),'Órdenes de corte ya no tiene los paneles, sólo el botón');
 // integración
 t(/<div id="oc-maqna-wrap"><\/div>/.test(src),'contenedor en Órdenes de corte');
 t(/try\{renderMaqNoAsignada\(\);\}catch\(e\)\{\}/.test(src),'se pinta con la lista de OC');

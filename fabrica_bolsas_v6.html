@@ -1131,7 +1131,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-09h</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-10a</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -1175,6 +1175,7 @@ body.pext-on .main{margin-left:0!important;}
         <div class="nav-item" onclick="go('cortar-hoy')"><div class="nav-dot" style="background:var(--green)"></div>🎯 Cortar hoy</div>
         <div class="nav-item" onclick="go('parte-corte')"><div class="nav-dot" style="background:var(--green)"></div>📋 Parte diario de corte</div>
         <div class="nav-item" onclick="go('ordenes-corte')"><div class="nav-dot"></div>Órdenes de corte</div>
+        <div class="nav-item" onclick="go('avisos-corte')"><div class="nav-dot" style="background:var(--red)"></div>⚠ Avisos de corte <span id="nav-avisos-corte-n" style="font-weight:800;color:var(--red);"></span></div>
         <div class="nav-item" onclick="go('nueva-corte')"><div class="nav-dot"></div>Nueva orden corte</div>
         <div class="nav-item" onclick="go('gantt-corte')"><div class="nav-dot"></div>Gantt corte semanal</div>
         <div class="nav-item" onclick="goAdmin('gantt-corte-diario')"><div class="nav-dot"></div>Gantt corte diario 🔐</div>
@@ -2360,13 +2361,24 @@ body.pext-on .main{margin-left:0!important;}
           <select class="st-sel" id="filtro-oc" onchange="renderOrdenesCorte()">
             <option value="">Todos los estados</option><option value="_activas">🔵 En proceso + Pendiente</option><option>Pendiente</option><option>En proceso</option><option>Pendiente empaque</option><option>Completada</option><option>Suspendida</option><option>Cancelada</option>
           </select>
+          <button class="btn btn-sm" id="oc-avisos-btn" style="display:none;color:var(--red);border-color:var(--red);font-weight:700;" onclick="go('avisos-corte')" title="Avisos de corte: máquina, OE corta, bultos sin cargar"></button>
           <button class="btn btn-primary btn-sm" onclick="go('nueva-corte')">+ Nueva orden</button>
         </div>
       </div>
+      <div class="tw"><div id="oc-tbl"><div class="loading"><div class="spinner"></div></div></div></div>
+    </div>
+
+    <!-- ⚠ AVISOS DE CORTE (10a): los paneles salieron de Órdenes de corte, que es para ver las OC -->
+    <div class="page" id="page-avisos-corte">
+      <div class="page-hdr">
+        <div><div class="page-title">⚠ Avisos de corte</div><div class="page-sub">Lo que hay que corregir en las órdenes de corte</div></div>
+        <div class="btn-grp"><button class="btn btn-sm" onclick="go('ordenes-corte')">← Órdenes de corte</button></div>
+      </div>
+      <div id="oc-avisos-vacio"></div>
       <div id="oc-maqna-wrap"></div>
       <div id="om-cortas-wrap"></div>
       <div id="sb-wrap"></div>
-      <div class="tw"><div id="oc-tbl"><div class="loading"><div class="spinner"></div></div></div></div>
+      <div id="oc-maqna-info-wrap"></div>
     </div>
 
     <!-- NUEVA ORDEN DE CORTE -->
@@ -6291,7 +6303,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-09h';   // 09h: 👥 Sala de planes — TOTAL POR CLIENTE arriba del detalle de cobros (en el plan / ya cobrado / falta / caído, con atrasados), en la canasta del armador y en la hoja impresa. Derivado del documento de cada paso (_plTotalesPorCliente), sin SQL. // 09g: 🏦 Cada deuda dice de qué banco se debita (cuenta_debito_id): chip grande en la tarjeta, resumen «¿cuánta plata tiene que haber en cada banco?» (próximo débito, 30 días, vencidas, planes), el pago propone esa cuenta y avisa si elegís otra, el flujo nombra plan y banco, y el importador del extracto no cruza un débito de un banco con un plan de otro. Requiere alter_deudas_cuenta_debito.sql. · 09f: 📏 Extrusión en vivo: las bobinas con la fotocélula sin ver film vuelven a aparecer en «Gramaje real vs orden» (aro punteado) y en la tabla (g/m con *), calculadas con los metros CARGADOS; siguen fuera de las referencias.   // 09e: 📏 un cierre con la fotocélula sin ver film (film < 95 % del giro) no entra en ninguna referencia (kg/h, semáforo, velocidad de la última pesada, alarmas): con minutos cortados y kg enteros daba 52,5 kg/h y «¿CAMBIASTE DE PRODUCTO?» falso en EXT-03 al cambiar de color.   // 09d: 📏 P2 — los metros de la bobina salen SÓLO del odómetro CON FILM (antes del bruto: el rodillo suelto tras un pinchazo se sumaba). Bobina en curso, barra, velocidad y g/m también con film; el bruto queda de referencia. Estación: alarma «EL RODILLO GIRA Y NO SE VE FILM» (titila y pita) al minuto; en la carga, aviso si el cierre tuvo film en menos del 95 % del giro.   // 09c: 📏 Excedentes de OE en su propia pestaña (Producción, al lado de Fuera de rango), agrupados por OE con cliente; Fuera de rango muestra sólo las de calidad. Mismas acciones (aceptar / reasignar), sin SQL.   // 09b: 🎯 Cortar hoy — cada OC del pedido es una tarjeta propia (franja del color de su estado, cabecera sombreada, «OC n/N», guía vertical del pedido): con muchas OC no se distinguían los renglones. Sólo CSS + marcado, sin tocar cálculos. // 09a: 🧵 el tope de exceso de metros se mide contra el plan (siempre para arriba), no sólo contra los metros de la OE; y al «Aceptar tal cual» una bobina pendiente se revisa si la OE ya quedó completa (metros y pistas) y se cierra. (ORD-06337: la 4ª bobina que pedía el plan se fue a pendientes y la OE quedó abierta.)
+const APP_BUILD='2026-10-10a';   // 10a: ⚠ Avisos de corte en su propia hoja (Producción → ⚠ Avisos de corte): los paneles de máquina no asignada, OE corta y bultos sin cargar salen de Órdenes de corte, donde queda sólo un botón con la cuenta. 🔀 Máquina no asignada: rojo sólo si la OC se MUDÓ (sin máquina asignada, o en la asignada se cortó menos que en otra); una carga suelta en otra máquina pasa a informativo gris (caso OC-1052795: 5 bobinas en CORTE-02, 1 carga de 2 en CORTE-01). Sin SQL. // 09h: 👥 Sala de planes — TOTAL POR CLIENTE arriba del detalle de cobros (en el plan / ya cobrado / falta / caído, con atrasados), en la canasta del armador y en la hoja impresa. Derivado del documento de cada paso (_plTotalesPorCliente), sin SQL. // 09g: 🏦 Cada deuda dice de qué banco se debita (cuenta_debito_id): chip grande en la tarjeta, resumen «¿cuánta plata tiene que haber en cada banco?» (próximo débito, 30 días, vencidas, planes), el pago propone esa cuenta y avisa si elegís otra, el flujo nombra plan y banco, y el importador del extracto no cruza un débito de un banco con un plan de otro. Requiere alter_deudas_cuenta_debito.sql. · 09f: 📏 Extrusión en vivo: las bobinas con la fotocélula sin ver film vuelven a aparecer en «Gramaje real vs orden» (aro punteado) y en la tabla (g/m con *), calculadas con los metros CARGADOS; siguen fuera de las referencias.   // 09e: 📏 un cierre con la fotocélula sin ver film (film < 95 % del giro) no entra en ninguna referencia (kg/h, semáforo, velocidad de la última pesada, alarmas): con minutos cortados y kg enteros daba 52,5 kg/h y «¿CAMBIASTE DE PRODUCTO?» falso en EXT-03 al cambiar de color.   // 09d: 📏 P2 — los metros de la bobina salen SÓLO del odómetro CON FILM (antes del bruto: el rodillo suelto tras un pinchazo se sumaba). Bobina en curso, barra, velocidad y g/m también con film; el bruto queda de referencia. Estación: alarma «EL RODILLO GIRA Y NO SE VE FILM» (titila y pita) al minuto; en la carga, aviso si el cierre tuvo film en menos del 95 % del giro.   // 09c: 📏 Excedentes de OE en su propia pestaña (Producción, al lado de Fuera de rango), agrupados por OE con cliente; Fuera de rango muestra sólo las de calidad. Mismas acciones (aceptar / reasignar), sin SQL.   // 09b: 🎯 Cortar hoy — cada OC del pedido es una tarjeta propia (franja del color de su estado, cabecera sombreada, «OC n/N», guía vertical del pedido): con muchas OC no se distinguían los renglones. Sólo CSS + marcado, sin tocar cálculos. // 09a: 🧵 el tope de exceso de metros se mide contra el plan (siempre para arriba), no sólo contra los metros de la OE; y al «Aceptar tal cual» una bobina pendiente se revisa si la OE ya quedó completa (metros y pistas) y se cierra. (ORD-06337: la 4ª bobina que pedía el plan se fue a pendientes y la OE quedó abierta.)
 // 08d: 🧵 las bobinas de largo normal se piden primero y la del resto al final. Fichas: las 95 cm de DAG (blanca, amarilla, magenta, 40 µ) pasan a 1 pista; 190 y 193 (80 µ amarilla y magenta) a 350 m como la blanca.
 // 08c: 🧵 PISTAS CON LARGO FIJO Y PISO (OE nuevas y viejas): largo de la ficha, siempre de a una bobina por pista y para arriba; sólo la última vuelta cambia: más corta pero ≥ 2/3 del largo, o estirando la vuelta anterior hasta +25 % si sobra poco. La compensación nunca pide menos que el piso (a la pista que le falta menos, se la da por cerrada). El largo fijo sin pistas de la 08b queda con configuracion.bobinas_plan_pistas='no'.
 // 08b: 🧵 bobinas de LARGO FIJO (la ficha, = mediana histórica): se apaga el múltiplo de pistas y la compensación (vuelve con configuracion.bobinas_plan_pistas='si'). OE nueva: se redondea para arriba a bobinas enteras. Próxima bobina = largo de la ficha; la última absorbe un resto menor a medio largo (no más bobinitas). La OE cierra al llegar a los metros, como antes. (Caso 07/10: 50 poli pedía 830 m ≈ 20 min a 40 m/min.)
@@ -12092,6 +12104,7 @@ async function sbYaEsta(clave){
   cfg['sin_bultos_ok']=txt;
   toast('✓ Listo, deja de avisar','green');
   try{renderSinBultos();}catch(e){}
+  try{_ocAvisosChip();}catch(e){}
 }
 async function sbReset(){
   if(!confirm('Volver a avisar de TODAS las órdenes que marcaste como cargadas. ¿Sigo?'))return;
@@ -12099,6 +12112,7 @@ async function sbReset(){
   if(error){toast('Error: '+error.message,'red');return;}
   cfg['sin_bultos_ok']='[]';
   try{renderSinBultos();}catch(e){}
+  try{_ocAvisosChip();}catch(e){}
 }
 function _sbDeOC(ocId){
   try{if(!Object.keys(_SB_MAP).length)_sbPendientes();return _SB_MAP[ocId]||null;}catch(e){return null;}
@@ -14493,6 +14507,7 @@ function go(name){
   if(name==='operarios')renderOperarios();
   if(name==='gantt-diario'){renderGanttDiario();startGdTimer();}
   if(name==='ordenes-corte')renderOrdenesCorte();
+  if(name==='avisos-corte')renderAvisosCorte();
   if(name==='planificar')renderPlanificar();
   if(name==='simulador')initSimulador();
   if(name==='flujo-mp')initFlujoMP();
@@ -43435,7 +43450,14 @@ function _ocCargasFueraDeMaquina(ords,maqs,emps){ // pura
       const en=nomE(b.empleado_id);if(en)x.ops.add(en);
     });
     const usadas=Object.values(por).map(x=>Object.assign(x,{ops:[...x.ops]}));
-    if(usadas.length)out.push({oc,asignadas:[...asig].map(nomM),usadas,ult:usadas.reduce((m,u)=>u.ult>m?u.ult:m,'')});
+    if(!usadas.length)return;
+    // 10a: ¿la OC se MUDÓ o fue una carga suelta? Grave (reasignar) sólo si no tiene máquina
+    // asignada o si en la asignada se cortó MENOS que en alguna otra. Caso OC-1052795: 5 bobinas
+    // en CORTE-02 (la asignada) y una carga de 2 en CORTE-01 → informativo, no rojo.
+    const nAsig=(oc.orden_corte_bobinas||[]).filter(b=>b.maquina_id!=null&&asig.has(b.maquina_id)).length;
+    const maxFuera=Math.max(...usadas.map(u=>u.n));
+    const grave=!asig.size||nAsig<maxFuera;
+    out.push({oc,asignadas:[...asig].map(nomM),usadas,nAsig,grave,ult:usadas.reduce((m,u)=>u.ult>m?u.ult:m,'')});
   });
   return out.sort((a,b)=>String(b.ult).localeCompare(String(a.ult)));
 }
@@ -43445,7 +43467,17 @@ function _ocmnaFecha(ts){
 }
 function renderMaqNoAsignada(){
   const box=document.getElementById('oc-maqna-wrap');if(!box)return;
-  const L=_ocCargasFueraDeMaquina(C.ord_corte,C.maq_corte,C.empleados);
+  const T=_ocCargasFueraDeMaquina(C.ord_corte,C.maq_corte,C.empleados);
+  const L=T.filter(d=>d.grave),I=T.filter(d=>!d.grave);
+  const ibox=document.getElementById('oc-maqna-info-wrap');
+  if(ibox)ibox.innerHTML=!I.length?'':'<div style="border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;">'
+    +'<div style="font-weight:700;color:var(--text2);font-size:12.5px;">ℹ '+I.length+' OC con alguna carga suelta en otra máquina — no hace falta reasignar</div>'
+    +'<div style="font-size:11px;color:var(--text3);margin:2px 0 6px;">La mayor parte se cortó en la máquina asignada. Queda anotado por si querés revisarlo.</div>'
+    +I.map(d=>'<div style="font-size:11.5px;padding:3px 0;border-top:1px solid var(--border);"><b style="font-family:monospace;">'+escapeHtml(d.oc.numero_orden||'')+'</b> <span style="color:var(--text3);">'+escapeHtml(d.oc.cliente||'—')+'</span> · '
+      +d.nAsig+' bobina'+(d.nAsig===1?'':'s')+' en '+escapeHtml(d.asignadas.join(', '))
+      +' · '+d.usadas.map(u=>u.n+' en '+escapeHtml(u.nombre)+(u.ops.length?' ('+escapeHtml(u.ops.join(', '))+')':'')+(u.ult?' '+_ocmnaFecha(u.ult):'')).join(' · ')
+      +' <a href="javascript:void(0)" onclick="chVerOC(\''+escapeHtml(d.oc.numero_orden||'')+'\')" style="color:var(--accent);">ver OC</a></div>').join('')
+    +'</div>';
   if(!L.length){box.innerHTML='';return;}
   box.innerHTML='<div style="border:2.5px solid var(--red);border-radius:var(--r);padding:12px 14px;margin-bottom:14px;background:rgba(239,68,68,.07);">'
     +'<div style="font-weight:800;color:var(--red);font-size:15px;">🔀 '+L.length+' orden'+(L.length===1?'':'es')+' de corte cargada'+(L.length===1?'':'s')+' en una máquina que no tiene'+(L.length===1?'':'n')+' asignada</div>'
@@ -43466,9 +43498,9 @@ function renderMaqNoAsignada(){
     +'</table></div></div>';
 }
 function _ocmnaTableroHTML(){
-  let L=[];try{L=_ocCargasFueraDeMaquina(C.ord_corte,C.maq_corte,C.empleados);}catch(e){}
+  let L=[];try{L=_ocCargasFueraDeMaquina(C.ord_corte,C.maq_corte,C.empleados).filter(d=>d.grave);}catch(e){}
   if(!L.length)return '';
-  return '<div onclick="go(\'ordenes-corte\')" style="cursor:pointer;border:2.5px solid var(--red);border-radius:12px;padding:12px 16px;margin-bottom:14px;background:rgba(239,68,68,.08);">'
+  return '<div onclick="go(\'avisos-corte\')" style="cursor:pointer;border:2.5px solid var(--red);border-radius:12px;padding:12px 16px;margin-bottom:14px;background:rgba(239,68,68,.08);">'
     +'<div style="font-weight:800;color:var(--red);font-size:15px;">🔀 Corte: '+L.length+' OC cargada'+(L.length===1?'':'s')+' en una máquina no asignada — reasigná la máquina →</div>'
     +'<div style="font-size:12px;color:var(--text2);margin-top:4px;">'+L.slice(0,4).map(d=>escapeHtml(d.oc.numero_orden||'')+' en '+escapeHtml(d.usadas.map(u=>u.nombre).join(' y '))).join(' · ')+(L.length>4?' · …':'')+'</div></div>';
 }
@@ -43495,10 +43527,39 @@ function _pcorteConfirmarMaquina(oc,maqId){
   });
 }
 
-function renderOrdenesCorte(){
-  try{renderMetrosCortos();}catch(e){}
+// ===== ⚠ AVISOS DE CORTE EN SU PROPIA HOJA (10a) =====
+// German (10/10): «no en el lugar que está, la pantalla se hace un lío, esa pantalla es para ver
+// las OC». Los tres paneles (máquina no asignada, OE corta, bultos sin cargar) se mudan a
+// #page-avisos-corte; en Órdenes de corte queda sólo un botón con la cuenta. Los avisos por
+// fila de cada OC siguen en la lista. Nada se guarda: se cuenta con los mismos derivadores.
+function _ocAvisosConteo(){
+  let maq=0,om=0,sbn=0;
+  try{maq=_ocCargasFueraDeMaquina(C.ord_corte,C.maq_corte,C.empleados).filter(d=>d.grave).length;}catch(e){}
+  try{om=_omPendientes().length;}catch(e){}
+  try{sbn=_sbPendientes().length;}catch(e){}
+  return {maq,om,sb:sbn,total:maq+om+sbn};
+}
+function _ocAvisosChip(){
+  const k=_ocAvisosConteo();
+  const b=document.getElementById('oc-avisos-btn');
+  if(b){
+    b.style.display=k.total?'':'none';
+    const p=[];if(k.maq)p.push('🔀 '+k.maq);if(k.om)p.push('📏 '+k.om);if(k.sb)p.push('📦 '+k.sb);
+    b.textContent='⚠ '+k.total+' aviso'+(k.total===1?'':'s')+' ('+p.join(' · ')+') →';
+  }
+  const n=document.getElementById('nav-avisos-corte-n');if(n)n.textContent=k.total?'('+k.total+')':'';
+  return k;
+}
+function renderAvisosCorte(){
   try{renderMaqNoAsignada();}catch(e){}
+  try{renderMetrosCortos();}catch(e){}
   try{renderSinBultos();}catch(e){}
+  const k=_ocAvisosChip();
+  const v=document.getElementById('oc-avisos-vacio');
+  if(v)v.innerHTML=k.total?'':'<div style="padding:18px;color:var(--green);font-weight:700;">✓ No hay avisos de corte pendientes.</div>';
+}
+function renderOrdenesCorte(){
+  try{renderAvisosCorte();}catch(e){} // 10a: los paneles viven en su hoja; acá sólo el botón con la cuenta
   // Poblar selects — siempre actualizar
   const sProd=document.getElementById('filtro-oc-producto');
   if(sProd&&C.productos.length){
