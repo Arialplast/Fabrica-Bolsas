@@ -1131,7 +1131,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-13c</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-13d</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6335,7 +6335,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-13c';   // 13c: ⚡ Resultado del mes: los gastos extraordinarios (categoría multas, ej. multa EDELAP) salen del resultado ordinario y se muestran debajo como «Extraordinarios» → «Resultado FINAL del mes». 13b: 🧾 recibos: relee la base antes de guardar/imputar (tope al saldo real) + número único con reintento. 13a: 📏 Extrusión en vivo y Estación: las máquinas SIEMPRE por número de extrusora (EXT-01, EXT-03, EXT-07) — tarjetas, línea de tiempo, gráficos, filtros y orden de la tabla de cierres, resumen por turno, paradas, alertas y la estación (_extCmp, aplicado en _plcGrupos). EXT-01 entra por el grupo 2 desde el 12/10 (plc_grupos id 3, factor 0,2475 = clave «1», por extrusora): Extrusión en vivo ahora toma minutos y cierres de cada grupo sólo DESDE plc_grupos.desde, como la estación — las pruebas previas del grupo 2 no se cuentan como EXT-01. Sin SQL.
+const APP_BUILD='2026-10-13d';   // 13d: 💸 facturas de ADELANTO FINANCIERO (obs.) fuera de facturación/ticket/concentración/demora/cobrado (siguen en cta cte e IVA). 13c: ⚡ Resultado del mes: los gastos extraordinarios (categoría multas, ej. multa EDELAP) salen del resultado ordinario y se muestran debajo como «Extraordinarios» → «Resultado FINAL del mes». 13b: 🧾 recibos: relee la base antes de guardar/imputar (tope al saldo real) + número único con reintento. 13a: 📏 Extrusión en vivo y Estación: las máquinas SIEMPRE por número de extrusora (EXT-01, EXT-03, EXT-07) — tarjetas, línea de tiempo, gráficos, filtros y orden de la tabla de cierres, resumen por turno, paradas, alertas y la estación (_extCmp, aplicado en _plcGrupos). EXT-01 entra por el grupo 2 desde el 12/10 (plc_grupos id 3, factor 0,2475 = clave «1», por extrusora): Extrusión en vivo ahora toma minutos y cierres de cada grupo sólo DESDE plc_grupos.desde, como la estación — las pruebas previas del grupo 2 no se cuentan como EXT-01. Sin SQL.
 // 10b anterior:   // 10b: 🚫 Anular factura sólo sin CAE (ni Flexxus, ni procesando) y sin cobros/NC/ND encima — con CAE la única vía es NC; botón apagado con el motivo; re-chequeo contra la base; limpia factura_linea_remitos (caso 0001-00000041 / REM-00595).
 // 10a anterior:   // 10a: ⚠ Avisos de corte en su propia hoja (Producción → ⚠ Avisos de corte): los paneles de máquina no asignada, OE corta y bultos sin cargar salen de Órdenes de corte, donde queda sólo un botón con la cuenta. 🔀 Máquina no asignada: rojo sólo si la OC se MUDÓ (sin máquina asignada, o en la asignada se cortó menos que en otra); una carga suelta en otra máquina pasa a informativo gris (caso OC-1052795: 5 bobinas en CORTE-02, 1 carga de 2 en CORTE-01). Sin SQL. // 09h: 👥 Sala de planes — TOTAL POR CLIENTE arriba del detalle de cobros (en el plan / ya cobrado / falta / caído, con atrasados), en la canasta del armador y en la hoja impresa. Derivado del documento de cada paso (_plTotalesPorCliente), sin SQL. // 09g: 🏦 Cada deuda dice de qué banco se debita (cuenta_debito_id): chip grande en la tarjeta, resumen «¿cuánta plata tiene que haber en cada banco?» (próximo débito, 30 días, vencidas, planes), el pago propone esa cuenta y avisa si elegís otra, el flujo nombra plan y banco, y el importador del extracto no cruza un débito de un banco con un plan de otro. Requiere alter_deudas_cuenta_debito.sql. · 09f: 📏 Extrusión en vivo: las bobinas con la fotocélula sin ver film vuelven a aparecer en «Gramaje real vs orden» (aro punteado) y en la tabla (g/m con *), calculadas con los metros CARGADOS; siguen fuera de las referencias.   // 09e: 📏 un cierre con la fotocélula sin ver film (film < 95 % del giro) no entra en ninguna referencia (kg/h, semáforo, velocidad de la última pesada, alarmas): con minutos cortados y kg enteros daba 52,5 kg/h y «¿CAMBIASTE DE PRODUCTO?» falso en EXT-03 al cambiar de color.   // 09d: 📏 P2 — los metros de la bobina salen SÓLO del odómetro CON FILM (antes del bruto: el rodillo suelto tras un pinchazo se sumaba). Bobina en curso, barra, velocidad y g/m también con film; el bruto queda de referencia. Estación: alarma «EL RODILLO GIRA Y NO SE VE FILM» (titila y pita) al minuto; en la carga, aviso si el cierre tuvo film en menos del 95 % del giro.   // 09c: 📏 Excedentes de OE en su propia pestaña (Producción, al lado de Fuera de rango), agrupados por OE con cliente; Fuera de rango muestra sólo las de calidad. Mismas acciones (aceptar / reasignar), sin SQL.   // 09b: 🎯 Cortar hoy — cada OC del pedido es una tarjeta propia (franja del color de su estado, cabecera sombreada, «OC n/N», guía vertical del pedido): con muchas OC no se distinguían los renglones. Sólo CSS + marcado, sin tocar cálculos. // 09a: 🧵 el tope de exceso de metros se mide contra el plan (siempre para arriba), no sólo contra los metros de la OE; y al «Aceptar tal cual» una bobina pendiente se revisa si la OE ya quedó completa (metros y pistas) y se cierra. (ORD-06337: la 4ª bobina que pedía el plan se fue a pendientes y la OE quedó abierta.)
 // 08d: 🧵 las bobinas de largo normal se piden primero y la del resto al final. Fichas: las 95 cm de DAG (blanca, amarilla, magenta, 40 µ) pasan a 1 pista; 190 y 193 (80 µ amarilla y magenta) a 350 m como la blanca.
@@ -13439,9 +13439,9 @@ function _c360Series(id){
   const prim=meses[0];
   const fac={},cob={};meses.forEach(m=>{fac[m]=0;cob[m]=0;});
   let facAntes=0,cobAntes=0;
-  _c360Facturas(id).forEach(f=>{const m=_c360Fecha(f).slice(0,7);const t=parseFloat(f.total)||0;if(fac[m]!=null)fac[m]+=t;else if(m<prim)facAntes+=t;});
+  _c360Facturas(id).forEach(f=>{if(_facEsFinanciera(f))return;const m=_c360Fecha(f).slice(0,7);const t=parseFloat(f.total)||0;if(fac[m]!=null)fac[m]+=t;else if(m<prim)facAntes+=t;});
   _c360Rvs(id).forEach(r=>{const m=_c360Fecha(r).slice(0,7);const t=parseFloat(r.total)||0;if(fac[m]!=null)fac[m]+=t;else if(m<prim)facAntes+=t;});
-  _c360Recibos(id).forEach(r=>{const m=_c360Fecha(r).slice(0,7);const t=parseFloat(r.total_cobrado)||0;if(cob[m]!=null)cob[m]+=t;else if(m<prim)cobAntes+=t;});
+  _c360Recibos(id).forEach(r=>{if(_recEsFinanciero(r))return;const m=_c360Fecha(r).slice(0,7);const t=parseFloat(r.total_cobrado)||0;if(cob[m]!=null)cob[m]+=t;else if(m<prim)cobAntes+=t;});
   const siTot=_c360SaldosIni(id).reduce((s,si)=>s+(parseFloat(si.monto)||0),0);
   const deuda={};let acc=r2(siTot+facAntes-cobAntes);
   meses.forEach(m=>{acc=r2(acc+(fac[m]||0)-(cob[m]||0));deuda[m]=Math.max(0,acc);});
@@ -13537,7 +13537,7 @@ function renderCliente360(){
   const S=_c360Series(id);
   const fac12=r2(S.meses.reduce((s,m)=>s+S.fac[m],0));
   const cob12=r2(S.meses.reduce((s,m)=>s+S.cob[m],0));
-  const facs=_c360Facturas(id);
+  const facs=_c360Facturas(id).filter(f=>!_facEsFinanciera(f));
   const ticket=facs.length?r2(facs.reduce((s,f)=>s+(parseFloat(f.total)||0),0)/facs.length):0;
   const _rp=_c360RangoPeriodo(CLI360.perCom||'hist');
   const com=_c360Comercial(id,_rp.desde,_rp.hasta);
@@ -19486,6 +19486,19 @@ function _aplicadoAND(ndId){
   return r2(s);
 }
 function _saldoND(nd){return r2((parseFloat(nd.monto)||0)-_aplicadoAND(nd.id));}
+// ===== 💸 FACTURAS DE FINANCIACIÓN (13d) =====
+// Una factura que documenta un ADELANTO FINANCIERO del cliente (ej. FC 0003-00001138 de
+// Diego Vázquez, $30 M para la multa EDELAP) no es una venta: la deuda está en Deudas
+// financieras y las NC de cada cuota se emiten contra ella. Sigue en la cuenta corriente
+// (factura + su recibo = saldo 0) y en el IVA, pero NO en facturación, ticket,
+// concentración, demora de cobro ni cobrado. Se marca con «ADELANTO FINANCIERO» en las
+// observaciones. El recibo que solo cancela facturas así tampoco es cobranza comercial.
+function _facEsFinanciera(f){return !!f&&/ADELANTO FINANCIERO/i.test(String(f.observaciones||''));}
+function _recEsFinanciero(r){
+  const fs=(r&&r.recibo_facturas)||[];
+  if(!fs.length||(r.recibo_rvs||[]).length)return false;
+  return fs.every(x=>_facEsFinanciera((C.facturas||[]).find(f=>f.id===x.factura_id)));
+}
 function _saldoFactura(fac){ if(!fac)return 0; return r2((parseFloat(fac.total)||0)-_aplicadoAFactura(fac.id)); }
 function _estadoFactura(fac){
   if(!fac)return 'pendiente';
@@ -44772,7 +44785,7 @@ function _cpDemoraClientes(ctx){
     }
     a.sd+=dias*total;a.sm+=total;a.monto+=total;
   };
-  (ctx.facturas||[]).forEach(f=>{if(/anul/i.test(f.estado||''))return;
+  (ctx.facturas||[]).forEach(f=>{if(/anul/i.test(f.estado||''))return;if(typeof _facEsFinanciera==='function'&&_facEsFinanciera(f))return;
     let rem=(f.factura_remitos||[]).map(x=>x.remito_id);
     if(!rem.length)rem=(ctx.remitos||[]).filter(r=>r.factura_id===f.id).map(r=>r.id);
     doc('fa'+f.id,f.cliente_id,f.fecha,parseFloat(f.total)||0,rem);});
@@ -66836,7 +66849,7 @@ function _snapCalcular(difInvMes){
   try{
     const desde=dStr(addDays(new Date(),-90));
     const por={};
-    (C.facturas||[]).forEach(f=>{if(f.estado==='anulada')return;const fe=String(f.fecha||f.created_at||'').slice(0,10);if(fe>=desde){por[f.cliente_id]=r2((por[f.cliente_id]||0)+(parseFloat(f.total)||0));}});
+    (C.facturas||[]).forEach(f=>{if(f.estado==='anulada'||_facEsFinanciera(f))return;const fe=String(f.fecha||f.created_at||'').slice(0,10);if(fe>=desde){por[f.cliente_id]=r2((por[f.cliente_id]||0)+(parseFloat(f.total)||0));}});
     (C.rvs||[]).forEach(rv=>{if(rv.estado==='anulada')return;const fe=String(rv.fecha||rv.created_at||'').slice(0,10);if(fe>=desde){por[rv.cliente_id]=r2((por[rv.cliente_id]||0)+(parseFloat(rv.total)||0));}});
     // Remitos ya entregados pero todavía sin factura/RV: venta real que si no, quedaría fuera del top.
     // No duplica: cuando se valoriza, el remito toma factura_id/rv_id y sale de acá (pasa a factura/RV).
@@ -67929,9 +67942,9 @@ function renderAnalisisDeudas(){
   const antigProm=montoTot>0?Math.round(pesoDias/montoTot):0;
   const kgEq=precioMP>0?Math.round(total/precioMP):0;
   const lim30=dStr(addDays(new Date(),-30));
-  const cobrado30=r2((C.recibos||[]).filter(r=>r.estado!=='anulado'&&String(r.fecha)>=lim30).reduce((s,r)=>s+(parseFloat(r.total_cobrado)||0),0));
+  const cobrado30=r2((C.recibos||[]).filter(r=>r.estado!=='anulado'&&String(r.fecha)>=lim30&&!_recEsFinanciero(r)).reduce((s,r)=>s+(parseFloat(r.total_cobrado)||0),0));
   const facturado30=r2(
-    (C.facturas||[]).filter(f=>f.estado!=='anulada'&&String(f.fecha)>=lim30).reduce((s,f)=>s+(parseFloat(f.total)||0),0)
+    (C.facturas||[]).filter(f=>f.estado!=='anulada'&&String(f.fecha)>=lim30&&!_facEsFinanciera(f)).reduce((s,f)=>s+(parseFloat(f.total)||0),0)
     +(C.rvs||[]).filter(v=>v.estado!=='anulada'&&String(v.fecha)>=lim30).reduce((s,v)=>s+(parseFloat(v.total)||0),0));
   const ratio=facturado30>0?cobrado30/facturado30:1;
   const ratioCol=ratio>=0.95?'var(--ad-green)':(ratio>=0.7?'var(--ad-amber)':'var(--ad-red)');
@@ -67952,9 +67965,9 @@ function renderAnalisisDeudas(){
   const meses=[];const hoyD=new Date();
   for(let m=5;m>=0;m--){const d=new Date(hoyD.getFullYear(),hoyD.getMonth()-m,1);meses.push({k:d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'),lbl:d.toLocaleDateString('es-AR',{month:'short'}),fact:0,cob:0});}
   const mIdx={};meses.forEach(m=>mIdx[m.k]=m);
-  (C.facturas||[]).forEach(f=>{if(f.estado==='anulada')return;const k=String(f.fecha||'').slice(0,7);if(mIdx[k])mIdx[k].fact+=parseFloat(f.total)||0;});
+  (C.facturas||[]).forEach(f=>{if(f.estado==='anulada'||_facEsFinanciera(f))return;const k=String(f.fecha||'').slice(0,7);if(mIdx[k])mIdx[k].fact+=parseFloat(f.total)||0;});
   (C.rvs||[]).forEach(v=>{if(v.estado==='anulada')return;const k=String(v.fecha||'').slice(0,7);if(mIdx[k])mIdx[k].fact+=parseFloat(v.total)||0;});
-  (C.recibos||[]).forEach(r=>{if(r.estado==='anulado')return;const k=String(r.fecha||'').slice(0,7);if(mIdx[k])mIdx[k].cob+=parseFloat(r.total_cobrado)||0;});
+  (C.recibos||[]).forEach(r=>{if(r.estado==='anulado'||_recEsFinanciero(r))return;const k=String(r.fecha||'').slice(0,7);if(mIdx[k])mIdx[k].cob+=parseFloat(r.total_cobrado)||0;});
   const maxM=Math.max(...meses.map(m=>Math.max(m.fact,m.cob)),1);
   let barras='<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;align-items:end;height:150px;">';
   meses.forEach(m=>{
