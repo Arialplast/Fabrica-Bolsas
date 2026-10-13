@@ -1131,7 +1131,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-10b</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-13a</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6303,7 +6303,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-10b';   // 10b: 🚫 Anular factura sólo sin CAE (ni Flexxus, ni procesando) y sin cobros/NC/ND encima — con CAE la única vía es NC; botón apagado con el motivo; re-chequeo contra la base; limpia factura_linea_remitos (caso 0001-00000041 / REM-00595).
+const APP_BUILD='2026-10-13a';   // 13a: 📏 Extrusión en vivo y Estación: las máquinas SIEMPRE por número de extrusora (EXT-01, EXT-03, EXT-07) — tarjetas, línea de tiempo, gráficos, filtros y orden de la tabla de cierres, resumen por turno, paradas, alertas y la estación (_extCmp, aplicado en _plcGrupos). EXT-01 entra por el grupo 2 desde el 12/10 (plc_grupos id 3, factor 0,2475 = clave «1», por extrusora): Extrusión en vivo ahora toma minutos y cierres de cada grupo sólo DESDE plc_grupos.desde, como la estación — las pruebas previas del grupo 2 no se cuentan como EXT-01. Sin SQL.
+// 10b anterior:   // 10b: 🚫 Anular factura sólo sin CAE (ni Flexxus, ni procesando) y sin cobros/NC/ND encima — con CAE la única vía es NC; botón apagado con el motivo; re-chequeo contra la base; limpia factura_linea_remitos (caso 0001-00000041 / REM-00595).
 // 10a anterior:   // 10a: ⚠ Avisos de corte en su propia hoja (Producción → ⚠ Avisos de corte): los paneles de máquina no asignada, OE corta y bultos sin cargar salen de Órdenes de corte, donde queda sólo un botón con la cuenta. 🔀 Máquina no asignada: rojo sólo si la OC se MUDÓ (sin máquina asignada, o en la asignada se cortó menos que en otra); una carga suelta en otra máquina pasa a informativo gris (caso OC-1052795: 5 bobinas en CORTE-02, 1 carga de 2 en CORTE-01). Sin SQL. // 09h: 👥 Sala de planes — TOTAL POR CLIENTE arriba del detalle de cobros (en el plan / ya cobrado / falta / caído, con atrasados), en la canasta del armador y en la hoja impresa. Derivado del documento de cada paso (_plTotalesPorCliente), sin SQL. // 09g: 🏦 Cada deuda dice de qué banco se debita (cuenta_debito_id): chip grande en la tarjeta, resumen «¿cuánta plata tiene que haber en cada banco?» (próximo débito, 30 días, vencidas, planes), el pago propone esa cuenta y avisa si elegís otra, el flujo nombra plan y banco, y el importador del extracto no cruza un débito de un banco con un plan de otro. Requiere alter_deudas_cuenta_debito.sql. · 09f: 📏 Extrusión en vivo: las bobinas con la fotocélula sin ver film vuelven a aparecer en «Gramaje real vs orden» (aro punteado) y en la tabla (g/m con *), calculadas con los metros CARGADOS; siguen fuera de las referencias.   // 09e: 📏 un cierre con la fotocélula sin ver film (film < 95 % del giro) no entra en ninguna referencia (kg/h, semáforo, velocidad de la última pesada, alarmas): con minutos cortados y kg enteros daba 52,5 kg/h y «¿CAMBIASTE DE PRODUCTO?» falso en EXT-03 al cambiar de color.   // 09d: 📏 P2 — los metros de la bobina salen SÓLO del odómetro CON FILM (antes del bruto: el rodillo suelto tras un pinchazo se sumaba). Bobina en curso, barra, velocidad y g/m también con film; el bruto queda de referencia. Estación: alarma «EL RODILLO GIRA Y NO SE VE FILM» (titila y pita) al minuto; en la carga, aviso si el cierre tuvo film en menos del 95 % del giro.   // 09c: 📏 Excedentes de OE en su propia pestaña (Producción, al lado de Fuera de rango), agrupados por OE con cliente; Fuera de rango muestra sólo las de calidad. Mismas acciones (aceptar / reasignar), sin SQL.   // 09b: 🎯 Cortar hoy — cada OC del pedido es una tarjeta propia (franja del color de su estado, cabecera sombreada, «OC n/N», guía vertical del pedido): con muchas OC no se distinguían los renglones. Sólo CSS + marcado, sin tocar cálculos. // 09a: 🧵 el tope de exceso de metros se mide contra el plan (siempre para arriba), no sólo contra los metros de la OE; y al «Aceptar tal cual» una bobina pendiente se revisa si la OE ya quedó completa (metros y pistas) y se cierra. (ORD-06337: la 4ª bobina que pedía el plan se fue a pendientes y la OE quedó abierta.)
 // 08d: 🧵 las bobinas de largo normal se piden primero y la del resto al final. Fichas: las 95 cm de DAG (blanca, amarilla, magenta, 40 µ) pasan a 1 pista; 190 y 193 (80 µ amarilla y magenta) a 350 m como la blanca.
 // 08c: 🧵 PISTAS CON LARGO FIJO Y PISO (OE nuevas y viejas): largo de la ficha, siempre de a una bobina por pista y para arriba; sólo la última vuelta cambia: más corta pero ≥ 2/3 del largo, o estirando la vuelta anterior hasta +25 % si sobra poco. La compensación nunca pide menos que el piso (a la pista que le falta menos, se la da por cerrada). El largo fijo sin pistas de la 08b queda con configuracion.bobinas_plan_pistas='no'.
@@ -9444,11 +9445,17 @@ function _plcCargaVisible(){
   const pg=document.getElementById('page-carga-bobinas');
   return !!pg&&(pg.classList.contains('active')||pg.classList.contains('carga-embed'));
 }
+// 13a — ORDEN DE LAS MÁQUINAS: siempre por NÚMERO de extrusora (EXT-01, EXT-03, EXT-07), nunca
+// por grupo del PLC ni por el orden en que llegan las filas. Desde el 13/10 EXT-01 entra por el
+// grupo 2 (plc_grupos id 3) y en la pantalla aparecía tercera. UNA sola regla para todas las vistas.
+function _extNro(e){const m=String(e&&e.nombre||'').match(/(\d+)/);return m?parseInt(m[1],10):(parseInt(e&&e.id)||9999);}
+function _extCmp(a,b){return (_extNro(a)-_extNro(b))||String(a&&a.nombre||'').localeCompare(String(b&&b.nombre||''))||((parseInt(a&&a.id)||0)-(parseInt(b&&b.id)||0));}
+function _extDeId(id){return (C.extrusoras||[]).find(e=>String(e.id)===String(id))||{id,nombre:''};}
 async function _plcGrupos(){
   if(PLC.grupos&&Date.now()-PLC.gruposTs<60000)return PLC.grupos;
   const{data,error}=await sb.from('plc_grupos').select('*').is('hasta',null);
   if(error)throw error;
-  PLC.grupos=data||[];PLC.gruposTs=Date.now();
+  PLC.grupos=(data||[]).slice().sort((a,b)=>_extCmp(_extDeId(a.extrusora_id),_extDeId(b.extrusora_id)));PLC.gruposTs=Date.now();
   return PLC.grupos;
 }
 async function _plcCfg(){
@@ -9741,7 +9748,7 @@ function _eeMinParada(mins){
   return Math.round(n);
 }
 function _eeExts(){
-  return (C.extrusoras||[]).filter(e=>e.en_servicio!==false).sort((a,b)=>String(a.nombre).localeCompare(String(b.nombre)));
+  return (C.extrusoras||[]).filter(e=>e.en_servicio!==false).sort(_extCmp);   // 13a: por número de extrusora
 }
 // 07p — QUÉ ORDEN CORRE EN CADA MÁQUINA. El estado «En proceso» vive en la ORDEN (vale para
 // todas sus máquinas), así que con dos órdenes En proceso en la misma máquina el sistema no
@@ -10408,9 +10415,13 @@ async function renderExtrusionVivo(){
     const t0=Date.now()-EVV.horas*3600000;
     const maqs=grupos.map(g=>{
       const ext=(C.extrusoras||[]).find(e=>String(e.id)===String(g.extrusora_id))||{nombre:'EXT ?'};
-      const fac=_plcFactor(cfgP.factor,g.extrusora_id);
-      const mins=_evvMinutos((rm.data||[]).filter(r=>r.grupo===g.grupo),fac.m);
-      const calc=_plcCalcCierres((rc.data||[]).filter(c=>c.grupo===g.grupo),fac.m);
+      const fac=_plcFactor(cfgP.factor,g.extrusora_id);   // factor por EXTRUSORA (clave = extrusora_id), no por grupo
+      // 13a: sólo lo del grupo DESDE que esa extrusora está conectada a él (plc_grupos.desde), igual que
+      // la estación (_plcDatosExt). EXT-01 entró por el grupo 2 el 12/10: las pruebas de antes no son suyas.
+      const gD=g.desde?new Date(g.desde).getTime():0;
+      const rowsG=(rm.data||[]).filter(r=>r.grupo===g.grupo&&new Date(r.ts).getTime()>=gD);
+      const mins=_evvMinutos(rowsG,fac.m);
+      const calc=_plcCalcCierres((rc.data||[]).filter(c=>c.grupo===g.grupo&&new Date(c.cerrado_en).getTime()>=gD),fac.m);
       const est=(re.data||[]).find(x=>x.grupo===g.grupo)||null;
       const bobs=calc.filter(c=>new Date(c.cerrado_en).getTime()>=t0).map(c=>{
         const b=porCierre.get(c.id)||null;
@@ -10437,7 +10448,7 @@ async function renderExtrusionVivo(){
       const nP=mins.filter(m=>m.est==='P').reduce((s,m)=>s+m.dtMin,0);
       const nTot=mins.reduce((s,m)=>s+m.dtMin,0);
       const ult5=mins.filter(m=>m.est==='P').slice(-5);
-      const velA=_plcVelAhora((rm.data||[]).filter(r=>r.grupo===g.grupo),fac.m);   // 07n: misma velocidad que usa la estación
+      const velA=_plcVelAhora(rowsG,fac.m);   // 07n: misma velocidad que usa la estación
       const mminVivo=velA?velA.v:(ult5.length?ult5.reduce((s,m)=>s+m.mmin,0)/ult5.length:0);
       const ahoraEst=mins.length?mins[mins.length-1].est:'N';
       const ultH=mins.slice(-60);
@@ -10451,13 +10462,13 @@ async function renderExtrusionVivo(){
       const kg24=pes.reduce((s,o)=>s+o.kg,0);
       const minProdPes=pes.reduce((s,o)=>s+o.c.minProd,0);
       return{g,ext,fac,mins,bobs,est,kghRef,uso:nTot?nP/nTot:null,nP,nTot,mminVivo,ahoraEst,
-        filmPct:brH?fiH/brH:null,ordAct,tipoAct,gpmEst,R,velA,enCurso,ultC,oeAct,kg24,minsRaw:(rm.data||[]).filter(r=>r.grupo===g.grupo),
+        filmPct:brH?fiH/brH:null,ordAct,tipoAct,gpmEst,R,velA,enCurso,ultC,oeAct,kg24,minsRaw:rowsG,
         kghReal:minProdPes?kg24/(minProdPes/60):null,
         paradas:_evvParadas(mins,5),sinBob:bobs.filter(o=>!o.b&&!o.c.descartado&&o.c.metros!=null
           &&new Date(o.c.cerrado_en).getTime()>=new Date(cfgP.desde).getTime())};
-    });
+    }).sort((a,b)=>_extCmp(a.ext,b.ext));   // 13a: EXT-01, EXT-03, EXT-07
     // extrusoras sin PLC: solo lo que dice el MES
-    const sinPlc=(C.extrusoras||[]).filter(e=>e.en_servicio&&!grupos.some(g=>String(g.extrusora_id)===String(e.id)));
+    const sinPlc=(C.extrusoras||[]).filter(e=>e.en_servicio&&!grupos.some(g=>String(g.extrusora_id)===String(e.id))).sort(_extCmp);
     const bobsSinPlc=sinPlc.map(e=>({e,bs:bobinas.filter(b=>String(b.extrusora_id)===String(e.id)&&tsBob(b)>=t0)}));
     EVV.maqs=maqs;
     _evvPintar(w,maqs,bobsSinPlc,bobinas,cfgP,t0);
@@ -10664,7 +10675,7 @@ function _evvPintar(w,maqs,bobsSinPlc,bobinas,cfgP,t0){
   bobsSinPlc.forEach(x=>al.push(['info',x.e.nombre+' sin medición','Falta conectar su cuentametros al PLC.','pendiente']));
   if(provis)al.push(['info','Factor provisorio','Metros con factor provisorio hasta el testigo.','etapa 5']);
   h+='<div class="evx-grid2"><section class="evx-sec"><div class="evx-sechead"><h2>Máquinas · ahora</h2><span class="evx-lbl">semáforo = el mismo que ve el operario</span></div>'
-    +'<div class="evx-machines">'+maqs.map(_evvCard).join('')+bobsSinPlc.map(_evvCardNo).join('')+'</div></section>'
+    +'<div class="evx-machines">'+maqs.map(m=>({e:m.ext,h:_evvCard(m)})).concat(bobsSinPlc.map(x=>({e:x.e,h:_evvCardNo(x)}))).sort((a,b)=>_extCmp(a.e,b.e)).map(x=>x.h).join('')+'</div></section>'
     +'<aside class="evx-panel evx-alerts"><h2>Alertas</h2>'+(al.length?al.map(a=>'<div class="evx-al '+a[0]+'"><i></i><div><b>'+escapeHtml(a[1])+'</b> <span class="when">'+escapeHtml(a[3])+'</span><br>'+escapeHtml(a[2])+'</div></div>').join(''):'<div class="mut">Sin alertas.</div>')+'</aside></div>';
   // ---- línea de tiempo
   const colores={P:'var(--ok)',F:'var(--warn)',S:'var(--bad)',X:'var(--muted)'};
@@ -10697,7 +10708,7 @@ function _evvPintar(w,maqs,bobsSinPlc,bobinas,cfgP,t0){
     +'<div class="evx-panel evx-chart"><h2>Gramaje real vs orden</h2>'+_evvScatter(serG,t0,t1,-15,15,[-15,-10,-5,0,5,10,15],v=>(v>0?'+':'')+_evvF(v,0)+' %',[-AL,AP])+'<p>g/m real (balanza con tubo ÷ metros) contra el teórico de la orden. Banda verde = OK de la carga (−'+_evvF(AL)+' % / +'+_evvF(AP)+' %). Arriba = pesada, regalás material. Aro punteado = la fotocélula no vio el film en esa bobina: gramaje con los metros cargados, no entra en las referencias.</p></div></section>';
   // ---- tabla de cierres
   EVV.cfgP=cfgP;
-  EVV.filas=maqs.flatMap(m=>m.bobs.map(o=>Object.assign({maq:m.ext.nombre},o))).sort((a,b)=>new Date(b.c.cerrado_en)-new Date(a.c.cerrado_en));
+  EVV.filas=maqs.flatMap(m=>m.bobs.map(o=>Object.assign({maq:m.ext.nombre,ext:m.ext},o))).sort((a,b)=>(new Date(b.c.cerrado_en)-new Date(a.c.cerrado_en))||_extCmp(a.ext,b.ext));   // 13a: a igual hora, por número de máquina
   const fil=['Todas',...maqs.map(m=>m.ext.nombre),'Con aviso'];
   if(!fil.includes(EVV.filtro))EVV.filtro='Todas';
   h+='<section class="evx-sec"><div class="evx-sechead"><h2>Bobinas cerradas · '+EVV.horas+' h</h2><div class="evx-filt" id="evx-filt">'+fil.map(f=>'<button type="button" data-f="'+escapeHtml(f)+'" aria-pressed="'+(f===EVV.filtro)+'" onclick="evvFiltro(this.dataset.f)">'+escapeHtml(f)+'</button>').join('')+'</div></div>'
@@ -10730,7 +10741,7 @@ function _evvPintar(w,maqs,bobsSinPlc,bobinas,cfgP,t0){
       +'<td class="'+(par>60?'badTxt':'')+'">'+_evvF(par)+' min</td><td class="'+(nm?'warnTxt':'')+'">'+nm+'</td><td class="'+(nsc?'badTxt':'')+'">'+nsc+'</td></tr>';
   });
   h+='</tbody></table></div></section>';
-  const pars=maqs.flatMap(m=>m.paradas.map(p=>Object.assign({maq:m.ext.nombre},p))).sort((a,b)=>new Date(b.desde)-new Date(a.desde));
+  const pars=maqs.flatMap(m=>m.paradas.map(p=>Object.assign({maq:m.ext.nombre,ext:m.ext},p))).sort((a,b)=>(new Date(b.desde)-new Date(a.desde))||_extCmp(a.ext,b.ext));
   h+='<section class="evx-sec"><h2>Paradas de 5 min o más</h2><div class="evx-panel evx-tw"><table><thead><tr><th>Desde</th><th class="l">Máq.</th><th>Duración</th></tr></thead><tbody>'
     +(pars.length?pars.slice(0,30).map(p=>'<tr><td>'+(new Date(p.desde).getTime()-t0<120000?'antes de ':'')+_plcHora(p.desde)+'</td><td class="l">'+escapeHtml(p.maq)+'</td><td class="'+(p.min>=30?'badTxt':'')+'">'+(p.min>=90?_evvF(p.min/60,1)+' h':p.min+' min')+(p.sigue?' (sigue)':'')+'</td></tr>').join('')
       :'<tr><td colspan="3" class="l mut">Sin paradas largas.</td></tr>')+'</tbody></table></div></section></div>';
