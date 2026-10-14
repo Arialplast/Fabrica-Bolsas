@@ -1131,7 +1131,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-13e</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-14a</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6335,7 +6335,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-13e';   // 13e: 🪪 el crédito de una NC se aplica en cualquier cuenta del mismo CUIT (mismo circuito). 13d: 💸 facturas de ADELANTO FINANCIERO (obs.) fuera de facturación/ticket/concentración/demora/cobrado (siguen en cta cte e IVA). 13c: ⚡ Resultado del mes: los gastos extraordinarios (categoría multas, ej. multa EDELAP) salen del resultado ordinario y se muestran debajo como «Extraordinarios» → «Resultado FINAL del mes». 13b: 🧾 recibos: relee la base antes de guardar/imputar (tope al saldo real) + número único con reintento. 13a: 📏 Extrusión en vivo y Estación: las máquinas SIEMPRE por número de extrusora (EXT-01, EXT-03, EXT-07) — tarjetas, línea de tiempo, gráficos, filtros y orden de la tabla de cierres, resumen por turno, paradas, alertas y la estación (_extCmp, aplicado en _plcGrupos). EXT-01 entra por el grupo 2 desde el 12/10 (plc_grupos id 3, factor 0,2475 = clave «1», por extrusora): Extrusión en vivo ahora toma minutos y cierres de cada grupo sólo DESDE plc_grupos.desde, como la estación — las pruebas previas del grupo 2 no se cuentan como EXT-01. Sin SQL.
+const APP_BUILD='2026-10-14a';   // 14a: 🧮 Sala de planes: «ya cobrado» cuenta sólo plata que entró DESPUÉS del plan; lo cancelado con plata vieja o NC = caído.   // 13e: 🪪 el crédito de una NC se aplica en cualquier cuenta del mismo CUIT (mismo circuito). 13d: 💸 facturas de ADELANTO FINANCIERO (obs.) fuera de facturación/ticket/concentración/demora/cobrado (siguen en cta cte e IVA). 13c: ⚡ Resultado del mes: los gastos extraordinarios (categoría multas, ej. multa EDELAP) salen del resultado ordinario y se muestran debajo como «Extraordinarios» → «Resultado FINAL del mes». 13b: 🧾 recibos: relee la base antes de guardar/imputar (tope al saldo real) + número único con reintento. 13a: 📏 Extrusión en vivo y Estación: las máquinas SIEMPRE por número de extrusora (EXT-01, EXT-03, EXT-07) — tarjetas, línea de tiempo, gráficos, filtros y orden de la tabla de cierres, resumen por turno, paradas, alertas y la estación (_extCmp, aplicado en _plcGrupos). EXT-01 entra por el grupo 2 desde el 12/10 (plc_grupos id 3, factor 0,2475 = clave «1», por extrusora): Extrusión en vivo ahora toma minutos y cierres de cada grupo sólo DESDE plc_grupos.desde, como la estación — las pruebas previas del grupo 2 no se cuentan como EXT-01. Sin SQL.
 // 10b anterior:   // 10b: 🚫 Anular factura sólo sin CAE (ni Flexxus, ni procesando) y sin cobros/NC/ND encima — con CAE la única vía es NC; botón apagado con el motivo; re-chequeo contra la base; limpia factura_linea_remitos (caso 0001-00000041 / REM-00595).
 // 10a anterior:   // 10a: ⚠ Avisos de corte en su propia hoja (Producción → ⚠ Avisos de corte): los paneles de máquina no asignada, OE corta y bultos sin cargar salen de Órdenes de corte, donde queda sólo un botón con la cuenta. 🔀 Máquina no asignada: rojo sólo si la OC se MUDÓ (sin máquina asignada, o en la asignada se cortó menos que en otra); una carga suelta en otra máquina pasa a informativo gris (caso OC-1052795: 5 bobinas en CORTE-02, 1 carga de 2 en CORTE-01). Sin SQL. // 09h: 👥 Sala de planes — TOTAL POR CLIENTE arriba del detalle de cobros (en el plan / ya cobrado / falta / caído, con atrasados), en la canasta del armador y en la hoja impresa. Derivado del documento de cada paso (_plTotalesPorCliente), sin SQL. // 09g: 🏦 Cada deuda dice de qué banco se debita (cuenta_debito_id): chip grande en la tarjeta, resumen «¿cuánta plata tiene que haber en cada banco?» (próximo débito, 30 días, vencidas, planes), el pago propone esa cuenta y avisa si elegís otra, el flujo nombra plan y banco, y el importador del extracto no cruza un débito de un banco con un plan de otro. Requiere alter_deudas_cuenta_debito.sql. · 09f: 📏 Extrusión en vivo: las bobinas con la fotocélula sin ver film vuelven a aparecer en «Gramaje real vs orden» (aro punteado) y en la tabla (g/m con *), calculadas con los metros CARGADOS; siguen fuera de las referencias.   // 09e: 📏 un cierre con la fotocélula sin ver film (film < 95 % del giro) no entra en ninguna referencia (kg/h, semáforo, velocidad de la última pesada, alarmas): con minutos cortados y kg enteros daba 52,5 kg/h y «¿CAMBIASTE DE PRODUCTO?» falso en EXT-03 al cambiar de color.   // 09d: 📏 P2 — los metros de la bobina salen SÓLO del odómetro CON FILM (antes del bruto: el rodillo suelto tras un pinchazo se sumaba). Bobina en curso, barra, velocidad y g/m también con film; el bruto queda de referencia. Estación: alarma «EL RODILLO GIRA Y NO SE VE FILM» (titila y pita) al minuto; en la carga, aviso si el cierre tuvo film en menos del 95 % del giro.   // 09c: 📏 Excedentes de OE en su propia pestaña (Producción, al lado de Fuera de rango), agrupados por OE con cliente; Fuera de rango muestra sólo las de calidad. Mismas acciones (aceptar / reasignar), sin SQL.   // 09b: 🎯 Cortar hoy — cada OC del pedido es una tarjeta propia (franja del color de su estado, cabecera sombreada, «OC n/N», guía vertical del pedido): con muchas OC no se distinguían los renglones. Sólo CSS + marcado, sin tocar cálculos. // 09a: 🧵 el tope de exceso de metros se mide contra el plan (siempre para arriba), no sólo contra los metros de la OE; y al «Aceptar tal cual» una bobina pendiente se revisa si la OE ya quedó completa (metros y pistas) y se cierra. (ORD-06337: la 4ª bobina que pedía el plan se fue a pendientes y la OE quedó abierta.)
 // 08d: 🧵 las bobinas de largo normal se piden primero y la del resto al final. Fichas: las 95 cm de DAG (blanca, amarilla, magenta, 40 µ) pasan a 1 pista; 190 y 193 (80 µ amarilla y magenta) a 350 m como la blanca.
@@ -68645,7 +68645,46 @@ function _pcobObjetivosDisponibles(){
 // Progreso REAL de un paso de cobro, derivado del documento (Documento→Movimiento→Saldo).
 // Devuelve {planeado, saldoAct, cobrado, estado, auto} o null si el paso no es auto-vinculable
 // (cheque/saldo inicial/manual/libre → siguen con tilde manual).
-function _pcobProgresoCobro(s){
+// ===== 🧮 COBRADO DEL PLAN = SÓLO PLATA NUEVA (14a) =====
+// Caso QUILPLAST (plan 22, armado 09/10): el 13/10 se reimputó un recibo del 30/09 a
+// RV-000243/246/260 y el plan los marcó «ya cobrado» ($806.163,65) aunque esa plata ya
+// estaba en caja antes de armar el plan. Regla: para facturas y RV, «cobrado» = lo que
+// aplicaron recibos/compensaciones POSTERIORES al plan (fecha ≥ día del plan, o cargados
+// después del plan). Lo que el documento canceló con plata vieja o con una NC no va a
+// entrar: es «caído». Sin plan identificable (o pedidos) se mantiene la cuenta de siempre.
+function _plPlanDePaso(s){
+  for(const p of (C.planes_compra||[]))if((p.pasos||[]).includes(s))return p;
+  return null;
+}
+// Pura: suma de lo aplicado a un documento por recibos/compensaciones posteriores al plan.
+function _plCobradoNuevo(tipo,id,desde,planCreado,recibos,compensaciones){
+  const post=(fecha,creado)=>(fecha&&String(fecha).slice(0,10)>=desde)||(planCreado&&creado&&String(creado)>String(planCreado));
+  const campo=tipo==='factura'?'factura_id':'rv_id';
+  const tabla=tipo==='factura'?'recibo_facturas':'recibo_rvs';
+  let s=0;
+  (recibos||[]).forEach(r=>{
+    if(r.estado==='anulado'||!post(r.fecha,r.created_at))return;
+    (r[tabla]||[]).forEach(a=>{if(a[campo]===id)s+=parseFloat(a.monto_aplicado)||0;});
+  });
+  (compensaciones||[]).forEach(c=>{
+    if(c.estado==='anulada'||!post(c.fecha,c.created_at))return;
+    (c.comp_aplicaciones||[]).forEach(a=>{if(a[campo]===id)s+=parseFloat(a.monto_aplicado)||0;});
+  });
+  return r2(s);
+}
+// Pura: reparte lo planeado en cobrado / falta / caído.
+function _plRepartoCobro(planeado,saldoAct,cobradoNuevo,anulado){
+  const cobrado=r2(Math.min(planeado,Math.max(0,cobradoNuevo)));
+  const falta=r2(Math.max(0,Math.min(saldoAct,planeado-cobrado)));
+  const caido=anulado?r2(planeado-cobrado):r2(Math.max(0,planeado-cobrado-falta));
+  let estado;
+  if(falta<=0.01&&caido<=0.01)estado='cumplido';
+  else if(falta<=0.01&&cobrado<=0.01)estado='fallado';
+  else if(cobrado>0.01||caido>0.01)estado='parcial';
+  else estado='pendiente';
+  return {planeado,saldoAct:falta,cobrado,caido,estado,auto:true};
+}
+function _pcobProgresoCobro(s,plan){
   if(!s||s.tipo!=='cobro')return null;
   const planeado=parseFloat(s.monto)||0;
   let saldoAct=null,anulado=false;
@@ -68653,13 +68692,22 @@ function _pcobProgresoCobro(s){
   else if(s.origen_tipo==='rv'){const rv=(C.rvs||[]).find(x=>x.id===s.origen_id);if(rv){if(rv.estado==='anulada'){anulado=true;saldoAct=0;}else saldoAct=_saldoRV(rv);}}
   else if(s.origen_tipo==='pedido'){const p=(C.pedidos||[]).find(x=>x.id===s.origen_id);if(p){const c=_calcularCobroPedido(p);saldoAct=c?c.pendiente:null;}}
   if(saldoAct===null)return null;
+  // 14a: factura/RV de un plan identificable → sólo cuenta la plata que entró después del plan.
+  if(s.origen_tipo==='factura'||s.origen_tipo==='rv'){
+    const pl=plan||_plPlanDePaso(s);
+    const desde=pl&&String((pl.datos_plan&&pl.datos_plan.generado)||pl.created_at||'').slice(0,10);
+    if(desde){
+      const nuevo=_plCobradoNuevo(s.origen_tipo,s.origen_id,desde,pl.created_at,C.recibos,C.compensaciones);
+      return _plRepartoCobro(planeado,r2(saldoAct),nuevo,anulado);
+    }
+  }
   const cobrado=Math.max(0,r2(planeado-saldoAct));
   let estado;
   if(anulado)estado='fallado';
   else if(saldoAct<=0.01)estado='cumplido';
   else if(cobrado>0.01)estado='parcial';
   else estado='pendiente';
-  return {planeado,saldoAct:r2(saldoAct),cobrado,estado,auto:true};
+  return {planeado,saldoAct:r2(saldoAct),cobrado,caido:anulado?r2(planeado-cobrado):0,estado,auto:true};
 }
 function pcobSolidez(){return _plCalcSolidez(PCob.objetivos,PCob.recursos,PCob.cheques||[]);}
 // Motor de solidez parametrizado (lo usan el modal viejo y la Sala de planes).
@@ -68864,7 +68912,7 @@ function _plCliDePaso(s){
 // Pura sobre los pasos de un plan: una fila por cliente con lo que el plan cuenta cobrarle,
 // lo ya cobrado, lo que falta y lo caído. Solo pasos de COBRO (los cambios de cheque y el
 // uso de caja no son plata a cobrarle a nadie). La suma de las filas = la suma de los pasos.
-function _plTotalesPorCliente(pasos,atrasadosIds){
+function _plTotalesPorCliente(pasos,atrasadosIds,plan){
   const m={};
   (pasos||[]).forEach(s=>{
     if(s.tipo!=='cobro')return;
@@ -68874,12 +68922,14 @@ function _plTotalesPorCliente(pasos,atrasadosIds){
     const est=_plEstadoPaso(s);
     r.n++;r.planeado=r2(r.planeado+monto);
     if(est==='fallado'){r.caido=r2(r.caido+monto);return;}
-    let cob=0;
+    let cob=0,cai=0;
     if(est==='cumplido')cob=monto;
-    else if(est==='parcial'){const pr=_pcobProgresoCobro(s);cob=pr?pr.cobrado:(parseFloat(s.cobrado_final)||0);}
+    else if(est==='parcial'){const pr=_pcobProgresoCobro(s,plan);cob=pr?pr.cobrado:(parseFloat(s.cobrado_final)||0);cai=pr?(pr.caido||0):0;}
     cob=Math.min(monto,Math.max(0,cob));
+    cai=Math.min(monto-cob,Math.max(0,cai));
     r.cobrado=r2(r.cobrado+cob);
-    r.falta=r2(r.falta+(monto-cob));
+    r.caido=r2(r.caido+cai);
+    r.falta=r2(r.falta+(monto-cob-cai));
     if(atrasadosIds&&atrasadosIds.has(s.id)&&est!=='cumplido')r.atrasados++;
   });
   return Object.values(m).sort((a,b)=>b.falta-a.falta||b.planeado-a.planeado||a.nombre.localeCompare(b.nombre));
@@ -68895,7 +68945,7 @@ function _plCanastaPorCliente(recs,extra){
 function _plTotCliHtml(p,cerrado){
   let atr=new Set();
   if(!cerrado){try{_plPasosProblema(p).forEach(x=>{if(/^atrasado/.test(x.motivo))atr.add(x.s.id);});}catch(e){}}
-  const filas=_plTotalesPorCliente(p.pasos,atr);
+  const filas=_plTotalesPorCliente(p.pasos,atr,p);
   if(!filas.length)return'';
   const $=v=>'$'+r2(v).toLocaleString('es-AR');
   const T=filas.reduce((a,f)=>({n:a.n+f.n,planeado:r2(a.planeado+f.planeado),cobrado:r2(a.cobrado+f.cobrado),falta:r2(a.falta+f.falta),caido:r2(a.caido+f.caido)}),{n:0,planeado:0,cobrado:0,falta:0,caido:0});
@@ -68944,14 +68994,14 @@ function pcobVer(id){
   pasos.forEach(s=>{
     const esObj=s.tipo==='objetivo';
     const esCheque=s.tipo==='cambio_cheque';
-    const prog=(!esObj&&!cerrado)?(esCheque?_pcobProgresoCheque(s):_pcobProgresoCobro(s)):null;
+    const prog=(!esObj&&!cerrado)?(esCheque?_pcobProgresoCheque(s):_pcobProgresoCobro(s,p)):null;
     let txtStyle='',leftExtra='',accion='';
     if(prog){
       const e=prog.estado;
       txtStyle=e==='cumplido'?'text-decoration:line-through;color:var(--text3);':(e==='fallado'?'color:var(--red);':'');
       leftExtra=e==='cumplido'?'<br><span style="color:var(--green);font-size:11px;">✓ '+(esCheque?'cheque cambiado':'cobrado completo')+'</span>'
-        :e==='parcial'?'<br><span style="color:var(--amber);font-size:11px;">🟡 '+(esCheque?'depositado, falta acreditar':'parcial: cobrado $'+prog.cobrado.toLocaleString('es-AR')+' / $'+prog.planeado.toLocaleString('es-AR')+' · falta $'+r2(prog.planeado-prog.cobrado).toLocaleString('es-AR'))+'</span>'
-        :e==='fallado'?'<br><span style="color:var(--red);font-size:11px;">✗ '+(esCheque?'cheque rechazado':'documento anulado')+'</span>'
+        :e==='parcial'?'<br><span style="color:var(--amber);font-size:11px;">🟡 '+(esCheque?'depositado, falta acreditar':'parcial: cobrado $'+prog.cobrado.toLocaleString('es-AR')+' / $'+prog.planeado.toLocaleString('es-AR')+(prog.saldoAct>0.01?' · falta $'+r2(prog.saldoAct).toLocaleString('es-AR'):'')+(prog.caido>0.01?' · <span style="color:var(--red);">no entra $'+r2(prog.caido).toLocaleString('es-AR')+' (se canceló con plata de antes del plan o con NC)</span>':''))+'</span>'
+        :e==='fallado'?'<br><span style="color:var(--red);font-size:11px;">✗ '+(esCheque?'cheque rechazado':(prog.caido>0.01&&prog.planeado>0&&!(s.origen_tipo==='factura'?((C.facturas||[]).find(x=>x.id===s.origen_id)||{}).estado==='anulada':((C.rvs||[]).find(x=>x.id===s.origen_id)||{}).estado==='anulada')?'no entra plata nueva: ya estaba cobrado antes del plan (o con NC)':'documento anulado'))+'</span>'
         :'<br><span style="color:var(--text3);font-size:11px;">'+(esCheque?'cheque en cartera, pendiente de cambio':'pendiente de cobro')+'</span>';
       accion='<span style="font-size:10px;color:var(--text3);">auto</span>';
       if(p.estado==='activo'&&e==='fallado')accion+=' <button class="btn btn-sm" style="font-size:10px;padding:1px 6px;" title="Buscar el mejor recurso libre para reemplazar este paso caído" onclick="plSugerirReemplazo('+p.id+',\''+s.id+'\')">🔄 reemplazo</button>';
@@ -68994,7 +69044,7 @@ async function pcobCerrar(id){
   const pasos=JSON.parse(JSON.stringify(p.pasos||[]));
   pasos.forEach(s=>{
     if(s.tipo!=='cobro')return;
-    const pr=_pcobProgresoCobro(s);
+    const pr=_pcobProgresoCobro(s,p);
     if(pr){s.estado=pr.estado==='cumplido'?'hecho':pr.estado;s.cobrado_final=pr.cobrado;}
   });
   const{error}=await sb.from('planes_compra').update({estado:'cerrado',cerrado_el:new Date().toISOString(),nota_cierre:nota,pasos}).eq('id',id);
@@ -69100,7 +69150,7 @@ function _plSolidezPlan(p){
     if(est==='cumplido'){b.firme+=m;cobrado+=m;return;}
     if(s.tipo==='cambio_cheque'||s.tipo==='uso_caja'){b.firme+=m;return;}
     if(est==='parcial'){
-      const pr=_pcobProgresoCobro(s);
+      const pr=_pcobProgresoCobro(s,p);
       if(pr){cobrado+=pr.cobrado;b.firme+=pr.cobrado;const rem=pr.saldoAct;const t=s.tier||1;
         if(t<=1)b.firme+=rem;else if(t===2)b.producido+=rem;else if(t===3)b.condicionado+=rem;else b.proyectado+=rem;}
       return;
@@ -69830,7 +69880,7 @@ function plImprimirPlan(id){
     const est=esObj?null:_plEstadoPaso(s);
     const ic=esObj?'🎯':s.tipo==='cambio_cheque'?'🔁':s.tipo==='uso_caja'?'💰':'💵';
     let extra='';
-    if(!esObj&&est==='parcial'&&s.tipo==='cobro'){const pr=_pcobProgresoCobro(s);if(pr)extra=' — cobrado $'+pr.cobrado.toLocaleString('es-AR')+', falta $'+r2(pr.planeado-pr.cobrado).toLocaleString('es-AR');}
+    if(!esObj&&est==='parcial'&&s.tipo==='cobro'){const pr=_pcobProgresoCobro(s,p);if(pr)extra=' — cobrado $'+pr.cobrado.toLocaleString('es-AR')+(pr.saldoAct>0.01?', falta $'+r2(pr.saldoAct).toLocaleString('es-AR'):'')+(pr.caido>0.01?', no entra $'+r2(pr.caido).toLocaleString('es-AR'):'');}
     filas+='<tr style="'+(esObj?'background:#fff7ed;':'')+'"><td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;'+(est==='cumplido'?'text-decoration:line-through;color:#888;':est==='fallado'?'color:#b91c1c;':'')+'">'+ic+' '+String(s.texto||'').replace(/</g,'&lt;')+extra+'</td>'
       +'<td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;text-align:right;white-space:nowrap;font-family:monospace;">$'+r2(parseFloat(s.monto)||0).toLocaleString('es-AR')+'</td>'
       +'<td style="padding:4px 8px;border-bottom:1px solid #e5e5e5;text-align:right;white-space:nowrap;color:'+(est==='cumplido'?'#15803d':est==='fallado'?'#b91c1c':est==='parcial'?'#b45309':'#666')+';">'+(esObj?'objetivo':estLbl[est]||est||'')+'</td></tr>';
@@ -69838,7 +69888,7 @@ function plImprimirPlan(id){
   // 👥 Total por cliente (09h) — misma cuenta que la pantalla (_plTotalesPorCliente).
   let atrP=new Set();
   if(!cerrado){try{_plPasosProblema(p).forEach(x=>{if(/^atrasado/.test(x.motivo))atrP.add(x.s.id);});}catch(e){}}
-  const porCli=_plTotalesPorCliente(p.pasos,atrP);
+  const porCli=_plTotalesPorCliente(p.pasos,atrP,p);
   let tablaCli='';
   if(porCli.length){
     const $p=v=>'$'+r2(v).toLocaleString('es-AR');
@@ -69881,8 +69931,9 @@ function plSugerirReemplazo(planId,pasoId){
   const p=(C.planes_compra||[]).find(x=>x.id===planId);if(!p)return;
   const s=(p.pasos||[]).find(x=>x.id===pasoId);if(!s)return;
   _pcobItemsCache=null;
-  const pr=(s.tipo==='cobro')?_pcobProgresoCobro(s):null;
-  const falta=r2(pr?Math.max(0,(parseFloat(s.monto)||0)-pr.cobrado):(parseFloat(s.monto)||0));
+  const pr=(s.tipo==='cobro')?_pcobProgresoCobro(s,p):null;
+  // 14a: a reemplazar = lo que no entra (caído); lo que sigue pendiente todavía puede entrar.
+  const falta=r2(pr?Math.max(0,(pr.caido>0.01?pr.caido:(parseFloat(s.monto)||0)-pr.cobrado)):(parseFloat(s.monto)||0));
   const usados=_plUsadosSet(null); // nada de lo earmarkeado por variantes activas (incluye este plan)
   const libres=_pcobRecursosDisponibles()
     .filter(r=>!usados.has(r.tipo+':'+r.id)&&r.tier<=2)

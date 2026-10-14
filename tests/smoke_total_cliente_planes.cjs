@@ -79,5 +79,5 @@ t(K[1].nombre==='LYME SA'&&K[1].monto===850,'canasta: extra fuera del flujo se s
 // ---- enganches ----
 t(src.includes("const _totCli=_plTotCliHtml(p,cerrado);"),'pcobVer pinta el total');
 t(src.includes('_plCanastaPorCliente(seleccionados,PLW.recursosExtra)'),'armador paso 2 pinta la canasta');
-t(src.includes('+tablaCli')&&src.includes('_plTotalesPorCliente(p.pasos,atrP)'),'la hoja impresa lleva la tabla');
+t(src.includes('+tablaCli')&&src.includes('_plTotalesPorCliente(p.pasos,atrP,p)'),'la hoja impresa lleva la tabla');
 console.log(ok+' ok · '+bad+' fallas');process.exit(bad?1:0);
