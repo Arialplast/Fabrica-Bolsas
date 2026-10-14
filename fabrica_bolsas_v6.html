@@ -328,6 +328,11 @@ tr:hover td{background:rgba(255,255,255,0.02);}
 .plc-op .plc-desc{margin-left:auto;padding:1px 7px;font-size:10px;}
 .plc-aviso{color:var(--amber);font-size:11.5px;}
 .plc-vacio,.plc-curso{color:var(--text2);font-size:11.5px;}
+.plc-globo{color:var(--text3);font-size:11.5px;background:var(--bg3);border-radius:10px;padding:1px 8px;}   /* 14b: globo pinchado, gris, no es error */
+.plc-preg{margin:2px 0 6px 26px;padding:7px 9px;border-radius:var(--r);background:var(--bg2);border:1px solid var(--border);font-size:12.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.plc-preg.falta{border-color:var(--amber);}
+.plc-preg .btn{min-width:56px;}
+.plc-preg-n{color:var(--amber);font-size:11.5px;}
 .evv-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:12px;}
 .evv-kpi{background:var(--bg2);padding:11px 13px;display:flex;flex-direction:column;gap:2px;min-width:0;}
 .evv-lbl{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);}
@@ -1131,7 +1136,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-14a</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-14b</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6335,7 +6340,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-14a';   // 14a: 🧮 Sala de planes: «ya cobrado» cuenta sólo plata que entró DESPUÉS del plan; lo cancelado con plata vieja o NC = caído.   // 13e: 🪪 el crédito de una NC se aplica en cualquier cuenta del mismo CUIT (mismo circuito). 13d: 💸 facturas de ADELANTO FINANCIERO (obs.) fuera de facturación/ticket/concentración/demora/cobrado (siguen en cta cte e IVA). 13c: ⚡ Resultado del mes: los gastos extraordinarios (categoría multas, ej. multa EDELAP) salen del resultado ordinario y se muestran debajo como «Extraordinarios» → «Resultado FINAL del mes». 13b: 🧾 recibos: relee la base antes de guardar/imputar (tope al saldo real) + número único con reintento. 13a: 📏 Extrusión en vivo y Estación: las máquinas SIEMPRE por número de extrusora (EXT-01, EXT-03, EXT-07) — tarjetas, línea de tiempo, gráficos, filtros y orden de la tabla de cierres, resumen por turno, paradas, alertas y la estación (_extCmp, aplicado en _plcGrupos). EXT-01 entra por el grupo 2 desde el 12/10 (plc_grupos id 3, factor 0,2475 = clave «1», por extrusora): Extrusión en vivo ahora toma minutos y cierres de cada grupo sólo DESDE plc_grupos.desde, como la estación — las pruebas previas del grupo 2 no se cuentan como EXT-01. Sin SQL.
+const APP_BUILD='2026-10-14b';   // 14b: 🎈 el aviso «FILM xx %» de un cierre dice la CAUSA (minutos del PLC del intervalo): globo pinchado (bloques con film 0 y bruto > 0, gris «Globo pinchado HH:MM–HH:MM (N m)», N = brutos × factor) · fotocélula (pérdida repartida 1–95 % > 3 % de la bobina, amarillo «Fotocélula: revisar apuntado», sólo Extrusión en vivo) · los dos o sin datos → en la carga se pregunta «¿Se pinchó el globo?» (Sí/No, obligatorio) y queda en plc_cierres.globo_pinchado (sql/plc_globo_pinchado.sql). «Por turno» suma los metros de globo por máquina.   // 14a: 🧮 Sala de planes: «ya cobrado» cuenta sólo plata que entró DESPUÉS del plan; lo cancelado con plata vieja o NC = caído.   // 13e: 🪪 el crédito de una NC se aplica en cualquier cuenta del mismo CUIT (mismo circuito). 13d: 💸 facturas de ADELANTO FINANCIERO (obs.) fuera de facturación/ticket/concentración/demora/cobrado (siguen en cta cte e IVA). 13c: ⚡ Resultado del mes: los gastos extraordinarios (categoría multas, ej. multa EDELAP) salen del resultado ordinario y se muestran debajo como «Extraordinarios» → «Resultado FINAL del mes». 13b: 🧾 recibos: relee la base antes de guardar/imputar (tope al saldo real) + número único con reintento. 13a: 📏 Extrusión en vivo y Estación: las máquinas SIEMPRE por número de extrusora (EXT-01, EXT-03, EXT-07) — tarjetas, línea de tiempo, gráficos, filtros y orden de la tabla de cierres, resumen por turno, paradas, alertas y la estación (_extCmp, aplicado en _plcGrupos). EXT-01 entra por el grupo 2 desde el 12/10 (plc_grupos id 3, factor 0,2475 = clave «1», por extrusora): Extrusión en vivo ahora toma minutos y cierres de cada grupo sólo DESDE plc_grupos.desde, como la estación — las pruebas previas del grupo 2 no se cuentan como EXT-01. Sin SQL.
 // 10b anterior:   // 10b: 🚫 Anular factura sólo sin CAE (ni Flexxus, ni procesando) y sin cobros/NC/ND encima — con CAE la única vía es NC; botón apagado con el motivo; re-chequeo contra la base; limpia factura_linea_remitos (caso 0001-00000041 / REM-00595).
 // 10a anterior:   // 10a: ⚠ Avisos de corte en su propia hoja (Producción → ⚠ Avisos de corte): los paneles de máquina no asignada, OE corta y bultos sin cargar salen de Órdenes de corte, donde queda sólo un botón con la cuenta. 🔀 Máquina no asignada: rojo sólo si la OC se MUDÓ (sin máquina asignada, o en la asignada se cortó menos que en otra); una carga suelta en otra máquina pasa a informativo gris (caso OC-1052795: 5 bobinas en CORTE-02, 1 carga de 2 en CORTE-01). Sin SQL. // 09h: 👥 Sala de planes — TOTAL POR CLIENTE arriba del detalle de cobros (en el plan / ya cobrado / falta / caído, con atrasados), en la canasta del armador y en la hoja impresa. Derivado del documento de cada paso (_plTotalesPorCliente), sin SQL. // 09g: 🏦 Cada deuda dice de qué banco se debita (cuenta_debito_id): chip grande en la tarjeta, resumen «¿cuánta plata tiene que haber en cada banco?» (próximo débito, 30 días, vencidas, planes), el pago propone esa cuenta y avisa si elegís otra, el flujo nombra plan y banco, y el importador del extracto no cruza un débito de un banco con un plan de otro. Requiere alter_deudas_cuenta_debito.sql. · 09f: 📏 Extrusión en vivo: las bobinas con la fotocélula sin ver film vuelven a aparecer en «Gramaje real vs orden» (aro punteado) y en la tabla (g/m con *), calculadas con los metros CARGADOS; siguen fuera de las referencias.   // 09e: 📏 un cierre con la fotocélula sin ver film (film < 95 % del giro) no entra en ninguna referencia (kg/h, semáforo, velocidad de la última pesada, alarmas): con minutos cortados y kg enteros daba 52,5 kg/h y «¿CAMBIASTE DE PRODUCTO?» falso en EXT-03 al cambiar de color.   // 09d: 📏 P2 — los metros de la bobina salen SÓLO del odómetro CON FILM (antes del bruto: el rodillo suelto tras un pinchazo se sumaba). Bobina en curso, barra, velocidad y g/m también con film; el bruto queda de referencia. Estación: alarma «EL RODILLO GIRA Y NO SE VE FILM» (titila y pita) al minuto; en la carga, aviso si el cierre tuvo film en menos del 95 % del giro.   // 09c: 📏 Excedentes de OE en su propia pestaña (Producción, al lado de Fuera de rango), agrupados por OE con cliente; Fuera de rango muestra sólo las de calidad. Mismas acciones (aceptar / reasignar), sin SQL.   // 09b: 🎯 Cortar hoy — cada OC del pedido es una tarjeta propia (franja del color de su estado, cabecera sombreada, «OC n/N», guía vertical del pedido): con muchas OC no se distinguían los renglones. Sólo CSS + marcado, sin tocar cálculos. // 09a: 🧵 el tope de exceso de metros se mide contra el plan (siempre para arriba), no sólo contra los metros de la OE; y al «Aceptar tal cual» una bobina pendiente se revisa si la OE ya quedó completa (metros y pistas) y se cierra. (ORD-06337: la 4ª bobina que pedía el plan se fue a pendientes y la OE quedó abierta.)
 // 08d: 🧵 las bobinas de largo normal se piden primero y la del resto al final. Fichas: las 95 cm de DAG (blanca, amarilla, magenta, 40 µ) pasan a 1 pista; 190 y 193 (80 µ amarilla y magenta) a 350 m como la blanca.
@@ -9458,6 +9463,105 @@ function _plcCalcCierres(cierres,factor){
 // mostró «¿CAMBIASTE DE PRODUCTO?» cuando sólo se había cambiado el color. Esos cierres no entran
 // en ninguna referencia (kg/h, semáforo, velocidad de la última pesada, alarmas de corrección).
 function _plcCierreSano(c){return !c||c.filmPct==null||c.filmPct>=95;}
+// ===== 🎈 GLOBO PINCHADO vs FOTOCÉLULA (14b) =====
+// Pedido de German (14/10): el aviso «FILM xx %» de un cierre tiene que decir POR QUÉ faltó film,
+// mirando los minutos del PLC (plc_minutos) del intervalo del cierre (sólo minutos con bruto > 0):
+//  1. GLOBO PINCHADO: bloques de minutos seguidos con film = 0 y bruto > 0. Aviso gris (no es error)
+//     «Globo pinchado HH:MM–HH:MM (N m)», N = pulsos brutos del bloque × factor de la máquina.
+//  2. FOTOCÉLULA: pérdida repartida (minutos con film entre 1 % y 95 % del bruto) que en total pasa
+//     el 3 % de la bobina. Aviso amarillo «Fotocélula: revisar apuntado», SÓLO en la pantalla del dueño.
+//  3. Los dos, o no se puede decidir (faltan minutos): en la carga se le pregunta al operario
+//     «¿Se pinchó el globo?» y la respuesta queda en el cierre (plc_cierres.globo_pinchado).
+// · Film < 1 % del bruto en un minuto = film 0 (un pulso suelto no saca a un minuto del pinchazo).
+// · El minuto parcial pegado a un bloque es el borde del pinchazo (se pinchó o se recuperó a mitad del
+//   minuto): no cuenta como pérdida de la fotocélula. Si no, cada pinchazo terminaba en pregunta.
+// · La base del 3 % es la bobina real: pulsos brutos del intervalo menos los del globo.
+const PLC_GLOBO={cero:0.01,parcial:0.95,fotoPct:3,cobertura:0.9};
+// Pura: deltas por minuto (ts, bruto, film, dtMin) de una serie de plc_minutos. Saltea reinicios.
+function _plcMinDeltas(rows){
+  const xs=(rows||[]).slice().sort((a,b)=>new Date(a.ts)-new Date(b.ts));const out=[];
+  for(let i=1;i<xs.length;i++){
+    const a=xs[i-1],b=xs[i],dt=(new Date(b.ts)-new Date(a.ts))/60000;
+    const db=b.odo_bruto-a.odo_bruto,df=b.odo_film-a.odo_film;
+    if(!(dt>0)||!isFinite(db)||!isFinite(df)||db<0||df<0)continue;
+    out.push({ts:b.ts,bruto:db,film:df,dtMin:dt});
+  }
+  return out;
+}
+// Pura: minutos (deltas) que caen en el intervalo de un cierre: (desde, hasta], por el medio del minuto.
+function _plcMinsEntre(mins,desdeIso,hastaIso){
+  const a=desdeIso?new Date(desdeIso).getTime():-Infinity,z=new Date(hastaIso).getTime();
+  return (mins||[]).filter(m=>{const q=new Date(m.ts).getTime()-(m.dtMin||1)*30000;return q>a&&q<=z;});
+}
+function _plcMinTipo(m){
+  if(!m||!(m.bruto>0))return '';
+  const r=(m.film||0)/m.bruto;
+  return r<PLC_GLOBO.cero?'g':r<PLC_GLOBO.parcial?'p':'';
+}
+// Pura: bloques de globo pinchado en una serie de minutos ascendente (corta en minutos sin bruto o huecos).
+function _plcGloboBloques(mins,factor){
+  const xs=(mins||[]).slice().sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+  const res=[];let cur=null,prevT=null;
+  xs.forEach((m,i)=>{
+    const t=new Date(m.ts).getTime(),dt=m.dtMin||1;
+    const pegado=prevT!=null&&(t-dt*60000-prevT)<=30000;
+    if(_plcMinTipo(m)==='g'){
+      if(cur&&pegado){cur.fin=m.ts;cur.min+=dt;cur.pulsos+=m.bruto;cur.iF=i;}
+      else{if(cur)res.push(cur);cur={ini:new Date(t-dt*60000).toISOString(),fin:m.ts,min:dt,pulsos:m.bruto,iI:i,iF:i};}
+    }else if(cur){res.push(cur);cur=null;}
+    prevT=t;
+  });
+  if(cur)res.push(cur);
+  res.forEach(b=>{b.metros=Math.round(b.pulsos*factor);b.min=Math.round(b.min);});
+  return{bloques:res,xs};
+}
+// Pura: causa de la falta de film de un cierre. c = cierre de _plcCalcCierres; mins = deltas del intervalo.
+// tipo: 'ok' | 'globo' | 'foto' | 'ambos' | 'duda'. pregunta = hay que preguntarle al operario.
+function _plcCausaFilm(c,mins,factor){
+  const G=_plcGloboBloques(mins,factor),xs=G.xs,bl=G.bloques;
+  const borde=new Set();
+  bl.forEach(b=>{[b.iI-1,b.iF+1].forEach(j=>{if(xs[j]&&_plcMinTipo(xs[j])==='p')borde.add(j);});});
+  let bruto=0,globoP=0,fotoP=0;
+  xs.forEach((m,i)=>{
+    if(!(m.bruto>0))return;
+    bruto+=m.bruto;
+    const k=_plcMinTipo(m);
+    if(k==='g')globoP+=m.bruto;
+    else if(k==='p'&&!borde.has(i))fotoP+=m.bruto-m.film;
+  });
+  const base=bruto-globoP;
+  const fotoPct=base>0?fotoP/base*100:0;
+  const cob=(c&&c.pulsosBruto>0)?bruto/c.pulsosBruto:(xs.length?1:0);
+  const filmBajo=!!c&&c.filmPct!=null&&c.filmPct<95;
+  const globo=bl.length>0,foto=fotoPct>PLC_GLOBO.fotoPct;
+  let tipo;
+  if(filmBajo&&cob<PLC_GLOBO.cobertura)tipo='duda';
+  else if(globo&&foto)tipo='ambos';
+  else if(globo)tipo='globo';
+  else if(foto)tipo='foto';
+  else tipo=filmBajo?'duda':'ok';
+  const perdido=(c&&c.metrosBruto!=null&&c.metros!=null)?Math.max(0,c.metrosBruto-c.metros):null;
+  return{tipo,bloques:bl,globoM:bl.reduce((s,b)=>s+b.metros,0),fotoM:Math.round(fotoP*factor),
+    fotoPct:Math.round(fotoPct*10)/10,cob:Math.round(cob*100)/100,perdido,pregunta:tipo==='ambos'||tipo==='duda'};
+}
+// Pura: la causa con la respuesta del operario aplicada (c.globo_pinchado: true / false / null).
+// «Sí» → todo lo perdido es globo; «No» → todo es fotocélula (los bloques sin film también).
+function _plcCausaFinal(cf,c){
+  if(!cf)return null;
+  const r=c?c.globo_pinchado:null;
+  if(!cf.pregunta||(r!==true&&r!==false))return Object.assign({resp:null},cf);
+  const tot=cf.perdido!=null?cf.perdido:cf.globoM+cf.fotoM;
+  return r?Object.assign({},cf,{tipo:'globo',globoM:tot,fotoM:0,resp:true})
+          :Object.assign({},cf,{tipo:'foto',globoM:0,fotoM:tot,bloques:[],resp:false});
+}
+function _plcTxtGlobo(b){return 'Globo pinchado '+_plcHora(b.ini)+'–'+_plcHora(b.fin)+' ('+b.metros.toLocaleString('es-AR')+' m)';}
+// ¿Este cierre pendiente necesita que el operario conteste lo del globo?
+function _plcNecesitaGlobo(c){
+  if(!c)return false;
+  if(c.globo_pinchado===true||c.globo_pinchado===false)return false;
+  if(c.cf)return c.cf.pregunta;
+  return c.filmPct!=null&&c.filmPct<95;   // sin minutos para mirar: no se puede decidir
+}
 // Pura: metros CON FILM de la bobina en curso (estado vivo − último cierre). P2.
 function _plcEnCurso(est,ult,factor){
   if(!est||!ult||est.odo_film==null||ult.film_cierre==null)return null;
@@ -9542,8 +9646,10 @@ async function plcCbRefrescar(){
     const d=await _plcDatosExt(extId);
     if(String(extId)!==String(parseInt((document.getElementById('cb-ext')||{}).value)||'')){return;}
     if(PLC.ext!==extId){PLC.sel=undefined;}
+    if(PLC.ext!==extId)PLC.globo={};
     PLC.ext=extId;PLC.datos=d;
     if(!d){w.innerHTML='';PLC.sel=null;_plcAplicarMetros();return;}
+    await _plcCausasPend(d);   // 14b: ¿globo pinchado o fotocélula?
     // la selección se mantiene si sigue pendiente; si no, se propone el más viejo
     if(PLC.sel===undefined||(PLC.sel!==null&&!d.pend.some(c=>c.id===PLC.sel)))
       PLC.sel=d.pend.length?d.pend[0].id:null;
@@ -9570,9 +9676,11 @@ function _plcCbPintar(){
         +' · <b class="mono">'+(c.metros!=null?c.metros.toLocaleString('es-AR'):'—')+' m</b>'
         +(c.minProd!=null?' · '+Math.round(c.minProd)+' min produciendo':'')
         +(i===0?' <span style="color:var(--text3);">(el más viejo)</span>':'')
-        // 09d: el rodillo giró más de lo que la fotocélula vio film (P2: sólo cuenta con film)
-        +(c.filmPct!=null&&c.filmPct<95?' <span style="color:var(--amber);font-weight:600;" title="Metros del rodillo: '+(c.metrosBruto!=null?c.metrosBruto.toLocaleString('es-AR'):'—')+' m. Sólo se cuentan los metros con film.">⚠ con film '+c.filmPct.toLocaleString('es-AR')+' % del giro (rodillo '+(c.metrosBruto!=null?c.metrosBruto.toLocaleString('es-AR'):'—')+' m)</span>':'')
-        +' <button type="button" class="btn btn-sm plc-desc" onclick="event.preventDefault();plcCbDescartar('+c.id+')" title="Ese cierre fue una prueba o un toque de más">no fue bobina</button></label>';
+        // 14b: en vez de «con film xx %», la causa. Globo = gris (no es error). Fotocélula: sólo el dueño
+        // la ve (Extrusión en vivo). Los dos / no se sabe: se le pregunta al operario (abajo).
+        +_plcCbCausaHtml(c)
+        +' <button type="button" class="btn btn-sm plc-desc" onclick="event.preventDefault();plcCbDescartar('+c.id+')" title="Ese cierre fue una prueba o un toque de más">no fue bobina</button></label>'
+        +(on&&_plcNecesitaGlobo(c)?_plcCbPreguntaHtml(c):'');
     });
   }
   h+='<label class="plc-op'+(PLC.sel===null?' on':'')+'"><input type="radio" name="cb-plc-sel" '+(PLC.sel===null?'checked ':'')
@@ -9584,6 +9692,48 @@ function _plcCbPintar(){
   _plcAplicarMetros();
 }
 function plcCbElegir(id){PLC.sel=id;_plcCbPintar();}
+// 14b — minutos del PLC de los cierres pendientes, para decir si faltó film por globo o por fotocélula.
+// Si no se pueden leer, la causa queda sin decidir (se pregunta si el film estuvo bajo).
+async function _plcCausasPend(d){
+  if(!d||!d.pend||!d.pend.length)return;
+  try{
+    const t0=Math.min(...d.pend.map(c=>new Date(c.desde||c.cerrado_en).getTime()));
+    const desde=new Date(Math.max(t0,Date.now()-24*3600000)-2*60000).toISOString();
+    const r=await _traerQ(()=>sb.from('plc_minutos').select('ts,odo_bruto,odo_film').eq('grupo',d.grupo)
+      .gte('ts',desde).order('ts'));
+    if(r.error)throw r.error;
+    const mins=_plcMinDeltas(r.data||[]);
+    d.pend.forEach(c=>{c.cf=c.desde?_plcCausaFilm(c,_plcMinsEntre(mins,c.desde,c.cerrado_en),d.fac.m):null;});
+  }catch(e){console.warn('PLC minutos (globo):',e);}
+}
+// Lo que ve el OPERARIO del cierre: sólo el globo pinchado, en gris. Nunca kg (P4) ni la fotocélula.
+function _plcCbCausaHtml(c){
+  const cf=c.cf;
+  if(!cf||!cf.bloques.length)return '';
+  return cf.bloques.map(b=>' <span class="plc-globo">🎈 '+escapeHtml(_plcTxtGlobo(b))+'</span>').join('');
+}
+function _plcCbPreguntaHtml(c){
+  const r=(PLC.globo||{})[c.id];
+  const bt=(v,t)=>'<button type="button" class="btn btn-sm'+(r===v?' btn-primary':'')+'" onclick="event.preventDefault();plcCbGlobo('+c.id+','+v+')">'+t+'</button>';
+  return '<div class="plc-preg'+(r===undefined?' falta':'')+'"><b>🎈 ¿Se pinchó el globo en esta bobina?</b> '+bt(true,'Sí')+' '+bt(false,'No')
+    +(r===undefined?' <span class="plc-preg-n">Contestá antes de registrar</span>':'')+'</div>';
+}
+function plcCbGlobo(id,v){PLC.globo=PLC.globo||{};PLC.globo[id]=v;_plcCbPintar();}
+// Antes de guardar: el cierre elegido pide respuesta y no la tiene.
+function _plcFaltaGlobo(){
+  const d=PLC.datos;if(!d||!PLC.sel)return false;
+  const c=d.pend.find(x=>x.id===PLC.sel);
+  return _plcNecesitaGlobo(c)&&(PLC.globo||{})[PLC.sel]===undefined;
+}
+// Después de guardar la bobina: la respuesta queda en el cierre (sql/plc_globo_pinchado.sql).
+async function _plcGuardarGlobo(opNom){
+  const id=PLC.sel,v=(PLC.globo||{})[id];
+  if(!id||(v!==true&&v!==false))return;
+  try{
+    const{error}=await sb.rpc('plc_cierre_globo',{p_id:id,p_pinchado:v,p_por:(opNom||'')+' · Carga de bobinas '+localDate()+' '+localTime().slice(0,5)});
+    if(error)throw error;
+  }catch(e){try{toast('🎈 La bobina se guardó, pero no la respuesta del globo ('+(e.message||e)+'). ¿Falta correr sql/plc_globo_pinchado.sql?','amber');}catch(_){}}
+}
 // 📏 07i — DECISIÓN DE GERMAN (07/10): con un cierre del PLC elegido, los metros de la bobina
 // son los del cuentametros (factor fijado 0,793 = ZQ) y no se tipean. «Sin cierre» o máquina
 // sin PLC (EXT-01): los escribe el operario, como siempre.
@@ -10425,12 +10575,13 @@ async function renderExtrusionVivo(){
   try{
     const desde=new Date(Date.now()-EVV.horas*3600000).toISOString();
     const desde2=new Date(Date.now()-(EVV.horas+30)*3600000).toISOString();
+    const desdeM=new Date(Date.now()-(EVV.horas+4)*3600000).toISOString();   // 14b: 4 h antes, para el intervalo del primer cierre
     const grupos=await _plcGrupos();
     const cfgP=await _plcCfg();
     const gIds=grupos.map(g=>g.grupo);
     const[rm,rc,re,rb]=await Promise.all([
       _traerQ(()=>sb.from('plc_minutos').select('grupo,ts,odo_bruto,odo_film,seg_film,seg_prod,cierres')
-        .in('grupo',gIds.length?gIds:[-1]).gte('ts',desde).order('ts').order('grupo')),
+        .in('grupo',gIds.length?gIds:[-1]).gte('ts',desdeM).order('ts').order('grupo')),
       sb.from('plc_cierres').select('*').in('grupo',gIds.length?gIds:[-1]).gte('cerrado_en',desde2).order('n_cierre'),
       sb.from('plc_estado').select('*'),
       _traerQ(()=>sb.from('bobinas_producidas')
@@ -10451,13 +10602,17 @@ async function renderExtrusionVivo(){
       // 13a: sólo lo del grupo DESDE que esa extrusora está conectada a él (plc_grupos.desde), igual que
       // la estación (_plcDatosExt). EXT-01 entró por el grupo 2 el 12/10: las pruebas de antes no son suyas.
       const gD=g.desde?new Date(g.desde).getTime():0;
-      const rowsG=(rm.data||[]).filter(r=>r.grupo===g.grupo&&new Date(r.ts).getTime()>=gD);
+      const tD=new Date(desde).getTime();
+      const rowsAllG=(rm.data||[]).filter(r=>r.grupo===g.grupo&&new Date(r.ts).getTime()>=gD);
+      const rowsG=rowsAllG.filter(r=>new Date(r.ts).getTime()>=tD);
       const mins=_evvMinutos(rowsG,fac.m);
+      const minsAll=_plcMinDeltas(rowsAllG);   // 14b: globo pinchado / fotocélula
       const calc=_plcCalcCierres((rc.data||[]).filter(c=>c.grupo===g.grupo&&new Date(c.cerrado_en).getTime()>=gD),fac.m);
       const est=(re.data||[]).find(x=>x.grupo===g.grupo)||null;
       const bobs=calc.filter(c=>new Date(c.cerrado_en).getTime()>=t0).map(c=>{
         const b=porCierre.get(c.id)||null;
         const o={c,b};
+        o.cf=c.desde?_plcCausaFinal(_plcCausaFilm(c,_plcMinsEntre(minsAll,c.desde,c.cerrado_en),fac.m),c):null;   // 14b
         if(b&&c.metros>0){
           const kq=_evvKgCalidad(b),kn=_evvKgNeto(b);
           const tipo=(C.bobinas||[]).find(x=>String(x.id)===String(b.bobina_tipo_id));
@@ -10492,9 +10647,26 @@ async function renderExtrusionVivo(){
       const ultC=calc.length?calc[calc.length-1]:null;
       const enCurso=(est&&ultC&&est.cierres===ultC.n_cierre)?_plcEnCurso(est,ultC,fac.m):null;
       const kg24=pes.reduce((s,o)=>s+o.kg,0);
+      // 14b: metros de globo pinchado en el tiempo (para «Por turno»). Los bloques salen de TODOS los
+      // minutos (también la bobina en curso); el cierre que el operario dijo «No» los saca, y el «Sí» suma
+      // lo que falte (lo perdido del cierre que no cayó en un bloque) a la hora del cierre.
+      const cierreDe=t=>calc.find(c=>c.desde&&new Date(c.desde).getTime()<t&&t<=new Date(c.cerrado_en).getTime());
+      const cfDe=c=>{const o=bobs.find(x=>x.c.id===c.id);return o?o.cf:(c.desde?_plcCausaFinal(_plcCausaFilm(c,_plcMinsEntre(minsAll,c.desde,c.cerrado_en),fac.m),c):null);};
+      const globoEv=[];
+      _plcGloboBloques(minsAll,fac.m).bloques.forEach(bl=>{
+        const c=cierreDe(new Date(bl.fin).getTime()),cf=c?cfDe(c):null;
+        if(cf&&cf.resp===false)return;
+        globoEv.push({t:new Date(bl.fin).getTime(),metros:bl.metros,bl});
+      });
+      bobs.forEach(o=>{if(o.cf&&o.cf.resp===true){
+        const a=new Date(o.c.desde).getTime(),z=new Date(o.c.cerrado_en).getTime();
+        const ya=globoEv.filter(e=>e.t>a&&e.t<=z).reduce((s2,e)=>s2+e.metros,0);
+        if(o.cf.globoM>ya)globoEv.push({t:z,metros:o.cf.globoM-ya});}});
+      // fotocélula en la última hora, sin contar los pinchazos (antes avisaba con cualquier falta de film)
+      const cfH=_plcCausaFilm(null,minsAll.filter(x=>new Date(x.ts).getTime()>Date.now()-3600000),fac.m);
       const minProdPes=pes.reduce((s,o)=>s+o.c.minProd,0);
       return{g,ext,fac,mins,bobs,est,kghRef,uso:nTot?nP/nTot:null,nP,nTot,mminVivo,ahoraEst,
-        filmPct:brH?fiH/brH:null,ordAct,tipoAct,gpmEst,R,velA,enCurso,ultC,oeAct,kg24,minsRaw:rowsG,
+        filmPct:brH?fiH/brH:null,cfH,globoEv,ordAct,tipoAct,gpmEst,R,velA,enCurso,ultC,oeAct,kg24,minsRaw:rowsG,
         kghReal:minProdPes?kg24/(minProdPes/60):null,
         paradas:_evvParadas(mins,5),sinBob:bobs.filter(o=>!o.b&&!o.c.descartado&&o.c.metros!=null
           &&new Date(o.c.cerrado_en).getTime()>=new Date(cfgP.desde).getTime())};
@@ -10611,7 +10783,16 @@ function _evvAvisos(o,cfgP){
   else if(!b&&c.metros!=null&&new Date(c.cerrado_en).getTime()>=new Date(cfgP.desde).getTime())av.push('<span class="evx-tag bad">SIN BOBINA EN MES</span>');
   else if(!b)av.push('<span class="evx-tag mut">antes del vínculo</span>');
   if(o.dg!=null&&_evvJuicio(o.dg*100).k!=='ok'){const J=_evvJuicio(o.dg*100);av.push('<span class="evx-tag '+J.k+'">'+J.t+'</span>');}
-  if(c.filmPct!=null&&c.filmPct<90)av.push('<span class="evx-tag warn">FILM '+_evvF(c.filmPct)+' %</span>');
+  // 14b: la causa en vez de «FILM xx %». Globo = gris (no es error, no entra en «Con aviso»).
+  const cf=o.cf;
+  if(cf){
+    const dijo=cf.resp===true?' · el operario dijo que se pinchó':cf.resp===false?' · el operario dijo que NO se pinchó':'';
+    if(cf.bloques.length)cf.bloques.forEach(bl=>av.push('<span class="evx-tag mut" title="Pulsos brutos del bloque × factor'+escapeHtml(dijo)+'">🎈 '+escapeHtml(_plcTxtGlobo(bl))+'</span>'));
+    else if(cf.tipo==='globo'&&cf.globoM>0)av.push('<span class="evx-tag mut" title="Lo que el rodillo giró sin film en el cierre'+escapeHtml(dijo)+'">🎈 Globo pinchado ('+_evvF(cf.globoM)+' m)</span>');
+    if(cf.tipo==='foto')av.push('<span class="evx-tag warn" title="Perdió '+_evvF(cf.fotoM)+' m repartidos ('+_evvF(cf.fotoPct,1)+' % de la bobina) en minutos con film entre 1 % y 95 % del giro'+escapeHtml(dijo)+'">Fotocélula: revisar apuntado</span>');
+    if(cf.pregunta&&cf.resp==null)av.push('<span class="evx-tag warn" title="'+(cf.tipo==='ambos'?'Hubo globo pinchado y además pérdida repartida':'Faltan minutos del PLC para decidir')+'. Se le pregunta al operario al cargar la bobina.">FILM '+_evvF(c.filmPct)+' % · ¿globo? '+(b?'sin respuesta':'a preguntar')+'</span>');
+    else if(cf.resp!=null)av.push('<span class="evx-tag mut">operario: '+(cf.resp?'se pinchó':'no se pinchó')+'</span>');
+  }else if(c.filmPct!=null&&c.filmPct<90)av.push('<span class="evx-tag warn">FILM '+_evvF(c.filmPct)+' %</span>');
   if(b&&c.metros>0&&Math.abs((parseFloat(b.metros_reales)||0)/c.metros-1)>0.03)av.push('<span class="evx-tag warn">METROS ≠</span>');
   return av;
 }
@@ -10698,7 +10879,7 @@ function _evvPintar(w,maqs,bobsSinPlc,bobinas,cfgP,t0){
           +(rr?' Operario'+(rr.operario?' ('+rr.operario+')':'')+': «'+(_RESP_MOT[rr.motivo]||rr.motivo)+(rr.detalle?' — '+rr.detalle:'')+'».':' Sin respuesta del operario.'),'hace '+ul.rx.min+' min']);}}
     m.sinBob.filter(o=>Date.now()-new Date(o.c.cerrado_en).getTime()>30*60000).forEach(o=>
       al.push(['bad',m.ext.nombre+': cierre sin bobina','Pulsador a las '+_plcHora(o.c.cerrado_en)+' ('+_evvF(o.c.metros)+' m) y no hay bobina cargada.','hace '+Math.round((Date.now()-new Date(o.c.cerrado_en).getTime())/60000)+' min']));
-    if(m.filmPct!=null&&m.filmPct<0.95&&m.ahoraEst!=='S')al.push(['warn',m.ext.nombre+': fotocélula','Vio film en el '+_evvF(m.filmPct*100,1)+' % de los metros de la última hora.','última hora']);
+    if(m.cfH&&(m.cfH.tipo==='foto'||m.cfH.tipo==='ambos')&&m.ahoraEst!=='S')al.push(['warn',m.ext.nombre+': Fotocélula: revisar apuntado','Perdió '+_evvF(m.cfH.fotoM)+' m repartidos ('+_evvF(m.cfH.fotoPct,1)+' %) en la última hora, sin contar pinchazos del globo.','última hora']);   // 14b
     m.bobs.filter(o=>o.dg!=null&&_evvJuicio(o.dg*100).k!=='ok').slice(-3).forEach(o=>{const J=_evvJuicio(o.dg*100);
       al.push([J.k,m.ext.nombre+': '+o.b.numero_bobina+' '+J.t.toLowerCase(),_evvF(o.gpm,1)+' g/m real contra '+_evvF(o.gpmT,1)+' de la orden ('+(o.dg>0?'+':'')+_evvF(o.dg*100,1)+' %).',_plcHora(o.c.cerrado_en)]);});
     m.bobs.filter(o=>o.b&&o.c.metros>0&&Math.abs((parseFloat(o.b.metros_reales)||0)/o.c.metros-1)>0.03).slice(-2).forEach(o=>
@@ -10751,7 +10932,7 @@ function _evvPintar(w,maqs,bobsSinPlc,bobinas,cfgP,t0){
    let fin=new Date(d);const hh=fin.getHours();fin.setHours(hh<6?6:hh<14?14:hh<22?22:30);
    for(let i=0;i<Math.ceil(EVV.horas/8)+1;i++){const ini=new Date(fin.getTime()-8*3600000);if(fin.getTime()<=t0)break;turnos.push({ini,fin:new Date(fin)});fin=ini;}}
   h+='<div class="evx-two"><section class="evx-sec"><h2>Por turno</h2><div class="evx-panel evx-tw"><table><thead><tr><th>Turno</th><th class="l">Operario</th><th>kg</th>'
-    +maqs.map(m=>'<th>kg/h '+escapeHtml(m.ext.nombre.replace('EXT-0','E'))+'</th><th>uso '+escapeHtml(m.ext.nombre.replace('EXT-0','E'))+'</th>').join('')+'<th>Parada</th><th>✍ peso manual</th><th>Sin corregir</th></tr></thead><tbody>';
+    +maqs.map(m=>'<th>kg/h '+escapeHtml(m.ext.nombre.replace('EXT-0','E'))+'</th><th>uso '+escapeHtml(m.ext.nombre.replace('EXT-0','E'))+'</th><th title="Metros de globo pinchado (pulsos brutos sin film × factor)">🎈 m '+escapeHtml(m.ext.nombre.replace('EXT-0','E'))+'</th>').join('')+'<th>Parada</th><th>✍ peso manual</th><th>Sin corregir</th></tr></thead><tbody>';
   turnos.forEach(t=>{
     const a=t.ini.getTime(),z=t.fin.getTime();
     const bs=bobinas.filter(b=>{const q=new Date(b.fecha_produccion+'T'+(b.hora_produccion||'00:00')+'-03:00').getTime();return q>=a&&q<z;});
@@ -10764,7 +10945,8 @@ function _evvPintar(w,maqs,bobsSinPlc,bobinas,cfgP,t0){
       par+=ms.filter(x=>x.est==='S').reduce((s2,x)=>s2+x.dtMin,0);
       const os=m.bobs.filter(o=>o.kgh>0&&new Date(o.c.cerrado_en).getTime()>=a&&new Date(o.c.cerrado_en).getTime()<z);
       const mp=os.reduce((s2,o)=>s2+o.c.minProd,0);
-      return '<td>'+(mp?_evvF(os.reduce((s2,o)=>s2+o.kg,0)/(mp/60),1):'—')+'</td><td>'+(tot?_evvF(p/tot*100)+' %':'—')+'</td>';
+      const gm=(m.globoEv||[]).filter(e=>e.t>a&&e.t<=z).reduce((s2,e)=>s2+e.metros,0);   // 14b
+      return '<td>'+(mp?_evvF(os.reduce((s2,o)=>s2+o.kg,0)/(mp/60),1):'—')+'</td><td>'+(tot?_evvF(p/tot*100)+' %':'—')+'</td><td class="'+(gm?'mut':'')+'">'+(gm?_evvF(gm):'—')+'</td>';
     }).join('');
     const nm=bs.filter(b=>b.peso_origen==='manual').length;
     const nsc=maqs.reduce((a2,m)=>a2+m.bobs.filter(o=>o.rx&&(o.rx.estado==='nada'||o.rx.estado==='reves')&&o.b&&new Date(o.b.created_at).getTime()>=a&&new Date(o.b.created_at).getTime()<z).length,0);
@@ -10780,6 +10962,7 @@ function _evvPintar(w,maqs,bobsSinPlc,bobinas,cfgP,t0){
   h+='<footer class="evx-notes"><div><b>Uso</b> = minutos produciendo (con film y con pulsos) ÷ minutos del período.</div>'
     +'<div><b>kg/h</b> = kg neto (balanza menos el tubo; sólo en esta pantalla) ÷ horas produciendo de esa bobina. Las paradas no bajan el kg/h; bajan el uso.</div>'
     +'<div><b>g/m real</b> = peso con tubo, como la balanza, ÷ metros del PLC — así juzga la carga. Criterio OK / rechazo: el de la carga.</div>'
+    +'<div><b>🎈 Globo pinchado</b> = minutos seguidos con el rodillo girando y film 0; metros = pulsos brutos × factor. <b>Fotocélula</b> = pérdida repartida (film entre 1 % y 95 % del giro) de más del 3 % de la bobina. Si hay de los dos, decide el operario al cargar.</div>'
     +'<div><b>Semáforo en vivo</b> = kg/h con tubo de las últimas pesadas del mismo tipo ÷ velocidad de ahora. Supone el tornillo igual: el operario ve la advertencia.</div></footer>';
   w.innerHTML='<div class="evx">'+h+'</div>';
   const ts=document.getElementById('evv-ts');if(ts)ts.textContent='Actualizado '+localTime();
@@ -11298,6 +11481,13 @@ async function _guardarBobinaInner(){
   const kgR=parseFloat(document.getElementById('cb-kg').value);
   const opId=parseInt(document.getElementById('cb-op-sel').value)||null;
   const obs=document.getElementById('cb-obs').value.trim();
+  // 🎈 14b: el cierre tuvo globo pinchado y fotocélula (o no se puede decidir): que conteste el operario
+  if(typeof _plcFaltaGlobo==='function'&&_plcFaltaGlobo()){
+    const mg=document.getElementById('msg-carga');
+    if(mg){mg.className='msg-err';mg.textContent='🎈 Contestá si se pinchó el globo en esta bobina (Sí / No, en el recuadro del cierre del PLC).';}
+    try{document.querySelector('#cb-plc .plc-preg')?.scrollIntoView({block:'center'});}catch(e){}
+    return;
+  }
   const msg=document.getElementById('msg-carga');
   if(!nro){msg.className='msg-err';msg.innerHTML='⛔ <b>No hay número de bobina</b> — no se pudo leer la numeración. Refrescá la pantalla antes de cargar.';return;}
   // ⚖ 06b: los kg vienen de la balanza (o del peso manual) menos el tubo — se fotografían acá
@@ -11482,6 +11672,7 @@ async function _guardarBobinaDBInner(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errP
     if(ins.error&&_plcEsChoqueCierre(ins.error)){
       const sinC=Object.assign({},_bobPayload);delete sinC.plc_cierre_id;
       ins=await sb.from('bobinas_producidas').insert(sinC).select('id').single();
+      PLC.sel=null;   // 14b: el cierre no quedó con esta bobina → la respuesta del globo no es suya
       try{toast('📏 Ese cierre del PLC ya tenía bobina: ésta se grabó sin cierre.','amber');}catch(e){}
     }
     if(!ins.error){bobIns=ins.data;e1=null;break;}
@@ -11492,6 +11683,7 @@ async function _guardarBobinaDBInner(nro,ordId,extId,bob,mtsR,kgR,kgT,errKg,errP
   if(e1||!bobIns){msg.className='msg-err';msg.textContent='Error: '+((e1&&e1.message)||'no se pudo guardar la bobina');return;}
   const el_nb=document.getElementById('cb-nbob');if(el_nb)el_nb.value=nro;
   await _nroSincronizar('numero_bobina',window._nextNroBobina);
+  await _plcGuardarGlobo(opNom);   // 🎈 14b
 
   // === CONSUMO AUTOMÁTICO DE MP ===
   let consumosGuardados=[];   // para parchear C.consumos_mp sin volver a pedirla

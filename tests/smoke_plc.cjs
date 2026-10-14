@@ -161,6 +161,8 @@ t(/fotocélula/.test(H),'alerta de fotocélula (film 90 % la última hora)');
 t(/provisorio/.test(H),'avisa factor provisorio');
 t(/Paradas de 5 min o más/.test(H)&&/50 min/.test(H),'tabla de paradas con la de 50 min');
 t(/Por turno/.test(H)&&/MARTIN MASSI/.test(H),'tabla por turno con el operario');
+t(/🎈 m E3/.test(H)&&/🎈 m E7/.test(H),'14b: «Por turno» con metros de globo pinchado por máquina');
+t(/Fotocélula: revisar apuntado/.test(H),'14b: la pérdida repartida de la última hora (10 %) es fotocélula');
 t(/estimados sólo acá/.test(H)&&/el operario ve la advertencia/.test(H),'pie: estimados sólo acá y advertencia del operario');
 t(/Gramaje real vs orden/.test(H)&&/kg\/h por bobina/.test(H)&&/evx-filt/.test(H),'07s: gráficos por bobina y filtros de la tabla');
 
