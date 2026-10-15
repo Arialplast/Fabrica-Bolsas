@@ -18,7 +18,7 @@ const T=(s)=>new Date('2026-10-14T'+s+'-03:00').getTime(),H=3600000,M=60000;
 // 2) asignación
 const ocs={10:{id:10,numero_orden:'OC-A',estado:'Completada',fecha_completada:'2026-10-14T13:00:00-03:00',unidades_reales:400,peso_scrap_kg:0.5,productos:{metros_por_bolsa:0.5,peso_por_bolsa:0.01}},
   11:{id:11,numero_orden:'OC-B',estado:'En proceso',unidades_reales:null,peso_scrap_kg:null,productos:{metros_por_bolsa:1,peso_por_bolsa:0.02}}};
-const cargas=[{orden_corte_id:10,maquina_id:1,empleado_id:1,metros_usados:100,t:T('07:00:00')},{orden_corte_id:11,maquina_id:1,empleado_id:1,metros_usados:300,t:T('12:00:00')}];
+const cargas=[{orden_corte_id:10,maquina_id:1,empleado_id:1,metros_usados:105,t:T('07:00:00')},{orden_corte_id:11,maquina_id:1,empleado_id:1,metros_usados:300,t:T('12:00:00')}];
 const turnos={1:[[T('06:00:00'),T('15:00:00')]]};
 const td=(m,a,z,g,x)=>Object.assign({maquina:m,ti:T(a),tf:T(z),golpes:g,sin_hora:false},x||{});
 // OC-A: 4 tandas de 25 + 1 incompleta de 5 (=105 golpes × 2 pistas = 210 bolsas, teo 200)
@@ -50,6 +50,14 @@ t(_cvvSt({actualizado_en:new Date(now-5000).toISOString(),ultimo_golpe:new Date(
 t(_cvvSt({actualizado_en:new Date(now-5000).toISOString(),ultimo_golpe:new Date(now-600000).toISOString()},now).t==='Parada 10 min','parada 10 min');
 t(_cvvSt({actualizado_en:new Date(now-300000).toISOString()},now).k==='N','sin datos');
 
+// 15f: pistas por tres vías
+{const P=_cvvPistas;
+ let r=P(908,3226,3136);t(r.p===null&&r.conf==='dudoso','OC-1052965 en CORTE-01: 908 golpes no cierran ('+r.conf+')');
+ r=P(1537,3226,3136);t(r.p===2&&r.conf==='ok','OC-1052965 en CORTE-02: 1.537 × 2 cierra');
+ r=P(4562,3953,4448);t(r.p===1&&r.conf==='faltaBob','OC-1052942 sin la BOB-06894: golpes = declarado, faltan metros ('+r.conf+')');
+ r=P(4322,8630,8528);t(r.p===2&&r.conf==='ok','OC-1052964 2 pistas');
+ r=P(2730,5516,5640);t(r.p===2&&r.conf==='ok','OC-1052962 2 pistas (lo prestado queda en sin ubicar)');
+ r=P(1000,2100,null);t(r.p===2&&r.conf==='metros','OC abierta: sólo metros');}
 // 5) control al cerrar la OC (sb simulado)
 (async()=>{
 const tabla={orden_corte_bobinas:[{id:1,orden_corte_id:10,metros_usados:105,fecha_asignacion:new Date(T('07:00:00')).toISOString(),empleado_id:1,maquina_id:1},
