@@ -372,7 +372,7 @@ tr:hover td{background:rgba(255,255,255,0.02);}
 .evv-two{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:12px;margin-top:12px;}
 
 /* 07s — Extrusión en vivo con el diseño «Tablero de Extrusión» (sala de control) */
-#page-extrusion-vivo{--panel:#121c20;--panel2:#17242a;--line:#24363e;--fg:#dde8eb;--muted:#93a8b0;--ok:#4cc38a;--warn:#e8b23a;--bad:#ef5a4c;--acc:#3fd0e0;--okbg:rgba(76,195,138,.14);--warnbg:rgba(232,178,58,.15);--badbg:rgba(239,90,76,.15);--accbg:rgba(63,208,224,.12);}
+#page-extrusion-vivo,#page-corte-vivo{--panel:#121c20;--panel2:#17242a;--line:#24363e;--fg:#dde8eb;--muted:#93a8b0;--ok:#4cc38a;--warn:#e8b23a;--bad:#ef5a4c;--acc:#3fd0e0;--okbg:rgba(76,195,138,.14);--warnbg:rgba(232,178,58,.15);--badbg:rgba(239,90,76,.15);--accbg:rgba(63,208,224,.12);}
 .evx{background:#0c1316;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:14px 16px 24px;display:flex;flex-direction:column;gap:18px;font-size:14px;}
 .evx .mono{font-family:'DM Mono',monospace;font-variant-numeric:tabular-nums;}
 .evx h2,.evx h3{font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-weight:600;letter-spacing:.02em;margin:0;}
@@ -1138,7 +1138,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-15a</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-15b</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -1195,6 +1195,7 @@ body.pext-on .main{margin-left:0!important;}
         <div class="nav-item" onclick="goAdmin('informe-corte')"><div class="nav-dot" style="background:var(--purple)"></div>Informe producción 🔐</div>
         <div class="nav-item" onclick="goAdmin('analisis-corte')"><div class="nav-dot" style="background:var(--teal)"></div>Análisis de corte 🔐</div>
         <div class="nav-item" onclick="goAdmin('extrusion-vivo')"><div class="nav-dot" style="background:var(--accent)"></div>📏 Extrusión en vivo 🔐</div>
+        <div class="nav-item" onclick="goAdmin('corte-vivo')"><div class="nav-dot" style="background:var(--accent)"></div>✂ Corte en vivo 🔐</div>
         <div class="nav-item" onclick="goAdmin('analisis-extrusion')"><div class="nav-dot" style="background:var(--teal)"></div>Análisis de extrusión 🔐</div>
         <div class="nav-item" onclick="goAdmin('productividad-hora')"><div class="nav-dot" style="background:var(--teal)"></div>Productividad por hora 🔐</div>
       </div>
@@ -1712,6 +1713,23 @@ body.pext-on .main{margin-left:0!important;}
     </div>
 
     <!-- ANÁLISIS DE EXTRUSIÓN (día × extrusora × tipo de bobina, cadencia) -->
+    <!-- ✂ 15b CORTE EN VIVO (sensores inductivos de las cortadoras por el PLC) -->
+    <div class="page" id="page-corte-vivo">
+      <div class="page-hdr">
+        <div>
+          <div class="page-title">Corte en vivo</div>
+          <div class="page-sub">Golpes de las cortadoras (PLC) + bobinas escaneadas + fichajes · tandas, control de OC y operarios · estado cada 3 s · <span id="cvv-ts"></span></div>
+        </div>
+        <div class="btn-grp">
+          <button class="btn btn-sm cvv-hbtn" data-h="8" onclick="cvvHoras(8)">8 h</button>
+          <button class="btn btn-sm cvv-hbtn btn-primary" data-h="24" onclick="cvvHoras(24)">24 h</button>
+          <button class="btn btn-sm cvv-hbtn" data-h="72" onclick="cvvHoras(72)">3 días</button>
+          <button class="btn btn-sm cvv-hbtn" data-h="168" onclick="cvvHoras(168)">7 días</button>
+          <button class="btn btn-sm" onclick="renderCorteVivo()">↻</button>
+        </div>
+      </div>
+      <div id="cvv-body"></div>
+    </div>
     <!-- 📏 07e EXTRUSIÓN EN VIVO (cuentametros PLC) -->
     <div class="page" id="page-extrusion-vivo">
       <div class="page-hdr">
@@ -6342,7 +6360,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-15a';   // 15a: 🧵 Editar OE ya no achica la OE: antes rearmaba metros = bobinas × largo objetivo aunque no se tocara el plan, y un plan con la última vuelta estirada (4 × 1.290 m) quedaba en 4 × 1.050 (ORD-06347: 5.150 → 4.200 m por cambiar la prioridad). Ahora metros/plan se escriben sólo si se tocaron (_pbEoeCambios) y el recuadro muestra los metros reales del plan.   // 14c: 🎈 carga de bobinas: el aviso de globo pinchado y la pregunta explicados para el operario («Se pinchó el globo de 10:10 a 10:15. Esos 160 m salieron sin film y no se cuentan en la bobina. Es normal: no tenés que hacer nada.»; «Mientras hacías esta bobina, ¿se pinchó el globo?» + por qué se pregunta, botones «Sí, se pinchó» / «No se pinchó»).   // 14b: 🎈 el aviso «FILM xx %» de un cierre dice la CAUSA (minutos del PLC del intervalo): globo pinchado (bloques con film 0 y bruto > 0, gris «Globo pinchado HH:MM–HH:MM (N m)», N = brutos × factor) · fotocélula (pérdida repartida 1–95 % > 3 % de la bobina, amarillo «Fotocélula: revisar apuntado», sólo Extrusión en vivo) · los dos o sin datos → en la carga se pregunta «¿Se pinchó el globo?» (Sí/No, obligatorio) y queda en plc_cierres.globo_pinchado (sql/plc_globo_pinchado.sql). «Por turno» suma los metros de globo por máquina.   // 14a: 🧮 Sala de planes: «ya cobrado» cuenta sólo plata que entró DESPUÉS del plan; lo cancelado con plata vieja o NC = caído.   // 13e: 🪪 el crédito de una NC se aplica en cualquier cuenta del mismo CUIT (mismo circuito). 13d: 💸 facturas de ADELANTO FINANCIERO (obs.) fuera de facturación/ticket/concentración/demora/cobrado (siguen en cta cte e IVA). 13c: ⚡ Resultado del mes: los gastos extraordinarios (categoría multas, ej. multa EDELAP) salen del resultado ordinario y se muestran debajo como «Extraordinarios» → «Resultado FINAL del mes». 13b: 🧾 recibos: relee la base antes de guardar/imputar (tope al saldo real) + número único con reintento. 13a: 📏 Extrusión en vivo y Estación: las máquinas SIEMPRE por número de extrusora (EXT-01, EXT-03, EXT-07) — tarjetas, línea de tiempo, gráficos, filtros y orden de la tabla de cierres, resumen por turno, paradas, alertas y la estación (_extCmp, aplicado en _plcGrupos). EXT-01 entra por el grupo 2 desde el 12/10 (plc_grupos id 3, factor 0,2475 = clave «1», por extrusora): Extrusión en vivo ahora toma minutos y cierres de cada grupo sólo DESDE plc_grupos.desde, como la estación — las pruebas previas del grupo 2 no se cuentan como EXT-01. Sin SQL.
+const APP_BUILD='2026-10-15b';   // 15b: ✂ CORTE EN VIVO 🔐 (Producción, al lado de Extrusión en vivo, mismo diseño): estado de cada cortadora al instante (cortando / pausa / parada hace X, cada 3 s), golpes hoy, golpes/min, tanda en curso contra la tanda de la OC, OC y producto escaneados, operario; línea de tiempo con el color de quién cortó y las bobinas escaneadas; control de OC (golpes × pistas deducidas = cortadas vs declaradas + scrap → sin ubicar, tanda más común, tandas incompletas, semáforo) con detalle por día/operario y bobinas; operarios (fichado, cortando, uso, arranque, paradas 3–20 y > 20 min, cierre, sin cortar, bobinas, cambios de OC, golpes, bolsas, golpes/h, tandas incompletas); paradas largas con lo que pasó; alertas (sin datos, parada con operario fichado, escaneo en máquina equivocada, se cortó más de lo escaneado, escaneo tarde, tanda rara, OC que no cierra, golpes sin OC). Lee corte_tandas / corte_estado (registrador v2.4, sql corte_tandas 15/10). Fichajes: pares por hora, sin confiar en entrada/salida.
+//   // 15a: 🧵 Editar OE ya no achica la OE: antes rearmaba metros = bobinas × largo objetivo aunque no se tocara el plan, y un plan con la última vuelta estirada (4 × 1.290 m) quedaba en 4 × 1.050 (ORD-06347: 5.150 → 4.200 m por cambiar la prioridad). Ahora metros/plan se escriben sólo si se tocaron (_pbEoeCambios) y el recuadro muestra los metros reales del plan.   // 14c: 🎈 carga de bobinas: el aviso de globo pinchado y la pregunta explicados para el operario («Se pinchó el globo de 10:10 a 10:15. Esos 160 m salieron sin film y no se cuentan en la bobina. Es normal: no tenés que hacer nada.»; «Mientras hacías esta bobina, ¿se pinchó el globo?» + por qué se pregunta, botones «Sí, se pinchó» / «No se pinchó»).   // 14b: 🎈 el aviso «FILM xx %» de un cierre dice la CAUSA (minutos del PLC del intervalo): globo pinchado (bloques con film 0 y bruto > 0, gris «Globo pinchado HH:MM–HH:MM (N m)», N = brutos × factor) · fotocélula (pérdida repartida 1–95 % > 3 % de la bobina, amarillo «Fotocélula: revisar apuntado», sólo Extrusión en vivo) · los dos o sin datos → en la carga se pregunta «¿Se pinchó el globo?» (Sí/No, obligatorio) y queda en plc_cierres.globo_pinchado (sql/plc_globo_pinchado.sql). «Por turno» suma los metros de globo por máquina.   // 14a: 🧮 Sala de planes: «ya cobrado» cuenta sólo plata que entró DESPUÉS del plan; lo cancelado con plata vieja o NC = caído.   // 13e: 🪪 el crédito de una NC se aplica en cualquier cuenta del mismo CUIT (mismo circuito). 13d: 💸 facturas de ADELANTO FINANCIERO (obs.) fuera de facturación/ticket/concentración/demora/cobrado (siguen en cta cte e IVA). 13c: ⚡ Resultado del mes: los gastos extraordinarios (categoría multas, ej. multa EDELAP) salen del resultado ordinario y se muestran debajo como «Extraordinarios» → «Resultado FINAL del mes». 13b: 🧾 recibos: relee la base antes de guardar/imputar (tope al saldo real) + número único con reintento. 13a: 📏 Extrusión en vivo y Estación: las máquinas SIEMPRE por número de extrusora (EXT-01, EXT-03, EXT-07) — tarjetas, línea de tiempo, gráficos, filtros y orden de la tabla de cierres, resumen por turno, paradas, alertas y la estación (_extCmp, aplicado en _plcGrupos). EXT-01 entra por el grupo 2 desde el 12/10 (plc_grupos id 3, factor 0,2475 = clave «1», por extrusora): Extrusión en vivo ahora toma minutos y cierres de cada grupo sólo DESDE plc_grupos.desde, como la estación — las pruebas previas del grupo 2 no se cuentan como EXT-01. Sin SQL.
 // 10b anterior:   // 10b: 🚫 Anular factura sólo sin CAE (ni Flexxus, ni procesando) y sin cobros/NC/ND encima — con CAE la única vía es NC; botón apagado con el motivo; re-chequeo contra la base; limpia factura_linea_remitos (caso 0001-00000041 / REM-00595).
 // 10a anterior:   // 10a: ⚠ Avisos de corte en su propia hoja (Producción → ⚠ Avisos de corte): los paneles de máquina no asignada, OE corta y bultos sin cargar salen de Órdenes de corte, donde queda sólo un botón con la cuenta. 🔀 Máquina no asignada: rojo sólo si la OC se MUDÓ (sin máquina asignada, o en la asignada se cortó menos que en otra); una carga suelta en otra máquina pasa a informativo gris (caso OC-1052795: 5 bobinas en CORTE-02, 1 carga de 2 en CORTE-01). Sin SQL. // 09h: 👥 Sala de planes — TOTAL POR CLIENTE arriba del detalle de cobros (en el plan / ya cobrado / falta / caído, con atrasados), en la canasta del armador y en la hoja impresa. Derivado del documento de cada paso (_plTotalesPorCliente), sin SQL. // 09g: 🏦 Cada deuda dice de qué banco se debita (cuenta_debito_id): chip grande en la tarjeta, resumen «¿cuánta plata tiene que haber en cada banco?» (próximo débito, 30 días, vencidas, planes), el pago propone esa cuenta y avisa si elegís otra, el flujo nombra plan y banco, y el importador del extracto no cruza un débito de un banco con un plan de otro. Requiere alter_deudas_cuenta_debito.sql. · 09f: 📏 Extrusión en vivo: las bobinas con la fotocélula sin ver film vuelven a aparecer en «Gramaje real vs orden» (aro punteado) y en la tabla (g/m con *), calculadas con los metros CARGADOS; siguen fuera de las referencias.   // 09e: 📏 un cierre con la fotocélula sin ver film (film < 95 % del giro) no entra en ninguna referencia (kg/h, semáforo, velocidad de la última pesada, alarmas): con minutos cortados y kg enteros daba 52,5 kg/h y «¿CAMBIASTE DE PRODUCTO?» falso en EXT-03 al cambiar de color.   // 09d: 📏 P2 — los metros de la bobina salen SÓLO del odómetro CON FILM (antes del bruto: el rodillo suelto tras un pinchazo se sumaba). Bobina en curso, barra, velocidad y g/m también con film; el bruto queda de referencia. Estación: alarma «EL RODILLO GIRA Y NO SE VE FILM» (titila y pita) al minuto; en la carga, aviso si el cierre tuvo film en menos del 95 % del giro.   // 09c: 📏 Excedentes de OE en su propia pestaña (Producción, al lado de Fuera de rango), agrupados por OE con cliente; Fuera de rango muestra sólo las de calidad. Mismas acciones (aceptar / reasignar), sin SQL.   // 09b: 🎯 Cortar hoy — cada OC del pedido es una tarjeta propia (franja del color de su estado, cabecera sombreada, «OC n/N», guía vertical del pedido): con muchas OC no se distinguían los renglones. Sólo CSS + marcado, sin tocar cálculos. // 09a: 🧵 el tope de exceso de metros se mide contra el plan (siempre para arriba), no sólo contra los metros de la OE; y al «Aceptar tal cual» una bobina pendiente se revisa si la OE ya quedó completa (metros y pistas) y se cierra. (ORD-06337: la 4ª bobina que pedía el plan se fue a pendientes y la OE quedó abierta.)
 // 08d: 🧵 las bobinas de largo normal se piden primero y la del resto al final. Fichas: las 95 cm de DAG (blanca, amarilla, magenta, 40 µ) pasan a 1 pista; 190 y 193 (80 µ amarilla y magenta) a 350 m como la blanca.
@@ -11042,6 +11061,439 @@ function startEvvTimer(){
   if(!EVV.timerVivo)EVV.timerVivo=setInterval(_evvTick,2000);
 }
 
+// ===== ✂ CORTE EN VIVO (15b) =====
+// Pantalla del dueño, con el mismo diseño que 📏 Extrusión en vivo. Datos:
+// · corte_estado: lo que manda el registrador de la PC del medidor cada 5 s (contador = odómetro
+//   del PLC C224/C225, nunca se pone en cero; último golpe; tanda abierta).
+// · corte_tandas: cada tanda de golpes seguidos (la cortadora para a sacar la pila). La pausa que
+//   corta una tanda es 1,6 × el ritmo normal de la máquina, mínimo 3,5 s. «sin_hora» = golpes que el
+//   PLC contó con la PC apagada: suman en los totales pero no tienen hora.
+// · orden_corte_bobinas (escaneos), ordenes_corte, fichajes.
+// Reglas (las mismas del informe de corte del 15/10):
+// · Golpe → OC: la última bobina escaneada en esa máquina (hasta 2 min después del golpe, por el
+//   escaneo apurado). Si esa carga tiene más de 3 h, la próxima carga dentro de 4 h (= se cortó antes
+//   de escanear: «escaneo tarde»); si no hay, la anterior si su OC seguía abierta (hasta 24 h).
+// · Golpe → operario: el que escaneó esa bobina; si no estaba fichado, el fichado que escaneó por
+//   última vez en esa máquina.
+// · Pistas = bolsas teóricas de los metros escaneados ÷ golpes, redondeado. Bolsas cortadas = golpes × pistas.
+// · Sin ubicar = cortadas − declaradas − scrap en bolsas (kg de scrap ÷ peso por bolsa).
+// · Cortando = tandas con menos de 3 min entre una y otra. Parada corta 3–20 min, larga > 20 min.
+const CVV={horas:24,cargando:false,timer:null,timerVivo:null,d:null,ocSel:null,maqs:[1,2]};
+const CVV_PAUSA_MIN=3,CVV_LARGA_MIN=20;
+const _CVV_OPCOL=['#4cc38a','#3fd0e0','#e8b23a','#8f74e8','#e07a9c','#c47c2c','#9fb83a'];
+function _cvvTs(f,h){return new Date(f+'T'+String(h||'00:00:00').slice(0,8)+'-03:00').getTime();}
+function _cvvMaqNom(id){const m=(C.maq_corte||C.maquinas_corte||[]).find(x=>String(x.id)===String(id));return m?m.nombre:'CORTE-'+String(id).padStart(2,'0');}
+function _cvvEmpNom(id){if(id==null)return 'sin operario';const e=(C.empleados||[]).find(x=>String(x.id)===String(id));return e?e.apellido_nombre:'emp '+id;}
+function _cvvMin(ms){return ms/60000;}
+function _cvvHM(min){if(min==null||!isFinite(min))return '—';min=Math.round(min);return min>=60?Math.floor(min/60)+' h '+String(min%60).padStart(2,'0'):min+' min';}
+function _cvvFH(t){const d=new Date(t);return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+' '+_plcHora(d.toISOString());}
+
+// Turnos fichados. El «tipo» del fichaje NO es confiable (Acevedo marca «entrada» al irse y
+// «salida» al llegar; Guaraz escanea dos veces seguidas): se ordenan las marcas, se descarta la que
+// está a menos de 2 min de la anterior y se arman pares seguidos de hasta 16 h. Una marca suelta
+// sólo cuenta si es la última y tiene menos de 14 h (turno en curso, hasta ahora).
+function _cvvTurnos(fich,ahora){
+  const por={};
+  (fich||[]).forEach(f=>{(por[f.empleado_id]=por[f.empleado_id]||[]).push(_cvvTs(f.fecha,f.hora));});
+  const out={};
+  Object.keys(por).forEach(e=>{
+    const ts=por[e].sort((a,b)=>a-b).filter((t,i,a)=>i===0||t-a[i-1]>=120000);
+    const l=[];let i=0;
+    while(i<ts.length){
+      const a=ts[i],b=ts[i+1];
+      if(b!=null&&b-a<=16*3600000){l.push([a,b]);i+=2;}
+      else{if(b==null&&ahora-a<14*3600000&&ahora>a)l.push([a,ahora]);i+=1;}
+    }
+    out[e]=l;
+  });
+  return out;
+}
+function _cvvFichado(turnos,e,t){return (turnos[e]||[]).some(([a,z])=>a<=t&&t<=z);}
+
+// Asigna cada tanda a una OC y a un operario.
+function _cvvAsignar(tandas,cargas,ocs,turnos){
+  const porM={};
+  cargas.forEach(c=>{(porM[c.maquina_id]=porM[c.maquina_id]||[]).push(c);});
+  Object.values(porM).forEach(l=>l.sort((a,b)=>a.t-b.t));
+  const H3=3*3600000,H4=4*3600000;
+  tandas.forEach(td=>{
+    const l=porM[td.maquina]||[],t=td.ti;
+    let i=-1;for(let k=0;k<l.length;k++){if(l[k].t<=t+120000)i=k;else break;}
+    const prev=i>=0?l[i]:null,next=l[i+1]||null;
+    let c=null,regla=null;
+    if(prev&&t-prev.t<=H3){c=prev;regla='antes';}
+    else if(next&&next.t-t<=H4){c=next;regla='tarde';}
+    else if(prev&&t-prev.t<=24*3600000){const oc=ocs[prev.orden_corte_id];const fc=oc&&oc.fecha_completada?new Date(oc.fecha_completada).getTime():null;
+      if(oc&&(fc?fc>t:oc.estado!=='Completada')){c=prev;regla='antes';}}
+    td.oc=c?c.orden_corte_id:null;td.regla=regla;td.carga=c;
+    let e=c?c.empleado_id:null;td.fichado=e!=null&&_cvvFichado(turnos,e,t);
+    if(!td.fichado){   // el que estaba fichado y escaneó por última vez en esta máquina
+      for(let k=i;k>=0;k--){const x=l[k];if(x.empleado_id!=null&&_cvvFichado(turnos,x.empleado_id,t)){e=x.empleado_id;td.fichado=true;break;}}
+    }
+    td.emp=e;
+  });
+  return tandas;
+}
+// Corridas: tandas seguidas con menos de CVV_PAUSA_MIN entre una y otra (misma clave).
+function _cvvCorridas(tds,clave){
+  const out=[];let cur=null;
+  tds.filter(t=>!t.sin_hora).sort((a,b)=>a.ti-b.ti).forEach(t=>{
+    const k=clave?clave(t):'';
+    if(cur&&cur.k===k&&t.ti-cur.z<=CVV_PAUSA_MIN*60000){cur.z=Math.max(cur.z,t.tf);cur.g+=t.golpes;cur.n++;}
+    else{cur={k,a:t.ti,z:t.tf,g:t.golpes,n:1,emp:t.emp,oc:t.oc,maq:t.maquina};out.push(cur);}
+  });
+  out.forEach(r=>{r.z+=2000;});   // el último golpe también dura su ciclo
+  return out;
+}
+function _cvvModa(arr){const c={};arr.forEach(v=>c[v]=(c[v]||0)+1);let best=null,n=0;Object.keys(c).forEach(k=>{if(c[k]>n){n=c[k];best=+k;}});return best;}
+
+// Control por OC (todo el historial de la OC, no sólo el período).
+function _cvvOCs(tandas,cargas,ocs){
+  const R={};
+  cargas.forEach(c=>{const o=R[c.orden_corte_id]=R[c.orden_corte_id]||{id:c.orden_corte_id,cargas:[],tds:[]};o.cargas.push(c);});
+  tandas.forEach(t=>{if(t.oc!=null&&R[t.oc])R[t.oc].tds.push(t);});
+  return Object.values(R).map(o=>{
+    const oc=ocs[o.id]||{};const p=oc.productos||{};
+    const mpb=parseFloat(p.metros_por_bolsa)||0,ppb=parseFloat(p.peso_por_bolsa)||0;
+    o.oc=oc;o.metros=o.cargas.reduce((s,c)=>s+(parseFloat(c.metros_usados)||0),0);
+    o.teo=mpb?o.metros/mpb:null;
+    o.golpes=o.tds.reduce((s,t)=>s+t.golpes,0);
+    const r=o.golpes&&o.teo?o.teo/o.golpes:null;
+    o.pistas=r?Math.max(1,Math.round(r)):null;o.pistasDudosa=r?Math.abs(r-o.pistas)>0.25:false;
+    o.cortadas=o.pistas?o.golpes*o.pistas:null;
+    o.decl=oc.unidades_reales!=null?oc.unidades_reales:null;
+    o.scrapB=ppb&&oc.peso_scrap_kg!=null?(parseFloat(oc.peso_scrap_kg)||0)/ppb:0;
+    o.sinUbicar=(o.cortadas!=null&&o.decl!=null)?o.cortadas-o.decl-o.scrapB:null;
+    o.pct=(o.sinUbicar!=null&&o.cortadas)?o.sinUbicar/o.cortadas:null;
+    const conH=o.tds.filter(t=>!t.sin_hora);
+    o.tanda=_cvvModa(conH.filter(t=>t.golpes>=3).map(t=>t.golpes));
+    o.parciales=o.tanda?conH.filter(t=>t.golpes<o.tanda):[];
+    o.bolsasParc=o.pistas?o.parciales.reduce((s,t)=>s+t.golpes,0)*o.pistas:null;
+    o.tardeG=o.tds.filter(t=>t.regla==='tarde').reduce((s,t)=>s+t.golpes,0);
+    o.ini=conH.length?Math.min(...conH.map(t=>t.ti)):null;o.fin=conH.length?Math.max(...conH.map(t=>t.tf)):null;
+    o.maqs=[...new Set(o.cargas.map(c=>c.maquina_id).concat(o.tds.map(t=>t.maquina)))].sort();
+    o.emps=[...new Set(o.tds.map(t=>t.emp).filter(e=>e!=null))];
+    o.cerrada=oc.estado==='Completada';
+    const a=Math.abs(o.pct||0);
+    o.sem=o.pct==null?'':a>0.03?'bad':a>0.01?'warn':'ok';
+    o.tandaRara=o.tanda!=null&&![5,10,25].includes(o.tanda);
+    if(o.tandaRara&&o.sem==='ok')o.sem='warn';
+    return o;
+  });
+}
+
+// Operarios en el período [t0, ahora].
+function _cvvOperarios(tandas,cargas,turnos,t0,ahora){
+  const emps=new Set();tandas.forEach(t=>{if(t.emp!=null&&t.ti>=t0)emps.add(String(t.emp));});
+  cargas.forEach(c=>{if(c.t>=t0&&c.empleado_id!=null)emps.add(String(c.empleado_id));});
+  return [...emps].map(e=>{
+    const tds=tandas.filter(t=>String(t.emp)===e&&t.ti>=t0&&t.ti<=ahora);
+    const runs=_cvvCorridas(tds,null);
+    const tr=(turnos[e]||[]).map(([a,z])=>[Math.max(a,t0),Math.min(z,ahora)]).filter(([a,z])=>z>a);
+    const O={emp:e,nom:_cvvEmpNom(e),fich:0,cort:0,corta:0,nCorta:0,larga:0,nLarga:0,arr:0,cie:0,sinG:0,golpes:0,bolsas:0,parc:0,cargas:0,cambiosOC:0,fuera:0,largas:[]};
+    tr.forEach(([a,z])=>{
+      O.fich+=z-a;
+      const rs=runs.filter(r=>r.z>a&&r.a<z).map(r=>({a:Math.max(r.a,a),z:Math.min(r.z,z),r}));
+      if(!rs.length){O.sinG+=z-a;return;}
+      O.arr+=rs[0].a-a;O.cie+=z-rs[rs.length-1].z;
+      rs.forEach((r,i)=>{O.cort+=r.z-r.a;if(i){const g=r.a-rs[i-1].z;
+        if(g>CVV_LARGA_MIN*60000){O.larga+=g;O.nLarga++;O.largas.push({a:rs[i-1].z,z:r.a,maq:r.r.maq});}else if(g>0){O.corta+=g;O.nCorta++;}}});
+    });
+    runs.forEach(r=>{const dentro=tr.some(([a,z])=>r.a>=a-60000&&r.a<=z+60000);if(!dentro)O.fuera+=r.z-r.a;});
+    O.golpes=tds.reduce((s,t)=>s+t.golpes,0);
+    const cs=cargas.filter(c=>String(c.empleado_id)===e&&c.t>=t0&&c.t<=ahora).sort((a,b)=>a.t-b.t);
+    O.cargas=cs.length;
+    cs.forEach((c,i)=>{if(i&&c.orden_corte_id!==cs[i-1].orden_corte_id)O.cambiosOC++;});
+    return O;
+  }).sort((a,b)=>b.golpes-a.golpes);
+}
+
+async function renderCorteVivo(){
+  const w=document.getElementById('cvv-body');if(!w)return;
+  if(CVV.cargando)return;
+  CVV.cargando=true;
+  if(!w.innerHTML.trim())w.innerHTML='<div class="loading"><div class="spinner"></div></div>';
+  try{
+    const ahora=Date.now(),t0=ahora-CVV.horas*3600000,tA=t0-12*3600000;
+    const selC='id,orden_corte_id,bobina_producida_id,metros_usados,fecha_asignacion,empleado_id,maquina_id,origen,bobinas_producidas(numero_bobina)';
+    const r1=await _traerQ(()=>sb.from('orden_corte_bobinas').select(selC).gte('fecha_asignacion',new Date(tA).toISOString()).order('fecha_asignacion').order('id'));
+    if(r1.error)throw r1.error;
+    const ocIds=[...new Set((r1.data||[]).filter(c=>CVV.maqs.includes(c.maquina_id)).map(c=>c.orden_corte_id))];
+    let cOC=[];
+    if(ocIds.length){const r2=await _traerQ(()=>sb.from('orden_corte_bobinas').select(selC).in('orden_corte_id',ocIds).order('fecha_asignacion').order('id'));if(r2.error)throw r2.error;cOC=r2.data||[];}
+    const minC=cOC.length?Math.min(...cOC.map(c=>new Date(c.fecha_asignacion).getTime())):tA;
+    const tF=Math.max(Math.min(tA,minC-4*3600000),ahora-21*86400000);
+    const[r3,r4,r5,r6,r7]=await Promise.all([
+      _traerQ(()=>sb.from('orden_corte_bobinas').select(selC).gte('fecha_asignacion',new Date(tF).toISOString()).order('fecha_asignacion').order('id')),
+      _traerQ(()=>sb.from('corte_tandas').select('id,maquina,inicio,fin,golpes,contador_fin,sin_hora').gte('fin',new Date(tF).toISOString()).order('fin').order('id')),
+      sb.from('corte_estado').select('*'),
+      ocIds.length?sb.from('ordenes_corte').select('id,numero_orden,cliente,estado,unidades_reales,unidades_a_producir,peso_scrap_kg,fecha_completada,observaciones,productos(codigo,descripcion,metros_por_bolsa,peso_por_bolsa)').in('id',ocIds):Promise.resolve({data:[]}),
+      sb.from('fichajes').select('empleado_id,fecha,hora,tipo').gte('fecha',localDate(new Date(tF-86400000))).order('fecha').order('hora').limit(5000)]);
+    [r3,r4,r5,r6,r7].forEach(r=>{if(r.error)throw r.error;});
+    const ocs={};(r6.data||[]).forEach(o=>ocs[o.id]=o);
+    const cargas=(r3.data||[]).filter(c=>CVV.maqs.includes(c.maquina_id)).map(c=>Object.assign({t:new Date(c.fecha_asignacion).getTime()},c));
+    const turnos=_cvvTurnos(r7.data||[],ahora);
+    const tandas=_cvvAsignar((r4.data||[]).map(t=>Object.assign({ti:new Date(t.inicio).getTime(),tf:new Date(t.fin).getTime()},t)),cargas,ocs,turnos);
+    const est=r5.data||[];
+    const ocsR=_cvvOCs(tandas,cargas.filter(c=>ocIds.includes(c.orden_corte_id)),ocs).filter(o=>o.tds.some(t=>t.ti>=t0)||o.cargas.some(c=>c.t>=t0))
+      .sort((a,b)=>(b.fin||b.cargas[b.cargas.length-1].t)-(a.fin||a.cargas[a.cargas.length-1].t));
+    const ops=_cvvOperarios(tandas,cargas,turnos,t0,ahora);
+    ops.forEach(O=>{O.bolsas=0;O.parc=0;});
+    const ocPor={};ocsR.forEach(o=>ocPor[o.id]=o);
+    tandas.filter(t=>t.ti>=t0&&t.emp!=null).forEach(t=>{const O=ops.find(x=>x.emp===String(t.emp)),o=ocPor[t.oc];if(!O)return;
+      if(o&&o.pistas)O.bolsas+=t.golpes*o.pistas;if(o&&o.tanda&&!t.sin_hora&&t.golpes<o.tanda)O.parc++;});
+    CVV.d={ahora,t0,cargas,tandas,est,ocs,ocsR,ops,turnos};
+    _cvvPintar();
+  }catch(e){
+    console.error('corte vivo',e);
+    w.innerHTML='<div class="empty-state">No se pudo cargar: '+escapeHtml(e.message||String(e))+'</div>';
+  }finally{CVV.cargando=false;}
+}
+
+function _cvvMaq(D,m){
+  const ahora=D.ahora,hoy0=_cvvTs(localDate(),'00:00:00');
+  const est=D.est.find(x=>x.maquina===m)||null;
+  const tds=D.tandas.filter(t=>t.maquina===m);
+  const per=tds.filter(t=>t.ti>=D.t0);
+  const runs=_cvvCorridas(per,null);
+  const cort=runs.reduce((s,r)=>s+Math.min(r.z,ahora)-r.a,0);
+  const hoy=tds.filter(t=>(t.sin_hora?t.tf:t.ti)>=hoy0);
+  const ult=D.cargas.filter(c=>c.maquina_id===m).sort((a,b)=>a.t-b.t).slice(-1)[0]||null;
+  const ocA=ult?D.ocsR.find(o=>o.id===ult.orden_corte_id)||_cvvOCs([],[ult],D.ocs)[0]:null;
+  const g10=tds.filter(t=>!t.sin_hora&&t.tf>=ahora-600000).reduce((s,t)=>s+t.golpes,0)+(est&&est.tanda_golpes&&est.tanda_inicio&&new Date(est.tanda_inicio).getTime()>=ahora-600000?est.tanda_golpes:0);
+  const largas=[];for(let i=1;i<runs.length;i++){const g=runs[i].a-runs[i-1].z;if(g>CVV_LARGA_MIN*60000)largas.push({a:runs[i-1].z,z:runs[i].a,emp:runs[i-1].emp});}
+  const bolsasHoy=hoy.reduce((s,t)=>{const o=D.ocsR.find(x=>x.id===t.oc);return s+(o&&o.pistas?t.golpes*o.pistas:0);},0);
+  return{m,nom:_cvvMaqNom(m),est,per,runs,cort,uso:cort/(ahora-D.t0),hoyG:hoy.reduce((s,t)=>s+t.golpes,0),bolsasHoy,
+    perG:per.reduce((s,t)=>s+t.golpes,0),ult,ocA,g10,largas,cargasPer:D.cargas.filter(c=>c.maquina_id===m&&c.t>=D.t0).length};
+}
+// Estado al instante: sin datos (PC no manda) / cortando (golpe hace < 20 s) / pausa (< 3 min) / parada.
+function _cvvSt(est,ahora){
+  if(!est||ahora-new Date(est.actualizado_en).getTime()>120000)return{k:'N',t:'Sin datos de la PC'};
+  const ug=est.ultimo_golpe?new Date(est.ultimo_golpe).getTime():null;
+  if(ug==null)return{k:'S',t:'Parada'};
+  const s=(ahora-ug)/1000;
+  if(s<20)return{k:'P',t:'Cortando'};
+  if(s<CVV_PAUSA_MIN*60)return{k:'F',t:'Pausa '+Math.round(s)+' s'};
+  return{k:'S',t:'Parada '+_cvvHM(s/60)};
+}
+function _cvvCard(M,D){
+  const st=_cvvSt(M.est,Date.now()),m=M.m,o=M.ocA,oc=o?o.oc:null,p=oc&&oc.productos?oc.productos:null;
+  const tg=M.est&&M.est.tanda_golpes?M.est.tanda_golpes:0,tz=o&&o.tanda?o.tanda:25;
+  const empAhora=M.ult?M.ult.empleado_id:null;
+  const fich=empAhora!=null&&_cvvFichado(D.turnos,empAhora,Date.now());
+  return '<article class="evx-panel evx-card evx-'+st.k+'" id="cvv-maq-'+m+'">'
+    +'<div class="evx-mh"><h3>'+escapeHtml(M.nom)+'</h3><span class="evx-pill evv-p'+st.k+'" id="cvv-pill-'+m+'">'+escapeHtml(st.t)+'</span></div>'
+    +(p?'<div class="evx-prod"><span class="cod">'+escapeHtml(p.codigo||'')+'</span><span class="nom">'+escapeHtml(p.descripcion||'')+'</span><span class="oe">'+escapeHtml(oc.numero_orden||'')+(oc.cliente?' · '+escapeHtml(oc.cliente):'')+' · escaneada '+_cvvFH(M.ult.t)+'</span></div>'
+       :'<div class="evx-prod"><span class="cod">—</span><span class="nom warnTxt">sin bobina escaneada</span></div>')
+    +'<div class="evx-big"><div><span class="evx-lbl">Golpes hoy</span><div class="v" id="cvv-hoy-'+m+'">'+_evvF(M.hoyG)+'</div><span class="evx-est">'+_evvF(M.bolsasHoy)+' bolsas'+(o&&o.pistas?' · '+o.pistas+' pista'+(o.pistas>1?'s':''):'')+'</span></div>'
+    +'<div><span class="evx-lbl">Ritmo</span><div class="v" id="cvv-gpm-'+m+'">'+_evvF(M.g10/10,1)+'<small>golpes/min</small></div><span class="evx-est">últimos 10 min</span></div></div>'
+    +'<div class="evx-prog"><div class="evx-prog-h"><span class="evx-lbl">Tanda en curso · la OC va de a '+tz+'</span><span class="mono" id="cvv-tg-'+m+'">'+tg+' / '+tz+'</span></div>'
+      +'<div class="evx-bar"><i id="cvv-tb-'+m+'" class="'+(tg>=tz?'cortar':tg>=tz*0.9?'cerca':'')+'" style="width:'+Math.min(100,tg/tz*100).toFixed(1)+'%"></i></div></div>'
+    +'<dl class="evx-rows">'
+      +'<dt>Operario</dt><dd'+(empAhora!=null&&!fich?' class="warnTxt"':'')+'>'+escapeHtml(_cvvEmpNom(empAhora))+(empAhora!=null&&!fich?' (no fichado)':'')+'</dd>'
+      +'<dt>Uso '+CVV.horas+' h</dt><dd>'+_evvF(M.uso*100,1)+' % · '+_cvvHM(_cvvMin(M.cort))+' cortando</dd>'
+      +'<dt>Golpes '+CVV.horas+' h</dt><dd>'+_evvF(M.perG)+' · '+M.cargasPer+' bobinas</dd>'
+      +'<dt>Paradas > '+CVV_LARGA_MIN+' min</dt><dd>'+M.largas.length+' · '+_cvvHM(_cvvMin(M.largas.reduce((s,x)=>s+x.z-x.a,0)))+'</dd>'
+      +'<dt>Contador PLC</dt><dd id="cvv-cnt-'+m+'">'+(M.est&&M.est.contador!=null?_evvF(M.est.contador):'—')+'</dd>'
+    +'</dl></article>';
+}
+function _cvvAlertas(D,maqs){
+  const al=[],ahora=D.ahora;
+  maqs.forEach(M=>{
+    const st=_cvvSt(M.est,ahora);
+    if(st.k==='N')al.push(['bad',M.nom+': sin datos','La PC del medidor no manda el estado de la cortadora'+(M.est?' desde las '+_plcHora(M.est.actualizado_en):'')+'. Revisar el registrador.','ahora']);
+    if(st.k==='S'&&M.ult&&_cvvFichado(D.turnos,M.ult.empleado_id,ahora)&&M.est&&M.est.ultimo_golpe&&ahora-new Date(M.est.ultimo_golpe).getTime()>30*60000)
+      al.push(['warn',M.nom+': parada con operario fichado',_cvvEmpNom(M.ult.empleado_id)+' está fichado y la máquina no corta desde las '+_plcHora(M.est.ultimo_golpe)+'.','ahora']);
+  });
+  // escaneo en una máquina que no estaba cortando (±30 min) mientras la otra sí
+  D.cargas.filter(c=>c.t>=D.t0).forEach(c=>{
+    const cerca=(m)=>D.tandas.some(t=>t.maquina===m&&!t.sin_hora&&Math.abs(t.ti-c.t)<=30*60000);
+    const otra=CVV.maqs.find(x=>x!==c.maquina_id);
+    if(!cerca(c.maquina_id)&&otra&&cerca(otra)){const oc=D.ocs[c.orden_corte_id];
+      al.push(['warn','¿Escaneo en la máquina equivocada?',(oc?oc.numero_orden:'OC')+' escaneada en '+_cvvMaqNom(c.maquina_id)+' (que no cortaba) por '+_cvvEmpNom(c.empleado_id)+'; '+_cvvMaqNom(otra)+' sí cortaba.',_cvvFH(c.t)]);}
+  });
+  D.ocsR.forEach(o=>{const n=o.oc.numero_orden||'OC';
+    if(o.teo&&o.pistas&&o.golpes*o.pistas>o.teo*1.06&&o.golpes>200)al.push(['bad',n+': se cortó más de lo escaneado','Golpes × pistas = '+_evvF(o.golpes*o.pistas)+' bolsas; los metros escaneados dan '+_evvF(o.teo)+'. ¿Bobina cortada sin escanear?',o.fin?_cvvFH(o.fin):'']);
+    if(o.tardeG>=50)al.push(['warn',n+': escaneo tarde',_evvF(o.tardeG)+' golpes antes de escanear la bobina.',o.ini?_cvvFH(o.ini):'']);
+    if(o.tandaRara)al.push(['warn',n+': tanda de '+o.tanda+' golpes','Lo normal es 25 (o 5/10 en paquetes chicos). Cada tanda da '+(o.pistas?o.tanda*o.pistas:'?')+' bolsas en vez de '+(o.pistas?25*o.pistas:'?')+': revisar el contador de la máquina.',o.ini?_cvvFH(o.ini):'']);
+    if(o.cerrada&&o.sem==='bad')al.push(['bad',n+': '+(o.sinUbicar>0?_evvF(o.sinUbicar)+' bolsas sin ubicar':_evvF(-o.sinUbicar)+' bolsas declaradas de más'),_evvF(o.cortadas)+' cortadas por golpes, '+_evvF(o.decl)+' declaradas, scrap ≈ '+_evvF(o.scrapB)+' bolsas.',o.fin?_cvvFH(o.fin):'']);
+  });
+  const sinOC=D.tandas.filter(t=>t.ti>=D.t0&&t.oc==null);
+  CVV.maqs.forEach(m=>{const g=sinOC.filter(t=>t.maquina===m).reduce((s2,t)=>s2+t.golpes,0);
+    if(g>=100)al.push(['warn',_cvvMaqNom(m)+': '+_evvF(g)+' golpes sin OC','No hay bobina escaneada en esa máquina cerca de esos golpes (3 h antes / 4 h después).','']);});
+  const ord={bad:0,warn:1,info:2};al.sort((a,b)=>(ord[a[0]]??3)-(ord[b[0]]??3));
+  return al;
+}
+function _cvvTimeline(D,maqs){
+  const N=Math.round((D.ahora-D.t0)/60000),x=t=>Math.max(0,Math.min(N,(t-D.t0)/60000));
+  const empCol={};let ci=0;D.ops.forEach(O=>{empCol[O.emp]=_CVV_OPCOL[ci++%_CVV_OPCOL.length];});
+  let h='<section class="evx-panel evx-tl"><div class="evx-sechead"><h2>Últimas '+CVV.horas+' h · cuándo se cortó y quién</h2><div class="evx-legend">'
+    +D.ops.map(O=>'<span><i style="background:'+empCol[O.emp]+'"></i>'+escapeHtml(O.nom)+'</span>').join('')
+    +'<span><i style="background:var(--line)"></i>parada</span><span><i style="background:var(--acc);width:3px"></i>bobina escaneada</span></div></div>';
+  maqs.forEach(M=>{
+    let svg='<svg class="evx-tlsvg" viewBox="0 0 '+N+' 64" preserveAspectRatio="none"><rect x="0" y="14" width="'+N+'" height="36" fill="var(--line)" opacity=".55"/>';
+    // corridas de corte, del color del operario
+    _cvvCorridas(M.per,t=>String(t.emp)).forEach(r=>{const x1=x(r.a),x2=x(Math.min(r.z,D.ahora));
+      svg+='<rect x="'+x1.toFixed(1)+'" y="14" width="'+Math.max(0.6,x2-x1).toFixed(1)+'" height="36" fill="'+(empCol[String(r.emp)]||'var(--muted)')+'"/>';});
+    D.cargas.filter(c=>c.maquina_id===M.m&&c.t>=D.t0).forEach(c=>svg+='<line x1="'+x(c.t).toFixed(1)+'" x2="'+x(c.t).toFixed(1)+'" y1="4" y2="60" stroke="var(--acc)" stroke-width="1.5" vector-effect="non-scaling-stroke"/>');
+    svg+='</svg>';
+    h+='<div class="evx-tlrow"><span class="nm">'+escapeHtml(M.nom.replace('CORTE-','C'))+'</span>'+svg+'<span class="rt">'+_evvF(M.uso*100,0)+' % uso<br>'+_evvF(M.perG)+' golpes</span></div>';
+  });
+  const paso=CVV.horas>72?24:CVV.horas>24?12:CVV.horas>8?3:1;
+  let ax='<div class="evx-axis">';
+  for(let k=Math.ceil(D.t0/(paso*3600000))*paso*3600000;k<=D.ahora;k+=paso*3600000){const d=new Date(k);
+    ax+='<span style="left:'+((k-D.t0)/(D.ahora-D.t0)*100).toFixed(2)+'%">'+(paso>=12?String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+' ':'')+String(d.getHours()).padStart(2,'0')+':00</span>';}
+  return h+ax+'</div></section>';
+}
+function _cvvTablaOC(D){
+  let h='<section class="evx-sec"><div class="evx-sechead"><h2>Control de OC · golpes contra lo declarado</h2><span class="evx-lbl">toda la OC, aunque empiece antes del período · tocá una fila para el detalle</span></div>'
+    +'<div class="evx-panel evx-tw"><table><thead><tr><th class="l">OC</th><th class="l">Cliente · producto</th><th class="l">Máq.</th><th>Bobinas</th><th>Metros</th><th>Golpes</th><th>Pistas</th><th>Cortadas</th><th>Declaradas</th><th>Scrap ≈</th><th>Sin ubicar</th><th>Tanda</th><th>Incompletas</th><th class="l">Estado</th></tr></thead><tbody>';
+  if(!D.ocsR.length)h+='<tr><td colspan="14" class="l mut">Sin OC en el período.</td></tr>';
+  D.ocsR.forEach(o=>{
+    const oc=o.oc,p=oc.productos||{},sel=CVV.ocSel===o.id;
+    h+='<tr style="cursor:pointer'+(sel?';background:var(--accbg)':'')+'" onclick="cvvOC('+o.id+')"><td class="l">'+escapeHtml(oc.numero_orden||String(o.id))+'</td>'
+      +'<td class="l">'+escapeHtml((oc.cliente||'').slice(0,18))+' · <span class="mut">'+escapeHtml(p.codigo||'')+'</span></td>'
+      +'<td class="l">'+o.maqs.map(m=>_cvvMaqNom(m).replace('CORTE-','C')).join('+')+'</td>'
+      +'<td>'+o.cargas.length+'</td><td>'+_evvF(o.metros)+'</td><td>'+_evvF(o.golpes)+'</td>'
+      +'<td'+(o.pistasDudosa?' class="warnTxt" title="los metros no cierran con un número entero de pistas"':'')+'>'+(o.pistas||'—')+(o.pistasDudosa?'?':'')+'</td>'
+      +'<td>'+_evvF(o.cortadas)+'</td><td>'+(o.decl!=null?_evvF(o.decl):'<span class="mut">abierta</span>')+'</td><td>'+_evvF(o.scrapB)+'</td>'
+      +'<td class="'+(o.sem==='bad'?'badTxt':o.sem==='warn'?'warnTxt':'')+'">'+(o.sinUbicar!=null?(o.sinUbicar>0?'+':'')+_evvF(o.sinUbicar)+' <span class="mut">('+_evvF((o.pct||0)*100,1)+' %)</span>':'—')+'</td>'
+      +'<td'+(o.tandaRara?' class="warnTxt"':'')+'>'+(o.tanda||'—')+'</td><td>'+o.parciales.length+'</td>'
+      +'<td class="l"><span class="evx-tag '+o.sem+'">'+(o.decl==null?'EN CURSO':o.sem==='ok'?'CIERRA':o.sem==='warn'?'REVISAR':'NO CIERRA')+'</span></td></tr>';
+  });
+  return h+'</tbody></table></div><div id="cvv-ocdet"></div></section>';
+}
+function cvvOC(id){CVV.ocSel=CVV.ocSel===id?null:id;_cvvPintar();const el=document.getElementById('cvv-ocdet');if(el&&CVV.ocSel)el.scrollIntoView({behavior:'smooth',block:'nearest'});}
+function _cvvDetalleOC(D){
+  const o=D.ocsR.find(x=>x.id===CVV.ocSel);if(!o)return '';
+  const oc=o.oc,p=oc.productos||{};
+  // por día, máquina y operario (las corridas sueltas de cada bobina serían demasiadas filas)
+  const runs=[];
+  _cvvCorridas(o.tds,t=>t.maquina+'|'+t.emp).forEach(r=>{
+    const dia=localDate(new Date(r.a)),k=dia+'|'+r.k;let g=runs.find(x=>x.key===k);
+    if(!g){g={key:k,a:r.a,z:r.z,cort:0,g:0,n:0,maq:r.maq,emp:r.emp};runs.push(g);}
+    g.z=Math.max(g.z,r.z);g.cort+=r.z-r.a;g.g+=r.g;g.n+=r.n;});
+  let h='<div class="evx-panel" style="padding:14px;margin-top:10px;display:flex;flex-direction:column;gap:10px">'
+    +'<div class="evx-sechead"><h2>'+escapeHtml(oc.numero_orden||'')+' · '+escapeHtml(oc.cliente||'')+' · '+escapeHtml(p.codigo||'')+' '+escapeHtml(p.descripcion||'')+'</h2><button class="btn btn-sm" onclick="cvvOC('+o.id+')">✕</button></div>'
+    +'<div class="evx-kpis">';
+  const k=(l,v,s,c)=>'<div class="evx-kpi"><span class="evx-lbl">'+l+'</span><span class="v"'+(c?' style="color:'+c+'"':'')+'>'+v+'</span><span class="s">'+s+'</span></div>';
+  h+=k('Por metros',_evvF(o.teo),_evvF(o.metros)+' m escaneados')
+    +k('Cortadas',_evvF(o.cortadas),_evvF(o.golpes)+' golpes × '+(o.pistas||'?')+' pistas')
+    +k('Declaradas',o.decl!=null?_evvF(o.decl):'—',o.decl!=null?'+ scrap ≈ '+_evvF(o.scrapB)+' bolsas ('+_evvF(parseFloat(oc.peso_scrap_kg)||0,2)+' kg)':'OC sin cerrar')
+    +k('Sin ubicar',o.sinUbicar!=null?(o.sinUbicar>0?'+':'')+_evvF(o.sinUbicar):'—',o.bolsasParc!=null?_evvF(o.bolsasParc)+' bolsas en '+o.parciales.length+' tandas incompletas':'',o.sem==='bad'?'var(--bad)':o.sem==='warn'?'var(--warn)':null)
+    +'</div>';
+  h+='<div class="evx-two"><div class="evx-tw"><table><thead><tr><th class="l">Día · de–a</th><th class="l">Máq.</th><th class="l">Operario</th><th>Cortando</th><th>Tandas</th><th>Golpes</th><th>Bolsas</th></tr></thead><tbody>'
+    +runs.map(r=>'<tr><td class="l">'+_cvvFH(r.a)+'–'+_plcHora(new Date(r.z).toISOString())+'</td><td class="l">'+escapeHtml(_cvvMaqNom(r.maq))+'</td><td class="l">'+escapeHtml(_cvvEmpNom(r.emp))+'</td><td>'+_cvvHM(_cvvMin(r.cort))+'</td><td>'+r.n+'</td><td>'+_evvF(r.g)+'</td><td>'+_evvF(o.pistas?r.g*o.pistas:null)+'</td></tr>').join('')
+    +(o.tds.some(t=>t.sin_hora)?'<tr><td class="l mut" colspan="5">Golpes sin hora (PC apagada)</td><td>'+_evvF(o.tds.filter(t=>t.sin_hora).reduce((s,t)=>s+t.golpes,0))+'</td><td></td></tr>':'')
+    +'</tbody></table></div><div class="evx-tw"><table><thead><tr><th class="l">Bobina escaneada</th><th class="l">Máq.</th><th class="l">Operario</th><th>Metros</th></tr></thead><tbody>'
+    +o.cargas.slice().sort((a,b)=>a.t-b.t).map(c=>{const b=c.bobinas_producidas;
+      return '<tr><td class="l">'+_cvvFH(c.t)+' · '+escapeHtml(b&&b.numero_bobina?b.numero_bobina:'#'+c.bobina_producida_id)+(c.origen==='manual'?' <span class="evx-tag warn">manual</span>':'')+'</td><td class="l">'+escapeHtml(_cvvMaqNom(c.maquina_id))+'</td><td class="l">'+escapeHtml(_cvvEmpNom(c.empleado_id))+'</td><td>'+_evvF(c.metros_usados)+'</td></tr>';}).join('')
+    +'</tbody></table></div></div>';
+  if(o.parciales.length){
+    const cnt={};o.parciales.forEach(t=>cnt[t.golpes]=(cnt[t.golpes]||0)+1);
+    h+='<div class="evx-lbl">Tandas incompletas (menos de '+o.tanda+' golpes): '+Object.keys(cnt).sort((a,b)=>b-a).map(g=>cnt[g]+'×'+g).join(' · ')+'</div>';
+  }
+  if(oc.observaciones)h+='<div class="mut" style="font-size:.8rem">Nota de la OC: '+escapeHtml(oc.observaciones)+'</div>';
+  return h+'</div>';
+}
+function _cvvTablaOps(D){
+  let h='<section class="evx-sec"><div class="evx-sechead"><h2>Operarios · últimas '+CVV.horas+' h</h2><span class="evx-lbl">tiempo dentro del horario fichado</span></div>'
+    +'<div class="evx-panel evx-tw"><table><thead><tr><th class="l">Operario</th><th>Fichado</th><th>Cortando</th><th>Uso</th><th>Arranque</th><th>Paradas 3–20 min</th><th>Paradas > 20 min</th><th>Cierre</th><th>Sin cortar</th><th>Bobinas</th><th>Cambios OC</th><th>Golpes</th><th>Bolsas</th><th>Golpes/h</th><th>Tandas incompl.</th></tr></thead><tbody>';
+  if(!D.ops.length)h+='<tr><td colspan="15" class="l mut">Sin actividad en el período.</td></tr>';
+  D.ops.forEach(O=>{
+    const uso=O.fich?O.cort/O.fich:null;
+    h+='<tr><td class="l">'+escapeHtml(O.nom)+(O.fuera>5*60000?' <span class="evx-tag warn" title="golpes fuera del horario fichado">'+_cvvHM(_cvvMin(O.fuera))+' sin fichar</span>':'')+'</td>'
+      +'<td>'+_cvvHM(_cvvMin(O.fich))+'</td><td>'+_cvvHM(_cvvMin(O.cort))+'</td>'
+      +'<td class="'+(uso!=null&&uso<0.5?'badTxt':uso!=null&&uso<0.7?'warnTxt':'okTxt')+'">'+(uso!=null?_evvF(uso*100,0)+' %':'—')+'</td>'
+      +'<td>'+_cvvHM(_cvvMin(O.arr))+'</td><td>'+O.nCorta+' · '+_cvvHM(_cvvMin(O.corta))+'</td>'
+      +'<td class="'+(O.nLarga?'warnTxt':'')+'">'+O.nLarga+' · '+_cvvHM(_cvvMin(O.larga))+'</td><td>'+_cvvHM(_cvvMin(O.cie))+'</td>'
+      +'<td class="'+(O.sinG>3600000?'badTxt':'')+'">'+_cvvHM(_cvvMin(O.sinG))+'</td>'
+      +'<td>'+O.cargas+'</td><td>'+O.cambiosOC+'</td><td>'+_evvF(O.golpes)+'</td><td>'+_evvF(O.bolsas)+'</td>'
+      +'<td>'+(O.cort>0?_evvF(O.golpes/(O.cort/3600000)):'—')+'</td><td>'+O.parc+'</td></tr>';
+  });
+  h+='</tbody></table></div></section>';
+  // paradas largas, con lo que pasó en el medio
+  const L=[];D.ops.forEach(O=>O.largas.forEach(p=>L.push(Object.assign({nom:O.nom,emp:O.emp},p))));
+  L.sort((a,b)=>b.a-a.a);
+  h+='<section class="evx-sec"><h2>Paradas de más de '+CVV_LARGA_MIN+' min con el operario fichado</h2><div class="evx-panel evx-tw"><table><thead><tr><th class="l">Desde</th><th class="l">Hasta</th><th>Duración</th><th class="l">Operario</th><th class="l">Máq.</th><th class="l">En el medio</th></tr></thead><tbody>'
+    +(L.length?L.slice(0,40).map(p=>{
+      const cs=D.cargas.filter(c=>c.t>=p.a&&c.t<=p.z&&String(c.empleado_id)===p.emp);
+      const qu=cs.length?cs.length+' bobina'+(cs.length>1?'s':'')+' escaneada'+(cs.length>1?'s':'')+([...new Set(cs.map(c=>c.orden_corte_id))].some(id=>{const pr=D.tandas.filter(t=>t.maquina===p.maq&&t.tf<=p.a).slice(-1)[0];return pr&&pr.oc!==id;})?' · cambio de OC':''):'<span class="mut">nada registrado</span>';
+      const min=_cvvMin(p.z-p.a);
+      return '<tr><td class="l">'+_cvvFH(p.a)+'</td><td class="l">'+_plcHora(new Date(p.z).toISOString())+'</td><td class="'+(min>=60?'badTxt':'')+'">'+_cvvHM(min)+'</td><td class="l">'+escapeHtml(p.nom)+'</td><td class="l">'+escapeHtml(_cvvMaqNom(p.maq))+'</td><td class="l">'+qu+'</td></tr>';}).join('')
+     :'<tr><td colspan="6" class="l mut">Sin paradas largas.</td></tr>')
+    +'</tbody></table></div></section>';
+  return h;
+}
+function _cvvPintar(){
+  const w=document.getElementById('cvv-body'),D=CVV.d;if(!w||!D)return;
+  const maqs=CVV.maqs.map(m=>_cvvMaq(D,m));
+  const chip=(k,t)=>'<span class="evx-chip"><i class="evx-dot '+k+'"></i>'+t+'</span>';
+  const eAge=D.est.length?Math.max(...D.est.map(e=>(Date.now()-new Date(e.actualizado_en).getTime())/1000)):null;
+  let h='<div class="evx-top"><div class="evx-brand"><h2>CORTE <b>·</b> EN VIVO</h2><span class="evx-lbl">vista dueño · sensores inductivos X14 / X15 del PLC</span></div><div class="evx-chips">'
+    +chip(eAge==null?'bad':eAge<20?'ok':eAge<120?'warn':'bad','Registrador · '+(eAge==null?'sin datos':eAge<90?'hace '+Math.round(eAge)+' s':'hace '+Math.round(eAge/60)+' min'))
+    +chip('acc',_evvF(D.tandas.filter(t=>t.ti>=D.t0).length)+' tandas en '+CVV.horas+' h')
+    +'</div><div class="evx-clock mono" id="cvv-clock">'+localTime().slice(0,8)+'</div></div>';
+  const kpi=(l,v,u,sb,c)=>'<div class="evx-kpi"><span class="evx-lbl">'+l+'</span><span class="v"'+(c?' style="color:'+c+'"':'')+'>'+v+'<small>'+u+'</small></span><span class="s">'+sb+'</span></div>';
+  const gT=maqs.reduce((s,M)=>s+M.perG,0),bT=D.tandas.filter(t=>t.ti>=D.t0).reduce((s,t)=>{const o=D.ocsR.find(x=>x.id===t.oc);return s+(o&&o.pistas?t.golpes*o.pistas:0);},0);
+  const fT=D.ops.reduce((s,O)=>s+O.fich,0),cT=D.ops.reduce((s,O)=>s+O.cort,0),nL=D.ops.reduce((s,O)=>s+O.nLarga,0);
+  const malas=D.ocsR.filter(o=>o.decl!=null&&o.sem==='bad').length;
+  h+='<section class="evx-kpis">'
+    +kpi('Golpes · '+CVV.horas+' h',_evvF(gT),'',maqs.map(M=>M.nom.replace('CORTE-','C')+' '+_evvF(M.perG)).join(' · '))
+    +kpi('Bolsas cortadas',_evvF(bT),'','golpes × pistas de cada OC')
+    +kpi('Uso de máquina',_evvF(maqs.reduce((s,M)=>s+M.uso,0)/maqs.length*100,1),'%','cortando ÷ tiempo del período')
+    +kpi('Uso del fichado',fT?_evvF(cT/fT*100,1):'—','%',_cvvHM(_cvvMin(cT))+' cortando de '+_cvvHM(_cvvMin(fT))+' fichadas')
+    +kpi('Paradas > '+CVV_LARGA_MIN+' min',String(nL),'',_cvvHM(_cvvMin(D.ops.reduce((s,O)=>s+O.larga,0)))+' con el operario fichado',nL?'var(--warn)':null)
+    +kpi('OC que no cierran',String(malas),'',D.ocsR.filter(o=>o.decl!=null).length+' cerradas en el período',malas?'var(--bad)':null)
+    +'</section>';
+  const al=_cvvAlertas(D,maqs);
+  h+='<div class="evx-grid2"><section class="evx-sec"><div class="evx-sechead"><h2>Máquinas · ahora</h2><span class="evx-lbl">estado cada 3 s</span></div>'
+    +'<div class="evx-machines">'+maqs.map(M=>_cvvCard(M,D)).join('')+'</div></section>'
+    +'<aside class="evx-panel evx-alerts"><h2>Alertas</h2>'+(al.length?al.slice(0,25).map(a=>'<div class="evx-al '+a[0]+'"><i></i><div><b>'+escapeHtml(a[1])+'</b> <span class="when">'+escapeHtml(a[3])+'</span><br>'+escapeHtml(a[2])+'</div></div>').join(''):'<div class="mut">Sin alertas.</div>')+'</aside></div>';
+  h+=_cvvTimeline(D,maqs);
+  h+=_cvvTablaOC(D);
+  h+=_cvvTablaOps(D);
+  h+='<footer class="evx-notes"><div><b>Golpe → OC</b> = la última bobina escaneada en esa máquina. Si se cortó antes de escanear, va a la próxima bobina (alerta «escaneo tarde»).</div>'
+    +'<div><b>Golpe → operario</b> = quien escaneó la bobina; si no estaba fichado, el fichado que escaneó último en esa máquina.</div>'
+    +'<div><b>Pistas</b> = bolsas que dan los metros escaneados ÷ golpes. <b>Cortadas</b> = golpes × pistas.</div>'
+    +'<div><b>Sin ubicar</b> = cortadas − declaradas − scrap (kg ÷ peso por bolsa). Verde ≤ 1 %, amarillo 1–3 % o tanda rara (no 5/10/25), rojo > 3 %.</div>'
+    +'<div><b>Tanda</b> = golpes seguidos hasta que la cortadora para a sacar la pila; la más común de la OC. <b>Incompletas</b> = tandas más chicas (arranques, cambios de bobina): esas bolsas suelen ir a scrap sin pesar.</div>'
+    +'<div><b>Cortando</b> = tandas con menos de '+CVV_PAUSA_MIN+' min entre una y otra. <b>Arranque</b> = de la entrada al primer golpe; <b>cierre</b> = del último golpe a la salida.</div></footer>';
+  w.innerHTML='<div class="evx">'+h+'</div>';
+  if(CVV.ocSel){const el=document.getElementById('cvv-ocdet');if(el)el.innerHTML=_cvvDetalleOC(D);}
+  const ts=document.getElementById('cvv-ts');if(ts)ts.textContent='Actualizado '+localTime();
+}
+// cada 3 s: sólo corte_estado (estado, tanda en curso, contador). Si cerró una tanda, recarga.
+async function _cvvTick(){
+  const pg=document.getElementById('page-corte-vivo');
+  if(!pg||!pg.classList.contains('active')||CVV.cargando||CVV.tickando||!CVV.d)return;
+  CVV.tickando=true;
+  try{
+    const{data,error}=await sb.from('corte_estado').select('*');
+    if(error||!data)return;
+    let recargar=false;const ahora=Date.now();
+    data.forEach(e=>{
+      const v=CVV.d.est.find(x=>x.maquina===e.maquina);
+      if(v&&v.tanda_inicio!==e.tanda_inicio&&v.tanda_inicio)recargar=true;   // se cerró una tanda
+      const m=e.maquina,st=_cvvSt(e,ahora),pl=document.getElementById('cvv-pill-'+m);
+      if(pl){pl.textContent=st.t;pl.className='evx-pill evv-p'+st.k;const cd=document.getElementById('cvv-maq-'+m);if(cd)cd.className='evx-panel evx-card evx-'+st.k;}
+      const M=_cvvMaq(CVV.d,m),tz=M.ocA&&M.ocA.tanda?M.ocA.tanda:25,tg=e.tanda_golpes||0;
+      const a=document.getElementById('cvv-tg-'+m);if(a)a.textContent=tg+' / '+tz;
+      const b=document.getElementById('cvv-tb-'+m);if(b){b.style.width=Math.min(100,tg/tz*100).toFixed(1)+'%';b.className=tg>=tz?'cortar':tg>=tz*0.9?'cerca':'';}
+      const c=document.getElementById('cvv-cnt-'+m);if(c&&e.contador!=null)c.textContent=_evvF(e.contador);
+    });
+    CVV.d.est=data;
+    const ck=document.getElementById('cvv-clock');if(ck)ck.textContent=localTime().slice(0,8);
+    if(recargar)renderCorteVivo();
+  }catch(e){console.warn('corte tick',e);}
+  finally{CVV.tickando=false;}
+}
+function cvvHoras(h){CVV.horas=h;document.querySelectorAll('.cvv-hbtn').forEach(b=>b.classList.toggle('btn-primary',String(b.dataset.h)===String(h)));renderCorteVivo();}
+function startCvvTimer(){
+  if(!CVV.timer)CVV.timer=setInterval(()=>{const pg=document.getElementById('page-corte-vivo');if(pg&&pg.classList.contains('active'))renderCorteVivo();},60000);
+  if(!CVV.timerVivo)CVV.timerVivo=setInterval(_cvvTick,3000);
+}
+
 // ===== ⚖ BALANZA DE EXTRUSIÓN (06b) =====
 // Kretz 5700 F (máx 250 kg, e=0,1 kg) en la PC de extrusión, cable CH340 → COM4,
 // 9600 8N1, transmisión CONTINUA: <STX>061.64<CR>. Se lee desde Chrome con Web
@@ -14833,6 +15285,7 @@ function go(name){
   if(name==='analisis-corte')renderAnalisisCorte();
   if(name==='analisis-extrusion')renderAnalisisExtrusion();
   if(name==='extrusion-vivo'){renderExtrusionVivo();startEvvTimer();}
+  if(name==='corte-vivo'){renderCorteVivo();startCvvTimer();}
   if(name==='productividad-hora')renderProductividadHora();
   if(name==='rentabilidad')renderRentabilidad();
   if(name==='historial-ordenes')renderHistorial();
