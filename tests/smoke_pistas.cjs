@@ -96,5 +96,25 @@ cfg.bobinas_plan_pistas='no';
  t(!/pistas/.test(_pbTxtPlan(e.plan)),'fijo: el texto del plan no habla de pistas');
  cfg.bobinas_plan_pistas='';}
 
+// --- 15a: Editar OE no achica la OE (ORD-06347: 5.150 → 4.200 m por cambiar la prioridad) ---
+{cfg.bobinas_plan_pistas='';
+ const bob={id:153,ancho:45,espesor:20,pistas:4,metros_bobina_obj:1050,rango_bobina_pct:15,kg_por_metro:0.0166};
+ C.bobinas=[bob];
+ const pn=_pbPlanNuevo(153,5150);
+ t(pn.N===4&&pn.lU===1290&&pn.metros===5160&&pn.L===1050,'5.150 m de 45 cm → 4 × 1.290 (L guardado 1.050)');
+ const oe={id:909,bobina_id:153,metros:5160,origen:'pedido',bobinas_plan:4,metros_bobina_plan:1050,pistas_plan:4};
+ let c=_pbEoeCambios(oe,5160,4,1050,false,bob);
+ t(!('metros' in c)&&!('bobinas_plan' in c),'sin tocar plan ni metros → no escribe metros (antes 4 × 1.050 = 4.200)');
+ c=_pbEoeCambios(oe,5150,4,1050,false,bob);
+ t(c.metros===5150&&!('bobinas_plan' in c),'metros tipeados → van los metros y el plan lo rearma _pbUpdateOE');
+ c=_pbEoeCambios(oe,5160,8,650,true,bob);
+ t(c.metros===5200&&c.bobinas_plan===8&&c.metros_bobina_plan===650&&c.pistas_plan===4&&c.kg_totales===86.32,'tocó bobinas/largo → N × L explícito');
+ c=_pbEoeCambios({...oe,origen:'venta_bobina'},5160,4,1050,true,bob);
+ t(!('bobinas_plan' in c),'venta de bobina: sin plan');
+ const inf=_pbEoeInfo(oe,4,1050,_pbPlanDeOE(oe));
+ t(/5\.160 m/.test(inf)&&/4 × 1\.290/.test(inf),'el recuadro muestra 5.160 m (4 × 1.290), no 4.200: '+inf);
+ t(/4\.200 m/.test(_pbEoeInfo(oe,4,1050,null)),'sin plan estirado → N × L como siempre');
+ C.bobinas=[];}
+
 console.log((bad?'✗ ':'✓ ')+ok+' ok'+(bad?' · '+bad+' fallaron':''));
 process.exit(bad?1:0);
