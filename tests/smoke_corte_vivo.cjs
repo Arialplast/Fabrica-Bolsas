@@ -34,7 +34,7 @@ t(tds.every(x=>x.emp===1),'operario Celia');
 const R=_cvvOCs(tds,cargas,ocs),A=R.find(o=>o.id===10),B=R.find(o=>o.id===11);
 t(A.golpes===105&&A.pistas===2&&A.cortadas===210,'OC-A 105 golpes × 2 = 210 ('+A.golpes+'×'+A.pistas+')');
 t(A.tanda===25&&A.parciales.length===1&&A.bolsasParc===10,'OC-A tanda 25, 1 incompleta = 10 bolsas');
-t(Math.round(A.sinUbicar)===-240,'OC-A sin ubicar = 210−400−50 = −240 ('+A.sinUbicar+')');t(A.sem==='bad','OC-A no cierra');
+t(Math.round(A.sinUbicar)===-190,'OC-A de más en los bultos = 210−400 = −190, el scrap no se suma ('+A.sinUbicar+')');t(A.sem==='bad','OC-A no cierra');
 t(B.golpes===115&&B.tardeG===75,'OC-B 75 golpes tarde + 40 sin hora ('+B.golpes+','+B.tardeG+')');
 t(B.decl==null&&B.sem==='','OC-B abierta sin semáforo');
 // 3) operario
@@ -73,7 +73,7 @@ let R=await _cvvControlCierre({id:10,numero_orden:'OC-A'},210,0,prod);
 t(R&&R.cortadas===210&&!R.alerta,'cierra justo: 210 cortadas = 210 declaradas, sin alerta ('+(R&&R.cortadas)+')');
 t(/105 golpes × 2 pistas = 210 cortadas/.test(R.linea),'línea: '+R.linea);
 R=await _cvvControlCierre({id:10,numero_orden:'OC-A'},200,0,prod);
-t(R.alerta&&Math.round(R.sinUbicar)===10,'10 sin ubicar (4,8 %) → pide explicación');
+t(R.alerta&&Math.round(R.sinUbicar)===10,'10 cortadas fuera de los bultos, sin scrap → faltan 10');
 R=await _cvvControlCierre({id:10,numero_orden:'OC-A'},205,0.05,prod);
 t(!R.alerta,'205 + 5 de scrap = 210 → no pide');
 R=await _cvvControlCierre({id:99,numero_orden:'OC-X'},100,0,prod);
