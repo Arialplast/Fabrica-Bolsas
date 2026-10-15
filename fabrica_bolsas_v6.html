@@ -1138,7 +1138,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-15d</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-15e</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6360,7 +6360,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-15d';   // 15d: ✂ cierre de OC: si se cortaron más bolsas que las que dan las bobinas cargadas (> 3 %) → «⛔ FALTA CARGAR BOBINA» con los metros que faltan y la lista de bobinas de ese tipo en stock (las de su OE primero, buscador, aviso si es de otro cliente); «Cargar a esta OC» (admin) hace lo mismo que escanearla (sale de stock, movimiento, nota) con la hora del último corte de la OC y vuelve a controlar. No cierra sin cargar salvo tildar «Revisé: no falta ninguna bobina» + explicación (queda escrito). El motivo «Bobina cortada sin escanear» también abre la lista.
+const APP_BUILD='2026-10-15e';   // 15e: ✂ cierre de OC: «📦 ¿Hay bultos con otra cantidad?» — N bultos de X (sugerido con la tanda: 22 golpes → 176 de 200); se resta de lo declarado, se vuelve a controlar, el stock entra con los bultos reales y queda «Bultos distintos: …» en las observaciones. Se abre solo con tanda rara o con el motivo «Bultos con distinta cantidad».
+// 15d: ✂ cierre de OC: si se cortaron más bolsas que las que dan las bobinas cargadas (> 3 %) → «⛔ FALTA CARGAR BOBINA» con los metros que faltan y la lista de bobinas de ese tipo en stock (las de su OE primero, buscador, aviso si es de otro cliente); «Cargar a esta OC» (admin) hace lo mismo que escanearla (sale de stock, movimiento, nota) con la hora del último corte de la OC y vuelve a controlar. No cierra sin cargar salvo tildar «Revisé: no falta ninguna bobina» + explicación (queda escrito). El motivo «Bobina cortada sin escanear» también abre la lista.
 // 15c: ✂ al CERRAR UNA OC se controlan los golpes: cortadas (golpes × pistas, reglas de Corte en vivo) contra declaradas + scrap; si la diferencia pasa del 1 % o la tanda no es 5/10/25, pide «¿Qué pasó?» (obligatorio, con motivos rápidos) antes del admin. La línea del control (y la explicación) queda en las observaciones de la OC. Sin golpes (CORTE-3, registrador caído) no controla.
 // 15b: ✂ CORTE EN VIVO 🔐 (Producción, al lado de Extrusión en vivo, mismo diseño): estado de cada cortadora al instante (cortando / pausa / parada hace X, cada 3 s), golpes hoy, golpes/min, tanda en curso contra la tanda de la OC, OC y producto escaneados, operario; línea de tiempo con el color de quién cortó y las bobinas escaneadas; control de OC (golpes × pistas deducidas = cortadas vs declaradas + scrap → sin ubicar, tanda más común, tandas incompletas, semáforo) con detalle por día/operario y bobinas; operarios (fichado, cortando, uso, arranque, paradas 3–20 y > 20 min, cierre, sin cortar, bobinas, cambios de OC, golpes, bolsas, golpes/h, tandas incompletas); paradas largas con lo que pasó; alertas (sin datos, parada con operario fichado, escaneo en máquina equivocada, se cortó más de lo escaneado, escaneo tarde, tanda rara, OC que no cierra, golpes sin OC). Lee corte_tandas / corte_estado (registrador v2.4, sql corte_tandas 15/10). Fichajes: pares por hora, sin confiar en entrada/salida.
 //   // 15a: 🧵 Editar OE ya no achica la OE: antes rearmaba metros = bobinas × largo objetivo aunque no se tocara el plan, y un plan con la última vuelta estirada (4 × 1.290 m) quedaba en 4 × 1.050 (ORD-06347: 5.150 → 4.200 m por cambiar la prioridad). Ahora metros/plan se escriben sólo si se tocaron (_pbEoeCambios) y el recuadro muestra los metros reales del plan.   // 14c: 🎈 carga de bobinas: el aviso de globo pinchado y la pregunta explicados para el operario («Se pinchó el globo de 10:10 a 10:15. Esos 160 m salieron sin film y no se cuentan en la bobina. Es normal: no tenés que hacer nada.»; «Mientras hacías esta bobina, ¿se pinchó el globo?» + por qué se pregunta, botones «Sí, se pinchó» / «No se pinchó»).   // 14b: 🎈 el aviso «FILM xx %» de un cierre dice la CAUSA (minutos del PLC del intervalo): globo pinchado (bloques con film 0 y bruto > 0, gris «Globo pinchado HH:MM–HH:MM (N m)», N = brutos × factor) · fotocélula (pérdida repartida 1–95 % > 3 % de la bobina, amarillo «Fotocélula: revisar apuntado», sólo Extrusión en vivo) · los dos o sin datos → en la carga se pregunta «¿Se pinchó el globo?» (Sí/No, obligatorio) y queda en plc_cierres.globo_pinchado (sql/plc_globo_pinchado.sql). «Por turno» suma los metros de globo por máquina.   // 14a: 🧮 Sala de planes: «ya cobrado» cuenta sólo plata que entró DESPUÉS del plan; lo cancelado con plata vieja o NC = caído.   // 13e: 🪪 el crédito de una NC se aplica en cualquier cuenta del mismo CUIT (mismo circuito). 13d: 💸 facturas de ADELANTO FINANCIERO (obs.) fuera de facturación/ticket/concentración/demora/cobrado (siguen en cta cte e IVA). 13c: ⚡ Resultado del mes: los gastos extraordinarios (categoría multas, ej. multa EDELAP) salen del resultado ordinario y se muestran debajo como «Extraordinarios» → «Resultado FINAL del mes». 13b: 🧾 recibos: relee la base antes de guardar/imputar (tope al saldo real) + número único con reintento. 13a: 📏 Extrusión en vivo y Estación: las máquinas SIEMPRE por número de extrusora (EXT-01, EXT-03, EXT-07) — tarjetas, línea de tiempo, gráficos, filtros y orden de la tabla de cierres, resumen por turno, paradas, alertas y la estación (_extCmp, aplicado en _plcGrupos). EXT-01 entra por el grupo 2 desde el 12/10 (plc_grupos id 3, factor 0,2475 = clave «1», por extrusora): Extrusión en vivo ahora toma minutos y cierres de cada grupo sólo DESDE plc_grupos.desde, como la estación — las pruebas previas del grupo 2 no se cuentan como EXT-01. Sin SQL.
@@ -11268,8 +11269,9 @@ function _cvvPedirExplicacion(id,R,clave){
       +'Faltan unos <strong>'+f(R.faltaM)+' m</strong> de bobina. Si una bobina cortada sigue en stock, el stock miente: cargala antes de cerrar.</div>'
       +'<label style="display:flex;gap:6px;align-items:center;font-size:12px;margin-top:8px;cursor:pointer"><input type="checkbox" id="cvv-nofalta"> Revisé: no falta ninguna bobina (explicá por qué abajo)</label>'
       +'</div>':'')
+    +_cvvBultosBox(id,R)
     +'<div id="cvv-bobs" style="'+(R.faltaBolsas>0?'':'display:none;')+'margin-bottom:10px"></div>'
-    +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'+_CVV_MOTIVOS.map(m=>'<button type="button" class="btn btn-sm" onclick="const t=document.getElementById(\'cvv-expl-t\');t.value=(t.value?t.value+\'. \':\'\')+this.textContent+\': \';t.focus();'+(m===_CVV_MOT_BOB?'_cvvMostrarBobinas('+id+')':'')+'">'+escapeHtml(m)+'</button>').join('')+'</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'+_CVV_MOTIVOS.map(m=>'<button type="button" class="btn btn-sm" onclick="const t=document.getElementById(\'cvv-expl-t\');t.value=(t.value?t.value+\'. \':\'\')+this.textContent+\': \';t.focus();'+(m===_CVV_MOT_BOB?'_cvvMostrarBobinas('+id+')':m===_CVV_MOT_BUL?'document.getElementById(\'cvv-bul\').style.display=\'\'':'')+'">'+escapeHtml(m)+'</button>').join('')+'</div>'
     +'<div class="fg"><label>¿Qué pasó? (obligatorio)</label><textarea id="cvv-expl-t" rows="3" style="width:100%" oninput="(window._cvvBorrador=window._cvvBorrador||{})['+id+']=this.value" placeholder="ej: se usaron 150 bolsas de la OC-1052956; 10 bultos de 176">'+escapeHtml((window._cvvBorrador||{})[id]||'')+'</textarea></div>'
     +'<div id="cvv-expl-err" style="color:var(--red);font-size:12px;margin-top:4px"></div>'
     +'<div class="btn-grp" style="margin-top:10px"><button class="btn btn-primary btn-sm" id="cvv-cerrar" onclick="_cvvConfirmarExpl('+id+',\''+clave+'\')">Guardar explicación y cerrar</button>'
@@ -11279,7 +11281,39 @@ function _cvvPedirExplicacion(id,R,clave){
   setTimeout(()=>document.getElementById('cvv-expl-t')?.focus(),50);
   if(R.faltaBolsas>0)_cvvMostrarBobinas(id);
 }
-const _CVV_MOT_BOB='Bobina cortada sin escanear';
+const _CVV_MOT_BOB='Bobina cortada sin escanear',_CVV_MOT_BUL='Bultos con distinta cantidad de bolsas';
+// 15e: «N bultos de X» — corrige lo declarado (y el stock) antes de cerrar. Sugerencia: con tanda rara,
+// X = estándar × tanda ÷ 25 (22 → 176 de 200) y N = las bolsas declaradas de más ÷ lo que le falta a cada bulto.
+function _cvvBultosBox(id,R){
+  const ppb=R.ppb||0;if(!ppb)return '';
+  const u=R.uniPaq===1?'bolsas':'paquetes';
+  let x='',n='';
+  if(R.bd&&R.bd.length){x=R.bd[0].x;n=R.bd[0].n;}
+  else if(R.tandaRara&&R.tanda){x=Math.round(ppb*R.tanda/25);if(R.sinUbicar<0&&ppb>x)n=Math.max(1,Math.round(-R.sinUbicar/(ppb-x)));}
+  const ver=R.tandaRara||(R.bd&&R.bd.length);
+  return '<div id="cvv-bul" style="'+(ver?'':'display:none;')+'border:1.5px solid var(--amber);border-radius:var(--r);padding:10px 12px;margin-bottom:10px">'
+    +'<div style="font-weight:700;color:var(--amber);margin-bottom:6px">📦 ¿Hay bultos con otra cantidad?</div>'
+    +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px">'
+      +'<input id="cvv-bul-n" type="number" min="0" value="'+n+'" style="width:70px"> bultos de '
+      +'<input id="cvv-bul-x" type="number" min="0" value="'+x+'" style="width:90px"> '+u+' <span style="color:var(--text3)">(el resto de '+ppb.toLocaleString('es-AR')+')</span>'
+      +'<button type="button" class="btn btn-sm btn-primary" onclick="_cvvAplicarBultos('+id+')">Aplicar y recalcular</button>'
+      +(R.bd&&R.bd.length?'<button type="button" class="btn btn-sm" onclick="(window._cvvBultos||{})['+id+']=[];document.getElementById(\'cvv-expl\')?.remove();cerrarOrdenCorte('+id+')">Quitar</button>':'')
+    +'</div>'
+    +(R.tandaRara&&!(R.bd&&R.bd.length)?'<div style="font-size:11px;color:var(--text3);margin-top:4px">La cortadora paró cada '+R.tanda+' golpes: con '+R.pistas+' pista'+(R.pistas>1?'s':'')+' eso da bultos de ~'+x+' '+u+'. Contá los bultos y corregí el número si hace falta.</div>':'')
+    +(R.bd&&R.bd.length?'<div style="font-size:11px;color:var(--green);margin-top:4px">✓ Aplicado: lo declarado y el stock entran con esos bultos. Avisale al cliente.</div>':'')
+    +'</div>';
+}
+function _cvvAplicarBultos(id){
+  const n=parseInt(document.getElementById('cvv-bul-n')?.value)||0,x=parseInt(document.getElementById('cvv-bul-x')?.value);
+  const R=(window._cvvCtx||{})[id];
+  if(!(n>0)||isNaN(x)||x<0||(R&&x>=R.ppb*3)){document.getElementById('cvv-expl-err').textContent='Poné cuántos bultos y cuántas '+((R&&R.uniPaq===1)?'bolsas':'unidades')+' tenía cada uno.';return;}
+  const bol=parseInt(document.getElementById('ci-bolsones')?.value)||0;
+  if(n>bol){document.getElementById('cvv-expl-err').textContent='Son más bultos que los '+bol+' declarados.';return;}
+  (window._cvvBultos=window._cvvBultos||{})[id]=[{n,x}];
+  const t=document.getElementById('cvv-expl-t');if(t)(window._cvvBorrador=window._cvvBorrador||{})[id]=t.value;
+  document.getElementById('cvv-expl')?.remove();
+  cerrarOrdenCorte(id);   // recalcula con lo declarado corregido
+}
 // 15d: bobinas en stock del tipo de la OC para cargar desde el cierre (las de su OE primero)
 async function _cvvMostrarBobinas(id){
   const box=document.getElementById('cvv-bobs');if(!box)return;
@@ -16411,6 +16445,7 @@ async function acreditarStockDesdeOC(ocId){
   const paqPorBolson=o.paquetes_por_bolson||prod?.paquetes_por_bolson||1;
   // ✓ Calcular paquetes REALES producidos (no lo planificado)
   let paqReales=(o.bolsones_reales||0)*paqPorBolson+(o.paquetes_sueltos_reales||0);
+  if(o._paqCierre!=null)paqReales=o._paqCierre;   // 15e: bultos armados con otra cantidad (control de golpes)
   if(paqReales<=0)paqReales=o.cantidad_bultos_reales||0;
   if(!paqReales){console.warn('acreditarStockDesdeOC: paqReales=0 para OC',o.numero_orden);return;}
 
@@ -51702,7 +51737,10 @@ async function cerrarOrdenCorte(id){
   const obs=document.getElementById('ci-obs')?.value.trim();
   const err=document.getElementById('ci-err');
   if((!bolsones&&!paqSueltos)||isNaN(scrapPesado)){err.textContent='Completá bolsones y peso de scrap.';return;}
-  const totalPaq=(bolsones*paqPorBolson)+paqSueltos;
+  // 15e: bultos armados con otra cantidad (ej. 10 de 176 en vez de 200), informados en el control de golpes
+  const _bd=((window._cvvBultos||{})[id]||[]).filter(r=>r.n>0&&r.x>=0&&r.x!==paqPorBolson);
+  const totalPaq=(bolsones*paqPorBolson)+paqSueltos-_bd.reduce((s2,r)=>s2+r.n*(paqPorBolson-r.x),0);
+  const txtBultos=_bd.length?'Bultos distintos: '+_bd.map(r=>r.n+' de '+r.x.toLocaleString('es-AR')).join(' + ')+' (el resto de '+paqPorBolson.toLocaleString('es-AR')+') = '+totalPaq.toLocaleString('es-AR')+(uniPorPaq===1?' bolsas':' paquetes'):null;
   const totalUni=uniPorPaq>0?totalPaq*uniPorPaq:0;
   const mtsUsados=r2(_mtsRealesOC(o));
   const kgUsados=r3(_kgRealesOC(o));
@@ -51717,10 +51755,12 @@ async function cerrarOrdenCorte(id){
   // 15c: control de golpes — si no cierra, pide la explicación antes de pedir admin
   let ctl=null;
   try{ctl=await _cvvControlCierre(o,totalUni,scrapPesado,prod);}catch(e){console.warn('control de golpes',e);}
-  const claveCtl=totalUni+'|'+scrapPesado;
+  if(ctl){ctl.ppb=paqPorBolson;ctl.uniPaq=uniPorPaq;ctl.bd=_bd;}
+  if(ctl&&_bd.length&&!(Math.abs(ctl.pct||0)>0.01)&&!(ctl.faltaBolsas>0))ctl.alerta=false;   // la tanda rara ya quedó explicada con los bultos
+  const claveCtl=totalUni+'|'+scrapPesado+'|'+bolsones;
   const expl=(window._cvvExplic||{})[id];
   if(ctl&&ctl.alerta&&!(expl&&expl.clave===claveCtl)){_cvvPedirExplicacion(id,ctl,claveCtl);return;}
-  const obsFinal=[obs,ctl?ctl.linea+(ctl.alerta&&expl?' — Explicación: '+expl.texto:''):null].filter(Boolean).join('\n')||null;
+  const obsFinal=[obs,txtBultos,ctl?ctl.linea+(ctl.alerta&&expl?' — Explicación: '+expl.texto:''):null].filter(Boolean).join('\n')||null;
   // TODO: cuando exista el rol "responsable_deposito", permitir también ese rol
   pedirAdminYEjecutar(async()=>{
     const{error:errUpd}=await sb.from('ordenes_corte').update({
@@ -51748,6 +51788,7 @@ async function cerrarOrdenCorte(id){
     // (sin esto, acreditarStockDesdeOC lee bolsones_reales=null y no carga stock)
     const ocMem=C.ord_corte.find(x=>x.id===id);
     if(ocMem){
+      if(_bd.length)ocMem._paqCierre=totalPaq;   // 15e: el stock entra con los bultos reales
       ocMem.estado='Completada';
       ocMem.bolsones_reales=bolsones;
       ocMem.paquetes_sueltos_reales=paqSueltos;
@@ -51757,6 +51798,7 @@ async function cerrarOrdenCorte(id){
     // Acreditar stock de bolsas terminadas
     await acreditarStockDesdeOC(id);
     document.getElementById('cierre-modal')?.remove();
+    try{delete (window._cvvBultos||{})[id];delete (window._cvvExplic||{})[id];delete (window._cvvBorrador||{})[id];}catch(e){}
     await reload();renderOrdenesCorte();
   });
 }
