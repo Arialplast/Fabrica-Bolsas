@@ -52,7 +52,7 @@ t(_cvvSt({actualizado_en:new Date(now-300000).toISOString()},now).k==='N','sin d
 
 // 5) control al cerrar la OC (sb simulado)
 (async()=>{
-const tabla={orden_corte_bobinas:[{id:1,orden_corte_id:10,metros_usados:100,fecha_asignacion:new Date(T('07:00:00')).toISOString(),empleado_id:1,maquina_id:1},
+const tabla={orden_corte_bobinas:[{id:1,orden_corte_id:10,metros_usados:105,fecha_asignacion:new Date(T('07:00:00')).toISOString(),empleado_id:1,maquina_id:1},
    {id:2,orden_corte_id:11,metros_usados:300,fecha_asignacion:new Date(T('12:00:00')).toISOString(),empleado_id:1,maquina_id:1}],
  corte_tandas:tds.filter(x=>!x.sin_hora).map((x,i)=>({id:i,maquina:x.maquina,inicio:new Date(x.ti).toISOString(),fin:new Date(x.tf).toISOString(),golpes:x.golpes,sin_hora:false})),
  ordenes_corte:[{id:11,estado:'En proceso',fecha_completada:null}]};
@@ -70,5 +70,11 @@ R=await _cvvControlCierre({id:10,numero_orden:'OC-A'},205,0.05,prod);
 t(!R.alerta,'205 + 5 de scrap = 210 → no pide');
 R=await _cvvControlCierre({id:99,numero_orden:'OC-X'},100,0,prod);
 t(R===null,'OC sin cargas en cortadoras con sensor → no controla');
+R=await _cvvControlCierre({id:10,numero_orden:'OC-A'},210,0,prod);
+t(R.faltaBolsas===0,'con todas las bobinas cargadas no falta bobina');
+tabla.orden_corte_bobinas[0].metros_usados=80;   // la bobina cargada da 160 bolsas y se cortaron 210
+R=await _cvvControlCierre({id:10,numero_orden:'OC-A'},210,0,prod);
+t(R.alerta&&Math.round(R.faltaBolsas)===50&&Math.round(R.faltaM)===25,'falta bobina: 50 bolsas = 25 m ('+R.faltaBolsas+','+R.faltaM+')');
+t(R.maqPpal===1&&R.empPpal===1,'máquina y operario de la OC para la carga');
 console.log((bad?'FALLA':'OK')+' smoke_corte_vivo: '+ok+' ok, '+bad+' mal');process.exit(bad?1:0);
 })();

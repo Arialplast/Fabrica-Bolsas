@@ -1138,7 +1138,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-15c</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-15d</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6360,7 +6360,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-15c';   // 15c: ✂ al CERRAR UNA OC se controlan los golpes: cortadas (golpes × pistas, reglas de Corte en vivo) contra declaradas + scrap; si la diferencia pasa del 1 % o la tanda no es 5/10/25, pide «¿Qué pasó?» (obligatorio, con motivos rápidos) antes del admin. La línea del control (y la explicación) queda en las observaciones de la OC. Sin golpes (CORTE-3, registrador caído) no controla.
+const APP_BUILD='2026-10-15d';   // 15d: ✂ cierre de OC: si se cortaron más bolsas que las que dan las bobinas cargadas (> 3 %) → «⛔ FALTA CARGAR BOBINA» con los metros que faltan y la lista de bobinas de ese tipo en stock (las de su OE primero, buscador, aviso si es de otro cliente); «Cargar a esta OC» (admin) hace lo mismo que escanearla (sale de stock, movimiento, nota) con la hora del último corte de la OC y vuelve a controlar. No cierra sin cargar salvo tildar «Revisé: no falta ninguna bobina» + explicación (queda escrito). El motivo «Bobina cortada sin escanear» también abre la lista.
+// 15c: ✂ al CERRAR UNA OC se controlan los golpes: cortadas (golpes × pistas, reglas de Corte en vivo) contra declaradas + scrap; si la diferencia pasa del 1 % o la tanda no es 5/10/25, pide «¿Qué pasó?» (obligatorio, con motivos rápidos) antes del admin. La línea del control (y la explicación) queda en las observaciones de la OC. Sin golpes (CORTE-3, registrador caído) no controla.
 // 15b: ✂ CORTE EN VIVO 🔐 (Producción, al lado de Extrusión en vivo, mismo diseño): estado de cada cortadora al instante (cortando / pausa / parada hace X, cada 3 s), golpes hoy, golpes/min, tanda en curso contra la tanda de la OC, OC y producto escaneados, operario; línea de tiempo con el color de quién cortó y las bobinas escaneadas; control de OC (golpes × pistas deducidas = cortadas vs declaradas + scrap → sin ubicar, tanda más común, tandas incompletas, semáforo) con detalle por día/operario y bobinas; operarios (fichado, cortando, uso, arranque, paradas 3–20 y > 20 min, cierre, sin cortar, bobinas, cambios de OC, golpes, bolsas, golpes/h, tandas incompletas); paradas largas con lo que pasó; alertas (sin datos, parada con operario fichado, escaneo en máquina equivocada, se cortó más de lo escaneado, escaneo tarde, tanda rara, OC que no cierra, golpes sin OC). Lee corte_tandas / corte_estado (registrador v2.4, sql corte_tandas 15/10). Fichajes: pares por hora, sin confiar en entrada/salida.
 //   // 15a: 🧵 Editar OE ya no achica la OE: antes rearmaba metros = bobinas × largo objetivo aunque no se tocara el plan, y un plan con la última vuelta estirada (4 × 1.290 m) quedaba en 4 × 1.050 (ORD-06347: 5.150 → 4.200 m por cambiar la prioridad). Ahora metros/plan se escriben sólo si se tocaron (_pbEoeCambios) y el recuadro muestra los metros reales del plan.   // 14c: 🎈 carga de bobinas: el aviso de globo pinchado y la pregunta explicados para el operario («Se pinchó el globo de 10:10 a 10:15. Esos 160 m salieron sin film y no se cuentan en la bobina. Es normal: no tenés que hacer nada.»; «Mientras hacías esta bobina, ¿se pinchó el globo?» + por qué se pregunta, botones «Sí, se pinchó» / «No se pinchó»).   // 14b: 🎈 el aviso «FILM xx %» de un cierre dice la CAUSA (minutos del PLC del intervalo): globo pinchado (bloques con film 0 y bruto > 0, gris «Globo pinchado HH:MM–HH:MM (N m)», N = brutos × factor) · fotocélula (pérdida repartida 1–95 % > 3 % de la bobina, amarillo «Fotocélula: revisar apuntado», sólo Extrusión en vivo) · los dos o sin datos → en la carga se pregunta «¿Se pinchó el globo?» (Sí/No, obligatorio) y queda en plc_cierres.globo_pinchado (sql/plc_globo_pinchado.sql). «Por turno» suma los metros de globo por máquina.   // 14a: 🧮 Sala de planes: «ya cobrado» cuenta sólo plata que entró DESPUÉS del plan; lo cancelado con plata vieja o NC = caído.   // 13e: 🪪 el crédito de una NC se aplica en cualquier cuenta del mismo CUIT (mismo circuito). 13d: 💸 facturas de ADELANTO FINANCIERO (obs.) fuera de facturación/ticket/concentración/demora/cobrado (siguen en cta cte e IVA). 13c: ⚡ Resultado del mes: los gastos extraordinarios (categoría multas, ej. multa EDELAP) salen del resultado ordinario y se muestran debajo como «Extraordinarios» → «Resultado FINAL del mes». 13b: 🧾 recibos: relee la base antes de guardar/imputar (tope al saldo real) + número único con reintento. 13a: 📏 Extrusión en vivo y Estación: las máquinas SIEMPRE por número de extrusora (EXT-01, EXT-03, EXT-07) — tarjetas, línea de tiempo, gráficos, filtros y orden de la tabla de cierres, resumen por turno, paradas, alertas y la estación (_extCmp, aplicado en _plcGrupos). EXT-01 entra por el grupo 2 desde el 12/10 (plc_grupos id 3, factor 0,2475 = clave «1», por extrusora): Extrusión en vivo ahora toma minutos y cierres de cada grupo sólo DESDE plc_grupos.desde, como la estación — las pruebas previas del grupo 2 no se cuentan como EXT-01. Sin SQL.
 // 10b anterior:   // 10b: 🚫 Anular factura sólo sin CAE (ni Flexxus, ni procesando) y sin cobros/NC/ND encima — con CAE la única vía es NC; botón apagado con el motivo; re-chequeo contra la base; limpia factura_linea_remitos (caso 0001-00000041 / REM-00595).
@@ -11234,7 +11235,13 @@ async function _cvvControlCierre(oc,uniDecl,scrapKg,prod){
   const tds=_cvvAsignar((r3_.data||[]).map(t=>Object.assign({ti:new Date(t.inicio).getTime(),tf:new Date(t.fin).getTime()},t)),cargas,ocs,{});
   const R=_cvvOCs(tds,cargas.filter(c=>c.orden_corte_id===oc.id),ocs)[0];
   if(!R||!R.golpes||!R.pistas)return null;
-  R.alerta=Math.abs(R.pct||0)>0.01||R.tandaRara;
+  // 15d: bobina cortada sin cargar = se cortaron más bolsas que las que dan los metros cargados (> 3 %)
+  const mpb=parseFloat(prod&&prod.metros_por_bolsa)||0;
+  R.faltaBolsas=(R.teo&&R.cortadas>R.teo*1.03)?R.cortadas-R.teo:0;
+  R.faltaM=R.faltaBolsas*mpb;
+  R.maqPpal=_cvvModa(R.cargas.map(c=>c.maquina_id));
+  R.empPpal=_cvvModa(R.cargas.map(c=>c.empleado_id).filter(e=>e!=null));
+  R.alerta=Math.abs(R.pct||0)>0.01||R.tandaRara||R.faltaBolsas>0;
   R.linea='✂ Control de golpes '+localDate()+': '+R.golpes.toLocaleString('es-AR')+' golpes × '+R.pistas+' pistas = '+R.cortadas.toLocaleString('es-AR')
     +' cortadas · declaradas '+uniDecl.toLocaleString('es-AR')+' · scrap ≈ '+Math.round(R.scrapB).toLocaleString('es-AR')
     +' · sin ubicar '+(R.sinUbicar>0?'+':'')+Math.round(R.sinUbicar).toLocaleString('es-AR')+' ('+((R.pct||0)*100).toFixed(1).replace('.',',')+' %) · tanda '+(R.tanda||'—');
@@ -11243,6 +11250,7 @@ async function _cvvControlCierre(oc,uniDecl,scrapKg,prod){
 const _CVV_MOTIVOS=['Bolsas prestadas a / tomadas de otra OC','Bultos con distinta cantidad de bolsas','Descarte de arranques sin pesar','Bobina cortada sin escanear','Contador de la máquina mal puesto'];
 function _cvvPedirExplicacion(id,R,clave){
   document.getElementById('cvv-expl')?.remove();
+  window._cvvCtx=window._cvvCtx||{};window._cvvCtx[id]=R;
   const f=n=>Math.round(n).toLocaleString('es-AR');
   const motivoTxt=Math.abs(R.pct||0)>0.01?(R.sinUbicar>0?f(R.sinUbicar)+' bolsas cortadas que no están declaradas ni en el scrap':f(-R.sinUbicar)+' bolsas declaradas de más (no salen de los golpes)'):'';
   const html='<div class="modal-overlay" id="cvv-expl" style="z-index:10050"><div class="modal-card" style="max-width:520px">'
@@ -11254,19 +11262,82 @@ function _cvvPedirExplicacion(id,R,clave){
       +(R.tandaRara?'<span style="color:var(--amber);font-weight:700">La cortadora paró cada '+R.tanda+' golpes (lo normal es 25): cada pila da '+(R.tanda*R.pistas)+' bolsas.</span><br>':'')
       +(R.parciales.length?'<span style="color:var(--text3)">'+R.parciales.length+' tandas incompletas = '+f(R.bolsasParc)+' bolsas de arranques y cambios de bobina.</span>':'')
     +'</div>'
-    +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'+_CVV_MOTIVOS.map(m=>'<button type="button" class="btn btn-sm" onclick="const t=document.getElementById(\'cvv-expl-t\');t.value=(t.value?t.value+\'. \':\'\')+this.textContent+\': \';t.focus()">'+escapeHtml(m)+'</button>').join('')+'</div>'
-    +'<div class="fg"><label>¿Qué pasó? (obligatorio)</label><textarea id="cvv-expl-t" rows="3" style="width:100%" placeholder="ej: se usaron 150 bolsas de la OC-1052956; 10 bultos de 176"></textarea></div>'
+    +(R.faltaBolsas>0?'<div style="border:2px solid var(--red);border-radius:var(--r);padding:10px 12px;margin-bottom:10px;background:rgba(239,68,68,.08)">'
+      +'<div style="font-weight:800;color:var(--red);margin-bottom:4px">⛔ FALTA CARGAR BOBINA</div>'
+      +'<div style="font-size:12px;line-height:1.5">La cortadora sacó <strong>'+f(R.cortadas)+'</strong> bolsas y las bobinas cargadas alcanzan para <strong>'+f(R.teo)+'</strong>. '
+      +'Faltan unos <strong>'+f(R.faltaM)+' m</strong> de bobina. Si una bobina cortada sigue en stock, el stock miente: cargala antes de cerrar.</div>'
+      +'<label style="display:flex;gap:6px;align-items:center;font-size:12px;margin-top:8px;cursor:pointer"><input type="checkbox" id="cvv-nofalta"> Revisé: no falta ninguna bobina (explicá por qué abajo)</label>'
+      +'</div>':'')
+    +'<div id="cvv-bobs" style="'+(R.faltaBolsas>0?'':'display:none;')+'margin-bottom:10px"></div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'+_CVV_MOTIVOS.map(m=>'<button type="button" class="btn btn-sm" onclick="const t=document.getElementById(\'cvv-expl-t\');t.value=(t.value?t.value+\'. \':\'\')+this.textContent+\': \';t.focus();'+(m===_CVV_MOT_BOB?'_cvvMostrarBobinas('+id+')':'')+'">'+escapeHtml(m)+'</button>').join('')+'</div>'
+    +'<div class="fg"><label>¿Qué pasó? (obligatorio)</label><textarea id="cvv-expl-t" rows="3" style="width:100%" oninput="(window._cvvBorrador=window._cvvBorrador||{})['+id+']=this.value" placeholder="ej: se usaron 150 bolsas de la OC-1052956; 10 bultos de 176">'+escapeHtml((window._cvvBorrador||{})[id]||'')+'</textarea></div>'
     +'<div id="cvv-expl-err" style="color:var(--red);font-size:12px;margin-top:4px"></div>'
-    +'<div class="btn-grp" style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="_cvvConfirmarExpl('+id+',\''+clave+'\')">Guardar explicación y cerrar</button>'
+    +'<div class="btn-grp" style="margin-top:10px"><button class="btn btn-primary btn-sm" id="cvv-cerrar" onclick="_cvvConfirmarExpl('+id+',\''+clave+'\')">Guardar explicación y cerrar</button>'
     +'<button class="btn btn-sm" onclick="document.getElementById(\'cvv-expl\').remove()">Volver a corregir</button></div>'
     +'</div></div>';
   document.body.insertAdjacentHTML('beforeend',html);
   setTimeout(()=>document.getElementById('cvv-expl-t')?.focus(),50);
+  if(R.faltaBolsas>0)_cvvMostrarBobinas(id);
+}
+const _CVV_MOT_BOB='Bobina cortada sin escanear';
+// 15d: bobinas en stock del tipo de la OC para cargar desde el cierre (las de su OE primero)
+async function _cvvMostrarBobinas(id){
+  const box=document.getElementById('cvv-bobs');if(!box)return;
+  box.style.display='';box.innerHTML='<div style="font-size:12px;color:var(--text3)">Buscando bobinas en stock…</div>';
+  const oc=C.ord_corte.find(x=>x.id===id);const prod=oc&&(C.productos.find(p=>p.id===oc.producto_id)||oc.productos);
+  const tipo=prod&&prod.bobina_id;
+  if(!tipo){box.innerHTML='<div style="font-size:12px;color:var(--red)">El producto no tiene bobina definida: cargala desde el panel de corte.</div>';return;}
+  const{data,error}=await sb.from('bobinas_producidas').select('id,numero_bobina,metros_reales,kg_reales,fecha_produccion,orden_id,bobina_tipo_id,en_stock,anulada,extrusoras(nombre)')
+    .eq('bobina_tipo_id',tipo).eq('en_stock',true).eq('anulada',false).order('fecha_produccion',{ascending:false}).limit(60);
+  if(error){box.innerHTML='<div style="font-size:12px;color:var(--red)">No se pudo buscar: '+escapeHtml(error.message)+'</div>';return;}
+  const oe=oc.orden_extrusion_id;
+  const l=(data||[]).sort((a,b)=>((b.orden_id===oe)-(a.orden_id===oe))||String(b.fecha_produccion).localeCompare(String(a.fecha_produccion)));
+  window._cvvBobsLista=l;
+  const fila=b=>{let duena='';try{const d=_bobDuenaViva(b,oc);if(d)duena=' <span style="color:var(--red);font-weight:700">⛔ es de '+escapeHtml(d.cliente||d.numero_orden)+'</span>';}catch(e){}
+    return '<div class="cvv-bobf" data-n="'+escapeHtml(String(b.numero_bobina).toUpperCase())+'" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">'
+      +'<span><strong>'+escapeHtml(b.numero_bobina)+'</strong> · '+(parseFloat(b.metros_reales)||0).toLocaleString('es-AR')+' m · '+escapeHtml(b.extrusoras?b.extrusoras.nombre:'')+' · '+escapeHtml(String(b.fecha_produccion||''))
+      +(b.orden_id&&b.orden_id===oe?' <span style="color:var(--green);font-weight:700">de su OE</span>':'')+duena+'</span>'
+      +'<button class="btn btn-sm btn-primary" onclick="_cvvCargarBobina('+id+','+b.id+')">Cargar a esta OC</button></div>';};
+  box.innerHTML='<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Bobinas de este tipo en stock ('+l.length+')</div>'
+    +'<input type="text" placeholder="Buscar número (ej 06894)" style="width:100%;margin-bottom:4px" oninput="const q=this.value.trim().toUpperCase();document.querySelectorAll(\'.cvv-bobf\').forEach(x=>x.style.display=!q||x.dataset.n.includes(q)?\'\':\'none\')">'
+    +'<div style="max-height:220px;overflow-y:auto">'+(l.length?l.map(fila).join(''):'<div style="font-size:12px;color:var(--amber)">No hay bobinas de este tipo en stock. Si se cortó una, puede estar cargada en otra OC o figurar como entregada: revisalo antes de cerrar.</div>')+'</div>';
+}
+// Carga la bobina a la OC con el mismo efecto que escanearla (asociación, sale de stock, movimiento),
+// con la hora del último corte de la OC para que los golpes de después no se le atribuyan.
+async function _cvvCargarBobina(id,bobId){
+  const R=(window._cvvCtx||{})[id],b=(window._cvvBobsLista||[]).find(x=>x.id===bobId),oc=C.ord_corte.find(x=>x.id===id);
+  if(!R||!b||!oc)return;
+  if(!confirm('¿Cargar la bobina '+b.numero_bobina+' ('+(parseFloat(b.metros_reales)||0).toLocaleString('es-AR')+' m) a '+oc.numero_orden+'?\n\nSale del stock y queda como cortada en '+_cvvMaqNom(R.maqPpal)+'.'))return;
+  const hora=R.fin?new Date(R.fin-60000):new Date();
+  pedirAdminYEjecutar(async()=>{
+    try{
+      const{error:e1}=await _ocbInsert({orden_corte_id:id,bobina_producida_id:bobId,metros_usados:b.metros_reales,empleado_id:R.empPpal||null,
+        maquina_id:R.maqPpal||null,origen:'manual',fecha_asignacion:hora.toISOString()});
+      if(e1)throw e1;
+      await sb.from('bobinas_producidas').update({en_stock:false,reservada_oc_id:null}).eq('id',bobId);
+      const _mov={bobina_producida_id:bobId,tipo:'salida',motivo:'corte_confeccion',orden_corte:oc.numero_orden,metros:b.metros_reales,kg:b.kg_reales,operario:null};
+      await sb.from('stock_movimientos').insert(_mov);
+      const nota='[✋ Cargada al cerrar '+localDate()+' '+localTime().slice(0,5)+' · '+b.numero_bobina+' · cortada sin escanear (control de golpes)]';
+      const obsN=((oc.observaciones||'').trim()+' '+nota).trim();
+      await sb.from('ordenes_corte').update({observaciones:obsN}).eq('id',id);
+      await _refrescarOC(id);
+      const ocN=C.ord_corte.find(x=>x.id===id);if(ocN)ocN.observaciones=obsN;
+      _cacheParchear([C.bobinas_prod,C.bobinas_hist,C.bobinas_fuera],bobId,{en_stock:false,reservada_oc_id:null});
+      _cacheStockMov([{..._mov,fecha:localDate(),bobinas_producidas:{numero_bobina:b.numero_bobina}}]);
+      toast('✓ '+b.numero_bobina+' cargada a '+oc.numero_orden+' — se vuelve a controlar','green');
+      document.getElementById('cvv-expl')?.remove();
+      cerrarOrdenCorte(id);   // vuelve a calcular con la bobina nueva
+    }catch(e){
+      toast(e&&e.code==='23505'?'Esa bobina ya estaba cargada en esta OC':'⚠ No se pudo cargar: '+(e.message||e),'red');
+    }
+  });
 }
 function _cvvConfirmarExpl(id,clave){
   const t=(document.getElementById('cvv-expl-t')?.value||'').trim();
   if(t.length<10||_CVV_MOTIVOS.some(m=>t===m+':')){document.getElementById('cvv-expl-err').textContent='Escribí qué pasó (al menos una frase).';return;}
-  (window._cvvExplic=window._cvvExplic||{})[id]={clave,texto:t};
+  const R=(window._cvvCtx||{})[id];
+  if(R&&R.faltaBolsas>0&&!document.getElementById('cvv-nofalta')?.checked){document.getElementById('cvv-expl-err').textContent='Falta cargar bobina: cargala de la lista o tildá que revisaste que no falta ninguna.';return;}
+  (window._cvvExplic=window._cvvExplic||{})[id]={clave,texto:(R&&R.faltaBolsas>0?'[revisó: no falta bobina, faltaban ~'+Math.round(R.faltaM).toLocaleString('es-AR')+' m] ':'')+t};
   document.getElementById('cvv-expl')?.remove();
   cerrarOrdenCorte(id);
 }
