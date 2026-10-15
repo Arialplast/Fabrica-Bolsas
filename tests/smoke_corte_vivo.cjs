@@ -49,4 +49,26 @@ t(_cvvSt({actualizado_en:new Date(now-5000).toISOString(),ultimo_golpe:new Date(
 t(_cvvSt({actualizado_en:new Date(now-5000).toISOString(),ultimo_golpe:new Date(now-60000).toISOString()},now).k==='F','pausa');
 t(_cvvSt({actualizado_en:new Date(now-5000).toISOString(),ultimo_golpe:new Date(now-600000).toISOString()},now).t==='Parada 10 min','parada 10 min');
 t(_cvvSt({actualizado_en:new Date(now-300000).toISOString()},now).k==='N','sin datos');
+
+// 5) control al cerrar la OC (sb simulado)
+(async()=>{
+const tabla={orden_corte_bobinas:[{id:1,orden_corte_id:10,metros_usados:100,fecha_asignacion:new Date(T('07:00:00')).toISOString(),empleado_id:1,maquina_id:1},
+   {id:2,orden_corte_id:11,metros_usados:300,fecha_asignacion:new Date(T('12:00:00')).toISOString(),empleado_id:1,maquina_id:1}],
+ corte_tandas:tds.filter(x=>!x.sin_hora).map((x,i)=>({id:i,maquina:x.maquina,inicio:new Date(x.ti).toISOString(),fin:new Date(x.tf).toISOString(),golpes:x.golpes,sin_hora:false})),
+ ordenes_corte:[{id:11,estado:'En proceso',fecha_completada:null}]};
+const q=(n)=>{let rows=tabla[n].slice();const o={select(){return o;},eq(c,v){rows=rows.filter(r=>r[c]===v);return o;},in(c,v){rows=rows.filter(r=>v.includes(r[c]));return o;},
+  gte(c,v){rows=rows.filter(r=>r[c]>=v);return o;},order(){return o;},range(a,b){return Promise.resolve({data:rows.slice(a,b+1),error:null});},then(f,r){return Promise.resolve({data:rows,error:null}).then(f,r);}};return o;};
+global.sb={from:q};global.localDate=()=>'2026-10-14';
+global._traerQ=async(b)=>b().range(0,999);
+const prod={metros_por_bolsa:0.5,peso_por_bolsa:0.01};
+let R=await _cvvControlCierre({id:10,numero_orden:'OC-A'},210,0,prod);
+t(R&&R.cortadas===210&&!R.alerta,'cierra justo: 210 cortadas = 210 declaradas, sin alerta ('+(R&&R.cortadas)+')');
+t(/105 golpes × 2 pistas = 210 cortadas/.test(R.linea),'línea: '+R.linea);
+R=await _cvvControlCierre({id:10,numero_orden:'OC-A'},200,0,prod);
+t(R.alerta&&Math.round(R.sinUbicar)===10,'10 sin ubicar (4,8 %) → pide explicación');
+R=await _cvvControlCierre({id:10,numero_orden:'OC-A'},205,0.05,prod);
+t(!R.alerta,'205 + 5 de scrap = 210 → no pide');
+R=await _cvvControlCierre({id:99,numero_orden:'OC-X'},100,0,prod);
+t(R===null,'OC sin cargas en cortadoras con sensor → no controla');
 console.log((bad?'FALLA':'OK')+' smoke_corte_vivo: '+ok+' ok, '+bad+' mal');process.exit(bad?1:0);
+})();

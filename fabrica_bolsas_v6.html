@@ -1138,7 +1138,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-15b</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-15c</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6360,7 +6360,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-15b';   // 15b: ✂ CORTE EN VIVO 🔐 (Producción, al lado de Extrusión en vivo, mismo diseño): estado de cada cortadora al instante (cortando / pausa / parada hace X, cada 3 s), golpes hoy, golpes/min, tanda en curso contra la tanda de la OC, OC y producto escaneados, operario; línea de tiempo con el color de quién cortó y las bobinas escaneadas; control de OC (golpes × pistas deducidas = cortadas vs declaradas + scrap → sin ubicar, tanda más común, tandas incompletas, semáforo) con detalle por día/operario y bobinas; operarios (fichado, cortando, uso, arranque, paradas 3–20 y > 20 min, cierre, sin cortar, bobinas, cambios de OC, golpes, bolsas, golpes/h, tandas incompletas); paradas largas con lo que pasó; alertas (sin datos, parada con operario fichado, escaneo en máquina equivocada, se cortó más de lo escaneado, escaneo tarde, tanda rara, OC que no cierra, golpes sin OC). Lee corte_tandas / corte_estado (registrador v2.4, sql corte_tandas 15/10). Fichajes: pares por hora, sin confiar en entrada/salida.
+const APP_BUILD='2026-10-15c';   // 15c: ✂ al CERRAR UNA OC se controlan los golpes: cortadas (golpes × pistas, reglas de Corte en vivo) contra declaradas + scrap; si la diferencia pasa del 1 % o la tanda no es 5/10/25, pide «¿Qué pasó?» (obligatorio, con motivos rápidos) antes del admin. La línea del control (y la explicación) queda en las observaciones de la OC. Sin golpes (CORTE-3, registrador caído) no controla.
+// 15b: ✂ CORTE EN VIVO 🔐 (Producción, al lado de Extrusión en vivo, mismo diseño): estado de cada cortadora al instante (cortando / pausa / parada hace X, cada 3 s), golpes hoy, golpes/min, tanda en curso contra la tanda de la OC, OC y producto escaneados, operario; línea de tiempo con el color de quién cortó y las bobinas escaneadas; control de OC (golpes × pistas deducidas = cortadas vs declaradas + scrap → sin ubicar, tanda más común, tandas incompletas, semáforo) con detalle por día/operario y bobinas; operarios (fichado, cortando, uso, arranque, paradas 3–20 y > 20 min, cierre, sin cortar, bobinas, cambios de OC, golpes, bolsas, golpes/h, tandas incompletas); paradas largas con lo que pasó; alertas (sin datos, parada con operario fichado, escaneo en máquina equivocada, se cortó más de lo escaneado, escaneo tarde, tanda rara, OC que no cierra, golpes sin OC). Lee corte_tandas / corte_estado (registrador v2.4, sql corte_tandas 15/10). Fichajes: pares por hora, sin confiar en entrada/salida.
 //   // 15a: 🧵 Editar OE ya no achica la OE: antes rearmaba metros = bobinas × largo objetivo aunque no se tocara el plan, y un plan con la última vuelta estirada (4 × 1.290 m) quedaba en 4 × 1.050 (ORD-06347: 5.150 → 4.200 m por cambiar la prioridad). Ahora metros/plan se escriben sólo si se tocaron (_pbEoeCambios) y el recuadro muestra los metros reales del plan.   // 14c: 🎈 carga de bobinas: el aviso de globo pinchado y la pregunta explicados para el operario («Se pinchó el globo de 10:10 a 10:15. Esos 160 m salieron sin film y no se cuentan en la bobina. Es normal: no tenés que hacer nada.»; «Mientras hacías esta bobina, ¿se pinchó el globo?» + por qué se pregunta, botones «Sí, se pinchó» / «No se pinchó»).   // 14b: 🎈 el aviso «FILM xx %» de un cierre dice la CAUSA (minutos del PLC del intervalo): globo pinchado (bloques con film 0 y bruto > 0, gris «Globo pinchado HH:MM–HH:MM (N m)», N = brutos × factor) · fotocélula (pérdida repartida 1–95 % > 3 % de la bobina, amarillo «Fotocélula: revisar apuntado», sólo Extrusión en vivo) · los dos o sin datos → en la carga se pregunta «¿Se pinchó el globo?» (Sí/No, obligatorio) y queda en plc_cierres.globo_pinchado (sql/plc_globo_pinchado.sql). «Por turno» suma los metros de globo por máquina.   // 14a: 🧮 Sala de planes: «ya cobrado» cuenta sólo plata que entró DESPUÉS del plan; lo cancelado con plata vieja o NC = caído.   // 13e: 🪪 el crédito de una NC se aplica en cualquier cuenta del mismo CUIT (mismo circuito). 13d: 💸 facturas de ADELANTO FINANCIERO (obs.) fuera de facturación/ticket/concentración/demora/cobrado (siguen en cta cte e IVA). 13c: ⚡ Resultado del mes: los gastos extraordinarios (categoría multas, ej. multa EDELAP) salen del resultado ordinario y se muestran debajo como «Extraordinarios» → «Resultado FINAL del mes». 13b: 🧾 recibos: relee la base antes de guardar/imputar (tope al saldo real) + número único con reintento. 13a: 📏 Extrusión en vivo y Estación: las máquinas SIEMPRE por número de extrusora (EXT-01, EXT-03, EXT-07) — tarjetas, línea de tiempo, gráficos, filtros y orden de la tabla de cierres, resumen por turno, paradas, alertas y la estación (_extCmp, aplicado en _plcGrupos). EXT-01 entra por el grupo 2 desde el 12/10 (plc_grupos id 3, factor 0,2475 = clave «1», por extrusora): Extrusión en vivo ahora toma minutos y cierres de cada grupo sólo DESDE plc_grupos.desde, como la estación — las pruebas previas del grupo 2 no se cuentan como EXT-01. Sin SQL.
 // 10b anterior:   // 10b: 🚫 Anular factura sólo sin CAE (ni Flexxus, ni procesando) y sin cobros/NC/ND encima — con CAE la única vía es NC; botón apagado con el motivo; re-chequeo contra la base; limpia factura_linea_remitos (caso 0001-00000041 / REM-00595).
 // 10a anterior:   // 10a: ⚠ Avisos de corte en su propia hoja (Producción → ⚠ Avisos de corte): los paneles de máquina no asignada, OE corta y bultos sin cargar salen de Órdenes de corte, donde queda sólo un botón con la cuenta. 🔀 Máquina no asignada: rojo sólo si la OC se MUDÓ (sin máquina asignada, o en la asignada se cortó menos que en otra); una carga suelta en otra máquina pasa a informativo gris (caso OC-1052795: 5 bobinas en CORTE-02, 1 carga de 2 en CORTE-01). Sin SQL. // 09h: 👥 Sala de planes — TOTAL POR CLIENTE arriba del detalle de cobros (en el plan / ya cobrado / falta / caído, con atrasados), en la canasta del armador y en la hoja impresa. Derivado del documento de cada paso (_plTotalesPorCliente), sin SQL. // 09g: 🏦 Cada deuda dice de qué banco se debita (cuenta_debito_id): chip grande en la tarjeta, resumen «¿cuánta plata tiene que haber en cada banco?» (próximo débito, 30 días, vencidas, planes), el pago propone esa cuenta y avisa si elegís otra, el flujo nombra plan y banco, y el importador del extracto no cruza un débito de un banco con un plan de otro. Requiere alter_deudas_cuenta_debito.sql. · 09f: 📏 Extrusión en vivo: las bobinas con la fotocélula sin ver film vuelven a aparecer en «Gramaje real vs orden» (aro punteado) y en la tabla (g/m con *), calculadas con los metros CARGADOS; siguen fuera de las referencias.   // 09e: 📏 un cierre con la fotocélula sin ver film (film < 95 % del giro) no entra en ninguna referencia (kg/h, semáforo, velocidad de la última pesada, alarmas): con minutos cortados y kg enteros daba 52,5 kg/h y «¿CAMBIASTE DE PRODUCTO?» falso en EXT-03 al cambiar de color.   // 09d: 📏 P2 — los metros de la bobina salen SÓLO del odómetro CON FILM (antes del bruto: el rodillo suelto tras un pinchazo se sumaba). Bobina en curso, barra, velocidad y g/m también con film; el bruto queda de referencia. Estación: alarma «EL RODILLO GIRA Y NO SE VE FILM» (titila y pita) al minuto; en la carga, aviso si el cierre tuvo film en menos del 95 % del giro.   // 09c: 📏 Excedentes de OE en su propia pestaña (Producción, al lado de Fuera de rango), agrupados por OE con cliente; Fuera de rango muestra sólo las de calidad. Mismas acciones (aceptar / reasignar), sin SQL.   // 09b: 🎯 Cortar hoy — cada OC del pedido es una tarjeta propia (franja del color de su estado, cabecera sombreada, «OC n/N», guía vertical del pedido): con muchas OC no se distinguían los renglones. Sólo CSS + marcado, sin tocar cálculos. // 09a: 🧵 el tope de exceso de metros se mide contra el plan (siempre para arriba), no sólo contra los metros de la OE; y al «Aceptar tal cual» una bobina pendiente se revisa si la OE ya quedó completa (metros y pistas) y se cierra. (ORD-06337: la 4ª bobina que pedía el plan se fue a pendientes y la OE quedó abierta.)
@@ -11206,6 +11207,68 @@ function _cvvOperarios(tandas,cargas,turnos,t0,ahora){
     cs.forEach((c,i)=>{if(i&&c.orden_corte_id!==cs[i-1].orden_corte_id)O.cambiosOC++;});
     return O;
   }).sort((a,b)=>b.golpes-a.golpes);
+}
+
+// 15c — CONTROL DE GOLPES AL CERRAR UNA OC: bolsas cortadas (golpes × pistas, con las mismas reglas
+// de Corte en vivo) contra las declaradas + scrap. Si la diferencia pasa del 1 % o la tanda no es de
+// 5/10/25, no se cierra sin una explicación, que queda en las observaciones de la OC.
+// Sin golpes (CORTE-3 sin sensor, registrador caído) → no controla.
+async function _cvvControlCierre(oc,uniDecl,scrapKg,prod){
+  const selC='id,orden_corte_id,bobina_producida_id,metros_usados,fecha_asignacion,empleado_id,maquina_id';
+  const r1=await sb.from('orden_corte_bobinas').select(selC).eq('orden_corte_id',oc.id);
+  if(r1.error)throw r1.error;
+  const propias=(r1.data||[]).filter(c=>CVV.maqs.includes(c.maquina_id));
+  if(!propias.length)return null;
+  const maqs=[...new Set(propias.map(c=>c.maquina_id))];
+  const t1=Math.min(...propias.map(c=>new Date(c.fecha_asignacion).getTime()));
+  const[r2_,r3_]=await Promise.all([
+    _traerQ(()=>sb.from('orden_corte_bobinas').select(selC).in('maquina_id',maqs).gte('fecha_asignacion',new Date(t1-12*3600000).toISOString()).order('fecha_asignacion').order('id')),
+    _traerQ(()=>sb.from('corte_tandas').select('id,maquina,inicio,fin,golpes,sin_hora').in('maquina',maqs).gte('fin',new Date(t1-4*3600000).toISOString()).order('fin').order('id'))]);
+  if(r2_.error)throw r2_.error;if(r3_.error)throw r3_.error;
+  const cargas=(r2_.data||[]).map(c=>Object.assign({t:new Date(c.fecha_asignacion).getTime()},c));
+  const otras=[...new Set(cargas.map(c=>c.orden_corte_id))].filter(x=>x!==oc.id);
+  const ocs={};
+  if(otras.length){const r4=await sb.from('ordenes_corte').select('id,estado,fecha_completada').in('id',otras);if(!r4.error)(r4.data||[]).forEach(x=>ocs[x.id]=x);}
+  ocs[oc.id]={id:oc.id,numero_orden:oc.numero_orden,estado:'En proceso',fecha_completada:null,unidades_reales:uniDecl,peso_scrap_kg:scrapKg,
+    productos:{metros_por_bolsa:prod&&prod.metros_por_bolsa,peso_por_bolsa:prod&&prod.peso_por_bolsa}};
+  const tds=_cvvAsignar((r3_.data||[]).map(t=>Object.assign({ti:new Date(t.inicio).getTime(),tf:new Date(t.fin).getTime()},t)),cargas,ocs,{});
+  const R=_cvvOCs(tds,cargas.filter(c=>c.orden_corte_id===oc.id),ocs)[0];
+  if(!R||!R.golpes||!R.pistas)return null;
+  R.alerta=Math.abs(R.pct||0)>0.01||R.tandaRara;
+  R.linea='✂ Control de golpes '+localDate()+': '+R.golpes.toLocaleString('es-AR')+' golpes × '+R.pistas+' pistas = '+R.cortadas.toLocaleString('es-AR')
+    +' cortadas · declaradas '+uniDecl.toLocaleString('es-AR')+' · scrap ≈ '+Math.round(R.scrapB).toLocaleString('es-AR')
+    +' · sin ubicar '+(R.sinUbicar>0?'+':'')+Math.round(R.sinUbicar).toLocaleString('es-AR')+' ('+((R.pct||0)*100).toFixed(1).replace('.',',')+' %) · tanda '+(R.tanda||'—');
+  return R;
+}
+const _CVV_MOTIVOS=['Bolsas prestadas a / tomadas de otra OC','Bultos con distinta cantidad de bolsas','Descarte de arranques sin pesar','Bobina cortada sin escanear','Contador de la máquina mal puesto'];
+function _cvvPedirExplicacion(id,R,clave){
+  document.getElementById('cvv-expl')?.remove();
+  const f=n=>Math.round(n).toLocaleString('es-AR');
+  const motivoTxt=Math.abs(R.pct||0)>0.01?(R.sinUbicar>0?f(R.sinUbicar)+' bolsas cortadas que no están declaradas ni en el scrap':f(-R.sinUbicar)+' bolsas declaradas de más (no salen de los golpes)'):'';
+  const html='<div class="modal-overlay" id="cvv-expl" style="z-index:10050"><div class="modal-card" style="max-width:520px">'
+    +'<div class="modal-title">✂ Las bolsas no cierran con los golpes</div>'
+    +'<div style="font-size:13px;line-height:1.6;margin-bottom:10px">'
+      +'Cortadas según la cortadora: <strong>'+f(R.cortadas)+'</strong> <span style="color:var(--text3)">('+f(R.golpes)+' golpes × '+R.pistas+' pistas)</span><br>'
+      +'Declaradas: <strong>'+f(R.decl)+'</strong> · scrap ≈ <strong>'+f(R.scrapB)+'</strong> bolsas<br>'
+      +(motivoTxt?'<span style="color:var(--red);font-weight:700">'+motivoTxt+' ('+((R.pct||0)*100).toFixed(1).replace('.',',')+' %)</span><br>':'')
+      +(R.tandaRara?'<span style="color:var(--amber);font-weight:700">La cortadora paró cada '+R.tanda+' golpes (lo normal es 25): cada pila da '+(R.tanda*R.pistas)+' bolsas.</span><br>':'')
+      +(R.parciales.length?'<span style="color:var(--text3)">'+R.parciales.length+' tandas incompletas = '+f(R.bolsasParc)+' bolsas de arranques y cambios de bobina.</span>':'')
+    +'</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'+_CVV_MOTIVOS.map(m=>'<button type="button" class="btn btn-sm" onclick="const t=document.getElementById(\'cvv-expl-t\');t.value=(t.value?t.value+\'. \':\'\')+this.textContent+\': \';t.focus()">'+escapeHtml(m)+'</button>').join('')+'</div>'
+    +'<div class="fg"><label>¿Qué pasó? (obligatorio)</label><textarea id="cvv-expl-t" rows="3" style="width:100%" placeholder="ej: se usaron 150 bolsas de la OC-1052956; 10 bultos de 176"></textarea></div>'
+    +'<div id="cvv-expl-err" style="color:var(--red);font-size:12px;margin-top:4px"></div>'
+    +'<div class="btn-grp" style="margin-top:10px"><button class="btn btn-primary btn-sm" onclick="_cvvConfirmarExpl('+id+',\''+clave+'\')">Guardar explicación y cerrar</button>'
+    +'<button class="btn btn-sm" onclick="document.getElementById(\'cvv-expl\').remove()">Volver a corregir</button></div>'
+    +'</div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+  setTimeout(()=>document.getElementById('cvv-expl-t')?.focus(),50);
+}
+function _cvvConfirmarExpl(id,clave){
+  const t=(document.getElementById('cvv-expl-t')?.value||'').trim();
+  if(t.length<10||_CVV_MOTIVOS.some(m=>t===m+':')){document.getElementById('cvv-expl-err').textContent='Escribí qué pasó (al menos una frase).';return;}
+  (window._cvvExplic=window._cvvExplic||{})[id]={clave,texto:t};
+  document.getElementById('cvv-expl')?.remove();
+  cerrarOrdenCorte(id);
 }
 
 async function renderCorteVivo(){
@@ -51580,13 +51643,20 @@ async function cerrarOrdenCorte(id){
   const kgPorMetro=mtsUsados>0?r4(kgUsados/mtsUsados):0;
   const scrapCalcKg=r3(mtsScrap*kgPorMetro);
   const difScrap=r3(scrapCalcKg-scrapPesado);
+  // 15c: control de golpes — si no cierra, pide la explicación antes de pedir admin
+  let ctl=null;
+  try{ctl=await _cvvControlCierre(o,totalUni,scrapPesado,prod);}catch(e){console.warn('control de golpes',e);}
+  const claveCtl=totalUni+'|'+scrapPesado;
+  const expl=(window._cvvExplic||{})[id];
+  if(ctl&&ctl.alerta&&!(expl&&expl.clave===claveCtl)){_cvvPedirExplicacion(id,ctl,claveCtl);return;}
+  const obsFinal=[obs,ctl?ctl.linea+(ctl.alerta&&expl?' — Explicación: '+expl.texto:''):null].filter(Boolean).join('\n')||null;
   // TODO: cuando exista el rol "responsable_deposito", permitir también ese rol
   pedirAdminYEjecutar(async()=>{
     const{error:errUpd}=await sb.from('ordenes_corte').update({
       estado:'Completada',bolsones_reales:bolsones,paquetes_sueltos_reales:paqSueltos,
       cantidad_bultos_reales:totalPaq,unidades_reales:totalUni,
       peso_scrap_kg:scrapPesado,scrap_calculado_kg:scrapCalcKg,scrap_diferencia_kg:difScrap,
-      fecha_completada:new Date().toISOString(),observaciones:obs||null
+      fecha_completada:new Date().toISOString(),observaciones:obsFinal
     }).eq('id',id);
     if(errUpd){
       console.error('Error update OC:',errUpd);
