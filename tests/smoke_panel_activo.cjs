@@ -27,5 +27,5 @@ t(/NINGUNA ORDEN CORTANDO/.test(h),'nada en proceso: lo dice');
 t(/_pcorteActivoHTML\(\{ocId:_ocObjetivo,maqId:window\._pcorteMaquinaId\|\|null,empId:window\._pcorteEmpleadoId\|\|null/.test(src),'el panel usa el recuadro grande');
 t(/const esObjetivo=_act;/.test(src),'«Bobinas acá» sólo con máquina fijada');
 t(/try\{_pintarPanelCorte\(\);\}catch\(e\)\{\} \/\/ 07c/.test(src),'al elegir operario se repinta');
-t(/\(opNom\?' · '\+opNom:''\)\}\);/.test(src),'el cartel de cargada dice el operario');
+t(/\(opNom\?' · '\+opNom:''\)(\+\(_impPre[^\n]*?)?\}\);/.test(src),'el cartel de cargada dice el operario');
 console.log((bad?'✗ ':'✓ ')+ok+' ok'+(bad?' · '+bad+' FALLAN':''));process.exit(bad?1:0);

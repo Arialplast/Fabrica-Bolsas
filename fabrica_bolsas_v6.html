@@ -1138,7 +1138,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-16a</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-16b</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6360,7 +6360,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-16a';   // 16a: ✂ golpes que tenía que hacer la cortadora = bobina más larga de cada par ÷ largo (con 2 pistas la más larga termina sola); cortadas = golpes × pistas − la punta a 1 pista. Control de cortadora: golpes contra esos golpes. — 15q anterior: 15q: ✂ pilas bien contadas con el registro golpe a golpe: una pila que el operario cortó a la mitad y completó al volver a arrancar (11 + 14 = 25) es «cortada a la mitad», no dos incompletas. Incompleta = nunca llegó a la parada; de más = pasó de la parada sin la pausa de la máquina (29, 31…), con los golpes de más.
+const APP_BUILD='2026-10-16b';   // 16b: 🖨 IMPRESORA en el Panel corte: escaneo de entrada y salida de cada bobina (tabla impresion_bobinas), metros impresos = metros de extrusión, m/min reales, impresas esperando corte; en la cortadora una bobina de producto IMPRESA sin pasar por la impresora se pregunta y queda anotada. — 16a: ✂ golpes que tenía que hacer la cortadora = bobina más larga de cada par ÷ largo (con 2 pistas la más larga termina sola); cortadas = golpes × pistas − la punta a 1 pista. Control de cortadora: golpes contra esos golpes. — 15q anterior: 15q: ✂ pilas bien contadas con el registro golpe a golpe: una pila que el operario cortó a la mitad y completó al volver a arrancar (11 + 14 = 25) es «cortada a la mitad», no dos incompletas. Incompleta = nunca llegó a la parada; de más = pasó de la parada sin la pausa de la máquina (29, 31…), con los golpes de más.
 // 15p: ✂ paradas: TANDAS SIN COMPLETAR (menos golpes que la parada de la máquina, normalmente 25) y tandas de más, por operario y en total con el detalle (ej. 11×5 · 4×14); en cada parada, con cuántos golpes venía la tanda («12 de 25» en rojo = paró a mitad de pila).
 // 15o: ✂ PARADAS POR OC Y OPERARIO: cada hueco de 30 s o más entre tandas de la OC (sacar la pila tarda ~5 s), con desde/hasta/duración/máquina/operario y lo registrado en ese momento (cambio de bobina = escaneo de una bobina de la OC ± 2 min; si no, «nada (sin escaneo)» en rojo). Resumen por operario: golpes, cortando, paradas, cambios de bobina, sin escaneo, de 3 min o más. En el detalle de la OC (Corte en vivo) y en el control de cierre (desplegable).
 // 15n: ✂ control de cierre FIJO y sin justificaciones: debían salir (metros ÷ largo de ficha) − bultos − prestadas/tomadas (las informa el operario) − scrap (kg ÷ peso de la bolsa de estas bobinas) = FALTAN / SOBRAN; más de ±1 % → el operario explica. Golpes × pistas contra metros como control aparte de la cortadora (±3 %). Se sacan «quedó sin cortar», «scrap de más», «revisar» y la sugerencia automática de bultos distintos.
@@ -58893,7 +58893,7 @@ function _pintarPanelCorte(){
       +'</div>'
       +'<div id="pcorte-fb" style="margin-top:10px;font-size:16px;font-weight:700;min-height:22px;"></div>'
       // 07c: quién carga y en qué máquina, bien grande (antes era un renglón de 13 px)
-      +_pcorteActivoHTML({ocId:_ocObjetivo,maqId:window._pcorteMaquinaId||null,empId:window._pcorteEmpleadoId||null,enProcCount:_enProcCount})
+      +_pcorteActivoHTML({ocId:_ocObjetivo,maqId:window._pcorteMaquinaId||null,empId:window._pcorteEmpleadoId||null,enProcCount:_enProcCount,imp:!!window._pcorteImpresora})
     +'</div>'
     // Cortadoras
     +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:16px;">';
@@ -58912,8 +58912,8 @@ function _pintarPanelCorte(){
     const proxima=pend[0];
 
     // 07c: la máquina donde se está cargando se ve sin dudas; las demás, atenuadas
-    const _act=_pcorteMaqActiva(maq.id,enProc,_ocObjetivo,window._pcorteMaquinaId);
-    const _hayAct=!!(_ocObjetivo&&window._pcorteMaquinaId);
+    const _act=!window._pcorteImpresora&&_pcorteMaqActiva(maq.id,enProc,_ocObjetivo,window._pcorteMaquinaId);
+    const _hayAct=!!window._pcorteImpresora||!!(_ocObjetivo&&window._pcorteMaquinaId);
     html+='<div style="background:var(--bg2);border:'+(_act?'5px solid var(--green);box-shadow:0 0 0 4px rgba(34,197,94,.25),0 0 28px rgba(34,197,94,.35)':'2px solid '+(fuera?'var(--redbd)':enProc?'var(--accentbd)':'var(--border)'))+';border-radius:14px;padding:18px;'+(_hayAct&&!_act?'opacity:.6;':'')+'">'
       +(_act?'<div style="background:var(--green);color:#04210f;font-weight:900;font-size:18px;text-align:center;border-radius:8px;padding:8px 10px;margin:-6px -6px 14px;letter-spacing:.03em;">▼ CARGANDO EN ESTA MÁQUINA'+(window._pcorteOperario?' · '+escapeHtml(window._pcorteOperario):'')+'</div>':'')
       +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">'
@@ -58975,7 +58975,9 @@ function _pintarPanelCorte(){
     }
     html+='</div>';
   });
+  html+=_impTileHTML();   // 16b: 🖨 impresora
   html+='</div></div>';
+  if(Date.now()-IMP.t>20000&&!IMP.cargando)_impCargar().then(_impRepintarTile);   // 16b (async: pinta después)
   root.innerHTML=html;
   // 07b: el último mensaje del lector sobrevive al repintado (2 min)
   try{const u=window._pcorteUltFb,el=document.getElementById('pcorte-fb');
@@ -59199,6 +59201,10 @@ async function _pcorteCargarBobina(ocId,bobId,maquinaId,origen,nota){
   if(!maqId){_pcorteFeedback('⚠ Elegí en qué máquina estás cortando (tocá "+ Cargar" en la tarjeta de esa máquina, o elegila arriba) antes de escanear.','var(--amber)','error');return;}
   window._pcorteMaquinaId=maqId; // recordar para los próximos escaneos de la pistola
   try{localStorage.setItem('conf_last_maq',String(maqId));}catch(e){}
+  // 16b: producto IMPRESA → la bobina tiene que haber pasado por la impresora
+  const _impPre=await _impAntesDeCortar(b,oc);
+  if(_impPre===false){_pcorteFeedback('No se cargó la bobina '+b.numero_bobina+': no está impresa.','var(--red)','error',
+    {titulo:'✕ NO SE CARGÓ',numero:b.numero_bobina,detalle:'primero va a la impresora (escaneala ahí al ponerla)'});return;}
   // Ejecuta la asociación real (mismo efecto que escanear)
   const ejecutar=async()=>{
     try{
@@ -59211,6 +59217,7 @@ async function _pcorteCargarBobina(ocId,bobId,maquinaId,origen,nota){
       const _mov={bobina_producida_id:bobId,tipo:'salida',motivo:'corte_confeccion',
         orden_corte:oc.numero_orden,metros:b.metros_reales,kg:b.kg_reales,operario:opNom||null};
       await sb.from('stock_movimientos').insert(_mov);
+      if(_impPre)await _impDespuesDeCortar(_impPre,b,oc,empId);   // 16b
       // Antes: await reload() — 68 consultas EN CADA ESCANEO DE PISTOLA. Este era
       // el peor de todos: es el evento más repetido de la fábrica, y el operario
       // esperaba a que bajara media base para que el panel le respondiera.
@@ -59231,7 +59238,7 @@ async function _pcorteCargarBobina(ocId,bobId,maquinaId,origen,nota){
       const maqNom=maqId?(C.maq_corte.find(m=>m.id===maqId)?.nombre||''):'';
       window._pcorteUltBobId=bobId;
       _pcorteFeedback('✓ Bobina '+b.numero_bobina+' CARGADA → '+(maqNom?maqNom+' · ':'')+oc.numero_orden+' ('+(parseFloat(b.metros_reales)||0).toLocaleString('es-AR')+' m)','var(--green)','ok',
-        {titulo:'✓ BOBINA CARGADA',numero:b.numero_bobina,detalle:(maqNom?maqNom+' · ':'')+oc.numero_orden+' · '+(parseFloat(b.metros_reales)||0).toLocaleString('es-AR')+' m'+(opNom?' · '+opNom:'')});
+        {titulo:'✓ BOBINA CARGADA',numero:b.numero_bobina,detalle:(maqNom?maqNom+' · ':'')+oc.numero_orden+' · '+(parseFloat(b.metros_reales)||0).toLocaleString('es-AR')+' m'+(opNom?' · '+opNom:'')+(_impPre&&_impPre.declarar?' · ⚠ sin escanear en la impresora':'')});
       _pintarPanelCorte();
     }catch(e){
       if(e&&e.code==='23505')_pcorteFeedback('La bobina '+b.numero_bobina+' YA ESTABA cargada en la orden — no se duplica.','var(--amber)','error',
@@ -59302,7 +59309,9 @@ function _pcorteActivoHTML(o){ // pura salvo lecturas de C
     ?tile(true,'👷 CARGA BOBINAS',escapeHtml(empNom.toUpperCase()),'')
     :tile(false,'👷 OPERARIO','⚠ ELEGÍ TU NOMBRE','en la lista de la izquierda, antes de escanear');
   let tMaq;
-  if(oc&&maq){
+  if(o.imp){
+    tMaq=tile(true,'🖨 MÁQUINA ACTIVA','IMPRESORA','escaneá la bobina al ponerla y otra vez al sacarla · para volver a cortar tocá «📷 Cargar bobinas acá» en tu cortadora');
+  }else if(oc&&maq){
     const sub=[oc.numero_orden,oc.cliente,prod&&(prod.descripcion||prod.codigo)].filter(Boolean).map(escapeHtml).join(' · ');
     const noAsig=!(oc.orden_corte_maquinas||[]).some(m=>m.maquina_id===maq.id);
     tMaq=tile(true,'✂️ MÁQUINA ACTIVA',escapeHtml(String(maq.nombre||'').toUpperCase()),'Bobinas → '+sub
@@ -59399,6 +59408,7 @@ function reFocoPcortePistola(){
 // bobina = se carga a la OC objetivo (la que estás cortando), igual que el botón + Cargar.
 async function _pcorteProcesarEscaneo(raw){
   if(esEscaneoDeOC(raw)){
+    window._pcorteImpresora=false;   // 16b: escanear una OC = vuelve a la cortadora
     await _pcorteIniciarOC(raw);
   } else {
     await _pcorteEscanearBobina(raw);
@@ -59418,6 +59428,7 @@ function _pcorteResolverOCobjetivo(){
 
 // Elegir manualmente a qué OC en proceso se cargan las bobinas escaneadas.
 function _pcorteSetOCobjetivo(id,maqId){
+  window._pcorteImpresora=false;   // 16b: vuelve a cortar
   window._pcorteOCobjetivo=id;
   // "Cargar bobinas acá" fija la OC Y la máquina de esa tarjeta juntas: de ahí en más,
   // todo lo que escanees o cargues va a esa OC en esa cortadora.
@@ -59437,6 +59448,7 @@ async function _pcorteEscanearBobina(raw){
   if(!nro){_pcorteFeedback('No pude leer el número de bobina del QR.','var(--red)','error');return;}
   const b=C.bobinas_prod.find(x=>x.numero_bobina===nro);
   if(!b){await _bobAnuladaEscaneada(nro,'Panel de corte',(window._pcorteOperario||'').trim(),_pcorteFeedback);return;}
+  if(window._pcorteImpresora){await _impEscanear(b);return;}   // 16b
   if(!b.en_stock){_pcorteFeedback('✕ Bobina '+nro+' ya no está en stock (consumida).','var(--red)','error');return;}
   const ocId=_pcorteResolverOCobjetivo();
   if(!ocId){
@@ -59444,6 +59456,151 @@ async function _pcorteEscanearBobina(raw){
     return;
   }
   await _pcorteCargarBobina(ocId,b.id,undefined,'pistola');
+}
+
+// ===== 🖨 IMPRESORA EN EL PANEL DE CORTE (16b) =====
+// German (16/10): las bobinas impresas (ej. Solbayres, OC-1052958) pasan por la impresora antes de
+// la cortadora y ahí se pierden o se mezclan las tarjetas: a la cortadora llegan rollos sin escanear.
+// Ahora la impresora es una tarjeta más del Panel corte (lo usan los mismos operarios):
+//   · «🖨 Escanear para imprimir» → los escaneos de bobina van a la impresora, no a la cortadora.
+//   · 1er escaneo = la bobina ENTRA a la impresora (inicio) · 2do escaneo o «✓ Terminó» = SALE (fin).
+//   · METROS IMPRESOS = metros de la bobina medidos en la extrusora (P2). No se supone ninguna velocidad:
+//     el tiempo entre entrada y salida da los m/min reales de la impresora.
+//   · En la cortadora, una bobina de producto IMPRESA que no pasó por la impresora se pregunta: si el
+//     operario dice que está impresa, se carga y queda anotado «sin escanear en la impresora».
+//   · La tarjeta muestra las bobinas impresas que esperan corte: si una se corta sin escanear, se ve.
+// Tabla impresion_bobinas (una fila viva por bobina; estado imprimiendo | impresa | anulada).
+const IMP={rows:[],t:0,cargando:false,err:null};
+function _impEsImpresa(oc){ // pura salvo C.productos
+  const p=oc&&(oc.productos||(C.productos||[]).find(x=>x.id===oc.producto_id));
+  return !!(p&&/IMPRES/i.test(p.descripcion||''));
+}
+async function _impCargar(force){
+  if(IMP.cargando)return;
+  if(!force&&Date.now()-IMP.t<20000)return;
+  IMP.cargando=true;
+  try{
+    const desde=new Date(Date.now()-30*86400000).toISOString();
+    const r=await _traerQ(()=>sb.from('impresion_bobinas')
+      .select('id,bobina_producida_id,orden_corte_id,empleado_id,inicio,fin,metros,estado,origen,observaciones,created_at,bobinas_producidas(numero_bobina,metros_reales,en_stock),ordenes_corte(numero_orden,cliente)')
+      .neq('estado','anulada').or('fin.is.null,created_at.gte.'+desde).order('created_at').order('id'));
+    if(r.error)throw r.error;
+    IMP.rows=r.data||[];IMP.t=Date.now();IMP.err=null;
+  }catch(e){IMP.err=e.message||String(e);}
+  IMP.cargando=false;
+}
+// pura: lo que muestra la tarjeta
+function _impResumen(rows,ahora){
+  const d0=new Date(ahora);d0.setHours(0,0,0,0);const t0=d0.getTime();
+  const abiertas=rows.filter(r=>r.estado==='imprimiendo');
+  const esperando=rows.filter(r=>r.estado==='impresa'&&r.bobinas_producidas&&r.bobinas_producidas.en_stock);
+  const hoy=rows.filter(r=>r.estado==='impresa'&&r.fin&&new Date(r.fin).getTime()>=t0);
+  const conT=hoy.filter(r=>r.inicio&&r.fin&&new Date(r.fin)>new Date(r.inicio));
+  const min=conT.reduce((s,r)=>s+(new Date(r.fin)-new Date(r.inicio))/60000,0);
+  const mT=conT.reduce((s,r)=>s+(parseFloat(r.metros)||0),0);
+  return{abiertas,esperando,hoy,metrosHoy:hoy.reduce((s,r)=>s+(parseFloat(r.metros)||0),0),minHoy:min,
+    mPorMin:min>0?mT/min:null,sinEntrada:hoy.filter(r=>!r.inicio).length,
+    metrosEsperando:esperando.reduce((s,r)=>s+(parseFloat(r.metros)||0),0)};
+}
+function _impTileHTML(){
+  const R=_impResumen(IMP.rows,Date.now()),act=!!window._pcorteImpresora;
+  const F=n=>Math.round(n||0).toLocaleString('es-AR'),H=_pcorteHora;
+  const nb=r=>escapeHtml((r.bobinas_producidas&&r.bobinas_producidas.numero_bobina)||('#'+r.bobina_producida_id));
+  const oc=r=>r.ordenes_corte?escapeHtml(r.ordenes_corte.numero_orden+' · '+(r.ordenes_corte.cliente||'')):'<span style="color:var(--amber)">sin OC</span>';
+  const hayOtra=!!(_pcorteResolverOCobjetivo()&&window._pcorteMaquinaId);
+  let h='<div id="pcorte-imp" style="background:var(--bg2);border:'+(act?'5px solid var(--green);box-shadow:0 0 0 4px rgba(34,197,94,.25),0 0 28px rgba(34,197,94,.35)':'2px solid var(--border)')+';border-radius:14px;padding:18px;'+(!act&&hayOtra?'opacity:.6;':'')+'">'
+    +(act?'<div style="background:var(--green);color:#04210f;font-weight:900;font-size:18px;text-align:center;border-radius:8px;padding:8px 10px;margin:-6px -6px 14px;letter-spacing:.03em;">▼ ESCANEANDO PARA LA IMPRESORA'+(window._pcorteOperario?' · '+escapeHtml(window._pcorteOperario):'')+'</div>':'')
+    +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;">'
+      +'<div style="font-size:19px;font-weight:800;">🖨 IMPRESORA</div>'
+      +(act?'<div style="font-size:11px;font-weight:800;color:var(--accent);background:rgba(99,179,237,.15);padding:4px 10px;border-radius:6px;">📦 Bobinas acá</div>'
+        :'<button class="btn btn-sm" style="padding:6px 14px;font-size:13px;font-weight:800;color:var(--accent);border-color:var(--accent);border-width:2px;" onclick="_impActivar()">🖨 Escanear para imprimir</button>')
+    +'</div>'
+    +'<div style="font-size:12px;color:var(--text2);margin-bottom:10px;">Escaneá la bobina <strong>al ponerla</strong> en la impresora y <strong>otra vez al sacarla</strong>. La tarjeta va con el rollo impreso a la cortadora.</div>';
+  if(IMP.err)h+='<div style="color:var(--red);font-size:12px;margin-bottom:8px;">No pude leer la impresora: '+escapeHtml(IMP.err)+'</div>';
+  // hoy
+  h+='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;">'
+    +[['Impresas hoy',F(R.hoy.length)],['Metros hoy',F(R.metrosHoy)+' m'],['Imprimiendo',R.minHoy?_cvvHM(R.minHoy):'—'],['Velocidad',R.mPorMin?F(R.mPorMin)+' m/min':'—']]
+      .map(([l,v])=>'<div style="flex:1;min-width:90px;background:var(--bg3);border-radius:8px;padding:6px 10px;"><div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;">'+l+'</div><div style="font-size:18px;font-weight:800;">'+v+'</div></div>').join('')
+    +'</div>'
+    +(R.sinEntrada?'<div style="font-size:12px;color:var(--amber);margin:-6px 0 10px;">⚠ '+R.sinEntrada+' de hoy no se escanearon al entrar a la impresora (las declaró el operario de corte).</div>':'');
+  // imprimiendo ahora
+  h+='<div style="font-size:11px;color:var(--green);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">▶ En la impresora ahora</div>';
+  h+=R.abiertas.length?R.abiertas.map(r=>{const min=r.inicio?(Date.now()-new Date(r.inicio))/60000:0;
+      return '<div style="display:flex;align-items:center;gap:8px;background:rgba(34,197,94,.06);border:1px solid var(--green);border-radius:8px;padding:8px 10px;margin-bottom:6px;">'
+        +'<div style="flex:1;"><div style="font-size:16px;font-weight:800;">'+nb(r)+'</div><div style="font-size:12px;color:var(--text2);">'+oc(r)+' · '+F(r.metros)+' m</div>'
+        +'<div style="font-size:12px;color:'+(min>180?'var(--red)':'var(--text3)')+';">entró '+H(r.inicio)+' · hace '+_cvvHM(min)+(min>180?' — ¿se olvidaron de escanear la salida?':'')+'</div></div>'
+        +'<button class="btn" style="padding:10px 14px;font-weight:800;color:var(--green);border-color:var(--green);" onclick="_impTerminar('+r.id+',\'boton\')">✓ Terminó</button></div>';}).join('')
+    :'<div style="font-size:13px;color:var(--text3);margin-bottom:6px;">Nada en la impresora.</div>';
+  // impresas esperando corte
+  h+='<div style="border-top:1px dashed var(--border);margin-top:10px;padding-top:10px;">'
+    +'<div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">Impresas esperando corte · '+R.esperando.length+' bobinas · '+F(R.metrosEsperando)+' m</div>'
+    +(R.esperando.length?R.esperando.slice(-8).reverse().map(r=>'<div style="font-size:13px;padding:2px 0;"><strong>'+nb(r)+'</strong> · '+oc(r)+' · '+F(r.metros)+' m · impresa '+(r.fin?_cvvFH(r.fin):'')+'</div>').join('')
+      +(R.esperando.length>8?'<div style="font-size:11px;color:var(--text3);">+ '+(R.esperando.length-8)+' más</div>':'')
+      :'<div style="font-size:13px;color:var(--text3);">Ninguna.</div>')
+    +'</div>';
+  return h+'</div>';
+}
+function _impRepintarTile(){const el=document.getElementById('pcorte-imp');if(el)el.outerHTML=_impTileHTML();}
+function _impActivar(){
+  window._pcorteImpresora=true;
+  _pcorteFeedback('🖨 Las bobinas que escanees van a la IMPRESORA','var(--accent)');
+  _impCargar(true).then(_pintarPanelCorte);
+}
+async function _impEscanear(b){
+  const empId=window._pcorteEmpleadoId||null,nro=b.numero_bobina;
+  if(!empId){_pcorteFeedback('⚠ Elegí tu nombre arriba antes de escanear.','var(--amber)','error');return;}
+  await _impCargar(true);
+  if(IMP.err){_pcorteFeedback('✕ No pude leer la impresora: '+IMP.err,'var(--red)','error');return;}
+  const viva=IMP.rows.find(r=>r.bobina_producida_id===b.id);
+  if(viva&&viva.estado==='imprimiendo')return _impTerminar(viva.id,'pistola');
+  if(viva){_pcorteFeedback('✕ La bobina '+nro+' ya se imprimió.','var(--red)','error',
+    {titulo:'✕ YA SE IMPRIMIÓ',numero:nro,detalle:(viva.fin?'el '+_cvvFH(viva.fin):'')+' · no se registra dos veces'});return;}
+  if(!b.en_stock){_pcorteFeedback('✕ La bobina '+nro+' ya no está en stock (se cortó o se vendió).','var(--red)','error');return;}
+  const oc=_bobDuenaViva(b,null);
+  if(oc&&!_impEsImpresa(oc)){_pcorteFeedback('✕ La bobina '+nro+' es de '+oc.numero_orden+' ('+(oc.cliente||'—')+'), que no lleva impresión.','var(--red)','error',
+    {titulo:'✕ NO ES PARA IMPRIMIR',numero:nro,detalle:'es de '+oc.numero_orden+' · '+(oc.cliente||'—')+' · producto sin impresión. ¿Estás en la máquina correcta?'});return;}
+  if(!oc&&!confirm('🖨 La bobina '+nro+' no está reservada para ninguna orden impresa.\n\n¿La estás poniendo en la impresora igual?'))
+    {_pcorteFeedback('No se registró la bobina '+nro+'.','var(--text3)');return;}
+  const fila={bobina_producida_id:b.id,orden_corte_id:oc?oc.id:null,empleado_id:empId,inicio:new Date().toISOString(),
+    metros:parseFloat(b.metros_reales)||null,estado:'imprimiendo',origen:'pistola'};
+  const{error}=await sb.from('impresion_bobinas').insert(fila);
+  if(error){_pcorteFeedback(error.code==='23505'?'✕ La bobina '+nro+' ya tiene una impresión registrada.':'✕ Error: '+(error.message||error),'var(--red)','error');return;}
+  _pcorteFeedback('🖨 Bobina '+nro+' ENTRÓ a la impresora'+(oc?' · '+oc.numero_orden:''),'var(--green)','ok',
+    {titulo:'🖨 ENTRÓ A LA IMPRESORA',numero:nro,detalle:(oc?oc.numero_orden+' · '+(oc.cliente||'')+' · ':'')+(parseFloat(b.metros_reales)||0).toLocaleString('es-AR')+' m · escaneala otra vez al sacarla'});
+  await _impCargar(true);_pintarPanelCorte();
+}
+async function _impTerminar(id,como){
+  const r=IMP.rows.find(x=>x.id===id);
+  const fin=new Date();
+  const{error}=await sb.from('impresion_bobinas').update({fin:fin.toISOString(),estado:'impresa'}).eq('id',id).eq('estado','imprimiendo');
+  if(error){_pcorteFeedback('✕ Error: '+(error.message||error),'var(--red)','error');return;}
+  const nro=r&&r.bobinas_producidas?r.bobinas_producidas.numero_bobina:'#'+id;
+  const min=r&&r.inicio?(fin-new Date(r.inicio))/60000:null;
+  _pcorteFeedback('✓ Bobina '+nro+' IMPRESA','var(--green)','ok',
+    {titulo:'✓ SALIÓ IMPRESA',numero:nro,detalle:(r?Math.round(parseFloat(r.metros)||0).toLocaleString('es-AR')+' m':'')+(min!=null?' en '+_cvvHM(min):'')+' · la tarjeta va con el rollo a la cortadora'});
+  await _impCargar(true);_pintarPanelCorte();
+}
+// En la cortadora: producto IMPRESA → la bobina tiene que haber pasado por la impresora.
+// Devuelve null (no aplica / ya impresa), {cerrar:id} (estaba «imprimiendo»: se cierra al cargarla),
+// {declarar:true} (no se escaneó en la impresora y el operario dice que está impresa) o false (no cargar).
+async function _impAntesDeCortar(b,oc){
+  if(!_impEsImpresa(oc))return null;
+  const{data,error}=await sb.from('impresion_bobinas').select('id,estado').eq('bobina_producida_id',b.id).neq('estado','anulada').limit(1);
+  if(error)return null;   // si no se puede leer, no se frena la producción
+  const r=(data||[])[0];
+  if(r&&r.estado==='impresa')return null;
+  if(r)return{cerrar:r.id};
+  if(confirm('🖨 La bobina '+b.numero_bobina+' es para '+oc.numero_orden+' ('+(oc.cliente||'—')+'), que lleva IMPRESIÓN,\ny NO SE ESCANEÓ EN LA IMPRESORA.\n\n¿Ya está impresa?\n\nAceptar = sí, está impresa (queda anotado que no se escaneó al imprimir)\nCancelar = no se carga'))return{declarar:true};
+  return false;
+}
+async function _impDespuesDeCortar(pre,b,oc,empId){
+  try{
+    const ahora=new Date().toISOString();
+    if(pre.cerrar)await sb.from('impresion_bobinas').update({fin:ahora,estado:'impresa',observaciones:'salida no escaneada: se cerró al cargarla en corte'}).eq('id',pre.cerrar).eq('estado','imprimiendo');
+    else if(pre.declarar)await sb.from('impresion_bobinas').insert({bobina_producida_id:b.id,orden_corte_id:oc.id,empleado_id:empId,inicio:null,fin:ahora,
+      metros:parseFloat(b.metros_reales)||null,estado:'impresa',origen:'declarada_en_corte',observaciones:'no se escaneó en la impresora; el operario de corte declaró que estaba impresa'});
+    IMP.t=0;
+  }catch(e){console.warn('impresión al cortar',e);}
 }
 
 // Arrancar una OC desde el panel, registrando el operario que la inició.
