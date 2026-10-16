@@ -34,7 +34,7 @@ t(tds.every(x=>x.emp===1),'operario Celia');
 const R=_cvvOCs(tds,cargas,ocs),A=R.find(o=>o.id===10),B=R.find(o=>o.id===11);
 t(A.golpes===105&&A.pistas===2&&A.cortadas===210,'OC-A 105 golpes × 2 = 210 ('+A.golpes+'×'+A.pistas+')');
 t(A.tanda===25&&A.parciales.length===1&&A.bolsasParc===10,'OC-A tanda 25, 1 incompleta = 10 bolsas');
-t(Math.round(A.sinUbicar)===-190,'OC-A de más en los bultos = 210−400 = −190, el scrap no se suma ('+A.sinUbicar+')');t(A.sem==='bad','OC-A no cierra');
+t(Math.round(A.sinUbicar)===-240,'OC-A sobran 240: debían salir 210 − bultos 400 − scrap 50 ('+A.sinUbicar+')');t(A.sem==='bad','OC-A no cierra');
 t(B.golpes===115&&B.tardeG===75,'OC-B 75 golpes tarde + 40 sin hora ('+B.golpes+','+B.tardeG+')');
 t(B.decl==null&&B.sem==='','OC-B abierta sin semáforo');
 // 3) operario
