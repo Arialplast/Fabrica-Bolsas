@@ -1138,7 +1138,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-15k</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-15l</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6360,7 +6360,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-15k';   // 15k: ✂ control de cierre con SEGUNDA BALANZA por peso: kg de las bobinas contra kg de bultos (+ prestadas − tomadas) + scrap. «Faltan» sólo si faltan por metros Y por peso (> 1 % los dos); si sólo por metros → «✓ CIERRA POR PESO» con la explicación (error de medición). OC-1052965: por metros 90 (2,8 %), por peso entra 121,0 y sale 122,0 kg → cierra.
+const APP_BUILD='2026-10-15l';   // 15l: ✂ control de cierre rehecho: balance de la OC en bolsas Y kg con el PESO REAL de la bolsa (kg sin tubo de las bobinas ÷ metros × metros por bolsa), nunca el de la ficha. Entró en bobinas · cortadas · quedó sin cortar · en los bultos · prestadas/tomadas · cortadas fuera de bultos · scrap pesado (kg ÷ peso real) · sin ubicar. Nivel ≤ 1 % cierra, 1–3 % revisar (resto en los tubos), > 3 % faltan, bultos > cortado = de más. Se saca la «segunda balanza» por peso teórico de la 15k.
+// 15k: ✂ control de cierre con SEGUNDA BALANZA por peso: kg de las bobinas contra kg de bultos (+ prestadas − tomadas) + scrap. «Faltan» sólo si faltan por metros Y por peso (> 1 % los dos); si sólo por metros → «✓ CIERRA POR PESO» con la explicación (error de medición). OC-1052965: por metros 90 (2,8 %), por peso entra 121,0 y sale 122,0 kg → cierra.
 // 15j: ✂ balance completo en el control de cierre: lo que ENTRÓ en bobinas (metros → bolsas) tiene que salir en bultos, prestadas o scrap. El scrap cubre el film que no se cortó (puntas, arranques) MÁS las cortadas fuera de los bultos; antes sólo las segundas y la OC-1052965 daba «cierra» con 90 bolsas sin ubicar.
 // 15i: ✂ el control de golpes se muestra SIEMPRE al cerrar una OC (tiradas, cuenta y veredicto); si cierra, botón «✓ Cerrar la orden» con comentario opcional; si no, explicación obligatoria como antes. Al cerrar ya no se pisan las notas que tenía la OC (inicio, cargas a mano, correcciones): se agregan.
 // 15h: ✂ control de cierre con el informe de las OC hechas a mano: TIRADAS (bobinas escaneadas juntas · metros · hora · golpes hasta el próximo escaneo · horario · bolsas-por-metros ÷ golpes = pistas de esa tirada); las pistas se afirman sólo si las tiradas lo dicen y la que no da se marca ⚠. La cuenta: cortadas · declaradas en el sistema / reales en los bultos (bultos distintos) · prestadas a / tomadas de otra OC (se cargan en la ventana y entran en la cuenta y en la nota) · scrap declarado · sin ubicar / de más. Corte en vivo: la tabla de tiradas en el detalle de la OC.
@@ -11232,7 +11233,15 @@ function _cvvOCs(tandas,cargas,ocs){
     o.teo=mpb?o.metros/mpb:null;
     o.golpes=o.tds.reduce((s,t)=>s+t.golpes,0);
     o.decl=oc.unidades_reales!=null?oc.unidades_reales:null;
-    o.scrapB=ppb&&oc.peso_scrap_kg!=null?(parseFloat(oc.peso_scrap_kg)||0)/ppb:0;
+    // 15l: PESO REAL por bolsa = kg SIN TUBO de las bobinas de esta OC ÷ sus metros × metros por bolsa.
+    // Las bobinas entraron por balanza: ese peso es el que vale, no el teórico de la ficha.
+    let kgN=0,mK=0;
+    o.cargas.forEach(c=>{const b=c.bobinas_producidas||{},k=parseFloat(b.kg_reales),mr=parseFloat(b.metros_reales),mu=parseFloat(c.metros_usados)||mr,t=parseFloat(b.tara_tubo_kg);
+      if(k>0&&mr>0){const net=(b.peso_origen&&t>0)?k-t:k;kgN+=net*mu/mr;mK+=mu;}});
+    o.kgm=mK?kgN/mK:null;o.kgNeto=o.kgm!=null?o.kgm*o.metros:null;
+    o.gBolsa=(o.kgm&&mpb)?o.kgm*mpb:null;o.gFicha=ppb||null;
+    o.scrapKg=oc.peso_scrap_kg!=null?(parseFloat(oc.peso_scrap_kg)||0):null;
+    o.scrapB=o.scrapKg!=null&&(o.gBolsa||ppb)?o.scrapKg/(o.gBolsa||ppb):0;
     const PP=_cvvPistas(o.golpes,o.teo,o.decl!=null?o.decl+o.scrapB:null);
     o.pistas=PP.p;o.pConf=PP.conf;o.pistasDudosa=PP.conf==='dudoso'||PP.conf==='metros'&&o.decl==null&&false;
     o.cortadas=o.pistas?o.golpes*o.pistas:null;
@@ -11243,8 +11252,8 @@ function _cvvOCs(tandas,cargas,ocs){
     // 15j: el scrap tiene que cubrir TAMBIÉN el film que entró y no se cortó (puntas, arranques):
     // sin ubicar = (no cortado + cortadas fuera de los bultos) − scrap. «De más» si los bultos superan lo cortado.
     o.noCortado=(o.teo!=null&&o.cortadas!=null)?Math.max(0,o.teo-o.cortadas):0;
-    o.sinUbicar=o.afuera==null?null:o.afuera>=0?Math.max(0,o.noCortado+o.afuera-o.scrapB):o.afuera;
-    o.pct=(o.sinUbicar!=null&&o.cortadas)?o.sinUbicar/o.cortadas:null;
+    o.sinUbicar=o.afuera==null?null:o.afuera>=0?o.noCortado+o.afuera-o.scrapB:o.afuera;
+    o.pct=(o.sinUbicar!=null&&(o.teo||o.cortadas))?o.sinUbicar/(o.teo||o.cortadas):null;
     const conH=o.tds.filter(t=>!t.sin_hora);
     o.tanda=_cvvModa(conH.filter(t=>t.golpes>=3).map(t=>t.golpes));
     o.parciales=o.tanda?conH.filter(t=>t.golpes<o.tanda*0.8):[];   // 15h: una tanda de 22 en una OC de 25 no es «incompleta»
@@ -11254,7 +11263,7 @@ function _cvvOCs(tandas,cargas,ocs){
     o.maqs=[...new Set(o.cargas.map(c=>c.maquina_id).concat(o.tds.map(t=>t.maquina)))].sort();
     o.emps=[...new Set(o.tds.map(t=>t.emp).filter(e=>e!=null))];
     o.cerrada=oc.estado==='Completada';
-    const a=Math.abs(o.pct||0);
+    const a=o.afuera!=null&&o.afuera<0?-o.afuera/o.cortadas:Math.max(0,o.pct||0);
     o.sem=o.pct==null?(o.pConf==='dudoso'&&o.decl!=null?'bad':''):a>0.03?'bad':a>0.01?'warn':'ok';
     o.tandaRara=o.tanda!=null&&![5,10,25].includes(o.tanda);
     if(o.tandaRara&&o.sem==='ok')o.sem='warn';
@@ -11294,7 +11303,7 @@ function _cvvOperarios(tandas,cargas,turnos,t0,ahora){
 // 5/10/25, no se cierra sin una explicación, que queda en las observaciones de la OC.
 // Sin golpes (CORTE-3 sin sensor, registrador caído) → no controla.
 async function _cvvControlCierre(oc,uniDecl,scrapKg,prod){
-  const selC='id,orden_corte_id,bobina_producida_id,metros_usados,fecha_asignacion,empleado_id,maquina_id,bobinas_producidas(numero_bobina,kg_reales,metros_reales)';
+  const selC='id,orden_corte_id,bobina_producida_id,metros_usados,fecha_asignacion,empleado_id,maquina_id,bobinas_producidas(numero_bobina,kg_reales,metros_reales,tara_tubo_kg,peso_origen)';
   const r1=await sb.from('orden_corte_bobinas').select(selC).eq('orden_corte_id',oc.id);
   if(r1.error)throw r1.error;
   const propias=(r1.data||[]).filter(c=>CVV.maqs.includes(c.maquina_id));
@@ -11342,33 +11351,30 @@ async function _cvvControlCierre(oc,uniDecl,scrapKg,prod){
 // 15h: veredicto con lo que informa quien cierra: bolsas prestadas a otra OC / tomadas de otra OC y
 // bultos con otra cantidad. afuera = cortadas − (declaradas − tomadas) − prestadas.
 function _cvvRecalc(R){
+  // 15l: BALANCE DE LA OC. Lo que entró en bobinas (metros → bolsas; kg sin tubo por balanza) tiene que
+  // salir en bultos, prestadas o scrap. El scrap pesado cubre el film que quedó sin cortar (puntas, resto
+  // en los tubos) MÁS las bolsas cortadas que no fueron a los bultos. Bolsas ↔ kg con el peso REAL por
+  // bolsa de las bobinas de esta OC. Nivel: ≤ 1 % cierra · 1–3 % revisar · > 3 % faltan · bultos con
+  // más de lo cortado (> 1 %) = de más.
   const P=R.prest||{},a=+P.a||0,de=+P.de||0;
+  R.nivel=null;
   if(R.cortadas!=null&&R.decl!=null){
     R.afuera=R.cortadas-(R.decl-de)-a;
     R.noCortado=(R.teo!=null)?Math.max(0,R.teo-R.cortadas):0;
-    R.sinUbicar=R.afuera>=0?Math.max(0,R.noCortado+R.afuera-R.scrapB):R.afuera;
-    R.pct=R.cortadas?R.sinUbicar/R.cortadas:null;
+    R.sinUbicar=R.afuera>=0?R.noCortado+R.afuera-R.scrapB:R.afuera;
+    const base=R.teo||R.cortadas;
+    R.pct=base?R.sinUbicar/base:null;
+    R.nivel=R.afuera<0&&-R.afuera/R.cortadas>0.01?'demas':R.pct>0.03?'faltan':R.pct>0.01?'revisar':'ok';
   }
   const bdOk=R.bd&&R.bd.length;
-  // 15k: SEGUNDA BALANZA, por peso: kg de las bobinas (balanza de extrusión) contra kg de los bultos
-  // (bolsas × peso por bolsa) + prestadas − tomadas + scrap pesado. «Faltan» sólo si lo dicen los metros
-  // Y el peso (los dos > 1 %): una diferencia que sólo aparece en una de las dos es error de medición
-  // (largo o peso real de la bolsa contra el teórico), no bolsas perdidas.
-  const pp=parseFloat(R.oc&&R.oc.productos&&R.oc.productos.peso_por_bolsa)||0,kgS=parseFloat(R.oc&&R.oc.peso_scrap_kg)||0;
-  let kgIn=0,okKg=R.cargas&&R.cargas.length>0;
-  (R.cargas||[]).forEach(c=>{const b=c.bobinas_producidas||{},k=parseFloat(b.kg_reales),mr=parseFloat(b.metros_reales),mu=parseFloat(c.metros_usados);
-    if(!(k>0)){okKg=false;return;}kgIn+=(mr>0&&mu>0)?k*mu/mr:k;});
-  if(okKg&&pp&&R.decl!=null){R.kgIn=kgIn;R.kgOut=(R.decl-de+a)*pp+kgS;R.kgFalta=R.kgIn-R.kgOut;R.kgPct=R.kgFalta/R.kgIn;}
-  else{R.kgIn=null;R.kgPct=null;}
-  R.faltaMetros=R.sinUbicar>0&&Math.abs(R.pct||0)>0.01;
-  R.faltaReal=R.faltaMetros&&(R.kgPct==null||R.kgPct>0.01);
-  R.alerta=R.pConf==='dudoso'||!R.golpes||R.faltaReal||(R.sinUbicar<0&&Math.abs(R.pct||0)>0.01)||(R.tandaRara&&!bdOk)||R.faltaBolsas>0;
+  R.alerta=R.pConf==='dudoso'||!R.golpes||R.nivel==='demas'||R.nivel==='faltan'||R.nivel==='revisar'||(R.tandaRara&&!bdOk)||R.faltaBolsas>0;
   const uniDecl=R.uniDecl;
   const N=n=>Math.round(n).toLocaleString('es-AR');
   R.linea=R.pistas
     ?'✂ Control de golpes '+localDate()+': '+N(R.golpes)+' golpes × '+R.pistas+' pistas = '+N(R.cortadas)
       +' cortadas · por metros '+N(R.teo||0)+' · declaradas '+N(uniDecl)+' · scrap ≈ '+N(R.scrapB)
-      +' · '+(R.afuera>=0?'no cortado '+N(R.noCortado||0)+' + afuera de los bultos '+N(R.afuera)+' − scrap '+N(R.scrapB)+(R.sinUbicar>0?' → FALTAN '+N(R.sinUbicar):' → cierra'):'DE MÁS en los bultos '+N(-R.afuera))+' · tanda '+(R.tanda||'—')
+      +' · '+(R.afuera>=0?'entró '+N(R.teo||0)+' − bultos '+N(R.decl-de+a)+' − scrap '+N(R.scrapB)+' = '+(R.sinUbicar>0?'FALTAN '+N(R.sinUbicar)+(R.gBolsa?' ('+(R.sinUbicar*R.gBolsa).toLocaleString('es-AR',{maximumFractionDigits:1})+' kg)':''):'cierra'):'DE MÁS en los bultos '+N(-R.afuera))
+      +(R.gBolsa?' · bolsa real '+(R.gBolsa*1000).toFixed(1).replace('.',',')+' g':'')+' · tanda '+(R.tanda||'—')
     :'✂ Control de golpes '+localDate()+': LOS GOLPES NO CIERRAN — '+N(R.golpes)+' golpes en '+_cvvMaqNom(R.maqEsc)+' · por metros '+N(R.teo||0)+' · declaradas '+N(uniDecl)+' + scrap ≈ '+N(R.scrapB)
       +(R.alt?' · en '+_cvvMaqNom(R.alt.maq)+' hubo '+N(R.alt.golpes)+' golpes sin bobina escaneada × '+R.alt.p+' pistas = '+N(R.alt.cort):'');
   if(a)R.linea+=' · prestadas '+N(a)+(P.aOC?' a '+P.aOC:'');
@@ -11390,26 +11396,29 @@ function _cvvPedirExplicacion(id,R,clave){
   cuenta='<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:2px 0">Bobinas, golpes y pistas</div>'+_cvvTiradasHTML(R);
   if(R.pistas&&R.afuera!=null){
     const bd=R.bd||[],ppb=R.ppb||0,uP=R.uniPaq||1;
-    // 2) la cuenta de bolsas (15j: balance completo — lo que entró en bobinas tiene que salir en bultos, prestadas o scrap)
+    // 2) la cuenta (15l): bolsas y kg, con el peso real de la bolsa
     const tope='border-top:1px solid var(--border);margin-top:3px;padding-top:6px;';
+    const g=R.gBolsa||R.gFicha||0,K=n=>g?(n*g).toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:1}):'';
+    const f2=(l,sub,b,kg,st)=>'<div style="display:grid;grid-template-columns:1fr 70px 62px;gap:8px;padding:3px 0;'+(st||'')+'"><span>'+l+(sub?' <span style="color:var(--text3);font-size:11px">'+sub+'</span>':'')+'</span><strong style="text-align:right;font-variant-numeric:tabular-nums">'+b+'</strong><span style="text-align:right;color:var(--text2);font-variant-numeric:tabular-nums">'+kg+'</span></div>';
     cuenta+='<div style="background:var(--bg2);border-radius:var(--r);padding:8px 12px;margin:8px 0">'
-      +fila('Entró en bobinas',f(R.teo||0),f(R.metros)+' m')
-      +fila('Cortadas por la máquina',f(R.cortadas),f(R.golpes)+' golpes × '+R.pistas)
-      +fila('&nbsp;&nbsp;Film que no se cortó',f(R.noCortado),'puntas, arranques, empalmes')
+      +f2('','', '<span style="font-size:10px;color:var(--text3)">BOLSAS</span>','<span style="font-size:10px;color:var(--text3)">KG</span>')
+      +f2('Entró en bobinas',f(R.metros)+' m · por balanza, sin tubo',f(R.teo||0),R.kgNeto!=null?R.kgNeto.toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:1}):'')
+      +f2('Cortadas por la máquina',f(R.golpes)+' golpes × '+R.pistas,f(R.cortadas),K(R.cortadas))
+      +f2('&nbsp;&nbsp;Quedó sin cortar','puntas, resto en los tubos',f(R.noCortado),K(R.noCortado))
       +(bd.length&&R.declSistema
-        ?fila('Declaradas en el sistema',f(R.declSistema),R.bolsones+' × '+f(ppb*uP),tope)
-         +fila('Reales en los bultos',f(R.decl),(R.bolsones-bd.reduce((s2,r)=>s2+r.n,0))+' × '+f(ppb*uP)+bd.map(r=>' + '+r.n+' × '+f(r.x*uP)).join(''))
-        :fila('En los bultos',f(R.decl),R.bolsones?R.bolsones+' × '+f(ppb*uP)+(R.sueltos?' + '+f(R.sueltos*uP):''):'',tope))
-      +(pa?fila('Prestadas'+(P.aOC?' a la '+escapeHtml(P.aOC):' a otra OC'),f(pa)):'')
-      +(pde?fila('Tomadas'+(P.deOC?' de la '+escapeHtml(P.deOC):' de otra OC'),'− '+f(pde),'están en los bultos pero no se cortaron acá'):'')
-      +(R.afuera>=0?fila('&nbsp;&nbsp;Cortadas fuera de los bultos',f(R.afuera)):'')
-      +fila('Scrap declarado ('+(kgS).toLocaleString('es-AR',{maximumFractionDigits:2})+' kg)','unas '+f(R.scrapB),'tiene que cubrir el film no cortado + las cortadas fuera de los bultos',tope)
+        ?f2('Declaradas en el sistema',R.bolsones+' × '+f(ppb*uP),f(R.declSistema),K(R.declSistema),tope)
+         +f2('Reales en los bultos',(R.bolsones-bd.reduce((s2,r)=>s2+r.n,0))+' × '+f(ppb*uP)+bd.map(r=>' + '+r.n+' × '+f(r.x*uP)).join(''),f(R.decl),K(R.decl))
+        :f2('En los bultos',R.bolsones?R.bolsones+' × '+f(ppb*uP)+(R.sueltos?' + '+f(R.sueltos*uP):''):'',f(R.decl),K(R.decl),tope))
+      +(pa?f2('Prestadas'+(P.aOC?' a la '+escapeHtml(P.aOC):' a otra OC'),'',f(pa),K(pa)):'')
+      +(pde?f2('Tomadas'+(P.deOC?' de la '+escapeHtml(P.deOC):' de otra OC'),'en los bultos, no se cortaron acá','− '+f(pde),K(pde)):'')
+      +(R.afuera>=0?f2('&nbsp;&nbsp;Cortadas fuera de los bultos','',f(R.afuera),K(R.afuera)):'')
+      +f2('Scrap pesado','cubre lo sin cortar + lo cortado fuera de bultos',f(R.scrapB),(R.scrapKg||0).toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:2}),tope)
       +(R.afuera>=0
-        ?fila('Sin ubicar',R.sinUbicar>0?'unas '+f(R.sinUbicar):'0',f(R.noCortado)+' + '+f(R.afuera)+' − '+f(R.scrapB),tope+(R.sinUbicar>0?'color:var(--red)':'color:var(--green)'))
-        :fila('De más en los bultos',f(-R.afuera),'no las cortó la máquina',tope+'color:var(--red)'))
-      +(R.kgIn!=null?fila('Por peso',(R.kgPct>0.01?'faltan ':R.kgPct<-0.01?'sobran ':'cierra · ')+Math.abs(R.kgFalta).toLocaleString('es-AR',{maximumFractionDigits:1})+' kg',
-          'entró '+R.kgIn.toLocaleString('es-AR',{maximumFractionDigits:1})+' kg · bultos'+(pa||pde?' y prestadas':'')+' '+(R.kgOut-kgS).toLocaleString('es-AR',{maximumFractionDigits:1})+' + scrap '+kgS.toLocaleString('es-AR',{maximumFractionDigits:2}),
-          tope+(R.kgPct>0.01?'color:var(--red)':'color:var(--green)')):'')
+        ?f2(R.sinUbicar>0?'Sin ubicar':'Sobra scrap',R.sinUbicar>0?((R.pct*100).toFixed(1).replace('.',',')+' % de lo que entró'):'el scrap pesa más de lo que hacía falta',f(Math.abs(R.sinUbicar)),K(Math.abs(R.sinUbicar)),tope+(R.nivel==='faltan'?'color:var(--red)':R.nivel==='revisar'?'color:var(--amber)':'color:var(--green)'))
+        :f2('De más en los bultos','no las cortó la máquina',f(-R.afuera),K(-R.afuera),tope+'color:var(--red)'))
+      +'<div style="font-size:11px;color:var(--text3);margin-top:5px">Peso real de la bolsa: <strong>'+(R.gBolsa?(R.gBolsa*1000).toFixed(1).replace('.',',')+' g':'—')+'</strong>'
+        +(R.kgNeto!=null?' ('+R.kgNeto.toLocaleString('es-AR',{maximumFractionDigits:1})+' kg ÷ '+f(R.metros)+' m × '+String(R.metros&&R.teo?(R.metros/R.teo).toFixed(2):'').replace('.',',')+' m por bolsa)':'')
+        +(R.gFicha?' · ficha '+(R.gFicha*1000).toFixed(1).replace('.',',')+' g':'')+'</div>'
     +'</div>'
     // 3) prestadas: se informan acá y entran en la cuenta
     +'<details style="font-size:12px;margin-bottom:8px"'+(pa||pde||(R.afuera<0&&Math.abs(R.pct||0)>0.01)?' open':'')+'><summary style="cursor:pointer;color:var(--text2)">¿Se prestaron o se tomaron bolsas de otra OC?</summary>'
@@ -11418,14 +11427,12 @@ function _cvvPedirExplicacion(id,R,clave){
         +'<span>Tomadas de otra OC</span><input id="cvv-pde" type="number" min="0" value="'+(pde||'')+'"><span>OC</span><input id="cvv-pdeoc" type="text" placeholder="OC-105…" value="'+escapeHtml(P.deOC||'')+'">'
       +'</div><button type="button" class="btn btn-sm btn-primary" style="margin-top:6px" onclick="_cvvAplicarPrest('+id+')">Aplicar y recalcular</button></details>';
     const pc=x=>(x*100).toFixed(1).replace('.',',')+' %';
-    if(R.afuera<0&&Math.abs(R.pct||0)>0.01)
-      ver='<div style="border:2px solid var(--red);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;color:var(--red);font-weight:800">⛔ HAY '+f(-R.afuera)+' BOLSAS DE MÁS EN LOS BULTOS<div style="font-weight:400;font-size:12px;color:var(--text1);margin-top:2px">Declararon '+f(-R.afuera)+' bolsas más de las que cortó la máquina ('+pc(-R.afuera/R.cortadas)+'). ¿Bolsas tomadas de otra OC? Cargalo arriba. ¿Bultos mal contados?</div></div>';
-    else if(R.faltaMetros&&!R.faltaReal)
-      ver='<div style="border:2px solid var(--green);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;color:var(--green);font-weight:800">✓ CIERRA POR PESO<div style="font-weight:400;font-size:12px;color:var(--text1);margin-top:2px">Por metros faltarían unas '+f(R.sinUbicar)+' bolsas ('+pc(R.pct)+'), pero por peso entró '+R.kgIn.toLocaleString('es-AR',{maximumFractionDigits:1})+' kg y salió '+R.kgOut.toLocaleString('es-AR',{maximumFractionDigits:1})+' kg. Si fueran bolsas perdidas faltaría también peso: es diferencia de medición (largo y peso real de la bolsa contra el teórico).</div></div>';
-    else if(R.faltaReal)
-      ver='<div style="border:2px solid var(--red);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;color:var(--red);font-weight:800">⛔ FALTAN '+f(R.sinUbicar)+' BOLSAS<div style="font-weight:400;font-size:12px;color:var(--text1);margin-top:2px">De lo que entró en bobinas, '+f(R.sinUbicar)+' bolsas no están en los bultos'+(pa?', ni en las prestadas,':'')+' ni en el scrap pesado ('+pc(R.pct)+').'+(R.bolsasParc?' Hubo '+f(R.bolsasParc)+' bolsas en pilas incompletas (arranques y cambios de bobina): si se tiraron sin pesar, están ahí.':'')+'</div></div>';
-    else
-      ver='<div style="border:2px solid var(--green);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;color:var(--green);font-weight:800">✓ LAS BOLSAS CIERRAN<div style="font-weight:400;font-size:12px;color:var(--text1);margin-top:2px">'+(R.afuera>=0?'Lo que entró en bobinas está en los bultos'+(pa?', las prestadas':'')+' y el scrap.':'Declararon apenas '+f(-R.afuera)+' bolsas más de lo cortado ('+pc(-R.afuera/R.cortadas)+'): dentro de la tolerancia.')+'</div></div>';
+    const kgF=n=>g?(n*g).toLocaleString('es-AR',{maximumFractionDigits:1})+' kg':'';
+    const caja=(c,t,d)=>'<div style="border:2px solid var(--'+c+');border-radius:var(--r);padding:8px 12px;margin-bottom:8px;color:var(--'+c+');font-weight:800">'+t+'<div style="font-weight:400;font-size:12px;color:var(--text1);margin-top:2px">'+d+'</div></div>';
+    if(R.nivel==='demas')ver=caja('red','⛔ HAY '+f(-R.afuera)+' BOLSAS DE MÁS EN LOS BULTOS','Declararon '+f(-R.afuera)+' bolsas ('+kgF(-R.afuera)+') más de las que cortó la máquina. ¿Bolsas tomadas de otra OC? Cargalo arriba. ¿Bultos mal contados?');
+    else if(R.nivel==='faltan')ver=caja('red','⛔ FALTAN '+f(R.sinUbicar)+' BOLSAS ('+kgF(R.sinUbicar)+')','Entraron '+f(R.teo)+' bolsas en bobinas; en los bultos'+(pa?', prestadas':'')+' y el scrap hay '+f(R.teo-R.sinUbicar)+'. Faltan '+pc(R.pct)+'.'+(R.bolsasParc?' Hubo '+f(R.bolsasParc)+' bolsas en pilas incompletas: si se tiraron sin pesar, están ahí.':''));
+    else if(R.nivel==='revisar')ver=caja('amber','⚠ FALTAN '+f(R.sinUbicar)+' BOLSAS ('+kgF(R.sinUbicar)+') · '+pc(R.pct),'Diferencia chica. Si el resto de film que queda en los tubos no se pesa con el scrap, está ahí ('+f(R.noCortado)+' bolsas sin cortar). Si se pesa, faltan.');
+    else ver=caja('green','✓ CIERRA','Lo que entró en bobinas está en los bultos'+(pa?', las prestadas':'')+' y el scrap'+(R.afuera>=0&&R.sinUbicar!==0?' ('+(R.sinUbicar>0?'diferencia ':'sobra scrap ')+f(Math.abs(R.sinUbicar))+' bolsas, '+pc(Math.abs(R.pct))+')':'')+'.');
   }
   const motivoTxt='';
   const html='<div class="modal-overlay" id="cvv-expl" style="z-index:10050"><div class="modal-card" style="max-width:520px">'
@@ -11599,7 +11606,7 @@ async function renderCorteVivo(){
   if(!w.innerHTML.trim())w.innerHTML='<div class="loading"><div class="spinner"></div></div>';
   try{
     const ahora=Date.now(),t0=ahora-CVV.horas*3600000,tA=t0-12*3600000;
-    const selC='id,orden_corte_id,bobina_producida_id,metros_usados,fecha_asignacion,empleado_id,maquina_id,origen,bobinas_producidas(numero_bobina)';
+    const selC='id,orden_corte_id,bobina_producida_id,metros_usados,fecha_asignacion,empleado_id,maquina_id,origen,bobinas_producidas(numero_bobina,kg_reales,metros_reales,tara_tubo_kg,peso_origen)';
     const r1=await _traerQ(()=>sb.from('orden_corte_bobinas').select(selC).gte('fecha_asignacion',new Date(tA).toISOString()).order('fecha_asignacion').order('id'));
     if(r1.error)throw r1.error;
     const ocIds=[...new Set((r1.data||[]).filter(c=>CVV.maqs.includes(c.maquina_id)).map(c=>c.orden_corte_id))];
