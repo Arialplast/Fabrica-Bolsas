@@ -1138,7 +1138,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-15n</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-15o</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6360,7 +6360,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-15n';   // 15n: ✂ control de cierre FIJO y sin justificaciones: debían salir (metros ÷ largo de ficha) − bultos − prestadas/tomadas (las informa el operario) − scrap (kg ÷ peso de la bolsa de estas bobinas) = FALTAN / SOBRAN; más de ±1 % → el operario explica. Golpes × pistas contra metros como control aparte de la cortadora (±3 %). Se sacan «quedó sin cortar», «scrap de más», «revisar» y la sugerencia automática de bultos distintos.
+const APP_BUILD='2026-10-15o';   // 15o: ✂ PARADAS POR OC Y OPERARIO: cada hueco de 30 s o más entre tandas de la OC (sacar la pila tarda ~5 s), con desde/hasta/duración/máquina/operario y lo registrado en ese momento (cambio de bobina = escaneo de una bobina de la OC ± 2 min; si no, «nada (sin escaneo)» en rojo). Resumen por operario: golpes, cortando, paradas, cambios de bobina, sin escaneo, de 3 min o más. En el detalle de la OC (Corte en vivo) y en el control de cierre (desplegable).
+// 15n: ✂ control de cierre FIJO y sin justificaciones: debían salir (metros ÷ largo de ficha) − bultos − prestadas/tomadas (las informa el operario) − scrap (kg ÷ peso de la bolsa de estas bobinas) = FALTAN / SOBRAN; más de ±1 % → el operario explica. Golpes × pistas contra metros como control aparte de la cortadora (±3 %). Se sacan «quedó sin cortar», «scrap de más», «revisar» y la sugerencia automática de bultos distintos.
 // 15m: ✂ no queda film en el tubo (German): todo el film pasa por la cortadora, así que la base del balance son las CORTADAS (golpes × pistas) y cada bolsa pesa kg sin tubo ÷ cortadas y mide metros ÷ cortadas (medido; se avisa si el largo no coincide con la ficha). Sin ubicar = cortadas − bultos − prestadas + tomadas − scrap (kg ÷ peso real), como el análisis a mano. Se saca «quedó sin cortar». Nuevo nivel «scrap de más» (> 3 %).
 // 15l: ✂ control de cierre rehecho: balance de la OC en bolsas Y kg con el PESO REAL de la bolsa (kg sin tubo de las bobinas ÷ metros × metros por bolsa), nunca el de la ficha. Entró en bobinas · cortadas · quedó sin cortar · en los bultos · prestadas/tomadas · cortadas fuera de bultos · scrap pesado (kg ÷ peso real) · sin ubicar. Nivel ≤ 1 % cierra, 1–3 % revisar (resto en los tubos), > 3 % faltan, bultos > cortado = de más. Se saca la «segunda balanza» por peso teórico de la 15k.
 // 15k: ✂ control de cierre con SEGUNDA BALANZA por peso: kg de las bobinas contra kg de bultos (+ prestadas − tomadas) + scrap. «Faltan» sólo si faltan por metros Y por peso (> 1 % los dos); si sólo por metros → «✓ CIERRA POR PESO» con la explicación (error de medición). OC-1052965: por metros 90 (2,8 %), por peso entra 121,0 y sale 122,0 kg → cierra.
@@ -11201,6 +11202,46 @@ function _cvvTiradas(o,mpb){
   });
   return G;
 }
+// 15o — PARADAS DE LA OC (German: «en una OC como esta no puede haber tantas paradas»). Cada hueco de
+// 30 s o más entre dos tandas seguidas de la OC en la misma máquina es una parada (sacar la pila tarda
+// ~5 s). Se marca si en ese hueco (± 2 min) se escaneó una bobina de la OC: cambio de bobina. Sin
+// escaneo = parada sin motivo registrado. Se informa por operario. No se supone ningún motivo.
+function _cvvParadasOC(o){
+  const ts=o.tds.filter(t=>!t.sin_hora).slice().sort((a,b)=>a.ti-b.ti),P=[];
+  for(let i=1;i<ts.length;i++){
+    const a=ts[i-1],b=ts[i];if(a.maquina!==b.maquina)continue;
+    const seg=(b.ti-a.tf)/1000;if(seg<30)continue;
+    const sc=o.cargas.filter(c=>c.maquina_id===a.maquina&&c.t>=a.tf-120000&&c.t<=b.ti+120000);
+    P.push({a:a.tf,z:b.ti,seg,maq:a.maquina,emp:b.emp!=null?b.emp:a.emp,scans:sc});
+  }
+  const ops={};
+  ts.forEach(t=>{const k=String(t.emp);const O=ops[k]=ops[k]||{emp:t.emp,golpes:0,cort:0,n:0,seg:0,nBob:0,segBob:0,nSin:0,segSin:0,n3:0,n20:0};O.golpes+=t.golpes;O.cort+=Math.max(2000,t.tf-t.ti+2000);});
+  P.forEach(p=>{const k=String(p.emp);const O=ops[k]=ops[k]||{emp:p.emp,golpes:0,cort:0,n:0,seg:0,nBob:0,segBob:0,nSin:0,segSin:0,n3:0,n20:0};
+    O.n++;O.seg+=p.seg;if(p.scans.length){O.nBob++;O.segBob+=p.seg;}else{O.nSin++;O.segSin+=p.seg;}
+    if(p.seg>=180)O.n3++;if(p.seg>=1200)O.n20++;});
+  return{P,ops:Object.values(ops),a:ts.length?ts[0].ti:null,z:ts.length?ts[ts.length-1].tf:null};
+}
+function _cvvParadasHTML(o,compacto){
+  const X=_cvvParadasOC(o);if(!X.P.length&&!X.ops.length)return '';
+  const H=t=>_plcHora(new Date(t).toISOString())+':'+String(new Date(t).getSeconds()).padStart(2,'0');
+  const D=s=>s>=60?Math.floor(s/60)+' min '+String(Math.round(s%60)).padStart(2,'0')+' s':Math.round(s)+' s';
+  const st='style="padding:3px 6px;border-bottom:1px solid var(--border,#333);text-align:right;white-space:nowrap"',stl='style="padding:3px 6px;border-bottom:1px solid var(--border,#333);text-align:left"';
+  const tot=X.a?(X.z-X.a)/1000:0;
+  let h='<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:8px 0 2px">Paradas de la máquina en esta OC (30 s o más)</div>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:11.5px;margin:2px 0"><thead><tr><th '+stl+'>Operario</th><th '+st+'>Golpes</th><th '+st+'>Cortando</th><th '+st+'>Paradas</th><th '+st+'>Cambio de bobina</th><th '+st+'>Sin escaneo</th><th '+st+'>De 3 min o más</th></tr></thead><tbody>'
+    +X.ops.map(O=>'<tr><td '+stl+'>'+escapeHtml(_cvvEmpNom(O.emp))+'</td><td '+st+'>'+O.golpes.toLocaleString('es-AR')+'</td><td '+st+'>'+_cvvHM(O.cort/60000)+'</td>'
+      +'<td '+st+'><strong>'+O.n+' · '+_cvvHM(O.seg/60)+'</strong></td><td '+st+'>'+O.nBob+' · '+_cvvHM(O.segBob/60)+'</td>'
+      +'<td '+st+(O.nSin?' style="padding:3px 6px;border-bottom:1px solid var(--border,#333);text-align:right;color:var(--red,#ef5a4c);font-weight:700"':'')+'>'+O.nSin+' · '+_cvvHM(O.segSin/60)+'</td><td '+st+'>'+O.n3+'</td></tr>').join('')
+    +'</tbody></table>'
+    +'<div style="font-size:11px;color:var(--text3)">De '+(X.a?H(X.a):'—')+' a '+(X.z?H(X.z):'—')+' ('+_cvvHM(tot/60)+'): parada '+_cvvHM(X.P.reduce((s2,p)=>s2+p.seg,0)/60)+' en '+X.P.length+' paradas. Sacar la pila tarda ~5 s y no cuenta.</div>';
+  if(!compacto&&X.P.length){
+    h+='<table style="width:100%;border-collapse:collapse;font-size:11.5px;margin:4px 0"><thead><tr><th '+stl+'>Desde</th><th '+stl+'>Hasta</th><th '+st+'>Duración</th><th '+stl+'>Máq.</th><th '+stl+'>Operario</th><th '+stl+'>Registrado en ese momento</th></tr></thead><tbody>'
+      +X.P.map(p=>'<tr'+(p.seg>=180?' style="font-weight:700"':'')+'><td '+stl+'>'+H(p.a)+'</td><td '+stl+'>'+H(p.z)+'</td><td '+st+'>'+D(p.seg)+'</td><td '+stl+'>'+escapeHtml(_cvvMaqNom(p.maq).replace('CORTE-','C'))+'</td><td '+stl+'>'+escapeHtml(_cvvEmpNom(p.emp))+'</td>'
+        +'<td '+stl+'>'+(p.scans.length?'cambio de bobina: '+p.scans.map(c=>escapeHtml((c.bobinas_producidas&&c.bobinas_producidas.numero_bobina)||'#'+c.bobina_producida_id)+' '+_plcHora(new Date(c.t).toISOString())).join(', '):'<span style="color:var(--red,#ef5a4c)">nada (sin escaneo)</span>')+'</td></tr>').join('')
+      +'</tbody></table>';
+  }
+  return h;
+}
 function _cvvTiradasHTML(o){
   if(!o.tiradas||!o.tiradas.length)return '';
   const F=n=>n==null?'—':Math.round(n).toLocaleString('es-AR'),H=t=>t==null?'—':_plcHora(new Date(t).toISOString());
@@ -11403,7 +11444,7 @@ function _cvvPedirExplicacion(id,R,clave){
   let cuenta='',ver='';
   const P=R.prest||{},pa=+P.a||0,pde=+P.de||0;
   // 1) tiradas (de dónde salen las pistas)
-  cuenta='<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:2px 0">Bobinas, golpes y pistas</div>'+_cvvTiradasHTML(R);
+  cuenta='<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:2px 0">Bobinas, golpes y pistas</div>'+_cvvTiradasHTML(R)+'<details style="font-size:12px;margin:4px 0"><summary style="cursor:pointer;color:var(--text2)">Paradas de la máquina</summary>'+_cvvParadasHTML(R,false)+'</details>';
   if(R.pistas&&R.afuera!=null){
     const bd=R.bd||[],ppb=R.ppb||0,uP=R.uniPaq||1;
     // 2) la cuenta (15l): bolsas y kg, con el peso real de la bolsa
@@ -11784,7 +11825,7 @@ function _cvvDetalleOC(D){
     +k('Declaradas',o.decl!=null?_evvF(o.decl):'—',o.decl!=null?'+ scrap ≈ '+_evvF(o.scrapB)+' bolsas ('+_evvF(parseFloat(oc.peso_scrap_kg)||0,2)+' kg)':'OC sin cerrar')
     +k('Sin ubicar',o.sinUbicar!=null?(o.sinUbicar>0?'+':'')+_evvF(o.sinUbicar):'—',o.bolsasParc!=null?_evvF(o.bolsasParc)+' bolsas en '+o.parciales.length+' tandas incompletas':'',o.sem==='bad'?'var(--bad)':o.sem==='warn'?'var(--warn)':null)
     +'</div>';
-  h+='<div style="font-size:.85rem">'+_cvvTiradasHTML(o)+'</div>';
+  h+='<div style="font-size:.85rem">'+_cvvTiradasHTML(o)+_cvvParadasHTML(o,false)+'</div>';
   h+='<div class="evx-two"><div class="evx-tw"><table><thead><tr><th class="l">Día · de–a</th><th class="l">Máq.</th><th class="l">Operario</th><th>Cortando</th><th>Tandas</th><th>Golpes</th><th>Bolsas</th></tr></thead><tbody>'
     +runs.map(r=>'<tr><td class="l">'+_cvvFH(r.a)+'–'+_plcHora(new Date(r.z).toISOString())+'</td><td class="l">'+escapeHtml(_cvvMaqNom(r.maq))+'</td><td class="l">'+escapeHtml(_cvvEmpNom(r.emp))+'</td><td>'+_cvvHM(_cvvMin(r.cort))+'</td><td>'+r.n+'</td><td>'+_evvF(r.g)+'</td><td>'+_evvF(o.pistas?r.g*o.pistas:null)+'</td></tr>').join('')
     +(o.tds.some(t=>t.sin_hora)?'<tr><td class="l mut" colspan="5">Golpes sin hora (PC apagada)</td><td>'+_evvF(o.tds.filter(t=>t.sin_hora).reduce((s,t)=>s+t.golpes,0))+'</td><td></td></tr>':'')
