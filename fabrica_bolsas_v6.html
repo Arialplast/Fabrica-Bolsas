@@ -1138,7 +1138,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-15q</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-16a</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6360,7 +6360,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-15q';   // 15q: ✂ pilas bien contadas con el registro golpe a golpe: una pila que el operario cortó a la mitad y completó al volver a arrancar (11 + 14 = 25) es «cortada a la mitad», no dos incompletas. Incompleta = nunca llegó a la parada; de más = pasó de la parada sin la pausa de la máquina (29, 31…), con los golpes de más.
+const APP_BUILD='2026-10-16a';   // 16a: ✂ golpes que tenía que hacer la cortadora = bobina más larga de cada par ÷ largo (con 2 pistas la más larga termina sola); cortadas = golpes × pistas − la punta a 1 pista. Control de cortadora: golpes contra esos golpes. — 15q anterior: 15q: ✂ pilas bien contadas con el registro golpe a golpe: una pila que el operario cortó a la mitad y completó al volver a arrancar (11 + 14 = 25) es «cortada a la mitad», no dos incompletas. Incompleta = nunca llegó a la parada; de más = pasó de la parada sin la pausa de la máquina (29, 31…), con los golpes de más.
 // 15p: ✂ paradas: TANDAS SIN COMPLETAR (menos golpes que la parada de la máquina, normalmente 25) y tandas de más, por operario y en total con el detalle (ej. 11×5 · 4×14); en cada parada, con cuántos golpes venía la tanda («12 de 25» en rojo = paró a mitad de pila).
 // 15o: ✂ PARADAS POR OC Y OPERARIO: cada hueco de 30 s o más entre tandas de la OC (sacar la pila tarda ~5 s), con desde/hasta/duración/máquina/operario y lo registrado en ese momento (cambio de bobina = escaneo de una bobina de la OC ± 2 min; si no, «nada (sin escaneo)» en rojo). Resumen por operario: golpes, cortando, paradas, cambios de bobina, sin escaneo, de 3 min o más. En el detalle de la OC (Corte en vivo) y en el control de cierre (desplegable).
 // 15n: ✂ control de cierre FIJO y sin justificaciones: debían salir (metros ÷ largo de ficha) − bultos − prestadas/tomadas (las informa el operario) − scrap (kg ÷ peso de la bolsa de estas bobinas) = FALTAN / SOBRAN; más de ±1 % → el operario explica. Golpes × pistas contra metros como control aparte de la cortadora (±3 %). Se sacan «quedó sin cortar», «scrap de más», «revisar» y la sugerencia automática de bultos distintos.
@@ -11277,22 +11277,48 @@ function _cvvTiradasHTML(o){
   const F=n=>n==null?'—':Math.round(n).toLocaleString('es-AR'),H=t=>t==null?'—':_plcHora(new Date(t).toISOString());
   const sh=o.tds.filter(t=>t.sin_hora).reduce((s2,t)=>s2+t.golpes,0);
   const st='style="padding:3px 6px;border-bottom:1px solid var(--border,#333);text-align:right;white-space:nowrap"',stl='style="padding:3px 6px;border-bottom:1px solid var(--border,#333);text-align:left"';
-  let h='<table style="width:100%;border-collapse:collapse;font-size:11.5px;margin:4px 0"><thead><tr><th '+stl+'>Bobinas</th><th '+st+'>Metros</th><th '+st+'>Escaneo</th><th '+st+'>Golpes</th><th '+st+'>Tirada</th><th '+st+' title="bolsas que dan los metros ÷ golpes">Pistas</th></tr></thead><tbody>';
+  let h='<table style="width:100%;border-collapse:collapse;font-size:11.5px;margin:4px 0"><thead><tr><th '+stl+'>Bobinas</th><th '+st+'>Metros</th><th '+st+'>Escaneo</th><th '+st+'>Golpes</th><th '+st+' title="bobina más larga del par ÷ largo de bolsa">Tenía que hacer</th><th '+st+'>Tirada</th><th '+st+' title="bolsas que dan los metros ÷ golpes">Pistas</th></tr></thead><tbody>';
   o.tiradas.forEach(g=>{
-    const mal=o.pistas&&g.golpes>=50&&g.r!=null&&Math.abs(g.r/o.pistas-1)>0.12;
+    const mal=o.pistas&&g.golpes>=50&&(g.gEsp?Math.abs(g.golpes/g.gEsp-1)>0.05:g.r!=null&&Math.abs(g.r/o.pistas-1)>0.12);
     h+='<tr'+(mal?' style="color:var(--red,#ef5a4c);font-weight:700"':'')+'><td '+stl+'>'+g.bobs.map(escapeHtml).join(' + ')+(g.maq!==o.tiradas[0].maq||o.maqs.length>1?' <span style="opacity:.7">('+escapeHtml(_cvvMaqNom(g.maq).replace('CORTE-','C'))+')</span>':'')+'</td>'
       +'<td '+st+'>'+g.cs.map(c=>F(parseFloat(c.metros_usados))).join(' + ')+'</td><td '+st+'>'+H(g.t)+'</td><td '+st+'>'+F(g.golpes)+'</td>'
+      +'<td '+st+'>'+(g.gEsp?F(g.gEsp)+(g.exacto?'':' ≈')+' <span style="opacity:.7">('+((g.golpes/g.gEsp-1)*100>0?'+':'')+((g.golpes/g.gEsp-1)*100).toFixed(1).replace('.',',')+' %)</span>':'—')+'</td>'
       +'<td '+st+'>'+(g.a?H(g.a)+' a '+H(g.z):'sin golpes')+'</td><td '+st+'>'+(g.r!=null?g.r.toFixed(2).replace('.',','):'—')+(mal?' ⚠':'')+'</td></tr>';
   });
-  if(sh)h+='<tr><td '+stl+' colspan="3" style="opacity:.7">Golpes con la PC apagada (sin hora)</td><td '+st+'>'+F(sh)+'</td><td '+st+'></td><td '+st+'></td></tr>';
+  if(sh)h+='<tr><td '+stl+' colspan="3" style="opacity:.7">Golpes con la PC apagada (sin hora)</td><td '+st+'>'+F(sh)+'</td><td '+st+'></td><td '+st+'></td><td '+st+'></td></tr>';
   const tr=o.teo&&o.golpes?o.teo/o.golpes:null;
-  h+='<tr style="font-weight:700"><td '+stl+'>Total</td><td '+st+'>'+F(o.metros)+' m</td><td '+st+'></td><td '+st+'>'+F(o.golpes)+'</td><td '+st+'></td><td '+st+'>'+(tr!=null?tr.toFixed(2).replace('.',','):'—')+'</td></tr></tbody></table>';
-  const malas=o.tiradas.filter(g=>o.pistas&&g.golpes>=50&&g.r!=null&&Math.abs(g.r/o.pistas-1)>0.12);
+  h+='<tr style="font-weight:700"><td '+stl+'>Total</td><td '+st+'>'+F(o.metros)+' m</td><td '+st+'></td><td '+st+'>'+F(o.golpes)+'</td><td '+st+'>'+(o.gEsp?F(o.gEsp)+(o.parDesc?' ≈':'')+' <span style="opacity:.7">('+(o.difGolpes>0?'+':'')+(o.difGolpes*100).toFixed(1).replace('.',',')+' %)</span>':'')+'</td><td '+st+'></td><td '+st+'>'+(tr!=null?tr.toFixed(2).replace('.',','):'—')+'</td></tr></tbody></table>';
+  const malas=o.tiradas.filter(g=>o.pistas&&g.golpes>=50&&(g.gEsp?Math.abs(g.golpes/g.gEsp-1)>0.05:g.r!=null&&Math.abs(g.r/o.pistas-1)>0.12));
   h+='<div style="font-size:11.5px;margin-bottom:4px">'+(o.pistas
-     ?(malas.length?'<span style="color:var(--red,#ef5a4c);font-weight:700">⚠ '+malas.length+' tirada'+(malas.length>1?'s no dan':' no da')+' '+o.pistas+' pistas</span> (marcadas): esos golpes no cierran con esas bobinas — bobina sin escanear, golpes de otra OC o bobina escaneada que no se cortó.'
-       :(o.tiradas.filter(g=>g.golpes>=50).length>1?'✓ Las '+o.tiradas.filter(g=>g.golpes>=50).length+' tiradas dan ~'+o.pistas+': se cortó a <strong>'+o.pistas+' pista'+(o.pistas>1?'s':'')+'</strong>.':'Una sola tirada (todas las bobinas escaneadas juntas): da ~'+o.pistas+' pista'+(o.pistas>1?'s':'')+' en el total, sin tiradas para comparar.'))
+     ?(malas.length?'<span style="color:var(--red,#ef5a4c);font-weight:700">⚠ '+malas.length+' tirada'+(malas.length>1?'s no dan':' no da')+' con sus bobinas</span> (marcadas, más de 5 % de diferencia). <strong>Menos golpes</strong> = film de esas bobinas que no pasó por la cuchilla, o bobina escaneada que no se cortó. <strong>Más golpes</strong> = se cortó film que no está escaneado: bobina sin escanear o golpes de otra OC. Lo explica el operario.'
+       :(o.tiradas.filter(g=>g.golpes>=50).length>1?'✓ Las '+o.tiradas.filter(g=>g.golpes>=50).length+' tiradas cierran con sus bobinas: se cortó a <strong>'+o.pistas+' pista'+(o.pistas>1?'s':'')+'</strong>.':'Una sola tirada (todas las bobinas escaneadas juntas): da ~'+o.pistas+' pista'+(o.pistas>1?'s':'')+' en el total, sin tiradas para comparar.'))
      :'<span style="color:var(--amber,#e8b23a);font-weight:700">Las tiradas no dan un número de pistas parejo: no se puede afirmar cuántas pistas se cortaron.</span>')+'</div>';
   return h;
+}
+// 15r — GOLPES QUE TENÍA QUE HACER LA CORTADORA (German, 16/10). Con varias pistas la cuchilla corta las
+// bobinas juntas; cuando se termina la más corta, la más larga sigue sola. Cada grupo (el par que se
+// escaneó junto) necesita tantos golpes como bolsas tiene SU BOBINA MÁS LARGA: metros ÷ largo de bolsa.
+// Ej. OC-1052971: 07007 (1.013 m) + 07008 (1.051 m) → 1.051 ÷ 0,78 = 1.347 golpes; hizo 1.348.
+// Bolsas cortadas = golpes × pistas − la punta que la más larga corta sola.
+// Si una tirada no tiene exactamente «pistas» bobinas (se escanearon de a una o varias juntas) no se sabe
+// cuál iba con cuál: para esas se usa metros ÷ largo ÷ pistas y la cuenta queda marcada como aproximada.
+function _cvvGolpesEsp(o,mpb){
+  o.gEsp=null;o.cola=0;o.parDesc=0;
+  const p=o.pistas;if(!p||!mpb||!o.tiradas)return o;
+  let esp=0,cola=0,desc=0;
+  o.tiradas.forEach(g=>{
+    const ms=g.cs.map(c=>parseFloat(c.metros_usados)||0).sort((x,y)=>y-x);
+    g.gEsp=0;g.exacto=p===1||ms.length===p;
+    if(p===1){g.gEsp=ms.reduce((s2,x)=>s2+x,0)/mpb;}
+    else if(ms.length===p){const L=ms[0];g.gEsp=L/mpb;cola+=ms.reduce((s2,x)=>s2+(L-x),0)/mpb;}
+    else{g.gEsp=ms.reduce((s2,x)=>s2+x,0)/mpb/p;desc+=ms.length;}
+    esp+=g.gEsp;
+  });
+  o.gEsp=esp||null;o.cola=cola;o.parDesc=desc;
+  o.cortadas=o.golpes*p-cola;
+  o.difGolpes=o.gEsp?(o.golpes-o.gEsp)/o.gEsp:null;
+  o.faltaBolsas=(o.pConf==='faltaBob'&&o.teo)?Math.max(0,o.cortadas-o.teo):0;
+  return o;
 }
 // Control por OC (todo el historial de la OC, no sólo el período).
 function _cvvOCs(tandas,cargas,ocs){
@@ -11348,6 +11374,7 @@ function _cvvOCs(tandas,cargas,ocs){
     o.tandaRara=o.tanda!=null&&![5,10,25].includes(o.tanda);
     if(o.tandaRara&&o.sem==='ok')o.sem='warn';
     o.tiradas=_cvvTiradas(o,mpb);
+    _cvvGolpesEsp(o,mpb);
     return o;
   });
 }
@@ -11445,22 +11472,22 @@ function _cvvRecalc(R){
     R.sinUbicar=R.faltan;
     R.pct=R.teo?R.faltan/R.teo:null;
     R.nivel=R.pct==null?null:R.pct>0.01?'faltan':R.pct<-0.01?'sobran':'ok';
-    R.difGolpes=(R.cortadas!=null&&R.teo)?(R.cortadas-R.teo)/R.teo:null;
+    R.difGolpes=R.gEsp?(R.golpes-R.gEsp)/R.gEsp:null;
   }
   const bdOk=R.bd&&R.bd.length;
   R.alerta=R.pConf==='dudoso'||!R.golpes||R.nivel==='faltan'||R.nivel==='sobran'||(R.difGolpes!=null&&Math.abs(R.difGolpes)>0.03)||(R.tandaRara&&!bdOk)||R.faltaBolsas>0;
   const uniDecl=R.uniDecl;
   const N=n=>Math.round(n).toLocaleString('es-AR');
   R.linea=R.pistas
-    ?'✂ Control de golpes '+localDate()+': '+N(R.golpes)+' golpes × '+R.pistas+' pistas = '+N(R.cortadas)
+    ?'✂ Control de golpes '+localDate()+': '+N(R.golpes)+' golpes'+(R.gEsp?' (con estas bobinas tenían que ser '+N(R.gEsp)+(R.parDesc?', aprox.':'')+')':'')+' · '+R.pistas+' pistas · '+N(R.cortadas)
       +' cortadas · por metros '+N(R.teo||0)+' · declaradas '+N(uniDecl)+' · scrap ≈ '+N(R.scrapB)
       +' · '+(true?'debían salir '+N(R.teo||0)+' − bultos '+N(R.decl-de+a)+' − scrap '+N(R.scrapB)+' = '+(R.faltan>0?'FALTAN '+N(R.faltan)+(R.gBolsa?' ('+(R.sinUbicar*R.gBolsa).toLocaleString('es-AR',{maximumFractionDigits:1})+' kg)':''):'cierra'):'DE MÁS en los bultos '+N(-R.afuera))
-      +(R.gBolsa?' · bolsa '+(R.gBolsa*1000).toFixed(1).replace('.',',')+' g':'')+(R.difGolpes!=null?' · golpes vs metros '+(R.difGolpes>0?'+':'')+(R.difGolpes*100).toFixed(1).replace('.',',')+' %':'')+' · tanda '+(R.tanda||'—')
+      +(R.gBolsa?' · bolsa '+(R.gBolsa*1000).toFixed(1).replace('.',',')+' g':'')+(R.difGolpes!=null?' · golpes contra lo que tenían que ser '+(R.difGolpes>0?'+':'')+(R.difGolpes*100).toFixed(1).replace('.',',')+' %':'')+' · tanda '+(R.tanda||'—')
     :'✂ Control de golpes '+localDate()+': LOS GOLPES NO CIERRAN — '+N(R.golpes)+' golpes en '+_cvvMaqNom(R.maqEsc)+' · por metros '+N(R.teo||0)+' · declaradas '+N(uniDecl)+' + scrap ≈ '+N(R.scrapB)
       +(R.alt?' · en '+_cvvMaqNom(R.alt.maq)+' hubo '+N(R.alt.golpes)+' golpes sin bobina escaneada × '+R.alt.p+' pistas = '+N(R.alt.cort):'');
   if(a)R.linea+=' · prestadas '+N(a)+(P.aOC?' a '+P.aOC:'');
   if(de)R.linea+=' · tomadas '+N(de)+(P.deOC?' de '+P.deOC:'');
-  if(R.pistas&&R.tiradas)R.linea+=' · tiradas: '+R.tiradas.filter(g=>g.golpes).map(g=>g.bobs.join('+')+' '+N(g.golpes)+' g → '+(g.r!=null?g.r.toFixed(2).replace('.',','):'—')).join(' | ');
+  if(R.pistas&&R.tiradas)R.linea+=' · tiradas: '+R.tiradas.filter(g=>g.golpes).map(g=>g.bobs.join('+')+' '+N(g.golpes)+' golpes'+(g.gEsp?' (tenían que ser '+N(g.gEsp)+')':'')).join(' | ');
   return R;
 }
 const _CVV_MOTIVOS=['Bolsas prestadas a / tomadas de otra OC','Bultos con distinta cantidad de bolsas','Descarte de arranques sin pesar','Bobina cortada sin escanear','Contador de la máquina mal puesto'];
@@ -11499,8 +11526,11 @@ function _cvvPedirExplicacion(id,R,clave){
     +'</div>'
     // control de la cortadora: golpes contra metros (dato, no explicación)
     +'<div style="font-size:12px;margin:0 0 8px;padding:6px 10px;border-radius:var(--r);'+(R.difGolpes!=null&&Math.abs(R.difGolpes)>0.03?'border:1.5px solid var(--amber)':'background:var(--bg2)')+'">'
-      +'<strong>Cortadora:</strong> '+f(R.golpes)+' golpes × '+R.pistas+' pistas = <strong>'+f(R.cortadas)+'</strong> bolsas · por metros debían ser '+f(R.teo||0)
-      +(R.difGolpes!=null?' → <strong style="color:'+(Math.abs(R.difGolpes)>0.03?'var(--amber)':'var(--green)')+'">'+pcs(R.difGolpes)+'</strong>':'')
+      +'<strong>Cortadora:</strong> hizo <strong>'+f(R.golpes)+'</strong> golpes. Con estas bobinas tenía que hacer <strong>'+(R.gEsp?f(R.gEsp):'—')+'</strong>'
+      +(R.difGolpes!=null?' → <strong style="color:'+(Math.abs(R.difGolpes)>0.03?'var(--amber)':'var(--green)')+'">'+(R.golpes<R.gEsp?'faltan ':'sobran ')+f(Math.abs(R.golpes-R.gEsp))+' golpes ('+pcs(R.difGolpes)+')</strong>':'')
+      +(R.difGolpes!=null&&Math.abs(R.golpes-R.gEsp)>=1&&mpbF?'<br>'+f(Math.abs(R.golpes-R.gEsp))+' golpes × '+mpbF.toFixed(2).replace('.',',')+' m = <strong>unos '+f(Math.abs(R.golpes-R.gEsp)*mpbF)+' m de corte'+(R.golpes<R.gEsp?' que no se hicieron</strong>: film que según la extrusora estaba en las bobinas y no pasó por la cuchilla.':' de más</strong>: se cortó film que no está en las bobinas escaneadas.'):'')
+      +(R.pistas>1?'<div style="font-size:11px;color:var(--text3);margin-top:4px">Cómo se cuenta: la cuchilla corta las '+R.pistas+' bobinas juntas; cuando se termina la más corta, la más larga sigue sola. Por eso cada par necesita tantos golpes como bolsas tiene su bobina <strong>más larga</strong> (metros ÷ '+(mpbF?mpbF.toFixed(2).replace('.',','):'—')+'). Bolsas cortadas = golpes × '+R.pistas+' − la punta que la más larga corta sola'+(R.cola?' ('+f(R.cola)+')':'')+' = '+f(R.cortadas)+'.</div>':'')
+      +(R.parDesc?'<div style="font-size:11px;color:var(--amber);margin-top:2px">'+R.parDesc+' bobina'+(R.parDesc>1?'s se escanearon':' se escaneó')+' sin su par (de a una o varias juntas): no se sabe cuál fue con cuál y para esas la cuenta es aproximada.</div>':'')
       +(R.difGolpes!=null&&Math.abs(R.difGolpes)>0.03?'<br><span style="color:var(--amber)">Los golpes no coinciden con los metros escaneados: el operario tiene que explicarlo.</span>':'')
     +'</div>'
     // 3) prestadas: se informan acá y entran en la cuenta
@@ -11785,7 +11815,7 @@ function _cvvAlertas(D,maqs){
       al.push(['warn','¿Escaneo en la máquina equivocada?',(oc?oc.numero_orden:'OC')+' escaneada en '+_cvvMaqNom(c.maquina_id)+' (que no cortaba) por '+_cvvEmpNom(c.empleado_id)+'; '+_cvvMaqNom(otra)+' sí cortaba.',_cvvFH(c.t)]);}
   });
   D.ocsR.forEach(o=>{const n=o.oc.numero_orden||'OC';
-    if(o.faltaBolsas>0&&o.golpes>200)al.push(['bad',n+': se cortó más de lo escaneado','Golpes × '+o.pistas+' pistas = '+_evvF(o.cortadas)+' bolsas (coincide con lo declarado); los metros escaneados dan '+_evvF(o.teo)+'. ¿Bobina cortada sin escanear?',o.fin?_cvvFH(o.fin):'']);
+    if(o.faltaBolsas>0&&o.golpes>200)al.push(['bad',n+': se cortó más de lo escaneado','Golpes × '+o.pistas+' pistas'+(o.cola?' − punta':'')+' = '+_evvF(o.cortadas)+' bolsas (coincide con lo declarado); los metros escaneados dan '+_evvF(o.teo)+'. ¿Bobina cortada sin escanear?',o.fin?_cvvFH(o.fin):'']);
     if(o.pConf==='dudoso'&&o.golpes>200&&o.decl!=null)al.push(['bad',n+': los golpes no cierran',_evvF(o.golpes)+' golpes no cierran con ningún número de pistas ni con los metros ('+_evvF(o.teo)+' bolsas) ni con lo declarado ('+_evvF(o.decl)+'). ¿Se cortó en otra máquina o se escaneó en la equivocada?',o.fin?_cvvFH(o.fin):'']);
     if(o.tardeG>=50)al.push(['warn',n+': escaneo tarde',_evvF(o.tardeG)+' golpes antes de escanear la bobina.',o.ini?_cvvFH(o.ini):'']);
     if(o.tandaRara)al.push(['warn',n+': tanda de '+o.tanda+' golpes','Lo normal es 25 (o 5/10 en paquetes chicos). Cada tanda da '+(o.pistas?o.tanda*o.pistas:'?')+' bolsas en vez de '+(o.pistas?25*o.pistas:'?')+': revisar el contador de la máquina.',o.ini?_cvvFH(o.ini):'']);
@@ -11820,14 +11850,15 @@ function _cvvTimeline(D,maqs){
 }
 function _cvvTablaOC(D){
   let h='<section class="evx-sec"><div class="evx-sechead"><h2>Control de OC · golpes contra lo declarado</h2><span class="evx-lbl">toda la OC, aunque empiece antes del período · tocá una fila para el detalle</span></div>'
-    +'<div class="evx-panel evx-tw"><table><thead><tr><th class="l">OC</th><th class="l">Cliente · producto</th><th class="l">Máq.</th><th>Bobinas</th><th>Metros</th><th>Golpes</th><th>Pistas</th><th>Cortadas</th><th>Declaradas</th><th>Scrap ≈</th><th>Faltan / de más</th><th>Tanda</th><th>Incompletas</th><th class="l">Estado</th></tr></thead><tbody>';
-  if(!D.ocsR.length)h+='<tr><td colspan="14" class="l mut">Sin OC en el período.</td></tr>';
+    +'<div class="evx-panel evx-tw"><table><thead><tr><th class="l">OC</th><th class="l">Cliente · producto</th><th class="l">Máq.</th><th>Bobinas</th><th>Metros</th><th>Golpes</th><th title="bobina más larga de cada par ÷ largo de bolsa">Tenía que hacer</th><th>Pistas</th><th>Cortadas</th><th>Declaradas</th><th>Scrap ≈</th><th>Faltan / de más</th><th>Tanda</th><th>Incompletas</th><th class="l">Estado</th></tr></thead><tbody>';
+  if(!D.ocsR.length)h+='<tr><td colspan="15" class="l mut">Sin OC en el período.</td></tr>';
   D.ocsR.forEach(o=>{
     const oc=o.oc,p=oc.productos||{},sel=CVV.ocSel===o.id;
     h+='<tr style="cursor:pointer'+(sel?';background:var(--accbg)':'')+'" onclick="cvvOC('+o.id+')"><td class="l">'+escapeHtml(oc.numero_orden||String(o.id))+'</td>'
       +'<td class="l">'+escapeHtml((oc.cliente||'').slice(0,18))+' · <span class="mut">'+escapeHtml(p.codigo||'')+'</span></td>'
       +'<td class="l">'+o.maqs.map(m=>_cvvMaqNom(m).replace('CORTE-','C')).join('+')+'</td>'
       +'<td>'+o.cargas.length+'</td><td>'+_evvF(o.metros)+'</td><td>'+_evvF(o.golpes)+'</td>'
+      +'<td'+(o.difGolpes!=null&&Math.abs(o.difGolpes)>0.03?' class="warnTxt"':'')+'>'+(o.gEsp?_evvF(o.gEsp)+' <span class="mut">('+(o.difGolpes>0?'+':'')+_evvF(o.difGolpes*100,1)+' %)</span>':'—')+'</td>'
       +'<td'+(o.pConf==='dudoso'?' class="warnTxt" title="los golpes no cierran ni con los metros ni con lo declarado"':o.pConf==='faltaBob'?' class="badTxt" title="golpes y declarado coinciden; faltan metros: bobina sin cargar"':'')+'>'+(o.pistas||'?')+'</td>'
       +'<td>'+_evvF(o.cortadas)+'</td><td>'+(o.decl!=null?_evvF(o.decl):'<span class="mut">abierta</span>')+'</td><td>'+_evvF(o.scrapB)+'</td>'
       +'<td class="'+(o.sem==='bad'?'badTxt':o.sem==='warn'?'warnTxt':'')+'">'+(o.sinUbicar!=null?(o.sinUbicar>0?'faltan '+_evvF(o.sinUbicar):o.sinUbicar<0?'de más '+_evvF(-o.sinUbicar):'0')+' <span class="mut">('+_evvF((o.pct||0)*100,1)+' %)</span>':'—')+'</td>'
@@ -11851,7 +11882,8 @@ function _cvvDetalleOC(D){
     +'<div class="evx-kpis">';
   const k=(l,v,s,c)=>'<div class="evx-kpi"><span class="evx-lbl">'+l+'</span><span class="v"'+(c?' style="color:'+c+'"':'')+'>'+v+'</span><span class="s">'+s+'</span></div>';
   h+=k('Por metros',_evvF(o.teo),_evvF(o.metros)+' m escaneados')
-    +k('Cortadas',_evvF(o.cortadas),_evvF(o.golpes)+' golpes × '+(o.pistas||'?')+' pistas')
+    +k('Golpes',_evvF(o.golpes),o.gEsp?'tenía que hacer '+_evvF(o.gEsp)+' ('+(o.difGolpes>0?'+':'')+_evvF(o.difGolpes*100,1)+' %)':'',o.difGolpes!=null&&Math.abs(o.difGolpes)>0.03?'var(--warn)':null)
+    +k('Cortadas',_evvF(o.cortadas),_evvF(o.golpes)+' golpes × '+(o.pistas||'?')+' pistas'+(o.cola?' − punta a 1 pista '+_evvF(o.cola):''))
     +k('Declaradas',o.decl!=null?_evvF(o.decl):'—',o.decl!=null?'+ scrap ≈ '+_evvF(o.scrapB)+' bolsas ('+_evvF(parseFloat(oc.peso_scrap_kg)||0,2)+' kg)':'OC sin cerrar')
     +k('Sin ubicar',o.sinUbicar!=null?(o.sinUbicar>0?'+':'')+_evvF(o.sinUbicar):'—',o.bolsasParc!=null?_evvF(o.bolsasParc)+' bolsas en '+o.parciales.length+' tandas incompletas':'',o.sem==='bad'?'var(--bad)':o.sem==='warn'?'var(--warn)':null)
     +'</div>';

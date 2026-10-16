@@ -71,7 +71,7 @@ global._traerQ=async(b)=>b().range(0,999);
 const prod={metros_por_bolsa:0.5,peso_por_bolsa:0.01};
 let R=await _cvvControlCierre({id:10,numero_orden:'OC-A'},210,0,prod);
 t(R&&R.cortadas===210&&!R.alerta,'cierra justo: 210 cortadas = 210 declaradas, sin alerta ('+(R&&R.cortadas)+')');
-t(/105 golpes × 2 pistas = 210 cortadas/.test(R.linea),'línea: '+R.linea);
+t(/105 golpes \(con estas bobinas tenían que ser 105/.test(R.linea)&&/210 cortadas/.test(R.linea),'línea: '+R.linea);
 R=await _cvvControlCierre({id:10,numero_orden:'OC-A'},200,0,prod);
 t(R.alerta&&Math.round(R.sinUbicar)===10,'10 cortadas fuera de los bultos, sin scrap → faltan 10');
 R=await _cvvControlCierre({id:10,numero_orden:'OC-A'},205,0.05,prod);
@@ -84,5 +84,18 @@ tabla.orden_corte_bobinas[0].metros_usados=80;   // la bobina cargada da 160 bol
 R=await _cvvControlCierre({id:10,numero_orden:'OC-A'},210,0,prod);
 t(R.alerta&&Math.round(R.faltaBolsas)===50&&Math.round(R.faltaM)===25,'falta bobina: 50 bolsas = 25 m ('+R.faltaBolsas+','+R.faltaM+')');
 t(R.maqPpal===1&&R.empPpal===1,'máquina y operario de la OC para la carga');
+// 16a: golpes que tenía que hacer = bobina más larga de cada par ÷ largo (datos reales OC-1052971, 0,78 m)
+{const c=(m,t)=>({metros_usados:m,t});
+ const o={pistas:2,golpes:1348+1251,teo:4132/0.78,pConf:'ok',tiradas:[{cs:[c(1014),c(1054)],golpes:1251},{cs:[c(1013),c(1051)],golpes:1348}]};
+ _cvvGolpesEsp(o,0.78);
+ t(Math.round(o.tiradas[1].gEsp)===1347,'Celia 07007+07008: tenía que hacer 1.347 ('+o.tiradas[1].gEsp+')');
+ t(Math.round(o.tiradas[0].gEsp)===1351,'Guaraz 07005+07009: tenía que hacer 1.351');
+ t(Math.round(o.gEsp)===2699&&Math.abs(o.difGolpes*100+3.7)<0.1,'OC: 2.699 esperados, −3,7 % ('+(o.difGolpes*100).toFixed(2)+')');
+ t(Math.round(o.cola)===100&&Math.round(o.cortadas)===2*2599-100,'cortadas = golpes × 2 − punta a 1 pista (cola '+o.cola+')');
+ t(o.parDesc===0,'pares completos: cuenta exacta');
+ const o2={pistas:2,golpes:1000,tiradas:[{cs:[c(780),c(780),c(780)],golpes:1000}]};_cvvGolpesEsp(o2,0.78);
+ t(o2.parDesc===3&&Math.round(o2.gEsp)===1500,'3 bobinas juntas en 2 pistas: aproximado por promedio');
+ const o3={pistas:1,golpes:2000,tiradas:[{cs:[c(780),c(780)],golpes:2000}]};_cvvGolpesEsp(o3,0.78);
+ t(Math.round(o3.gEsp)===2000&&o3.cola===0&&o3.cortadas===2000,'1 pista: suma de metros ÷ largo');}
 console.log((bad?'FALLA':'OK')+' smoke_corte_vivo: '+ok+' ok, '+bad+' mal');process.exit(bad?1:0);
 })();
