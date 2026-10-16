@@ -97,5 +97,18 @@ t(R.maqPpal===1&&R.empPpal===1,'máquina y operario de la OC para la carga');
  t(o2.parDesc===3&&Math.round(o2.gEsp)===1500,'3 bobinas juntas en 2 pistas: aproximado por promedio');
  const o3={pistas:1,golpes:2000,tiradas:[{cs:[c(780),c(780)],golpes:2000}]};_cvvGolpesEsp(o3,0.78);
  t(Math.round(o3.gEsp)===2000&&o3.cola===0&&o3.cortadas===2000,'1 pista: suma de metros ÷ largo');}
+// 16c: golpes después de «Corte terminado en panel» no van a esa OC (caso OC-1052984)
+{const TT=s=>new Date('2026-10-16T'+s+'-03:00').getTime();
+ const ocs2={84:{id:84,observaciones:'[Iniciada en panel 2026-10-16 09:42 por X] [Corte terminado en panel 2026-10-16 10:32 por X — pendiente de cierre]',estado:'Completada'},48:{id:48,observaciones:'',estado:'En proceso'}};
+ const cg=[{t:TT('09:42:58'),orden_corte_id:84,maquina_id:1,empleado_id:1},{t:TT('11:12:29'),orden_corte_id:48,maquina_id:1,empleado_id:1}];
+ const td=[{maquina:1,ti:TT('10:00:00'),tf:TT('10:00:08'),golpes:5},{maquina:1,ti:TT('10:33:30'),tf:TT('10:33:38'),golpes:5},{maquina:1,ti:TT('10:39:48'),tf:TT('10:40:30'),golpes:25}];
+ _cvvAsignar(td,cg,ocs2,{});
+ t(td[0].oc===84&&td[0].regla==='antes','antes de terminar: va a la OC escaneada');
+ t(td[1].oc===84,'dentro de los 2 min de gracia después de «terminó»: sigue en la OC');
+ t(td[2].oc===48&&td[2].regla==='tarde','después de «terminó de cortar»: va al escaneo siguiente (tarde)');
+ const ocs3={84:{id:84,observaciones:'[Corte terminado en panel 2026-10-16 10:32 por X] [REABIERTA en panel 2026-10-16 10:38 por X]',estado:'En proceso'}};
+ const td3=[{maquina:1,ti:TT('10:45:00'),tf:TT('10:45:08'),golpes:5}];_cvvAsignar(td3,[cg[0]],ocs3,{});
+ t(td3[0].oc===84,'reabierta después de terminar: vuelve a contar');
+ t(_cvvTerminada(ocs2[84],TT('10:36:00'))&&!_cvvTerminada(ocs2[84],TT('10:20:00'))&&!_cvvTerminada({},TT('10:36:00')),'_cvvTerminada');}
 console.log((bad?'FALLA':'OK')+' smoke_corte_vivo: '+ok+' ok, '+bad+' mal');process.exit(bad?1:0);
 })();

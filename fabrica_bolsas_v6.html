@@ -1138,7 +1138,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-16b</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-16c</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6360,7 +6360,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-16b';   // 16b: 🖨 IMPRESORA en el Panel corte: escaneo de entrada y salida de cada bobina (tabla impresion_bobinas), metros impresos = metros de extrusión, m/min reales, impresas esperando corte; en la cortadora una bobina de producto IMPRESA sin pasar por la impresora se pregunta y queda anotada. — 16a: ✂ golpes que tenía que hacer la cortadora = bobina más larga de cada par ÷ largo (con 2 pistas la más larga termina sola); cortadas = golpes × pistas − la punta a 1 pista. Control de cortadora: golpes contra esos golpes. — 15q anterior: 15q: ✂ pilas bien contadas con el registro golpe a golpe: una pila que el operario cortó a la mitad y completó al volver a arrancar (11 + 14 = 25) es «cortada a la mitad», no dos incompletas. Incompleta = nunca llegó a la parada; de más = pasó de la parada sin la pausa de la máquina (29, 31…), con los golpes de más.
+const APP_BUILD='2026-10-16c';   // 16c: ✂ un golpe posterior a «Terminó de cortar» en el panel ya no se le suma a esa OC (va al escaneo siguiente); la nota de cierre decía «cierra» cuando SOBRABAN bolsas: ahora dice SOBRAN; el % del balance sin signo. — 16b: 🖨 IMPRESORA en el Panel corte: escaneo de entrada y salida de cada bobina (tabla impresion_bobinas), metros impresos = metros de extrusión, m/min reales, impresas esperando corte; en la cortadora una bobina de producto IMPRESA sin pasar por la impresora se pregunta y queda anotada. — 16a: ✂ golpes que tenía que hacer la cortadora = bobina más larga de cada par ÷ largo (con 2 pistas la más larga termina sola); cortadas = golpes × pistas − la punta a 1 pista. Control de cortadora: golpes contra esos golpes. — 15q anterior: 15q: ✂ pilas bien contadas con el registro golpe a golpe: una pila que el operario cortó a la mitad y completó al volver a arrancar (11 + 14 = 25) es «cortada a la mitad», no dos incompletas. Incompleta = nunca llegó a la parada; de más = pasó de la parada sin la pausa de la máquina (29, 31…), con los golpes de más.
 // 15p: ✂ paradas: TANDAS SIN COMPLETAR (menos golpes que la parada de la máquina, normalmente 25) y tandas de más, por operario y en total con el detalle (ej. 11×5 · 4×14); en cada parada, con cuántos golpes venía la tanda («12 de 25» en rojo = paró a mitad de pila).
 // 15o: ✂ PARADAS POR OC Y OPERARIO: cada hueco de 30 s o más entre tandas de la OC (sacar la pila tarda ~5 s), con desde/hasta/duración/máquina/operario y lo registrado en ese momento (cambio de bobina = escaneo de una bobina de la OC ± 2 min; si no, «nada (sin escaneo)» en rojo). Resumen por operario: golpes, cortando, paradas, cambios de bobina, sin escaneo, de 3 min o más. En el detalle de la OC (Corte en vivo) y en el control de cierre (desplegable).
 // 15n: ✂ control de cierre FIJO y sin justificaciones: debían salir (metros ÷ largo de ficha) − bultos − prestadas/tomadas (las informa el operario) − scrap (kg ÷ peso de la bolsa de estas bobinas) = FALTAN / SOBRAN; más de ±1 % → el operario explica. Golpes × pistas contra metros como control aparte de la cortadora (±3 %). Se sacan «quedó sin cortar», «scrap de más», «revisar» y la sugerencia automática de bultos distintos.
@@ -11126,6 +11126,17 @@ function _cvvTurnos(fich,ahora){
 function _cvvFichado(turnos,e,t){return (turnos[e]||[]).some(([a,z])=>a<=t&&t<=z);}
 
 // Asigna cada tanda a una OC y a un operario.
+// 16c — OC-1052984 (16/10): Celia tocó «Terminó de cortar» a las 10:32, a las 10:39 arrancó otra OC
+// (pilas de 25, bobinas escaneadas recién a las 11:12) y esos 934 golpes se le sumaron a la 2984 por la
+// regla «último escaneo ≤ 3 h». Ahora un golpe posterior a «Corte terminado en panel» (y sin reapertura
+// después) NO va a esa OC: se busca el escaneo siguiente (tarde) y, si no hay, queda sin OC.
+function _cvvTerminada(oc,t){ // pura: ¿en t la OC ya había terminado de cortar en el panel?
+  const obs=String(oc&&oc.observaciones||'');
+  const re=/\[(Iniciada en panel|REABIERTA en panel|Corte terminado en panel) (\d{4}-\d\d-\d\d) (\d\d:\d\d)/g;
+  let m,last=null;
+  while((m=re.exec(obs))){const ts=_cvvTs(m[2],m[3]+':59');if(ts+120000<=t&&(!last||ts>=last.ts))last={ts,fin:/terminado/.test(m[1])};}
+  return !!(last&&last.fin);
+}
 function _cvvAsignar(tandas,cargas,ocs,turnos){
   const porM={};
   cargas.forEach(c=>{(porM[c.maquina_id]=porM[c.maquina_id]||[]).push(c);});
@@ -11136,9 +11147,10 @@ function _cvvAsignar(tandas,cargas,ocs,turnos){
     let i=-1;for(let k=0;k<l.length;k++){if(l[k].t<=t+120000)i=k;else break;}
     const prev=i>=0?l[i]:null,next=l[i+1]||null;
     let c=null,regla=null;
-    if(prev&&t-prev.t<=H3){c=prev;regla='antes';}
+    const prevFin=prev&&_cvvTerminada(ocs[prev.orden_corte_id],t);   // 16c
+    if(prev&&!prevFin&&t-prev.t<=H3){c=prev;regla='antes';}
     else if(next&&next.t-t<=H4){c=next;regla='tarde';}
-    else if(prev&&t-prev.t<=24*3600000){const oc=ocs[prev.orden_corte_id];const fc=oc&&oc.fecha_completada?new Date(oc.fecha_completada).getTime():null;
+    else if(prev&&!prevFin&&t-prev.t<=24*3600000){const oc=ocs[prev.orden_corte_id];const fc=oc&&oc.fecha_completada?new Date(oc.fecha_completada).getTime():null;
       if(oc&&(fc?fc>t:oc.estado!=='Completada')){c=prev;regla='antes';}}
     td.oc=c?c.orden_corte_id:null;td.regla=regla;td.carga=c;
     let e=c?c.empleado_id:null;td.fichado=e!=null&&_cvvFichado(turnos,e,t);
@@ -11424,8 +11436,8 @@ async function _cvvControlCierre(oc,uniDecl,scrapKg,prod){
   const cargas=(r2_.data||[]).map(c=>Object.assign({t:new Date(c.fecha_asignacion).getTime()},c));
   const otras=[...new Set(cargas.map(c=>c.orden_corte_id))].filter(x=>x!==oc.id);
   const ocs={};
-  if(otras.length){const r4=await sb.from('ordenes_corte').select('id,estado,fecha_completada').in('id',otras);if(!r4.error)(r4.data||[]).forEach(x=>ocs[x.id]=x);}
-  ocs[oc.id]={id:oc.id,numero_orden:oc.numero_orden,estado:'En proceso',fecha_completada:null,unidades_reales:uniDecl,peso_scrap_kg:scrapKg,
+  if(otras.length){const r4=await sb.from('ordenes_corte').select('id,estado,fecha_completada,observaciones').in('id',otras);if(!r4.error)(r4.data||[]).forEach(x=>ocs[x.id]=x);}
+  ocs[oc.id]={id:oc.id,numero_orden:oc.numero_orden,estado:'En proceso',fecha_completada:null,unidades_reales:uniDecl,peso_scrap_kg:scrapKg,observaciones:oc.observaciones||'',
     productos:{metros_por_bolsa:prod&&prod.metros_por_bolsa,peso_por_bolsa:prod&&prod.peso_por_bolsa}};
   const tds=_cvvAsignar((r3_.data||[]).map(t=>Object.assign({ti:new Date(t.inicio).getTime(),tf:new Date(t.fin).getTime()},t)),cargas,ocs,{});
   const R=_cvvOCs(tds,cargas.filter(c=>c.orden_corte_id===oc.id),ocs)[0];
@@ -11481,7 +11493,8 @@ function _cvvRecalc(R){
   R.linea=R.pistas
     ?'✂ Control de golpes '+localDate()+': '+N(R.golpes)+' golpes'+(R.gEsp?' (con estas bobinas tenían que ser '+N(R.gEsp)+(R.parDesc?', aprox.':'')+')':'')+' · '+R.pistas+' pistas · '+N(R.cortadas)
       +' cortadas · por metros '+N(R.teo||0)+' · declaradas '+N(uniDecl)+' · scrap ≈ '+N(R.scrapB)
-      +' · '+(true?'debían salir '+N(R.teo||0)+' − bultos '+N(R.decl-de+a)+' − scrap '+N(R.scrapB)+' = '+(R.faltan>0?'FALTAN '+N(R.faltan)+(R.gBolsa?' ('+(R.sinUbicar*R.gBolsa).toLocaleString('es-AR',{maximumFractionDigits:1})+' kg)':''):'cierra'):'DE MÁS en los bultos '+N(-R.afuera))
+      +' · '+(true?'debían salir '+N(R.teo||0)+' − bultos '+N(R.decl-de+a)+' − scrap '+N(R.scrapB)+' = '+(()=>{const kg=x=>R.gBolsa?' ('+(x*R.gBolsa).toLocaleString('es-AR',{maximumFractionDigits:1})+' kg)':'';   // 16c: antes decía «cierra» cuando SOBRABAN
+        return R.nivel==='faltan'?'FALTAN '+N(R.faltan)+kg(R.faltan):R.nivel==='sobran'?'SOBRAN '+N(-R.faltan)+kg(-R.faltan):'cierra'+(Math.abs(R.faltan)>=0.5?' ('+(R.faltan>0?'faltan ':'sobran ')+N(Math.abs(R.faltan))+')':'');})()+(R.pct!=null&&R.nivel!=='ok'?' ('+(Math.abs(R.pct)*100).toFixed(1).replace('.',',')+' %)':''):'DE MÁS en los bultos '+N(-R.afuera))
       +(R.gBolsa?' · bolsa '+(R.gBolsa*1000).toFixed(1).replace('.',',')+' g':'')+(R.difGolpes!=null?' · golpes contra lo que tenían que ser '+(R.difGolpes>0?'+':'')+(R.difGolpes*100).toFixed(1).replace('.',',')+' %':'')+' · tanda '+(R.tanda||'—')
     :'✂ Control de golpes '+localDate()+': LOS GOLPES NO CIERRAN — '+N(R.golpes)+' golpes en '+_cvvMaqNom(R.maqEsc)+' · por metros '+N(R.teo||0)+' · declaradas '+N(uniDecl)+' + scrap ≈ '+N(R.scrapB)
       +(R.alt?' · en '+_cvvMaqNom(R.alt.maq)+' hubo '+N(R.alt.golpes)+' golpes sin bobina escaneada × '+R.alt.p+' pistas = '+N(R.alt.cort):'');
@@ -11521,7 +11534,7 @@ function _cvvPedirExplicacion(id,R,clave){
       +(pa?f2('Prestadas'+(P.aOC?' a la '+escapeHtml(P.aOC):' a otra OC'),'informado por el operario',f(pa),K(pa)):'')
       +(pde?f2('Tomadas'+(P.deOC?' de la '+escapeHtml(P.deOC):' de otra OC'),'informado por el operario','− '+f(pde),K(pde)):'')
       +f2('Scrap pesado','',f(R.scrapB),(R.scrapKg||0).toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:2}))
-      +f2(R.faltan>=0?'FALTAN':'SOBRAN',pcs(R.pct||0).replace('+','')+' de lo que debía salir',f(Math.abs(R.faltan)),K(Math.abs(R.faltan)),tope+'font-weight:800;'+(R.nivel==='ok'?'color:var(--green)':'color:var(--red)'))
+      +f2(R.faltan>=0?'FALTAN':'SOBRAN',(Math.abs(R.pct||0)*100).toFixed(1).replace('.',',')+' % de lo que debía salir',f(Math.abs(R.faltan)),K(Math.abs(R.faltan)),tope+'font-weight:800;'+(R.nivel==='ok'?'color:var(--green)':'color:var(--red)'))
       +'<div style="font-size:11px;color:var(--text3);margin-top:4px">Peso de la bolsa: '+(R.gBolsa?(R.gBolsa*1000).toFixed(1).replace('.',',')+' g':'—')+' (kg sin tubo de estas bobinas ÷ sus metros × '+(mpbF?mpbF.toFixed(2).replace('.',','):'—')+' m)</div>'
     +'</div>'
     // control de la cortadora: golpes contra metros (dato, no explicación)
