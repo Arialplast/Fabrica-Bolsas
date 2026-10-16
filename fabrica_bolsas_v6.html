@@ -1138,7 +1138,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-15h</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-15i</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6360,7 +6360,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-15h';   // 15h: ✂ control de cierre con el informe de las OC hechas a mano: TIRADAS (bobinas escaneadas juntas · metros · hora · golpes hasta el próximo escaneo · horario · bolsas-por-metros ÷ golpes = pistas de esa tirada); las pistas se afirman sólo si las tiradas lo dicen y la que no da se marca ⚠. La cuenta: cortadas · declaradas en el sistema / reales en los bultos (bultos distintos) · prestadas a / tomadas de otra OC (se cargan en la ventana y entran en la cuenta y en la nota) · scrap declarado · sin ubicar / de más. Corte en vivo: la tabla de tiradas en el detalle de la OC.
+const APP_BUILD='2026-10-15i';   // 15i: ✂ el control de golpes se muestra SIEMPRE al cerrar una OC (tiradas, cuenta y veredicto); si cierra, botón «✓ Cerrar la orden» con comentario opcional; si no, explicación obligatoria como antes. Al cerrar ya no se pisan las notas que tenía la OC (inicio, cargas a mano, correcciones): se agregan.
+// 15h: ✂ control de cierre con el informe de las OC hechas a mano: TIRADAS (bobinas escaneadas juntas · metros · hora · golpes hasta el próximo escaneo · horario · bolsas-por-metros ÷ golpes = pistas de esa tirada); las pistas se afirman sólo si las tiradas lo dicen y la que no da se marca ⚠. La cuenta: cortadas · declaradas en el sistema / reales en los bultos (bultos distintos) · prestadas a / tomadas de otra OC (se cargan en la ventana y entran en la cuenta y en la nota) · scrap declarado · sin ubicar / de más. Corte en vivo: la tabla de tiradas en el detalle de la OC.
 // 15g: ✂ control de golpes CLARO: la cuenta renglón por renglón (la máquina cortó · en los bultos declararon · cortadas que NO están en los bultos · scrap pesado kg ≈ bolsas) y un veredicto en grande: ✓ LAS BOLSAS CIERRAN / ⛔ FALTAN N BOLSAS / ⛔ HAY N BOLSAS DE MÁS EN LOS BULTOS. Faltan = afuera de los bultos que el scrap no cubre; de más = declaradas por encima de lo cortado (el scrap no se suma). Antes declaradas+scrap > cortadas se leía «de más» aunque no faltara nada.
 // 15f: ✂ PISTAS POR TRES VÍAS (golpes · metros · declarado + scrap), como el análisis a mano: nunca se afirma un número de pistas que no cierre. «Falta cargar bobina» sólo si golpes y declarado coinciden y faltan metros. Si ningún número de pistas cierra → «⚠ LOS GOLPES NO SON DE ESTA OC»: busca en la otra cortadora golpes sin bobina escaneada en la ventana de la OC (2 h antes del escaneo → «Corte terminado en panel») y, si cierran, ofrece «Corregir: las bobinas pasan a CORTE-0X» (admin, nota en la OC) y vuelve a controlar. Caso OC-1052965: escaneada en CORTE-01, cortada en CORTE-02 (1.537 golpes × 2 = 3.074). Corte en vivo: columna pistas «?» y estado «GOLPES NO CIERRAN».
 // 15e: ✂ cierre de OC: «📦 ¿Hay bultos con otra cantidad?» — N bultos de X (sugerido con la tanda: 22 golpes → 176 de 200); se resta de lo declarado, se vuelve a controlar, el stock entra con los bultos reales y queda «Bultos distintos: …» en las observaciones. Se abre solo con tanda rara o con el motivo «Bultos con distinta cantidad».
@@ -11401,7 +11402,7 @@ function _cvvPedirExplicacion(id,R,clave){
   }
   const motivoTxt='';
   const html='<div class="modal-overlay" id="cvv-expl" style="z-index:10050"><div class="modal-card" style="max-width:520px">'
-    +'<div class="modal-title">✂ Control de golpes · '+escapeHtml(R.oc&&R.oc.numero_orden||'')+'</div>'
+    +'<div class="modal-title">✂ Control de golpes · '+escapeHtml(R.oc&&R.oc.numero_orden||'')+(R.alerta?'':' <span style="color:var(--green);font-size:13px">· cierra</span>')+'</div>'
     +'<div style="font-size:13px;line-height:1.5;margin-bottom:10px">'
       +cuenta+ver
       +(!R.pistas?'<div style="background:var(--bg2);border-radius:var(--r);padding:8px 12px;margin-bottom:8px">'
@@ -11428,10 +11429,10 @@ function _cvvPedirExplicacion(id,R,clave){
       +'</div>':'')
     +_cvvBultosBox(id,R)
     +'<div id="cvv-bobs" style="'+(R.faltaBolsas>0?'':'display:none;')+'margin-bottom:10px"></div>'
-    +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">'+_CVV_MOTIVOS.map(m=>'<button type="button" class="btn btn-sm" onclick="const t=document.getElementById(\'cvv-expl-t\');t.value=(t.value?t.value+\'. \':\'\')+this.textContent+\': \';t.focus();'+(m===_CVV_MOT_BOB?'_cvvMostrarBobinas('+id+')':m===_CVV_MOT_BUL?'document.getElementById(\'cvv-bul\').style.display=\'\'':'')+'">'+escapeHtml(m)+'</button>').join('')+'</div>'
-    +'<div class="fg"><label>¿Qué pasó? (obligatorio)</label><textarea id="cvv-expl-t" rows="3" style="width:100%" oninput="(window._cvvBorrador=window._cvvBorrador||{})['+id+']=this.value" placeholder="ej: se usaron 150 bolsas de la OC-1052956; 10 bultos de 176">'+escapeHtml((window._cvvBorrador||{})[id]||'')+'</textarea></div>'
+    +(R.alerta?'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">':'<div style="display:none">')+_CVV_MOTIVOS.map(m=>'<button type="button" class="btn btn-sm" onclick="const t=document.getElementById(\'cvv-expl-t\');t.value=(t.value?t.value+\'. \':\'\')+this.textContent+\': \';t.focus();'+(m===_CVV_MOT_BOB?'_cvvMostrarBobinas('+id+')':m===_CVV_MOT_BUL?'document.getElementById(\'cvv-bul\').style.display=\'\'':'')+'">'+escapeHtml(m)+'</button>').join('')+'</div>'
+    +'<div class="fg"><label>'+(R.alerta?'¿Qué pasó? (obligatorio)':'Comentario (opcional)')+'</label><textarea id="cvv-expl-t" rows="3" style="width:100%" oninput="(window._cvvBorrador=window._cvvBorrador||{})['+id+']=this.value" placeholder="ej: se usaron 150 bolsas de la OC-1052956; 10 bultos de 176">'+escapeHtml((window._cvvBorrador||{})[id]||'')+'</textarea></div>'
     +'<div id="cvv-expl-err" style="color:var(--red);font-size:12px;margin-top:4px"></div>'
-    +'<div class="btn-grp" style="margin-top:10px"><button class="btn btn-primary btn-sm" id="cvv-cerrar" onclick="_cvvConfirmarExpl('+id+',\''+clave+'\')">Guardar explicación y cerrar</button>'
+    +'<div class="btn-grp" style="margin-top:10px"><button class="btn btn-primary btn-sm" id="cvv-cerrar" onclick="_cvvConfirmarExpl('+id+',\''+clave+'\')">'+(R.alerta?'Guardar explicación y cerrar':'✓ Cerrar la orden')+'</button>'
     +'<button class="btn btn-sm" onclick="document.getElementById(\'cvv-expl\').remove()">Volver a corregir</button></div>'
     +'</div></div>';
   document.body.insertAdjacentHTML('beforeend',html);
@@ -11554,6 +11555,8 @@ async function _cvvCargarBobina(id,bobId){
 }
 function _cvvConfirmarExpl(id,clave){
   const t=(document.getElementById('cvv-expl-t')?.value||'').trim();
+  const R0=(window._cvvCtx||{})[id];
+  if(R0&&!R0.alerta){(window._cvvExplic=window._cvvExplic||{})[id]={clave,texto:t,ok:true};document.getElementById('cvv-expl')?.remove();cerrarOrdenCorte(id);return;}
   if(t.length<10||_CVV_MOTIVOS.some(m=>t===m+':')){document.getElementById('cvv-expl-err').textContent='Escribí qué pasó (al menos una frase).';return;}
   const R=(window._cvvCtx||{})[id];
   if(R&&R.faltaBolsas>0&&!document.getElementById('cvv-nofalta')?.checked){document.getElementById('cvv-expl-err').textContent='Falta cargar bobina: cargala de la lista o tildá que revisaste que no falta ninguna.';return;}
@@ -51948,8 +51951,11 @@ async function cerrarOrdenCorte(id){
     ctl.prest=(window._cvvPrest||{})[id]||null;_cvvRecalc(ctl);}
   const claveCtl=totalUni+'|'+scrapPesado+'|'+bolsones+'|'+JSON.stringify((window._cvvPrest||{})[id]||{});
   const expl=(window._cvvExplic||{})[id];
-  if(ctl&&ctl.alerta&&!(expl&&expl.clave===claveCtl)){_cvvPedirExplicacion(id,ctl,claveCtl);return;}
-  const obsFinal=[obs,txtBultos,ctl?ctl.linea+(ctl.alerta&&expl?' — Explicación: '+expl.texto:''):null].filter(Boolean).join('\n')||null;
+  // 15i: el control se muestra SIEMPRE antes de cerrar (aunque cierre), para ver tiradas y cuenta
+  if(ctl&&!(expl&&expl.clave===claveCtl)){_cvvPedirExplicacion(id,ctl,claveCtl);return;}
+  // 15i: las notas que ya tenía la OC (inicio, cargas a mano, correcciones) no se pierden al cerrar
+  const obsPrev=String(o.observaciones||'').trim();
+  const obsFinal=[obsPrev,obs,txtBultos,ctl?ctl.linea+(expl&&expl.texto?(ctl.alerta?' — Explicación: ':' — Comentario: ')+expl.texto:''):null].filter(Boolean).join('\n')||null;
   // TODO: cuando exista el rol "responsable_deposito", permitir también ese rol
   pedirAdminYEjecutar(async()=>{
     const{error:errUpd}=await sb.from('ordenes_corte').update({
