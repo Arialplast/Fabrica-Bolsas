@@ -110,5 +110,12 @@ t(R.maqPpal===1&&R.empPpal===1,'máquina y operario de la OC para la carga');
  const td3=[{maquina:1,ti:TT('10:45:00'),tf:TT('10:45:08'),golpes:5}];_cvvAsignar(td3,[cg[0]],ocs3,{});
  t(td3[0].oc===84,'reabierta después de terminar: vuelve a contar');
  t(_cvvTerminada(ocs2[84],TT('10:36:00'))&&!_cvvTerminada(ocs2[84],TT('10:20:00'))&&!_cvvTerminada({},TT('10:36:00')),'_cvvTerminada');}
+// 16d: margen del cuentametros (metros reales = tarjeta × largo real ÷ factor) sólo para bobinas del PLC
+{global.PLC={cfg:{factor:{'1':{m_pulso:0.2475},'3':{m_pulso:0.793}}}};
+ t(Math.abs(_cvvMargen({plc_cierre_id:9,extrusora_id:1})-0.2513/0.2475)<1e-9,'EXT-01: +1,5 %');
+ t(Math.abs(_cvvMargen({plc_cierre_id:9,extrusora_id:7})-0.80/0.793)<1e-9,'EXT-07 sin factor cargado: usa 0,793 por defecto');
+ t(_cvvMargen({plc_cierre_id:null,extrusora_id:1})===1&&_cvvMargen({plc_cierre_id:5,extrusora_id:2})===1&&_cvvMargen(null)===1,'metros a mano u otra extrusora: sin margen');
+ t(Math.round(_cvvMetros({metros_usados:'1166',bobinas_producidas:{plc_cierre_id:1,extrusora_id:1}}))===1184,'1.166 m de tarjeta EXT-01 = 1.184 m reales');
+ delete global.PLC;}
 console.log((bad?'FALLA':'OK')+' smoke_corte_vivo: '+ok+' ok, '+bad+' mal');process.exit(bad?1:0);
 })();

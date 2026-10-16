@@ -1138,7 +1138,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-16c</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-16d</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6360,7 +6360,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-16c';   // 16c: ✂ un golpe posterior a «Terminó de cortar» en el panel ya no se le suma a esa OC (va al escaneo siguiente); la nota de cierre decía «cierra» cuando SOBRABAN bolsas: ahora dice SOBRAN; el % del balance sin signo. — 16b: 🖨 IMPRESORA en el Panel corte: escaneo de entrada y salida de cada bobina (tabla impresion_bobinas), metros impresos = metros de extrusión, m/min reales, impresas esperando corte; en la cortadora una bobina de producto IMPRESA sin pasar por la impresora se pregunta y queda anotada. — 16a: ✂ golpes que tenía que hacer la cortadora = bobina más larga de cada par ÷ largo (con 2 pistas la más larga termina sola); cortadas = golpes × pistas − la punta a 1 pista. Control de cortadora: golpes contra esos golpes. — 15q anterior: 15q: ✂ pilas bien contadas con el registro golpe a golpe: una pila que el operario cortó a la mitad y completó al volver a arrancar (11 + 14 = 25) es «cortada a la mitad», no dos incompletas. Incompleta = nunca llegó a la parada; de más = pasó de la parada sin la pausa de la máquina (29, 31…), con los golpes de más.
+const APP_BUILD='2026-10-16d';   // 16d: ✂ el balance de cierre usa los METROS REALES de las bobinas medidas por el PLC (margen fijo del cuentametros: EXT-01 +1,5 %, E3/E7 +0,9 %); se muestra en el control y en la nota. — 16c: ✂ un golpe posterior a «Terminó de cortar» en el panel ya no se le suma a esa OC (va al escaneo siguiente); la nota de cierre decía «cierra» cuando SOBRABAN bolsas: ahora dice SOBRAN; el % del balance sin signo. — 16b: 🖨 IMPRESORA en el Panel corte: escaneo de entrada y salida de cada bobina (tabla impresion_bobinas), metros impresos = metros de extrusión, m/min reales, impresas esperando corte; en la cortadora una bobina de producto IMPRESA sin pasar por la impresora se pregunta y queda anotada. — 16a: ✂ golpes que tenía que hacer la cortadora = bobina más larga de cada par ÷ largo (con 2 pistas la más larga termina sola); cortadas = golpes × pistas − la punta a 1 pista. Control de cortadora: golpes contra esos golpes. — 15q anterior: 15q: ✂ pilas bien contadas con el registro golpe a golpe: una pila que el operario cortó a la mitad y completó al volver a arrancar (11 + 14 = 25) es «cortada a la mitad», no dos incompletas. Incompleta = nunca llegó a la parada; de más = pasó de la parada sin la pausa de la máquina (29, 31…), con los golpes de más.
 // 15p: ✂ paradas: TANDAS SIN COMPLETAR (menos golpes que la parada de la máquina, normalmente 25) y tandas de más, por operario y en total con el detalle (ej. 11×5 · 4×14); en cada parada, con cuántos golpes venía la tanda («12 de 25» en rojo = paró a mitad de pila).
 // 15o: ✂ PARADAS POR OC Y OPERARIO: cada hueco de 30 s o más entre tandas de la OC (sacar la pila tarda ~5 s), con desde/hasta/duración/máquina/operario y lo registrado en ese momento (cambio de bobina = escaneo de una bobina de la OC ± 2 min; si no, «nada (sin escaneo)» en rojo). Resumen por operario: golpes, cortando, paradas, cambios de bobina, sin escaneo, de 3 min o más. En el detalle de la OC (Corte en vivo) y en el control de cierre (desplegable).
 // 15n: ✂ control de cierre FIJO y sin justificaciones: debían salir (metros ÷ largo de ficha) − bultos − prestadas/tomadas (las informa el operario) − scrap (kg ÷ peso de la bolsa de estas bobinas) = FALTAN / SOBRAN; más de ±1 % → el operario explica. Golpes × pistas contra metros como control aparte de la cortadora (±3 %). Se sacan «quedó sin cortar», «scrap de más», «revisar» y la sugerencia automática de bultos distintos.
@@ -11200,6 +11200,21 @@ function _cvvPistas(g,teo,dec){
 // una tirada; sus golpes son los de la OC desde ese escaneo hasta el próximo (los anteriores al primer
 // escaneo van a la primera). Cada tirada da su propia relación bolsas-por-metros ÷ golpes: si todas dan
 // ~2, son 2 pistas; la que no, se marca (bobina sin escanear, golpes de otra OC…).
+// 16d — MARGEN DEL CUENTAMETROS (German, 16/10: «no pedimos explicación cuando ya la sabemos»).
+// El factor del PLC se fijó a propósito por debajo del largo real: EXT-01 rueda 0,2513 m → 0,2475 (−1,5 %),
+// E3/E7 rodillo 0,80 → 0,793 (−0,9 %). Cada bobina medida por el PLC tiene ese % más de film del que dice
+// el sistema; la cortadora lo confirma (OC-1052984: 1.096 golpes esperados con metros reales, hizo 1.097).
+// El control de cierre usa los METROS REALES = metros del sistema × largo real ÷ factor. No es recalibrar
+// (P3): el factor queda congelado; es el margen fijo que eligió German. Bobinas con metros a mano: sin cambio.
+const CVV_M_REAL={1:0.2513,3:0.80,7:0.80},CVV_M_PULSO_DEF={1:0.2475,3:0.793,7:0.793};
+function _cvvMargen(b){
+  if(!b||!b.plc_cierre_id)return 1;
+  const r=CVV_M_REAL[b.extrusora_id];if(!r)return 1;
+  let m=CVV_M_PULSO_DEF[b.extrusora_id];
+  try{const f=PLC&&PLC.cfg&&PLC.cfg.factor&&PLC.cfg.factor[String(b.extrusora_id)];const x=f&&parseFloat(f.m_pulso);if(x>0)m=x;}catch(e){}
+  return m>0?r/m:1;
+}
+function _cvvMetros(c){return (parseFloat(c.metros_usados)||0)*_cvvMargen(c.bobinas_producidas);}
 function _cvvTiradas(o,mpb){
   const cs=o.cargas.slice().sort((a,b)=>a.t-b.t),G=[];
   cs.forEach(c=>{const g=G[G.length-1];
@@ -11209,7 +11224,7 @@ function _cvvTiradas(o,mpb){
     const t0=i===0?-Infinity:g.t-120000,t1=i+1<G.length?G[i+1].t-120000:Infinity;
     const ts=o.tds.filter(t=>!t.sin_hora&&t.ti>=t0&&t.ti<t1);
     g.golpes=ts.reduce((s2,t)=>s2+t.golpes,0);
-    g.metros=g.cs.reduce((s2,c)=>s2+(parseFloat(c.metros_usados)||0),0);
+    g.metros=g.cs.reduce((s2,c)=>s2+_cvvMetros(c),0);
     g.teo=mpb?g.metros/mpb:null;g.r=(g.golpes&&g.teo)?g.teo/g.golpes:null;
     g.a=ts.length?Math.min(...ts.map(t=>t.ti)):null;g.z=ts.length?Math.max(...ts.map(t=>t.tf)):null;
     g.bobs=g.cs.map(c=>(c.bobinas_producidas&&c.bobinas_producidas.numero_bobina)||('#'+c.bobina_producida_id));
@@ -11293,7 +11308,7 @@ function _cvvTiradasHTML(o){
   o.tiradas.forEach(g=>{
     const mal=o.pistas&&g.golpes>=50&&(g.gEsp?Math.abs(g.golpes/g.gEsp-1)>0.05:g.r!=null&&Math.abs(g.r/o.pistas-1)>0.12);
     h+='<tr'+(mal?' style="color:var(--red,#ef5a4c);font-weight:700"':'')+'><td '+stl+'>'+g.bobs.map(escapeHtml).join(' + ')+(g.maq!==o.tiradas[0].maq||o.maqs.length>1?' <span style="opacity:.7">('+escapeHtml(_cvvMaqNom(g.maq).replace('CORTE-','C'))+')</span>':'')+'</td>'
-      +'<td '+st+'>'+g.cs.map(c=>F(parseFloat(c.metros_usados))).join(' + ')+'</td><td '+st+'>'+H(g.t)+'</td><td '+st+'>'+F(g.golpes)+'</td>'
+      +'<td '+st+'>'+g.cs.map(c=>F(_cvvMetros(c))).join(' + ')+'</td><td '+st+'>'+H(g.t)+'</td><td '+st+'>'+F(g.golpes)+'</td>'
       +'<td '+st+'>'+(g.gEsp?F(g.gEsp)+(g.exacto?'':' ≈')+' <span style="opacity:.7">('+((g.golpes/g.gEsp-1)*100>0?'+':'')+((g.golpes/g.gEsp-1)*100).toFixed(1).replace('.',',')+' %)</span>':'—')+'</td>'
       +'<td '+st+'>'+(g.a?H(g.a)+' a '+H(g.z):'sin golpes')+'</td><td '+st+'>'+(g.r!=null?g.r.toFixed(2).replace('.',','):'—')+(mal?' ⚠':'')+'</td></tr>';
   });
@@ -11319,7 +11334,7 @@ function _cvvGolpesEsp(o,mpb){
   const p=o.pistas;if(!p||!mpb||!o.tiradas)return o;
   let esp=0,cola=0,desc=0;
   o.tiradas.forEach(g=>{
-    const ms=g.cs.map(c=>parseFloat(c.metros_usados)||0).sort((x,y)=>y-x);
+    const ms=g.cs.map(c=>_cvvMetros(c)).sort((x,y)=>y-x);
     g.gEsp=0;g.exacto=p===1||ms.length===p;
     if(p===1){g.gEsp=ms.reduce((s2,x)=>s2+x,0)/mpb;}
     else if(ms.length===p){const L=ms[0];g.gEsp=L/mpb;cola+=ms.reduce((s2,x)=>s2+(L-x),0)/mpb;}
@@ -11340,15 +11355,17 @@ function _cvvOCs(tandas,cargas,ocs){
   return Object.values(R).map(o=>{
     const oc=ocs[o.id]||{};const p=oc.productos||{};
     const mpb=parseFloat(p.metros_por_bolsa)||0,ppb=parseFloat(p.peso_por_bolsa)||0;
-    o.oc=oc;o.metros=o.cargas.reduce((s,c)=>s+(parseFloat(c.metros_usados)||0),0);
+    o.oc=oc;o.metros=o.cargas.reduce((s,c)=>s+_cvvMetros(c),0);
+    o.metrosSis=o.cargas.reduce((s,c)=>s+(parseFloat(c.metros_usados)||0),0);   // 16d: lo que dice la tarjeta
+    o.margenPct=o.metrosSis?o.metros/o.metrosSis-1:0;
     o.teo=mpb?o.metros/mpb:null;
     o.golpes=o.tds.reduce((s,t)=>s+t.golpes,0);
     o.decl=oc.unidades_reales!=null?oc.unidades_reales:null;
     // 15l: PESO REAL por bolsa = kg SIN TUBO de las bobinas de esta OC ÷ sus metros × metros por bolsa.
     // Las bobinas entraron por balanza: ese peso es el que vale, no el teórico de la ficha.
     let kgN=0,mK=0;
-    o.cargas.forEach(c=>{const b=c.bobinas_producidas||{},k=parseFloat(b.kg_reales),mr=parseFloat(b.metros_reales),mu=parseFloat(c.metros_usados)||mr,t=parseFloat(b.tara_tubo_kg);
-      if(k>0&&mr>0){const net=(b.peso_origen&&t>0)?k-t:k;kgN+=net*mu/mr;mK+=mu;}});
+    o.cargas.forEach(c=>{const b=c.bobinas_producidas||{},k=parseFloat(b.kg_reales),mr=parseFloat(b.metros_reales),mu=parseFloat(c.metros_usados)||mr,t=parseFloat(b.tara_tubo_kg),kM=_cvvMargen(b);
+      if(k>0&&mr>0){const net=(b.peso_origen&&t>0)?k-t:k;kgN+=net*mu/mr;mK+=mu*kM;}});
     o.kgm=mK?kgN/mK:null;o.kgNeto=o.kgm!=null?o.kgm*o.metros:null;
     o.gBolsa=(o.kgm&&mpb)?o.kgm*mpb:null;o.gFicha=ppb||null;
     o.scrapKg=oc.peso_scrap_kg!=null?(parseFloat(oc.peso_scrap_kg)||0):null;
@@ -11422,7 +11439,7 @@ function _cvvOperarios(tandas,cargas,turnos,t0,ahora){
 // 5/10/25, no se cierra sin una explicación, que queda en las observaciones de la OC.
 // Sin golpes (CORTE-3 sin sensor, registrador caído) → no controla.
 async function _cvvControlCierre(oc,uniDecl,scrapKg,prod){
-  const selC='id,orden_corte_id,bobina_producida_id,metros_usados,fecha_asignacion,empleado_id,maquina_id,bobinas_producidas(numero_bobina,kg_reales,metros_reales,tara_tubo_kg,peso_origen)';
+  const selC='id,orden_corte_id,bobina_producida_id,metros_usados,fecha_asignacion,empleado_id,maquina_id,bobinas_producidas(numero_bobina,kg_reales,metros_reales,tara_tubo_kg,peso_origen,extrusora_id,plc_cierre_id)';
   const r1=await sb.from('orden_corte_bobinas').select(selC).eq('orden_corte_id',oc.id);
   if(r1.error)throw r1.error;
   const propias=(r1.data||[]).filter(c=>CVV.maqs.includes(c.maquina_id));
@@ -11440,6 +11457,7 @@ async function _cvvControlCierre(oc,uniDecl,scrapKg,prod){
   ocs[oc.id]={id:oc.id,numero_orden:oc.numero_orden,estado:'En proceso',fecha_completada:null,unidades_reales:uniDecl,peso_scrap_kg:scrapKg,observaciones:oc.observaciones||'',
     productos:{metros_por_bolsa:prod&&prod.metros_por_bolsa,peso_por_bolsa:prod&&prod.peso_por_bolsa}};
   const tds=_cvvAsignar((r3_.data||[]).map(t=>Object.assign({ti:new Date(t.inicio).getTime(),tf:new Date(t.fin).getTime()},t)),cargas,ocs,{});
+  try{await _plcCfg();}catch(e){}   // 16d: factor de cada extrusora para el margen del cuentametros
   const R=_cvvOCs(tds,cargas.filter(c=>c.orden_corte_id===oc.id),ocs)[0];
   if(!R)return null;
   const mpb=parseFloat(prod&&prod.metros_por_bolsa)||0;
@@ -11492,7 +11510,7 @@ function _cvvRecalc(R){
   const N=n=>Math.round(n).toLocaleString('es-AR');
   R.linea=R.pistas
     ?'✂ Control de golpes '+localDate()+': '+N(R.golpes)+' golpes'+(R.gEsp?' (con estas bobinas tenían que ser '+N(R.gEsp)+(R.parDesc?', aprox.':'')+')':'')+' · '+R.pistas+' pistas · '+N(R.cortadas)
-      +' cortadas · por metros '+N(R.teo||0)+' · declaradas '+N(uniDecl)+' · scrap ≈ '+N(R.scrapB)
+      +' cortadas · por metros '+N(R.teo||0)+(R.margenPct>0.0005?' (metros reales: tarjetas '+N(R.metrosSis)+' m + '+(R.margenPct*100).toFixed(1).replace('.',',')+' % de margen del cuentametros)':'')+' · declaradas '+N(uniDecl)+' · scrap ≈ '+N(R.scrapB)
       +' · '+(true?'debían salir '+N(R.teo||0)+' − bultos '+N(R.decl-de+a)+' − scrap '+N(R.scrapB)+' = '+(()=>{const kg=x=>R.gBolsa?' ('+(x*R.gBolsa).toLocaleString('es-AR',{maximumFractionDigits:1})+' kg)':'';   // 16c: antes decía «cierra» cuando SOBRABAN
         return R.nivel==='faltan'?'FALTAN '+N(R.faltan)+kg(R.faltan):R.nivel==='sobran'?'SOBRAN '+N(-R.faltan)+kg(-R.faltan):'cierra'+(Math.abs(R.faltan)>=0.5?' ('+(R.faltan>0?'faltan ':'sobran ')+N(Math.abs(R.faltan))+')':'');})()+(R.pct!=null&&R.nivel!=='ok'?' ('+(Math.abs(R.pct)*100).toFixed(1).replace('.',',')+' %)':''):'DE MÁS en los bultos '+N(-R.afuera))
       +(R.gBolsa?' · bolsa '+(R.gBolsa*1000).toFixed(1).replace('.',',')+' g':'')+(R.difGolpes!=null?' · golpes contra lo que tenían que ser '+(R.difGolpes>0?'+':'')+(R.difGolpes*100).toFixed(1).replace('.',',')+' %':'')+' · tanda '+(R.tanda||'—')
@@ -11526,7 +11544,8 @@ function _cvvPedirExplicacion(id,R,clave){
     const pcs=x=>(x>0?'+':'')+(x*100).toFixed(1).replace('.',',')+' %';
     cuenta+='<div style="background:var(--bg2);border-radius:var(--r);padding:8px 12px;margin:8px 0">'
       +f2('','', '<span style="font-size:10px;color:var(--text3)">BOLSAS</span>','<span style="font-size:10px;color:var(--text3)">KG</span>')
-      +f2('Debían salir',f(R.metros)+' m ÷ '+(mpbF?mpbF.toFixed(2).replace('.',','):'—')+' m por bolsa · '+K1(R.kgNeto)+' kg sin tubo (balanza)',f(R.teo||0),K1(R.kgNeto))
+      +f2('Debían salir',f(R.metros)+' m ÷ '+(mpbF?mpbF.toFixed(2).replace('.',','):'—')+' m por bolsa · '+K1(R.kgNeto)+' kg sin tubo (balanza)'
+        +(R.margenPct>0.0005?'<br>metros reales = '+f(R.metrosSis)+' m de las tarjetas + '+(R.margenPct*100).toFixed(1).replace('.',',')+' % (margen fijo del cuentametros: el factor está por debajo del largo real)':''),f(R.teo||0),K1(R.kgNeto))
       +(bd.length&&R.declSistema
         ?f2('Declaradas en el sistema',R.bolsones+' × '+f(ppb*uP),f(R.declSistema),K(R.declSistema),tope)
          +f2('Reales en los bultos',(R.bolsones-bd.reduce((s2,r)=>s2+r.n,0))+' × '+f(ppb*uP)+bd.map(r=>' + '+r.n+' × '+f(r.x*uP)).join(''),f(R.decl),K(R.decl))
@@ -11730,7 +11749,7 @@ async function renderCorteVivo(){
   if(!w.innerHTML.trim())w.innerHTML='<div class="loading"><div class="spinner"></div></div>';
   try{
     const ahora=Date.now(),t0=ahora-CVV.horas*3600000,tA=t0-12*3600000;
-    const selC='id,orden_corte_id,bobina_producida_id,metros_usados,fecha_asignacion,empleado_id,maquina_id,origen,bobinas_producidas(numero_bobina,kg_reales,metros_reales,tara_tubo_kg,peso_origen)';
+    const selC='id,orden_corte_id,bobina_producida_id,metros_usados,fecha_asignacion,empleado_id,maquina_id,origen,bobinas_producidas(numero_bobina,kg_reales,metros_reales,tara_tubo_kg,peso_origen,extrusora_id,plc_cierre_id)';
     const r1=await _traerQ(()=>sb.from('orden_corte_bobinas').select(selC).gte('fecha_asignacion',new Date(tA).toISOString()).order('fecha_asignacion').order('id'));
     if(r1.error)throw r1.error;
     const ocIds=[...new Set((r1.data||[]).filter(c=>CVV.maqs.includes(c.maquina_id)).map(c=>c.orden_corte_id))];
@@ -11750,6 +11769,7 @@ async function renderCorteVivo(){
     const turnos=_cvvTurnos(r7.data||[],ahora);
     const tandas=_cvvAsignar((r4.data||[]).map(t=>Object.assign({ti:new Date(t.inicio).getTime(),tf:new Date(t.fin).getTime()},t)),cargas,ocs,turnos);
     const est=r5.data||[];
+    try{await _plcCfg();}catch(e){}   // 16d: margen del cuentametros
     const ocsR=_cvvOCs(tandas,cargas.filter(c=>ocIds.includes(c.orden_corte_id)),ocs).filter(o=>o.tds.some(t=>t.ti>=t0)||o.cargas.some(c=>c.t>=t0))
       .sort((a,b)=>(b.fin||b.cargas[b.cargas.length-1].t)-(a.fin||a.cargas[a.cargas.length-1].t));
     const ops=_cvvOperarios(tandas,cargas,turnos,t0,ahora);
