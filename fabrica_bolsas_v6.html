@@ -1138,7 +1138,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-15j</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-15k</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6360,7 +6360,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-15j';   // 15j: ✂ balance completo en el control de cierre: lo que ENTRÓ en bobinas (metros → bolsas) tiene que salir en bultos, prestadas o scrap. El scrap cubre el film que no se cortó (puntas, arranques) MÁS las cortadas fuera de los bultos; antes sólo las segundas y la OC-1052965 daba «cierra» con 90 bolsas sin ubicar.
+const APP_BUILD='2026-10-15k';   // 15k: ✂ control de cierre con SEGUNDA BALANZA por peso: kg de las bobinas contra kg de bultos (+ prestadas − tomadas) + scrap. «Faltan» sólo si faltan por metros Y por peso (> 1 % los dos); si sólo por metros → «✓ CIERRA POR PESO» con la explicación (error de medición). OC-1052965: por metros 90 (2,8 %), por peso entra 121,0 y sale 122,0 kg → cierra.
+// 15j: ✂ balance completo en el control de cierre: lo que ENTRÓ en bobinas (metros → bolsas) tiene que salir en bultos, prestadas o scrap. El scrap cubre el film que no se cortó (puntas, arranques) MÁS las cortadas fuera de los bultos; antes sólo las segundas y la OC-1052965 daba «cierra» con 90 bolsas sin ubicar.
 // 15i: ✂ el control de golpes se muestra SIEMPRE al cerrar una OC (tiradas, cuenta y veredicto); si cierra, botón «✓ Cerrar la orden» con comentario opcional; si no, explicación obligatoria como antes. Al cerrar ya no se pisan las notas que tenía la OC (inicio, cargas a mano, correcciones): se agregan.
 // 15h: ✂ control de cierre con el informe de las OC hechas a mano: TIRADAS (bobinas escaneadas juntas · metros · hora · golpes hasta el próximo escaneo · horario · bolsas-por-metros ÷ golpes = pistas de esa tirada); las pistas se afirman sólo si las tiradas lo dicen y la que no da se marca ⚠. La cuenta: cortadas · declaradas en el sistema / reales en los bultos (bultos distintos) · prestadas a / tomadas de otra OC (se cargan en la ventana y entran en la cuenta y en la nota) · scrap declarado · sin ubicar / de más. Corte en vivo: la tabla de tiradas en el detalle de la OC.
 // 15g: ✂ control de golpes CLARO: la cuenta renglón por renglón (la máquina cortó · en los bultos declararon · cortadas que NO están en los bultos · scrap pesado kg ≈ bolsas) y un veredicto en grande: ✓ LAS BOLSAS CIERRAN / ⛔ FALTAN N BOLSAS / ⛔ HAY N BOLSAS DE MÁS EN LOS BULTOS. Faltan = afuera de los bultos que el scrap no cubre; de más = declaradas por encima de lo cortado (el scrap no se suma). Antes declaradas+scrap > cortadas se leía «de más» aunque no faltara nada.
@@ -11293,7 +11294,7 @@ function _cvvOperarios(tandas,cargas,turnos,t0,ahora){
 // 5/10/25, no se cierra sin una explicación, que queda en las observaciones de la OC.
 // Sin golpes (CORTE-3 sin sensor, registrador caído) → no controla.
 async function _cvvControlCierre(oc,uniDecl,scrapKg,prod){
-  const selC='id,orden_corte_id,bobina_producida_id,metros_usados,fecha_asignacion,empleado_id,maquina_id,bobinas_producidas(numero_bobina)';
+  const selC='id,orden_corte_id,bobina_producida_id,metros_usados,fecha_asignacion,empleado_id,maquina_id,bobinas_producidas(numero_bobina,kg_reales,metros_reales)';
   const r1=await sb.from('orden_corte_bobinas').select(selC).eq('orden_corte_id',oc.id);
   if(r1.error)throw r1.error;
   const propias=(r1.data||[]).filter(c=>CVV.maqs.includes(c.maquina_id));
@@ -11349,7 +11350,19 @@ function _cvvRecalc(R){
     R.pct=R.cortadas?R.sinUbicar/R.cortadas:null;
   }
   const bdOk=R.bd&&R.bd.length;
-  R.alerta=R.pConf==='dudoso'||!R.golpes||Math.abs(R.pct||0)>0.01||(R.tandaRara&&!bdOk)||R.faltaBolsas>0;
+  // 15k: SEGUNDA BALANZA, por peso: kg de las bobinas (balanza de extrusión) contra kg de los bultos
+  // (bolsas × peso por bolsa) + prestadas − tomadas + scrap pesado. «Faltan» sólo si lo dicen los metros
+  // Y el peso (los dos > 1 %): una diferencia que sólo aparece en una de las dos es error de medición
+  // (largo o peso real de la bolsa contra el teórico), no bolsas perdidas.
+  const pp=parseFloat(R.oc&&R.oc.productos&&R.oc.productos.peso_por_bolsa)||0,kgS=parseFloat(R.oc&&R.oc.peso_scrap_kg)||0;
+  let kgIn=0,okKg=R.cargas&&R.cargas.length>0;
+  (R.cargas||[]).forEach(c=>{const b=c.bobinas_producidas||{},k=parseFloat(b.kg_reales),mr=parseFloat(b.metros_reales),mu=parseFloat(c.metros_usados);
+    if(!(k>0)){okKg=false;return;}kgIn+=(mr>0&&mu>0)?k*mu/mr:k;});
+  if(okKg&&pp&&R.decl!=null){R.kgIn=kgIn;R.kgOut=(R.decl-de+a)*pp+kgS;R.kgFalta=R.kgIn-R.kgOut;R.kgPct=R.kgFalta/R.kgIn;}
+  else{R.kgIn=null;R.kgPct=null;}
+  R.faltaMetros=R.sinUbicar>0&&Math.abs(R.pct||0)>0.01;
+  R.faltaReal=R.faltaMetros&&(R.kgPct==null||R.kgPct>0.01);
+  R.alerta=R.pConf==='dudoso'||!R.golpes||R.faltaReal||(R.sinUbicar<0&&Math.abs(R.pct||0)>0.01)||(R.tandaRara&&!bdOk)||R.faltaBolsas>0;
   const uniDecl=R.uniDecl;
   const N=n=>Math.round(n).toLocaleString('es-AR');
   R.linea=R.pistas
@@ -11394,6 +11407,9 @@ function _cvvPedirExplicacion(id,R,clave){
       +(R.afuera>=0
         ?fila('Sin ubicar',R.sinUbicar>0?'unas '+f(R.sinUbicar):'0',f(R.noCortado)+' + '+f(R.afuera)+' − '+f(R.scrapB),tope+(R.sinUbicar>0?'color:var(--red)':'color:var(--green)'))
         :fila('De más en los bultos',f(-R.afuera),'no las cortó la máquina',tope+'color:var(--red)'))
+      +(R.kgIn!=null?fila('Por peso',(R.kgPct>0.01?'faltan ':R.kgPct<-0.01?'sobran ':'cierra · ')+Math.abs(R.kgFalta).toLocaleString('es-AR',{maximumFractionDigits:1})+' kg',
+          'entró '+R.kgIn.toLocaleString('es-AR',{maximumFractionDigits:1})+' kg · bultos'+(pa||pde?' y prestadas':'')+' '+(R.kgOut-kgS).toLocaleString('es-AR',{maximumFractionDigits:1})+' + scrap '+kgS.toLocaleString('es-AR',{maximumFractionDigits:2}),
+          tope+(R.kgPct>0.01?'color:var(--red)':'color:var(--green)')):'')
     +'</div>'
     // 3) prestadas: se informan acá y entran en la cuenta
     +'<details style="font-size:12px;margin-bottom:8px"'+(pa||pde||(R.afuera<0&&Math.abs(R.pct||0)>0.01)?' open':'')+'><summary style="cursor:pointer;color:var(--text2)">¿Se prestaron o se tomaron bolsas de otra OC?</summary>'
@@ -11404,7 +11420,9 @@ function _cvvPedirExplicacion(id,R,clave){
     const pc=x=>(x*100).toFixed(1).replace('.',',')+' %';
     if(R.afuera<0&&Math.abs(R.pct||0)>0.01)
       ver='<div style="border:2px solid var(--red);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;color:var(--red);font-weight:800">⛔ HAY '+f(-R.afuera)+' BOLSAS DE MÁS EN LOS BULTOS<div style="font-weight:400;font-size:12px;color:var(--text1);margin-top:2px">Declararon '+f(-R.afuera)+' bolsas más de las que cortó la máquina ('+pc(-R.afuera/R.cortadas)+'). ¿Bolsas tomadas de otra OC? Cargalo arriba. ¿Bultos mal contados?</div></div>';
-    else if(R.sinUbicar>0&&Math.abs(R.pct||0)>0.01)
+    else if(R.faltaMetros&&!R.faltaReal)
+      ver='<div style="border:2px solid var(--green);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;color:var(--green);font-weight:800">✓ CIERRA POR PESO<div style="font-weight:400;font-size:12px;color:var(--text1);margin-top:2px">Por metros faltarían unas '+f(R.sinUbicar)+' bolsas ('+pc(R.pct)+'), pero por peso entró '+R.kgIn.toLocaleString('es-AR',{maximumFractionDigits:1})+' kg y salió '+R.kgOut.toLocaleString('es-AR',{maximumFractionDigits:1})+' kg. Si fueran bolsas perdidas faltaría también peso: es diferencia de medición (largo y peso real de la bolsa contra el teórico).</div></div>';
+    else if(R.faltaReal)
       ver='<div style="border:2px solid var(--red);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;color:var(--red);font-weight:800">⛔ FALTAN '+f(R.sinUbicar)+' BOLSAS<div style="font-weight:400;font-size:12px;color:var(--text1);margin-top:2px">De lo que entró en bobinas, '+f(R.sinUbicar)+' bolsas no están en los bultos'+(pa?', ni en las prestadas,':'')+' ni en el scrap pesado ('+pc(R.pct)+').'+(R.bolsasParc?' Hubo '+f(R.bolsasParc)+' bolsas en pilas incompletas (arranques y cambios de bobina): si se tiraron sin pesar, están ahí.':'')+'</div></div>';
     else
       ver='<div style="border:2px solid var(--green);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;color:var(--green);font-weight:800">✓ LAS BOLSAS CIERRAN<div style="font-weight:400;font-size:12px;color:var(--text1);margin-top:2px">'+(R.afuera>=0?'Lo que entró en bobinas está en los bultos'+(pa?', las prestadas':'')+' y el scrap.':'Declararon apenas '+f(-R.afuera)+' bolsas más de lo cortado ('+pc(-R.afuera/R.cortadas)+'): dentro de la tolerancia.')+'</div></div>';
