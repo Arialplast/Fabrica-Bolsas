@@ -1138,7 +1138,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-15i</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-15j</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6360,7 +6360,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-15i';   // 15i: ✂ el control de golpes se muestra SIEMPRE al cerrar una OC (tiradas, cuenta y veredicto); si cierra, botón «✓ Cerrar la orden» con comentario opcional; si no, explicación obligatoria como antes. Al cerrar ya no se pisan las notas que tenía la OC (inicio, cargas a mano, correcciones): se agregan.
+const APP_BUILD='2026-10-15j';   // 15j: ✂ balance completo en el control de cierre: lo que ENTRÓ en bobinas (metros → bolsas) tiene que salir en bultos, prestadas o scrap. El scrap cubre el film que no se cortó (puntas, arranques) MÁS las cortadas fuera de los bultos; antes sólo las segundas y la OC-1052965 daba «cierra» con 90 bolsas sin ubicar.
+// 15i: ✂ el control de golpes se muestra SIEMPRE al cerrar una OC (tiradas, cuenta y veredicto); si cierra, botón «✓ Cerrar la orden» con comentario opcional; si no, explicación obligatoria como antes. Al cerrar ya no se pisan las notas que tenía la OC (inicio, cargas a mano, correcciones): se agregan.
 // 15h: ✂ control de cierre con el informe de las OC hechas a mano: TIRADAS (bobinas escaneadas juntas · metros · hora · golpes hasta el próximo escaneo · horario · bolsas-por-metros ÷ golpes = pistas de esa tirada); las pistas se afirman sólo si las tiradas lo dicen y la que no da se marca ⚠. La cuenta: cortadas · declaradas en el sistema / reales en los bultos (bultos distintos) · prestadas a / tomadas de otra OC (se cargan en la ventana y entran en la cuenta y en la nota) · scrap declarado · sin ubicar / de más. Corte en vivo: la tabla de tiradas en el detalle de la OC.
 // 15g: ✂ control de golpes CLARO: la cuenta renglón por renglón (la máquina cortó · en los bultos declararon · cortadas que NO están en los bultos · scrap pesado kg ≈ bolsas) y un veredicto en grande: ✓ LAS BOLSAS CIERRAN / ⛔ FALTAN N BOLSAS / ⛔ HAY N BOLSAS DE MÁS EN LOS BULTOS. Faltan = afuera de los bultos que el scrap no cubre; de más = declaradas por encima de lo cortado (el scrap no se suma). Antes declaradas+scrap > cortadas se leía «de más» aunque no faltara nada.
 // 15f: ✂ PISTAS POR TRES VÍAS (golpes · metros · declarado + scrap), como el análisis a mano: nunca se afirma un número de pistas que no cierre. «Falta cargar bobina» sólo si golpes y declarado coinciden y faltan metros. Si ningún número de pistas cierra → «⚠ LOS GOLPES NO SON DE ESTA OC»: busca en la otra cortadora golpes sin bobina escaneada en la ventana de la OC (2 h antes del escaneo → «Corte terminado en panel») y, si cierran, ofrece «Corregir: las bobinas pasan a CORTE-0X» (admin, nota en la OC) y vuelve a controlar. Caso OC-1052965: escaneada en CORTE-01, cortada en CORTE-02 (1.537 golpes × 2 = 3.074). Corte en vivo: columna pistas «?» y estado «GOLPES NO CIERRAN».
@@ -11214,7 +11215,7 @@ function _cvvTiradasHTML(o){
   const malas=o.tiradas.filter(g=>o.pistas&&g.golpes>=50&&g.r!=null&&Math.abs(g.r/o.pistas-1)>0.12);
   h+='<div style="font-size:11.5px;margin-bottom:4px">'+(o.pistas
      ?(malas.length?'<span style="color:var(--red,#ef5a4c);font-weight:700">⚠ '+malas.length+' tirada'+(malas.length>1?'s no dan':' no da')+' '+o.pistas+' pistas</span> (marcadas): esos golpes no cierran con esas bobinas — bobina sin escanear, golpes de otra OC o bobina escaneada que no se cortó.'
-       :'✓ Las '+o.tiradas.filter(g=>g.golpes>=50).length+' tiradas dan ~'+o.pistas+': se cortó a <strong>'+o.pistas+' pista'+(o.pistas>1?'s':'')+'</strong>.')
+       :(o.tiradas.filter(g=>g.golpes>=50).length>1?'✓ Las '+o.tiradas.filter(g=>g.golpes>=50).length+' tiradas dan ~'+o.pistas+': se cortó a <strong>'+o.pistas+' pista'+(o.pistas>1?'s':'')+'</strong>.':'Una sola tirada (todas las bobinas escaneadas juntas): da ~'+o.pistas+' pista'+(o.pistas>1?'s':'')+' en el total, sin tiradas para comparar.'))
      :'<span style="color:var(--amber,#e8b23a);font-weight:700">Las tiradas no dan un número de pistas parejo: no se puede afirmar cuántas pistas se cortaron.</span>')+'</div>';
   return h;
 }
@@ -11238,7 +11239,10 @@ function _cvvOCs(tandas,cargas,ocs){
     // 15g: afuera = cortadas que no están en los bultos (negativo = declararon MÁS de lo cortado).
     // Lo de afuera puede estar en el scrap pesado: sólo falta lo que el scrap no cubre.
     o.afuera=(o.cortadas!=null&&o.decl!=null)?o.cortadas-o.decl:null;
-    o.sinUbicar=o.afuera==null?null:o.afuera>=0?Math.max(0,o.afuera-o.scrapB):o.afuera;
+    // 15j: el scrap tiene que cubrir TAMBIÉN el film que entró y no se cortó (puntas, arranques):
+    // sin ubicar = (no cortado + cortadas fuera de los bultos) − scrap. «De más» si los bultos superan lo cortado.
+    o.noCortado=(o.teo!=null&&o.cortadas!=null)?Math.max(0,o.teo-o.cortadas):0;
+    o.sinUbicar=o.afuera==null?null:o.afuera>=0?Math.max(0,o.noCortado+o.afuera-o.scrapB):o.afuera;
     o.pct=(o.sinUbicar!=null&&o.cortadas)?o.sinUbicar/o.cortadas:null;
     const conH=o.tds.filter(t=>!t.sin_hora);
     o.tanda=_cvvModa(conH.filter(t=>t.golpes>=3).map(t=>t.golpes));
@@ -11340,7 +11344,8 @@ function _cvvRecalc(R){
   const P=R.prest||{},a=+P.a||0,de=+P.de||0;
   if(R.cortadas!=null&&R.decl!=null){
     R.afuera=R.cortadas-(R.decl-de)-a;
-    R.sinUbicar=R.afuera>=0?Math.max(0,R.afuera-R.scrapB):R.afuera;
+    R.noCortado=(R.teo!=null)?Math.max(0,R.teo-R.cortadas):0;
+    R.sinUbicar=R.afuera>=0?Math.max(0,R.noCortado+R.afuera-R.scrapB):R.afuera;
     R.pct=R.cortadas?R.sinUbicar/R.cortadas:null;
   }
   const bdOk=R.bd&&R.bd.length;
@@ -11350,7 +11355,7 @@ function _cvvRecalc(R){
   R.linea=R.pistas
     ?'✂ Control de golpes '+localDate()+': '+N(R.golpes)+' golpes × '+R.pistas+' pistas = '+N(R.cortadas)
       +' cortadas · por metros '+N(R.teo||0)+' · declaradas '+N(uniDecl)+' · scrap ≈ '+N(R.scrapB)
-      +' · '+(R.afuera>=0?'afuera de los bultos '+N(R.afuera)+(R.sinUbicar>0?' → FALTAN '+N(R.sinUbicar):' → cubiertas por el scrap'):'DE MÁS en los bultos '+N(-R.afuera))+' · tanda '+(R.tanda||'—')
+      +' · '+(R.afuera>=0?'no cortado '+N(R.noCortado||0)+' + afuera de los bultos '+N(R.afuera)+' − scrap '+N(R.scrapB)+(R.sinUbicar>0?' → FALTAN '+N(R.sinUbicar):' → cierra'):'DE MÁS en los bultos '+N(-R.afuera))+' · tanda '+(R.tanda||'—')
     :'✂ Control de golpes '+localDate()+': LOS GOLPES NO CIERRAN — '+N(R.golpes)+' golpes en '+_cvvMaqNom(R.maqEsc)+' · por metros '+N(R.teo||0)+' · declaradas '+N(uniDecl)+' + scrap ≈ '+N(R.scrapB)
       +(R.alt?' · en '+_cvvMaqNom(R.alt.maq)+' hubo '+N(R.alt.golpes)+' golpes sin bobina escaneada × '+R.alt.p+' pistas = '+N(R.alt.cort):'');
   if(a)R.linea+=' · prestadas '+N(a)+(P.aOC?' a '+P.aOC:'');
@@ -11372,19 +11377,23 @@ function _cvvPedirExplicacion(id,R,clave){
   cuenta='<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:2px 0">Bobinas, golpes y pistas</div>'+_cvvTiradasHTML(R);
   if(R.pistas&&R.afuera!=null){
     const bd=R.bd||[],ppb=R.ppb||0,uP=R.uniPaq||1;
-    // 2) la cuenta de bolsas, como en el informe
+    // 2) la cuenta de bolsas (15j: balance completo — lo que entró en bobinas tiene que salir en bultos, prestadas o scrap)
+    const tope='border-top:1px solid var(--border);margin-top:3px;padding-top:6px;';
     cuenta+='<div style="background:var(--bg2);border-radius:var(--r);padding:8px 12px;margin:8px 0">'
-      +fila('Cortadas',f(R.cortadas),f(R.golpes)+' golpes × '+R.pistas)
+      +fila('Entró en bobinas',f(R.teo||0),f(R.metros)+' m')
+      +fila('Cortadas por la máquina',f(R.cortadas),f(R.golpes)+' golpes × '+R.pistas)
+      +fila('&nbsp;&nbsp;Film que no se cortó',f(R.noCortado),'puntas, arranques, empalmes')
       +(bd.length&&R.declSistema
-        ?fila('Declaradas en el sistema',f(R.declSistema),R.bolsones+' × '+f(ppb*uP))
+        ?fila('Declaradas en el sistema',f(R.declSistema),R.bolsones+' × '+f(ppb*uP),tope)
          +fila('Reales en los bultos',f(R.decl),(R.bolsones-bd.reduce((s2,r)=>s2+r.n,0))+' × '+f(ppb*uP)+bd.map(r=>' + '+r.n+' × '+f(r.x*uP)).join(''))
-        :fila('Declaradas en los bultos',f(R.decl),R.bolsones?R.bolsones+' × '+f(ppb*uP)+(R.sueltos?' + '+f(R.sueltos*uP):''):''))
+        :fila('En los bultos',f(R.decl),R.bolsones?R.bolsones+' × '+f(ppb*uP)+(R.sueltos?' + '+f(R.sueltos*uP):''):'',tope))
       +(pa?fila('Prestadas'+(P.aOC?' a la '+escapeHtml(P.aOC):' a otra OC'),f(pa)):'')
       +(pde?fila('Tomadas'+(P.deOC?' de la '+escapeHtml(P.deOC):' de otra OC'),'− '+f(pde),'están en los bultos pero no se cortaron acá'):'')
-      +fila('Scrap declarado ('+(kgS).toLocaleString('es-AR',{maximumFractionDigits:2})+' kg)','unas '+f(R.scrapB))
+      +(R.afuera>=0?fila('&nbsp;&nbsp;Cortadas fuera de los bultos',f(R.afuera)):'')
+      +fila('Scrap declarado ('+(kgS).toLocaleString('es-AR',{maximumFractionDigits:2})+' kg)','unas '+f(R.scrapB),'tiene que cubrir el film no cortado + las cortadas fuera de los bultos',tope)
       +(R.afuera>=0
-        ?fila(R.sinUbicar>0?'Sin ubicar':'Sin ubicar',R.sinUbicar>0?'unas '+f(R.sinUbicar):'0','','border-top:1px solid var(--border);margin-top:3px;padding-top:6px;'+(R.sinUbicar>0?'color:var(--red)':'color:var(--green)'))
-        :fila('De más en los bultos',f(-R.afuera),'no las cortó la máquina','border-top:1px solid var(--border);margin-top:3px;padding-top:6px;color:var(--red)'))
+        ?fila('Sin ubicar',R.sinUbicar>0?'unas '+f(R.sinUbicar):'0',f(R.noCortado)+' + '+f(R.afuera)+' − '+f(R.scrapB),tope+(R.sinUbicar>0?'color:var(--red)':'color:var(--green)'))
+        :fila('De más en los bultos',f(-R.afuera),'no las cortó la máquina',tope+'color:var(--red)'))
     +'</div>'
     // 3) prestadas: se informan acá y entran en la cuenta
     +'<details style="font-size:12px;margin-bottom:8px"'+(pa||pde||(R.afuera<0&&Math.abs(R.pct||0)>0.01)?' open':'')+'><summary style="cursor:pointer;color:var(--text2)">¿Se prestaron o se tomaron bolsas de otra OC?</summary>'
@@ -11396,9 +11405,9 @@ function _cvvPedirExplicacion(id,R,clave){
     if(R.afuera<0&&Math.abs(R.pct||0)>0.01)
       ver='<div style="border:2px solid var(--red);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;color:var(--red);font-weight:800">⛔ HAY '+f(-R.afuera)+' BOLSAS DE MÁS EN LOS BULTOS<div style="font-weight:400;font-size:12px;color:var(--text1);margin-top:2px">Declararon '+f(-R.afuera)+' bolsas más de las que cortó la máquina ('+pc(-R.afuera/R.cortadas)+'). ¿Bolsas tomadas de otra OC? Cargalo arriba. ¿Bultos mal contados?</div></div>';
     else if(R.sinUbicar>0&&Math.abs(R.pct||0)>0.01)
-      ver='<div style="border:2px solid var(--red);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;color:var(--red);font-weight:800">⛔ FALTAN '+f(R.sinUbicar)+' BOLSAS<div style="font-weight:400;font-size:12px;color:var(--text1);margin-top:2px">No están en los bultos'+(pa?', ni en las prestadas,':'')+' ni las cubre el scrap ('+pc(R.pct)+').'+(R.bolsasParc?' Hubo '+f(R.bolsasParc)+' bolsas en pilas incompletas (arranques y cambios de bobina): si se tiraron sin pesar, están ahí.':'')+'</div></div>';
+      ver='<div style="border:2px solid var(--red);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;color:var(--red);font-weight:800">⛔ FALTAN '+f(R.sinUbicar)+' BOLSAS<div style="font-weight:400;font-size:12px;color:var(--text1);margin-top:2px">De lo que entró en bobinas, '+f(R.sinUbicar)+' bolsas no están en los bultos'+(pa?', ni en las prestadas,':'')+' ni en el scrap pesado ('+pc(R.pct)+').'+(R.bolsasParc?' Hubo '+f(R.bolsasParc)+' bolsas en pilas incompletas (arranques y cambios de bobina): si se tiraron sin pesar, están ahí.':'')+'</div></div>';
     else
-      ver='<div style="border:2px solid var(--green);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;color:var(--green);font-weight:800">✓ LAS BOLSAS CIERRAN<div style="font-weight:400;font-size:12px;color:var(--text1);margin-top:2px">'+(R.afuera>=0?'Las '+f(R.afuera)+' bolsas cortadas que no están en los bultos'+(pa?' ni en las prestadas':'')+' entran en el scrap.':'Declararon apenas '+f(-R.afuera)+' bolsas más de lo cortado ('+pc(-R.afuera/R.cortadas)+'): dentro de la tolerancia.')+'</div></div>';
+      ver='<div style="border:2px solid var(--green);border-radius:var(--r);padding:8px 12px;margin-bottom:8px;color:var(--green);font-weight:800">✓ LAS BOLSAS CIERRAN<div style="font-weight:400;font-size:12px;color:var(--text1);margin-top:2px">'+(R.afuera>=0?'Lo que entró en bobinas está en los bultos'+(pa?', las prestadas':'')+' y el scrap.':'Declararon apenas '+f(-R.afuera)+' bolsas más de lo cortado ('+pc(-R.afuera/R.cortadas)+'): dentro de la tolerancia.')+'</div></div>';
   }
   const motivoTxt='';
   const html='<div class="modal-overlay" id="cvv-expl" style="z-index:10050"><div class="modal-card" style="max-width:520px">'
