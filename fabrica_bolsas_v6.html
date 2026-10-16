@@ -1138,7 +1138,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-15p</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-15q</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6360,7 +6360,8 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-15p';   // 15p: ✂ paradas: TANDAS SIN COMPLETAR (menos golpes que la parada de la máquina, normalmente 25) y tandas de más, por operario y en total con el detalle (ej. 11×5 · 4×14); en cada parada, con cuántos golpes venía la tanda («12 de 25» en rojo = paró a mitad de pila).
+const APP_BUILD='2026-10-15q';   // 15q: ✂ pilas bien contadas con el registro golpe a golpe: una pila que el operario cortó a la mitad y completó al volver a arrancar (11 + 14 = 25) es «cortada a la mitad», no dos incompletas. Incompleta = nunca llegó a la parada; de más = pasó de la parada sin la pausa de la máquina (29, 31…), con los golpes de más.
+// 15p: ✂ paradas: TANDAS SIN COMPLETAR (menos golpes que la parada de la máquina, normalmente 25) y tandas de más, por operario y en total con el detalle (ej. 11×5 · 4×14); en cada parada, con cuántos golpes venía la tanda («12 de 25» en rojo = paró a mitad de pila).
 // 15o: ✂ PARADAS POR OC Y OPERARIO: cada hueco de 30 s o más entre tandas de la OC (sacar la pila tarda ~5 s), con desde/hasta/duración/máquina/operario y lo registrado en ese momento (cambio de bobina = escaneo de una bobina de la OC ± 2 min; si no, «nada (sin escaneo)» en rojo). Resumen por operario: golpes, cortando, paradas, cambios de bobina, sin escaneo, de 3 min o más. En el detalle de la OC (Corte en vivo) y en el control de cierre (desplegable).
 // 15n: ✂ control de cierre FIJO y sin justificaciones: debían salir (metros ÷ largo de ficha) − bultos − prestadas/tomadas (las informa el operario) − scrap (kg ÷ peso de la bolsa de estas bobinas) = FALTAN / SOBRAN; más de ±1 % → el operario explica. Golpes × pistas contra metros como control aparte de la cortadora (±3 %). Se sacan «quedó sin cortar», «scrap de más», «revisar» y la sugerencia automática de bultos distintos.
 // 15m: ✂ no queda film en el tubo (German): todo el film pasa por la cortadora, así que la base del balance son las CORTADAS (golpes × pistas) y cada bolsa pesa kg sin tubo ÷ cortadas y mide metros ÷ cortadas (medido; se avisa si el largo no coincide con la ficha). Sin ubicar = cortadas − bultos − prestadas + tomadas − scrap (kg ÷ peso real), como el análisis a mano. Se saca «quedó sin cortar». Nuevo nivel «scrap de más» (> 3 %).
@@ -11215,11 +11216,31 @@ function _cvvParadasOC(o){
     const sc=o.cargas.filter(c=>c.maquina_id===a.maquina&&c.t>=a.tf-120000&&c.t<=b.ti+120000);
     P.push({a:a.tf,z:b.ti,seg,maq:a.maquina,emp:b.emp!=null?b.emp:a.emp,scans:sc,antes:a.golpes});
   }
-  // 15p: tandas que no llegan a la parada de la máquina (la tanda de la OC, normalmente 25)
+  // 15p/15q: pilas. La máquina para sola cada tz golpes (normalmente 25). Si el operario la para a mitad
+  // de pila, al volver a arrancar la COMPLETA (ej. 11 + 14 = 25): eso es una pila interrumpida, no una
+  // pila incompleta. Incompleta = la que nunca llega a tz (ni sumando la parte de después de la parada).
+  // De más = una pila que pasa de tz sin la pausa de la máquina (ej. 29, 31).
   const tz=o.tanda||25;
+  const tipo=new Map();   // tanda → 'ok' | 'interr' | 'inc' | 'mas'
+  for(let i=0;i<ts.length;i++){
+    const t=ts[i];if(tipo.has(t))continue;
+    if(t.golpes===tz){tipo.set(t,'ok');continue;}
+    if(t.golpes>tz){tipo.set(t,'mas');continue;}
+    // sumar las partes siguientes (separadas por paradas) mientras no pasen de tz
+    let suma=t.golpes,j=i,partes=[t];
+    while(suma<tz&&j+1<ts.length&&ts[j+1].maquina===t.maquina&&suma+ts[j+1].golpes<=tz){j++;suma+=ts[j].golpes;partes.push(ts[j]);}
+    const k=(suma===tz&&partes.length>1)?'interr':'inc';
+    partes.forEach(x=>tipo.set(x,k));
+  }
+  o._tipoTanda=tipo;
   const ops={};
   ts.forEach(t=>{const k=String(t.emp);const O=ops[k]=ops[k]||{emp:t.emp,golpes:0,cort:0,n:0,seg:0,nBob:0,segBob:0,nSin:0,segSin:0,n3:0,n20:0,nInc:0,gInc:0,nMas:0,inc:{}};O.golpes+=t.golpes;O.cort+=Math.max(2000,t.tf-t.ti+2000);
-    if(t.golpes<tz){O.nInc=(O.nInc||0)+1;O.gInc=(O.gInc||0)+t.golpes;O.inc=O.inc||{};O.inc[t.golpes]=(O.inc[t.golpes]||0)+1;}else if(t.golpes>tz)O.nMas=(O.nMas||0)+1;});
+    const ty=tipo.get(t);
+    if(ty==='inc'){O.nInc=(O.nInc||0)+1;O.gInc=(O.gInc||0)+t.golpes;O.inc=O.inc||{};O.inc[t.golpes]=(O.inc[t.golpes]||0)+1;}
+    else if(ty==='mas'){O.nMas=(O.nMas||0)+1;O.gMas=(O.gMas||0)+(t.golpes-tz);}
+    });
+  // pilas interrumpidas: una por cada parada con la pila a medio hacer que después se completó
+  P.forEach(p=>{const O=ops[String(p.emp)];if(!O)return;const ta=ts.find(t=>t.tf===p.a);if(ta&&tipo.get(ta)==='interr')O.nInt=(O.nInt||0)+1;p.tipo=ta?tipo.get(ta):null;});
   P.forEach(p=>{const k=String(p.emp);const O=ops[k]=ops[k]||{emp:p.emp,golpes:0,cort:0,n:0,seg:0,nBob:0,segBob:0,nSin:0,segSin:0,n3:0,n20:0,nInc:0,gInc:0,nMas:0,inc:{}};
     O.n++;O.seg+=p.seg;if(p.scans.length){O.nBob++;O.segBob+=p.seg;}else{O.nSin++;O.segSin+=p.seg;}
     if(p.seg>=180)O.n3++;if(p.seg>=1200)O.n20++;});
@@ -11232,18 +11253,20 @@ function _cvvParadasHTML(o,compacto){
   const st='style="padding:3px 6px;border-bottom:1px solid var(--border,#333);text-align:right;white-space:nowrap"',stl='style="padding:3px 6px;border-bottom:1px solid var(--border,#333);text-align:left"';
   const tot=X.a?(X.z-X.a)/1000:0;
   let h='<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:8px 0 2px">Paradas de la máquina en esta OC (30 s o más)</div>'
-    +'<table style="width:100%;border-collapse:collapse;font-size:11.5px;margin:2px 0"><thead><tr><th '+stl+'>Operario</th><th '+st+'>Golpes</th><th '+st+'>Cortando</th><th '+st+'>Paradas</th><th '+st+'>Cambio de bobina</th><th '+st+'>Sin escaneo</th><th '+st+'>De 3 min o más</th><th '+st+'>Tandas sin completar</th><th '+st+'>Tandas de más</th></tr></thead><tbody>'
+    +'<table style="width:100%;border-collapse:collapse;font-size:11.5px;margin:2px 0"><thead><tr><th '+stl+'>Operario</th><th '+st+'>Golpes</th><th '+st+'>Cortando</th><th '+st+'>Paradas</th><th '+st+'>Cambio de bobina</th><th '+st+'>Sin escaneo</th><th '+st+'>De 3 min o más</th><th '+st+'>Pilas cortadas a la mitad</th><th '+st+'>Pilas incompletas</th><th '+st+'>Pilas de más</th></tr></thead><tbody>'
     +X.ops.map(O=>'<tr><td '+stl+'>'+escapeHtml(_cvvEmpNom(O.emp))+'</td><td '+st+'>'+O.golpes.toLocaleString('es-AR')+'</td><td '+st+'>'+_cvvHM(O.cort/60000)+'</td>'
       +'<td '+st+'><strong>'+O.n+' · '+_cvvHM(O.seg/60)+'</strong></td><td '+st+'>'+O.nBob+' · '+_cvvHM(O.segBob/60)+'</td>'
       +'<td '+st+(O.nSin?' style="padding:3px 6px;border-bottom:1px solid var(--border,#333);text-align:right;color:var(--red,#ef5a4c);font-weight:700"':'')+'>'+O.nSin+' · '+_cvvHM(O.segSin/60)+'</td><td '+st+'>'+O.n3+'</td>'
-      +'<td '+st+(O.nInc?' style="padding:3px 6px;border-bottom:1px solid var(--border,#333);text-align:right;color:var(--red,#ef5a4c);font-weight:700"':'')+'>'+(O.nInc||0)+' · '+(O.gInc||0).toLocaleString('es-AR')+' golpes</td><td '+st+'>'+(O.nMas||0)+'</td></tr>').join('')
+      +'<td '+st+'>'+(O.nInt||0)+'</td>'
+      +'<td '+st+(O.nInc?' style="padding:3px 6px;border-bottom:1px solid var(--border,#333);text-align:right;color:var(--red,#ef5a4c);font-weight:700"':'')+'>'+(O.nInc||0)+(O.nInc?' · '+(O.gInc||0).toLocaleString('es-AR')+' golpes':'')+'</td>'
+      +'<td '+st+(O.nMas?' style="padding:3px 6px;border-bottom:1px solid var(--border,#333);text-align:right;color:var(--red,#ef5a4c);font-weight:700"':'')+'>'+(O.nMas||0)+(O.nMas?' · +'+(O.gMas||0)+' golpes':'')+'</td></tr>').join('')
     +'</tbody></table>'
     +'<div style="font-size:11px;color:var(--text3)">De '+(X.a?H(X.a):'—')+' a '+(X.z?H(X.z):'—')+' ('+_cvvHM(tot/60)+'): parada '+_cvvHM(X.P.reduce((s2,p)=>s2+p.seg,0)/60)+' en '+X.P.length+' paradas. Sacar la pila tarda ~5 s y no cuenta.'
-    +' La máquina para cada <strong>'+X.tz+'</strong> golpes: de '+X.nT+' tandas, '+X.ops.reduce((s2,O)=>s2+(O.nInc||0),0)+' no llegaron a '+X.tz
-    +(X.ops.some(O=>O.nInc)?' ('+(()=>{const c={};X.ops.forEach(O=>Object.keys(O.inc||{}).forEach(k=>c[k]=(c[k]||0)+O.inc[k]));return Object.keys(c).sort((a,b)=>c[b]-c[a]||b-a).map(k=>c[k]+'×'+k).join(' · ');})()+')':'')+'.</div>';
+    +' La máquina para sola cada <strong>'+X.tz+'</strong> golpes. <strong>Cortada a la mitad</strong> = el operario paró en medio de una pila y al arrancar la completó (ej. 11 + 14). <strong>Incompleta</strong> = nunca llegó a '+X.tz+'. <strong>De más</strong> = pasó de '+X.tz+' sin la pausa de la máquina.'
+    +(X.ops.some(O=>O.nInc)?' Incompletas: '+(()=>{const c={};X.ops.forEach(O=>Object.keys(O.inc||{}).forEach(k=>c[k]=(c[k]||0)+O.inc[k]));return Object.keys(c).sort((a,b)=>c[b]-c[a]||b-a).map(k=>c[k]+'×'+k).join(' · ');})()+'.':'')+'</div>';
   if(!compacto&&X.P.length){
     h+='<table style="width:100%;border-collapse:collapse;font-size:11.5px;margin:4px 0"><thead><tr><th '+stl+'>Desde</th><th '+stl+'>Hasta</th><th '+st+'>Duración</th><th '+st+' title="golpes de la tanda que venía cortando">Tanda al parar</th><th '+stl+'>Máq.</th><th '+stl+'>Operario</th><th '+stl+'>Registrado en ese momento</th></tr></thead><tbody>'
-      +X.P.map(p=>'<tr'+(p.seg>=180?' style="font-weight:700"':'')+'><td '+stl+'>'+H(p.a)+'</td><td '+stl+'>'+H(p.z)+'</td><td '+st+'>'+D(p.seg)+'</td><td '+st+(p.antes<X.tz?' style="padding:3px 6px;border-bottom:1px solid var(--border,#333);text-align:right;color:var(--red,#ef5a4c)"':'')+'>'+p.antes+(p.antes<X.tz?' de '+X.tz:'')+'</td><td '+stl+'>'+escapeHtml(_cvvMaqNom(p.maq).replace('CORTE-','C'))+'</td><td '+stl+'>'+escapeHtml(_cvvEmpNom(p.emp))+'</td>'
+      +X.P.map(p=>'<tr'+(p.seg>=180?' style="font-weight:700"':'')+'><td '+stl+'>'+H(p.a)+'</td><td '+stl+'>'+H(p.z)+'</td><td '+st+'>'+D(p.seg)+'</td><td '+st+(p.antes<X.tz?' style="padding:3px 6px;border-bottom:1px solid var(--border,#333);text-align:right;color:var(--red,#ef5a4c)"':'')+'>'+p.antes+(p.antes<X.tz?' de '+X.tz+(p.tipo==='interr'?' (la completó)':' (no la completó)'):'')+'</td><td '+stl+'>'+escapeHtml(_cvvMaqNom(p.maq).replace('CORTE-','C'))+'</td><td '+stl+'>'+escapeHtml(_cvvEmpNom(p.emp))+'</td>'
         +'<td '+stl+'>'+(p.scans.length?'cambio de bobina: '+p.scans.map(c=>escapeHtml((c.bobinas_producidas&&c.bobinas_producidas.numero_bobina)||'#'+c.bobina_producida_id)+' '+_plcHora(new Date(c.t).toISOString())).join(', '):'<span style="color:var(--red,#ef5a4c)">nada (sin escaneo)</span>')+'</td></tr>').join('')
       +'</tbody></table>';
   }
