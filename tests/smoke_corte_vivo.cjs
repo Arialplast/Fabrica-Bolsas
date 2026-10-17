@@ -129,5 +129,12 @@ t(R.maqPpal===1&&R.empPpal===1,'máquina y operario de la OC para la carga');
  t(_cvvMargen({plc_cierre_id:null,extrusora_id:1})===1&&_cvvMargen({plc_cierre_id:5,extrusora_id:2})===1&&_cvvMargen(null)===1,'metros a mano u otra extrusora: sin margen');
  t(Math.round(_cvvMetros({metros_usados:'1166',bobinas_producidas:{plc_cierre_id:1,extrusora_id:1}}))===1184,'1.166 m de tarjeta EXT-01 = 1.184 m reales');
  delete global.PLC;}
+// 17b: golpes sueltos antes de arrancar la OC (asignados «tarde») + hueco largo → no es parada de la OC
+{const TT=s=>new Date('2026-10-16T'+s+'-03:00').getTime();const td=(a,g,r)=>({maquina:1,ti:TT(a),tf:TT(a)+g*1500,golpes:g,regla:r,emp:1});
+ const o={tanda:25,cargas:[{maquina_id:1,t:TT('06:59:05')}],tds:[td('06:06:23',9,'tarde'),td('06:07:00',5,'tarde'),td('06:07:40',3,'tarde'),td('07:01:29',25,'antes'),td('07:02:20',25,'antes'),td('07:10:00',25,'antes')]};
+ const X=_cvvParadasOC(o);
+ t(X.arr&&Math.round(X.arr.seg/60)===54&&X.arr.gPrev===17,'arranque: 54 min y 17 golpes sueltos antes ('+(X.arr&&X.arr.seg)+')');
+ t(X.P.length===1&&Math.round(X.P[0].seg)>400,'paradas de la OC: sólo la de 07:03 → 07:10 ('+X.P.map(p=>Math.round(p.seg)).join(',')+')');
+ t(X.a===TT('07:01:29'),'la OC empieza 07:01:29');}
 console.log((bad?'FALLA':'OK')+' smoke_corte_vivo: '+ok+' ok, '+bad+' mal');process.exit(bad?1:0);
 })();
