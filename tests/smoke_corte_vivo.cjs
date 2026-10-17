@@ -18,7 +18,7 @@ const T=(s)=>new Date('2026-10-14T'+s+'-03:00').getTime(),H=3600000,M=60000;
 // 2) asignación
 const ocs={10:{id:10,numero_orden:'OC-A',estado:'Completada',fecha_completada:'2026-10-14T13:00:00-03:00',unidades_reales:400,peso_scrap_kg:0.5,productos:{metros_por_bolsa:0.5,peso_por_bolsa:0.01}},
   11:{id:11,numero_orden:'OC-B',estado:'En proceso',unidades_reales:null,peso_scrap_kg:null,productos:{metros_por_bolsa:1,peso_por_bolsa:0.02}}};
-const cargas=[{orden_corte_id:10,maquina_id:1,empleado_id:1,metros_usados:105,t:T('07:00:00')},{orden_corte_id:11,maquina_id:1,empleado_id:1,metros_usados:300,t:T('12:00:00')}];
+const cargas=[{orden_corte_id:10,maquina_id:1,empleado_id:1,metros_usados:52.5,t:T('07:00:00')},{orden_corte_id:10,maquina_id:1,empleado_id:1,metros_usados:52.5,t:T('07:00:05')},{orden_corte_id:11,maquina_id:1,empleado_id:1,metros_usados:300,t:T('12:00:00')}];
 const turnos={1:[[T('06:00:00'),T('15:00:00')]]};
 const td=(m,a,z,g,x)=>Object.assign({maquina:m,ti:T(a),tf:T(z),golpes:g,sin_hora:false},x||{});
 // OC-A: 4 tandas de 25 + 1 incompleta de 5 (=105 golpes × 2 pistas = 210 bolsas, teo 200)
@@ -40,7 +40,7 @@ t(B.decl==null&&B.sem==='','OC-B abierta sin semáforo');
 // 3) operario
 const O=_cvvOperarios(tds,cargas,turnos,T('06:00:00'),T('16:00:00'))[0];
 t(Math.round(O.fich/M)===540,'fichado 9 h');t(O.nLarga===2,'2 paradas largas (07:05→08:10 y 08:12→11:00) ('+O.nLarga+')');
-t(Math.round(O.arr/M)===61,'arranque 61 min ('+Math.round(O.arr/M)+')');t(O.cargas===2&&O.cambiosOC===1,'2 bobinas, 1 cambio de OC');
+t(Math.round(O.arr/M)===61,'arranque 61 min ('+Math.round(O.arr/M)+')');t(O.cargas===3&&O.cambiosOC===1,'3 bobinas, 1 cambio de OC');
 t(O.golpes===220,'golpes 180 + 40 sin hora ('+O.golpes+')');
 t(Math.round(O.cort/M)===11,'cortando: 3 corridas 4 + 2,5 + 4 min ('+Math.round(O.cort/M)+' min)');
 // 4) estado al instante
@@ -60,7 +60,8 @@ t(_cvvSt({actualizado_en:new Date(now-300000).toISOString()},now).k==='N','sin d
  r=P(1000,2100,null);t(r.p===2&&r.conf==='metros','OC abierta: sólo metros');}
 // 5) control al cerrar la OC (sb simulado)
 (async()=>{
-const tabla={orden_corte_bobinas:[{id:1,orden_corte_id:10,metros_usados:105,fecha_asignacion:new Date(T('07:00:00')).toISOString(),empleado_id:1,maquina_id:1},
+const tabla={orden_corte_bobinas:[{id:1,orden_corte_id:10,metros_usados:52.5,fecha_asignacion:new Date(T('07:00:00')).toISOString(),empleado_id:1,maquina_id:1},
+   {id:3,orden_corte_id:10,metros_usados:52.5,fecha_asignacion:new Date(T('07:00:05')).toISOString(),empleado_id:1,maquina_id:1},
    {id:2,orden_corte_id:11,metros_usados:300,fecha_asignacion:new Date(T('12:00:00')).toISOString(),empleado_id:1,maquina_id:1}],
  corte_tandas:tds.filter(x=>!x.sin_hora).map((x,i)=>({id:i,maquina:x.maquina,inicio:new Date(x.ti).toISOString(),fin:new Date(x.tf).toISOString(),golpes:x.golpes,sin_hora:false})),
  ordenes_corte:[{id:11,estado:'En proceso',fecha_completada:null}]};
@@ -71,7 +72,7 @@ global._traerQ=async(b)=>b().range(0,999);
 const prod={metros_por_bolsa:0.5,peso_por_bolsa:0.01};
 let R=await _cvvControlCierre({id:10,numero_orden:'OC-A'},210,0,prod);
 t(R&&R.cortadas===210&&!R.alerta,'cierra justo: 210 cortadas = 210 declaradas, sin alerta ('+(R&&R.cortadas)+')');
-t(/105 golpes \(con estas bobinas tenían que ser 105/.test(R.linea)&&/210 cortadas/.test(R.linea),'línea: '+R.linea);
+t(/2 pistas · tenía que hacer 105 golpes, hizo 105/.test(R.linea)&&/BOLSAS: entraron 210/.test(R.linea)&&/CIERRA/.test(R.linea),'línea: '+R.linea);
 R=await _cvvControlCierre({id:10,numero_orden:'OC-A'},200,0,prod);
 t(R.alerta&&Math.round(R.sinUbicar)===10,'10 cortadas fuera de los bultos, sin scrap → faltan 10');
 R=await _cvvControlCierre({id:10,numero_orden:'OC-A'},205,0.05,prod);
@@ -80,7 +81,7 @@ R=await _cvvControlCierre({id:99,numero_orden:'OC-X'},100,0,prod);
 t(R===null,'OC sin cargas en cortadoras con sensor → no controla');
 R=await _cvvControlCierre({id:10,numero_orden:'OC-A'},210,0,prod);
 t(R.faltaBolsas===0,'con todas las bobinas cargadas no falta bobina');
-tabla.orden_corte_bobinas[0].metros_usados=80;   // la bobina cargada da 160 bolsas y se cortaron 210
+tabla.orden_corte_bobinas[0].metros_usados=40;tabla.orden_corte_bobinas[1].metros_usados=40;   // las bobinas cargadas dan 160 bolsas y se cortaron 210
 R=await _cvvControlCierre({id:10,numero_orden:'OC-A'},210,0,prod);
 t(R.alerta&&Math.round(R.faltaBolsas)===50&&Math.round(R.faltaM)===25,'falta bobina: 50 bolsas = 25 m ('+R.faltaBolsas+','+R.faltaM+')');
 t(R.maqPpal===1&&R.empPpal===1,'máquina y operario de la OC para la carga');
@@ -91,10 +92,21 @@ t(R.maqPpal===1&&R.empPpal===1,'máquina y operario de la OC para la carga');
  t(Math.round(o.tiradas[1].gEsp)===1347,'Celia 07007+07008: tenía que hacer 1.347 ('+o.tiradas[1].gEsp+')');
  t(Math.round(o.tiradas[0].gEsp)===1351,'Guaraz 07005+07009: tenía que hacer 1.351');
  t(Math.round(o.gEsp)===2699&&Math.abs(o.difGolpes*100+3.7)<0.1,'OC: 2.699 esperados, −3,7 % ('+(o.difGolpes*100).toFixed(2)+')');
- t(Math.round(o.cola)===100&&Math.round(o.cortadas)===2*2599-100,'cortadas = golpes × 2 − punta a 1 pista (cola '+o.cola+')');
+ t(Math.abs(o.cortadas-2599*o.teo/o.gEsp)<1e-6&&Math.round(o.cortadas)===5102,'cortadas = golpes × bolsas por golpe de estas bobinas ('+o.cortadas+')');
  t(o.parDesc===0,'pares completos: cuenta exacta');
  const o2={pistas:2,golpes:1000,tiradas:[{cs:[c(780),c(780),c(780)],golpes:1000}]};_cvvGolpesEsp(o2,0.78);
- t(o2.parDesc===3&&Math.round(o2.gEsp)===1500,'3 bobinas juntas en 2 pistas: aproximado por promedio');
+ t(o2.parDesc===1&&Math.round(o2.gEsp)===1500,'3 bobinas juntas en 2 pistas: el par por la más larga, la que sobra repartida');
+ // 17a: OC-1052973 — la bobina de 256 m al final corre sola; la detección de pistas por la cuenta física da 2
+ const o4={golpes:2881,teo:4623/0.85,tiradas:[{maq:1,cs:[c(1109),c(1215)]},{maq:1,cs:[c(1016),c(1027)]},{maq:1,cs:[c(256)]}]};
+ _cvvPistasFis(o4,0.85);_cvvGolpesEsp(o4,0.85);
+ t(o4.pistas===2&&o4.pConf==='ok','2973: 2 pistas por golpes contra bobinas (antes «no se puede afirmar»)');
+ t(Math.round(o4.gEsp)===2939&&Math.abs(o4.difGolpes*100+2.0)<0.1&&o4.tiradas[2].pistas===1,'2973: 2.939 golpes esperados (−2,0 %), la última de 256 m corre sola');
+ const o5={golpes:2000,teo:3000/0.5,tiradas:[{maq:1,cs:[c(500)]},{maq:1,cs:[c(500)]},{maq:1,cs:[c(500),c(500)]}]};_cvvPistasFis(o5,0.5);_cvvGolpesEsp(o5,0.5);
+ t(o5.pistas===2&&Math.round(o5.gEsp)===2000,'sueltas en el medio reemplazan pistas: se reparten (500 + 500 + 1.000)');
+ const o6={golpes:3124,teo:4151/0.68,tiradas:[{maq:1,cs:[c(1020),c(1004),c(1006),c(1121)]}]};_cvvPistasFis(o6,0.68);
+ t(o6.pistas===2,'4 bobinas juntas que cierran casi igual con 2 o 3 pistas: se toma 2');
+ const o7={golpes:500,teo:3000,decl:null,tiradas:[{maq:1,cs:[c(1000),c(1000)]}]};_cvvPistasFis(o7,1);
+ t(o7.pistas==null,'nada cierra: no se afirma pistas');
  const o3={pistas:1,golpes:2000,tiradas:[{cs:[c(780),c(780)],golpes:2000}]};_cvvGolpesEsp(o3,0.78);
  t(Math.round(o3.gEsp)===2000&&o3.cola===0&&o3.cortadas===2000,'1 pista: suma de metros ÷ largo');}
 // 16c: golpes después de «Corte terminado en panel» no van a esa OC (caso OC-1052984)
