@@ -1138,7 +1138,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-19a</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-19b</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6259,18 +6259,35 @@ async function _traerPaginado(tabla, sel, orderCol){
 // que arma la query base (con sus .order() ya aplicados, terminando en una columna
 // única como 'id' para que el paginado con range() sea determinístico) y le agrega
 // el range() de cada página. Devuelve {data,error} con el shape de siempre.
-async function _traerQ(buildBase){
+// 19b: REINTENTO + TANDAS CHICAS. El 19/10 el tablero dijo «gané $19,2 M · margen
+// 98 %» con un mes que en realidad daba −$11,9 M: la página 1 de ordenes_corte (1.000
+// OC con sus bobinas embebidas, 4,2 MB) tarda 1,4–2,7 s y el rol anon de Supabase
+// corta a los 3 s (statement_timeout). Con el reload tirando ~60 consultas juntas y
+// el PLC escribiendo cada 2 s, se pasaba → error 500 → la función devolvía la lista
+// VACÍA sin avisar → sin OC no hay costo → todo el costo de venta valía 0.
+// Ahora: tamaño de página configurable; ante un error se reintenta la MISMA página
+// (hasta 3 veces, cada vez con la mitad de filas y una pausa); si igual falla, el
+// error sube a reload() que lo muestra en rojo (_cargaIncompleta) en vez de callarlo.
+async function _traerQ(buildBase,chunk0){
   const todas=[];
   const tope=100000;      // techo de seguridad
-  const chunk=1000;       // límite de Supabase
+  let chunk=Math.min(1000,chunk0||1000);   // 1000 = límite de Supabase
   let desde=0;
   while(desde<tope){
-    const{data,error}=await buildBase().range(desde,desde+chunk-1);
+    let data=null,error=null,pedido=chunk;
+    for(let intento=0;intento<4;intento++){
+      pedido=chunk;
+      ({data,error}=await buildBase().range(desde,desde+pedido-1));
+      if(!error)break;
+      console.warn('[_traerQ] página desde '+desde+' ('+pedido+' filas) falló, intento '+(intento+1)+':',error.message||error);
+      chunk=Math.max(100,Math.floor(chunk/2));
+      await new Promise(r=>setTimeout(r,400*(intento+1)));
+    }
     if(error)return {data:todas,error};
     if(!data||!data.length)break;
     todas.push(...data);
-    if(data.length<chunk)break;   // última página
-    desde+=chunk;
+    if(data.length<pedido)break;   // última página
+    desde+=data.length;
   }
   return {data:todas,error:null};
 }
@@ -6350,6 +6367,36 @@ async function _cargarRecibos(){
     return {data:[],error:e};
   }
 }
+// 19b: cartel rojo fijo arriba de todo cuando una lectura crítica de reload() falló.
+// Mientras esté, los números que dependen de esa tabla NO son confiables.
+function _cargaIncompletaBanner(){
+  let el=document.getElementById('carga-incompleta');
+  const c=window._cargaIncompleta;
+  if(!c){if(el)el.remove();return;}
+  if(!el){
+    el=document.createElement('div');el.id='carga-incompleta';
+    el.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#7f1d1d;color:#fff;padding:10px 16px;font-size:13px;font-weight:600;display:flex;gap:12px;align-items:center;flex-wrap:wrap;box-shadow:0 2px 10px rgba(0,0,0,.4);';
+    document.body.appendChild(el);
+  }
+  el.innerHTML='🛑 No se pudo leer de la base: <b>'+c.items.map(x=>escapeHtml(x.nombre)).join(', ')+'</b>. '
+    +'Los números que dependen de eso (costos, resultado, producción) están INCOMPLETOS — no los uses.'
+    +' <button class="btn btn-sm" style="background:#fff;color:#7f1d1d;font-weight:700;" onclick="_reintentarCarga(this)">↻ Volver a cargar</button>';
+}
+// true si la tabla crítica `nombre` no cargó en el último reload.
+function _cargaFallo(nombre){
+  const c=window._cargaIncompleta;
+  return !!(c&&c.items.some(x=>x.nombre===nombre));
+}
+async function _reintentarCarga(btn){
+  if(btn){btn.disabled=true;btn.textContent='Cargando…';}
+  try{
+    await reload();
+    const act=document.querySelector('.page.active');
+    const name=act&&act.id?act.id.replace(/^page-/,''):null;
+    if(name)go(name);
+  }finally{ if(btn&&document.body.contains(btn)){btn.disabled=false;btn.textContent='↻ Volver a cargar';} }
+}
+
 // Banner de aviso si los recibos cargaron degradados (o no cargaron sus aplicaciones).
 function _recibosDegradadoBanner(){
   const d=window._recibosDegradado;
@@ -6360,7 +6407,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-19a';   // 19a: 🧾 FACTURA DOBLE imposible: candado + botón apagado mientras graba y recarga, relectura de los remitos contra la base, y el remito se toma con update condicional (factura_id IS NULL) — si otro guardado ya lo tomó, la factura nueva se deshace sola. — 17e: 17e: 📏 aviso «CORTA LARGO» en el Panel corte (cartel rojo enorme + alarma cada minuto hasta medir la bolsa; la medida queda en la OC) y en Corte en vivo / cierre para el dueño; ✋ carga a mano en la impresora con motivo obligatorio. — 17d: ✂ paradas simplificadas: cortando y parada en total; por operario sólo parada total, por cambio de bobina, sin motivo y pilas; lista con «paró · cuánto · qué se registró» (sin la columna de la tanda). — 17c: ✂ paradas sin ambigüedad: «9 min en total (3 veces)» en vez de «3 · 9 min» (se leía 3 × 9). — 17b: ✂ paradas: el hueco antes de arrancar la OC (golpes sueltos sin bobina escaneada y la máquina quieta hasta que arranca) se muestra aparte y no suma como parada ni como cambio de bobina. — 17a: ✂ cierre de OC claro: veredicto en grande, cuenta de bolsas siempre (aunque no se sepan las pistas), cortadora en tabla (tenía que hacer / hizo / diferencia) y paradas plegadas; pistas por la cuenta física (golpes contra bobinas, 1 a 4); la nota de la OC en renglones. — 16d: ✂ el balance de cierre usa los METROS REALES de las bobinas medidas por el PLC (margen fijo del cuentametros: EXT-01 +1,5 %, E3/E7 +0,9 %); se muestra en el control y en la nota. — 16c: ✂ un golpe posterior a «Terminó de cortar» en el panel ya no se le suma a esa OC (va al escaneo siguiente); la nota de cierre decía «cierra» cuando SOBRABAN bolsas: ahora dice SOBRAN; el % del balance sin signo. — 16b: 🖨 IMPRESORA en el Panel corte: escaneo de entrada y salida de cada bobina (tabla impresion_bobinas), metros impresos = metros de extrusión, m/min reales, impresas esperando corte; en la cortadora una bobina de producto IMPRESA sin pasar por la impresora se pregunta y queda anotada. — 16a: ✂ golpes que tenía que hacer la cortadora = bobina más larga de cada par ÷ largo (con 2 pistas la más larga termina sola); cortadas = golpes × pistas − la punta a 1 pista. Control de cortadora: golpes contra esos golpes. — 15q anterior: 15q: ✂ pilas bien contadas con el registro golpe a golpe: una pila que el operario cortó a la mitad y completó al volver a arrancar (11 + 14 = 25) es «cortada a la mitad», no dos incompletas. Incompleta = nunca llegó a la parada; de más = pasó de la parada sin la pausa de la máquina (29, 31…), con los golpes de más.
+const APP_BUILD='2026-10-19b';   // 19b: 🛑 DATOS INCOMPLETOS: las órdenes de corte se piden de a 250 con reintento (la página de 1.000 pasaba el límite de 3 s de Supabase y llegaba VACÍA → costo 0 → tablero «margen 98 %»); si una lectura crítica falla igual, cartel rojo arriba y el Tablero muestra «datos incompletos» en vez de un número. — 19a: 19a: 🧾 FACTURA DOBLE imposible: candado + botón apagado mientras graba y recarga, relectura de los remitos contra la base, y el remito se toma con update condicional (factura_id IS NULL) — si otro guardado ya lo tomó, la factura nueva se deshace sola. — 17e: 17e: 📏 aviso «CORTA LARGO» en el Panel corte (cartel rojo enorme + alarma cada minuto hasta medir la bolsa; la medida queda en la OC) y en Corte en vivo / cierre para el dueño; ✋ carga a mano en la impresora con motivo obligatorio. — 17d: ✂ paradas simplificadas: cortando y parada en total; por operario sólo parada total, por cambio de bobina, sin motivo y pilas; lista con «paró · cuánto · qué se registró» (sin la columna de la tanda). — 17c: ✂ paradas sin ambigüedad: «9 min en total (3 veces)» en vez de «3 · 9 min» (se leía 3 × 9). — 17b: ✂ paradas: el hueco antes de arrancar la OC (golpes sueltos sin bobina escaneada y la máquina quieta hasta que arranca) se muestra aparte y no suma como parada ni como cambio de bobina. — 17a: ✂ cierre de OC claro: veredicto en grande, cuenta de bolsas siempre (aunque no se sepan las pistas), cortadora en tabla (tenía que hacer / hizo / diferencia) y paradas plegadas; pistas por la cuenta física (golpes contra bobinas, 1 a 4); la nota de la OC en renglones. — 16d: ✂ el balance de cierre usa los METROS REALES de las bobinas medidas por el PLC (margen fijo del cuentametros: EXT-01 +1,5 %, E3/E7 +0,9 %); se muestra en el control y en la nota. — 16c: ✂ un golpe posterior a «Terminó de cortar» en el panel ya no se le suma a esa OC (va al escaneo siguiente); la nota de cierre decía «cierra» cuando SOBRABAN bolsas: ahora dice SOBRAN; el % del balance sin signo. — 16b: 🖨 IMPRESORA en el Panel corte: escaneo de entrada y salida de cada bobina (tabla impresion_bobinas), metros impresos = metros de extrusión, m/min reales, impresas esperando corte; en la cortadora una bobina de producto IMPRESA sin pasar por la impresora se pregunta y queda anotada. — 16a: ✂ golpes que tenía que hacer la cortadora = bobina más larga de cada par ÷ largo (con 2 pistas la más larga termina sola); cortadas = golpes × pistas − la punta a 1 pista. Control de cortadora: golpes contra esos golpes. — 15q anterior: 15q: ✂ pilas bien contadas con el registro golpe a golpe: una pila que el operario cortó a la mitad y completó al volver a arrancar (11 + 14 = 25) es «cortada a la mitad», no dos incompletas. Incompleta = nunca llegó a la parada; de más = pasó de la parada sin la pausa de la máquina (29, 31…), con los golpes de más.
 // 15p: ✂ paradas: TANDAS SIN COMPLETAR (menos golpes que la parada de la máquina, normalmente 25) y tandas de más, por operario y en total con el detalle (ej. 11×5 · 4×14); en cada parada, con cuántos golpes venía la tanda («12 de 25» en rojo = paró a mitad de pila).
 // 15o: ✂ PARADAS POR OC Y OPERARIO: cada hueco de 30 s o más entre tandas de la OC (sacar la pila tarda ~5 s), con desde/hasta/duración/máquina/operario y lo registrado en ese momento (cambio de bobina = escaneo de una bobina de la OC ± 2 min; si no, «nada (sin escaneo)» en rojo). Resumen por operario: golpes, cortando, paradas, cambios de bobina, sin escaneo, de 3 min o más. En el detalle de la OC (Corte en vivo) y en el control de cierre (desplegable).
 // 15n: ✂ control de cierre FIJO y sin justificaciones: debían salir (metros ÷ largo de ficha) − bultos − prestadas/tomadas (las informa el operario) − scrap (kg ÷ peso de la bolsa de estas bobinas) = FALTAN / SOBRAN; más de ±1 % → el operario explica. Golpes × pistas contra metros como control aparte de la cortadora (±3 %). Se sacan «quedó sin cortar», «scrap de más», «revisar» y la sugerencia automática de bultos distintos.
@@ -6745,7 +6792,7 @@ async function reload(){
   const results=await Promise.allSettled([
     sb.from('bobinas').select('*').order('nombre'),
     sb.from('extrusoras').select('*').order('nombre'),
-    _traerQ(()=>sb.from('ordenes').select('*, bobinas(*), orden_extrusoras(*, extrusoras(*))').order('prioridad').order('created_at').order('id')),
+    _traerQ(()=>sb.from('ordenes').select('*, bobinas(*), orden_extrusoras(*, extrusoras(*))').order('prioridad').order('created_at').order('id'),500),
     sb.from('capacidad_semanal').select('*, extrusoras(*)'),
     sb.from('clientes').select('*').order('nombre'),
     // Bobinas: por defecto traemos las EN STOCK + las CONSUMIDAS recientes (últimos 60 días).
@@ -6761,7 +6808,7 @@ async function reload(){
     sb.from('productos').select('*, bobinas(*), tipos_empaque(*)').order('codigo'),
     sb.from('maquinas_corte').select('*').order('nombre'),
     sb.from('tipos_empaque').select('*').order('nombre'),
-    _traerQ(()=>sb.from('ordenes_corte').select('*, productos(*), tipos_empaque(*), orden_corte_maquinas(*, maquinas_corte(*)), orden_corte_bobinas(*, bobinas_producidas(id,numero_bobina,metros_reales,kg_reales,orden_id,bobina_tipo_id))').order('prioridad').order('created_at').order('id')),
+    _traerQ(()=>sb.from('ordenes_corte').select('*, productos(*), tipos_empaque(*), orden_corte_maquinas(*, maquinas_corte(*)), orden_corte_bobinas(*, bobinas_producidas(id,numero_bobina,metros_reales,kg_reales,orden_id,bobina_tipo_id))').order('prioridad').order('created_at').order('id'),250),   // 19b: de a 250 (≈1 MB, < 1 s)
     sb.from('capacidad_corte_semanal').select('*, maquinas_corte(*)'),
     sb.from('bobinas_producidas').select('*, ordenes(numero_orden,cliente), bobinas(*), extrusoras(nombre), operarios(nombre)').eq('fuera_de_rango',true).eq('anulada',false).order('created_at',{ascending:false}),
     sb.from('suspensiones_maquinas').select('*, extrusoras(nombre), maquinas_corte(nombre)').order('created_at',{ascending:false}).limit(100),
@@ -6830,6 +6877,21 @@ async function reload(){
     _traerPaginado('factura_linea_remitos','*','id').catch(()=>({data:[]})),
   ]);
   const d=r=>results[r].status==='fulfilled'?results[r].value.data||[]:[];
+  // 19b: lecturas CRÍTICAS que fallaron. Antes un error dejaba la lista vacía en
+  // silencio y las pantallas calculaban como si no hubiera datos (el tablero mostró
+  // margen 98 % sin órdenes de corte). Ahora quedan anotadas y se avisa en rojo.
+  {
+    const CRIT={2:'órdenes de extrusión',5:'bobinas producidas',10:'productos',13:'órdenes de corte',26:'remitos',27:'facturas',28:'recibos'};
+    const falla=[];
+    Object.keys(CRIT).forEach(k=>{
+      const r=results[k];
+      const err=!r?null:(r.status!=='fulfilled'?(r.reason&&r.reason.message||String(r.reason)):(r.value&&r.value.error?(r.value.error.message||'error'):null));
+      if(err)falla.push({i:+k,nombre:CRIT[k],error:err});
+    });
+    window._cargaIncompleta=falla.length?{items:falla,ts:new Date()}:null;
+    if(falla.length)console.error('[reload] lecturas críticas fallidas:',falla);
+    _cargaIncompletaBanner();
+  }
   C.bobinas=d(0);C.extrusoras=d(1);C.ordenes=d(2);
   C.capacidad=d(3);C.clientes=d(4);C.bobinas_prod=d(5);
   C.stock_mov=d(6);C.bobinas_hist=d(7);C.operarios=d(9);
@@ -42055,6 +42117,10 @@ async function renderTablero(){
     coberturaFijos=gastosTotales>0?Math.round(V.margen/gastosTotales*100):0;
     ventaMes=V.venta;
   }catch(e){console.warn('Tablero P1:',e?.message||e);}
+  // 19b: sin órdenes de corte no hay costo, sin remitos no hay venta: antes de
+  // mostrar un resultado inventado (19/10: «gané $19,2 M, margen 98 %»), s/datos.
+  const p1Incompleto=_cargaFallo('órdenes de corte')||_cargaFallo('remitos')||_cargaFallo('productos');
+  if(p1Incompleto){resultado=null;}
 
   // ───────── P2: ¿Puedo pagar? (MISMA fuente que Flujo de Caja: fcItemsProyectados) ─────────
   const hoyD=new Date(hoy+'T00:00:00');
@@ -42213,9 +42279,10 @@ async function renderTablero(){
   // P1
   const resColor=resultado==null?'var(--text3)':(resultado>=0?'var(--green)':'var(--red)');
   html+=q('01','¿Gané o perdí este mes?',
-    '<span style="color:'+resColor+'">'+(resultado==null?'s/datos':fmt(resultado))+'</span>',
-    row('Margen sobre venta',margenPct+'%')
-    +row('Cobertura gastos fijos',coberturaFijos+'%',coberturaFijos>=100?'var(--green)':'var(--amber)')
+    '<span style="color:'+resColor+'">'+(resultado==null?(p1Incompleto?'⚠ datos incompletos':'s/datos'):fmt(resultado))+'</span>',
+    (p1Incompleto?'<div style="font-size:12px;color:var(--red);font-weight:600;margin-bottom:6px;">No cargaron '+window._cargaIncompleta.items.map(x=>x.nombre).join(', ')+'. Tocá «↻ Volver a cargar» arriba.</div>':'')
+    +row('Margen sobre venta',p1Incompleto?'—':margenPct+'%')
+    +row('Cobertura gastos fijos',p1Incompleto?'—':coberturaFijos+'%',coberturaFijos>=100?'var(--green)':'var(--amber)')
     +row('Ventas del mes',fmt(ventaMes)),
     "go('resultado-mes')",resColor);
 
