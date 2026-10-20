@@ -36,4 +36,13 @@ t(tds2[0].oc===1010&&tds2[0].regla==='tarde','sin pausa posterior → tarde (com
 const tds3=_cvvAsignar([mk('06:30:00',25)],cargas,{958:{id:958,observaciones:'[Iniciada en panel 2026-10-19 18:10 por A] [Pausada en panel 2026-10-20 12:00 — Otro · B]'},1010:nueva},{});
 t(tds3[0].oc===1010&&tds3[0].regla==='tarde','pausa posterior al próximo escaneo → tarde');
 t(_cvvEnMarcha(sol,T('2026-10-20T06:30:00'),T('2026-10-20T08:08:30')),'pausa 08:05 antes del escaneo 08:08:30 → en marcha');
+// 20d — «Corte terminado» 10:09 pero la C1 siguió sin parar hasta 10:31 (OC-1052980): los golpes siguen siendo de la OC
+{const oc80={id:1012,observaciones:'[Iniciada en panel 2026-10-20 08:58 por C] [Corte terminado en panel 2026-10-20 10:09 por C]'};
+ const cg=[{t:T('2026-10-20T09:57:06'),maquina_id:1,orden_corte_id:1012,empleado_id:1},{t:T('2026-10-20T10:56:33'),maquina_id:1,orden_corte_id:1030,empleado_id:1}];
+ const ts=[];for(let h=T('2026-10-20T10:05:00');h<=T('2026-10-20T10:31:00');h+=11500)ts.push({maquina:1,ti:h,tf:h+7000,golpes:5});
+ const r=_cvvAsignar(ts,cg,{1012:oc80,1030:{id:1030,observaciones:''}},{});
+ t(r.every(x=>x.oc===1012),'sin pausa después de «terminado» → siguen en la 2980 ('+r.filter(x=>x.oc!==1012).length+' afuera)');
+ // con pausa de 7 min después de «terminado» (OC-1052984) → ya no
+ const r2=_cvvAsignar([{maquina:1,ti:T('2026-10-20T10:08:00'),tf:T('2026-10-20T10:08:07'),golpes:5},{maquina:1,ti:T('2026-10-20T10:19:00'),tf:T('2026-10-20T10:19:07'),golpes:25}],cg,{1012:oc80,1030:{id:1030,observaciones:''}},{});
+ t(r2[0].oc===1012&&r2[1].oc===1030,'pausa > 3 min después de «terminado» → el golpe ya no es de la OC terminada');}
 console.log((bad?'FALLAN '+bad:'OK')+' — '+ok+' ok');process.exit(bad?1:0);

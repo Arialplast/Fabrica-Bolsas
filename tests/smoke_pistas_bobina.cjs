@@ -44,4 +44,18 @@ const Z=_pstCierre(cargas.concat([{orden_corte_id:OC,bobina_producida_id:1,maqui
 t(Z.sinPista.length===1&&Z.sinPista[0]==='BOB-X','sin pista: aparte');
 t(_pstCierre([b(1,1500,null,null)],OC,{},mpb)===null,'OC sin pistas → null (cierre como antes)');
 const html=_pstCierreHTML({pst:X});t(/sacada a medio cortar/.test(html)&&/836/.test(html),'HTML del cierre');
+// 20d — OC-1052980 C1: las 4 bobinas terminaron 2–4 % antes, parejo (≈ 1,22 m por golpe, ficha 1,18) → cortó largo
+{const m2=1.18,bb=(nro,m,p,cont)=>Object.assign(b(nro,m,p,cont),{maquina_id:1,mpb:m2,bobinas_producidas:{numero_bobina:'BOB-0'+nro,extrusora_id:9}});
+ const cs=[bb(7050,1016,4,256712),bb(7037,1021,1,256714),bb(7058,1037,1,257552),bb(7046,1026,4,257552)];
+ const L=_pstCierre(cs,OC,{1:258396},m2);
+ t(L.malas.length===0&&L.largo&&L.largo[1]&&Math.round(L.largo[1].mpg*100)===122,'C1 2980: cortó largo ≈ 122 cm, ninguna «sin cortar»: '+JSON.stringify(L.largo));
+ t(L.filas.every(f=>f.est==='largo'&&f.quedanM===0),'todas marcadas largo sin metros perdidos');
+ t(/cortó la bolsa más larga/.test(_pstCierreHTML({pst:L})),'HTML: cartel bolsa larga');
+ // una sola sacada muy corta (−30 %) en la misma máquina → NO es bolsa larga
+ const cs2=[bb(7050,1016,4,256712),bb(7037,1021,1,256714),bb(7058,1037,1,257200),bb(7046,1026,4,257552)];
+ const L2=_pstCierre(cs2,OC,{1:258396},m2);
+ t(!Object.keys(L2.largo).length&&L2.malas.some(f=>f.nro==='BOB-07037'),'una sacada a medio cortar entre parejas → sigue ⛔');
+ // una bobina completa (golpes de más) en la máquina → no se presume largo
+ const cs3=[bb(7050,1016,4,256712),bb(7037,1021,1,256714)];
+ t(!Object.keys(_pstCierre(cs3,OC,{1:256712+870},m2).largo).length,'con golpes suficientes no hay largo');}
 console.log(ok+' ok, '+bad+' mal');process.exit(bad?1:0);
