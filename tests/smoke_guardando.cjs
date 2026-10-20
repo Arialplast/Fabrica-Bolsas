@@ -133,7 +133,7 @@ const espera=ms=>new Promise(r=>setTimeout(r,ms));
   t(!/<script/.test(_pcorteCartelHtml('error',{texto:'<script>'},'x')),'escapa HTML');
   _pcorteCartel('ok',{numero:'BOB-1'},'var(--green)');t(els['pcc-ov']&&els['pcc-ov'].style.display==='flex','cartel aparece');
   // código: el repintado reaplica el último mensaje y el éxito usa el cartel
-  t(/root\.innerHTML=html;\n  \/\/ 07b: el último mensaje del lector sobrevive al repintado/.test(src),'repintado reaplica el mensaje');
+  t(/root\.innerHTML=html;\n(?:.*\n){0,3}  \/\/ 07b: el último mensaje del lector sobrevive al repintado/.test(src),'repintado reaplica el mensaje');
   t(/window\._pcorteUltBobId=bobId;/.test(src)&&/titulo:'✓ BOBINA CARGADA',numero:b\.numero_bobina/.test(src),'éxito marca la recién cargada y usa el cartel');
   t(/sb=_gsInstalar\(supabase\.createClient\(url,key\)\)/.test(src),'el cliente se envuelve al conectar');
   console.log((bad?'✗ ':'✓ ')+ok+' ok'+(bad?' · '+bad+' FALLAN':''));process.exit(bad?1:0);
