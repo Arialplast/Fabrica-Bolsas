@@ -122,13 +122,14 @@ t(R.maqPpal===1&&R.empPpal===1,'máquina y operario de la OC para la carga');
  const td3=[{maquina:1,ti:TT('10:45:00'),tf:TT('10:45:08'),golpes:5}];_cvvAsignar(td3,[cg[0]],ocs3,{});
  t(td3[0].oc===84,'reabierta después de terminar: vuelve a contar');
  t(_cvvTerminada(ocs2[84],TT('10:36:00'))&&!_cvvTerminada(ocs2[84],TT('10:20:00'))&&!_cvvTerminada({},TT('10:36:00')),'_cvvTerminada');}
-// 16d: margen del cuentametros (metros reales = tarjeta × largo real ÷ factor) sólo para bobinas del PLC
-{global.PLC={cfg:{factor:{'1':{m_pulso:0.2475},'3':{m_pulso:0.793}}}};
- t(Math.abs(_cvvMargen({plc_cierre_id:9,extrusora_id:1})-0.2513/0.2475)<1e-9,'EXT-01: +1,5 %');
- t(Math.abs(_cvvMargen({plc_cierre_id:9,extrusora_id:7})-0.80/0.793)<1e-9,'EXT-07 sin factor cargado: usa 0,793 por defecto');
- t(_cvvMargen({plc_cierre_id:null,extrusora_id:1})===1&&_cvvMargen({plc_cierre_id:5,extrusora_id:2})===1&&_cvvMargen(null)===1,'metros a mano u otra extrusora: sin margen');
- t(Math.round(_cvvMetros({metros_usados:'1166',bobinas_producidas:{plc_cierre_id:1,extrusora_id:1}}))===1184,'1.166 m de tarjeta EXT-01 = 1.184 m reales');
- delete global.PLC;}
+// 20g: factor corregido — bobinas del PLC anteriores al cambio (id ≤ 7306) se llevan al factor nuevo
+{t(Math.abs(_cvvMargen({id:7000,plc_cierre_id:9,extrusora_id:1})-0.2443/0.2475)<1e-9,'EXT-01 vieja: −1,3 %');
+ t(Math.abs(_cvvMargen({id:7306,plc_cierre_id:9,extrusora_id:3})-0.781/0.793)<1e-9,'EXT-03 vieja (justo en el corte): −1,5 %');
+ t(Math.abs(_cvvMargen({plc_cierre_id:9,extrusora_id:7},7100)-0.781/0.793)<1e-9,'EXT-07 vieja, id por bobina_producida_id');
+ t(_cvvMargen({id:7307,plc_cierre_id:9,extrusora_id:3})===1,'cargada después del cambio: sin corrección');
+ t(_cvvMargen({id:7000,plc_cierre_id:null,extrusora_id:1})===1&&_cvvMargen({id:7000,plc_cierre_id:5,extrusora_id:2})===1&&_cvvMargen(null)===1&&_cvvMargen({plc_cierre_id:5,extrusora_id:3})===1,'metros a mano, otra extrusora o sin id: sin corrección');
+ t(_cvvMargen({id:7000,plc_cierre_id:5,extrusora_id:3})<1,'nunca agranda los metros (16d iba al revés)');
+ t(Math.round(_cvvMetros({metros_usados:'1166',bobina_producida_id:7000,bobinas_producidas:{plc_cierre_id:1,extrusora_id:1}}))===1151,'1.166 m de tarjeta EXT-01 vieja = 1.151 m');}
 // 17b: golpes sueltos antes de arrancar la OC (asignados «tarde») + hueco largo → no es parada de la OC
 {const TT=s=>new Date('2026-10-16T'+s+'-03:00').getTime();const td=(a,g,r)=>({maquina:1,ti:TT(a),tf:TT(a)+g*1500,golpes:g,regla:r,emp:1});
  const o={tanda:25,cargas:[{maquina_id:1,t:TT('06:59:05')}],tds:[td('06:06:23',9,'tarde'),td('06:07:00',5,'tarde'),td('06:07:40',3,'tarde'),td('07:01:29',25,'antes'),td('07:02:20',25,'antes'),td('07:10:00',25,'antes')]};

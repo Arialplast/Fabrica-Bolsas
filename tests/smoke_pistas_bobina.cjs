@@ -6,7 +6,7 @@ const grab=(a,b)=>{const i=src.indexOf(a),k=src.indexOf(b,i+1);if(i<0||k<0)throw
 globalThis.C={maq_corte:[{id:1,nombre:'CORTE-01'},{id:2,nombre:'CORTE-02'}],ord_corte:[]};
 globalThis.PLC={cfg:null};globalThis.escapeHtml=s=>String(s);globalThis.CVV={maqs:[1,2]};
 eval(grab('function _cvvMaqNom','\n'));
-eval(grab('const CVV_M_REAL=','function _cvvTiradas'));
+eval(grab('const CVV_F_CAMBIO=','function _cvvTiradas'));
 eval(grab('const PST={','// ---- datos del panel ----').replace('const PST=','globalThis.PST='));
 let ok=0,bad=0;const t=(c,m)=>{if(c)ok++;else{bad++;console.error('✗ '+m);}};
 const mpb=0.5,OC=989;
@@ -19,7 +19,7 @@ const cargas=[b(6882,1590,1,T1),b(6870,1501,2,T1),b(6867,1507,3,T1),b(6876,1500,
 const E=_pstEstado(cargas.filter(c=>c.bobina_producida_id!==6864),T3);
 t(E.map(o=>o.nro).join()==='BOB-06885,BOB-06873,BOB-06888,BOB-06879','pistas actuales = tirada 2');
 const nt=_pstNoTermino(E[3]);
-t(nt&&nt.g===1579&&Math.round(nt.esp)===3251&&Math.round(nt.quedanM)===836,'pista 4: 06879 no terminó, 1.579 de 3.251, quedan ≈ 836 m: '+JSON.stringify(nt));
+t(nt&&nt.g===1579&&Math.round(nt.esp)===3161&&Math.round(nt.quedanM)===791,'pista 4: 06879 no terminó, 1.579 de 3.161, quedan ≈ 791 m (factor 20g): '+JSON.stringify(nt));
 t(_pstNoTermino({vacia:true})===null,'pista vacía: sin alarma');
 // recién puesta (dos en la misma pista)
 const E2=_pstEstado(cargas.filter(c=>c.bobina_producida_id!==6864),T2+5);
@@ -35,7 +35,7 @@ t(f(6879).g===1579&&f(6879).sig==='BOB-06864','06879: 1.579 golpes, en su lugar 
 t(f(6864).g===3000&&f(6864).est==='ok','06864: 3.000 golpes ✓');
 t(f(6882).g===3169&&f(6882).est==='ok','06882: 3.169 de 3.229 ✓ (−1,9 %)');
 t(f(6888).g===FIN-T2&&f(6888).est==='ok','06888 hasta el fin ✓');
-t(Math.round(X.quedanM)===836&&Math.round(X.quedanB)===1672,'quedan ≈ 836 m ≈ 1.672 bolsas');
+t(Math.round(X.quedanM)===791&&Math.round(X.quedanB)===1582,'quedan ≈ 791 m ≈ 1.582 bolsas');
 // OC que termina antes que la bobina (sin siguiente): «quedó sin cortar»
 const Y=_pstCierre([b(1,1500,1,1000)],OC,{2:1000+2000},mpb);
 t(Y.malas.length===1&&Y.malas[0].est==='sinTerminar','sin siguiente y con golpes de menos → quedó sin cortar');
@@ -43,7 +43,7 @@ t(Y.malas.length===1&&Y.malas[0].est==='sinTerminar','sin siguiente y con golpes
 const Z=_pstCierre(cargas.concat([{orden_corte_id:OC,bobina_producida_id:1,maquina_id:2,metros_usados:1500,bobinas_producidas:{numero_bobina:'BOB-X'}}]),OC,{2:FIN},mpb);
 t(Z.sinPista.length===1&&Z.sinPista[0]==='BOB-X','sin pista: aparte');
 t(_pstCierre([b(1,1500,null,null)],OC,{},mpb)===null,'OC sin pistas → null (cierre como antes)');
-const html=_pstCierreHTML({pst:X});t(/sacada a medio cortar/.test(html)&&/836/.test(html),'HTML del cierre');
+const html=_pstCierreHTML({pst:X});t(/sacada a medio cortar/.test(html)&&/791/.test(html),'HTML del cierre');
 // 20d — OC-1052980 C1: las 4 bobinas terminaron 2–4 % antes, parejo (≈ 1,22 m por golpe, ficha 1,18) → cortó largo
 {const m2=1.18,bb=(nro,m,p,cont)=>Object.assign(b(nro,m,p,cont),{maquina_id:1,mpb:m2,bobinas_producidas:{numero_bobina:'BOB-0'+nro,extrusora_id:9}});
  const cs=[bb(7050,1016,4,256712),bb(7037,1021,1,256714),bb(7058,1037,1,257552),bb(7046,1026,4,257552)];
