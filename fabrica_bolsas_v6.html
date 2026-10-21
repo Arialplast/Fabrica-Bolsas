@@ -1138,7 +1138,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-20h</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-21a</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6407,7 +6407,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-20h';   // 20h: ↩ «me equivoqué de pista» en la tarjeta de la máquina: sólo recién puesta (≤ 10 min o ≤ 50 golpes), misma máquina, mismo contador; a pista vacía o con bobina terminada; queda en la OC. Cambio de máquina: lo corrige el dueño. — 20g: factor del cuentametros corregido (EXT-01 0,2443 · EXT-03/07 0,781): el control de corte lleva al factor nuevo las bobinas del PLC cargadas antes (id ≤ 7306), en lugar del margen de 16d que iba al revés. Antes 20e:   // 20e: ✓ «Terminó de cortar» con la OC en dos cortadoras pregunta «¿sólo en esta máquina o toda la OC?»: sólo acá deja [Terminó en CORTE-0X panel …], la OC sigue en la otra y esta tarjeta queda libre (OC-1052980: Guaraz terminó en C2 y Celia seguía en C1); los golpes de la otra máquina no se cortan. — 20d: ✂ «Corte terminado» tocado mientras la máquina sigue cortando sin parar ya no deja golpes afuera (OC-1052980 C1: el último par cortó hasta 10:31 y figuraba «quedó sin cortar ≈ 637 m»); 📏 si en una máquina TODAS las bobinas terminan antes y parejo, el cierre dice «cortó la bolsa más larga ≈ X cm» en vez de film sin cortar. — 20c: ✂ golpes de una OC que seguía en marcha en el panel (pausada/terminada después, antes del próximo escaneo) quedan en esa OC aunque su último escaneo tenga más de 3 h — OC-1052978 recibía 2.863 golpes de Solbayres (C1 06:00–08:05). — 20b: 👥 pantalla compartida del Panel corte: si en la máquina venía cargando otra persona, pregunta quién carga (dos nombres grandes, no se confirma con la pistola). — 20a: 20a: 🧵 pistas como están numeradas en las dos cortadoras mirando desde atrás (1 arriba izq. · 2 abajo izq. · 3 arriba der. · 4 abajo der.): ARRIBA/ABAJO en los botones y la tarjeta en la misma disposición. — 19e: 🧵 PISTAS: después de escanear cada bobina el operario elige en qué pista la puso (1-4, pantalla enorme). Con el contador de golpes de ese momento cada bobina sabe cuántos golpes le tocaron. Alarma roja con sonido si se pone una bobina donde la anterior no terminó (motivo obligatorio, queda en la OC); bobina sin pista = cartel rojo que late y pitido cada minuto; pista con golpes de más = «¿terminó?». La tarjeta de la máquina muestra las 4 pistas. Cierre: tabla por pista y «⛔ sacada a medio cortar». Columnas nuevas orden_corte_bobinas.pista / pista_contador / pista_en. — 19d: cierre de OC: si no se pudo saber a cuántas pistas corrió, ya no dice «cortó ≈ 0 bolsas» (OC-1052957): dice que con los golpes no se puede calcular. — 19c: ✂ cierre de OC cortada en DOS cortadoras: cada tirada cuenta los golpes hasta el próximo escaneo EN SU MISMA MÁQUINA (antes se mezclaban: OC-1052981 daba 313 y 3.790 golpes) y cada máquina con sus pistas (bobinas escaneadas juntas si cierran ± 10 %, si no la cuenta física): «2 en CORTE-01 y 4 en CORTE-02». Golpes de una máquina sin bobinas escaneadas en ella: fila aparte ⚠. — 19b: 🛑 DATOS INCOMPLETOS: las órdenes de corte se piden de a 250 con reintento (la página de 1.000 pasaba el límite de 3 s de Supabase y llegaba VACÍA → costo 0 → tablero «margen 98 %»); si una lectura crítica falla igual, cartel rojo arriba y el Tablero muestra «datos incompletos» en vez de un número. — 19a: 19a: 🧾 FACTURA DOBLE imposible: candado + botón apagado mientras graba y recarga, relectura de los remitos contra la base, y el remito se toma con update condicional (factura_id IS NULL) — si otro guardado ya lo tomó, la factura nueva se deshace sola. — 17e: 17e: 📏 aviso «CORTA LARGO» en el Panel corte (cartel rojo enorme + alarma cada minuto hasta medir la bolsa; la medida queda en la OC) y en Corte en vivo / cierre para el dueño; ✋ carga a mano en la impresora con motivo obligatorio. — 17d: ✂ paradas simplificadas: cortando y parada en total; por operario sólo parada total, por cambio de bobina, sin motivo y pilas; lista con «paró · cuánto · qué se registró» (sin la columna de la tanda). — 17c: ✂ paradas sin ambigüedad: «9 min en total (3 veces)» en vez de «3 · 9 min» (se leía 3 × 9). — 17b: ✂ paradas: el hueco antes de arrancar la OC (golpes sueltos sin bobina escaneada y la máquina quieta hasta que arranca) se muestra aparte y no suma como parada ni como cambio de bobina. — 17a: ✂ cierre de OC claro: veredicto en grande, cuenta de bolsas siempre (aunque no se sepan las pistas), cortadora en tabla (tenía que hacer / hizo / diferencia) y paradas plegadas; pistas por la cuenta física (golpes contra bobinas, 1 a 4); la nota de la OC en renglones. — 16d: ✂ el balance de cierre usa los METROS REALES de las bobinas medidas por el PLC (margen fijo del cuentametros: EXT-01 +1,5 %, E3/E7 +0,9 %); se muestra en el control y en la nota. — 16c: ✂ un golpe posterior a «Terminó de cortar» en el panel ya no se le suma a esa OC (va al escaneo siguiente); la nota de cierre decía «cierra» cuando SOBRABAN bolsas: ahora dice SOBRAN; el % del balance sin signo. — 16b: 🖨 IMPRESORA en el Panel corte: escaneo de entrada y salida de cada bobina (tabla impresion_bobinas), metros impresos = metros de extrusión, m/min reales, impresas esperando corte; en la cortadora una bobina de producto IMPRESA sin pasar por la impresora se pregunta y queda anotada. — 16a: ✂ golpes que tenía que hacer la cortadora = bobina más larga de cada par ÷ largo (con 2 pistas la más larga termina sola); cortadas = golpes × pistas − la punta a 1 pista. Control de cortadora: golpes contra esos golpes. — 15q anterior: 15q: ✂ pilas bien contadas con el registro golpe a golpe: una pila que el operario cortó a la mitad y completó al volver a arrancar (11 + 14 = 25) es «cortada a la mitad», no dos incompletas. Incompleta = nunca llegó a la parada; de más = pasó de la parada sin la pausa de la máquina (29, 31…), con los golpes de más.
+const APP_BUILD='2026-10-21a';   // 21a: número de OC sin repetir: el último se busca por id (no por texto), índice único en la base y reintento si choca (OC-1052994/95 repetidas el 17/10). Antes 20h:   // 20h: ↩ «me equivoqué de pista» en la tarjeta de la máquina: sólo recién puesta (≤ 10 min o ≤ 50 golpes), misma máquina, mismo contador; a pista vacía o con bobina terminada; queda en la OC. Cambio de máquina: lo corrige el dueño. — 20g: factor del cuentametros corregido (EXT-01 0,2443 · EXT-03/07 0,781): el control de corte lleva al factor nuevo las bobinas del PLC cargadas antes (id ≤ 7306), en lugar del margen de 16d que iba al revés. Antes 20e:   // 20e: ✓ «Terminó de cortar» con la OC en dos cortadoras pregunta «¿sólo en esta máquina o toda la OC?»: sólo acá deja [Terminó en CORTE-0X panel …], la OC sigue en la otra y esta tarjeta queda libre (OC-1052980: Guaraz terminó en C2 y Celia seguía en C1); los golpes de la otra máquina no se cortan. — 20d: ✂ «Corte terminado» tocado mientras la máquina sigue cortando sin parar ya no deja golpes afuera (OC-1052980 C1: el último par cortó hasta 10:31 y figuraba «quedó sin cortar ≈ 637 m»); 📏 si en una máquina TODAS las bobinas terminan antes y parejo, el cierre dice «cortó la bolsa más larga ≈ X cm» en vez de film sin cortar. — 20c: ✂ golpes de una OC que seguía en marcha en el panel (pausada/terminada después, antes del próximo escaneo) quedan en esa OC aunque su último escaneo tenga más de 3 h — OC-1052978 recibía 2.863 golpes de Solbayres (C1 06:00–08:05). — 20b: 👥 pantalla compartida del Panel corte: si en la máquina venía cargando otra persona, pregunta quién carga (dos nombres grandes, no se confirma con la pistola). — 20a: 20a: 🧵 pistas como están numeradas en las dos cortadoras mirando desde atrás (1 arriba izq. · 2 abajo izq. · 3 arriba der. · 4 abajo der.): ARRIBA/ABAJO en los botones y la tarjeta en la misma disposición. — 19e: 🧵 PISTAS: después de escanear cada bobina el operario elige en qué pista la puso (1-4, pantalla enorme). Con el contador de golpes de ese momento cada bobina sabe cuántos golpes le tocaron. Alarma roja con sonido si se pone una bobina donde la anterior no terminó (motivo obligatorio, queda en la OC); bobina sin pista = cartel rojo que late y pitido cada minuto; pista con golpes de más = «¿terminó?». La tarjeta de la máquina muestra las 4 pistas. Cierre: tabla por pista y «⛔ sacada a medio cortar». Columnas nuevas orden_corte_bobinas.pista / pista_contador / pista_en. — 19d: cierre de OC: si no se pudo saber a cuántas pistas corrió, ya no dice «cortó ≈ 0 bolsas» (OC-1052957): dice que con los golpes no se puede calcular. — 19c: ✂ cierre de OC cortada en DOS cortadoras: cada tirada cuenta los golpes hasta el próximo escaneo EN SU MISMA MÁQUINA (antes se mezclaban: OC-1052981 daba 313 y 3.790 golpes) y cada máquina con sus pistas (bobinas escaneadas juntas si cierran ± 10 %, si no la cuenta física): «2 en CORTE-01 y 4 en CORTE-02». Golpes de una máquina sin bobinas escaneadas en ella: fila aparte ⚠. — 19b: 🛑 DATOS INCOMPLETOS: las órdenes de corte se piden de a 250 con reintento (la página de 1.000 pasaba el límite de 3 s de Supabase y llegaba VACÍA → costo 0 → tablero «margen 98 %»); si una lectura crítica falla igual, cartel rojo arriba y el Tablero muestra «datos incompletos» en vez de un número. — 19a: 19a: 🧾 FACTURA DOBLE imposible: candado + botón apagado mientras graba y recarga, relectura de los remitos contra la base, y el remito se toma con update condicional (factura_id IS NULL) — si otro guardado ya lo tomó, la factura nueva se deshace sola. — 17e: 17e: 📏 aviso «CORTA LARGO» en el Panel corte (cartel rojo enorme + alarma cada minuto hasta medir la bolsa; la medida queda en la OC) y en Corte en vivo / cierre para el dueño; ✋ carga a mano en la impresora con motivo obligatorio. — 17d: ✂ paradas simplificadas: cortando y parada en total; por operario sólo parada total, por cambio de bobina, sin motivo y pilas; lista con «paró · cuánto · qué se registró» (sin la columna de la tanda). — 17c: ✂ paradas sin ambigüedad: «9 min en total (3 veces)» en vez de «3 · 9 min» (se leía 3 × 9). — 17b: ✂ paradas: el hueco antes de arrancar la OC (golpes sueltos sin bobina escaneada y la máquina quieta hasta que arranca) se muestra aparte y no suma como parada ni como cambio de bobina. — 17a: ✂ cierre de OC claro: veredicto en grande, cuenta de bolsas siempre (aunque no se sepan las pistas), cortadora en tabla (tenía que hacer / hizo / diferencia) y paradas plegadas; pistas por la cuenta física (golpes contra bobinas, 1 a 4); la nota de la OC en renglones. — 16d: ✂ el balance de cierre usa los METROS REALES de las bobinas medidas por el PLC (margen fijo del cuentametros: EXT-01 +1,5 %, E3/E7 +0,9 %); se muestra en el control y en la nota. — 16c: ✂ un golpe posterior a «Terminó de cortar» en el panel ya no se le suma a esa OC (va al escaneo siguiente); la nota de cierre decía «cierra» cuando SOBRABAN bolsas: ahora dice SOBRAN; el % del balance sin signo. — 16b: 🖨 IMPRESORA en el Panel corte: escaneo de entrada y salida de cada bobina (tabla impresion_bobinas), metros impresos = metros de extrusión, m/min reales, impresas esperando corte; en la cortadora una bobina de producto IMPRESA sin pasar por la impresora se pregunta y queda anotada. — 16a: ✂ golpes que tenía que hacer la cortadora = bobina más larga de cada par ÷ largo (con 2 pistas la más larga termina sola); cortadas = golpes × pistas − la punta a 1 pista. Control de cortadora: golpes contra esos golpes. — 15q anterior: 15q: ✂ pilas bien contadas con el registro golpe a golpe: una pila que el operario cortó a la mitad y completó al volver a arrancar (11 + 14 = 25) es «cortada a la mitad», no dos incompletas. Incompleta = nunca llegó a la parada; de más = pasó de la parada sin la pausa de la máquina (29, 31…), con los golpes de más.
 // 15p: ✂ paradas: TANDAS SIN COMPLETAR (menos golpes que la parada de la máquina, normalmente 25) y tandas de más, por operario y en total con el detalle (ej. 11×5 · 4×14); en cada parada, con cuántos golpes venía la tanda («12 de 25» en rojo = paró a mitad de pila).
 // 15o: ✂ PARADAS POR OC Y OPERARIO: cada hueco de 30 s o más entre tandas de la OC (sacar la pila tarda ~5 s), con desde/hasta/duración/máquina/operario y lo registrado en ese momento (cambio de bobina = escaneo de una bobina de la OC ± 2 min; si no, «nada (sin escaneo)» en rojo). Resumen por operario: golpes, cortando, paradas, cambios de bobina, sin escaneo, de 3 min o más. En el detalle de la OC (Corte en vivo) y en el control de cierre (desplegable).
 // 15n: ✂ control de cierre FIJO y sin justificaciones: debían salir (metros ÷ largo de ficha) − bultos − prestadas/tomadas (las informa el operario) − scrap (kg ÷ peso de la bolsa de estas bobinas) = FALTAN / SOBRAN; más de ±1 % → el operario explica. Golpes × pistas contra metros como control aparte de la cortadora (±3 %). Se sacan «quedó sin cortar», «scrap de más», «revisar» y la sugerencia automática de bultos distintos.
@@ -8909,11 +8909,16 @@ function _nroDe(txt){
 async function _nroSiguiente(contador,tabla,campo,prefijo,pad){
   const[rc,ru]=await Promise.all([
     sb.from('contadores').select('valor').eq('nombre',contador).maybeSingle(),
-    sb.from(tabla).select(campo).order(campo,{ascending:false}).limit(1)
+    sb.from(tabla).select(campo).order('id',{ascending:false}).limit(300)
   ]);
   const okC=!rc.error, okU=!ru.error;
   const base=okC?(parseInt(rc.data&&rc.data.valor)||0):0;
-  const ult=okU?_nroDe((ru.data&&ru.data[0])?ru.data[0][campo]:''):0;
+  // 21a: el último documento se busca por id (los 300 más nuevos) y se toma el número más alto.
+  // Antes era order(campo desc).limit(1): ordena TEXTO, y «oc-5701» (mayo) queda arriba de
+  // «OC-1052995» → «ult» valía 5701 y todo dependía del contador. Si el contador quedaba atrás,
+  // salía un número repetido (OC-1052994 y OC-1052995, 17/10).
+  const pre=String(prefijo||'').toUpperCase();
+  const ult=okU?(ru.data||[]).reduce((mx,r)=>{const t=String(r[campo]||'');return t.toUpperCase().startsWith(pre)?Math.max(mx,_nroDe(t)):mx;},0):0;
   // 🔴 Las dos lecturas caídas = no sabemos por dónde va la numeración. Antes acá
   // salía un 1 y se llevaba puesto el primer documento del sistema.
   if(!okC&&!okU)return {err:(rc.error&&rc.error.message)||(ru.error&&ru.error.message)||'no se pudo leer la numeración'};
@@ -9151,6 +9156,13 @@ async function _pbInsertOE(payload){
     _pbAvisarSinSQL();
     const sin={...payload};_PB_COLS.forEach(c=>delete sin[c]);
     r=await sb.from('ordenes').insert(sin).select().single();
+  }
+  // 21a: número de OE repetido (índice único ordenes_numero_unico) → pide otro y reintenta.
+  for(let i=0;i<5&&_esChoqueNro(r.error)&&/^ORD-/i.test(String(payload.numero_orden||''));i++){
+    const n=_nroDe(payload.numero_orden);if(n)await _nroSincronizar('numero_orden',n);
+    payload.numero_orden=await generarNroORD();
+    r=await sb.from('ordenes').insert(payload).select().single();
+    if(r.error&&_pbSinColumnas(r.error)){const sin={...payload};_PB_COLS.forEach(c=>delete sin[c]);r=await sb.from('ordenes').insert(sin).select().single();}
   }
   return r;
 }
@@ -19477,19 +19489,20 @@ async function confirmarReposicion(){
   if(msg){msg.style.color='var(--text2)';msg.innerHTML='<span class="spinner" style="width:12px;height:12px;display:inline-block;"></span> Generando...';}
   try{
     // 1) Crear la OC de reposición, vinculada al pedido ORIGEN
-    const nord=await generarNroOC();
+    let nord=await generarNroOC();
     const obs='Reposición de préstamo a '+(d.pOri.numero_pedido||('#'+d.pOri.id))
       +' — '+d.paq.toLocaleString('es-AR')+' paq prestados'
       +(pr.es_sustitucion?' (se había entregado un sustituto)':'');
-    const{data:oc,error:eOC}=await sb.from('ordenes_corte').insert({
+    const{data:oc,error:eOC}=await _ocInsertar({
       numero_orden:nord,cliente:d.pOri.cliente||null,
       producto_id:d.prod.id,empaque_id:d.prod.empaque_id||null,
       bolsones_a_producir:d.bolsones||null,paquetes_por_bolson:d.paqPorBolson||null,
       cantidad_paquetes:d.totalPaq,unidades_a_producir:d.unidades,
       metros_necesarios:d.mtsNecesarios,merma_pct:d.merma,
       prioridad:1,estado:'Pendiente',observaciones:obs
-    }).select().single();
+    });
     if(eOC)throw eOC;
+    nord=oc.numero_orden||nord;
     const liOri=(d.pOri.pedido_lineas||[]).find(l=>l.producto_id===d.prod.id);
     const{error:eVin}=await sb.from('pedido_ordenes_corte').insert({
       pedido_id:d.pOri.id,orden_corte_id:oc.id,pedido_linea_id:liOri?.id||null
@@ -45129,7 +45142,7 @@ async function guardarOrdenCorte(){
   const pBolsa=precioPaquete&&emp?.unidades?r6(precioPaquete/emp.unidades):null;
   const precioTotal=precioPaquete&&totalPaq?r2(precioPaquete*totalPaq):null;
   msg.innerHTML='<div class="loading" style="padding:0.5rem 0;justify-content:flex-start"><div class="spinner"></div>Guardando...</div>';
-  const{data:oc,error:e1}=await sb.from('ordenes_corte').insert({
+  const{data:oc,error:e1}=await _ocInsertar({
     numero_orden:nord,ref_flexxus:flex||null,cliente:cli||null,
     producto_id:pId,empaque_id:eId,
     bolsones_a_producir:bolsones,paquetes_por_bolson:paqPorBolson,
@@ -45137,7 +45150,8 @@ async function guardarOrdenCorte(){
     metros_necesarios:mts,merma_pct:merma,
     prioridad:pri,fecha_inicio_ref:fecha||null,estado:'Pendiente',observaciones:obs||null,
     precio_paquete:precioPaquete,precio_bolsa:pBolsa,precio_total_venta:precioTotal
-  }).select().single();
+  });
+  if(oc&&oc.numero_orden)nord=oc.numero_orden;
   if(e1){msg.className='msg-err';msg.textContent='Error: '+e1.message;return;}
   await sb.from('orden_corte_maquinas').insert(maqs.map(m=>({orden_corte_id:oc.id,maquina_id:m.id})));
   msg.className='msg-ok';msg.textContent='✓ Orden '+nord+' guardada — '+bolsones+' bolsones · '+unidades.toLocaleString('es-AR')+' u · '+mts+' m'+(precioTotal?' · $'+precioTotal.toLocaleString('es-AR'):'');
@@ -64714,7 +64728,7 @@ async function confirmarTandasParcial(pedidoId,tandaIdsElegidos,prioridadBase){
       const totalPaq=bolsones*paqPorBolson;
       const unidades=uniPorPaq>0?totalPaq*uniPorPaq:cantLinea;
       const mts=r2(unidades*(prod.metros_por_bolsa||0)*(1+(o.merma||5)/100));
-      const nroFinal=await generarNroOC();
+      let nroFinal=await generarNroOC();
       const nota=seg?.nota||'';
       const obsTanda=totalTandasOrden>0
         ?'Generada desde pedido '+nro+' · Tanda '+(idxT+1)+'/'+totalTandasOrden+(nota?' — '+nota:'')+' (parcial)'
@@ -64731,12 +64745,9 @@ async function confirmarTandasParcial(pedidoId,tandaIdsElegidos,prioridadBase){
       };
       const promTanda=(typeof _fechaDeNotaTanda==='function')?_fechaDeNotaTanda(nota,null):null;
       if(promTanda)ocPayload.fecha_entrega_comprometida=promTanda;
-      let {data:ocRow,error:eOC}=await sb.from('ordenes_corte').insert(ocPayload).select().single();
-      if(eOC&&/fecha_entrega_comprometida/i.test(eOC.message||'')){
-        delete ocPayload.fecha_entrega_comprometida;
-        ({data:ocRow,error:eOC}=await sb.from('ordenes_corte').insert(ocPayload).select().single());
-      }
+      let {data:ocRow,error:eOC}=await _ocInsertar(ocPayload);
       if(eOC){errores.push(nroFinal+': '+eOC.message);continue;}
+      nroFinal=ocRow.numero_orden||nroFinal;
       if(o.maquinas?.length){
         await sb.from('orden_corte_maquinas').insert(o.maquinas.map(m=>({orden_corte_id:ocRow.id,maquina_id:m})));
       }
@@ -64958,7 +64969,7 @@ async function confirmarPedido(pedidoId,oeModoElegido,sinConfirmar,prioridadBase
       pendPaq-=totalPaq;
       const unidades=uniPorPaq>0?totalPaq*uniPorPaq:cantLinea;
       const mts=r2(unidades*(prod.metros_por_bolsa||0)*(1+(o.merma||5)/100));
-      const nroFinal=await generarNroOC();
+      let nroFinal=await generarNroOC();
       const obsTanda=oc.tandaTotal>0
         ?'Generada desde pedido '+nro+' · Tanda '+oc.tandaIdx+'/'+oc.tandaTotal+(oc.nota?' — '+oc.nota:'')
         :'Generada desde pedido '+nro;
@@ -64972,12 +64983,9 @@ async function confirmarPedido(pedidoId,oeModoElegido,sinConfirmar,prioridadBase
       };
       const promTanda=(typeof _fechaDeNotaTanda==='function')?_fechaDeNotaTanda(oc.nota,null):null;
       if(promTanda)ocPayload.fecha_entrega_comprometida=promTanda;
-      let {data:ocRow,error:eOC}=await sb.from('ordenes_corte').insert(ocPayload).select().single();
-      if(eOC&&/fecha_entrega_comprometida/i.test(eOC.message||'')){
-        delete ocPayload.fecha_entrega_comprometida;
-        ({data:ocRow,error:eOC}=await sb.from('ordenes_corte').insert(ocPayload).select().single());
-      }
+      let {data:ocRow,error:eOC}=await _ocInsertar(ocPayload);
       if(eOC){errores.push(nroFinal+': '+eOC.message);continue;}
+      nroFinal=ocRow.numero_orden||nroFinal;
       if(o.maquinas?.length){
         await sb.from('orden_corte_maquinas').insert(o.maquinas.map(m=>({orden_corte_id:ocRow.id,maquina_id:m})));
       }
@@ -74580,6 +74588,20 @@ async function generarNroOC(){
   if(r.err)throw new Error('No se pudo leer la numeración de órdenes de corte: '+r.err);
   await _nroSincronizar('numero_orden_corte',r.n);
   return r.txt;
+}
+// 21a: alta de una OC. Si el número ya existe (índice único ordenes_corte_numero_unico) pide
+// otro y reintenta; nunca guarda dos OC con el mismo número. Devuelve {data,error} como insert.
+async function _ocInsertar(payload){
+  let r;
+  for(let i=0;i<6;i++){
+    r=await sb.from('ordenes_corte').insert(payload).select().single();
+    if(r.error&&payload.fecha_entrega_comprometida&&/fecha_entrega_comprometida/i.test(r.error.message||'')){
+      delete payload.fecha_entrega_comprometida;i--;continue;}
+    if(!_esChoqueNro(r.error))return r;
+    const n=_nroDe(payload.numero_orden);if(n)await _nroSincronizar('numero_orden_corte',n);
+    payload.numero_orden=await generarNroOC();
+  }
+  return r;
 }
 // Generador de número ORD usando contador en DB
 async function generarNroORD(){
