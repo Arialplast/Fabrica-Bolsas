@@ -12,6 +12,9 @@ eval(src.slice(a,b).replace('const CVV=','global.CVV=').replace('const CVV_PAUSA
 const pa=src.indexOf('const PST={'),pb=src.indexOf('// ---- datos del panel ----');eval(src.slice(pa,pb).replace('const PST=','global.PST='));
 global.PLC={cfg:{factor:{'1':{m_pulso:0.2475},'3':{m_pulso:0.793},'7':{m_pulso:0.793}}}};
 // ajustes de salida
+// salidas que faltan en el reloj (las da German)
+(AJ.salida_falta||[]).forEach(t=>{if(!D.fich)D.fich=[];if(!D.fich.some(f=>f.empleado_id===t.emp&&f.fecha===t.fecha&&f.tipo==='salida'))D.fich.push({empleado_id:t.emp,fecha:t.fecha,hora:t.hora+':00',tipo:'salida'});});
+D.fich&&D.fich.sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));
 (AJ.salida_tope||[]).forEach(t=>{(D.fich||[]).forEach(f=>{if(f.empleado_id===t.emp&&f.fecha===t.fecha&&f.tipo==='salida'&&f.hora.slice(0,5)>t.hasta)f.hora=t.hasta+':00';});});
 const ocs={};(D.oc||[]).forEach(o=>ocs[o.id]=o);const ocNum=id=>(ocs[id]||{}).numero_orden;
 const noMano=new Set((AJ.oc_no_cuenta_a_mano||[]).map(x=>x.oc));
