@@ -1158,7 +1158,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-22b</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-23a</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6427,7 +6427,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-22b';   // 22b: ✂ Corte en vivo más completo (pedido de German, maqueta «Corte en vivo — versión completa»): en cada cortadora las 4 pistas vistas desde atrás (bobina, golpes hechos de los que tenía, ¿terminó?), largo por golpe contra la ficha y golpes contra lo que dan las bobinas cargadas; tarjetas de la impresora y de C3 (sin sensor); línea de tiempo con paradas en ámbar (hubo escaneo) o rojo (sin ningún registro) y franja violeta «cortando sin escanear»; KPIs «cortado sin escanear» y «golpes vs metros»; alerta «sacada a medio cortar»; control cruzado con extrusión (mediana por extrusora, banda ± 1 %).
+const APP_BUILD='2026-10-23a';   // 23a: 🔒 el panel de corte escribe sobre la OC fresca de la base: ya no devuelve a «Pendiente empaque» una OC cerrada en la oficina ni pisa las observaciones del cierre; el cierre verifica en la base (estado + fecha_completada) y es atómico → no se puede cerrar dos veces ni duplicar stock.
 // (anterior) 22a: 📏 carga parcial de OC: bloquea sólo si las bolsas no entran en los metros SIN merma; dentro de la merma estándar avisa en ámbar y deja guardar (la merma se carga al cerrar) — OC-1053011 LYME
 // (anterior) 21b:   // 21b: 🧵 si la OC se escanea después de arrancar a cortar, la pista arranca desde el «terminó» de la OC anterior en esa máquina (OC-1053012: «cortó 133 de 790» falso). Antes 21a:   // 21a: número de OC sin repetir: el último se busca por id (no por texto), índice único en la base y reintento si choca (OC-1052994/95 repetidas el 17/10). Antes 20h:   // 20h: ↩ «me equivoqué de pista» en la tarjeta de la máquina: sólo recién puesta (≤ 10 min o ≤ 50 golpes), misma máquina, mismo contador; a pista vacía o con bobina terminada; queda en la OC. Cambio de máquina: lo corrige el dueño. — 20g: factor del cuentametros corregido (EXT-01 0,2443 · EXT-03/07 0,781): el control de corte lleva al factor nuevo las bobinas del PLC cargadas antes (id ≤ 7306), en lugar del margen de 16d que iba al revés. Antes 20e:   // 20e: ✓ «Terminó de cortar» con la OC en dos cortadoras pregunta «¿sólo en esta máquina o toda la OC?»: sólo acá deja [Terminó en CORTE-0X panel …], la OC sigue en la otra y esta tarjeta queda libre (OC-1052980: Guaraz terminó en C2 y Celia seguía en C1); los golpes de la otra máquina no se cortan. — 20d: ✂ «Corte terminado» tocado mientras la máquina sigue cortando sin parar ya no deja golpes afuera (OC-1052980 C1: el último par cortó hasta 10:31 y figuraba «quedó sin cortar ≈ 637 m»); 📏 si en una máquina TODAS las bobinas terminan antes y parejo, el cierre dice «cortó la bolsa más larga ≈ X cm» en vez de film sin cortar. — 20c: ✂ golpes de una OC que seguía en marcha en el panel (pausada/terminada después, antes del próximo escaneo) quedan en esa OC aunque su último escaneo tenga más de 3 h — OC-1052978 recibía 2.863 golpes de Solbayres (C1 06:00–08:05). — 20b: 👥 pantalla compartida del Panel corte: si en la máquina venía cargando otra persona, pregunta quién carga (dos nombres grandes, no se confirma con la pistola). — 20a: 20a: 🧵 pistas como están numeradas en las dos cortadoras mirando desde atrás (1 arriba izq. · 2 abajo izq. · 3 arriba der. · 4 abajo der.): ARRIBA/ABAJO en los botones y la tarjeta en la misma disposición. — 19e: 🧵 PISTAS: después de escanear cada bobina el operario elige en qué pista la puso (1-4, pantalla enorme). Con el contador de golpes de ese momento cada bobina sabe cuántos golpes le tocaron. Alarma roja con sonido si se pone una bobina donde la anterior no terminó (motivo obligatorio, queda en la OC); bobina sin pista = cartel rojo que late y pitido cada minuto; pista con golpes de más = «¿terminó?». La tarjeta de la máquina muestra las 4 pistas. Cierre: tabla por pista y «⛔ sacada a medio cortar». Columnas nuevas orden_corte_bobinas.pista / pista_contador / pista_en. — 19d: cierre de OC: si no se pudo saber a cuántas pistas corrió, ya no dice «cortó ≈ 0 bolsas» (OC-1052957): dice que con los golpes no se puede calcular. — 19c: ✂ cierre de OC cortada en DOS cortadoras: cada tirada cuenta los golpes hasta el próximo escaneo EN SU MISMA MÁQUINA (antes se mezclaban: OC-1052981 daba 313 y 3.790 golpes) y cada máquina con sus pistas (bobinas escaneadas juntas si cierran ± 10 %, si no la cuenta física): «2 en CORTE-01 y 4 en CORTE-02». Golpes de una máquina sin bobinas escaneadas en ella: fila aparte ⚠. — 19b: 🛑 DATOS INCOMPLETOS: las órdenes de corte se piden de a 250 con reintento (la página de 1.000 pasaba el límite de 3 s de Supabase y llegaba VACÍA → costo 0 → tablero «margen 98 %»); si una lectura crítica falla igual, cartel rojo arriba y el Tablero muestra «datos incompletos» en vez de un número. — 19a: 19a: 🧾 FACTURA DOBLE imposible: candado + botón apagado mientras graba y recarga, relectura de los remitos contra la base, y el remito se toma con update condicional (factura_id IS NULL) — si otro guardado ya lo tomó, la factura nueva se deshace sola. — 17e: 17e: 📏 aviso «CORTA LARGO» en el Panel corte (cartel rojo enorme + alarma cada minuto hasta medir la bolsa; la medida queda en la OC) y en Corte en vivo / cierre para el dueño; ✋ carga a mano en la impresora con motivo obligatorio. — 17d: ✂ paradas simplificadas: cortando y parada en total; por operario sólo parada total, por cambio de bobina, sin motivo y pilas; lista con «paró · cuánto · qué se registró» (sin la columna de la tanda). — 17c: ✂ paradas sin ambigüedad: «9 min en total (3 veces)» en vez de «3 · 9 min» (se leía 3 × 9). — 17b: ✂ paradas: el hueco antes de arrancar la OC (golpes sueltos sin bobina escaneada y la máquina quieta hasta que arranca) se muestra aparte y no suma como parada ni como cambio de bobina. — 17a: ✂ cierre de OC claro: veredicto en grande, cuenta de bolsas siempre (aunque no se sepan las pistas), cortadora en tabla (tenía que hacer / hizo / diferencia) y paradas plegadas; pistas por la cuenta física (golpes contra bobinas, 1 a 4); la nota de la OC en renglones. — 16d: ✂ el balance de cierre usa los METROS REALES de las bobinas medidas por el PLC (margen fijo del cuentametros: EXT-01 +1,5 %, E3/E7 +0,9 %); se muestra en el control y en la nota. — 16c: ✂ un golpe posterior a «Terminó de cortar» en el panel ya no se le suma a esa OC (va al escaneo siguiente); la nota de cierre decía «cierra» cuando SOBRABAN bolsas: ahora dice SOBRAN; el % del balance sin signo. — 16b: 🖨 IMPRESORA en el Panel corte: escaneo de entrada y salida de cada bobina (tabla impresion_bobinas), metros impresos = metros de extrusión, m/min reales, impresas esperando corte; en la cortadora una bobina de producto IMPRESA sin pasar por la impresora se pregunta y queda anotada. — 16a: ✂ golpes que tenía que hacer la cortadora = bobina más larga de cada par ÷ largo (con 2 pistas la más larga termina sola); cortadas = golpes × pistas − la punta a 1 pista. Control de cortadora: golpes contra esos golpes. — 15q anterior: 15q: ✂ pilas bien contadas con el registro golpe a golpe: una pila que el operario cortó a la mitad y completó al volver a arrancar (11 + 14 = 25) es «cortada a la mitad», no dos incompletas. Incompleta = nunca llegó a la parada; de más = pasó de la parada sin la pausa de la máquina (29, 31…), con los golpes de más.
 // 15p: ✂ paradas: TANDAS SIN COMPLETAR (menos golpes que la parada de la máquina, normalmente 25) y tandas de más, por operario y en total con el detalle (ej. 11×5 · 4×14); en cada parada, con cuántos golpes venía la tanda («12 de 25» en rojo = paró a mitad de pila).
@@ -52625,6 +52625,19 @@ async function cerrarOrdenCorte(id){
     document.getElementById('cierre-modal')?.remove();
     return;
   }
+  // 23a: el mismo candado, pero contra la BASE (la copia de esta pantalla puede ser vieja) y
+  // por fecha_completada: una OC que ya se cerró una vez y quedó en otro estado (la tablet la
+  // devolvía a Pendiente empaque) ya acreditó su stock — cerrarla de nuevo lo duplicaba.
+  let _fr=null;
+  try{_fr=await _ocFresca(id);}catch(e){toast('⚠ No pude verificar el estado de '+o.numero_orden+' en la base: '+(e.message||e),'red');return;}
+  if(_fr.estado==='Completada'||_fr.fecha_completada){
+    Object.assign(o,{estado:_fr.estado,observaciones:_fr.observaciones});
+    toast('⚠ '+o.numero_orden+' ya se cerró el '+(_fr.fecha_completada?new Date(_fr.fecha_completada).toLocaleString('es-AR',{dateStyle:'short',timeStyle:'short'}):'—')+' — no se vuelve a cerrar (duplicaría el stock)','amber');
+    document.getElementById('cierre-modal')?.remove();
+    try{await reload();}catch(e){}
+    return;
+  }
+  o.observaciones=_fr.observaciones;   // lo que anotó la tablet mientras tanto no se pierde
   const prod=C.productos.find(p=>p.id===o.producto_id)||o.productos;
   const empId=o.empaque_id||prod?.empaque_id||0;
   const emp=C.emp.find(e=>e.id===empId);
@@ -52666,15 +52679,21 @@ async function cerrarOrdenCorte(id){
   const obsFinal=[obsPrev,obs,txtBultos,ctl?ctl.linea+(expl&&expl.texto?(ctl.alerta?'\nEXPLICACIÓN DEL OPERARIO: ':'\nComentario: ')+expl.texto:''):null].filter(Boolean).join('\n')||null;
   // TODO: cuando exista el rol "responsable_deposito", permitir también ese rol
   pedirAdminYEjecutar(async()=>{
-    const{error:errUpd}=await sb.from('ordenes_corte').update({
+    const{data:_updCierre,error:errUpd}=await sb.from('ordenes_corte').update({
       estado:'Completada',bolsones_reales:bolsones,paquetes_sueltos_reales:paqSueltos,
       cantidad_bultos_reales:totalPaq,unidades_reales:totalUni,
       peso_scrap_kg:scrapPesado,scrap_calculado_kg:scrapCalcKg,scrap_diferencia_kg:difScrap,
       fecha_completada:new Date().toISOString(),observaciones:obsFinal
-    }).eq('id',id);
+    }).eq('id',id).neq('estado','Completada').is('fecha_completada',null).select('id');   // 23a: atómico contra doble cierre
     if(errUpd){
       console.error('Error update OC:',errUpd);
       toast('⚠ Error guardando cierre: '+errUpd.message,'red');
+      return;
+    }
+    if(!_updCierre||!_updCierre.length){
+      toast('⚠ '+o.numero_orden+' ya estaba cerrada en la base — no se acreditó stock de nuevo','amber');
+      document.getElementById('cierre-modal')?.remove();
+      try{await reload();}catch(e){}
       return;
     }
     // ¿Esta OC es la reposición EXPLÍCITA de algún préstamo? (vínculo repuesto_oc_id)
@@ -59795,10 +59814,7 @@ async function _pcorteCargarBobina(ocId,bobId,maquinaId,origen,nota){
       await _refrescarOC(ocId);
       if(nota){
         try{
-          const _ocN=C.ord_corte.find(x=>x.id===ocId)||oc;
-          const _obsN=((_ocN.observaciones||'').trim()+' '+nota).trim();
-          await sb.from('ordenes_corte').update({observaciones:_obsN}).eq('id',ocId);
-          _ocN.observaciones=_obsN;
+          await _ocAnotar(ocId,nota);   // 23a: sobre la OC fresca
         }catch(e){console.warn('nota de carga a mano',e);}
       }
       _cacheParchear([C.bobinas_prod,C.bobinas_hist,C.bobinas_fuera],bobId,{en_stock:false,reservada_oc_id:null});
@@ -60396,10 +60412,8 @@ async function _clGuardar(ocId,fi){
   const op=(window._pcorteOperario||'').trim()||'sin nombre';
   const oc=(C.ord_corte||[]).find(o=>o.id===ocId);if(!oc)return;
   const marca='[📏 Bolsa medida '+localDate()+' '+localTime().slice(0,5)+' por '+op+': '+String(v).replace('.',',')+' cm (ficha '+fi+')]';
-  const obs=((oc.observaciones||'').trim()+' '+marca).trim();
-  const{error}=await sb.from('ordenes_corte').update({observaciones:obs}).eq('id',ocId);
+  let error=null;try{await _ocAnotar(ocId,marca);}catch(e){error=e;}   // 23a: sobre la OC fresca
   if(error){if(err)err.textContent='No se pudo guardar: '+(error.message||error);return;}
-  oc.observaciones=obs;
   document.getElementById('cl-modal')?.remove();
   const largo=v>fi+1,corto=v<fi-1;
   _pcorteFeedback(largo?'⛔ La bolsa mide '+v+' cm y la ficha dice '+fi+': corregí la máquina y volvé a medir.':corto?'⚠ La bolsa mide '+v+' cm, más corta que la ficha ('+fi+'): avisá al encargado.':'✓ Medida guardada: '+v+' cm (ficha '+fi+').',
@@ -60670,10 +60684,7 @@ async function _pstElegir(ocId,bobId,maqId,p,motivo){
   if(nt&&motivo){
     const op=(window._pcorteOperario||'').trim()||'sin nombre';
     const marca='[🧵 Pista '+p+' '+localDate()+' '+localTime().slice(0,5)+' por '+op+': '+o.nro+' sacada con '+F(nt.g)+' de '+F(nt.esp)+' golpes (≈ '+F(nt.quedanM)+' m) — '+motivo+']';
-    try{const ocO=(C.ord_corte||[]).find(x=>x.id===o.c.orden_corte_id);
-      const base=ocO?ocO.observaciones:((await sb.from('ordenes_corte').select('observaciones').eq('id',o.c.orden_corte_id).single()).data||{}).observaciones;
-      const obs=((base||'').trim()+' '+marca).trim();
-      await sb.from('ordenes_corte').update({observaciones:obs}).eq('id',o.c.orden_corte_id);if(ocO)ocO.observaciones=obs;}catch(e){console.warn('nota pista',e);}
+    try{await _ocAnotar(o.c.orden_corte_id,marca);}catch(e){console.warn('nota pista',e);}   // 23a
   }
   try{const ocC=(C.ord_corte||[]).find(x=>x.id===ocId);const r=ocC&&(ocC.orden_corte_bobinas||[]).find(x=>x.bobina_producida_id===bobId);if(r){r.pista=p;r.pista_contador=cont;r.pista_en=ahora;}}catch(e){}
   document.getElementById('pst-modal')?.remove();PST.abierto=false;
@@ -60729,9 +60740,7 @@ async function _pstCambiarPistaOk(maqId,p,q){
   const op=(window._pcorteOperario||'').trim()||'sin nombre';
   const marca='[↩ Pista corregida '+localDate()+' '+localTime().slice(0,5)+' por '+op+': '+o.nro+' en '+_cvvMaqNom(maqId)+' pista '+p+' → '+q+']';
   try{const ocO=(C.ord_corte||[]).find(x=>x.id===o.c.orden_corte_id);
-    const base=ocO?ocO.observaciones:((await sb.from('ordenes_corte').select('observaciones').eq('id',o.c.orden_corte_id).single()).data||{}).observaciones;
-    const obs=((base||'').trim()+' '+marca).trim();
-    await sb.from('ordenes_corte').update({observaciones:obs}).eq('id',o.c.orden_corte_id);if(ocO)ocO.observaciones=obs;
+    await _ocAnotar(o.c.orden_corte_id,marca);   // 23a
     const r=ocO&&(ocO.orden_corte_bobinas||[]).find(x=>x.bobina_producida_id===o.c.bobina_producida_id);if(r)r.pista=q;}catch(e){console.warn('nota pista',e);}
   document.getElementById('pst-modal')?.remove();PST.abierto=false;
   _pcorteFeedback('✓ '+o.nro+': pista '+p+' → '+q,'var(--green)','ok',{titulo:'✓ PISTA '+q,numero:o.nro,detalle:_cvvMaqNom(maqId)+' · corregida'});
@@ -60739,6 +60748,43 @@ async function _pstCambiarPistaOk(maqId,p,q){
   setTimeout(()=>document.getElementById('pcorte-pistola-input')?.focus(),100);
 }
 // ===== FIN 🧵 PISTAS =====
+// ===== 🔒 PANEL DE CORTE: ESCRIBIR SOBRE LA OC FRESCA (build 2026-10-23a) =====
+// Reporte de German (23/10): «las OC pasan de Completadas a Pendiente empaque solas».
+// Causa: la tablet de corte tiene su copia de C.ord_corte y escribía encima sin mirar la
+// base. OC-1052957 (LYME) se cerró en la oficina 19/10 15:26 y a las 16:04 Guaraz tocó
+// «Terminó de cortar» en la tablet → volvió a Pendiente empaque y además pisó las
+// observaciones del cierre (control de golpes) con la copia vieja. Igual OC-1053014
+// (Quilplast) 22/10: cierre 14:19, panel 14:25. Peor: el candado anti doble-cierre miraba
+// la misma copia, así que la OC revertida se podía cerrar otra vez → stock doble.
+// Ahora: toda escritura del panel lee estado + observaciones de la base, agrega su marca
+// a lo que hay ahí, y escribe sólo si el estado sigue siendo el que leyó (y está entre los
+// permitidos). Si la OC ya se cerró, no la toca y lo dice.
+async function _ocFresca(id){
+  const{data,error}=await sb.from('ordenes_corte').select('id,estado,observaciones,fecha_completada').eq('id',id).single();
+  if(error)throw error;
+  return data;
+}
+function _ocObsMas(obs,marca){return ((obs||'').trim()+' '+(marca||'')).trim();} // pura
+// Agrega `marca` a las observaciones y aplica `campos` (ej. {estado:'Pendiente empaque'}).
+// permitidos: estados en los que se puede escribir (null = cualquiera).
+// → {ok:true,obs} | {ok:false,estado} (no se tocó nada)
+async function _ocAnotar(id,marca,campos,permitidos){
+  const f=await _ocFresca(id);
+  if(permitidos&&!permitidos.includes(f.estado))return{ok:false,estado:f.estado};
+  const obs=_ocObsMas(f.observaciones,marca);
+  const{data,error}=await sb.from('ordenes_corte').update(Object.assign({observaciones:obs},campos||{})).eq('id',id).eq('estado',f.estado).select('id');
+  if(error)throw error;
+  if(!data||!data.length)return{ok:false,estado:'(cambió mientras se guardaba)'};
+  const ocM=(C.ord_corte||[]).find(x=>x.id===id);
+  if(ocM){ocM.observaciones=obs;if(campos)Object.assign(ocM,campos);}
+  return{ok:true,obs};
+}
+async function _ocNoSeTocó(id,r){   // aviso + refresco cuando la base ya no deja escribir
+  const oc=(C.ord_corte||[]).find(x=>x.id===id);
+  _pcorteFeedback('✕ '+(oc?oc.numero_orden:'La OC')+' ya está «'+r.estado+'» en el sistema — no se tocó. Se actualiza la pantalla.','var(--red)','error');
+  try{await reload();_pintarPanelCorte();}catch(e){}
+}
+// ===== FIN 🔒 OC FRESCA =====
 // Arrancar una OC desde el panel, registrando el operario que la inició.
 async function _pcorteIniciarOC(raw){
   const codigoOC=extraerNumeroOCdeEscaneo(raw);
@@ -60754,7 +60800,7 @@ async function _pcorteIniciarOC(raw){
     const mq=(C.maq_corte||[]).find(x=>x.id===window._pcorteMaquinaId);
     if(mq&&_pcorteTerminoEnMaq(oc,mq.nombre)){
       if(!confirm('⚠ '+codigoOC+' ya TERMINÓ en '+mq.nombre+'.\n\n¿La volvés a cortar en '+mq.nombre+'?'))return;
-      try{const{error}=await sb.from('ordenes_corte').update({observaciones:(oc.observaciones||'')+' [Retomada en '+mq.nombre+' panel '+localDate()+' '+fmtHora(new Date())+' por '+opNom+']'}).eq('id',oc.id);if(error)throw error;await reload();}
+      try{const r=await _ocAnotar(oc.id,'[Retomada en '+mq.nombre+' panel '+localDate()+' '+fmtHora(new Date())+' por '+opNom+']',null,['En proceso']);if(!r.ok)return _ocNoSeTocó(oc.id,r);await reload();}
       catch(e){_pcorteFeedback('✕ Error: '+(e.message||e),'var(--red)','error');return;}
     }
     window._pcorteOCobjetivo=oc.id;_pcorteFeedback('▶ OC '+codigoOC+' ya estaba En proceso — bobinas se cargan acá','var(--accent)','ok');setTimeout(_pintarPanelCorte,600);return;}
@@ -60775,9 +60821,9 @@ async function _pcorteIniciarOC(raw){
   }
   // Pendiente → arrancar, registrando operario en observaciones
   try{
-    const obsPrev=oc.observaciones||'';
     const marca=(oc.estado==='Pendiente empaque'?'[REABIERTA en panel ':'[Iniciada en panel ')+localDate()+' '+fmtHora(new Date())+' por '+opNom+']';
-    await sb.from('ordenes_corte').update({estado:'En proceso',observaciones:obsPrev+(obsPrev?' ':'')+marca}).eq('id',oc.id);
+    const r=await _ocAnotar(oc.id,marca,{estado:'En proceso'},[oc.estado]);   // 23a: sólo si en la base sigue como la vimos
+    if(!r.ok)return _ocNoSeTocó(oc.id,r);
     if(typeof congelarBaselineCorte==='function')await congelarBaselineCorte(oc.id);
     window._pcorteOCobjetivo=oc.id;
     await reload();
@@ -60812,9 +60858,9 @@ async function _pcorteConfirmarPausa(id,motivo){
   document.getElementById('pcorte-pausa-modal')?.remove();
   if(!oc)return;
   try{
-    const obsPrev=oc.observaciones||'';
     const marca='[Pausada en panel '+localDate()+' '+fmtHora(new Date())+' — '+motivo+(window._pcorteOperario?' · '+window._pcorteOperario:'')+']';
-    await sb.from('ordenes_corte').update({estado:'Pendiente',observaciones:obsPrev+(obsPrev?' ':'')+marca}).eq('id',id);
+    const r=await _ocAnotar(id,marca,{estado:'Pendiente'},['En proceso']);   // 23a
+    if(!r.ok)return _ocNoSeTocó(id,r);
     await reload();
     _pcorteFeedback('⏸ '+oc.numero_orden+' pausada ('+motivo+') — vuelve a la cola','var(--amber)','ok');
     _pintarPanelCorte();
@@ -60870,10 +60916,9 @@ async function _pcorteTerminoSoloMaq(id,maqId){
   if(!oc||!maq)return;
   try{
     const otras=_pcorteOtrasMaqs(oc,maq.id).map(m=>m.nombre).join(' y ');
-    const obsPrev=oc.observaciones||'';
     const marca='[Terminó en '+maq.nombre+' panel '+localDate()+' '+fmtHora(new Date())+(window._pcorteOperario?' por '+window._pcorteOperario:'')+' — '+otras+' sigue]';
-    const{error}=await sb.from('ordenes_corte').update({observaciones:obsPrev+(obsPrev?' ':'')+marca}).eq('id',id);
-    if(error)throw error;
+    const r=await _ocAnotar(id,marca,null,['En proceso']);   // 23a
+    if(!r.ok)return _ocNoSeTocó(id,r);
     if(window._pcorteOCobjetivo===id&&window._pcorteMaquinaId===maq.id)window._pcorteOCobjetivo=null;
     await reload();
     _pcorteFeedback('✓ '+oc.numero_orden+' terminó en '+maq.nombre+' — sigue en '+otras+'. '+maq.nombre+' queda libre para la próxima OC.','var(--green)','ok');
@@ -60887,9 +60932,10 @@ async function _pcorteTerminoTodo(id){
   if(!oc)return;
   if(!confirm('¿'+oc.numero_orden+' terminó de cortar?\n\nEsto NO cierra la orden ni descuenta stock — solo avisa que el corte físico terminó. El dueño la cierra después con bolsones y scrap.'))return;
   try{
-    const obsPrev=oc.observaciones||'';
     const marca='[Corte terminado en panel '+localDate()+' '+fmtHora(new Date())+(window._pcorteOperario?' por '+window._pcorteOperario:'')+' — pendiente de cierre]';
-    await sb.from('ordenes_corte').update({estado:'Pendiente empaque',observaciones:obsPrev+(obsPrev?' ':'')+marca}).eq('id',id);
+    // 23a: NUNCA desde Completada/Suspendida/Cancelada (la tablet podía tener la OC vieja)
+    const r=await _ocAnotar(id,marca,{estado:'Pendiente empaque'},['En proceso','Pendiente']);
+    if(!r.ok)return _ocNoSeTocó(id,r);
     await reload();
     _pcorteFeedback('✓ '+oc.numero_orden+' marcada como cortada — esperando cierre del dueño','var(--green)','ok');
     _pintarPanelCorte();

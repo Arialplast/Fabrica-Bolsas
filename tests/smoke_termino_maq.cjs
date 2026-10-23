@@ -7,9 +7,12 @@ const M1={id:1,nombre:'CORTE-01'},M2={id:2,nombre:'CORTE-02'};
 let modal='',upd=null;
 global.C={maq_corte:[M1,M2],ord_corte:[]};global.escapeHtml=x=>String(x);global.localDate=()=>'2026-10-20';global.fmtHora=()=>'10:09';
 global.document={getElementById:()=>null,body:{insertAdjacentHTML:(w,h)=>{modal=h;}}};
-global.sb={from:()=>({update:o=>{upd=o;return{eq:async()=>({error:null})};}})};
+// 23a: el panel escribe con _ocAnotar (lee la OC fresca y actualiza condicionado al estado)
+const _q=(res)=>{const q={eq:()=>q,neq:()=>q,is:()=>q,in:()=>q,select:()=>q,single:()=>q,then:(ok,ko)=>Promise.resolve(res()).then(ok,ko)};return q;};
+global.sb={from:()=>({select:()=>_q(()=>{const o=C.ord_corte[0];return{data:{id:o.id,estado:o.estado,observaciones:o.observaciones,fecha_completada:null},error:null};}),update:o=>{upd=o;return _q(()=>({data:[{id:1}],error:null}));}})};
 global.reload=async()=>{};global._pcorteFeedback=()=>{};global._pintarPanelCorte=()=>{};global.confirm=()=>true;
 let todo=null;
+eval(grab('async function _ocFresca','// ===== FIN 🔒 OC FRESCA'));
 eval(grab('function _pcorteTerminoEnMaq','// Terminó de cortar: marca'));
 global._pcorteTerminoTodo=id=>{todo=id;};
 const oc={id:1012,numero_orden:'OC-1052980',estado:'En proceso',observaciones:'[Iniciada en panel 2026-10-20 08:58 por C]',orden_corte_maquinas:[{maquina_id:1},{maquina_id:2}]};
