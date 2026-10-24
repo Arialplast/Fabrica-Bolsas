@@ -257,6 +257,9 @@ tr:hover td{background:rgba(255,255,255,0.02);}
 .ee-bar.cerca .ee-bar-tr>i{background:var(--amber);}.ee-bar.cerca .ee-cerca{display:inline;color:var(--amber);}
 .ee-bar.cortar .ee-bar-tr>i{background:var(--green);}.ee-bar.cortar .ee-cortar{display:inline;color:var(--green);font-size:15px;}
 .ee-bar.cortar .ee-bar-tr{border-color:var(--green);}
+.ee-bar .ee-pasada{display:none;}
+.ee-bar.pasada .ee-bar-tr>i{background:var(--red);}.ee-bar.pasada .ee-bar-tr{border-color:var(--red);}
+.ee-bar.pasada .ee-pasada{display:inline;color:var(--red);font-size:16px;font-weight:900;animation:clLatido 1.2s ease-in-out infinite;}
 .ee-bar.ok .ee-bar-hd>span:last-child{color:var(--green);font-weight:600;}
 .ee-sema{align-items:flex-start;}
 .ee-lamp{display:flex;flex-direction:column;gap:5px;padding-top:3px;}
@@ -1158,7 +1161,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-23a</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-24a</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -6427,7 +6430,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-23a';   // 23a: 🔒 el panel de corte escribe sobre la OC fresca de la base: ya no devuelve a «Pendiente empaque» una OC cerrada en la oficina ni pisa las observaciones del cierre; el cierre verifica en la base (estado + fecha_completada) y es atómico → no se puede cerrar dos veces ni duplicar stock.
+const APP_BUILD='2026-10-24a';   // 24a: 🧵 pista SUGERIDA al cargar bobina en el Panel corte (la que terminó, si no la vacía; las que siguen cortando en rojo) y en la alarma «no terminó» el botón grande es «VA EN LA PISTA X»; en el cierre, una pista que ocupó OTRA OC ya no es «sacada con film» (OC-1052991); 🏭 estación: «⛔ PASASTE +X m · ¿CORTASTE? APRETÁ EL PULSADOR» con pitido cuando la bobina pasa el objetivo +4 %; 📏 Extrusión en vivo: ⏱ pulsador fuera de tiempo detectado con la balanza (bobina liviana + siguiente pesada que suman bien; BOB-07193/07194) con botón «Corregir metros» (admin). Antes 23a: 🔒 el panel de corte escribe sobre la OC fresca de la base: ya no devuelve a «Pendiente empaque» una OC cerrada en la oficina ni pisa las observaciones del cierre; el cierre verifica en la base (estado + fecha_completada) y es atómico → no se puede cerrar dos veces ni duplicar stock.
 // (anterior) 22a: 📏 carga parcial de OC: bloquea sólo si las bolsas no entran en los metros SIN merma; dentro de la merma estándar avisa en ámbar y deja guardar (la merma se carga al cerrar) — OC-1053011 LYME
 // (anterior) 21b:   // 21b: 🧵 si la OC se escanea después de arrancar a cortar, la pista arranca desde el «terminó» de la OC anterior en esa máquina (OC-1053012: «cortó 133 de 790» falso). Antes 21a:   // 21a: número de OC sin repetir: el último se busca por id (no por texto), índice único en la base y reintento si choca (OC-1052994/95 repetidas el 17/10). Antes 20h:   // 20h: ↩ «me equivoqué de pista» en la tarjeta de la máquina: sólo recién puesta (≤ 10 min o ≤ 50 golpes), misma máquina, mismo contador; a pista vacía o con bobina terminada; queda en la OC. Cambio de máquina: lo corrige el dueño. — 20g: factor del cuentametros corregido (EXT-01 0,2443 · EXT-03/07 0,781): el control de corte lleva al factor nuevo las bobinas del PLC cargadas antes (id ≤ 7306), en lugar del margen de 16d que iba al revés. Antes 20e:   // 20e: ✓ «Terminó de cortar» con la OC en dos cortadoras pregunta «¿sólo en esta máquina o toda la OC?»: sólo acá deja [Terminó en CORTE-0X panel …], la OC sigue en la otra y esta tarjeta queda libre (OC-1052980: Guaraz terminó en C2 y Celia seguía en C1); los golpes de la otra máquina no se cortan. — 20d: ✂ «Corte terminado» tocado mientras la máquina sigue cortando sin parar ya no deja golpes afuera (OC-1052980 C1: el último par cortó hasta 10:31 y figuraba «quedó sin cortar ≈ 637 m»); 📏 si en una máquina TODAS las bobinas terminan antes y parejo, el cierre dice «cortó la bolsa más larga ≈ X cm» en vez de film sin cortar. — 20c: ✂ golpes de una OC que seguía en marcha en el panel (pausada/terminada después, antes del próximo escaneo) quedan en esa OC aunque su último escaneo tenga más de 3 h — OC-1052978 recibía 2.863 golpes de Solbayres (C1 06:00–08:05). — 20b: 👥 pantalla compartida del Panel corte: si en la máquina venía cargando otra persona, pregunta quién carga (dos nombres grandes, no se confirma con la pistola). — 20a: 20a: 🧵 pistas como están numeradas en las dos cortadoras mirando desde atrás (1 arriba izq. · 2 abajo izq. · 3 arriba der. · 4 abajo der.): ARRIBA/ABAJO en los botones y la tarjeta en la misma disposición. — 19e: 🧵 PISTAS: después de escanear cada bobina el operario elige en qué pista la puso (1-4, pantalla enorme). Con el contador de golpes de ese momento cada bobina sabe cuántos golpes le tocaron. Alarma roja con sonido si se pone una bobina donde la anterior no terminó (motivo obligatorio, queda en la OC); bobina sin pista = cartel rojo que late y pitido cada minuto; pista con golpes de más = «¿terminó?». La tarjeta de la máquina muestra las 4 pistas. Cierre: tabla por pista y «⛔ sacada a medio cortar». Columnas nuevas orden_corte_bobinas.pista / pista_contador / pista_en. — 19d: cierre de OC: si no se pudo saber a cuántas pistas corrió, ya no dice «cortó ≈ 0 bolsas» (OC-1052957): dice que con los golpes no se puede calcular. — 19c: ✂ cierre de OC cortada en DOS cortadoras: cada tirada cuenta los golpes hasta el próximo escaneo EN SU MISMA MÁQUINA (antes se mezclaban: OC-1052981 daba 313 y 3.790 golpes) y cada máquina con sus pistas (bobinas escaneadas juntas si cierran ± 10 %, si no la cuenta física): «2 en CORTE-01 y 4 en CORTE-02». Golpes de una máquina sin bobinas escaneadas en ella: fila aparte ⚠. — 19b: 🛑 DATOS INCOMPLETOS: las órdenes de corte se piden de a 250 con reintento (la página de 1.000 pasaba el límite de 3 s de Supabase y llegaba VACÍA → costo 0 → tablero «margen 98 %»); si una lectura crítica falla igual, cartel rojo arriba y el Tablero muestra «datos incompletos» en vez de un número. — 19a: 19a: 🧾 FACTURA DOBLE imposible: candado + botón apagado mientras graba y recarga, relectura de los remitos contra la base, y el remito se toma con update condicional (factura_id IS NULL) — si otro guardado ya lo tomó, la factura nueva se deshace sola. — 17e: 17e: 📏 aviso «CORTA LARGO» en el Panel corte (cartel rojo enorme + alarma cada minuto hasta medir la bolsa; la medida queda en la OC) y en Corte en vivo / cierre para el dueño; ✋ carga a mano en la impresora con motivo obligatorio. — 17d: ✂ paradas simplificadas: cortando y parada en total; por operario sólo parada total, por cambio de bobina, sin motivo y pilas; lista con «paró · cuánto · qué se registró» (sin la columna de la tanda). — 17c: ✂ paradas sin ambigüedad: «9 min en total (3 veces)» en vez de «3 · 9 min» (se leía 3 × 9). — 17b: ✂ paradas: el hueco antes de arrancar la OC (golpes sueltos sin bobina escaneada y la máquina quieta hasta que arranca) se muestra aparte y no suma como parada ni como cambio de bobina. — 17a: ✂ cierre de OC claro: veredicto en grande, cuenta de bolsas siempre (aunque no se sepan las pistas), cortadora en tabla (tenía que hacer / hizo / diferencia) y paradas plegadas; pistas por la cuenta física (golpes contra bobinas, 1 a 4); la nota de la OC en renglones. — 16d: ✂ el balance de cierre usa los METROS REALES de las bobinas medidas por el PLC (margen fijo del cuentametros: EXT-01 +1,5 %, E3/E7 +0,9 %); se muestra en el control y en la nota. — 16c: ✂ un golpe posterior a «Terminó de cortar» en el panel ya no se le suma a esa OC (va al escaneo siguiente); la nota de cierre decía «cierra» cuando SOBRABAN bolsas: ahora dice SOBRAN; el % del balance sin signo. — 16b: 🖨 IMPRESORA en el Panel corte: escaneo de entrada y salida de cada bobina (tabla impresion_bobinas), metros impresos = metros de extrusión, m/min reales, impresas esperando corte; en la cortadora una bobina de producto IMPRESA sin pasar por la impresora se pregunta y queda anotada. — 16a: ✂ golpes que tenía que hacer la cortadora = bobina más larga de cada par ÷ largo (con 2 pistas la más larga termina sola); cortadas = golpes × pistas − la punta a 1 pista. Control de cortadora: golpes contra esos golpes. — 15q anterior: 15q: ✂ pilas bien contadas con el registro golpe a golpe: una pila que el operario cortó a la mitad y completó al volver a arrancar (11 + 14 = 25) es «cortada a la mitad», no dos incompletas. Incompleta = nunca llegó a la parada; de más = pasó de la parada sin la pausa de la máquina (29, 31…), con los golpes de más.
 // 15p: ✂ paradas: TANDAS SIN COMPLETAR (menos golpes que la parada de la máquina, normalmente 25) y tandas de más, por operario y en total con el detalle (ej. 11×5 · 4×14); en cada parada, con cuántos golpes venía la tanda («12 de 25» en rojo = paró a mitad de pila).
@@ -10560,8 +10563,13 @@ function _eeBarInfo(d){
   const cur=d.enCurso!=null&&!d.estadoViejo?d.enCurso:null;
   const p=cur!=null&&M.m>0?cur/M.m:0;
   const minP=(d.est&&d.ult&&d.est.seg_prod!=null&&d.ult.prod_cierre!=null)?Math.max(0,Math.round((d.est.seg_prod-d.ult.prod_cierre)/60)):null;
-  return{cur,m:M.m,p,cls:p>=1?'cortar':p>=0.95?'cerca':'',minP,desde:d.ult?d.ult.cerrado_en:null,compensa:M.compensa};
+  // 24a — PULSADOR TARDE (German, 24/10: BOB-07193 de EXT-07 con ~100 m de la siguiente porque el pulsador
+  // entró 5 min después del cambio). Pasado el objetivo + 4 % sin pulsador: cartel rojo y pitido cada 30 s.
+  return{cur,m:M.m,p,cls:p>=1+_EE_PASADA?'pasada':p>=1?'cortar':p>=0.95?'cerca':'',minP,desde:d.ult?d.ult.cerrado_en:null,compensa:M.compensa,
+    pasoM:cur!=null&&M.m>0?cur-M.m:null};
 }
+const _EE_PASADA=0.04;
+function _eePasadaTxt(b){return '⛔ PASASTE '+(b&&b.pasoM!=null?'+'+_eeF(b.pasoM)+' m':'')+' · ¿CORTASTE? APRETÁ EL PULSADOR';}
 function _eeBarHtml(id,d){
   const b=_eeBarInfo(d);if(!b)return '';
   if(b.cerrada)return '<div class="ee-bar ok"><div class="ee-bar-hd"><span>Bobina en curso</span><span>'+(d.meta.otra?'✓ la otra máquina hace la bobina que falta · consultá en la oficina':(_pbModoPistas()?'✓ pistas parejas: la orden ya cierra · consultá en la oficina':'✓ la orden llegó a los metros · consultá en la oficina'))+'</span></div></div>';
@@ -10569,12 +10577,14 @@ function _eeBarHtml(id,d){
     +'<span class="mono" id="ee-bar-t-'+id+'">'+(b.cur!=null?_eeF(b.cur):'—')+' / '+_eeF(b.m)+' m</span></div>'
     +'<div class="ee-bar-tr"><i id="ee-bar-f-'+id+'" style="width:'+Math.min(100,b.p*100).toFixed(1)+'%"></i></div>'
     +'<div class="ee-bar-ft"><span id="ee-bar-s-'+id+'">'+(b.minP!=null?b.minP+' min produciendo':'')+(b.desde?' · desde '+_plcHora(b.desde):'')+'</span>'
-    +'<b class="ee-cortar">LLEGASTE: CORTÁ</b><b class="ee-cerca">PREPARATE PARA CORTAR</b></div></div>';
+    +'<b class="ee-cortar">LLEGASTE: CORTÁ</b><b class="ee-cerca">PREPARATE PARA CORTAR</b><b class="ee-pasada" id="ee-bar-p-'+id+'">'+_eePasadaTxt(b)+'</b></div></div>';
 }
 function _eeBarVivo(id,d){
   const w=document.getElementById('ee-bar-'+id);if(!w)return;
   const b=_eeBarInfo(d);if(!b||b.cerrada)return;
   w.className='ee-bar '+b.cls;
+  const pz=document.getElementById('ee-bar-p-'+id);if(pz)pz.textContent=_eePasadaTxt(b);
+  if(b.cls==='pasada'&&(!EST.beepPas||Date.now()-EST.beepPas>30000)){EST.beepPas=Date.now();try{_eeBeep();}catch(e){}}
   const t=document.getElementById('ee-bar-t-'+id);if(t)t.textContent=(b.cur!=null?_eeF(b.cur):'—')+' / '+_eeF(b.m)+' m';
   const f=document.getElementById('ee-bar-f-'+id);if(f)f.style.width=Math.min(100,b.p*100).toFixed(1)+'%';
   const sp=document.getElementById('ee-bar-s-'+id);if(sp)sp.textContent=(b.minP!=null?b.minP+' min produciendo':'')+(b.desde?' · desde '+_plcHora(b.desde):'');
@@ -11123,9 +11133,96 @@ function _evvPintar(w,maqs,bobsSinPlc,bobinas,cfgP,t0){
     +'<div><b>g/m real</b> = peso con tubo, como la balanza, ÷ metros del PLC — así juzga la carga. Criterio OK / rechazo: el de la carga.</div>'
     +'<div><b>🎈 Globo pinchado</b> = minutos seguidos con el rodillo girando y film 0; metros = pulsos brutos × factor. <b>Fotocélula</b> = pérdida repartida (film entre 1 % y 95 % del giro) de más del 3 % de la bobina. Si hay de los dos, decide el operario al cargar.</div>'
     +'<div><b>Semáforo en vivo</b> = kg/h con tubo de las últimas pesadas del mismo tipo ÷ velocidad de ahora. Supone el tornillo igual: el operario ve la advertencia.</div></footer>';
+  h+='<div id="evv-puls"></div>';   // 24a: pulsador fuera de tiempo (se llena aparte)
   w.innerHTML='<div class="evx">'+h+'</div>';
   const ts=document.getElementById('evv-ts');if(ts)ts.textContent='Actualizado '+localTime();
+  _plsPintar();
 }
+// ===== ⏱ PULSADOR FUERA DE TIEMPO (24a) =====
+// German (24/10): BOB-07193 (EXT-07, 20/10 04:17) tenía 1.605 m en el PLC y pesaba 15,5 g/m; la siguiente,
+// 07194, 1.408 m y 17,9 g/m; las hermanas 16,5–16,9. Entre las dos sumaban lo mismo: el film se cortó a las
+// ~04:12 y el pulsador entró a las 04:17 (se ve en la CAM02). ~100 m de la 07193 estaban en la 07194; en la
+// cortadora pareció «sacada con 111 m». No se toca el odómetro (P1) ni el factor (P3): sólo dónde se partió.
+// Regla (pura, sólo con medidas: PLC + balanza): dos bobinas SEGUIDAS de la misma extrusora y el mismo tipo,
+// con cierre del PLC y peso de balanza. ref = mediana de g/m neto de las otras del mismo tipo (≥ 3).
+//   · TARDE: la 1ª da −4 % o menos y la 2ª +4 % o más, y las dos juntas pesan lo que dicen sus metros (± 2,5 %).
+//   · TEMPRANO: al revés.
+//   · metros a pasar = metros de la 1ª − kg de la 1ª ÷ ref (positivo: de la 1ª a la 2ª).
+const PLS={UMB:0.04,SUMA:0.025,dias:7,datos:null,cargando:false};
+function _plsMediana(xs){const a=xs.slice().sort((x,y)=>x-y);const n=a.length;return n?(n%2?a[(n-1)/2]:(a[n/2-1]+a[n/2])/2):null;}
+// seq: bobinas de UNA extrusora en orden de cierre: {id,nro,metros,kgn,tipo}
+function _plsPares(seq,umb,sumTol){
+  umb=umb||PLS.UMB;sumTol=sumTol||PLS.SUMA;
+  const out=[];
+  for(let i=0;i+1<seq.length;i++){
+    const A=seq[i],B=seq[i+1];
+    if(!(A.metros>0&&B.metros>0&&A.kgn>0&&B.kgn>0)||A.tipo==null||String(A.tipo)!==String(B.tipo))continue;
+    const otras=seq.filter((x,j)=>j!==i&&j!==i+1&&String(x.tipo)===String(A.tipo)&&x.metros>0&&x.kgn>0&&Math.abs(j-i)<=12).map(x=>x.kgn/x.metros);
+    if(otras.length<3)continue;
+    const ref=_plsMediana(otras);
+    const dA=A.kgn/A.metros/ref-1,dB=B.kgn/B.metros/ref-1;
+    const suma=(A.kgn+B.kgn)/ref/(A.metros+B.metros)-1;
+    if(Math.abs(suma)>sumTol)continue;
+    let tipo=null;
+    if(dA<=-umb&&dB>=umb)tipo='tarde';else if(dA>=umb&&dB<=-umb)tipo='temprano';
+    if(!tipo)continue;
+    out.push({a:A,b:B,tipo,ref,dA,dB,suma,mover:Math.round(A.metros-A.kgn/ref)});
+    i++;   // un par no se vuelve a usar
+  }
+  return out;
+}
+async function _plsCargar(){
+  const desde=localDate(new Date(Date.now()-PLS.dias*86400000));
+  const r=await _traerQ(()=>sb.from('bobinas_producidas')
+    .select('id,numero_bobina,extrusora_id,bobina_tipo_id,metros_reales,kg_reales,tara_tubo_kg,peso_origen,plc_cierre_id,anulada,observaciones,fecha_produccion,hora_produccion,plc_cierres(cerrado_en)')
+    .not('plc_cierre_id','is',null).gte('fecha_produccion',desde).order('id'));
+  if(r.error)throw r.error;
+  const porExt={};
+  (r.data||[]).filter(b=>!b.anulada).forEach(b=>{(porExt[b.extrusora_id]=porExt[b.extrusora_id]||[]).push(b);});
+  const pares=[];
+  Object.keys(porExt).forEach(e=>{
+    const seq=porExt[e].sort((x,y)=>String(x.plc_cierres&&x.plc_cierres.cerrado_en||'').localeCompare(String(y.plc_cierres&&y.plc_cierres.cerrado_en||'')))
+      .map(b=>({id:b.id,nro:b.numero_bobina,metros:parseFloat(b.metros_reales)||0,kgn:_evvKgNeto(b),tipo:b.bobina_tipo_id,ext:b.extrusora_id,
+        t:b.plc_cierres&&b.plc_cierres.cerrado_en,obs:b.observaciones||''}));
+    _plsPares(seq).forEach(x=>pares.push(x));
+  });
+  pares.sort((x,y)=>String(y.a.t).localeCompare(String(x.a.t)));
+  PLS.datos=pares;return pares;
+}
+async function _plsPintar(){
+  const w=document.getElementById('evv-puls');if(!w||PLS.cargando)return;
+  PLS.cargando=true;
+  try{await _plsCargar();}catch(e){console.warn('pulsador',e);w.innerHTML='';PLS.cargando=false;return;}
+  PLS.cargando=false;
+  const P=PLS.datos||[];
+  const ext=id=>((C.extrusoras||[]).find(e=>String(e.id)===String(id))||{}).nombre||'EXT ?';
+  const hecho=x=>/\[⏱ Pulsador corregido/.test(x.a.obs)||/\[⏱ Pulsador corregido/.test(x.b.obs);
+  let h='<section class="evx-sec"><h2>⏱ Pulsador fuera de tiempo · últimos '+PLS.dias+' días</h2><div class="evx-panel evx-tw"><table><thead><tr><th>Cierre</th><th class="l">Máq.</th><th class="l">Bobinas</th><th>g/m (normal '+'≈)</th><th>Metros a pasar</th><th class="l"></th></tr></thead><tbody>';
+  h+=P.length?P.map((x,i)=>'<tr><td>'+(x.a.t?_plcHora(x.a.t)+' '+String(x.a.t).slice(8,10)+'/'+String(x.a.t).slice(5,7):'—')+'</td><td class="l">'+escapeHtml(ext(x.a.ext))+'</td>'
+      +'<td class="l"><b>'+(x.tipo==='tarde'?'TARDE':'TEMPRANO')+'</b> · '+escapeHtml(x.a.nro)+' → '+escapeHtml(x.b.nro)+'</td>'
+      +'<td>'+_evvF(x.a.kgn/x.a.metros*1000,1)+' / '+_evvF(x.b.kgn/x.b.metros*1000,1)+' ('+_evvF(x.ref*1000,1)+')</td>'
+      +'<td>'+(x.mover>0?_evvF(x.mover)+' m de '+escapeHtml(x.a.nro)+' a '+escapeHtml(x.b.nro):_evvF(-x.mover)+' m de '+escapeHtml(x.b.nro)+' a '+escapeHtml(x.a.nro))+'</td>'
+      +'<td class="l">'+(hecho(x)?'<span class="mut">✓ corregido</span>':'<button class="btn btn-sm" onclick="_plsCorregir('+i+')">Corregir metros</button>')+'</td></tr>').join('')
+    :'<tr><td colspan="6" class="l mut">Ningún par de bobinas con el pulsador fuera de tiempo.</td></tr>';
+  h+='</tbody></table></div><div class="mut" style="font-size:12px;margin-top:4px">Se detecta con la balanza: una bobina liviana por metro y la siguiente pesada por metro, que juntas pesan lo que dicen sus metros. Corregir pasa los metros de una a la otra (también en el corte); el odómetro y el factor no se tocan.</div></section>';
+  w.innerHTML=h;
+}
+function _plsCorregir(i){
+  const x=(PLS.datos||[])[i];if(!x)return;
+  pedirAdminYEjecutar(async()=>{
+    const m=x.mover;   // >0: de A a B
+    const mA=Math.round(x.a.metros-m),mB=Math.round(x.b.metros+m);
+    if(!(mA>0&&mB>0)){alert('Los metros no dan.');return;}
+    const nota='[⏱ Pulsador corregido '+localDate()+' '+localTime().slice(0,5)+': '+x.a.nro+' '+_evvF(x.a.metros)+' → '+mA+' m · '+x.b.nro+' '+_evvF(x.b.metros)+' → '+mB+' m (pulsador '+(x.tipo==='tarde'?'tarde':'temprano')+', por peso)]';
+    for(const [b,mN] of [[x.a,mA],[x.b,mB]]){
+      const{error}=await sb.from('bobinas_producidas').update({metros_reales:mN,observaciones:((b.obs||'')+' '+nota).trim()}).eq('id',b.id);
+      if(error){alert('No se pudo guardar '+b.nro+': '+(error.message||error));return;}
+      await sb.from('orden_corte_bobinas').update({metros_usados:mN}).eq('bobina_producida_id',b.id);
+    }
+    _plsPintar();
+  });
+}
+// ===== FIN ⏱ PULSADOR =====
 // 07n: estado de la máquina al instante (mismo criterio que la estación), con respaldo en los minutos
 const _EVV_STTXT={P:'Produciendo',F:'Gira sin film',S:'Parada',N:'Sin datos de la PC'};
 function _evvSt(m){
@@ -60461,6 +60558,20 @@ function _pstNoTermino(o){
   const mpb=o.c.mpb||0;
   return{g:o.g,esp:o.esp,quedanM:(o.esp-o.g)*mpb,recien:o.g<20};
 }
+// 24a — PISTA SUGERIDA (German, 24/10: Acevedo cargó en la 3 y la 4 cuando las que habían terminado eran la 1 y la 2).
+// pura: pistas donde corresponde poner la bobina nueva, en orden: primero las que TERMINARON (la más pasada
+// primero), después las vacías. Nunca una que sigue cortando.
+function _pstSugeridas(pistas){
+  const ter=(pistas||[]).filter(o=>!o.vacia&&o.frac!=null&&o.frac>=1-PST.UMB).sort((a,b)=>b.frac-a.frac).map(o=>o.p);
+  const vac=(pistas||[]).filter(o=>o.vacia).map(o=>o.p);
+  return ter.concat(vac);
+}
+// pura: número de OC de una carga (para avisar cuando la pista la tiene OTRA orden)
+function _pstOcNro(c){
+  if(!c)return '';
+  const n=c.ordenes_corte&&c.ordenes_corte.numero_orden;if(n)return n;
+  try{const o=(C.ord_corte||[]).find(x=>String(x.id)===String(c.orden_corte_id));return o?o.numero_orden:'';}catch(e){return '';}
+}
 // pura: cierre por pista. cargas: las de la ventana (todas las OC, con pista). ocId: la OC que se cierra.
 // finCont: {maq: último contador de la OC en esa máquina}. mpb: metros por bolsa de la OC.
 function _pstCierre(cargas,ocId,finCont,mpb){
@@ -60476,8 +60587,13 @@ function _pstCierre(cargas,ocId,finCont,mpb){
     const esp=mpb?_cvvMetros(c)/mpb:null;
     let est='ok';
     if(g!=null&&esp&&g<esp*(1-PST.UMB))est=sig?'sacada':'sinTerminar';
+    // 24a — OC-1052991 (23/10): la BOB-07304 de DAG (otra OC) entró en la pista 4 mientras BIGVEF estaba
+    // pausada; la 07152 de BIGVEF volvió a montarse después y se cortó entera. Que la pista la ocupe OTRA
+    // orden no prueba que se sacó con film: se marca aparte (ámbar) y no suma film perdido.
+    let sigOC='';
+    if(est==='sacada'&&sig&&String(sig.orden_corte_id)!==String(c.orden_corte_id)){est='otraOC';sigOC=_pstOcNro(sig);}
     return{c,maq:c.maquina_id,pista:c.pista,nro:(c.bobinas_producidas&&c.bobinas_producidas.numero_bobina)||('#'+c.bobina_producida_id),
-      metros:_cvvMetros(c),esp,g,est,quedanM:(est!=='ok'&&esp)?(esp-g)*mpb:0,sig:sig?((sig.bobinas_producidas&&sig.bobinas_producidas.numero_bobina)||'#'+sig.bobina_producida_id):null,t:c.pista_en||c.fecha_asignacion};
+      metros:_cvvMetros(c),esp,g,est,sigOC,quedanM:(est!=='ok'&&est!=='otraOC'&&esp)?(esp-g)*mpb:0,sig:sig?((sig.bobinas_producidas&&sig.bobinas_producidas.numero_bobina)||'#'+sig.bobina_producida_id):null,t:c.pista_en||c.fecha_asignacion};
   }).sort((a,b)=>String(a.maq).localeCompare(String(b.maq))||a.pista-b.pista||a.c.pista_contador-b.c.pista_contador);
   // 20d — OC-1052980 C1: las 4 bobinas se terminaron 2–4 % antes de sus golpes (1,21–1,23 m por golpe) y en
   // la C2, con bobinas del mismo día y extrusora, 1,18 = ficha. German lo vio: no quedó film. Si en una
@@ -60493,8 +60609,9 @@ function _pstCierre(cargas,ocId,finCont,mpb){
     largo[m]={mpg,pct:mpg/mpb-1,bolsas:fm.reduce((a,f)=>a+f.esp-f.g,0)};
     fm.forEach(f=>{f.est='largo';f.mpg=f.metros/f.g;f.quedanM=0;});
   });
-  const malas=filas.filter(f=>f.est!=='ok'&&f.est!=='largo');
-  return{filas,malas,largo,mpb,sinPista,quedanM:malas.reduce((s2,f)=>s2+f.quedanM,0),quedanB:mpb?malas.reduce((s2,f)=>s2+f.quedanM,0)/mpb:0};
+  const malas=filas.filter(f=>f.est!=='ok'&&f.est!=='largo'&&f.est!=='otraOC');
+  const otras=filas.filter(f=>f.est==='otraOC');
+  return{filas,malas,otras,largo,mpb,sinPista,quedanM:malas.reduce((s2,f)=>s2+f.quedanM,0),quedanB:mpb?malas.reduce((s2,f)=>s2+f.quedanM,0)/mpb:0};
 }
 function _pstCierreHTML(R){
   const X=R&&R.pst;if(!X)return '';
@@ -60510,12 +60627,16 @@ function _pstCierreHTML(R){
     h+='<div style="border:2px solid var(--amber,#e8b23a);background:rgba(232,178,58,.12);border-radius:10px;padding:10px 12px;margin:6px 0;font-size:13px;">'
       +'<div style="font-weight:900;font-size:15px;color:var(--amber,#e8b23a);">📏 '+escapeHtml(_cvvMaqNom(m))+' cortó la bolsa más larga: ≈ '+(L.mpg*100).toFixed(0)+' cm por golpe (ficha '+(X.mpb*100).toFixed(0)+' cm, +'+(L.pct*100).toFixed(1).replace('.',',')+' %)</div>'
       +'<div>Todas sus bobinas se terminaron antes de tiempo y parejo: no es film sin cortar, es ≈ '+F(L.bolsas)+' bolsas menos por bolsa larga. Hay que medir la bolsa y ajustar la máquina.</div></div>';});
+  if((X.otras||[]).length)h+='<div style="border:2px solid var(--amber,#e8b23a);background:rgba(232,178,58,.10);border-radius:10px;padding:10px 12px;margin:6px 0;font-size:13px;">'
+    +'<div style="font-weight:900;color:var(--amber,#e8b23a);">⚠ '+X.otras.length+' pista'+(X.otras.length>1?'s':'')+' que ocupó otra orden</div>'
+    +X.otras.map(f=>'<div>'+escapeHtml(f.nro)+' (pista '+f.pista+', '+escapeHtml(_cvvMaqNom(f.maq))+'): '+F(f.g)+' de '+F(f.esp)+' golpes cuando entró la '+escapeHtml(f.sig||'')+(f.sigOC?' de la '+escapeHtml(f.sigOC):'')+'</div>').join('')
+    +'<div style="color:var(--text3);font-size:12px;margin-top:4px">No es film perdido: si la bobina volvió a montarse después, se cortó entera. Si no volvió, preguntar dónde está.</div></div>';
   if(X.sinPista.length)h+='<div style="color:var(--amber,#e8b23a);font-size:12.5px;margin:4px 0">⚠ Sin pista elegida: '+X.sinPista.map(escapeHtml).join(', ')+'</div>';
   h+='<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin:4px 0"><thead><tr style="font-size:11px;color:var(--text3)"><th '+stl+'>Pista</th><th '+stl+'>Bobina</th><th '+st+'>Metros reales</th><th '+st+'>Tenía para</th><th '+st+' title="desde que se puso hasta que se puso la siguiente en esa pista (o el fin de la OC)">Golpes en su pista</th><th '+stl+'></th></tr></thead><tbody>';
   let ult='';
   X.filas.forEach(f=>{const k=f.maq+'-'+f.pista;
     h+='<tr><td '+stl+'>'+(k!==ult?'<strong>'+f.pista+'</strong>'+(R.pistasMaq||new Set(X.filas.map(x=>x.maq)).size>1?' <span style="color:var(--text3)">'+escapeHtml(_cvvMaqNom(f.maq))+'</span>':''):'')+'</td><td '+stl+'>'+escapeHtml(f.nro)+'</td><td '+st+'>'+F(f.metros)+'</td><td '+st+'>'+F(f.esp)+'</td><td '+st+'>'+F(f.g)+'</td>'
-      +'<td '+stl+'>'+(f.est==='ok'?'<span style="color:var(--green,#22c55e)">✓</span>':f.est==='largo'?'<span style="color:var(--amber,#e8b23a);font-weight:800">📏 terminó · ≈ '+(f.mpg*100).toFixed(0)+' cm por golpe</span>':'<span style="color:var(--red,#ef5a4c);font-weight:800">⛔ '+(f.est==='sacada'?'sacada a medio cortar':'quedó sin cortar')+' · ≈ '+F(f.quedanM)+' m</span>')+'</td></tr>';
+      +'<td '+stl+'>'+(f.est==='ok'?'<span style="color:var(--green,#22c55e)">✓</span>':f.est==='otraOC'?'<span style="color:var(--amber,#e8b23a);font-weight:800">⚠ la pista la ocupó '+escapeHtml(f.sigOC||'otra OC')+'</span>':f.est==='largo'?'<span style="color:var(--amber,#e8b23a);font-weight:800">📏 terminó · ≈ '+(f.mpg*100).toFixed(0)+' cm por golpe</span>':'<span style="color:var(--red,#ef5a4c);font-weight:800">⛔ '+(f.est==='sacada'?'sacada a medio cortar':'quedó sin cortar')+' · ≈ '+F(f.quedanM)+' m</span>')+'</td></tr>';
     ult=k;});
   return h+'</tbody></table><div style="font-size:11px;color:var(--text3)">Si una bobina tiene golpes de más es normal: su pista quedó vacía hasta el cambio. Si tiene más de 3 % de menos, no se cortó entera.</div>';
 }
@@ -60593,11 +60714,19 @@ async function _pstPreguntar(ocId,bobId,maqId){
   const nro=bob.numero_bobina||('#'+bobId);
   const maqNom=_cvvMaqNom(maqId);
   const F=n=>n==null?'—':Math.round(n).toLocaleString('es-AR');
+  const sug=_pstSugeridas(E.pistas);   // 24a
   const btn=o=>{
+    const nt=_pstNoTermino(o),esSug=sug[0]===o.p,okSug=sug.includes(o.p);
+    const otra=!o.vacia&&String(o.c.orden_corte_id)!==String(ocId)?' <span style="font-size:13px;color:#e8b23a;">('+escapeHtml(_pstOcNro(o.c)||'otra OC')+')</span>':'';
     const ocup=o.vacia?'<div style="font-size:18px;color:#9aa3b2;">vacía</div>'
-      :'<div style="font-size:20px;font-weight:800;">'+escapeHtml(o.nro)+'</div><div style="font-size:15px;color:#c9d1dc;">'+(o.g==null?'golpes: —':F(o.g)+' de '+F(o.esp)+' golpes')+'</div>';
-    return '<button onclick="_pstElegir('+ocId+','+bobId+','+maqId+','+o.p+')" style="display:flex;align-items:center;gap:18px;width:100%;min-height:120px;background:#2a2f3a;border:4px solid #4f9cf7;border-radius:16px;color:#fff;padding:12px 18px;margin-bottom:14px;text-align:left;cursor:pointer;">'
-      +'<span style="font-size:76px;font-weight:900;line-height:1;width:64px;text-align:center;">'+o.p+'</span><span style="flex:1"><div style="font-size:14px;font-weight:800;color:#9aa3b2;letter-spacing:.06em;">'+(o.p%2?'ARRIBA':'ABAJO')+'</div>'+ocup+'</span></button>';
+      :'<div style="font-size:20px;font-weight:800;">'+escapeHtml(o.nro)+otra+'</div><div style="font-size:15px;color:#c9d1dc;">'+(o.g==null?'golpes: —':F(o.g)+' de '+F(o.esp)+' golpes')+'</div>';
+    const cartel=esSug?'<div style="font-size:20px;font-weight:900;color:#22c55e;">👉 '+(o.vacia?'VACÍA':'TERMINÓ')+': PONELA ACÁ</div>'
+      :okSug?'<div style="font-size:16px;font-weight:800;color:#22c55e;">✓ '+(o.vacia?'vacía':'terminó')+'</div>'
+      :(nt&&!nt.recien)?'<div style="font-size:16px;font-weight:900;color:#ef5a4c;">⛔ SIGUE CORTANDO · le faltan ≈ '+F(nt.quedanM)+' m</div>':'';
+    const borde=esSug?'6px solid #22c55e':okSug?'4px solid #22c55e':(nt&&!nt.recien)?'4px solid #7f1d1d':'4px solid #4f9cf7';
+    const fondo=esSug?'#173a26':(nt&&!nt.recien)?'#241a1a':'#2a2f3a';
+    return '<button onclick="_pstElegir('+ocId+','+bobId+','+maqId+','+o.p+')" style="display:flex;align-items:center;gap:18px;width:100%;min-height:120px;background:'+fondo+';border:'+borde+';border-radius:16px;color:#fff;padding:12px 18px;margin-bottom:14px;text-align:left;cursor:pointer;">'
+      +'<span style="font-size:76px;font-weight:900;line-height:1;width:64px;text-align:center;">'+o.p+'</span><span style="flex:1"><div style="font-size:14px;font-weight:800;color:#9aa3b2;letter-spacing:.06em;">'+(o.p%2?'ARRIBA':'ABAJO')+'</div>'+ocup+cartel+'</span></button>';
   };
   document.getElementById('pst-modal')?.remove();
   document.body.insertAdjacentHTML('beforeend','<div id="pst-modal" style="position:fixed;inset:0;z-index:10070;background:rgba(10,12,16,.96);overflow:auto;padding:20px;">'
@@ -60663,16 +60792,23 @@ async function _pstElegir(ocId,bobId,maqId,p,motivo){
     const al=document.getElementById('pst-alerta');
     const titulo=nt.recien?'⛔ EN LA PISTA '+p+' ACABÁS DE PONER LA '+escapeHtml(o.nro)
       :'⛔ EN LA PISTA '+p+' ESTÁ LA '+escapeHtml(o.nro)+' Y NO TERMINÓ';
+    const otraOC=String(o.c.orden_corte_id)!==String(ocId)?_pstOcNro(o.c)||'otra OC':'';
     const det=nt.recien?'¿Dos bobinas en la misma pista? Revisá el número de pista.'
-      :'Cortó '+F(nt.g)+' de '+F(nt.esp)+' golpes: le quedan ≈ '+F(nt.quedanM)+' m. Si la sacaste, PESALA Y DEJALA APARTE.';
+      :'Cortó '+F(nt.g)+' de '+F(nt.esp)+' golpes: le quedan ≈ '+F(nt.quedanM)+' m.'+(otraOC?' Es de la '+escapeHtml(otraOC)+'.':'')+' Si la sacaste, PESALA Y DEJALA APARTE.';
     const bm=(txt,mot,col)=>'<button onclick="_pstElegir('+ocId+','+bobId+','+maqId+','+p+',\''+mot+'\')" style="flex:1;min-width:220px;background:'+col+';color:#fff;border:0;border-radius:12px;padding:16px;font-size:18px;font-weight:900;cursor:pointer;">'+txt+'</button>';
+    // 24a: si hay una pista que TERMINÓ o está vacía, el botón grande es ponerla ahí (no el motivo).
+    const sug=nt.recien?[]:_pstSugeridas(E.pistas).filter(q=>q!==p);
+    const bSug=sug.length?'<button onclick="_pstElegir('+ocId+','+bobId+','+maqId+','+sug[0]+')" style="width:100%;background:#16a34a;color:#fff;border:0;border-radius:14px;padding:20px;margin-bottom:12px;font-size:26px;font-weight:900;cursor:pointer;">👉 VA EN LA PISTA '+sug[0]+' ('+(E.pistas[sug[0]-1].vacia?'está vacía':'la '+escapeHtml(E.pistas[sug[0]-1].nro)+' terminó')+')</button>':'';
     if(al){al.innerHTML='<div style="background:#b91c1c;border-radius:16px;padding:18px;margin:6px 0 14px;animation:clLatido 1.2s ease-in-out infinite;">'
       +'<div style="font-size:30px;font-weight:900;line-height:1.15;">'+titulo+'</div>'
       +'<div style="font-size:20px;margin:8px 0 14px;">'+det+'</div>'
+      +bSug
+      +(sug.length?'<div style="font-size:16px;margin-bottom:8px;">Si de verdad la pusiste en la '+p+':</div>':'')
       +'<div style="display:flex;gap:10px;flex-wrap:wrap;">'
         +'<button onclick="document.getElementById(\'pst-alerta\').innerHTML=\'\'" style="flex:1;min-width:220px;background:#fff;color:#111;border:0;border-radius:12px;padding:16px;font-size:18px;font-weight:900;cursor:pointer;">↩ ME EQUIVOQUÉ DE PISTA</button>'
         +(nt.recien?bm('SÍ, LA CAMBIÉ POR ESTA','reemplazo inmediato','#7c2d12')
-          :bm('LA SAQUÉ CON FILM (la peso y la dejo aparte)','sacada con film','#7c2d12')+bm('SE TERMINÓ / SE ROMPIÓ (el resto va al scrap)','se terminó o se rompió','#7c2d12'))
+          :(otraOC?bm('LA SAQUÉ PARA CORTAR ESTA ORDEN (vuelve después)','sacada para cortar otra orden (vuelve después)','#7c2d12'):'')
+            +bm('LA SAQUÉ CON FILM (la peso y la dejo aparte)','sacada con film','#7c2d12')+bm('SE TERMINÓ / SE ROMPIÓ (el resto va al scrap)','se terminó o se rompió','#7c2d12'))
       +'</div></div>';al.scrollIntoView({behavior:'smooth',block:'center'});}
     return;
   }
