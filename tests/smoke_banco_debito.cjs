@@ -12,6 +12,7 @@ global.fmtMoney=x=>Number(x).toLocaleString('es-AR',{minimumFractionDigits:2,max
 global.escapeHtml=s=>String(s).replace(/</g,'&lt;');
 global.localDate=d=>{const dt=d||new Date('2026-10-09T12:00:00');return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');};
 global.dfTipoIc=t=>t==='plan_arca'?'🏛':'🏦';
+global.dfEsArcaTipo=t=>t==='plan_arca'||t==='deuda_arca'; // 26e
 global.dfSaldoDeuda=d=>(d.cuotas||[]).filter(c=>c.estado!=='pagada').reduce((s,c)=>s+(+c.monto||0),0);
 global.CC={cuenta:null};
 
