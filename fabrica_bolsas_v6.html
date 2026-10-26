@@ -1161,7 +1161,7 @@ body.pext-on .main{margin-left:0!important;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-26b</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-10-26c</span></div>
     <!-- NAV en 9 áreas colapsables -->
     <div class="nav-grp" data-grp="inicio">
       <div class="nav-grp-hd" onclick="toggleNavGrp('inicio')"><span>Inicio</span><span class="nav-grp-chev">▸</span></div>
@@ -1212,6 +1212,7 @@ body.pext-on .main{margin-left:0!important;}
         <div class="nav-item" onclick="go('bobinas-fuera-rango')"><div class="nav-dot" style="background:var(--red)"></div>Fuera de rango</div>
         <div class="nav-item" onclick="go('bobinas-excedentes')"><div class="nav-dot" style="background:var(--amber)"></div>📏 Excedentes de OE</div>
         <div class="nav-item" onclick="go('uso-interno')"><div class="nav-dot" style="background:var(--teal)"></div>🧵 Bobinas para fundas / uso interno</div>
+        <div class="nav-item" onclick="go('fundas')"><div class="nav-dot" style="background:var(--teal)"></div>🧷 Fundas de empaque</div>
         <div class="nav-item" onclick="go('historial-ordenes')"><div class="nav-dot"></div>Historial órdenes</div>
         <div class="nav-item" onclick="go('suspension-maquinas')"><div class="nav-dot" style="background:var(--red)"></div>Suspensión máquinas</div>
         <div class="nav-item" onclick="go('calendario-prod')"><div class="nav-dot" style="background:var(--amber)"></div>📅 Calendario de producción</div>
@@ -2301,6 +2302,13 @@ body.pext-on .main{margin-left:0!important;}
     <div class="page" id="page-bobinas-excedentes">
       <div class="page-hdr"><div><div class="page-title">📏 Bobinas excedentes de OE</div><div class="page-sub">Bobinas que se pasan de los metros de su orden · pendientes de asignación admin</div></div></div>
       <div id="excedentes-wrap"><div class="loading"><div class="spinner"></div></div></div>
+    </div>
+
+    <!-- 🧷 FUNDAS DE EMPAQUE (26c) -->
+    <div class="page" id="page-fundas">
+      <div class="page-hdr"><div><div class="page-title">🧷 Fundas de empaque</div><div class="page-sub">Stock por funda (medida y marca), consumo al cerrar cada OC, ingresos y conteo físico</div></div>
+        <div class="btn-grp"><button class="btn btn-sm" onclick="renderFundas()">🔄 Refrescar</button></div></div>
+      <div id="fundas-wrap"></div>
     </div>
 
     <!-- 🧵 BOBINAS PARA FUNDAS / USO INTERNO (02a) -->
@@ -6432,7 +6440,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-10-26b';   // 26b: ✂ cierre de OC con el VEREDICTO CONTRA LOS GOLPES (cortadas − bultos − scrap) y renglón aparte «film que no pasó por la cuchilla» (pide explicación > 3 %); sin golpes, por metros como antes · 📏 factor EXT-07 0,781 → 0,776 (las bobinas medidas antes se llevan al factor nuevo por época). Antes 26a: ⚫⚪ PLANO HABITUAL DEL CLIENTE en el pedido nuevo: al elegir el cliente se pone su plano (80 % o más de sus últimos 6 pedidos) si no se tocó a mano, con chip «habitual: NEGRO (5 de 6)»; al grabar en otro plano pregunta (PED-06132 Muñoz Ezequiel salió en blanco con IVA). Antes 24b: ✂ Corte en vivo con TURNOS (pedido de German): botones «Turno» (el turno en curso) y «Hoy» (desde 06:00) además de 8 h/24 h/3/7 días; tabla «Por turno» (mañana 06–14, tarde 14–22, noche 22–06, igual que Extrusión en vivo) con golpes y uso por cortadora, bolsas, bobinas, operarios, uso del fichado, paradas > 20 min y golpes sin escanear; cortes de turno punteados y nombre del turno en la línea de tiempo.
+const APP_BUILD='2026-10-26c';   // 26c: 🧷 FUNDAS DE EMPAQUE: 11 fundas (45/50/60/75/80/90 · A/P) como MP «empaque» con medida y g/m; producto→funda; al cerrar la OC se descuenta una funda por paquete (mov_mp, FIFO) y su costo entra al paquete en Rentabilidad y Resultado del mes (desde 22/09); pantalla 🧷 Fundas con stock, días que alcanza, ingreso y conteo. Antes 26b: ✂ cierre de OC con el VEREDICTO CONTRA LOS GOLPES (cortadas − bultos − scrap) y renglón aparte «film que no pasó por la cuchilla» (pide explicación > 3 %); sin golpes, por metros como antes · 📏 factor EXT-07 0,781 → 0,776 (las bobinas medidas antes se llevan al factor nuevo por época). Antes 26a: ⚫⚪ PLANO HABITUAL DEL CLIENTE en el pedido nuevo: al elegir el cliente se pone su plano (80 % o más de sus últimos 6 pedidos) si no se tocó a mano, con chip «habitual: NEGRO (5 de 6)»; al grabar en otro plano pregunta (PED-06132 Muñoz Ezequiel salió en blanco con IVA). Antes 24b: ✂ Corte en vivo con TURNOS (pedido de German): botones «Turno» (el turno en curso) y «Hoy» (desde 06:00) además de 8 h/24 h/3/7 días; tabla «Por turno» (mañana 06–14, tarde 14–22, noche 22–06, igual que Extrusión en vivo) con golpes y uso por cortadora, bolsas, bobinas, operarios, uso del fichado, paradas > 20 min y golpes sin escanear; cortes de turno punteados y nombre del turno en la línea de tiempo.
 // (anterior) 24a: 🧵 pista SUGERIDA al cargar bobina en el Panel corte (la que terminó, si no la vacía; las que siguen cortando en rojo) y en la alarma «no terminó» el botón grande es «VA EN LA PISTA X»; en el cierre, una pista que ocupó OTRA OC ya no es «sacada con film» (OC-1052991); 🏭 estación: «⛔ PASASTE +X m · ¿CORTASTE? APRETÁ EL PULSADOR» con pitido cuando la bobina pasa el objetivo +4 %; 📏 Extrusión en vivo: ⏱ pulsador fuera de tiempo detectado con la balanza (bobina liviana + siguiente pesada que suman bien; BOB-07193/07194) con botón «Corregir metros» (admin). Antes 23a: 🔒 el panel de corte escribe sobre la OC fresca de la base: ya no devuelve a «Pendiente empaque» una OC cerrada en la oficina ni pisa las observaciones del cierre; el cierre verifica en la base (estado + fecha_completada) y es atómico → no se puede cerrar dos veces ni duplicar stock.
 // (anterior) 22a: 📏 carga parcial de OC: bloquea sólo si las bolsas no entran en los metros SIN merma; dentro de la merma estándar avisa en ámbar y deja guardar (la merma se carga al cerrar) — OC-1053011 LYME
 // (anterior) 21b:   // 21b: 🧵 si la OC se escanea después de arrancar a cortar, la pista arranca desde el «terminó» de la OC anterior en esa máquina (OC-1053012: «cortó 133 de 790» falso). Antes 21a:   // 21a: número de OC sin repetir: el último se busca por id (no por texto), índice único en la base y reintento si choca (OC-1052994/95 repetidas el 17/10). Antes 20h:   // 20h: ↩ «me equivoqué de pista» en la tarjeta de la máquina: sólo recién puesta (≤ 10 min o ≤ 50 golpes), misma máquina, mismo contador; a pista vacía o con bobina terminada; queda en la OC. Cambio de máquina: lo corrige el dueño. — 20g: factor del cuentametros corregido (EXT-01 0,2443 · EXT-03/07 0,781): el control de corte lleva al factor nuevo las bobinas del PLC cargadas antes (id ≤ 7306), en lugar del margen de 16d que iba al revés. Antes 20e:   // 20e: ✓ «Terminó de cortar» con la OC en dos cortadoras pregunta «¿sólo en esta máquina o toda la OC?»: sólo acá deja [Terminó en CORTE-0X panel …], la OC sigue en la otra y esta tarjeta queda libre (OC-1052980: Guaraz terminó en C2 y Celia seguía en C1); los golpes de la otra máquina no se cortan. — 20d: ✂ «Corte terminado» tocado mientras la máquina sigue cortando sin parar ya no deja golpes afuera (OC-1052980 C1: el último par cortó hasta 10:31 y figuraba «quedó sin cortar ≈ 637 m»); 📏 si en una máquina TODAS las bobinas terminan antes y parejo, el cierre dice «cortó la bolsa más larga ≈ X cm» en vez de film sin cortar. — 20c: ✂ golpes de una OC que seguía en marcha en el panel (pausada/terminada después, antes del próximo escaneo) quedan en esa OC aunque su último escaneo tenga más de 3 h — OC-1052978 recibía 2.863 golpes de Solbayres (C1 06:00–08:05). — 20b: 👥 pantalla compartida del Panel corte: si en la máquina venía cargando otra persona, pregunta quién carga (dos nombres grandes, no se confirma con la pistola). — 20a: 20a: 🧵 pistas como están numeradas en las dos cortadoras mirando desde atrás (1 arriba izq. · 2 abajo izq. · 3 arriba der. · 4 abajo der.): ARRIBA/ABAJO en los botones y la tarjeta en la misma disposición. — 19e: 🧵 PISTAS: después de escanear cada bobina el operario elige en qué pista la puso (1-4, pantalla enorme). Con el contador de golpes de ese momento cada bobina sabe cuántos golpes le tocaron. Alarma roja con sonido si se pone una bobina donde la anterior no terminó (motivo obligatorio, queda en la OC); bobina sin pista = cartel rojo que late y pitido cada minuto; pista con golpes de más = «¿terminó?». La tarjeta de la máquina muestra las 4 pistas. Cierre: tabla por pista y «⛔ sacada a medio cortar». Columnas nuevas orden_corte_bobinas.pista / pista_contador / pista_en. — 19d: cierre de OC: si no se pudo saber a cuántas pistas corrió, ya no dice «cortó ≈ 0 bolsas» (OC-1052957): dice que con los golpes no se puede calcular. — 19c: ✂ cierre de OC cortada en DOS cortadoras: cada tirada cuenta los golpes hasta el próximo escaneo EN SU MISMA MÁQUINA (antes se mezclaban: OC-1052981 daba 313 y 3.790 golpes) y cada máquina con sus pistas (bobinas escaneadas juntas si cierran ± 10 %, si no la cuenta física): «2 en CORTE-01 y 4 en CORTE-02». Golpes de una máquina sin bobinas escaneadas en ella: fila aparte ⚠. — 19b: 🛑 DATOS INCOMPLETOS: las órdenes de corte se piden de a 250 con reintento (la página de 1.000 pasaba el límite de 3 s de Supabase y llegaba VACÍA → costo 0 → tablero «margen 98 %»); si una lectura crítica falla igual, cartel rojo arriba y el Tablero muestra «datos incompletos» en vez de un número. — 19a: 19a: 🧾 FACTURA DOBLE imposible: candado + botón apagado mientras graba y recarga, relectura de los remitos contra la base, y el remito se toma con update condicional (factura_id IS NULL) — si otro guardado ya lo tomó, la factura nueva se deshace sola. — 17e: 17e: 📏 aviso «CORTA LARGO» en el Panel corte (cartel rojo enorme + alarma cada minuto hasta medir la bolsa; la medida queda en la OC) y en Corte en vivo / cierre para el dueño; ✋ carga a mano en la impresora con motivo obligatorio. — 17d: ✂ paradas simplificadas: cortando y parada en total; por operario sólo parada total, por cambio de bobina, sin motivo y pilas; lista con «paró · cuánto · qué se registró» (sin la columna de la tanda). — 17c: ✂ paradas sin ambigüedad: «9 min en total (3 veces)» en vez de «3 · 9 min» (se leía 3 × 9). — 17b: ✂ paradas: el hueco antes de arrancar la OC (golpes sueltos sin bobina escaneada y la máquina quieta hasta que arranca) se muestra aparte y no suma como parada ni como cambio de bobina. — 17a: ✂ cierre de OC claro: veredicto en grande, cuenta de bolsas siempre (aunque no se sepan las pistas), cortadora en tabla (tenía que hacer / hizo / diferencia) y paradas plegadas; pistas por la cuenta física (golpes contra bobinas, 1 a 4); la nota de la OC en renglones. — 16d: ✂ el balance de cierre usa los METROS REALES de las bobinas medidas por el PLC (margen fijo del cuentametros: EXT-01 +1,5 %, E3/E7 +0,9 %); se muestra en el control y en la nota. — 16c: ✂ un golpe posterior a «Terminó de cortar» en el panel ya no se le suma a esa OC (va al escaneo siguiente); la nota de cierre decía «cierra» cuando SOBRABAN bolsas: ahora dice SOBRAN; el % del balance sin signo. — 16b: 🖨 IMPRESORA en el Panel corte: escaneo de entrada y salida de cada bobina (tabla impresion_bobinas), metros impresos = metros de extrusión, m/min reales, impresas esperando corte; en la cortadora una bobina de producto IMPRESA sin pasar por la impresora se pregunta y queda anotada. — 16a: ✂ golpes que tenía que hacer la cortadora = bobina más larga de cada par ÷ largo (con 2 pistas la más larga termina sola); cortadas = golpes × pistas − la punta a 1 pista. Control de cortadora: golpes contra esos golpes. — 15q anterior: 15q: ✂ pilas bien contadas con el registro golpe a golpe: una pila que el operario cortó a la mitad y completó al volver a arrancar (11 + 14 = 25) es «cortada a la mitad», no dos incompletas. Incompleta = nunca llegó a la parada; de más = pasó de la parada sin la pausa de la máquina (29, 31…), con los golpes de más.
@@ -6903,6 +6911,8 @@ async function reload(){
     // 02d: vínculo REAL renglón de factura → renglones de remito (reemplaza el parseo de '[Remito …]').
     // Si la tabla todavía no existe, queda vacío y el ✏ cae al parseo viejo.
     _traerPaginado('factura_linea_remitos','*','id').catch(()=>({data:[]})),
+    // 26c: consumo de fundas por OC (costo de empaque, P1)
+    _traerQ(()=>sb.from('mov_mp').select('id,lote_id,tipo_mp_id,kg,precio_kg,ref_id,fecha').eq('ref_tipo','orden_corte').order('id')).catch(()=>({data:[]})),
   ]);
   const d=r=>results[r].status==='fulfilled'?results[r].value.data||[]:[];
   // 19b: lecturas CRÍTICAS que fallaron. Antes un error dejaba la lista vacía en
@@ -6929,6 +6939,9 @@ async function reload(){
   C.bobinas_fuera=d(15);
   C.suspensiones=d(16);
   C.tipos_mp=d(17);C.proveedores=d(18);C.lotes_mp=d(19);
+  // 26c: las fundas (categoría 'empaque') van aparte — todo lo de MP de extrusión sigue viendo sólo base/aditivo
+  C.fundas=C.tipos_mp.filter(t=>t.categoria==='empaque');C.tipos_mp=C.tipos_mp.filter(t=>t.categoria!=='empaque');
+  C.lotes_funda=C.lotes_mp.filter(l=>l.tipos_mp&&l.tipos_mp.categoria==='empaque');C.lotes_mp=C.lotes_mp.filter(l=>!(l.tipos_mp&&l.tipos_mp.categoria==='empaque'));
   C.formulas=d(20);
   C.listas_precios=d(21)||[];
   C.lista_items=d(22)||[];
@@ -6981,6 +6994,7 @@ async function reload(){
   C.tarjeta_resumenes=d(67)||[];
   C.indicadores_snapshot=d(68)||[];
   C.fac_linea_rem=d(69)||[];
+  C.mov_funda_oc=d(70)||[];
   _costoBobinaIdx=null; // invalidar índice de costo real por bobina al recargar
   const rcfg=results[8].status==='fulfilled'?results[8].value:null;
   if(rcfg?.data){rcfg.data.forEach(r=>{
@@ -16454,6 +16468,7 @@ function go(name){
   if(name==='bobinas-fuera-rango')renderFueraDeRango();
   if(name==='bobinas-excedentes')renderFueraDeRango();
   if(name==='uso-interno')renderUsoInterno();
+  if(name==='fundas')renderFundas();
   if(name==='balance-bobinas')renderBalance();
   if(name==='informe-lote')renderInformeLote();
   if(name==='gastos-fijos')renderGastosFijos();
@@ -39012,6 +39027,9 @@ function _rmCostoRealBolsaMap(finStr){
       costoMP+=c;
       kg+=parseFloat(bp.kg_reales)||0;
     });
+    // 26c: funda de empaque (una por paquete): trazada en mov_mp → real; sin stock → al último precio
+    const fu=_fundaCostoOC(o);
+    if(fu.costo>0){costoMP+=fu.costo;if(fu.via==='real')cReal+=fu.costo;else cForm+=fu.costo;}
     return {costo:costoMP,kg,cReal,cForm,cMetro};
   }
   const ocsComp=(C.ord_corte||[]).filter(o=>{
@@ -44914,6 +44932,231 @@ function _inflStatGrande(label,val,color,sub){
     +'<div style="font-size:20px;font-weight:800;color:'+color+';margin-top:4px;">'+val+'</div>'
     +(sub?'<div style="font-size:10px;color:var(--text3);margin-top:2px;font-style:italic;">'+sub+'</div>':'')
   +'</div>';
+}
+
+// ===== 🧷 FUNDAS DE EMPAQUE (26c) =====
+// Una funda por paquete (x10/x20 ARIAL y POLIPLAST; granel y rollos no llevan).
+// · La funda es un tipo_mp de categoría 'empaque' con su medida: funda_ancho_cm, funda_largo_cm,
+//   funda_g_metro → peso de UNA funda = g/m × largo/100. Producto → funda: productos.funda_tipo_mp_id.
+// · reload() las separa: C.fundas / C.lotes_funda. C.tipos_mp y C.lotes_mp quedan SOLO con lo de
+//   extrusión (base/aditivo) — así fórmulas, autonomía, simulador e inventario de MP no las ven.
+// · Consumo (P1): al cerrar la OC se escribe mov_mp 'consumo' ref_tipo='orden_corte' ref_id=OC, FIFO
+//   de lotes; el trigger fn_mp_recalc baja kg_disponibles. Una vez por OC (se chequea en la base).
+// · Costo de empaque de una OC = lo trazado en mov_mp; lo que no se pudo descontar (sin stock) se
+//   valúa a la funda × último $/kg. OC cerradas antes de funda_desde (22/09) no llevan costo de
+//   funda: hasta ahí las fundas estaban en gastos como insumos y se contarían dos veces.
+function _fundaG(t){
+  const g=parseFloat(t&&t.funda_g_metro)||0,l=parseFloat(t&&t.funda_largo_cm)||0;
+  return g>0&&l>0?r4(g*l/100):0;
+}
+function _fundaDeProd(prod){
+  const id=prod&&prod.funda_tipo_mp_id;if(!id)return null;
+  return (C.fundas||[]).find(t=>String(t.id)===String(id))||null;
+}
+function _fundaDesde(){return String(getCfg('funda_desde','2026-09-22')||'2026-09-22').slice(0,10);}
+function _fundaPrecioRef(tid){
+  const ls=(C.lotes_funda||[]).filter(l=>String(l.tipo_mp_id)===String(tid)&&(parseFloat(l.precio_kg)||0)>0)
+    .sort((a,b)=>String(b.fecha_ingreso||'').localeCompare(String(a.fecha_ingreso||''))||(b.id-a.id));
+  if(ls.length)return parseFloat(ls[0].precio_kg)||0;
+  const todos=(C.lotes_funda||[]).filter(l=>(parseFloat(l.precio_kg)||0)>0)
+    .sort((a,b)=>String(b.fecha_ingreso||'').localeCompare(String(a.fecha_ingreso||'')));
+  return todos.length?parseFloat(todos[0].precio_kg)||0:0;
+}
+// Pura: reparte kg entre lotes (ya ordenados FIFO) → {partes:[{lote_id,kg,precio}], falta}
+function _fundaFIFO(lotes,kg){
+  let resto=r3(kg);const partes=[];
+  for(const l of (lotes||[])){
+    if(resto<=0)break;
+    const disp=r3(parseFloat(l.kg_disponibles)||0);if(disp<=0)continue;
+    const k=r3(Math.min(disp,resto));
+    partes.push({lote_id:l.id,kg:k,precio:parseFloat(l.precio_kg)||0});
+    resto=r3(resto-k);
+  }
+  return{partes,falta:resto>0.0005?resto:0};
+}
+let _fundaIdx=null,_fundaIdxN=-1,_fundaIdxArr=null;
+function _fundaIdxOC(){
+  const arr=C.mov_funda_oc||[];
+  if(_fundaIdx&&_fundaIdxArr===arr&&_fundaIdxN===arr.length)return _fundaIdx;   // se rehace en cada reload (array nuevo)
+  _fundaIdxArr=arr;
+  _fundaIdx=new Map();
+  arr.forEach(m=>{
+    if(m.ref_id==null)return;
+    const kg=Math.abs(parseFloat(m.kg)||0),c=kg*(parseFloat(m.precio_kg)||0);
+    const e=_fundaIdx.get(m.ref_id)||{kg:0,costo:0};e.kg+=kg;e.costo+=c;_fundaIdx.set(m.ref_id,e);
+  });
+  _fundaIdxN=arr.length;return _fundaIdx;
+}
+// Costo de funda de una OC cerrada → {costo,kgTeo,kgTraz,via:'real'|'form'|'mixto'|null}
+function _fundaCostoOC(o){
+  const nada={costo:0,kgTeo:0,kgTraz:0,via:null};
+  if(!o||o.estado!=='Completada')return nada;
+  const fd=new Date(o.fecha_completada||o.created_at||'');
+  if(isNaN(fd)||localDate(fd)<_fundaDesde())return nada;
+  const prod=(C.productos||[]).find(p=>p.id===o.producto_id)||o.productos;
+  const t=_fundaDeProd(prod);if(!t)return nada;
+  const g=_fundaG(t);const paq=parseFloat(o.cantidad_bultos_reales)||0;
+  if(!(g>0)||!(paq>0))return nada;
+  const kgTeo=r3(paq*g/1000);
+  const tr=_fundaIdxOC().get(o.id)||{kg:0,costo:0};
+  const resto=Math.max(0,r3(kgTeo-tr.kg));
+  const costo=r2(tr.costo+resto*_fundaPrecioRef(t.id));
+  const via=tr.kg>0?(resto>0.0005?'mixto':'real'):'form';
+  return{costo,kgTeo,kgTraz:r3(tr.kg),via};
+}
+// Al cerrar la OC: descuenta las fundas del lote (una vez por OC). Nunca frena el cierre.
+async function _fundaConsumirOC(ocId,prodId,paq,numero){
+  try{
+    const prod=(C.productos||[]).find(p=>p.id===prodId);
+    const t=_fundaDeProd(prod);if(!t)return null;
+    const g=_fundaG(t);if(!(g>0)||!(paq>0))return null;
+    const{data:ya,error:eYa}=await sb.from('mov_mp').select('id').eq('ref_tipo','orden_corte').eq('ref_id',ocId).limit(1);
+    if(eYa)throw eYa;
+    if(ya&&ya.length)return{yaEstaba:true};
+    const kg=r3(paq*g/1000);
+    const{data:lotes,error:eL}=await sb.from('lotes_mp').select('id,kg_disponibles,precio_kg,fecha_ingreso')
+      .eq('tipo_mp_id',t.id).gt('kg_disponibles',0).order('fecha_ingreso').order('id');
+    if(eL)throw eL;
+    const rep=_fundaFIFO(lotes||[],kg);
+    if(rep.partes.length){
+      const{error}=await sb.from('mov_mp').insert(rep.partes.map(p=>({
+        lote_id:p.lote_id,tipo_mp_id:t.id,tipo_mov:'consumo',kg:-p.kg,precio_kg:p.precio,impacta_resultado:true,
+        motivo:'Fundas '+(numero||('OC '+ocId))+' · '+paq.toLocaleString('es-AR')+' paq',
+        ref_tipo:'orden_corte',ref_id:ocId,operario:'cierre OC',fecha:localDate()
+      })));
+      if(error)throw error;
+    }
+    if(rep.falta>0)toast('⚠ '+t.nombre+': faltaron '+rep.falta.toLocaleString('es-AR')+' kg de stock — el costo se completa al último precio. Hacé el conteo en 🧷 Fundas.','amber');
+    return{kg,falta:rep.falta,funda:t.nombre};
+  }catch(e){
+    console.error('fundas',e);
+    toast('⚠ La OC se cerró, pero no pude descontar las fundas: '+(e.message||e),'amber');
+    return null;
+  }
+}
+// ── Pantalla 🧷 Fundas ──
+function renderFundas(){
+  const w=document.getElementById('fundas-wrap');if(!w)return;
+  const fs=(C.fundas||[]).slice().sort((a,b)=>String(a.codigo).localeCompare(String(b.codigo)));
+  if(!fs.length){w.innerHTML='<div class="empty">No hay fundas cargadas. Falta correr <b>fundas_empaque_2026-10-26.sql</b> en Supabase.</div>';return;}
+  const hasta=localDate();const desde30=localDate(new Date(Date.now()-30*86400000));
+  const cons={};(C.mov_funda_oc||[]).forEach(m=>{if(String(m.fecha||'')>=desde30&&String(m.fecha||'')<=hasta)cons[m.tipo_mp_id]=(cons[m.tipo_mp_id]||0)+Math.abs(parseFloat(m.kg)||0);});
+  // OC cerradas con funda a las que no les alcanzó el stock (costo estimado)
+  const sinTraz={};
+  (C.ord_corte||[]).forEach(o=>{const c=_fundaCostoOC(o);if(c.via==='form'||c.via==='mixto'){const t=_fundaDeProd((C.productos||[]).find(p=>p.id===o.producto_id));if(t)sinTraz[t.id]=(sinTraz[t.id]||0)+r3(c.kgTeo-c.kgTraz);}});
+  let kgTot=0,valTot=0;
+  const filas=fs.map(t=>{
+    const ls=(C.lotes_funda||[]).filter(l=>String(l.tipo_mp_id)===String(t.id));
+    const kg=r1(ls.reduce((s,l)=>s+(parseFloat(l.kg_disponibles)||0),0));
+    const g=_fundaG(t),precio=_fundaPrecioRef(t.id);
+    kgTot+=kg;valTot+=kg*precio;
+    const c30=r1(cons[t.id]||0),dias=c30>0?Math.floor(kg/(c30/30)):null;
+    const prods=(C.productos||[]).filter(p=>String(p.funda_tipo_mp_id)===String(t.id)).map(p=>p.codigo).join(' · ');
+    const col=dias===null?'var(--text3)':dias<7?'var(--red)':dias<15?'var(--amber)':'var(--green)';
+    return '<tr>'
+      +'<td style="font-weight:700">'+escapeHtml(t.nombre)+'<div style="font-size:10px;color:var(--text3)">'+escapeHtml(prods||'sin productos')+'</div></td>'
+      +'<td class="mono" style="font-size:11px">'+(t.funda_ancho_cm||'—')+'×'+(t.funda_largo_cm||'—')+' cm · '+(t.funda_g_metro||'—')+' g/m</td>'
+      +'<td class="mono">'+(g?g.toLocaleString('es-AR')+' g':'—')+'<div style="font-size:10px;color:var(--text3)">'+(g&&precio?'$'+r2(g/1000*precio).toLocaleString('es-AR')+' c/u':'')+'</div></td>'
+      +'<td class="mono" style="font-weight:700">'+kg.toLocaleString('es-AR')+' kg<div style="font-size:10px;color:var(--text3)">'+(g?'≈ '+Math.floor(kg*1000/g).toLocaleString('es-AR')+' fundas':'')+'</div></td>'
+      +'<td class="mono">'+c30.toLocaleString('es-AR')+' kg</td>'
+      +'<td class="mono" style="color:'+col+';font-weight:700">'+(dias===null?'—':dias+' días')+'</td>'
+      +'<td class="mono">'+(precio?'$'+precio.toLocaleString('es-AR'):'—')+'</td>'
+      +'<td style="font-size:11px;color:var(--amber)">'+(sinTraz[t.id]?r1(sinTraz[t.id]).toLocaleString('es-AR')+' kg sin stock':'')+'</td>'
+      +'<td style="white-space:nowrap"><button class="btn btn-sm" onclick="fundaConteo('+t.id+')" title="Conteo físico">⚖️</button> '
+      +'<button class="btn btn-sm" onclick="fundaMedidas('+t.id+')" title="Medidas">✏️</button></td>'
+      +'</tr>';
+  }).join('');
+  const sinFunda=(C.productos||[]).filter(p=>{const e=(C.emp||[]).find(x=>x.id===p.empaque_id);const u=e?e.unidades:0;
+    return u>1&&u<50&&!p.funda_tipo_mp_id&&!/ROLLO|GRANEL/i.test(p.descripcion||'')&&/ARIAL|POLIPLA/i.test(p.descripcion||'');});
+  w.innerHTML='<div style="display:flex;gap:2rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px">'
+      +'<div><div style="font-size:11px;color:var(--text3)">Fundas en stock</div><div style="font-size:30px;font-weight:800;font-family:\'DM Mono\',monospace">'+r1(kgTot).toLocaleString('es-AR')+' kg</div></div>'
+      +'<div><div style="font-size:11px;color:var(--text3)">Valor (último $/kg)</div><div style="font-size:16px;font-weight:700;font-family:\'DM Mono\',monospace">$'+Math.round(valTot).toLocaleString('es-AR')+'</div></div>'
+      +'<div style="font-size:11px;color:var(--text3);max-width:440px">Se descuentan solas al cerrar cada OC (una funda por paquete). Costean el paquete desde el '+_fundaDesde().split('-').reverse().join('/')+'. Lo que figura «sin stock» se costeó al último precio: corregilo con el conteo.</div>'
+    +'</div>'
+    +(sinFunda.length?'<div style="font-size:12px;color:var(--amber);margin-bottom:8px">⚠ Productos en paquete sin funda asignada: '+sinFunda.map(p=>escapeHtml(p.codigo)).join(', ')+' — asignala en Productos ✏️.</div>':'')
+    +'<div style="overflow-x:auto"><table><thead><tr><th>Funda</th><th>Medida</th><th>Peso</th><th>Stock</th><th>Consumo 30 d</th><th>Alcanza</th><th>$/kg</th><th></th><th></th></tr></thead><tbody>'+filas+'</tbody></table></div>'
+    +'<div class="card" style="margin-top:16px;padding:12px"><div style="font-weight:700;margin-bottom:8px">📦 Ingreso de fundas (compra o producción propia)</div>'
+      +'<div class="fgrid fgrid3" style="gap:8px">'
+        +'<div class="fg"><label>Funda</label><select id="fu-tipo">'+fs.map(t=>'<option value="'+t.id+'">'+escapeHtml(t.nombre)+'</option>').join('')+'</select></div>'
+        +'<div class="fg"><label>Kg</label><input id="fu-kg" type="number" step="0.1"></div>'
+        +'<div class="fg"><label>$/kg</label><input id="fu-precio" type="number" step="0.01"></div>'
+        +'<div class="fg"><label>Fecha</label><input id="fu-fecha" type="date" value="'+localDate()+'"></div>'
+        +'<div class="fg"><label>Remito / origen</label><input id="fu-remito" type="text" placeholder="0001-0000… o «propia»"></div>'
+        +'<div class="fg"><label>&nbsp;</label><button class="btn btn-primary btn-sm" onclick="fundaIngreso()">Guardar ingreso</button></div>'
+      +'</div><div id="msg-fu" style="font-size:12px;margin-top:6px"></div></div>';
+}
+async function fundaIngreso(){
+  const tid=parseInt(document.getElementById('fu-tipo')?.value);
+  const kg=parseFloat(document.getElementById('fu-kg')?.value);
+  const precio=parseFloat(document.getElementById('fu-precio')?.value);
+  const fecha=document.getElementById('fu-fecha')?.value||localDate();
+  const rem=(document.getElementById('fu-remito')?.value||'').trim();
+  const msg=document.getElementById('msg-fu');
+  const t=(C.fundas||[]).find(x=>x.id===tid);
+  if(!t||!(kg>0)||!(precio>0)){msg.style.color='var(--red)';msg.textContent='Completá funda, kg y $/kg.';return;}
+  pedirAdminYEjecutar(async()=>{
+    const nro='FUNDA-'+String(t.codigo||'').replace(/^F/,'')+'-'+fecha.replace(/-/g,'').slice(2)+'-'+Date.now().toString(36).slice(-3).toUpperCase();
+    const prov=(C.proveedores||[]).find(p=>/FENIX/i.test(p.nombre||''));
+    const{data:l,error}=await sb.from('lotes_mp').insert({numero_lote:nro,tipo_mp_id:tid,proveedor_id:/propi/i.test(rem)?null:(prov?prov.id:null),
+      numero_remito:rem||null,fecha_ingreso:fecha,kg_ingresados:kg,kg_disponibles:0,precio_kg:precio,estado:'activo',activo:true,
+      observaciones:'Ingreso de fundas'+(rem?' · '+rem:'')}).select().single();
+    if(error){msg.style.color='var(--red)';msg.textContent='Error: '+error.message;return;}
+    const{error:eM}=await sb.from('mov_mp').insert({lote_id:l.id,tipo_mp_id:tid,tipo_mov:'ingreso',kg:kg,precio_kg:precio,impacta_resultado:false,
+      motivo:'Ingreso lote '+nro+(rem?' · '+rem:''),ref_tipo:'ingreso_lote',ref_id:l.id,operario:'admin',fecha:fecha});
+    if(eM){msg.style.color='var(--red)';msg.textContent='Lote creado pero sin movimiento: '+eM.message;return;}
+    toast('✓ '+t.nombre+': +'+kg.toLocaleString('es-AR')+' kg','green');
+    await reload();renderFundas();
+  });
+}
+async function fundaConteo(tid){
+  const t=(C.fundas||[]).find(x=>x.id===tid);if(!t)return;
+  const ls=(C.lotes_funda||[]).filter(l=>l.tipo_mp_id===tid);
+  const sis=r3(ls.reduce((s,l)=>s+(parseFloat(l.kg_disponibles)||0),0));
+  const v=prompt('⚖️ Conteo de '+t.nombre+'\n\nEl sistema dice '+sis.toLocaleString('es-AR')+' kg.\n¿Cuántos kg hay pesados en el depósito?');
+  if(v===null)return;
+  const real=r3(parseFloat(String(v).replace(',','.')));
+  if(isNaN(real)||real<0){alert('Kg inválido.');return;}
+  const dif=r3(real-sis);
+  if(Math.abs(dif)<0.0005){toast('✓ '+t.nombre+' coincide con el sistema','green');return;}
+  pedirAdminYEjecutar(async()=>{
+    const precio=_fundaPrecioRef(tid)||0;
+    const motivo='Conteo físico '+localDate()+': sistema '+sis+' kg, pesado '+real+' kg';
+    const movs=[];
+    if(dif>0){
+      // sobra: entra al lote más nuevo; si no hay lote (75P, 90P), se crea el de stock previo
+      let lote=ls.slice().sort((a,b)=>String(b.fecha_ingreso||'').localeCompare(String(a.fecha_ingreso||'')))[0];
+      let tipoMov='ajuste_pos';
+      if(!lote){
+        const{data,error}=await sb.from('lotes_mp').insert({numero_lote:'FUNDA-'+String(t.codigo||'').replace(/^F/,'')+'-PREVIO',tipo_mp_id:tid,
+          fecha_ingreso:localDate(),kg_ingresados:real,kg_disponibles:0,precio_kg:precio,estado:'activo',activo:true,
+          observaciones:'Stock previo encontrado en el conteo'}).select().single();
+        if(error){alert('No se pudo crear el lote: '+error.message);return;}
+        lote=data;tipoMov='ajuste_inicial';
+      }
+      movs.push({lote_id:lote.id,tipo_mp_id:tid,tipo_mov:tipoMov,kg:dif,precio_kg:parseFloat(lote.precio_kg)||precio,impacta_resultado:true,motivo,ref_tipo:'conteo_funda',ref_id:tid,operario:'admin',fecha:localDate()});
+    }else{
+      // falta: sale de los lotes en orden FIFO
+      const rep=_fundaFIFO(ls.slice().sort((a,b)=>String(a.fecha_ingreso||'').localeCompare(String(b.fecha_ingreso||''))||(a.id-b.id)),-dif);
+      rep.partes.forEach(p=>movs.push({lote_id:p.lote_id,tipo_mp_id:tid,tipo_mov:'ajuste_neg',kg:-p.kg,precio_kg:p.precio,impacta_resultado:true,motivo,ref_tipo:'conteo_funda',ref_id:tid,operario:'admin',fecha:localDate()}));
+    }
+    if(movs.length){const{error}=await sb.from('mov_mp').insert(movs);if(error){alert('No se pudo ajustar: '+error.message);return;}}
+    toast('✓ '+t.nombre+' ajustada a '+real.toLocaleString('es-AR')+' kg ('+(dif>0?'+':'')+dif.toLocaleString('es-AR')+')','green');
+    await reload();renderFundas();
+  });
+}
+async function fundaMedidas(tid){
+  const t=(C.fundas||[]).find(x=>x.id===tid);if(!t)return;
+  const v=prompt('✏️ Medidas de '+t.nombre+'\n\nAncho cm, largo cm, gramos por metro (separados por espacio).\nPesá 10 fundas y dividí por 10 para controlar el peso de una.',
+    [t.funda_ancho_cm||'',t.funda_largo_cm||'',t.funda_g_metro||''].join(' '));
+  if(v===null)return;
+  const n=String(v).replace(/,/g,'.').trim().split(/\s+/).map(parseFloat);
+  if(n.length!==3||n.some(x=>!(x>0))){alert('Poné tres números: ancho largo g/m (ej. 35 34 19).');return;}
+  pedirAdminYEjecutar(async()=>{
+    const{error}=await sb.from('tipos_mp').update({funda_ancho_cm:n[0],funda_largo_cm:n[1],funda_g_metro:n[2]}).eq('id',tid);
+    if(error){alert('No se pudo guardar: '+error.message);return;}
+    toast('✓ '+t.nombre+': '+r4(n[2]*n[1]/100)+' g por funda','green');
+    await reload();renderFundas();
+  });
 }
 
 // ===== 🧵 USO INTERNO DE BOBINAS (FUNDAS PARA BULTOS) =====
@@ -52908,6 +53151,7 @@ async function cerrarOrdenCorte(id){
     }
     // Acreditar stock de bolsas terminadas
     await acreditarStockDesdeOC(id);
+    await _fundaConsumirOC(id,o.producto_id,totalPaq,o.numero_orden);   // 26c: una funda por paquete
     document.getElementById('cierre-modal')?.remove();
     try{delete (window._cvvPrest||{})[id];delete (window._cvvBultos||{})[id];delete (window._cvvExplic||{})[id];delete (window._cvvBorrador||{})[id];}catch(e){}
     await reload();renderOrdenesCorte();
@@ -53236,6 +53480,8 @@ function editarProducto(id){
       +'<div class="fg"><label>Paquetes por bolsón</label><input id="epr-paq-bolson" type="number" min="1" value="'+(p.paquetes_por_bolson||1)+'" oninput="calcEprUniBolson()"></div>'
       +'<div class="fg"><label>Unidades por bolsón</label><div class="computed" id="epr-uni-bolson" style="margin-top:0">—</div></div>'
     +'</div>'
+    +((C.fundas||[]).length?'<div class="fgrid fgrid3" style="margin-bottom:10px;"><div class="fg"><label>🧷 Funda (una por paquete)</label><select id="epr-funda"><option value="">— no lleva funda —</option>'
+      +(C.fundas||[]).map(t=>'<option value="'+t.id+'"'+(String(t.id)===String(p.funda_tipo_mp_id||'')?' selected':'')+'>'+escapeHtml(t.nombre)+(_fundaG(t)?' ('+_fundaG(t)+' g)':'')+'</option>').join('')+'</select></div></div>':'')
     +'<div class="fg" style="margin-bottom:10px;padding:10px;border:1.5px solid var(--purple,#6d28d9);border-radius:var(--r);background:rgba(109,40,217,.06);">'
       +'<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;">'
         +'<input type="checkbox" id="epr-bobgranel" '+(p.es_bobina_granel?'checked':'')+' onchange="calcEprBobGranel()"> Vender por kg (bobina entera, sin corte)'
@@ -53358,6 +53604,8 @@ async function guardarEdicionProducto(id){
     metros_por_bolsa:mtsFinal,peso_por_bolsa:pesoFinal,merma_pct:merma,
     empaque_id:empId,paquetes_por_bolson:paqBolson,es_bobina_granel:bobGranel
   };
+  const _fSel=document.getElementById('epr-funda');   // 26c
+  if(_fSel)upd.funda_tipo_mp_id=parseInt(_fSel.value)||null;
   let{error}=await sb.from('productos').update(upd).eq('id',id);
   if(error&&(error.message||'').includes('es_bobina_granel')){
     // fallback si aun no se corrio la migracion del flag
@@ -61298,6 +61546,7 @@ function calcRentPeriodo(ini,fin,gg,prodFiltro=0){
       // Fallback usa $/metro SIN GG — no varía con el slider
       costoMP+=c>0?c:(bp.metros_reales||0)*costoMetroPromSinGG;
     });
+    costoMP+=_fundaCostoOC(o).costo;   // 26c: + funda de empaque (marginal)
     // costoMP = costo puro de MP sin GG — FIJO independiente de GG%
     const costo=r2(costoMP*(1+gg/100));  // con GG — varía con el slider (dato secundario)
     const ganancia=r2(venta-costo);
