@@ -46,7 +46,7 @@ C.ord_corte[0].observaciones='[🧵 Pista 4 x: BOB-07384 sacada con 705 de 925 g
 PST.est={1:{restosPos:_pstRestosPosibles(cs)}};
 t(_pcorteRestosPend(1049).map(x=>x.nro).join()==='BOB-07376','pendiente al terminar: sólo 07376 (07384 fue al scrap)');
 t(_pcorteRestosPend(999).length===0,'otra OC: nada pendiente');
-t(/_pcorteRestosBloquean\(id,\(\)=>_pcorteTerminoTodo\(id\)\)/.test(src)&&/_pcorteRestosBloquean\(id,\(\)=>_pcorteTerminoSoloMaq/.test(src),'«Terminó de cortar» revisa los restos');
+t(src.includes('_pcorteRestosBloquean(id,()=>_pcorteTerminoTodo(id))')&&src.includes('_pcorteRestosBloquean(id,()=>_pcorteTerminoSoloMaq(id,maqId))'),'«Terminó de cortar» revisa los restos');
 t(!/'sacada con film','#7c2d12'/.test(src),'la alarma ya no ofrece «la saqué con film y la dejo aparte»');
 t(/es un RESTO de/.test(src),'escanear el resto con otra OC lo bloquea');
 console.log(ok+' ok, '+bad+' mal');process.exit(bad?1:0);

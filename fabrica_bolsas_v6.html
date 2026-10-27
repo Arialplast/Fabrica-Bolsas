@@ -61909,7 +61909,7 @@ function panelcTerminoCorte(id,maqId){
 // 27d: «Terminó de cortar» con restos de esta orden que no volvieron a una pista → no termina: ponelos o, si se
 // rompieron, anotalos al scrap (queda escrito y el cierre lo muestra).
 async function _pcorteRestosBloquean(id,seguir){
-  const oc=C.ord_corte.find(o=>o.id===id);if(!oc)return false;
+  const oc=C.ord_corte.find(o=>o.id===id);if(!oc||typeof _pcorteRestosPend!=='function'||typeof CVV==='undefined')return false;
   try{for(const om of (oc.orden_corte_maquinas||[])){if(CVV.maqs.includes(om.maquina_id))await _pstCargarMaq(om.maquina_id);}}catch(e){console.warn('restos pend',e);}
   const L=_pcorteRestosPend(id);if(!L.length)return false;
   const F=n=>Math.round(n).toLocaleString('es-AR');
@@ -61936,7 +61936,7 @@ async function _pcorteRestoScrap(id,ocbId){
 }
 async function _pcorteTerminoSoloMaq(id,maqId,yaRev){
   document.getElementById('pct-modal')?.remove();
-  if(!yaRev&&await _pcorteRestosBloquean(id,()=>_pcorteTerminoSoloMaq(id,maqId)))return;   // 27d
+  if(!yaRev&&typeof _pcorteRestosBloquean==='function'&&await _pcorteRestosBloquean(id,()=>_pcorteTerminoSoloMaq(id,maqId)))return;   // 27d
   const oc=C.ord_corte.find(o=>o.id===id);const maq=(C.maq_corte||[]).find(x=>x.id===maqId);
   if(!oc||!maq)return;
   try{
@@ -61955,7 +61955,7 @@ async function _pcorteTerminoSoloMaq(id,maqId,yaRev){
 async function _pcorteTerminoTodo(id,yaRev){
   const oc=C.ord_corte.find(o=>o.id===id);
   if(!oc)return;
-  if(!yaRev&&await _pcorteRestosBloquean(id,()=>_pcorteTerminoTodo(id)))return;   // 27d
+  if(!yaRev&&typeof _pcorteRestosBloquean==='function'&&await _pcorteRestosBloquean(id,()=>_pcorteTerminoTodo(id)))return;   // 27d
   if(!confirm('¿'+oc.numero_orden+' terminó de cortar?\n\nEsto NO cierra la orden ni descuenta stock — solo avisa que el corte físico terminó. El dueño la cierra después con bolsones y scrap.'))return;
   try{
     const marca='[Corte terminado en panel '+localDate()+' '+fmtHora(new Date())+(window._pcorteOperario?' por '+window._pcorteOperario:'')+' — pendiente de cierre]';
