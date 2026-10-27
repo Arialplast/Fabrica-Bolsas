@@ -37,4 +37,16 @@ const E=_pstEstado(cr,350100);t(E[2].c.resto&&/♻ resto BOB-07376/.test(E[2].nr
 t(!_pstPuedeCorregir(E[2]),'un resto no se corrige con «me equivoqué»');
 t(/R\.base=\(R\.pst&&\(R\.pst\.concurrente\|\|R\.pst\.restos\)/.test(src),'cierre cuenta por pistas con restos');
 t(/_pstRestoPorEscaneo\(b\.id\)/.test(src),'escanear una bobina sacada (fuera de stock) abre el resto');
+// 27d: el resto se termina en la misma orden
+t(_pstRestoDescartado('[🧵 Pista 4 2026-10-27 06:43 por X: BOB-07384 sacada con 705 de 925 golpes (≈ 237 m) — se terminó o se rompió]','BOB-07384'),'nota «se terminó o se rompió» = al scrap');
+t(!_pstRestoDescartado('[🧵 Pista 4 2026-10-27 09:47 por X: BOB-07376 sacada con 592 de 930 golpes (≈ 366 m) — sacada, el resto va a otra pista]','BOB-07376'),'«el resto va a otra pista» sigue pendiente');
+t(_pstRestoDescartado('[♻ Resto al scrap 2026-10-27 11:00 por X: BOB-07376 (≈ 366 m) — se rompió]','BOB-07376'),'«resto al scrap» descartado');
+t(!_pstRestoDescartado('[♻ Resto al scrap 2026-10-27 11:00 por X: BOB-07376 (≈ 366 m) — se rompió]','BOB-07384'),'el scrap de otra bobina no cuenta');
+C.ord_corte[0].observaciones='[🧵 Pista 4 x: BOB-07384 sacada con 705 de 925 golpes (≈ 237 m) — se terminó o se rompió]';
+PST.est={1:{restosPos:_pstRestosPosibles(cs)}};
+t(_pcorteRestosPend(1049).map(x=>x.nro).join()==='BOB-07376','pendiente al terminar: sólo 07376 (07384 fue al scrap)');
+t(_pcorteRestosPend(999).length===0,'otra OC: nada pendiente');
+t(/_pcorteRestosBloquean\(id,\(\)=>_pcorteTerminoTodo\(id\)\)/.test(src)&&/_pcorteRestosBloquean\(id,\(\)=>_pcorteTerminoSoloMaq/.test(src),'«Terminó de cortar» revisa los restos');
+t(!/'sacada con film','#7c2d12'/.test(src),'la alarma ya no ofrece «la saqué con film y la dejo aparte»');
+t(/es un RESTO de/.test(src),'escanear el resto con otra OC lo bloquea');
 console.log(ok+' ok, '+bad+' mal');process.exit(bad?1:0);
