@@ -64,7 +64,7 @@ const tabla={orden_corte_bobinas:[{id:1,orden_corte_id:10,metros_usados:52.5,fec
    {id:3,orden_corte_id:10,metros_usados:52.5,fecha_asignacion:new Date(T('07:00:05')).toISOString(),empleado_id:1,maquina_id:1},
    {id:2,orden_corte_id:11,metros_usados:300,fecha_asignacion:new Date(T('12:00:00')).toISOString(),empleado_id:1,maquina_id:1}],
  corte_tandas:tds.filter(x=>!x.sin_hora).map((x,i)=>({id:i,maquina:x.maquina,inicio:new Date(x.ti).toISOString(),fin:new Date(x.tf).toISOString(),golpes:x.golpes,sin_hora:false})),
- ordenes_corte:[{id:11,estado:'En proceso',fecha_completada:null}]};
+ ordenes_corte:[{id:11,estado:'En proceso',fecha_completada:null}],corte_restos:[]};
 const q=(n)=>{let rows=tabla[n].slice();const o={select(){return o;},eq(c,v){rows=rows.filter(r=>r[c]===v);return o;},in(c,v){rows=rows.filter(r=>v.includes(r[c]));return o;},
   gte(c,v){rows=rows.filter(r=>r[c]>=v);return o;},order(){return o;},range(a,b){return Promise.resolve({data:rows.slice(a,b+1),error:null});},then(f,r){return Promise.resolve({data:rows,error:null}).then(f,r);}};return o;};
 global.sb={from:q};global.localDate=()=>'2026-10-14';

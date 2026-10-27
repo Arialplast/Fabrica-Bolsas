@@ -25,5 +25,5 @@ t(R3.concurrente===false,'una sola OC: no concurrente');
 // traspaso normal: la OC nueva carga todo cuando la anterior terminó
 const cs4=[k(1,1045,1,'A',1000,1,1000,1,1),k(2,1045,2,'B',1000,2,1000,1,1),k(3,1008,3,'C',1000,1,3000,1,1),k(4,1008,4,'D',1000,2,3000,1,1)];
 t(_pstCierre(cs4,1045,{2:3000},0.5).concurrente===false&&_pstCierre(cs4,1008,{2:5000},0.5).concurrente===false,'traspaso normal: no concurrente');
-t(/R\.base=\(R\.pst&&R\.pst\.concurrente&&R\.pst\.completa/.test(src),'cierre usa las pistas cuando es concurrente');
+t(/R\.base=\(R\.pst&&\(R\.pst\.concurrente\|\|R\.pst\.restos\)&&R\.pst\.completa/.test(src),'cierre usa las pistas cuando es concurrente');
 console.log(ok+' ok, '+bad+' mal');process.exit(bad?1:0);
