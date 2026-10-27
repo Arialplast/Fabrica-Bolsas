@@ -12,4 +12,6 @@ t(_ocIndicaciones('Generada desde pedido PED-00002 (parcial) · EMPAQUE: 10 bult
 t(_ocIndicaciones('Generada desde pedido PED-00003\n[APURADO POR PLAN 2026-10-01 10:00] Prioridad bajada a 1')==='Prioridad bajada a 1'||true,'log de plan (texto fuera del corchete se tolera)');
 t(_ocIndicaciones('[Corte terminado en panel 2026-10-20 14:30] [Cancelada desde auditoría]')==='','solo logs entre corchetes → nada');
 t(_ocIndicaciones('Ojo: funda verde\nGenerada desde pedido PED-00004 (parcial)')==='Ojo: funda verde','indicación antes del origen');
+t(_ocIndicaciones('Generada desde pedido PED-06140 (parcial) [Corte terminado en panel 2026-10-26 22:59 por X — pendiente de cierre]\n✂ Cierre 2026-10-27\nBOLSAS: cortadas 7.254 → SOBRAN 843\nEXPLICACIÓN DEL OPERARIO: algo')==='','27b: la nota del cierre no es indicación');
+t(_ocIndicaciones('Funda verde\n✂ Cierre 2026-10-27\nBOLSAS: x')==='Funda verde','27b: la indicación de antes del cierre queda');
 console.log((bad?'✗ ':'✓ ')+ok+' ok · '+bad+' fallas');process.exit(bad?1:0);
