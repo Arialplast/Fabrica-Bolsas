@@ -14,6 +14,8 @@ global.PLC={cfg:{factor:{'1':{m_pulso:0.2475},'3':{m_pulso:0.793},'7':{m_pulso:0
 // ajustes de salida
 // salidas que faltan en el reloj (las da German)
 (AJ.salida_falta||[]).forEach(t=>{if(!D.fich)D.fich=[];if(!D.fich.some(f=>f.empleado_id===t.emp&&f.fecha===t.fecha&&f.tipo==='salida'))D.fich.push({empleado_id:t.emp,fecha:t.fecha,hora:t.hora+':00',tipo:'salida'});});
+// entradas que faltan en el reloj (las da German): se agregan si no hay ya un fichaje de ese empleado a esa hora
+(AJ.entrada_falta||[]).forEach(t=>{if(!D.fich)D.fich=[];if(!D.fich.some(f=>f.empleado_id===t.emp&&f.fecha===t.fecha&&f.hora.slice(0,5)===t.hora))D.fich.push({empleado_id:t.emp,fecha:t.fecha,hora:t.hora+':00',tipo:'entrada'});});
 D.fich&&D.fich.sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));
 (AJ.salida_tope||[]).forEach(t=>{(D.fich||[]).forEach(f=>{if(f.empleado_id===t.emp&&f.fecha===t.fecha&&f.tipo==='salida'&&f.hora.slice(0,5)>t.hasta)f.hora=t.hasta+':00';});});
 const ocs={};(D.oc||[]).forEach(o=>ocs[o.id]=o);const ocNum=id=>(ocs[id]||{}).numero_orden;
@@ -56,8 +58,10 @@ for(const e of Object.keys(CFG.cortadores)){(turnos[e]||[]).forEach(([ta,tz])=>{
     ocN:P.filter(p=>!p.cambio&&!p.larga).length,ocT:P.filter(p=>!p.cambio&&!p.larga).reduce((s,p)=>s+p.min,0),
     largas:O?O.largas.map(l=>({a:hhmm(l.a),z:hhmm(l.z),min:Math.round((l.z-l.a)/60000)})):[]});});}
 // cierres de OC completadas en el período
-const tabla={orden_corte_bobinas:D.ocb||[],corte_tandas:TD,ordenes_corte:D.oc||[]};
-const q=n=>{let rows=tabla[n].slice();const o={select(){return o;},eq(c,v){rows=rows.filter(r=>r[c]===v);return o;},in(c,v){rows=rows.filter(r=>v.includes(r[c]));return o;},
+// corte_restos (MES 27c): restos de bobina pasados a otra pista; sin esta tabla el cierre da SOBRAN falsos (OC-1053017)
+if(D.restos===undefined){console.error('FALTA corte_restos en datos.json: correr sql/datos.sql actualizado');process.exit(1);}
+const tabla={orden_corte_bobinas:D.ocb||[],corte_tandas:TD,ordenes_corte:D.oc||[],corte_restos:D.restos||[]};
+const q=n=>{if(!tabla[n])throw new Error('tabla no simulada en calc_corte.cjs: '+n);let rows=tabla[n].slice();const o={select(){return o;},eq(c,v){rows=rows.filter(r=>r[c]===v);return o;},in(c,v){rows=rows.filter(r=>v.includes(r[c]));return o;},
  gte(c,v){rows=rows.filter(r=>new Date(r[c])>=new Date(v));return o;},order(){return o;},range(x,y){return Promise.resolve({data:rows.slice(x,y+1),error:null});},then(f,r){return Promise.resolve({data:rows,error:null}).then(f,r);}};return o;};
 global._plcCfg=async()=>PLC.cfg;global.sb={from:q};global._traerQ=async b=>b().range(0,999999);
 (async()=>{const cierres=[];
@@ -69,6 +73,6 @@ global._plcCfg=async()=>PLC.cfg;global.sb={from:q};global._traerQ=async b=>b().r
    const main=Object.keys(emps).sort((x,y)=>emps[y]-emps[x])[0]||null;
    const cb=cargas.filter(c=>c.orden_corte_id===oc.id);const sinPlc=cb.filter(c=>!(c.bobinas_producidas&&c.bobinas_producidas.plc_cierre_id)).length;
    cierres.push({sinPlc,nb:cb.length,n:oc.numero_orden,cli:oc.cliente,prod:oc.productos.descripcion,decl:oc.unidades_reales,scrap:+oc.peso_scrap_kg,teo:R.teo,faltan:R.faltan,pct:R.pct,golpes:R.golpes,gEsp:R.gEsp,dif:R.difGolpes,emps,main:main?+main:null,
-     expl:((oc.observaciones||'').match(/EXPLICACIÓN DEL OPERARIO: ([^\n\]]*)/)||[])[1]||null,fecha:oc.fecha_completada});}catch(e){}}
+     expl:((oc.observaciones||'').match(/EXPLICACIÓN DEL OPERARIO: ([^\n\]]*)/)||[])[1]||null,fecha:oc.fecha_completada});}catch(e){console.error('ERROR cierre',oc.numero_orden,e.message);}}
  fs.writeFileSync(path.join(W,'corte.json'),JSON.stringify({turnos:out,cierres,huecos}));
  console.log('corte:',out.length,'turnos,',cierres.length,'cierres');})();

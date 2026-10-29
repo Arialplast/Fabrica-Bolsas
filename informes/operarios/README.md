@@ -78,8 +78,13 @@ Correcciones que dio German y que el cálculo aplica solo:
 - `salida_tope`: horas fichadas que no se cuentan (ej. Celia arreglando el error de DAG).
 - `oc_no_cuenta_a_mano`: órdenes cuyas cargas a mano no cuentan (OC-1052958, tarjetas de la impresora).
 - `cargas_sin_escanear`: bobinas que se cortaron sin escanear y se cargaron después por los golpes.
+- `salida_falta` / `entrada_falta`: `{"emp": 6, "fecha": "AAAA-MM-DD", "hora": "06:00", "motivo": "..."}` — fichaje que no se hizo, con la hora que dio German (los turnos se arman de a pares de fichajes, sin mirar si dice entrada o salida).
 - `excluir_turno`: `{"emp": 1, "fecha": "AAAA-MM-DD", "motivo": "..."}`.
 Si German da una corrección nueva, agregarla acá, commitear y volver a calcular.
+
+Si `calc` imprime `ERROR cierre` o `FALTA corte_restos`, no publicar: algo de la consulta o del MES cambió y
+hay que arreglar `calc_corte.cjs` / `sql/datos.sql` (el cierre usa la tabla `corte_restos` del MES desde la build 27c;
+sin ella, OC-1053017 daba «sobran 780» cuando sobraban 122).
 
 ## Cómo se mide (resumen)
 
