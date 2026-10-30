@@ -48,6 +48,10 @@ def maqmin(a,z):
         b=buck[g].get(t)
         if b: pos+=m*b[1];film+=m*b[0]
       t+=timedelta(minutes=10)
+    # parada justificada (ajustes.json): minutos de máquina parada que German dio por causa técnica; se cuentan como produciendo
+    for x in AJ.get('parada_justificada',[]):
+      xd=datetime.fromisoformat(x['desde'])
+      if x['maq']==G[g] and a<=xd<z: film=min(pos,film+x['minutos'])
     if pos>0: res[G[g]]=(round(pos),round(film))
   return res,arr
 def err(b): return float(b['err'] or 0)

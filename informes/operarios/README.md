@@ -80,6 +80,7 @@ Correcciones que dio German y que el cálculo aplica solo:
 - `cargas_sin_escanear`: bobinas que se cortaron sin escanear y se cargaron después por los golpes.
 - `salida_falta` / `entrada_falta`: `{"emp": 6, "fecha": "AAAA-MM-DD", "hora": "06:00", "motivo": "..."}` — fichaje que no se hizo, con la hora que dio German (los turnos se arman de a pares de fichajes, sin mirar si dice entrada o salida).
 - `excluir_turno`: `{"emp": 1, "fecha": "AAAA-MM-DD", "motivo": "..."}`.
+- `parada_justificada`: `{"maq": "EXT-03", "desde": "AAAA-MM-DDTHH:MM:00-03:00", "minutos": 29, "motivo": "..."}` — minutos de máquina parada que German dio por causa técnica (ej. corte de film); se suman como «produciendo» en el turno que contiene `desde`.
 Si German da una corrección nueva, agregarla acá, commitear y volver a calcular.
 
 Si `calc` imprime `ERROR cierre` o `FALTA corte_restos`, no publicar: algo de la consulta o del MES cambió y
