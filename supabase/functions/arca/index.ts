@@ -111,11 +111,11 @@ function condDesdePadron(v: unknown): string | null {
 }
 
 // TusFacturas a veces devuelve los textos del padron con la Ñ y los acentos
-// "doble codificados" (caso real: "MUÃ\x91OZ" en vez de "MUÑOZ"). Si el texto
+// "doble codificados" (caso real: "MU" + A-tilde + 0x91 + "OZ" en vez de "MUÑOZ"). Si el texto
 // tiene esa marca, se reinterpreta como UTF-8; si no cierra, queda como vino.
 function arreglarTexto(v: unknown): string {
   const s = String(v ?? "").trim();
-  if (!/[ÃÂ][\u0080-ÿ]/.test(s)) return s;
+  if (!/[\u00c3\u00c2][\u0080-\u00ff]/.test(s)) return s;
   try {
     const bytes = Uint8Array.from([...s].map((ch) => ch.charCodeAt(0) & 0xff));
     return new TextDecoder("utf-8", { fatal: true }).decode(bytes).trim();
@@ -157,7 +157,7 @@ const PROVINCIAS: Record<string, string> = {
 // mayusculas, variantes de CABA). Devuelve null si no la reconoce.
 function normProv(v: unknown): string | null {
   let s = String(v || "")
-    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .toUpperCase().replace(/[^A-Z ]/g, " ").replace(/\s+/g, " ").trim();
   if (!s) return null;
   if (s === "CABA" || s.includes("AUTONOMA") || s === "CAPITAL FEDERAL") s = "CIUDAD AUTONOMA DE BUENOS AIRES";
@@ -950,7 +950,7 @@ Deno.serve(async (req) => {
       if (m) { remito = m[1].trim(); d = d.slice(m[0].length); }
       if (codigo && codigo !== "SN") {
         const esc = codigo.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        d = d.replace(new RegExp("^" + esc + "\\s*[-–—]\\s*"), "");
+        d = d.replace(new RegExp("^" + esc + "\\s*[-\u2013\u2014]\\s*"), "");
       }
       return { desc: d.trim() || "Producto", remito };
     };
@@ -1120,12 +1120,36 @@ Deno.serve(async (req) => {
             "Primero hay que autorizar la factura original ante ARCA.",
         });
       }
-      const numOrig = String(fOrig.arca_numero || fOrig.numero || "");
-      const soloNro = numOrig.includes("-") ? numOrig.split("-")[1] : numOrig;
+      // 30/10/2026 (NC Collinet): el punto de venta y el numero del comprobante
+      // asociado salen SIEMPRE del numero de la factura ("0005-00000026"), nunca de
+      // la columna punto_venta, que estaba en '1' para las del PV 5 y asocio las NC
+      // a facturas 0001-xxxx de OTRO cliente. Y si algo no cierra, NO se emite.
+      const cliNota = docTipo === "nd" ? doc.entidad_id : doc.cliente_id;
+      if (cliNota == null || String(cliNota) !== String(fOrig.cliente_id ?? "")) {
+        return json({
+          ok: false,
+          error: "La factura asociada (" + (fOrig.arca_numero || fOrig.numero) +
+            ") es de OTRO cliente que la nota. No se emite nada.",
+        });
+      }
+      const numOrig = String(fOrig.arca_numero || fOrig.numero || "").trim();
+      const mNum = numOrig.match(/^(\d{1,5})-(\d{1,8})$/);
+      if (!mNum) {
+        return json({
+          ok: false,
+          error: "No se puede leer el punto de venta y numero de la factura asociada (" + numOrig +
+            "). Tiene que ser PPPP-NNNNNNNN. No se emite nada.",
+        });
+      }
+      const pvAsoc = parseInt(mNum[1], 10);
+      const nroAsoc = parseInt(mNum[2], 10);
+      if (!pvAsoc || !nroAsoc) {
+        return json({ ok: false, error: "Factura asociada con punto de venta o numero en cero (" + numOrig + "). No se emite nada." });
+      }
       payload.comprobante.comprobantes_asociados = [{
         tipo_comprobante: `FACTURA ${fOrig.tipo || "A"}`,
-        punto_venta: String(parseInt(String(fOrig.punto_venta || puntoVenta), 10) || 0),
-        numero: parseInt(soloNro, 10) || 0,
+        punto_venta: String(pvAsoc),
+        numero: nroAsoc,
         comprobante_fecha: ddmmyyyy(fOrig.fecha),
         cuit: parseInt(String(cfg["empresa_cuit"] || "0").replace(/\D/g, ""), 10) || 0,
       }];
