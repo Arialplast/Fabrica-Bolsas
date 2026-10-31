@@ -79,6 +79,7 @@ Correcciones que dio German y que el cálculo aplica solo:
 - `oc_no_cuenta_a_mano`: órdenes cuyas cargas a mano no cuentan (OC-1052958, tarjetas de la impresora).
 - `cargas_sin_escanear`: bobinas que se cortaron sin escanear y se cargaron después por los golpes.
 - `salida_falta` / `entrada_falta`: `{"emp": 6, "fecha": "AAAA-MM-DD", "hora": "06:00", "motivo": "..."}` — fichaje que no se hizo, con la hora que dio German (los turnos se arman de a pares de fichajes, sin mirar si dice entrada o salida).
+- `fichaje_sobra`: `{"emp": 2, "fecha": "AAAA-MM-DD", "hora": "15:09", "motivo": "..."}` — fichaje repetido que se saca antes de armar los turnos (si no, corre el par y arma un turno falso).
 - `excluir_turno`: `{"emp": 1, "fecha": "AAAA-MM-DD", "motivo": "..."}`.
 - `parada_justificada`: `{"maq": "EXT-03", "desde": "AAAA-MM-DDTHH:MM:00-03:00", "minutos": 29, "motivo": "..."}` — minutos de máquina parada que German dio por causa técnica (ej. corte de film); se suman como «produciendo» en el turno que contiene `desde`.
 Si German da una corrección nueva, agregarla acá, commitear y volver a calcular.

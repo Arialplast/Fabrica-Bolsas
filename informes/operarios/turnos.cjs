@@ -7,5 +7,7 @@ const AJ=JSON.parse(fs.readFileSync(path.join(__dirname,'ajustes.json')));
 (AJ.salida_falta||[]).forEach(t=>{if(!D.fich)D.fich=[];if(!D.fich.some(f=>f.empleado_id===t.emp&&f.fecha===t.fecha&&f.tipo==='salida'))D.fich.push({empleado_id:t.emp,fecha:t.fecha,hora:t.hora+':00',tipo:'salida'});});
 // entradas que faltan en el reloj (las da German): se agregan si no hay ya un fichaje de ese empleado a esa hora
 (AJ.entrada_falta||[]).forEach(t=>{if(!D.fich)D.fich=[];if(!D.fich.some(f=>f.empleado_id===t.emp&&f.fecha===t.fecha&&f.hora.slice(0,5)===t.hora))D.fich.push({empleado_id:t.emp,fecha:t.fecha,hora:t.hora+':00',tipo:'entrada'});});
+// fichajes de más (doble fichaje, los da German): se sacan antes de armar los turnos
+(AJ.fichaje_sobra||[]).forEach(t=>{if(D.fich)D.fich=D.fich.filter(f=>!(f.empleado_id===t.emp&&f.fecha===t.fecha&&f.hora.slice(0,5)===t.hora));});
 D.fich&&D.fich.sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));
 fs.writeFileSync(path.join(process.argv[2],'turnos.json'),JSON.stringify(_cvvTurnos(D.fich||[],new Date(process.argv[3]).getTime())));
