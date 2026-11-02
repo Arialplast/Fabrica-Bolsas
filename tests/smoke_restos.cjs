@@ -35,7 +35,7 @@ t(Math.abs(R.cortP-10546)<=15,'cortadas por pista ≈ 10.546 ('+Math.round(R.cor
 // estado del panel: la pista 3 muestra el resto
 const E=_pstEstado(cr,350100);t(E[2].c.resto&&/♻ resto BOB-07376/.test(E[2].nro)&&Math.round(E[2].esp)===339,'pista 3 = ♻ resto BOB-07376 (339 golpes)');
 t(!_pstPuedeCorregir(E[2]),'un resto no se corrige con «me equivoqué»');
-t(/R\.base=\(R\.pst&&\(R\.pst\.concurrente\|\|R\.pst\.restos\)/.test(src),'cierre cuenta por pistas con restos');
+t(/R\.base=\(R\.pst&&\(R\.pst\.concurrente\|\|R\.pst\.restos/.test(src),'cierre cuenta por pistas con restos');
 t(/_pstRestoPorEscaneo\(b\.id\)/.test(src),'escanear una bobina sacada (fuera de stock) abre el resto');
 // 27d: el resto se termina en la misma orden
 t(_pstRestoDescartado('[🧵 Pista 4 2026-10-27 06:43 por X: BOB-07384 sacada con 705 de 925 golpes (≈ 237 m) — se terminó o se rompió]','BOB-07384'),'nota «se terminó o se rompió» = al scrap');
