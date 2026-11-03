@@ -1667,6 +1667,8 @@ td.dk-red{color:var(--red);font-weight:500;}
 .pr-grid td.pr-rl{font-size:12px;color:var(--text2);white-space:nowrap;padding-right:10px !important;text-align:left;}
 .pr-grid td.pr-c{height:26px;min-width:24px;border-radius:5px;text-align:center;font-size:10.5px;font-weight:600;cursor:pointer;}
 .pr-grid td.pr-tot{font-size:12px;text-align:right;padding:0 6px !important;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.pr-grid td.pr-cap{min-width:96px;}
+.pr-grid td.pr-c{min-width:22px;}
 .pr-grid td.pr-cap{color:var(--text2);}
 .pr-grid tr.pr-sep td{height:8px;}
 .pr-grid th.pr-hoy{color:#2f5bea;font-weight:700;}
@@ -64822,7 +64824,7 @@ function _planPintar(){
   const V=VEL.datos;
   const vel={};
   if(V){
-    V.maqs.forEach(mq=>{vel['e:'+mq.ext.id]={kgh:mq.kgh,hProd:mq.hProd};});
+    V.maqs.forEach(mq=>{vel['e:'+mq.ext.id]={kgh:mq.kgh,hProd:mq.hProd,desde:mq.g&&mq.g.desde?localDate(new Date(mq.g.desde)):null};});
     const cd=V.corte.dias||[];
     (C.maq_corte||[]).forEach(mc=>{const rs=cd.filter(x=>x.maquina===mc.id);const g=rs.reduce((s,x)=>s+(+x.golpes_con_hora||0),0),sg=rs.reduce((s,x)=>s+(+x.seg_marcha||0),0);
       if(rs.length)vel['c:'+mc.id]={gpm:sg>0?g/(sg/60):null,hProd:sg/3600};});
@@ -64836,31 +64838,41 @@ function _planPintar(){
     const tds=dias.map(d=>{const x=_planResolver(r,d,ctx);const c=_planCelda(x);hm+=c.h;
       return '<td class="pr-c '+c.cls+(d.fs===ctx.hoy?' pr-hoy':'')+(d.dow===0?' pr-dom':'')+'" onmousedown="planDown(event,\''+r.k+'\',\''+d.fs+'\')" onmouseover="planOver(\''+r.k+'\',\''+d.fs+'\')" title="'+escapeHtml(r.n+' · '+_dkFecha(d.fs)+' · '+c.tip)+'">'+c.lbl+'</td>';}).join('');
     const v=vel[r.k];
-    let hPas=0;pas.forEach(d=>{hPas+=_planHoras(_planResolver(r,d,ctxP).tr);});
+    // horas planificadas del MISMO período que mide el PLC (EXT-01 entró al grupo 2 el 12/10)
+    let hPas=0;pas.forEach(d=>{if(v&&v.desde&&d.fs<v.desde)return;hPas+=_planHoras(_planResolver(r,d,ctxP).tr);});
     const uso=v&&v.hProd!=null&&hPas>0?Math.min(1,v.hProd/hPas):null;
-    // Rendimiento por hora PLANIFICADA (últimos 28 días): extrusión kg ÷ h plan; corte golpes ÷ h plan.
-    // Junta velocidad y uso en un número, y sirve también para las máquinas sin PLC.
-    let rinde=null,cap='',tipR='';
+    // Dos números por separado (German 03/11: «rinde» mezclaba velocidad y uso y parecía bajo):
+    //  · velocidad PRODUCIENDO: extrusión kg/h = kg de 28 días ÷ horas produciendo del PLC (seg_prod);
+    //    corte golpes/min en marcha. Máquinas sin PLC: kg ÷ horas planificadas (marcado).
+    //  · uso = horas produciendo ÷ horas planificadas de esos 28 días.
+    //  Capacidad del mes = horas planificadas × uso × velocidad.
+    let velTxt='',usoTxt='',cap='',tipR='';
     if(r.a==='e'){totE+=hm;const kg=PLAN.kg28?(PLAN.kg28[r.k]||0):null;
-      if(kg!=null&&hPas>0){rinde=kg/hPas;const c=hm*rinde;capKg+=c;cap=_velF(c/1000,1)+' t';}
-      tipR='kg producidos en 28 días ÷ '+_velF(hPas)+' h planificadas'+(v&&v.kgh?' · PLC: '+_velF(v.kgh,1)+' kg/h produciendo, uso '+(uso!=null?_velF(uso*100)+'%':'—'):'');}
-    else{totC+=hm;const rs=(V&&V.corte.dias||[]).filter(x=>'c:'+x.maquina===r.k);const g=rs.reduce((s,x)=>s+(+x.golpes||0),0);
-      if(V&&hPas>0){rinde=g/hPas;const c=hm*rinde;capG+=c;cap=c>0?_velF(c/1000)+' mil golpes':'—';}
-      tipR='golpes en 28 días ÷ '+_velF(hPas)+' h planificadas'+(v&&v.gpm?' · '+_velF(v.gpm,1)+' golpes/min en marcha, uso '+(uso!=null?_velF(uso*100)+'%':'—'):'');}
-    return '<tr><td class="pr-rl">'+escapeHtml(r.n)+'</td>'+tds+'<td class="pr-tot">'+_velF(hm)+'</td><td class="pr-tot pr-uso" title="'+escapeHtml(tipR)+'">'+(rinde!=null?_velF(rinde,r.a==='e'?1:0)+'<span class="dk-mut"> '+(r.a==='e'?'kg/h':'golpes/h')+'</span>':'<span class="dk-mut">—</span>')+'</td><td class="pr-tot pr-cap">'+(cap||'<span class="dk-mut">—</span>')+'</td></tr>';
+      if(kg!=null&&kg>0){
+        if(v&&v.hProd>0&&v.kgh>0){const kgh=v.kgh;velTxt=_velF(kgh,1);usoTxt=uso!=null?_velF(uso*100)+'%':'—';
+          const c=hm*kgh*(uso!=null?uso:1);capKg+=c;cap=_velF(c/1000,1)+' t';
+          tipR=_velF(kgh,1)+' kg/h netos produciendo (bobinas medidas por el PLC, misma cuenta que 📐 Velocidades reales). Produjo '+_velF(v.hProd)+' de '+_velF(hPas)+' h planificadas'+(v.desde?' desde '+_dkFecha(v.desde):'')+'.';}
+        else if(hPas>0){const rh=kg/hPas;velTxt=_velF(rh,1)+'*';usoTxt='sin PLC';const c=hm*rh;capKg+=c;cap=_velF(c/1000,1)+' t';
+          tipR='Sin PLC: '+_velF(kg)+' kg ÷ '+_velF(hPas)+' h planificadas (velocidad y uso juntos).';}
+      }}
+    else{totC+=hm;const rs=(V&&V.corte.dias||[]).filter(x=>'c:'+x.maquina===r.k);
+      if(v&&v.gpm){velTxt=_velF(v.gpm,1);usoTxt=uso!=null?_velF(uso*100)+'%':'—';
+        const c=hm*(uso!=null?uso:1)*v.gpm*60;capG+=c;cap=_velF(c/1000)+' mil golpes';
+        tipR=_velF(v.gpm,1)+' golpes/min cortando. Cortó '+_velF(v.hProd)+' h de '+_velF(hPas)+' h planificadas.';}}
+    return '<tr><td class="pr-rl">'+escapeHtml(r.n)+'</td>'+tds+'<td class="pr-tot">'+_velF(hm)+'</td><td class="pr-tot" title="'+escapeHtml(tipR)+'">'+(velTxt?velTxt+'<span class="dk-mut"> '+(r.a==='e'?'kg/h':'g/min')+'</span>':'<span class="dk-mut">—</span>')+'</td><td class="pr-tot pr-uso" title="'+escapeHtml(tipR)+'">'+(usoTxt||'<span class="dk-mut">—</span>')+'</td><td class="pr-tot pr-cap">'+(cap||'<span class="dk-mut">—</span>')+'</td></tr>';
   });
   const sepIdx=recs.findIndex(r=>r.a==='c');
-  const rowsHtml=body.map((b,i)=>(i===sepIdx?'<tr class="pr-sep"><td colspan="'+(dias.length+4)+'"></td></tr>':'')+b).join('');
+  const rowsHtml=body.map((b,i)=>(i===sepIdx?'<tr class="pr-sep"><td colspan="'+(dias.length+5)+'"></td></tr>':'')+b).join('');
   h+=_dkKpis([
-    {l:'Extrusión planificada',v:_velF(totE)+' <span class="vel-u">h</span>',s:capKg?'≈ '+_velF(capKg/1000,1)+' t al rinde de los últimos 28 días':(PLAN.kg28?'sin producción reciente':'leyendo producción…')},
-    {l:'Corte planificado',v:_velF(totC)+' <span class="vel-u">h-máquina</span>',s:capG?'≈ '+_velF(capG/1e6,2)+' M golpes al rinde de los últimos 28 días':(V?'sin datos de corte':'leyendo…')},
+    {l:'Extrusión planificada',v:_velF(totE)+' <span class="vel-u">h</span>',s:capKg?'≈ '+_velF(capKg/1000,1)+' t con la velocidad y el uso de los últimos 28 días':(PLAN.kg28?'sin producción reciente':'leyendo producción…')},
+    {l:'Corte planificado',v:_velF(totC)+' <span class="vel-u">h-máquina</span>',s:capG?'≈ '+_velF(capG/1e6,2)+' M golpes con la velocidad y el uso de los últimos 28 días':(V?'sin datos de corte':'leyendo…')},
     {l:'Días con algo cargado',v:String(new Set(Object.keys(ctx.filas).filter(k=>k.split('|')[1].slice(0,7)===PLAN.ym).map(k=>k.split('|')[1])).size),s:'el resto: semana tipo o fichajes'}
   ]);
   h+='<div class="card dk-card vel-c pr-wrap"><table class="pr-grid" onmouseleave="planUp()"><thead><tr><th class="pr-rl"></th>'
     +dias.map(d=>'<th class="'+(d.fs===ctx.hoy?'pr-hoy':'')+(d.dow===0?' pr-dom':'')+'">'+L[d.dow]+'<br>'+d.d+'</th>').join('')
-    +'<th class="pr-tot">h/mes</th><th class="pr-tot" title="Lo producido en los últimos 28 días ÷ las horas planificadas de esos días (velocidad × uso en un número)">rinde</th><th class="pr-tot">capacidad</th></tr></thead><tbody>'+rowsHtml+'</tbody></table>'
+    +'<th class="pr-tot">h/mes</th><th class="pr-tot" title="Velocidad produciendo, últimos 28 días: kg ÷ horas produciendo del PLC (corte: golpes por minuto cortando)">velocidad</th><th class="pr-tot" title="Horas produciendo ÷ horas planificadas, últimos 28 días">uso</th><th class="pr-tot">capacidad</th></tr></thead><tbody>'+rowsHtml+'</tbody></table>'
     +'<div class="pr-ley"><span><i class="pr-k pr-cargado pk24"></i>cargado</span><span><i class="pr-k pr-tipo pk24"></i>semana tipo</span><span><i class="pr-k pkFi pr-fichaje"></i>por fichajes (corte, días vividos)</span><span><i class="pr-k pkF"></i>feriado</span><span><i class="pr-k pr-pend pk24"></i>sin guardar</span></div>'
-    +'<div class="vel-note">Rinde = lo producido en los últimos 28 días ÷ las horas planificadas de esos días (kg por hora en extrusión, golpes por hora en corte): junta velocidad y uso. Capacidad = horas del mes × rinde. Pasando el mouse por el rinde se ve la velocidad en marcha y el % de uso medidos. En corte con fichajes, la máquina k tiene operario cuando hay k o más personas de corte presentes. El cronograma todavía no lee este plan: se conecta en el próximo paso.</div></div>';
+    +'<div class="vel-note">Velocidad = lo que hace la máquina mientras produce (kg ÷ horas produciendo del PLC, últimos 28 días; en corte golpes por minuto cortando). Uso = de las horas planificadas, cuántas estuvo produciendo. Capacidad del mes = horas planificadas × uso × velocidad. * máquina sin PLC: kg ÷ horas planificadas. En corte con fichajes, la máquina k tiene operario cuando hay k o más personas de corte presentes. El cronograma todavía no lee este plan: se conecta en el próximo paso.</div></div>';
   w.innerHTML=h;
 }
 
