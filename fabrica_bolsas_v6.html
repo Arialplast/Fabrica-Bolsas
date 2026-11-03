@@ -1674,7 +1674,8 @@ td.dk-red{color:var(--red);font-weight:500;}
 .pr-grid th.pr-hoy{color:#2f5bea;font-weight:700;}
 .pr-grid td.pr-hoy{box-shadow:inset 0 0 0 2px #2f5bea;}
 .pk24{background:#5DCAA5;color:#04342C;} .pkD6{background:#9FE1CB;color:#085041;} .pkS12{background:#E1F5EE;color:#0F6E56;}
-.pkMT{background:#85B7EB;color:#042C53;} .pkM{background:#B5D4F4;color:#0C447C;} .pkT{background:#CECBF6;color:#3C3489;} .pkN{background:#F5C4B3;color:#712B13;} .pkM12{background:#E6F1FB;color:#0C447C;}
+.pkMT{background:#85B7EB;color:#042C53;} .pkL{background:#85B7EB;color:#042C53;} .pkCalc{background:#E6F1FB;color:#0C447C;font-weight:500 !important;}
+.pr-grid td.pr-st{font-size:11px !important;color:var(--text3) !important;padding:10px 0 2px !important;font-weight:500;} .pkM{background:#B5D4F4;color:#0C447C;} .pkT{background:#CECBF6;color:#3C3489;} .pkN{background:#F5C4B3;color:#712B13;} .pkM12{background:#E6F1FB;color:#0C447C;}
 .pk0{background:#f3f4f6;color:#b4b8c0;} .pkF{background:#FAEEDA;color:#633806;} .pkFi{background:repeating-linear-gradient(135deg,#B5D4F4 0 4px,#E6F1FB 4px 8px);color:#0C447C;} .pkX{background:#fff;border-color:#d8dbe2;color:#5b606b;}
 .pr-tipo.pr-c, td.pr-tipo{opacity:.55;}
 td.pr-c.pr-tipo{opacity:.5;}
@@ -64600,19 +64601,22 @@ const PLAN_TURNOS={
   '24': {l:'24',d:'24 h',tr:[[0,24]],a:'e',cls:'pk24'},
   'D6': {l:'6→',d:'desde las 6 (arranque)',tr:[[6,24]],a:'e',cls:'pkD6'},
   'S12':{l:'→12',d:'hasta las 12',tr:[[0,12]],a:'e',cls:'pkS12'},
-  'MT': {l:'MT',d:'mañana y tarde 6–24',tr:[[6,24]],a:'c',cls:'pkMT'},
-  'M':  {l:'M',d:'mañana 6–15',tr:[[6,15]],a:'c',cls:'pkM'},
-  'T':  {l:'T',d:'tarde 15–24',tr:[[15,24]],a:'c',cls:'pkT'},
-  'N':  {l:'N',d:'noche 18–6',tr:[[18,30]],a:'c',cls:'pkN'},
-  'M12':{l:'M½',d:'sábado 6–12',tr:[[6,12]],a:'c',cls:'pkM12'},
+  'MT': {l:'MT',d:'mañana y tarde 6–24',tr:[[6,24]],a:'x',cls:'pkMT'},   // ya no se carga (corte = personas)
+  'M':  {l:'M',d:'mañana 6–15',tr:[[6,15]],a:'p',cls:'pkM'},
+  'L':  {l:'L',d:'largo 6–18',tr:[[6,18]],a:'p',cls:'pkL'},
+  'T':  {l:'T',d:'tarde 15–24',tr:[[15,24]],a:'p',cls:'pkT'},
+  'N':  {l:'N',d:'noche 18–6',tr:[[18,30]],a:'p',cls:'pkN'},
+  'M12':{l:'S',d:'sábado 6–12',tr:[[6,12]],a:'p',cls:'pkM12'},
   '0':  {l:'',d:'no se trabaja',tr:[],a:'*',cls:'pk0'}
 };
 const PLAN={ym:null,filas:null,cambios:{},pincel:null,pintando:false,tipo:null,cargando:false,err:null,editTipo:false,tipoDraft:null};
 function _planHoras(tr){return (tr||[]).reduce((s,t)=>s+Math.max(0,t[1]-t[0]),0);}
 function _planRecursos(){
   const ex=(C.extrusoras||[]).slice().sort(_extCmp).map(e=>({k:'e:'+e.id,n:e.nombre,a:'e',id:e.id,obj:e}));
-  const co=(C.maq_corte||[]).slice().sort((a,b)=>(a.id||0)-(b.id||0)).map(m=>({k:'c:'+m.id,n:m.nombre,a:'c',id:m.id,obj:m}));
-  return ex.concat(co);
+  const pe=_planEmpleadosCorte().map(id=>{const e=(C.empleados||[]).find(x=>x.id===id)||{};const nm=String(e.apellido_nombre||('Operario '+id));const p=nm.split(/\s+/);
+    return {k:'p:'+id,n:(p.length>1?p[1].charAt(0)+p[1].slice(1).toLowerCase()+' '+p[0].charAt(0)+'.':nm),full:nm,a:'p',id};});
+  const co=(C.maq_corte||[]).slice().sort((a,b)=>(a.id||0)-(b.id||0)).map(m=>({k:'c:'+m.id,n:m.nombre,a:'c',id:m.id,obj:m,calc:true}));
+  return ex.concat(pe,co);
 }
 function _planTipoDef(){
   // Sin semana tipo guardada: extrusoras que produjeron en los últimos 28 días = lunes 6 → sábado 12;
@@ -64622,7 +64626,14 @@ function _planTipoDef(){
   const o={};
   _planRecursos().forEach(r=>{
     if(r.a==='e')o[r.k]=(!activas.size||activas.has(r.k))?['0','D6','24','24','24','24','S12']:['0','0','0','0','0','0','0'];
-    else o[r.k]=r.n&&/3|roll/i.test(r.n)?['0','0','0','0','0','0','0']:['0','MT','MT','MT','MT','MT','0'];
+    else if(r.a==='p'){
+      const row=['0','0','0','0','0','0','0'];
+      const hoy=new Date(localDate()+'T00:00:00');
+      for(let i=1;i<=7;i++){const dt=new Date(hoy);dt.setDate(dt.getDate()-i);const fs=localDate(dt);
+        const tr=_planTramosPersonaFichaje(r.id,fs,_planPresencias(localDate(new Date(dt.getTime()-86400000)),localDate(new Date(dt.getTime()+86400000))));
+        row[dt.getDay()]=_planCodigoDeTramos(tr);}
+      o[r.k]=row;
+    }
   });
   return o;
 }
@@ -64640,6 +64651,19 @@ function _planEmpleadosCorte(){
 }
 // Intervalos de presencia por persona: marcas en orden; dos marcas seguidas a 3–16 h = un turno
 // (no se confía en entrada/salida: hay marcas con el tipo cambiado).
+// Código de turno más parecido a unos tramos (para armar la semana tipo desde los fichajes).
+function _planCodigoDeTramos(tr){
+  const h=_planHoras(tr);if(h<2)return '0';
+  let best='0',bs=0;
+  ['M','L','T','N','M12'].forEach(c=>{const t=PLAN_TURNOS[c].tr[0];let inter=0;tr.forEach(x=>{inter+=Math.max(0,Math.min(x[1],t[1])-Math.max(x[0],t[0]));});
+    const s=inter/(h+(t[1]-t[0])-inter);if(s>bs){bs=s;best=c;}});
+  return bs>0.4?best:'0';
+}
+// Tramos (horas del día, 0–30) en que una persona estuvo fichada, con turnos que EMPIEZAN ese día.
+function _planTramosPersonaFichaje(empId,fs,iv){
+  const d0=new Date(fs+'T00:00:00').getTime(),d1=d0+86400000;
+  return (iv&&iv.porEmp&&iv.porEmp[empId]||[]).filter(x=>x[0]>=d0&&x[0]<d1).map(x=>[(x[0]-d0)/3600000,(x[1]-d0)/3600000]);
+}
 function _planPresencias(desdeStr,hastaStr){
   const ids=new Set(_planEmpleadosCorte());
   const por={};
@@ -64647,11 +64671,20 @@ function _planPresencias(desdeStr,hastaStr){
     if(!ids.has(f.empleado_id))return;
     const fs=String(f.fecha);if(fs<desdeStr||fs>hastaStr)return;
     const t=new Date(fs+'T'+String(f.hora||'00:00').slice(0,8)).getTime();if(isNaN(t))return;
-    (por[f.empleado_id]=por[f.empleado_id]||[]).push(t);
+    (por[f.empleado_id]=por[f.empleado_id]||[]).push({t,tp:String(f.tipo||'').toLowerCase().charAt(0)});
   });
-  const iv=[];
-  Object.values(por).forEach(ts=>{ts.sort((a,b)=>a-b);
-    for(let i=0;i<ts.length-1;){const d=(ts[i+1]-ts[i])/3600000;if(d>=3&&d<=16){iv.push([ts[i],ts[i+1]]);i+=2;}else i++;}});
+  // Emparejado en dos pasadas: 1) entrada → la salida siguiente a 3–16 h (respeta los turnos de noche);
+  // 2) lo que quedó suelto (marcas con el tipo cambiado), por cercanía a 3–16 h.
+  const iv=[];iv.porEmp={};
+  Object.entries(por).forEach(([emp,ms])=>{ms.sort((a,b)=>a.t-b.t);const usado=new Array(ms.length).fill(false);const out=[];
+    for(let i=0;i<ms.length;i++){if(usado[i]||ms[i].tp!=='e')continue;
+      for(let j=i+1;j<ms.length;j++){if(usado[j])continue;const d=(ms[j].t-ms[i].t)/3600000;if(d>16)break;if(ms[j].tp==='e')break;
+        if(ms[j].tp==='s'&&d>=3){out.push([ms[i].t,ms[j].t]);usado[i]=usado[j]=true;break;}}}
+    const rest=ms.map((m,i)=>({m,i})).filter(x=>!usado[x.i]);
+    for(let k=0;k<rest.length-1;){const d=(rest[k+1].m.t-rest[k].m.t)/3600000;
+      const choca=out.some(x=>x[0]<rest[k+1].m.t&&x[1]>rest[k].m.t);
+      if(d>=3&&d<=16&&!choca){out.push([rest[k].m.t,rest[k+1].m.t]);k+=2;}else k++;}
+    out.sort((a,b)=>a[0]-b[0]);iv.porEmp[emp]=out;out.forEach(x=>iv.push(x));});
   return iv;
 }
 // Tramos por fichaje de la máquina de corte nº k (1 = la primera) en un día: horas con ≥ k personas.
@@ -64671,7 +64704,27 @@ function _planDiasMes(ym){
   return out;
 }
 // Resuelve un día de una máquina → {cod|null, tr, src:'cargado'|'fichaje'|'tipo'|'feriado'}
+// Cortadora: NO se carga. La máquina nº k trabaja las horas en que hay k o más personas de corte
+// en turno según el plan de las personas (C1 con 1, C2 con 2, la rollera con 3). Un turno que cruza
+// la medianoche (noche 18–6) suma las horas de 0 a 6 al día siguiente.
+function _planCuentaPersonas(dia,ctx){
+  ctx._cp=ctx._cp||{};if(ctx._cp[dia.fs])return ctx._cp[dia.fs];
+  const n=new Array(24).fill(0);
+  const pers=_planRecursos().filter(x=>x.a==='p');
+  const prev=new Date(dia.fs+'T00:00:00');prev.setDate(prev.getDate()-1);
+  const dPrev={fs:localDate(prev),d:prev.getDate(),dow:prev.getDay()};
+  pers.forEach(p=>{
+    _planResolver(p,dia,ctx).tr.forEach(t=>{for(let hh=Math.max(0,Math.floor(t[0]));hh<Math.min(24,Math.ceil(t[1]));hh++)n[hh]++;});
+    _planResolver(p,dPrev,ctx).tr.forEach(t=>{if(t[1]>24)for(let hh=0;hh<Math.min(24,Math.ceil(t[1]-24));hh++)n[hh]++;});
+  });
+  ctx._cp[dia.fs]=n;return n;
+}
 function _planResolver(r,dia,ctx){
+  if(r.calc){
+    const n=_planCuentaPersonas(dia,ctx);const k=ctx.corteIdx[r.k];const tr=[];let ini=null;
+    for(let hh=0;hh<=24;hh++){const on=hh<24&&n[hh]>=k;if(on&&ini==null)ini=hh;if(!on&&ini!=null){tr.push([ini,hh]);ini=null;}}
+    return{cod:null,tr,src:'calc'};
+  }
   const k=r.k+'|'+dia.fs;
   const pend=PLAN.cambios[k];
   if(pend!==undefined){
@@ -64682,11 +64735,10 @@ function _planResolver(r,dia,ctx){
   }
   const tipoArea=r.a==='e'?'extrusion':'corte';
   if(_esFeriadoProd(dia.fs,tipoArea))return{cod:'0',tr:[],src:'feriado',fer:_feriadoNombre(dia.fs)};
-  if(r.a==='c'&&dia.fs<=ctx.hoy&&ctx.iv.length){
-    const nro=ctx.corteIdx[r.k];
-    const tr=_planTramosFichaje(dia.fs,nro,ctx.iv);
-    // hoy: lo que falta del día lo completa la semana tipo
-    if(dia.fs<ctx.hoy||tr.length)return{cod:null,tr,src:'fichaje'};
+  // Persona de corte, día ya vivido sin nada cargado: lo que fichó (pedido de German).
+  if(r.a==='p'&&dia.fs<ctx.hoy&&ctx.iv.length){
+    const tr=_planTramosPersonaFichaje(r.id,dia.fs,ctx.iv);
+    return{cod:null,tr,src:'fichaje'};
   }
   const t=(_planTipo()[r.k]||[])[dia.dow]||'0';
   return{cod:t,tr:(PLAN_TURNOS[t]||PLAN_TURNOS['0']).tr,src:'tipo'};
@@ -64694,7 +64746,7 @@ function _planResolver(r,dia,ctx){
 function _planCtx(){
   const dias=_planDiasMes(PLAN.ym);
   const cortes=_planRecursos().filter(r=>r.a==='c');const corteIdx={};cortes.forEach((r,i)=>corteIdx[r.k]=i+1);
-  const d0=new Date(dias[0].fs+'T00:00:00');d0.setDate(d0.getDate()-35);
+  const d0=new Date(dias[0].fs+'T00:00:00');d0.setDate(d0.getDate()-36);
   return{dias,hoy:localDate(),filas:PLAN.filas||{},corteIdx,iv:_planPresencias(localDate(d0),dias[dias.length-1].fs)};
 }
 async function _planCargarFilas(ym){
@@ -64735,6 +64787,7 @@ function _planAplicar(rk,fs){
   if(!PLAN.pincel)return;
   const k=rk+'|'+fs;
   const area=rk.slice(0,1);
+  if(area==='c'){toast('Las cortadoras no se cargan: salen de los turnos de los operarios','amber');PLAN.pintando=false;return;}
   if(PLAN.pincel==='X'){PLAN.cambios[k]=(PLAN.filas&&PLAN.filas[k])?null:undefined;if(PLAN.cambios[k]===undefined)delete PLAN.cambios[k];}
   else{const t=PLAN_TURNOS[PLAN.pincel];if(!t||(t.a!=='*'&&t.a!==area))return;
     const f=PLAN.filas&&PLAN.filas[k];if(f&&f.turno===PLAN.pincel)delete PLAN.cambios[k];else PLAN.cambios[k]=PLAN.pincel;}
@@ -64748,8 +64801,8 @@ function planCopiarSemana(){
   const lun=dias.find(x=>x.dow===1);if(!lun){toast('El mes no tiene lunes','amber');return;}
   const i0=dias.indexOf(lun),base=dias.slice(i0,i0+7);
   if(!confirm('Copiar la semana del '+_dkFecha(base[0].fs)+' al resto del mes (los feriados quedan como están)?'))return;
-  _planRecursos().forEach(r=>{
-    const pat={};base.forEach(d=>{const x=_planResolver(r,d,ctx);pat[d.dow]=x.cod!=null?x.cod:null;});
+  _planRecursos().filter(r=>!r.calc).forEach(r=>{
+    const pat={};base.forEach(d=>{const x=_planResolver(r,d,ctx);pat[d.dow]=x.cod!=null?x.cod:(r.a==='p'?_planCodigoDeTramos(x.tr):null);});
     dias.slice(i0+7).forEach(d=>{const c=pat[d.dow];if(c==null)return;const tipoArea=r.a==='e'?'extrusion':'corte';if(_esFeriadoProd(d.fs,tipoArea))return;
       const k=r.k+'|'+d.fs;const f=PLAN.filas[k];if(f&&f.turno===c)delete PLAN.cambios[k];else PLAN.cambios[k]=c;});
   });
@@ -64773,7 +64826,7 @@ function planGuardar(){
 function planEditarTipo(on){PLAN.editTipo=on;PLAN.tipoDraft=on?JSON.parse(JSON.stringify(_planTipo())):null;_planPintar();}
 function planTipoCelda(rk,dow){
   if(!PLAN.pincel){toast('Elegí primero un turno de la barra','amber');return;}
-  if(PLAN.pincel==='X')return;
+  if(PLAN.pincel==='X'||rk.slice(0,1)==='c')return;
   const t=PLAN_TURNOS[PLAN.pincel];if(t.a!=='*'&&t.a!==rk.slice(0,1))return;
   PLAN.tipoDraft[rk]=PLAN.tipoDraft[rk]||['0','0','0','0','0','0','0'];PLAN.tipoDraft[rk][dow]=PLAN.pincel;_planPintar();
 }
@@ -64789,8 +64842,8 @@ function _planCelda(x,extra){
   const t=x.cod!=null?PLAN_TURNOS[x.cod]:null;
   const h=_planHoras(x.tr);
   const lbl=x.src==='feriado'?'F':t?t.l:(h?Math.round(h)+'h':'');
-  const cls=x.src==='feriado'?'pkF':t?t.cls:(h?'pkFi':'pk0');
-  const tip=(x.src==='feriado'?'Feriado: '+(x.fer||''):t?t.d:'por fichaje: '+x.tr.map(a=>a[0]+'–'+(a[1]>24?a[1]-24:a[1])).join(', '))+' · '+_velF(h,0)+' h · '+({cargado:'cargado'+(x.pend?' (sin guardar)':''),fichaje:'sale de los fichajes',tipo:'semana tipo',feriado:'feriado del calendario'}[x.src]);
+  const cls=x.src==='feriado'?'pkF':t?t.cls:(!h?'pk0':x.src==='calc'?'pkCalc':'pkFi');
+  const tip=(x.src==='feriado'?'Feriado: '+(x.fer||''):t?t.d:(x.src==='calc'?'con operario: ':'fichado: ')+x.tr.map(a=>a[0]+'–'+(a[1]>24?a[1]-24:a[1])).join(', '))+' · '+_velF(h,0)+' h · '+({cargado:'cargado'+(x.pend?' (sin guardar)':''),fichaje:'lo que fichó',tipo:'semana tipo',feriado:'feriado del calendario',calc:'calculado de los turnos de los operarios'}[x.src]);
   return {lbl,cls:cls+' pr-'+x.src+(x.pend?' pr-pend':''),tip,h};
 }
 function _planPintar(){
@@ -64805,7 +64858,7 @@ function _planPintar(){
   const nC=Object.keys(PLAN.cambios).length;
   h+='<div class="card dk-card pr-bar">'
     +'<div class="pr-mes"><button class="btn btn-sm" onclick="planMes(-1)" aria-label="Mes anterior">‹</button><b>'+mesNom+'</b><button class="btn btn-sm" onclick="planMes(1)" aria-label="Mes siguiente">›</button></div>'
-    +'<div class="pr-pins"><span class="pr-pl">Extrusión</span>'+['24','D6','S12'].map(pin).join('')+'<span class="pr-pl">Corte</span>'+['MT','M','T','N','M12'].map(pin).join('')+'<span class="pr-pl"></span>'+pin('0')
+    +'<div class="pr-pins"><span class="pr-pl">Extrusión</span>'+['24','D6','S12'].map(pin).join('')+'<span class="pr-pl">Operarios de corte</span>'+['M','L','T','N','M12'].map(pin).join('')+'<span class="pr-pl"></span>'+pin('0')
     +'<button type="button" class="pr-pin pkX'+(PLAN.pincel==='X'?' on':'')+'" onclick="planPincel(\'X\')" title="Borra lo cargado: el día vuelve a la semana tipo / fichajes">⌫<span>borrar carga</span></button></div>'
     +'<div class="pr-acc">'+(PLAN.editTipo?'':'<button class="btn btn-sm" onclick="planCopiarSemana()">Copiar 1ª semana al mes</button><button class="btn btn-sm" onclick="planEditarTipo(true)">Semana tipo</button>')
     +(nC?'<button class="btn btn-sm" onclick="planDescartar()">Descartar</button><button class="btn btn-sm btn-primary" onclick="planGuardar()">Guardar '+nC+' cambio'+(nC===1?'':'s')+'</button>':'')+'</div></div>';
@@ -64813,7 +64866,7 @@ function _planPintar(){
     const D=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'],ord=[1,2,3,4,5,6,0];
     h+='<div class="card dk-card vel-c"><div class="vel-ct">Semana tipo <span class="dk-mut" style="font-weight:400;font-size:12.5px">— la base de todos los días que no tienen nada cargado. Elegí un turno arriba y tocá los días.</span></div>'
       +'<table class="pr-grid pr-tipo"><thead><tr><th class="pr-rl"></th>'+ord.map(d=>'<th>'+D[d]+'</th>').join('')+'<th class="pr-tot">h/sem</th></tr></thead><tbody>'
-      +recs.map(r=>{const row=PLAN.tipoDraft[r.k]||['0','0','0','0','0','0','0'];const tot=row.reduce((s,c)=>s+_planHoras((PLAN_TURNOS[c]||PLAN_TURNOS['0']).tr),0);
+      +recs.filter(r=>!r.calc).map(r=>{const row=PLAN.tipoDraft[r.k]||['0','0','0','0','0','0','0'];const tot=row.reduce((s,c)=>s+_planHoras((PLAN_TURNOS[c]||PLAN_TURNOS['0']).tr),0);
         return '<tr><td class="pr-rl">'+escapeHtml(r.n)+'</td>'+ord.map(d=>{const t=PLAN_TURNOS[row[d]]||PLAN_TURNOS['0'];return '<td class="pr-c '+t.cls+'" onclick="planTipoCelda(\''+r.k+'\','+d+')" title="'+escapeHtml(t.d)+'">'+t.l+'</td>';}).join('')+'<td class="pr-tot">'+_velF(tot)+'</td></tr>';}).join('')
       +'</tbody></table><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn btn-sm" onclick="planEditarTipo(false)">Cancelar</button><button class="btn btn-sm btn-primary" onclick="planGuardarTipo()">Guardar semana tipo</button></div></div>';
     w.innerHTML=h;return;
@@ -64832,7 +64885,13 @@ function _planPintar(){
   // horas planificadas de los últimos 28 días (para el % de uso)
   const hoyD=new Date(ctx.hoy+'T00:00:00');const pas=[];for(let i=28;i>=1;i--){const dt=new Date(hoyD);dt.setDate(dt.getDate()-i);pas.push({fs:localDate(dt),d:dt.getDate(),dow:dt.getDay()});}
   const ctxP=Object.assign({},ctx,{});
-  let totE=0,totC=0,capKg=0,capG=0;
+  let totE=0,totC=0,totP=0,capKg=0,capG=0;
+  // Uso de CORTE por ÁREA (German 03/11): horas cortando de todas las cortadoras ÷ horas-máquina
+  // planificadas (que salen de los turnos de los operarios). Por máquina no tiene sentido: la misma
+  // persona pasa de una cortadora a la otra, empaqueta, cambia bobina.
+  let hPasC=0,hProdC=0;
+  recs.filter(r=>r.calc).forEach(r=>{pas.forEach(d=>{hPasC+=_planHoras(_planResolver(r,d,ctxP).tr);});const v0=vel[r.k];if(v0&&v0.hProd)hProdC+=v0.hProd;});
+  const usoC=hPasC>0?Math.min(1,hProdC/hPasC):null;
   const body=recs.map(r=>{
     let hm=0;
     const tds=dias.map(d=>{const x=_planResolver(r,d,ctx);const c=_planCelda(x);hm+=c.h;
@@ -64855,24 +64914,27 @@ function _planPintar(){
         else if(hPas>0){const rh=kg/hPas;velTxt=_velF(rh,1)+'*';usoTxt='sin PLC';const c=hm*rh;capKg+=c;cap=_velF(c/1000,1)+' t';
           tipR='Sin PLC: '+_velF(kg)+' kg ÷ '+_velF(hPas)+' h planificadas (velocidad y uso juntos).';}
       }}
-    else{totC+=hm;const rs=(V&&V.corte.dias||[]).filter(x=>'c:'+x.maquina===r.k);
-      if(v&&v.gpm){velTxt=_velF(v.gpm,1);usoTxt=uso!=null?_velF(uso*100)+'%':'—';
-        const c=hm*(uso!=null?uso:1)*v.gpm*60;capG+=c;cap=_velF(c/1000)+' mil golpes';
-        tipR=_velF(v.gpm,1)+' golpes/min cortando. Cortó '+_velF(v.hProd)+' h de '+_velF(hPas)+' h planificadas.';}}
+    else if(r.a==='p'){totP+=hm;tipR='horas de esta persona en el mes';}
+    else{totC+=hm;
+      if(v&&v.gpm){velTxt=_velF(v.gpm,1);usoTxt=usoC!=null?_velF(usoC*100)+'%':'—';
+        const c=hm*(usoC!=null?usoC:1)*v.gpm*60;capG+=c;cap=_velF(c/1000)+' mil golpes';
+        tipR=_velF(v.gpm,1)+' golpes/min cortando. Uso del ÁREA de corte (últimos 28 días): las cortadoras cortaron '+_velF(hProdC)+' h de '+_velF(hPasC)+' h-máquina con operario.';}}
     return '<tr><td class="pr-rl">'+escapeHtml(r.n)+'</td>'+tds+'<td class="pr-tot">'+_velF(hm)+'</td><td class="pr-tot" title="'+escapeHtml(tipR)+'">'+(velTxt?velTxt+'<span class="dk-mut"> '+(r.a==='e'?'kg/h':'g/min')+'</span>':'<span class="dk-mut">—</span>')+'</td><td class="pr-tot pr-uso" title="'+escapeHtml(tipR)+'">'+(usoTxt||'<span class="dk-mut">—</span>')+'</td><td class="pr-tot pr-cap">'+(cap||'<span class="dk-mut">—</span>')+'</td></tr>';
   });
-  const sepIdx=recs.findIndex(r=>r.a==='c');
-  const rowsHtml=body.map((b,i)=>(i===sepIdx?'<tr class="pr-sep"><td colspan="'+(dias.length+5)+'"></td></tr>':'')+b).join('');
+  const sepP=recs.findIndex(r=>r.a==='p'),sepC=recs.findIndex(r=>r.a==='c');
+  const sepRow=t=>'<tr class="pr-sep"><td class="pr-rl pr-st" colspan="'+(dias.length+5)+'">'+t+'</td></tr>';
+  const rowsHtml=body.map((b,i)=>(i===sepP?sepRow('Operarios de corte · se cargan'):i===sepC?sepRow('Cortadoras · salen solas de los operarios (C1 con 1 persona, C2 con 2, la 3ª con 3)'):'')+b).join('');
   h+=_dkKpis([
     {l:'Extrusión planificada',v:_velF(totE)+' <span class="vel-u">h</span>',s:capKg?'≈ '+_velF(capKg/1000,1)+' t con la velocidad y el uso de los últimos 28 días':(PLAN.kg28?'sin producción reciente':'leyendo producción…')},
-    {l:'Corte planificado',v:_velF(totC)+' <span class="vel-u">h-máquina</span>',s:capG?'≈ '+_velF(capG/1e6,2)+' M golpes con la velocidad y el uso de los últimos 28 días':(V?'sin datos de corte':'leyendo…')},
+    {l:'Corte planificado',v:_velF(totC)+' <span class="vel-u">h-máquina</span>',s:_velF(totP)+' h-persona'+(capG?' · ≈ '+_velF(capG/1e6,2)+' M golpes':'')},
+    {l:'Uso del área de corte',v:usoC!=null?_velF(usoC*100)+' %':'—',cls:usoC!=null&&usoC<0.6?'dk-warn':'',s:'últimos 28 días: '+_velF(hProdC)+' h cortando de '+_velF(hPasC)+' h-máquina con operario',title:'Horas en que las cortadoras cortaron ÷ horas-máquina que tenían operario. Lo que falta para el 100 % son cambios de bobina, empaque, paradas.'},
     {l:'Días con algo cargado',v:String(new Set(Object.keys(ctx.filas).filter(k=>k.split('|')[1].slice(0,7)===PLAN.ym).map(k=>k.split('|')[1])).size),s:'el resto: semana tipo o fichajes'}
   ]);
   h+='<div class="card dk-card vel-c pr-wrap"><table class="pr-grid" onmouseleave="planUp()"><thead><tr><th class="pr-rl"></th>'
     +dias.map(d=>'<th class="'+(d.fs===ctx.hoy?'pr-hoy':'')+(d.dow===0?' pr-dom':'')+'">'+L[d.dow]+'<br>'+d.d+'</th>').join('')
     +'<th class="pr-tot">h/mes</th><th class="pr-tot" title="Velocidad produciendo, últimos 28 días: kg ÷ horas produciendo del PLC (corte: golpes por minuto cortando)">velocidad</th><th class="pr-tot" title="Horas produciendo ÷ horas planificadas, últimos 28 días">uso</th><th class="pr-tot">capacidad</th></tr></thead><tbody>'+rowsHtml+'</tbody></table>'
-    +'<div class="pr-ley"><span><i class="pr-k pr-cargado pk24"></i>cargado</span><span><i class="pr-k pr-tipo pk24"></i>semana tipo</span><span><i class="pr-k pkFi pr-fichaje"></i>por fichajes (corte, días vividos)</span><span><i class="pr-k pkF"></i>feriado</span><span><i class="pr-k pr-pend pk24"></i>sin guardar</span></div>'
-    +'<div class="vel-note">Velocidad = lo que hace la máquina mientras produce (kg ÷ horas produciendo del PLC, últimos 28 días; en corte golpes por minuto cortando). Uso = de las horas planificadas, cuántas estuvo produciendo. Capacidad del mes = horas planificadas × uso × velocidad. * máquina sin PLC: kg ÷ horas planificadas. En corte con fichajes, la máquina k tiene operario cuando hay k o más personas de corte presentes. El cronograma todavía no lee este plan: se conecta en el próximo paso.</div></div>';
+    +'<div class="pr-ley"><span><i class="pr-k pr-cargado pk24"></i>cargado</span><span><i class="pr-k pr-tipo pk24"></i>semana tipo</span><span><i class="pr-k pkFi pr-fichaje"></i>lo que fichó (días pasados sin cargar)</span><span><i class="pr-k pkCalc"></i>horas de la cortadora (calculadas)</span><span><i class="pr-k pkF"></i>feriado</span><span><i class="pr-k pr-pend pk24"></i>sin guardar</span></div>'
+    +'<div class="vel-note">Velocidad = lo que hace la máquina mientras produce (kg ÷ horas produciendo del PLC, últimos 28 días; en corte golpes por minuto cortando). Uso = de las horas planificadas, cuántas estuvo produciendo. Capacidad del mes = horas planificadas × uso × velocidad. * máquina sin PLC: kg ÷ horas planificadas. En corte se cargan los turnos de las personas; cada cortadora trabaja las horas en que hay tantas personas como su número (C1 con 1, C2 con 2). El uso de corte es del área entera. El cronograma todavía no lee este plan: se conecta en el próximo paso.</div></div>';
   w.innerHTML=h;
 }
 

@@ -21,3 +21,10 @@ create policy plan_rec_carga on public.plan_recursos for insert with check (true
 create policy plan_rec_cambia on public.plan_recursos for update using (true) with check (true);
 create policy plan_rec_borra on public.plan_recursos for delete using (true);
 grant select, insert, update, delete on public.plan_recursos to anon, authenticated;
+
+-- 03/11 (2ª migración, plan_recursos_operarios): en corte se planifican PERSONAS ('p:<empleados.id>')
+-- y las cortadoras salen calculadas. Turno nuevo 'L' (largo 6–18).
+alter table public.plan_recursos drop constraint if exists plan_recursos_recurso_check;
+alter table public.plan_recursos drop constraint if exists plan_recursos_turno_check;
+alter table public.plan_recursos add constraint plan_recursos_recurso_check check (recurso ~ '^(e|c|p):[0-9]+$');
+alter table public.plan_recursos add constraint plan_recursos_turno_check check (turno in ('24','D6','S12','M','L','T','N','M12','0'));
