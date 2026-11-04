@@ -8,7 +8,7 @@ t(/_mpAsignar\(activas\)/.test(eng)&&/backfilling/.test(eng),'prendido → asign
 global.J_INI=6;global.cfg={plan_mp:'respetar',plan_mp_lead_dias:4};
 global.localDate=d=>{const x=d||new Date();return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');};
 global.C={bobinas_prod:[],formulas:[{bobina_id:10,tipo_mp_id:1,porcentaje:90},{bobina_id:10,tipo_mp_id:2,porcentaje:10},{bobina_id:11,tipo_mp_id:3,porcentaje:100}],tipos_mp:[],lotes_mp:[],compras_gastos:[]};
-['_mpPlanOn','_mpLeadDias','_mpLlegada','_mpAsignar','_prgMPRequiere','_ocmpTodosLotes','_ocmpLotesIdx','_ocmpTol','_ocmpProm','_ocmpLinea','_ocmpNetoFactura','_ocmpOrden','_ocmpTodas','_ocmpDias','_ocmpMediana','_ocmpProvStats','_ocmpLlegadas']
+['_mpPlanOn','_mpLeadDias','_mpLlegada','_mpAsignar','_prgMPRequiere','_ocmpTodosLotes','_ocmpLotesIdx','_ocmpTol','_ocmpProm','_ocmpLinea','_ocmpNetoFactura','_ocmpLinIdx','_ocmpPrecioLote','_ocmpFacturaCtrl','_ocmpOrden','_ocmpTodas','_ocmpDias','_ocmpMediana','_ocmpProvStats','_ocmpLlegadas']
   .forEach(f=>{const b=cuerpo(f);if(!b){t(false,'falta '+f);return;}eval.call(global,b.replace('function '+f,'global.'+f+'=function'));});
 t(_mpPlanOn(),'interruptor lee cfg.plan_mp');
 const L9=_mpLlegada('9','2026-11-04');
@@ -24,15 +24,18 @@ const d=s=>new Date(s+'T06:00:00');
 R=_mpAsignar(A,{1:1200,2:100,3:80},'2026-11-04',{'1':[{fecha:d('2026-11-10'),kg:100,pc:'PC-1'},{fecha:d('2026-11-12'),kg:500,pc:'PC-2'}],'2':[{fecha:d('2026-11-09'),kg:80,pc:'PC-3'}]});
 t(R[2].llega.getDate()===12&&!R[2].estimado&&R[2].cubre['1'].length===2&&!Object.keys(R[2].sinCompra).length,'cubierta por compras → llega con el último camión que hace falta, confirmada');
 // órdenes de compra: recepciones parciales y cumplimiento
-C.lotes_mp=[{id:1,ocmp_linea_id:11,kg_ingresados:8980,fecha_ingreso:'2026-10-05',tipo_mp_id:1},{id:2,ocmp_linea_id:21,kg_ingresados:4900,fecha_ingreso:'2026-10-22',tipo_mp_id:1},
+C.lotes_mp=[{id:1,ocmp_linea_id:11,kg_ingresados:8980,fecha_ingreso:'2026-10-05',tipo_mp_id:1,factura_compra_id:6},{id:2,ocmp_linea_id:21,kg_ingresados:4900,fecha_ingreso:'2026-10-22',tipo_mp_id:1,factura_compra_id:5},
   {id:3,ocmp_linea_id:31,kg_ingresados:3000,fecha_ingreso:'2026-11-03',tipo_mp_id:1}];
 C.ocmp=[{id:1,numero:'PC-1',proveedor_id:7,fecha:'2026-10-01',fecha_prometida:'2026-10-03',tolerancia_pct:3,cerrada_el:'x',ordenes_compra_mp_lineas:[{id:11,tipo_mp_id:1,kg_pedidos:10000,precio_kg:1000}]},
   {id:2,numero:'PC-2',proveedor_id:7,fecha:'2026-10-18',fecha_prometida:'2026-10-20',tolerancia_pct:3,ordenes_compra_mp_lineas:[{id:21,tipo_mp_id:1,kg_pedidos:5000,precio_kg:1000}]},
   {id:3,numero:'PC-3',proveedor_id:7,fecha:'2026-11-01',fecha_prometida:'2026-11-06',tolerancia_pct:3,ordenes_compra_mp_lineas:[{id:31,tipo_mp_id:1,kg_pedidos:10000,precio_kg:1000}]}];
-C.compras_gastos=[{id:5,ocmp_id:2,neto:4900000},{id:6,ocmp_id:1,neto:9500000}];
+C.compras_gastos=[{id:5,neto:4900000,plano:'negro'},{id:6,neto:9500000,plano:'blanco'}];C.ocmp[0].plano='blanco';C.ocmp[1].plano='blanco';
 const O=_ocmpTodas('2026-11-04');
 t(O[0].estado==='faltante'&&O[1].estado==='completa'&&O[2].estado==='parcial','estados derivados: cerrada con faltante · recibida dentro de tolerancia · parcial');
-t(O[1].ctrl==='ok'&&O[0].ctrl==='dif'&&Math.round(O[0].dif)===520000,'control con la factura: coincide / diferencia');
+const F6=_ocmpFacturaCtrl(6),F5=_ocmpFacturaCtrl(5);
+t(F6.ctrl==='dif'&&Math.round(F6.dif)===520000&&F6.ordenes[0]==='PC-1'&&!F6.planoDif,'factura contra sus recepciones: diferencia +$520.000');
+t(F5.ctrl==='dif'&&F5.planoDif&&Math.round(F5.dif)===0,'mismo importe pero factura en negro contra orden en blanco → avisa');
+t(O[0].ctrl==='dif'&&O[2].ctrl==='sin_factura'&&O[2].kgSinFac===3000,'la orden marca factura con diferencia / kg sin facturar');
 const S=_ocmpProvStats('2026-11-04',O)[7];
 t(Math.abs(S.fill-(13880/15000))<1e-9&&S.atraso===2,'cumplimiento 92,5 % y atraso típico 2 días');
 const LL=_ocmpLlegadas('2026-11-04')['1'];
