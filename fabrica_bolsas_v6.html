@@ -1622,6 +1622,14 @@ td.dk-red{color:var(--red);font-weight:500;}
 
 
 
+
+/* ═══ 02n — ⚙ capacidad ficha | medida (Planificar) ═══ */
+.cap-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:9px 14px;margin-bottom:10px;font-size:12px;color:var(--text2);}
+.cap-l{font-weight:600;color:var(--text1);}
+.cap-seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.cap-seg button{border:0;background:transparent;padding:5px 12px;font-size:12px;cursor:pointer;color:var(--text2);font-family:inherit;}
+.cap-seg button.on{background:#9333ea;color:#fff;font-weight:600;cursor:default;}
+.cap-d{flex:1;min-width:240px;line-height:1.45;}
 /* ═══ 02l — ⚡ energía (Extrusión en vivo, oscuro) y 📷 cámaras ═══ */
 .evx-ene{display:flex;flex-direction:column;gap:10px;}
 .evx-ene .evx-kpis{margin:0;}
@@ -1808,7 +1816,7 @@ td.pr-c.pr-pend{box-shadow:inset 0 0 0 2px #c98a0b;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-11-02m</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-11-02n</span></div>
     <!-- ⚡ 29a: accesos rápidos + buscador + más usados (bloque // ===== ⚡ ACCESOS RÁPIDOS) -->
     <div id="qa-wrap">
       <div id="qa-btns">
@@ -4202,6 +4210,7 @@ td.pr-c.pr-pend{box-shadow:inset 0 0 0 2px #c98a0b;}
         </div>
       </div>
 
+      <div id="plan-cap-bar"></div>   <!-- 02n ⚙ capacidad ficha | medida -->
       <!-- LEYENDA / AYUDA -->
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--text2);">
         <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:center;">
@@ -7225,7 +7234,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-11-02m';   // 02m: ⚡ CALIDAD DE ENERGÍA en la tarjeta de Extrusión en vivo (sólo lo que cuesta plata o cuida las máquinas; el detalle por fase queda en el localhost del medidor): demanda máxima del mes (15 min) contra 45 kW con las veces excedida, cos φ 24 h, tensión mín–máx 24 h y avisos del medidor (energia_alertas) también en la lista de Alertas. Sólo lectura. Antes 02l:   // 02l: ⚡ ENERGÍA DE PLANTA (medidor general, sólo lectura; las tablas energia_* las escribe la PC): en Extrusión en vivo tarjeta con kW ahora, kWh hoy, kWh/kg hoy y 7 días contra la base 0,50 (kg netos), aviso «medidor sin datos desde» y línea de kW de la planta arriba de las extrusoras; kWh, kWh/kg y kW prom por turno; alarma «Consumo sin producción» (> 10 kW ≥ 45 min con 0 extrusoras produciendo según el PLC; dice si estaba fuera de turno del plan); energía de cada OE (kWh de la planta × kg de la OE ÷ kg de la planta en el lapso) y precio configuracion.energia_precio_kwh con clave; en Plan de recursos (sólo dueño) kWh del mes, kWh por hora de extrusión real, proyección y fila kWh por día con rojo si consumió sin extrusión planificada. 📷 CÁMARAS (sólo dueño): botón 📷 en Bobinas cerradas con la hoja del pulsador (EXT-03 las dos cámaras), pantalla 📷 Cámaras con la última imagen de las 4 (se renueva cada 60 s, aviso si una tiene más de 5 min) y aperturas de la puerta de noche. Links firmados por la función camaras. Antes 02k:   // 02k: 🗓 PLAN DE RECURSOS (Producción): grilla mensual máquina × día con pincel (tocar o arrastrar), semana tipo editable, copiar semana al mes, feriados solos; días sin cargar = semana tipo y, en corte ya vivido, los fichajes (máquina k con operario cuando hay ≥ k personas de corte); horas del mes, % de uso medido y capacidad (t y golpes). Tabla nueva plan_recursos. Todavía no alimenta el cronograma. Antes 02j:   // 02j: 📐 VELOCIDADES REALES (Producción, etapa 1): kg/h por máquina y bobina medidos por el PLC (horas produciendo = seg_prod), estándar = mediana si hay ≥ 5 bobinas y si no modelo de la máquina (mín. velocidad de línea × kg/m ; kg/h máx.), dispersión kg/h vs g/m con el modelo y la ficha, carta de control del índice real/estándar, disponibilidad; corte: golpes/min por cortadora y día, y en C1 (PLC2, cortinas) bolsas medidas = golpes × pistas activas y pistas que golpearon sin film. Funciones SQL de solo lectura vel_corte_*. Antes 02i:   // 02i: 📊 DASHBOARD COMERCIAL pro (Pedidos → Dashboard ventas): ventas = lo entregado con costo real (misma función que Resultado del mes), kilos y $/kg, margen marginal (c/GG secundario), cartera a entregar, por cobrar con días de calle, gráfico 12 meses formal/informal + margen %, embudo de pedidos abiertos, atención, antigüedad de deuda, Pareto de clientes, clientes que dejaron de comprar y productos. Sólo lectura. Antes 02h:   // 02h: 📦 OC «Pendiente empaque» ya no figura como «OC en cola» en el pedido (línea: «Cortado · falta empaque», pedido: estado nuevo con los mismos tratos que «En máquina»); en Órdenes de corte el botón «Cargar bultos y cerrar» queda a la vista. Antes 02g:   // 02g: ✂ cierre de OC: si una pista siguió golpeando sin su bobina (corrió vacía) se cuenta pista por pista y el renglón CORTADORA dice qué pista y cuántos golpes (vacía o bobina sin escanear). OC-1052925 daba SOBRAN 2.794 falso. Antes 02f:   // 02f: 🧾 FACTURAS · REMITOS · RV · CUENTA CORRIENTE nivel pro: resumen arriba, solapas, filtros rápidos, buscador, columna Vence, menú ⋯ (mismas acciones), antigüedad por cliente y panel de cuenta. Antes 02e:   // 02e: 🧾 FACTURACIÓN Y COBRANZAS (remitos, facturas, RV, recibos, cuenta corriente, cliente 360°, análisis de deudas, compensaciones) en lenguaje ejecutivo CLARO. Sólo CSS scoped. Antes 02d:   // 02d: ✂ cierre de OC: si la cantidad de pistas cambió durante la orden (OC-1052989: 3 pistas y después pares 1+3, 2+3, 1+4), se cuenta pista por pista y ya no dice «LOS GOLPES NO CIERRAN con ningún número de pistas». Antes 02c:   // 02c: 🧾 NUEVO PEDIDO v2 en dos columnas (carga | resumen fijo) + «Cuenta del cliente». Mismos ids y lógica de guardado. Antes 02b:   // 02b: ✂ ÓRDENES DE CORTE — tabla compacta (9 columnas, detalle desplegable, menú ⋯). Antes 02a:   // 02a: 🧾 PEDIDOS (lista/dashboard, detalle, Nuevo pedido v2) en lenguaje ejecutivo CLARO. Solo CSS scoped. Antes 01e:   // 01e: OC — nombre del producto más grande. Antes 01d:   // 01d: encabezado blanco sobrio y fijo (reemplaza la franja oscura de 01c) en Flujo de caja y Órdenes de corte. Antes 01b:   // 01b: ✂ ÓRDENES DE CORTE en lenguaje ejecutivo CLARO (solo CSS scoped). Antes 01a:   // 01a: 💵 FLUJO DE CAJA en lenguaje ejecutivo CLARO (Inter, cifras tabulares, fondo blanco). Solo CSS scoped + var(--orange) en el JS. Antes 30d:   // 30d: 💳 TARJETA: consumos con categoría que NO afecta resultado (bien de uso, empaque) ya no restan en Resultado del mes. Antes 30c:   // 30c: 📦 INVENTARIO ANULADO: los inventarios de MP anulados ya no cuentan en «Diferencias reales de inventario MP» (Resultado del mes, comparación y salud). El inv. 52 del 29/10 se anuló y rehízo como 53, pero la base no aceptaba el estado «anulado» y quedó como completado: sumaba −$2,61 M falsos (recuperado caramelo 1.191 kg). Base corregida (CHECK + marca) y la anulación ahora avisa si no puede marcarse. Antes 30b:   // 30b: 📄 TOPE DE 1000 FILAS: Compras y gastos (1002) y Pagos a proveedores (1031) se cargaban truncados (se perdían los más viejos → saldos de proveedores inflados); ahora se cargan paginados, igual que Movimientos de caja, Pedidos y Remitos (preventivo). Si una página falla se avisa en rojo. Antes 30a:   // 30a: 🏛 NC/ND a ARCA: al confirmar EMITIR muestra a qué factura va asociada (PV y número salen del NÚMERO de la factura) y NO emite si la factura es de otro cliente, no tiene CAE o el número no se lee (NC Collinet salieron asociadas a 0001-xxxx de otro cliente) · 📢 traba de aumento repetido: si el cliente ya tuvo una suba en esos productos en los últimos 30 días, hay que escribir AUMENTAR (Collinet: 8% aplicado dos veces). Antes 29i:   // 29i: ✂ cierre de OC: mira los escaneos de las 36 h anteriores (antes 12): la OC-1052988 recibía 684 golpes de la OC-1052923 (C1 06:03–06:37), cuyo último escaneo era de 16 h antes. Antes 29h: el botón «+ Nuevo pedido» de la pantalla Pedidos también abre Nuevo pedido v2 ✨. Antes 29g: el botón rápido «＋ Pedido» (y «Nuevo pedido» en Ctrl+K) abre Nuevo pedido v2 ✨ (German: es el que funciona). Antes 29f:   // 29f: 🏭 estación: «Cambiar orden» dice en pantalla que cambia SÓLO en esa máquina y con qué orden siguen las otras (el operario de EXT-07 no cambiaba por miedo a cambiar también EXT-03); sin órdenes asignadas pide a la oficina la próxima. Antes 29e: 🏭 ESTACIÓN DE EXTRUSIÓN: con una máquina sin orden (EXT-07) y el aviso «¿cambiaste de producto?» la tarjeta leía oe.numero_orden de null y la estación entera quedaba en «Sin cuentametros» sin refrescar (29/10 13:19). Arreglado, y ahora una tarjeta que falla no apaga las otras ni el refresco; antes de la primera lectura dice «Leyendo el cuentametros…». Antes 29d: 🖨 CLIENTE 360° · «Imprimir para el cliente» sale en UNA hoja A4: «Saldo anterior al …» + últimos 26 movimientos + saldo final (antes todo el historial: Fénix 3 hojas); para uso interno «📜 Ver historial completo» en pantalla y «🖨 Historial completo (interno)». Antes 29c: 🔒 las mejoras de 29a/29b (más usados, Ctrl+K, selectores con buscador) funcionan SOLO en PCs que entraron como 🏢 Oficina; en las estaciones de planta (corte/extrusión) quedan apagadas y la planta se comporta como el 28b (German: en la PC de cortadores el foco de la pistola se iba; con 28b anduvo). Antes 29b: 🔎 SELECTORES CON BUSCADOR (pedido de German): clic con el mouse en cualquier selector de 12 opciones o más (clientes en pedidos, remitos, facturas, recibos, filtros, proveedores, productos…) abre una ventana grande con buscador; al elegir pone el valor en el mismo selector y dispara su onchange de siempre (Alt+↓/F4 desde el teclado; táctil y modos planta siguen con la lista común) · 👤 CLIENTE 360° más grande (zoom 1.15) con buscador de clientes arriba (nombre, razón social, código o CUIT, muestra la deuda), recientes, y entrada propia en el menú (Facturación y cobranzas). Antes 29a: ⚡ ACCESOS RÁPIDOS (pedido de German): botones ＋ Gasto / Pago / Recibo / Remito / Pedido arriba del menú; ⭐ «Más usados» (las 5 pantallas que más se abren en ESA PC + las fijadas con ⭐); 🔍 buscador Ctrl+K de pantallas y acciones (apagado en modos planta); formulario de Compras y Gastos con campos más grandes. Todo agregado: el menú y las pantallas siguen igual. Antes 28b: 📦 las facturas anticipadas nuevas ya no mandan a ARCA la frase «factura anticipada…» (la leyenda del comprobante queda «Pedido PED-…» + lo escrito a mano); en la lista de facturas se marcan con el chip 📦 ANTICIPADA (derivado de sus renglones, solo interno). Antes 28a: 🧾 la factura impresa para el cliente ya no dice «factura anticipada: mercadería a entregar con remitos posteriores» (queda guardado en el sistema para nosotros; sale solo «Pedido PED-…» y lo escrito a mano). Antes 27e: ✂ cierre contado por pistas (otra OC a la vez o restos): el renglón CORTADORA ya no dice «⚠ NO COINCIDE» por los golpes de la máquina por tirada (no aplican) ni pide explicación por eso (OC-1052976). Antes 27d: ♻ EL RESTO SE TERMINA EN LA MISMA ORDEN (German): escanear el resto con otra OC o en otra máquina lo bloquea («es un RESTO de OC-X»); «Terminó de cortar» no deja terminar con restos que no volvieron a una pista (ponelos o «se rompió: va al scrap», queda escrito); la alarma ya no ofrece «la saqué con film y la dejo aparte». Antes 27c: ♻ RESTO DE BOBINA EN OTRA PISTA (German, OC-1053017): si se saca una bobina a medio cortar y el resto se pone en otra pista de la misma orden, se registra escaneándola otra vez o con «♻ PUSE UN RESTO EN OTRA PISTA» en la tarjeta (tabla corte_restos); el cierre sigue la bobina en las dos pistas («♻ el resto siguió en la pista X») y cuenta por pistas en vez de dar SOBRAN/film sin cortar falsos. Antes 27b: la nota del cierre de la OC («✂ Cierre … SOBRAN …») ya no aparece como indicación roja en la lista de órdenes de corte. Antes 27a: ✂ cierre de OC: el botón «✓ Cerrar la orden» no hacía nada cuando se cargaban bolsas prestadas/tomadas de otra OC (la clave del control iba con comillas dentro del onclick). Antes 26g: ⚠ las INDICACIONES de la OC impresa salen GRANDES (17pt, recuadro rojo grueso) pegadas al recuadro de bolsones, con «si no coincide con los números de arriba, manda este recuadro»; el chip de la lista también más grande. Antes 26f: 📝 INDICACIONES DE LA OC: lo que se escribe a mano en las observaciones de una orden de corte (ej. «130 bultos × 4 + 1 bulto × 3» del PED-06144) ahora sale en un recuadro rojo en la orden impresa y como chip en la lista de órdenes de corte; los logs automáticos del sistema («Generada desde pedido…», «[…]») no se muestran (_ocIndicaciones). Antes 26e: 🧾 DDJJ DE IVA: pantalla nueva (F.2051 por período: débito, crédito, ret./perc., saldo, pagado, en plan, pendiente, vencimiento, estado derivado de 💳 Deudas; número rey «IVA adeudado» + cuánto está vencido; 📅 Llevar a Deudas crea la deuda del saldo para que entre en el flujo; la plata se mueve solo desde Deudas) · tipo de deuda nuevo «🧾 Deuda ARCA (no plan)» para saldos de DDJJ sin plan (se comporta igual que un plan ARCA). Antes 26d: ✂ DOS ÓRDENES A LA VEZ en una cortadora (C2: OC-1053011 en 2 pistas + OC-1052976 en otras 2): el cierre de cada OC cuenta lo que cortaron SUS pistas (1 bolsa por golpe hasta terminar cada bobina) en vez de los golpes de la máquina. Antes 26c: 🧷 FUNDAS DE EMPAQUE: 11 fundas (45/50/60/75/80/90 · A/P) como MP «empaque» con medida y g/m; producto→funda; al cerrar la OC se descuenta una funda por paquete (mov_mp, FIFO) y su costo entra al paquete en Rentabilidad y Resultado del mes (desde 22/09); pantalla 🧷 Fundas con stock, días que alcanza, ingreso y conteo. Antes 26b: ✂ cierre de OC con el VEREDICTO CONTRA LOS GOLPES (cortadas − bultos − scrap) y renglón aparte «film que no pasó por la cuchilla» (pide explicación > 3 %); sin golpes, por metros como antes · 📏 factor EXT-07 0,781 → 0,776 (las bobinas medidas antes se llevan al factor nuevo por época). Antes 26a: ⚫⚪ PLANO HABITUAL DEL CLIENTE en el pedido nuevo: al elegir el cliente se pone su plano (80 % o más de sus últimos 6 pedidos) si no se tocó a mano, con chip «habitual: NEGRO (5 de 6)»; al grabar en otro plano pregunta (PED-06132 Muñoz Ezequiel salió en blanco con IVA). Antes 24b: ✂ Corte en vivo con TURNOS (pedido de German): botones «Turno» (el turno en curso) y «Hoy» (desde 06:00) además de 8 h/24 h/3/7 días; tabla «Por turno» (mañana 06–14, tarde 14–22, noche 22–06, igual que Extrusión en vivo) con golpes y uso por cortadora, bolsas, bobinas, operarios, uso del fichado, paradas > 20 min y golpes sin escanear; cortes de turno punteados y nombre del turno en la línea de tiempo.
+const APP_BUILD='2026-11-02n';   // 02n: ⚙ ETAPA 2 · CAPACIDAD MEDIDA en el motor único (calcScheduleReal → Planificar, Gantt, Torre, corte encadenado) con interruptor Ficha | Medida (PLC) en Planificar (clave admin; por defecto Ficha = mismos números que antes). Medida: kg/h del estándar de esa máquina con esa bobina (Velocidades reales) ÷ factor de la máquina (OE cerradas), calendario por máquina del Plan de recursos (+ feriados y paros), OE en varias máquinas: cada una se suma cuando se libera. Sin tiempos de cambio (la extrusora no se apaga). Avisos del medidor: rojo sólo con un grave abierto. Antes 02m:   // 02m: ⚡ CALIDAD DE ENERGÍA en la tarjeta de Extrusión en vivo (sólo lo que cuesta plata o cuida las máquinas; el detalle por fase queda en el localhost del medidor): demanda máxima del mes (15 min) contra 45 kW con las veces excedida, cos φ 24 h, tensión mín–máx 24 h y avisos del medidor (energia_alertas) también en la lista de Alertas. Sólo lectura. Antes 02l:   // 02l: ⚡ ENERGÍA DE PLANTA (medidor general, sólo lectura; las tablas energia_* las escribe la PC): en Extrusión en vivo tarjeta con kW ahora, kWh hoy, kWh/kg hoy y 7 días contra la base 0,50 (kg netos), aviso «medidor sin datos desde» y línea de kW de la planta arriba de las extrusoras; kWh, kWh/kg y kW prom por turno; alarma «Consumo sin producción» (> 10 kW ≥ 45 min con 0 extrusoras produciendo según el PLC; dice si estaba fuera de turno del plan); energía de cada OE (kWh de la planta × kg de la OE ÷ kg de la planta en el lapso) y precio configuracion.energia_precio_kwh con clave; en Plan de recursos (sólo dueño) kWh del mes, kWh por hora de extrusión real, proyección y fila kWh por día con rojo si consumió sin extrusión planificada. 📷 CÁMARAS (sólo dueño): botón 📷 en Bobinas cerradas con la hoja del pulsador (EXT-03 las dos cámaras), pantalla 📷 Cámaras con la última imagen de las 4 (se renueva cada 60 s, aviso si una tiene más de 5 min) y aperturas de la puerta de noche. Links firmados por la función camaras. Antes 02k:   // 02k: 🗓 PLAN DE RECURSOS (Producción): grilla mensual máquina × día con pincel (tocar o arrastrar), semana tipo editable, copiar semana al mes, feriados solos; días sin cargar = semana tipo y, en corte ya vivido, los fichajes (máquina k con operario cuando hay ≥ k personas de corte); horas del mes, % de uso medido y capacidad (t y golpes). Tabla nueva plan_recursos. Todavía no alimenta el cronograma. Antes 02j:   // 02j: 📐 VELOCIDADES REALES (Producción, etapa 1): kg/h por máquina y bobina medidos por el PLC (horas produciendo = seg_prod), estándar = mediana si hay ≥ 5 bobinas y si no modelo de la máquina (mín. velocidad de línea × kg/m ; kg/h máx.), dispersión kg/h vs g/m con el modelo y la ficha, carta de control del índice real/estándar, disponibilidad; corte: golpes/min por cortadora y día, y en C1 (PLC2, cortinas) bolsas medidas = golpes × pistas activas y pistas que golpearon sin film. Funciones SQL de solo lectura vel_corte_*. Antes 02i:   // 02i: 📊 DASHBOARD COMERCIAL pro (Pedidos → Dashboard ventas): ventas = lo entregado con costo real (misma función que Resultado del mes), kilos y $/kg, margen marginal (c/GG secundario), cartera a entregar, por cobrar con días de calle, gráfico 12 meses formal/informal + margen %, embudo de pedidos abiertos, atención, antigüedad de deuda, Pareto de clientes, clientes que dejaron de comprar y productos. Sólo lectura. Antes 02h:   // 02h: 📦 OC «Pendiente empaque» ya no figura como «OC en cola» en el pedido (línea: «Cortado · falta empaque», pedido: estado nuevo con los mismos tratos que «En máquina»); en Órdenes de corte el botón «Cargar bultos y cerrar» queda a la vista. Antes 02g:   // 02g: ✂ cierre de OC: si una pista siguió golpeando sin su bobina (corrió vacía) se cuenta pista por pista y el renglón CORTADORA dice qué pista y cuántos golpes (vacía o bobina sin escanear). OC-1052925 daba SOBRAN 2.794 falso. Antes 02f:   // 02f: 🧾 FACTURAS · REMITOS · RV · CUENTA CORRIENTE nivel pro: resumen arriba, solapas, filtros rápidos, buscador, columna Vence, menú ⋯ (mismas acciones), antigüedad por cliente y panel de cuenta. Antes 02e:   // 02e: 🧾 FACTURACIÓN Y COBRANZAS (remitos, facturas, RV, recibos, cuenta corriente, cliente 360°, análisis de deudas, compensaciones) en lenguaje ejecutivo CLARO. Sólo CSS scoped. Antes 02d:   // 02d: ✂ cierre de OC: si la cantidad de pistas cambió durante la orden (OC-1052989: 3 pistas y después pares 1+3, 2+3, 1+4), se cuenta pista por pista y ya no dice «LOS GOLPES NO CIERRAN con ningún número de pistas». Antes 02c:   // 02c: 🧾 NUEVO PEDIDO v2 en dos columnas (carga | resumen fijo) + «Cuenta del cliente». Mismos ids y lógica de guardado. Antes 02b:   // 02b: ✂ ÓRDENES DE CORTE — tabla compacta (9 columnas, detalle desplegable, menú ⋯). Antes 02a:   // 02a: 🧾 PEDIDOS (lista/dashboard, detalle, Nuevo pedido v2) en lenguaje ejecutivo CLARO. Solo CSS scoped. Antes 01e:   // 01e: OC — nombre del producto más grande. Antes 01d:   // 01d: encabezado blanco sobrio y fijo (reemplaza la franja oscura de 01c) en Flujo de caja y Órdenes de corte. Antes 01b:   // 01b: ✂ ÓRDENES DE CORTE en lenguaje ejecutivo CLARO (solo CSS scoped). Antes 01a:   // 01a: 💵 FLUJO DE CAJA en lenguaje ejecutivo CLARO (Inter, cifras tabulares, fondo blanco). Solo CSS scoped + var(--orange) en el JS. Antes 30d:   // 30d: 💳 TARJETA: consumos con categoría que NO afecta resultado (bien de uso, empaque) ya no restan en Resultado del mes. Antes 30c:   // 30c: 📦 INVENTARIO ANULADO: los inventarios de MP anulados ya no cuentan en «Diferencias reales de inventario MP» (Resultado del mes, comparación y salud). El inv. 52 del 29/10 se anuló y rehízo como 53, pero la base no aceptaba el estado «anulado» y quedó como completado: sumaba −$2,61 M falsos (recuperado caramelo 1.191 kg). Base corregida (CHECK + marca) y la anulación ahora avisa si no puede marcarse. Antes 30b:   // 30b: 📄 TOPE DE 1000 FILAS: Compras y gastos (1002) y Pagos a proveedores (1031) se cargaban truncados (se perdían los más viejos → saldos de proveedores inflados); ahora se cargan paginados, igual que Movimientos de caja, Pedidos y Remitos (preventivo). Si una página falla se avisa en rojo. Antes 30a:   // 30a: 🏛 NC/ND a ARCA: al confirmar EMITIR muestra a qué factura va asociada (PV y número salen del NÚMERO de la factura) y NO emite si la factura es de otro cliente, no tiene CAE o el número no se lee (NC Collinet salieron asociadas a 0001-xxxx de otro cliente) · 📢 traba de aumento repetido: si el cliente ya tuvo una suba en esos productos en los últimos 30 días, hay que escribir AUMENTAR (Collinet: 8% aplicado dos veces). Antes 29i:   // 29i: ✂ cierre de OC: mira los escaneos de las 36 h anteriores (antes 12): la OC-1052988 recibía 684 golpes de la OC-1052923 (C1 06:03–06:37), cuyo último escaneo era de 16 h antes. Antes 29h: el botón «+ Nuevo pedido» de la pantalla Pedidos también abre Nuevo pedido v2 ✨. Antes 29g: el botón rápido «＋ Pedido» (y «Nuevo pedido» en Ctrl+K) abre Nuevo pedido v2 ✨ (German: es el que funciona). Antes 29f:   // 29f: 🏭 estación: «Cambiar orden» dice en pantalla que cambia SÓLO en esa máquina y con qué orden siguen las otras (el operario de EXT-07 no cambiaba por miedo a cambiar también EXT-03); sin órdenes asignadas pide a la oficina la próxima. Antes 29e: 🏭 ESTACIÓN DE EXTRUSIÓN: con una máquina sin orden (EXT-07) y el aviso «¿cambiaste de producto?» la tarjeta leía oe.numero_orden de null y la estación entera quedaba en «Sin cuentametros» sin refrescar (29/10 13:19). Arreglado, y ahora una tarjeta que falla no apaga las otras ni el refresco; antes de la primera lectura dice «Leyendo el cuentametros…». Antes 29d: 🖨 CLIENTE 360° · «Imprimir para el cliente» sale en UNA hoja A4: «Saldo anterior al …» + últimos 26 movimientos + saldo final (antes todo el historial: Fénix 3 hojas); para uso interno «📜 Ver historial completo» en pantalla y «🖨 Historial completo (interno)». Antes 29c: 🔒 las mejoras de 29a/29b (más usados, Ctrl+K, selectores con buscador) funcionan SOLO en PCs que entraron como 🏢 Oficina; en las estaciones de planta (corte/extrusión) quedan apagadas y la planta se comporta como el 28b (German: en la PC de cortadores el foco de la pistola se iba; con 28b anduvo). Antes 29b: 🔎 SELECTORES CON BUSCADOR (pedido de German): clic con el mouse en cualquier selector de 12 opciones o más (clientes en pedidos, remitos, facturas, recibos, filtros, proveedores, productos…) abre una ventana grande con buscador; al elegir pone el valor en el mismo selector y dispara su onchange de siempre (Alt+↓/F4 desde el teclado; táctil y modos planta siguen con la lista común) · 👤 CLIENTE 360° más grande (zoom 1.15) con buscador de clientes arriba (nombre, razón social, código o CUIT, muestra la deuda), recientes, y entrada propia en el menú (Facturación y cobranzas). Antes 29a: ⚡ ACCESOS RÁPIDOS (pedido de German): botones ＋ Gasto / Pago / Recibo / Remito / Pedido arriba del menú; ⭐ «Más usados» (las 5 pantallas que más se abren en ESA PC + las fijadas con ⭐); 🔍 buscador Ctrl+K de pantallas y acciones (apagado en modos planta); formulario de Compras y Gastos con campos más grandes. Todo agregado: el menú y las pantallas siguen igual. Antes 28b: 📦 las facturas anticipadas nuevas ya no mandan a ARCA la frase «factura anticipada…» (la leyenda del comprobante queda «Pedido PED-…» + lo escrito a mano); en la lista de facturas se marcan con el chip 📦 ANTICIPADA (derivado de sus renglones, solo interno). Antes 28a: 🧾 la factura impresa para el cliente ya no dice «factura anticipada: mercadería a entregar con remitos posteriores» (queda guardado en el sistema para nosotros; sale solo «Pedido PED-…» y lo escrito a mano). Antes 27e: ✂ cierre contado por pistas (otra OC a la vez o restos): el renglón CORTADORA ya no dice «⚠ NO COINCIDE» por los golpes de la máquina por tirada (no aplican) ni pide explicación por eso (OC-1052976). Antes 27d: ♻ EL RESTO SE TERMINA EN LA MISMA ORDEN (German): escanear el resto con otra OC o en otra máquina lo bloquea («es un RESTO de OC-X»); «Terminó de cortar» no deja terminar con restos que no volvieron a una pista (ponelos o «se rompió: va al scrap», queda escrito); la alarma ya no ofrece «la saqué con film y la dejo aparte». Antes 27c: ♻ RESTO DE BOBINA EN OTRA PISTA (German, OC-1053017): si se saca una bobina a medio cortar y el resto se pone en otra pista de la misma orden, se registra escaneándola otra vez o con «♻ PUSE UN RESTO EN OTRA PISTA» en la tarjeta (tabla corte_restos); el cierre sigue la bobina en las dos pistas («♻ el resto siguió en la pista X») y cuenta por pistas en vez de dar SOBRAN/film sin cortar falsos. Antes 27b: la nota del cierre de la OC («✂ Cierre … SOBRAN …») ya no aparece como indicación roja en la lista de órdenes de corte. Antes 27a: ✂ cierre de OC: el botón «✓ Cerrar la orden» no hacía nada cuando se cargaban bolsas prestadas/tomadas de otra OC (la clave del control iba con comillas dentro del onclick). Antes 26g: ⚠ las INDICACIONES de la OC impresa salen GRANDES (17pt, recuadro rojo grueso) pegadas al recuadro de bolsones, con «si no coincide con los números de arriba, manda este recuadro»; el chip de la lista también más grande. Antes 26f: 📝 INDICACIONES DE LA OC: lo que se escribe a mano en las observaciones de una orden de corte (ej. «130 bultos × 4 + 1 bulto × 3» del PED-06144) ahora sale en un recuadro rojo en la orden impresa y como chip en la lista de órdenes de corte; los logs automáticos del sistema («Generada desde pedido…», «[…]») no se muestran (_ocIndicaciones). Antes 26e: 🧾 DDJJ DE IVA: pantalla nueva (F.2051 por período: débito, crédito, ret./perc., saldo, pagado, en plan, pendiente, vencimiento, estado derivado de 💳 Deudas; número rey «IVA adeudado» + cuánto está vencido; 📅 Llevar a Deudas crea la deuda del saldo para que entre en el flujo; la plata se mueve solo desde Deudas) · tipo de deuda nuevo «🧾 Deuda ARCA (no plan)» para saldos de DDJJ sin plan (se comporta igual que un plan ARCA). Antes 26d: ✂ DOS ÓRDENES A LA VEZ en una cortadora (C2: OC-1053011 en 2 pistas + OC-1052976 en otras 2): el cierre de cada OC cuenta lo que cortaron SUS pistas (1 bolsa por golpe hasta terminar cada bobina) en vez de los golpes de la máquina. Antes 26c: 🧷 FUNDAS DE EMPAQUE: 11 fundas (45/50/60/75/80/90 · A/P) como MP «empaque» con medida y g/m; producto→funda; al cerrar la OC se descuenta una funda por paquete (mov_mp, FIFO) y su costo entra al paquete en Rentabilidad y Resultado del mes (desde 22/09); pantalla 🧷 Fundas con stock, días que alcanza, ingreso y conteo. Antes 26b: ✂ cierre de OC con el VEREDICTO CONTRA LOS GOLPES (cortadas − bultos − scrap) y renglón aparte «film que no pasó por la cuchilla» (pide explicación > 3 %); sin golpes, por metros como antes · 📏 factor EXT-07 0,781 → 0,776 (las bobinas medidas antes se llevan al factor nuevo por época). Antes 26a: ⚫⚪ PLANO HABITUAL DEL CLIENTE en el pedido nuevo: al elegir el cliente se pone su plano (80 % o más de sus últimos 6 pedidos) si no se tocó a mano, con chip «habitual: NEGRO (5 de 6)»; al grabar en otro plano pregunta (PED-06132 Muñoz Ezequiel salió en blanco con IVA). Antes 24b: ✂ Corte en vivo con TURNOS (pedido de German): botones «Turno» (el turno en curso) y «Hoy» (desde 06:00) además de 8 h/24 h/3/7 días; tabla «Por turno» (mañana 06–14, tarde 14–22, noche 22–06, igual que Extrusión en vivo) con golpes y uso por cortadora, bolsas, bobinas, operarios, uso del fichado, paradas > 20 min y golpes sin escanear; cortes de turno punteados y nombre del turno en la línea de tiempo.
 // (anterior) 24a: 🧵 pista SUGERIDA al cargar bobina en el Panel corte (la que terminó, si no la vacía; las que siguen cortando en rojo) y en la alarma «no terminó» el botón grande es «VA EN LA PISTA X»; en el cierre, una pista que ocupó OTRA OC ya no es «sacada con film» (OC-1052991); 🏭 estación: «⛔ PASASTE +X m · ¿CORTASTE? APRETÁ EL PULSADOR» con pitido cuando la bobina pasa el objetivo +4 %; 📏 Extrusión en vivo: ⏱ pulsador fuera de tiempo detectado con la balanza (bobina liviana + siguiente pesada que suman bien; BOB-07193/07194) con botón «Corregir metros» (admin). Antes 23a: 🔒 el panel de corte escribe sobre la OC fresca de la base: ya no devuelve a «Pendiente empaque» una OC cerrada en la oficina ni pisa las observaciones del cierre; el cierre verifica en la base (estado + fecha_completada) y es atómico → no se puede cerrar dos veces ni duplicar stock.
 // (anterior) 22a: 📏 carga parcial de OC: bloquea sólo si las bolsas no entran en los metros SIN merma; dentro de la merma estándar avisa en ámbar y deja guardar (la merma se carga al cerrar) — OC-1053011 LYME
 // (anterior) 21b:   // 21b: 🧵 si la OC se escanea después de arrancar a cortar, la pista arranca desde el «terminó» de la OC anterior en esa máquina (OC-1053012: «cortó 133 de 790» falso). Antes 21a:   // 21a: número de OC sin repetir: el último se busca por id (no por texto), índice único en la base y reintento si choca (OC-1052994/95 repetidas el 17/10). Antes 20h:   // 20h: ↩ «me equivoqué de pista» en la tarjeta de la máquina: sólo recién puesta (≤ 10 min o ≤ 50 golpes), misma máquina, mismo contador; a pista vacía o con bobina terminada; queda en la OC. Cambio de máquina: lo corrige el dueño. — 20g: factor del cuentametros corregido (EXT-01 0,2443 · EXT-03/07 0,781): el control de corte lleva al factor nuevo las bobinas del PLC cargadas antes (id ≤ 7306), en lugar del margen de 16d que iba al revés. Antes 20e:   // 20e: ✓ «Terminó de cortar» con la OC en dos cortadoras pregunta «¿sólo en esta máquina o toda la OC?»: sólo acá deja [Terminó en CORTE-0X panel …], la OC sigue en la otra y esta tarjeta queda libre (OC-1052980: Guaraz terminó en C2 y Celia seguía en C1); los golpes de la otra máquina no se cortan. — 20d: ✂ «Corte terminado» tocado mientras la máquina sigue cortando sin parar ya no deja golpes afuera (OC-1052980 C1: el último par cortó hasta 10:31 y figuraba «quedó sin cortar ≈ 637 m»); 📏 si en una máquina TODAS las bobinas terminan antes y parejo, el cierre dice «cortó la bolsa más larga ≈ X cm» en vez de film sin cortar. — 20c: ✂ golpes de una OC que seguía en marcha en el panel (pausada/terminada después, antes del próximo escaneo) quedan en esa OC aunque su último escaneo tenga más de 3 h — OC-1052978 recibía 2.863 golpes de Solbayres (C1 06:00–08:05). — 20b: 👥 pantalla compartida del Panel corte: si en la máquina venía cargando otra persona, pregunta quién carga (dos nombres grandes, no se confirma con la pistola). — 20a: 20a: 🧵 pistas como están numeradas en las dos cortadoras mirando desde atrás (1 arriba izq. · 2 abajo izq. · 3 arriba der. · 4 abajo der.): ARRIBA/ABAJO en los botones y la tarjeta en la misma disposición. — 19e: 🧵 PISTAS: después de escanear cada bobina el operario elige en qué pista la puso (1-4, pantalla enorme). Con el contador de golpes de ese momento cada bobina sabe cuántos golpes le tocaron. Alarma roja con sonido si se pone una bobina donde la anterior no terminó (motivo obligatorio, queda en la OC); bobina sin pista = cartel rojo que late y pitido cada minuto; pista con golpes de más = «¿terminó?». La tarjeta de la máquina muestra las 4 pistas. Cierre: tabla por pista y «⛔ sacada a medio cortar». Columnas nuevas orden_corte_bobinas.pista / pista_contador / pista_en. — 19d: cierre de OC: si no se pudo saber a cuántas pistas corrió, ya no dice «cortó ≈ 0 bolsas» (OC-1052957): dice que con los golpes no se puede calcular. — 19c: ✂ cierre de OC cortada en DOS cortadoras: cada tirada cuenta los golpes hasta el próximo escaneo EN SU MISMA MÁQUINA (antes se mezclaban: OC-1052981 daba 313 y 3.790 golpes) y cada máquina con sus pistas (bobinas escaneadas juntas si cierran ± 10 %, si no la cuenta física): «2 en CORTE-01 y 4 en CORTE-02». Golpes de una máquina sin bobinas escaneadas en ella: fila aparte ⚠. — 19b: 🛑 DATOS INCOMPLETOS: las órdenes de corte se piden de a 250 con reintento (la página de 1.000 pasaba el límite de 3 s de Supabase y llegaba VACÍA → costo 0 → tablero «margen 98 %»); si una lectura crítica falla igual, cartel rojo arriba y el Tablero muestra «datos incompletos» en vez de un número. — 19a: 19a: 🧾 FACTURA DOBLE imposible: candado + botón apagado mientras graba y recarga, relectura de los remitos contra la base, y el remito se toma con update condicional (factura_id IS NULL) — si otro guardado ya lo tomó, la factura nueva se deshace sola. — 17e: 17e: 📏 aviso «CORTA LARGO» en el Panel corte (cartel rojo enorme + alarma cada minuto hasta medir la bolsa; la medida queda en la OC) y en Corte en vivo / cierre para el dueño; ✋ carga a mano en la impresora con motivo obligatorio. — 17d: ✂ paradas simplificadas: cortando y parada en total; por operario sólo parada total, por cambio de bobina, sin motivo y pilas; lista con «paró · cuánto · qué se registró» (sin la columna de la tanda). — 17c: ✂ paradas sin ambigüedad: «9 min en total (3 veces)» en vez de «3 · 9 min» (se leía 3 × 9). — 17b: ✂ paradas: el hueco antes de arrancar la OC (golpes sueltos sin bobina escaneada y la máquina quieta hasta que arranca) se muestra aparte y no suma como parada ni como cambio de bobina. — 17a: ✂ cierre de OC claro: veredicto en grande, cuenta de bolsas siempre (aunque no se sepan las pistas), cortadora en tabla (tenía que hacer / hizo / diferencia) y paradas plegadas; pistas por la cuenta física (golpes contra bobinas, 1 a 4); la nota de la OC en renglones. — 16d: ✂ el balance de cierre usa los METROS REALES de las bobinas medidas por el PLC (margen fijo del cuentametros: EXT-01 +1,5 %, E3/E7 +0,9 %); se muestra en el control y en la nota. — 16c: ✂ un golpe posterior a «Terminó de cortar» en el panel ya no se le suma a esa OC (va al escaneo siguiente); la nota de cierre decía «cierra» cuando SOBRABAN bolsas: ahora dice SOBRAN; el % del balance sin signo. — 16b: 🖨 IMPRESORA en el Panel corte: escaneo de entrada y salida de cada bobina (tabla impresion_bobinas), metros impresos = metros de extrusión, m/min reales, impresas esperando corte; en la cortadora una bobina de producto IMPRESA sin pasar por la impresora se pregunta y queda anotada. — 16a: ✂ golpes que tenía que hacer la cortadora = bobina más larga de cada par ÷ largo (con 2 pistas la más larga termina sola); cortadas = golpes × pistas − la punta a 1 pista. Control de cortadora: golpes contra esos golpes. — 15q anterior: 15q: ✂ pilas bien contadas con el registro golpe a golpe: una pila que el operario cortó a la mitad y completó al volver a arrancar (11 + 14 = 25) es «cortada a la mitad», no dos incompletas. Incompleta = nunca llegó a la parada; de más = pasó de la parada sin la pausa de la máquina (29, 31…), con los golpes de más.
@@ -7805,6 +7814,7 @@ async function reload(){
     if(r.clave==='gastos_generales_pct')cfg.gastos_generales_pct=parseFloat(r.valor);
     if(r.clave==='plan_semana_tipo')cfg.plan_semana_tipo=r.valor;   // 02k
     if(r.clave==='energia_precio_kwh')cfg.energia_precio_kwh=r.valor;   // 02l
+    if(r.clave==='plan_capacidad')cfg.plan_capacidad=r.valor;   // 02n ficha | medida
     if(r.clave==='frecuencia_inventario_dias')cfg.frecuencia_inventario_dias=parseInt(r.valor);
     if(r.clave==='ultimo_inventario')cfg.ultimo_inventario=r.valor;
     if(r.clave==='inventario_bloquea')cfg.inventario_bloquea=r.valor==='true';
@@ -12542,8 +12552,9 @@ function _eneCalidad(E){
   h+=kpi('cos φ · 24 h',pfProm!=null?_evvF(pfProm,3):'—','',pfProm!=null?(pfBajo>0.005?'<span class="warnTxt">'+_evvF(pfBajo*100,1)+' % del tiempo bajo 0,95</span>':'nunca bajo 0,95 produciendo'):'sin minutos produciendo',pfProm==null?null:pfProm<0.95?'var(--bad)':pfBajo>0.05?'var(--warn)':'var(--ok)');
   h+=kpi('Tensión · 24 h',vmin!=null?_evvF(vmin,0)+'–'+_evvF(vmax,0):'—',vmin!=null?' V':'','mín y máx entre fases'+(vmax>242?' · <span class="badTxt">pasó 242 V</span>':'')+(vmin!=null&&vmin<198?' · <span class="badTxt">bajó de 198 V</span>':''),vmin==null?null:(vmax>242||vmin<198)?'var(--bad)':null);
   const porT={};al24.forEach(a=>{porT[a.tipo]=(porT[a.tipo]||0)+1;});
-  const crit=al24.filter(a=>a.severidad==='critical'||a.severidad==='serious').length;
-  h+=kpi('Avisos del medidor · 24 h',String(al24.length),'',al24.length?Object.keys(porT).map(t=>_eneAlNom(t)+' ×'+porT[t]).join(' · ')+(activas.length?' · <b>'+activas.length+' sigue'+(activas.length===1?'':'n')+'</b>':''):'sin avisos',crit?'var(--bad)':al24.length?'var(--warn)':'var(--ok)');
+  // rojo sólo mientras haya un aviso grave ABIERTO; uno grave ya cerrado queda en ámbar (German 03/11)
+  const critAb=activas.filter(a=>a.severidad==='critical'||a.severidad==='serious').length;
+  h+=kpi('Avisos del medidor · 24 h',String(al24.length),'',al24.length?Object.keys(porT).map(t=>_eneAlNom(t)+' ×'+porT[t]).join(' · ')+(activas.length?' · <b>'+activas.length+' sigue'+(activas.length===1?'':'n')+'</b>':''):'sin avisos',critAb?'var(--bad)':al24.length?'var(--warn)':'var(--ok)');
   return h+'</div></div>';
 }
 // Pura: avisos del medidor de las últimas 24 h para la lista de Alertas (demanda al 90 % se agrupa)
@@ -12783,6 +12794,160 @@ async function renderCamaras(){
 function startCamTimer(){
   if(CAM.timer)return;
   CAM.timer=setInterval(()=>{const pg=document.getElementById('page-camaras');if(pg&&pg.classList.contains('active')&&!document.hidden)renderCamaras();},60000);
+}
+
+// ===== ⚙ CAPACIDAD MEDIDA (02n · etapa 2: motor con capacidad real) =====
+// German 03/11: «si arranca». El motor único (calcScheduleReal → Planificar, Gantt combinado,
+// Torre, corte encadenado) puede calcular con:
+//  · FICHA (como siempre): kg ÷ Σ kg/h de la ficha de las extrusoras; calendario general de
+//    extrusión (getJornada + feriados + paros). Es el modo por defecto: con el interruptor apagado
+//    Planificar da EXACTAMENTE los mismos números que antes.
+//  · MEDIDA: kg/h = estándar de ESA máquina con ESA bobina (Velocidades reales: mediana PLC con ≥ 5
+//    bobinas, si no modelo de la máquina; sin PLC → ficha) ÷ factor de la máquina (horas reales de
+//    las OE cerradas ÷ horas produciendo: lo que se pierde adentro de una OE, p. ej. cambiar filtros,
+//    que no tiene registro). Calendario POR MÁQUINA del Plan de recursos (fila cargada → semana tipo),
+//    con feriados y paros. Una OE en varias máquinas (pasa, igual que una OC en varias cortadoras):
+//    cada máquina se suma cuando se libera y produce en SUS horas; la OE termina cuando entre todas
+//    llegan a los kg. Sin tiempos de cambio: la extrusora no se apaga para cambiar (German).
+// Prueba de la etapa (03/11, 126 tramos OE×máquina cerrados, 28 días): error típico de horas 26 %
+// con la ficha (promete 26 % antes) contra 3 % con el estándar medido.
+const CAP={on:false,cargando:false,listo:false,t:0,std:{},fac:{},plan:{},err:null,desde:null,hasta:null};
+function _capOn(){return String((typeof cfg!=='undefined'&&cfg&&cfg.plan_capacidad)||'ficha')==='medida';}
+// kg/h efectivos de una máquina para una bobina (null = usar ficha)
+function _capKgH(extId,bobinaId){
+  const m=CAP.std[extId];if(!m)return null;
+  const s=m.porTipo[bobinaId]!=null?m.porTipo[bobinaId]:(m.modelo?m.modelo(bobinaId):null);
+  if(!(s>0))return null;
+  return s/(CAP.fac[extId]||1);
+}
+function _capFuente(extId,bobinaId){
+  const m=CAP.std[extId];if(!m)return 'ficha';
+  return m.porTipo[bobinaId]!=null?(m.fuente[bobinaId]||'medido'):(m.modelo&&m.modelo(bobinaId)?'modelo':'ficha');
+}
+// Tramos [{a,b}] de una extrusora en un día: Plan de recursos (cargado → semana tipo) − feriado − paros
+function _capTramosMaq(extId,fecha){
+  const d=new Date(fecha),fs=localDate(d);
+  if(_esFeriadoProd(fs,'extrusion'))return [];
+  const k='e:'+extId;
+  let cod=CAP.plan[k+'|'+fs];
+  if(cod==null){const t=_planTipo()[k];cod=t?t[d.getDay()]:null;}
+  if(cod==null)return null;   // máquina fuera del plan → calendario general
+  const base=((PLAN_TURNOS[cod]||PLAN_TURNOS['0']).tr||[]).map(x=>({a:x[0],b:Math.min(24,x[1])}));
+  const cortes=(_parosIdx()['extrusion|'+fs]||[]).slice();
+  return cortes.length?_restarTramos(base,cortes):base;
+}
+// Pura (con calendario inyectable): simula una OE en varias máquinas.
+// maqs = [{id,kgh,desde:Date}], kg > 0 → {ini, fin, porMaq:{id:{ini,kg}}} o null si no hay horas en 400 días.
+function _capSimular(maqs,kg,tramosFn){
+  const ms=(maqs||[]).filter(m=>m.kgh>0);
+  if(!ms.length||!(kg>0))return null;
+  const tf=tramosFn||_capTramosMaq;
+  let rest=kg,ini=null;const porMaq={};
+  const t0=Math.min(...ms.map(m=>m.desde.getTime()));
+  let dia=new Date(t0);dia.setHours(0,0,0,0);
+  for(let g=0;g<400;g++){
+    const d0=dia.getTime();
+    // tramos absolutos de cada máquina, recortados por cuándo se libera
+    const segs=[];
+    ms.forEach(m=>{
+      let tr=tf(m.id,dia);
+      if(tr==null)tr=_jorTramosFecha(dia,'extrusion');
+      tr.forEach(t=>{const a=Math.max(d0+t.a*3600000,m.desde.getTime()),b=d0+t.b*3600000;if(b>a)segs.push({m,a,b});});
+    });
+    if(segs.length){
+      const cuts=[...new Set(segs.flatMap(s=>[s.a,s.b]))].sort((x,y)=>x-y);
+      for(let i=0;i<cuts.length-1;i++){
+        const a=cuts[i],b=cuts[i+1];
+        const act=segs.filter(s=>s.a<=a&&s.b>=b);
+        if(!act.length)continue;
+        const rate=act.reduce((s,x)=>s+x.m.kgh,0);
+        if(ini==null)ini=a;
+        act.forEach(x=>{if(!porMaq[x.m.id])porMaq[x.m.id]={ini:new Date(a),kg:0};});
+        const h=(b-a)/3600000;
+        if(rate*h>=rest-1e-9){
+          const hf=rest/rate,fin=a+hf*3600000;
+          act.forEach(x=>{porMaq[x.m.id].kg+=x.m.kgh*hf;});
+          return{ini:new Date(ini),fin:new Date(fin),porMaq};
+        }
+        act.forEach(x=>{porMaq[x.m.id].kg+=x.m.kgh*h;});
+        rest-=rate*h;
+      }
+    }
+    dia=new Date(d0+86400000);dia.setHours(0,0,0,0);
+  }
+  return null;
+}
+// Pura: factor por máquina = mediana(horas laborales reales de cada OE cerrada ÷ horas produciendo
+// de sus bobinas), entre 1 y 1,5. Captura lo que se pierde dentro de la OE (filtros, ajustes).
+function _capFactores(D){
+  const out={};
+  ((D&&D.maqs)||[]).forEach(M=>{
+    const por=new Map();
+    (M.bobs||[]).forEach(o=>{const k=o.b.orden_id;if(!por.has(k))por.set(k,[]);por.get(k).push(o);});
+    const rs=[];
+    por.forEach((os,oid)=>{
+      const ord=(C.ordenes||[]).find(x=>x.id===oid);if(!ord||ord.estado!=='Completada'||os.length<3)return;
+      os.sort((a,b)=>a.t-b.t);
+      const real=hsLaboralesEntre(new Date(os[0].t-os[0].h*3600000),new Date(os[os.length-1].t),'extrusion');
+      const prod=os.reduce((s,o)=>s+o.h,0);
+      if(real>1&&prod>0&&real<3*prod)rs.push(real/prod);
+    });
+    const f=_velMed(rs);
+    out[M.ext.id]={f:f?Math.max(1,Math.min(1.5,f)):1,n:rs.length};
+  });
+  return out;
+}
+// Precarga (asíncrona): estándares del PLC (28 días) y Plan de recursos de los próximos 120 días.
+async function _capPrecargar(forzar){
+  if(!_capOn())return;
+  if(CAP.cargando)return;
+  if(!forzar&&CAP.listo&&Date.now()-CAP.t<30*60000)return;
+  CAP.cargando=true;
+  try{
+    if(!VEL.datos||VEL.dias!==28||Date.now()-VEL.datos.ts>30*60000){VEL.dias=28;VEL.datos=await _velCargar();}
+    const D=VEL.datos;
+    const std={};
+    D.maqs.forEach(M=>{
+      const porTipo={},fuente={};
+      M.tipos.forEach(t=>{if(t.id&&t.std>0){porTipo[t.id]=t.std;fuente[t.id]=t.fuente;}});
+      const modelo=bid=>{const b=(C.bobinas||[]).find(x=>x.id===bid);const kpm=b?(parseFloat(b.kg_por_metro)||(b.gramaje?b.gramaje/1000:0)):0;return M.kghModelo(kpm);};
+      std[M.ext.id]={porTipo,fuente,modelo,nom:M.ext.nombre,ficha:parseFloat(M.ext.kg_por_hora)||null};
+    });
+    const fa=_capFactores(D),fac={};Object.keys(fa).forEach(k=>fac[k]=fa[k].f);
+    const d0=localDate(),d1=localDate(new Date(Date.now()+120*86400000));
+    const{data,error}=await sb.from('plan_recursos').select('fecha,recurso,turno').like('recurso','e:%').gte('fecha',d0).lte('fecha',d1);
+    if(error)throw error;
+    const plan={};(data||[]).forEach(f=>{plan[f.recurso+'|'+String(f.fecha)]=f.turno;});
+    Object.assign(CAP,{std,fac,facInfo:fa,plan,listo:true,t:Date.now(),err:null});
+  }catch(e){console.warn('capacidad medida:',e);CAP.err=e.message||String(e);}
+  finally{CAP.cargando=false;}
+  if(document.getElementById('page-planificar')?.classList.contains('active'))renderPlanificar();
+  _capPintarBarra();
+}
+// Interruptor (clave admin) y cartel de Planificar
+function capCambiar(modo){
+  pedirAdminYEjecutar(async()=>{
+    const{error}=await sb.from('configuracion').upsert({clave:'plan_capacidad',valor:modo},{onConflict:'clave'});
+    if(error){toast('No se pudo guardar: '+error.message,'red');return;}
+    cfg.plan_capacidad=modo;
+    toast(modo==='medida'?'⚙ Capacidad MEDIDA: estándar del PLC + Plan de recursos':'⚙ Capacidad de FICHA (como antes)','green');
+    if(modo==='medida'){CAP.listo=false;_capPrecargar(true);}
+    renderPlanificar();_capPintarBarra();
+  });
+}
+function _capPintarBarra(){
+  const el=document.getElementById('plan-cap-bar');if(!el)return;
+  const on=_capOn();
+  let det='';
+  if(on){
+    if(CAP.cargando||!CAP.listo)det=CAP.err?'<span style="color:var(--red)">No se pudo leer el PLC: '+escapeHtml(CAP.err)+' — se usa la ficha.</span>':'Leyendo estándares del PLC y el Plan de recursos… mientras tanto, ficha.';
+    else det=Object.keys(CAP.std).map(id=>{const s=CAP.std[id];const v=Object.values(s.porTipo);const mn=v.length?Math.min(...v):null,mx=v.length?Math.max(...v):null;
+        return '<b>'+escapeHtml(s.nom)+'</b> '+(mn!=null?_velF(mn,0)+(mx-mn>=1?'–'+_velF(mx,0):'')+' kg/h según bobina':'modelo')+' (ficha '+_velF(s.ficha,0)+')'+((CAP.fac[id]||1)>=1.03?' · ×'+_velF(CAP.fac[id],2):'');}).join(' · ')
+      +' · sin PLC: ficha · calendario por máquina del 🗓 Plan de recursos';
+  }else det='kg ÷ kg/h de la ficha de cada extrusora · calendario general de extrusión. Es lo de siempre.';
+  el.innerHTML='<div class="cap-bar"><span class="cap-l">⚙ Capacidad de extrusión</span>'
+    +'<div class="cap-seg"><button type="button" class="'+(on?'':'on')+'" onclick="'+(on?"capCambiar('ficha')":'')+'">Ficha</button><button type="button" class="'+(on?'on':'')+'" onclick="'+(on?'':"capCambiar('medida')")+'">Medida (PLC)</button></div>'
+    +'<span class="cap-d">'+det+'</span></div>';
 }
 
 // ===== ⏱ PULSADOR FUERA DE TIEMPO (24a) =====
@@ -33623,6 +33788,9 @@ function calcScheduleReal(){
   // CURSOR por extrusora — todas arrancan en 'base'. Nada se proyecta en el pasado.
   const cursor={};
   C.extrusoras.forEach(e=>{cursor[e.id]=new Date(base);});
+  // 02n: capacidad MEDIDA (interruptor de Planificar). Apagado o sin datos todavía → como siempre.
+  const capMed=_capOn()&&CAP.listo;
+  if(_capOn()&&!CAP.listo&&!CAP.cargando)setTimeout(()=>_capPrecargar(),0);
 
   // Cola de órdenes activas por prioridad (cascada corrida, sin huecos)
   const activas=C.ordenes
@@ -33639,8 +33807,8 @@ function calcScheduleReal(){
       .reduce((s,b)=>s+(b.metros_reales||0)*(b.bobinas?.kg_por_metro||o.bobinas.kg_por_metro||0),0);
     const kgRestantes=Math.max(0,(o.kg_totales||0)-kgProducidos);
     const capT=o.orden_extrusoras.reduce((s,oe)=>s+(oe.extrusoras?oe.extrusoras.kg_por_hora:0),0);
-    if(capT===0)return;
-    const hsRestantes=kgRestantes/capT;
+    if(capT===0&&!capMed)return;
+    let hsRestantes=capT>0?kgRestantes/capT:0;
 
     // INICIO de la parte pendiente = cuando todas las extrusoras de la OE están libres.
     // Cada cursor viene >= base, así que nunca es en el pasado.
@@ -33666,12 +33834,26 @@ function calcScheduleReal(){
       }
     }
 
+    // 02n capacidad MEDIDA: cada extrusora con su estándar para ESTA bobina y su calendario del
+    // Plan de recursos; se suma cuando se libera; la OE termina cuando entre todas llegan a los kg.
+    let sim=null,kghMed=null;
+    if(capMed&&kgRestantes>0){
+      const maqs=o.orden_extrusoras.map(oe=>{
+        const k=_capKgH(oe.extrusora_id,o.bobina_id);
+        const fi=oe.extrusoras?(parseFloat(oe.extrusoras.kg_por_hora)||0):0;
+        return{id:oe.extrusora_id,kgh:k!=null?k:fi,desde:new Date(Math.max(base.getTime(),(cursor[oe.extrusora_id]||base).getTime()))};
+      });
+      sim=_capSimular(maqs,kgRestantes);
+      if(sim){kghMed=maqs.reduce((s2,m)=>s2+m.kgh,0);ini=sim.ini;hsRestantes=kghMed>0?kgRestantes/kghMed:hsRestantes;}
+    }
+    if(capT===0&&!sim)return;
+
     // FIN proyectado de la parte pendiente
-    const fin=hsRestantes>0?sumarHsLaborales(ini,hsRestantes,'extrusion'):new Date(ini);
+    const fin=sim?sim.fin:(hsRestantes>0?sumarHsLaborales(ini,hsRestantes,'extrusion'):new Date(ini));
 
     sched[o.id]={ini,fin,hs:r2(hsRestantes),kgRestantes,kgProducidos,
       pctAvance:o.kg_totales?Math.round(kgProducidos/o.kg_totales*100):0,
-      segHecho};
+      segHecho,cap:sim?'medida':'ficha',kgh:sim?kghMed:capT};
 
     // Avanzar cursores (cascada sin hueco)
     o.orden_extrusoras.forEach(oe=>{cursor[oe.extrusora_id]=new Date(fin);});
@@ -48691,6 +48873,7 @@ function renderPlanificar(){
   renderPlanSeccion('oe');
   renderPlanSeccion('oc');
   if(typeof _cpRefrescar==='function')_cpRefrescar();
+  _capPintarBarra();   // 02n
 }
 
 // Devuelve los IDs de máquinas/extrusoras que usa una orden
@@ -48767,7 +48950,8 @@ function renderPlanSeccion(tipo){
 
     const totalCarga=ordenesEnMaq.length;
     const cap=tipo==='oe'?(maq.kg_por_hora||0):(maq.bolsas_por_hora||0);
-    const capTxt=cap?(tipo==='oe'?cap+' kg/h':cap+' u/h'):'';
+    let capTxt=cap?(tipo==='oe'?cap+' kg/h':cap+' u/h'):'';
+    if(tipo==='oe'&&_capOn()&&CAP.listo&&CAP.std[maq.id])capTxt='kg/h medido por bobina'+((CAP.fac[maq.id]||1)>=1.03?' ×'+_velF(CAP.fac[maq.id],2):'');   // 02n
 
     colsHtml+='<div class="plan-col" data-tipo="'+tipo+'" data-maq="'+maq.id+'">'
       +'<div class="plan-col-hdr">'
