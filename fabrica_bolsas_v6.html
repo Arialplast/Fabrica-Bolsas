@@ -13586,7 +13586,7 @@ function ocmpVer(id){
   const cand=(C.compras_gastos||[]).filter(f=>f.categoria==='materia_prima'&&f.ocmp_id==null&&f.proveedor_id===o.proveedor_id)
     .sort((a,b)=>Math.abs(_ocmpDias(o.fecha,a.fecha))-Math.abs(_ocmpDias(o.fecha,b.fecha))).slice(0,12);
   if(cand.length&&!o.anulada_el)h+='<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><select id="ocmp-fac" style="font-size:12.5px;max-width:420px">'
-    +cand.map(f=>'<option value="'+f.id+'">'+_ocmpFd(f.fecha)+' · '+escapeHtml(f.plano||'')+' · '+escapeHtml((f.comprobante_numero||f.descripcion||'').slice(0,40))+' · '+_ocmpPesos(_ocmpNetoFactura(f))+'</option>').join('')
+    +cand.map(f=>'<option value="'+f.id+'">'+[_ocmpFd(f.fecha),f.plano,((f.comprobante_tipo||'')+' '+(f.comprobante_numero||'')).trim()||String(f.descripcion||'').slice(0,40),_ocmpPesos(_ocmpNetoFactura(f))].filter(Boolean).map(escapeHtml).join(' · ')+'</option>').join('')
     +'</select><button type="button" class="btn btn-sm" onclick="ocmpVincularFactura('+o.id+')">Vincular factura</button></div>';
   else if(!o.anulada_el)h+='<div class="dk-mut" style="font-size:12px;margin-top:6px">Cargá la factura en 🛒 Compras y Gastos (materia prima, este proveedor) y vinculala acá.</div>';
   h+='<div class="btn-grp" style="margin-top:16px">'
