@@ -14,4 +14,16 @@ const permit=new Set(['renderGantt','renderGanttDiario','renderGanttDiarioAdmin'
 t(usos.length>0&&usos.every(u=>permit.has(u)),'el teórico sólo en Gantt programado vs real: '+usos.join(','));
 // las pantallas de fechas siguen llamando al adaptador
 ['renderOrdenes','renderDash','renderCap','renderOrdenesCorte','renderCapCorte','renderGanttCorte'].forEach(fn=>{const b=cuerpo(fn);t(b&&/computeSchedule(Corte)?\(\)/.test(b)&&!/Teorico\(\)/.test(b),fn+' usa el cronograma real');});
+// 04d: la prioridad ya no se edita en Órdenes de extrusión / corte ni en los modales de edición
+t(!/onchange="cambiarPri\(/.test(src)&&!/onchange="cambiarPriCorte\(/.test(src),'sin edición inline de prioridad en las listas');
+t(/id="eoe-prioridad"[^>]*readonly/.test(src)&&/id="eoc-prioridad"[^>]*readonly/.test(src),'modales de edición: prioridad de sólo lectura');
+t(/function guardarPlanificacion\(/.test(src)&&/function _gcbReordenar\(/.test(src),'Planificar y Gantt combinado siguen pudiendo cambiarla');
+// 04d: atrasada (hecho) vs en riesgo (pronóstico)
+{const i=src.indexOf('function _estadoEntrega(');const j=src.indexOf('\nfunction ',i+10);eval(src.slice(i,j));
+ const d=n=>{const x=new Date();x.setHours(12,0,0,0);x.setDate(x.getDate()+n);return x;};
+ t(_estadoEntrega(d(-2),d(1)).tipo==='atrasada'&&_estadoEntrega(d(-2),d(1)).dias===2,'prometida hace 2 días → ATRASADA 2d');
+ t(_estadoEntrega(d(3),d(5)).tipo==='riesgo'&&_estadoEntrega(d(3),d(5)).dias===2,'proyectada 2 días después → EN RIESGO +2d');
+ t(_estadoEntrega(d(3),d(2)).tipo==='ok','a tiempo → ok');
+ t(_estadoEntrega(null,d(2)).tipo===null,'sin promesa → nada');
+ t(!/ATRASA '\+Math\.ceil/.test(src),'Planificar ya no dice «ATRASA» para un pronóstico');}
 console.log('smoke_una_sola_verdad: '+ok+' ok, '+fail+' fallas');process.exit(fail?1:0);
