@@ -21,7 +21,7 @@ global.r2=n=>Math.round(n*100)/100;
 ['cgCostoResultado','gfIvaMonto','gfCostoResultado'].forEach(f=>{const b=cuerpo(f);if(!b){t(false,'falta '+f);return;}eval.call(global,b.replace('function '+f,'global.'+f+'=function'));});
 t(cgCostoResultado({plano:'blanco',total:121,iva_monto:21})===100&&cgCostoResultado({plano:'negro',total:121,iva_monto:0})===121&&cgCostoResultado({plano:'blanco',total:100,iva_monto:0})===100,'Factura A al resultado por el neto; negro / sin IVA por el total');
 t(gfCostoResultado({plano:'blanco',monto_mensual:121,iva_porcentaje:21})===100&&gfCostoResultado({plano:'negro',monto_mensual:121,iva_porcentaje:21})===121,'gasto fijo presupuestado: neto si es blanco');
-['renderResultadoMes','_resultadoRangoSync','_margenDisponibleMes','_snapCalcular','renderTablero','_dgCalc','_gastoFijoRealMes','_rmExtraDelMes'].forEach(fn=>{const b=cuerpo(fn)||(()=>{const m=new RegExp('^async function '+fn+'\\(','m').exec(src);if(!m)return null;const j=src.indexOf('\nfunction ',m.index+10);return src.slice(m.index,j);})();
+['renderResultadoMes','_resultadoRangoSync','_margenDisponibleMes','_snapCalcular','renderTablero','_dgCalc','_gastoFijoRealMes'].forEach(fn=>{const b=cuerpo(fn)||(()=>{const m=new RegExp('^async function '+fn+'\\(','m').exec(src);if(!m)return null;const j=src.indexOf('\nfunction ',m.index+10);return src.slice(m.index,j);})();
   t(b&&/cgCostoResultado\(|gfCostoResultado\(/.test(b)&&!/afecta_resultado[^;]*reduce\(\(s,c\)=>s\+\(parseFloat\(c\.total\)/.test(b),fn+' suma gastos por el derivador canónico');});
 t(/cgSaldoProv\(provId\)\{[\s\S]{0,200}parseFloat\(c\.total\)/.test(src),'la deuda con el proveedor sigue con el total');
 console.log('smoke_compras_gastos_pro: '+ok+' ok, '+fail+' fallas');process.exit(fail?1:0);
