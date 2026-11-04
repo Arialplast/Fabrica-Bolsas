@@ -12353,12 +12353,39 @@ function _enePrecio(){const v=parseFloat(String((typeof cfg!=='undefined'&&cfg&&
 function _enePlata(kwh){const p=_enePrecio();return (p&&kwh!=null&&isFinite(kwh))?'$ '+Math.round(kwh*p).toLocaleString('es-AR'):'';}
 function _eneDia0(fs){return new Date((fs||localDate())+'T00:00:00-03:00').getTime();}
 function _eneTsBob(b){return new Date(b.fecha_produccion+'T'+(b.hora_produccion||'00:00')+'-03:00').getTime();}
+// kWh entre dos horas. Desde 03/11 la PC sube el ODÓMETRO del medidor (energia_minutos.kwh_acum) y
+// energia_kwh_entre resta odómetros (mismo principio que el PLC de extrusión): los huecos de la PC
+// (corte de luz, térmicas bajadas el fin de semana) quedan con sus kWh completos «sin detalle por minuto».
+// Si el inicio o el fin cae adentro de un hueco, el odómetro más cercano queda corrido: la función lo
+// informa en desde_real / hasta_real y acá se marca «corrido». Sin odómetro, suma de los minutos.
 async function _eneEntre(desde,hasta){
-  const{data,error}=await sb.rpc('energia_entre',{desde:new Date(desde).toISOString(),hasta:new Date(hasta).toISOString()});
-  if(error)throw error;
-  const r=Array.isArray(data)?data[0]:data;
-  const o=r||{};
-  return{kwh:o.kwh!=null?parseFloat(o.kwh):null,kw_prom:o.kw_prom!=null?parseFloat(o.kw_prom):null,kw_max:o.kw_max!=null?parseFloat(o.kw_max):null,minutos:parseInt(o.minutos)||0};
+  const p={desde:new Date(desde).toISOString(),hasta:new Date(hasta).toISOString()};
+  const [r1,r2]=await Promise.all([sb.rpc('energia_entre',p),Promise.resolve(sb.rpc('energia_kwh_entre',p)).catch(e=>({error:e}))]);
+  if(r1.error)throw r1.error;
+  const o=(Array.isArray(r1.data)?r1.data[0]:r1.data)||{};
+  const n=v=>v!=null?parseFloat(v):null;
+  const res={kwh:n(o.kwh),kwhMedido:n(o.kwh),sinDetalle:0,odo:false,corrido:0,kw_prom:n(o.kw_prom),kw_max:n(o.kw_max),minutos:parseInt(o.minutos)||0,desde:+new Date(desde),hasta:+new Date(hasta)};
+  const q=(!r2.error&&r2.data)?(Array.isArray(r2.data)?r2.data[0]:r2.data):null;
+  if(q&&q.por_odometro){
+    res.kwh=n(q.kwh);res.sinDetalle=n(q.kwh_sin_detalle)||0;res.odo=true;
+    const dr=+new Date(q.desde_real),hr=+new Date(q.hasta_real);
+    res.corrido=Math.max(0,(dr-res.desde)/60000)+Math.max(0,(res.hasta-hr)/60000);   // min fuera del odómetro
+    res.desdeReal=dr;res.hastaReal=hr;
+  }
+  if(res.kwh==null&&res.minutos===0)res.kwh=null;
+  return res;
+}
+// Texto de cobertura: con odómetro no falta nada (sólo detalle); sin odómetro, la PC estuvo apagada
+// (German: corte de luz o térmicas bajadas → la planta no consumía) — no es un dato perdido.
+function _eneCobTxt(r){
+  if(!r)return '';
+  const esp=(Math.min(Date.now(),r.hasta)-r.desde)/60000,fal=Math.max(0,esp-r.minutos);
+  if(r.odo){
+    let t=r.sinDetalle>0.5?' · '+_evvF(r.sinDetalle)+' kWh sin detalle por minuto (odómetro)':'';
+    if(r.corrido>2)t+=' · <span class="warnTxt" title="El inicio o el fin cae en un rato con la PC apagada: se usó el odómetro más cercano">odómetro corrido '+_evvF(r.corrido)+' min</span>';
+    return t;
+  }
+  return fal>esp*0.02?' · PC apagada '+(fal<90?_evvF(fal)+' min':_evvF(fal/60,1)+' h')+' (sin luz o térmicas bajadas)':'';
 }
 // Pura: kg netos de las bobinas con hora en (a, z]
 function _eneKgEntre(bobs,a,z){return (bobs||[]).filter(b=>!b.anulada).reduce((s,b)=>{const t=_eneTsBob(b);return (t>a&&t<=z)?s+_evvKgNeto(b):s;},0);}
@@ -12371,7 +12398,7 @@ async function _eneCargarVivo(desdeMs){
   ENE.cargando=(async()=>{
     const d7=now-7*86400000,h0=_eneDia0();
     const [rm,hoy,s7,rb,ru]=await Promise.all([
-      _traerQ(()=>sb.from('energia_minutos').select('ts,kw_prom,kw_max,kwh').gte('ts',new Date(desdeMs).toISOString()).order('ts')),
+      _traerQ(()=>sb.from('energia_minutos').select('ts,kw_prom,kw_max,kwh,kwh_acum').gte('ts',new Date(desdeMs).toISOString()).order('ts')),
       _eneEntre(h0,now),
       _eneEntre(d7,now),
       _traerQ(()=>sb.from('bobinas_producidas').select('id,kg_reales,tara_tubo_kg,peso_origen,fecha_produccion,hora_produccion,anulada')
@@ -12379,7 +12406,7 @@ async function _eneCargarVivo(desdeMs){
       sb.from('energia_minutos').select('ts,kw_prom').order('ts',{ascending:false}).limit(1)
     ]);
     if(rm.error)throw rm.error;if(rb.error)throw rb.error;
-    const mins=(rm.data||[]).map(r=>({t:new Date(r.ts).getTime(),kw:r.kw_prom!=null?parseFloat(r.kw_prom):null,kwmax:r.kw_max!=null?parseFloat(r.kw_max):null,kwh:r.kwh!=null?parseFloat(r.kwh):null})).filter(r=>r.kw!=null);
+    const mins=(rm.data||[]).map(r=>({t:new Date(r.ts).getTime(),kw:r.kw_prom!=null?parseFloat(r.kw_prom):null,kwmax:r.kw_max!=null?parseFloat(r.kw_max):null,kwh:r.kwh!=null?parseFloat(r.kwh):null,acum:r.kwh_acum!=null?parseFloat(r.kwh_acum):null})).filter(r=>r.kw!=null);
     const ult=(ru&&!ru.error&&ru.data&&ru.data[0])?{t:new Date(ru.data[0].ts).getTime(),kw:parseFloat(ru.data[0].kw_prom)}:(mins.length?mins[mins.length-1]:null);
     const bobs=rb.data||[];
     const o={t:Date.now(),desdeMs,mins,ult,hoy,s7,kgHoy:_eneKgEntre(bobs,h0,now),kg7:_eneKgEntre(bobs,d7,now),bobs};
@@ -12449,7 +12476,7 @@ function _eneCard(E,runs){
   const kg7=(E.s7&&E.s7.kwh!=null&&E.kg7>0)?E.s7.kwh/E.kg7:null;
   const vsB=v=>v==null?'':((v/ENE.BASE_KWH_KG-1)*100);
   const col=v=>v==null?null:(v>ENE.BASE_KWH_KG*1.1?'var(--bad)':v>ENE.BASE_KWH_KG*1.04?'var(--warn)':'var(--ok)');
-  const cob=(r,desde)=>{if(!r)return '';const esp=(now-desde)/60000;const f=r.minutos/Math.max(1,esp);return f<0.95?' · <span class="warnTxt">faltan '+_evvF(esp-r.minutos)+' min sin dato</span>':'';};
+  const cob=r=>_eneCobTxt(r);
   const kpi=(l,v,u,sb,c)=>'<div class="evx-kpi"><span class="evx-lbl">'+l+'</span><span class="v"'+(c?' style="color:'+c+'"':'')+'>'+v+'<small>'+u+'</small></span><span class="s">'+sb+'</span></div>';
   const precio=_enePrecio();
   const runAhora=(runs||[]).find(r=>now-r.hasta<4*60000);
@@ -12459,10 +12486,10 @@ function _eneCard(E,runs){
   if(runAhora)h+='<div class="evx-ene-ban">Consumo sin producción AHORA: '+_evvF(runAhora.kwProm,1)+' kW desde las '+_eneHoraTxt(runAhora.desde)+' con las extrusoras paradas.</div>';
   h+='<div class="evx-kpis">'
     +kpi('kW ahora',viejo?'sin dato':_evvF(E.ult.kw,1),viejo?'':'kW',E.ult?'minuto '+_eneHoraTxt(E.ult.t)+' · ref. 0 ext ≈ 4,5 · 1 ≈ 18 · 2 ≈ 34 · 3 ≈ 37':'',E.ult&&!viejo&&E.ult.kw>ENE.CONTRATADA_KW?'var(--bad)':null)
-    +kpi('kWh hoy',E.hoy&&E.hoy.minutos?_evvF(E.hoy.kwh):'sin dato',E.hoy&&E.hoy.minutos?'kWh':'',(E.hoy&&E.hoy.kw_max!=null?'pico '+_evvF(E.hoy.kw_max,1)+' kW':'desde 00:00')+(precio&&E.hoy&&E.hoy.kwh!=null?' · '+_enePlata(E.hoy.kwh):'')+cob(E.hoy,_eneDia0()))
+    +kpi('kWh hoy',E.hoy&&E.hoy.kwh!=null?_evvF(E.hoy.kwh):'sin dato',E.hoy&&E.hoy.kwh!=null?'kWh':'',(E.hoy&&E.hoy.kw_max!=null?'pico '+_evvF(E.hoy.kw_max,1)+' kW':'desde 00:00')+(precio&&E.hoy&&E.hoy.kwh!=null?' · '+_enePlata(E.hoy.kwh):'')+cob(E.hoy))
     +kpi('kWh/kg hoy',kgh!=null?_evvF(kgh,3):'—','kWh/kg',kgh!=null?_evvF(E.kgHoy)+' kg netos · '+(vsB(kgh)>=0?'+':'')+_evvF(vsB(kgh),1)+' % vs '+_evvF(ENE.BASE_KWH_KG,2):(E.kgHoy>0?'sin dato del medidor':'sin bobinas hoy'),col(kgh))
     +kpi('kWh/kg · 7 días',kg7!=null?_evvF(kg7,3):'—','kWh/kg',kg7!=null?_evvF(E.s7.kwh)+' kWh ÷ '+_evvF(E.kg7)+' kg · '+(vsB(kg7)>=0?'+':'')+_evvF(vsB(kg7),1)+' % vs base':'',col(kg7))
-    +kpi('kWh por día · 7 días',E.s7&&E.s7.minutos?_evvF(E.s7.kwh/Math.max(1,E.s7.minutos/1440)):'—','kWh/día','base 825–880'+(precio&&E.s7&&E.s7.kwh!=null?' · 7 días '+_enePlata(E.s7.kwh):'')+cob(E.s7,now-7*86400000))
+    +kpi('kWh por día · 7 días',E.s7&&E.s7.kwh!=null?_evvF(E.s7.kwh/7):'—','kWh/día','promedio con el fin de semana · día hábil base 825–880'+(precio&&E.s7&&E.s7.kwh!=null?' · 7 días '+_enePlata(E.s7.kwh):'')+cob(E.s7))
     +'</div></section>';
   return h;
 }
@@ -12478,7 +12505,13 @@ function _eneTlRow(E,N,t0,runs){
   let prev=t0;const huecos=[];
   ms.forEach(m=>{if(m.t-prev>3*60000)huecos.push([prev,m.t]);prev=m.t;});
   if(Date.now()-prev>3*60000)huecos.push([prev,Date.now()]);
-  huecos.forEach(hq=>svg+='<rect x="'+x(hq[0]).toFixed(1)+'" y="0" width="'+Math.max(0.5,x(hq[1])-x(hq[0])).toFixed(1)+'" height="64" fill="var(--muted)" opacity=".18"><title>sin dato del medidor '+_eneHoraTxt(hq[0])+'–'+_eneHoraTxt(hq[1])+'</title></rect>');
+  huecos.forEach(hq=>{
+    const a=ms.filter(m=>m.t<=hq[0]).pop(),b=ms.find(m=>m.t>=hq[1]);
+    const dkwh=(a&&b&&a.acum!=null&&b.acum!=null&&b.acum>=a.acum)?b.acum-a.acum:null;
+    const kwAvg=dkwh!=null?dkwh/((b.t-a.t)/3600000):null;
+    svg+='<rect x="'+x(hq[0]).toFixed(1)+'" y="0" width="'+Math.max(0.5,x(hq[1])-x(hq[0])).toFixed(1)+'" height="64" fill="var(--muted)" opacity=".18"><title>PC apagada '+_eneHoraTxt(hq[0])+'–'+_eneHoraTxt(hq[1])+(kwAvg!=null?' · odómetro: '+_evvF(dkwh,1)+' kWh, promedio '+_evvF(kwAvg,1)+' kW (sin detalle por minuto)':' · corte de luz o térmicas bajadas')+'</title></rect>';
+    if(kwAvg!=null)svg+='<line x1="'+x(hq[0]).toFixed(1)+'" x2="'+x(hq[1]).toFixed(1)+'" y1="'+y(kwAvg)+'" y2="'+y(kwAvg)+'" stroke="#e8b23a" stroke-width="2" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>';
+  });
   (runs||[]).forEach(r=>svg+='<rect x="'+x(r.desde-60000).toFixed(1)+'" y="0" width="'+Math.max(1,x(r.hasta)-x(r.desde-60000)).toFixed(1)+'" height="64" fill="var(--bad)" opacity=".16"><title>consumo sin producción '+_eneHoraTxt(r.desde)+'–'+_eneHoraTxt(r.hasta)+'</title></rect>');
   [ENE.STANDBY_KW,ENE.CONTRATADA_KW].forEach((v,i)=>svg+='<line x1="0" x2="'+N+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="'+(i?'var(--bad)':'var(--line)')+'" stroke-dasharray="4 4" stroke-width="1" vector-effect="non-scaling-stroke" opacity="'+(i?'.6':'1')+'"/>');
   // línea por tramos (se corta en los huecos), promedio de 3 minutos
@@ -12490,7 +12523,7 @@ function _eneTlRow(E,N,t0,runs){
   segs.forEach(s=>{if(s.length>1)svg+='<path d="M'+s.join('L')+'L'+s[s.length-1].split(' ')[0]+' 60L'+s[0].split(' ')[0]+' 60Z" fill="#e8b23a" opacity=".12"/><path d="M'+s.join('L')+'" fill="none" stroke="#e8b23a" stroke-width="2" vector-effect="non-scaling-stroke"/>';});
   svg+='</svg>';
   const viejo=!E.ult||(Date.now()-E.ult.t)/60000>ENE.STALE_MIN;
-  return '<div class="evx-tlrow evx-tlene"><span class="nm" title="Potencia de toda la planta (medidor general). Raya roja = '+ENE.CONTRATADA_KW+' kW contratados; gris = '+ENE.STANDBY_KW+' kW con todo parado">⚡ kW</span><div style="min-width:0;position:relative">'+svg+'</div><span class="rt">'+(viejo?'sin dato':_evvF(E.ult.kw,1)+' kW')+'<br>máx '+_evvF(mx/1.05,0)+'</span></div>';
+  return '<div class="evx-tlrow evx-tlene"><span class="nm" title="Potencia de toda la planta (medidor general). Raya roja = '+ENE.CONTRATADA_KW+' kW contratados; gris = '+ENE.STANDBY_KW+' kW con todo parado. Franja gris = PC apagada (corte de luz o térmicas bajadas); punteado = promedio del odómetro en ese rato">⚡ kW</span><div style="min-width:0;position:relative">'+svg+'</div><span class="rt">'+(viejo?'sin dato':_evvF(E.ult.kw,1)+' kW')+'<br>máx '+_evvF(mx/1.05,0)+'</span></div>';
 }
 // Columnas de energía del «Por turno»: [kWh, kWh/kg, kW prom]
 function _eneTurno(E,a,z,kgNeto){
@@ -12498,10 +12531,14 @@ function _eneTurno(E,a,z,kgNeto){
   const zz=Math.min(z,Date.now());
   const ms=E.mins.filter(m=>m.t>a&&m.t<=zz);
   if(!ms.length||a<E.desdeMs-60000&&ms.length<5)return '<td class="mut">sin dato</td><td class="mut">—</td><td class="mut">—</td>';
-  const kwh=ms.reduce((s,m)=>s+(m.kwh!=null?m.kwh:m.kw/60),0);
+  let kwh=ms.reduce((s,m)=>s+(m.kwh!=null?m.kwh:m.kw/60),0);
   const esp=Math.max(1,(zz-Math.max(a,E.desdeMs))/60000),falta=esp-ms.length;
-  const par=falta>esp*0.05;
-  const tip=par?' title="Faltan '+_evvF(falta)+' min del medidor: es lo que hay, no se completa"':'';
+  // odómetro: última lectura antes del turno y última del turno
+  const oa=E.mins.filter(m=>m.t<=a&&m.acum!=null).pop(),ob=ms.filter(m=>m.acum!=null).pop();
+  const odo=oa&&ob&&ob.acum>=oa.acum&&a-oa.t<15*60000;
+  if(odo)kwh=ob.acum-oa.acum;
+  const par=!odo&&falta>esp*0.05;
+  const tip=par?' title="PC apagada '+_evvF(falta)+' min (corte de luz o térmicas bajadas): sin odómetro todavía, se suman los minutos"':odo?' title="Odómetro del medidor"':'';
   const kk=kgNeto>0?kwh/kgNeto:null;
   const ck=kk==null?'':kk>ENE.BASE_KWH_KG*1.1?'badTxt':kk>ENE.BASE_KWH_KG*1.04?'warnTxt':'okTxt';
   return '<td'+tip+'>'+_evvF(kwh)+(par?'*':'')+'</td><td class="'+ck+'">'+(kk!=null?_evvF(kk,2):'—')+'</td><td>'+_evvF(kwh/(ms.length/60),1)+'</td>';
@@ -12560,7 +12597,7 @@ async function eneOE(id){
     if(rp.error)throw rp.error;
     const kgPl=_eneKgEntre(rp.data||[],ini-1,fin);
     const esp=(fin-ini)/60000;
-    if(!E.minutos||E.kwh==null){el.innerHTML='<div class="mut" style="font-size:12px">⚡ El medidor no tiene datos entre el '+_dkFecha(localDate(new Date(ini)))+' y el '+_dkFecha(localDate(new Date(fin)))+' (empezó el 30/08).</div>';return;}
+    if(E.kwh==null||(!E.minutos&&!E.odo)){el.innerHTML='<div class="mut" style="font-size:12px">⚡ El medidor no tiene datos entre el '+_dkFecha(localDate(new Date(ini)))+' y el '+_dkFecha(localDate(new Date(fin)))+' (empezó el 30/08).</div>';return;}
     const kwhOE=kgPl>0?E.kwh*kgOE/kgPl:null;
     const kpk=kgPl>0?E.kwh/kgPl:null;
     const precio=_enePrecio();
@@ -12570,7 +12607,7 @@ async function eneOE(id){
       +'<div class="kpi-card"><div class="kpi-lbl">kWh de la OE</div><div class="kpi-val">'+(kwhOE!=null?_evvF(kwhOE):'—')+'</div><div class="kpi-sub">'+_evvF(kgOE)+' kg netos de '+_evvF(kgPl)+' kg de la planta</div></div>'
       +'<div class="kpi-card"><div class="kpi-lbl">kWh/kg del lapso</div><div class="kpi-val" style="color:'+(kpk>ENE.BASE_KWH_KG*1.1?'var(--red)':'inherit')+'">'+(kpk!=null?_evvF(kpk,3):'—')+'</div><div class="kpi-sub">base '+_evvF(ENE.BASE_KWH_KG,2)+'</div></div>'
       +'<div class="kpi-card"><div class="kpi-lbl">Costo de energía</div><div class="kpi-val">'+(precio&&kwhOE!=null?_enePlata(kwhOE):'—')+'</div><div class="kpi-sub">'+(precio?(kgOE>0&&kwhOE!=null?'$ '+_evvF(kwhOE*precio/kgOE,2)+' por kg · ':'')+'$ '+_evvF(precio,2)+'/kWh':'sin precio cargado: <a href="#" onclick="eneEditarPrecio();return false">cargar $/kWh</a>')+'</div></div>'
-      +'</div><div style="font-size:11.5px;color:var(--text3);margin-top:6px">Planta del '+f(ini)+' al '+f(fin)+': '+_evvF(E.kwh)+' kWh'+(E.minutos<esp*0.95?' (faltan '+_evvF(esp-E.minutos)+' min del medidor: es lo que hay)':'')
+      +'</div><div style="font-size:11.5px;color:var(--text3);margin-top:6px">Planta del '+f(ini)+' al '+f(fin)+': '+_evvF(E.kwh)+' kWh'+(E.odo?' por odómetro'+(E.corrido>2?' (corrido '+_evvF(E.corrido)+' min: el inicio o el fin cae con la PC apagada)':''):(E.minutos<esp*0.95?' (PC apagada '+_evvF(esp-E.minutos)+' min: sin luz o térmicas bajadas)':''))
       +'. Se reparte por kilos: kWh de la planta × kg de la OE ÷ kg de toda la planta en ese lapso (el medidor es general, no por máquina).</div>';
   }catch(e){el.innerHTML='<div class="msg-err" style="font-size:12px">⚡ No se pudo calcular la energía: '+escapeHtml(String(e.message||e))+'</div>';}
 }
@@ -12580,7 +12617,7 @@ async function _enePlanMes(ym){
   const vivos=dias.filter(d=>d.fs<=hoy);
   const rs=await Promise.all(vivos.map(d=>{const a=_eneDia0(d.fs),z=Math.min(now,a+86400000);return _eneEntre(a,z).then(r=>[d.fs,r]).catch(()=>[d.fs,null]);}));
   const porDia={};let mes=0,minMes=0;
-  rs.forEach(([fs,r])=>{porDia[fs]=r;if(r&&r.minutos&&r.kwh!=null){mes+=r.kwh;minMes+=r.minutos;}});
+  rs.forEach(([fs,r])=>{porDia[fs]=r;if(r&&r.kwh!=null){mes+=r.kwh;minMes+=r.minutos;}});
   const dV=(VEL.dias||28);
   let vel=null;try{vel=await _eneEntre(now-dV*86400000,now);}catch(e){}
   return{ym,porDia,mes,minMes,vel,velDias:dV,t:Date.now()};
@@ -65362,7 +65399,7 @@ function _planPintar(){
       dias.forEach(d=>{if(d.fs<ctx.hoy)return;eRecs.forEach(r=>{_planResolver(r,d,ctx).tr.forEach(t=>{const a=d.fs===ctx.hoy?Math.max(t[0],hA):t[0];hRest+=Math.max(0,t[1]-a);});});});
       const proy=kwhH!=null?EN.mes+kwhH*hRest*(usoE!=null?usoE:1):null;
       const vivos=dias.filter(d=>d.fs<=ctx.hoy);
-      const sinDato=vivos.filter(d=>{const r=EN.porDia[d.fs];return !r||!r.minutos;}).length;
+      const sinDato=vivos.filter(d=>{const r=EN.porDia[d.fs];return !r||r.kwh==null;}).length;
       eneK.push({l:'⚡ Energía del mes',v:_velF(EN.mes)+' <span class="vel-u">kWh</span>',s:(vivos.length?'hasta hoy':'mes sin empezar')+(_enePlata(EN.mes)?' · '+_enePlata(EN.mes):'')+(sinDato?' · '+sinDato+' día'+(sinDato===1?'':'s')+' sin dato':'')
           +'<br><b>'+(kwhH!=null?_velF(kwhH,1):'—')+' kWh por hora de extrusión real</b>'+(hReal?' (planta ÷ '+_velF(hReal)+' h produciendo del PLC, '+EN.velDias+' días)':''),
         title:'Suma del medidor general por día argentino. kWh por hora de extrusión real = kWh de toda la planta en los últimos '+EN.velDias+' días ÷ horas en que las extrusoras estaban produciendo según el PLC (seg_prod), sumadas entre máquinas; incluye lo que consume la planta parada, repartido. Precio: '+(_enePrecio()?'$ '+_enePrecio()+'/kWh':'sin cargar')+' (se carga en Extrusión en vivo · ⚡).'});
@@ -65375,13 +65412,13 @@ function _planPintar(){
         const r=EN.porDia[d.fs];
         const hE=eRecs.reduce((s2,rr)=>s2+_planHoras(_planResolver(rr,d,ctx).tr),0);
         if(d.fs>ctx.hoy)return '<td class="pr-c'+(d.dow===0?' pr-dom':'')+'"></td>';
-        if(!r||!r.minutos||r.kwh==null)return '<td class="pr-c'+(d.fs===ctx.hoy?' pr-hoy':'')+(d.dow===0?' pr-dom':'')+'" title="'+escapeHtml(_dkFecha(d.fs))+' · el medidor no tiene datos">s/d</td>';
+        if(!r||r.kwh==null||(!r.minutos&&!r.odo))return '<td class="pr-c'+(d.fs===ctx.hoy?' pr-hoy':'')+(d.dow===0?' pr-dom':'')+'" title="'+escapeHtml(_dkFecha(d.fs))+' · el medidor no tiene datos">s/d</td>';
         const exc=r.kwh-ENE.STANDBY_KW*r.minutos/60;
         const rojo=hE===0&&exc>=ENE.ROJO_KWH;if(rojo)nRojo++;
-        const espD=d.fs===ctx.hoy?(Date.now()-_eneDia0(d.fs))/60000:1440,parc=r.minutos<espD*0.9;
-        const tip=_dkFecha(d.fs)+' · '+_velF(r.kwh)+' kWh'+(r.minutos<1380&&d.fs<ctx.hoy?' ('+_velF(1440-r.minutos)+' min sin dato)':'')+' · pico '+_velF(r.kw_max,1)+' kW'+(_enePlata(r.kwh)?' · '+_enePlata(r.kwh):'')
+        const parc=r.corrido>30;   // con odómetro: inicio o fin del día en un rato con la PC apagada
+        const tip=_dkFecha(d.fs)+' · '+_velF(r.kwh)+' kWh'+(!r.odo&&r.minutos<1380&&d.fs<ctx.hoy?' (PC apagada '+_velF((1440-r.minutos)/60,1)+' h: sin luz o térmicas bajadas)':'')+' · pico '+_velF(r.kw_max,1)+' kW'+(_enePlata(r.kwh)?' · '+_enePlata(r.kwh):'')
           +(rojo?' · SIN EXTRUSIÓN PLANIFICADA: '+_velF(exc)+' kWh por encima de la planta parada ('+ENE.STANDBY_KW+' kW)':' · extrusión planificada '+_velF(hE)+' h-máquina');
-        return '<td class="pr-c'+(rojo?' pr-erojo':'')+(d.fs===ctx.hoy?' pr-hoy':'')+(d.dow===0?' pr-dom':'')+'" title="'+escapeHtml(tip+(parc?' · PARCIAL: el medidor tiene '+_velF(r.minutos)+' de '+_velF(espD)+' min':''))+'"'+(parc?' style="font-style:italic;opacity:.6"':'')+'>'+(r.kwh>=999.5?_velF(r.kwh/1000,1)+'k':_velF(r.kwh))+(parc?'*':'')+'</td>';}).join('');
+        return '<td class="pr-c'+(rojo?' pr-erojo':'')+(d.fs===ctx.hoy?' pr-hoy':'')+(d.dow===0?' pr-dom':'')+'" title="'+escapeHtml(tip+(r.odo?' · odómetro'+(r.sinDetalle>0.5?' ('+_velF(r.sinDetalle)+' kWh con la PC apagada)':'')+(parc?' · corrido '+_velF(r.corrido)+' min':''):''))+'"'+(parc?' style="font-style:italic;opacity:.6"':'')+'>'+(r.kwh>=999.5?_velF(r.kwh/1000,1)+'k':_velF(r.kwh))+(parc?'*':'')+'</td>';}).join('');
       rowsHtml+=sepRow('⚡ Planta · kWh por día del medidor general'+(nRojo?' · <span style="color:#a11d1d">'+nRojo+' día'+(nRojo===1?'':'s')+' en rojo: consumió sin extrusión planificada</span>':''))
         +'<tr class="pr-ene"><td class="pr-rl">kWh planta</td>'+celE+'<td class="pr-tot">'+_velF(EN.mes)+'</td><td class="pr-tot" colspan="3"><span class="dk-mut">'+(kwhH!=null?_velF(kwhH,1)+' kWh por h de extrusión':'')+'</span></td></tr>';
     }
