@@ -14,4 +14,8 @@ t(/R\.tol=\(R\.pst&&R\.pst\.completa&&R\.pst\.cortP!=null\)\?0\.03:0\.01;/.test(
 t(/cierre_cortadas:ctl&&ctl\.ent!=null/.test(src)&&/cierre_faltan:ctl&&ctl\.faltan!=null/.test(src),'el cierre guarda cortadas y faltan');
 t(/R\.alerta=\(R\.base!=='pistas'&&\(R\.pConf==='dudoso'\|\|!R\.golpes\)\)/.test(src),'05b: por pistas no alerta por golpes de tirada');
 t(/R\.base!=='pistas'&&\(R\.pConf==='dudoso'\|\|!R\.golpes\)\?'<div style="border:2px solid var\(--amber\)/.test(src),'05b: sin cartel LOS GOLPES NO SON DE ESTA OC por pistas');
+{const a=src.indexOf('function _cvvMpbMedido(');const b2=src.indexOf('// 17c:',a);const g=new Function(src.slice(a,b2)+';return _cvvMpbMedido;')();
+t(g('[📏 Bolsa medida 2026-11-05 10:00 por X: 96 cm (ficha 98)]',0.98)===0.96,'05c: 96 cm medido → 0,96');
+t(g('[📏 Bolsa medida 2026-11-05 10:00 por X: 99 cm (ficha 98)]',0.98)===0.98,'05c: 1 cm no cambia');
+t(g('',0.98)===0.98,'05c: sin medida → ficha');}
 console.log(ok+' ok, '+mal+' mal');process.exit(mal?1:0);
