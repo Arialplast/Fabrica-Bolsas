@@ -12,4 +12,6 @@ t(f([{cierre_cortadas:10000,cierre_faltan:60,cierre_maquinas:'1'}],['1'],null).n
 t(f([{cierre_cortadas:10000,cierre_faltan:20,cierre_maquinas:'1'}],['1'],null).nivel==='ok','0,2 % → ok');
 t(/R\.tol=\(R\.pst&&R\.pst\.completa&&R\.pst\.cortP!=null\)\?0\.03:0\.01;/.test(src)&&/R\.pct>R\.tol\?'faltan'/.test(src),'umbral 3 % con pistas completas');
 t(/cierre_cortadas:ctl&&ctl\.ent!=null/.test(src)&&/cierre_faltan:ctl&&ctl\.faltan!=null/.test(src),'el cierre guarda cortadas y faltan');
+t(/R\.alerta=\(R\.base!=='pistas'&&\(R\.pConf==='dudoso'\|\|!R\.golpes\)\)/.test(src),'05b: por pistas no alerta por golpes de tirada');
+t(/R\.base!=='pistas'&&\(R\.pConf==='dudoso'\|\|!R\.golpes\)\?'<div style="border:2px solid var\(--amber\)/.test(src),'05b: sin cartel LOS GOLPES NO SON DE ESTA OC por pistas');
 console.log(ok+' ok, '+mal+' mal');process.exit(mal?1:0);
