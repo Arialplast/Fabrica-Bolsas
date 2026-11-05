@@ -57,7 +57,7 @@ cfg = {};
 // paquetes ≠ unidades, escape y entrega propia
 cli.direccion_entrega = '3 E44 Y45\n(1900) LA PLATA';
 imprimirRemito(701);
-t(impreso.includes('>2.000<') && impreso.includes('40 paq'), 'cantidad en unidades + paquetes');
+t(impreso.includes('>40<') && impreso.includes('2.000 bolsas'), 'cantidad en PAQUETES + bolsas al lado (05j)');
 t(impreso.includes('Entregar &lt;por&gt; portón'), 'observaciones escapadas');
 t(impreso.includes('3 E44 Y45<br>(1900) LA PLATA'), 'lugar de entrega propio');
 
