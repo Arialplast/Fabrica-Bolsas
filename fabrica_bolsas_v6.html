@@ -1857,6 +1857,7 @@ td.dk-red{color:var(--red);font-weight:500;}
 #page-compras-mp .cen-m td:not(.l),#page-compras-mp .cen-m th:not(.l){white-space:nowrap;}
 #page-scrap .cen-m td,#page-scrap .cen-m th{padding:7px 9px;}
 #page-precios-diag .cen-m td,#page-precios-diag .cen-m th{padding:7px 9px;}#page-precios-diag .cen-m td:not(.l),#page-precios-diag .cen-m th:not(.l){white-space:nowrap;}
+.pdx-param{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12.5px;padding:8px 0;}.pdx-niv{display:inline-flex;gap:4px;align-items:center;}
 .pdx-bar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;font-size:12.5px;}
 .pdx-al{padding:9px 12px;border-radius:9px;margin-bottom:8px;font-size:13px;border:1px solid var(--border);}.pdx-al-red{background:#fff5f5;border-color:#fecaca;}.pdx-al-amber{background:#fffbeb;border-color:#fde68a;}.pdx-al-mut{background:#f8f9fb;color:var(--text2);}#page-scrap .cen-m td:not(.l),#page-scrap .cen-m th:not(.l),#page-scrap .cen-m td b{white-space:nowrap;}
 #page-mp-recepcion{font-size:16px;}
@@ -2078,7 +2079,7 @@ td.pr-c.pr-pend{box-shadow:inset 0 0 0 2px #c98a0b;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-11-06g</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-11-06h</span></div>
     <!-- ⚡ 29a: accesos rápidos + buscador + más usados (bloque // ===== ⚡ ACCESOS RÁPIDOS) -->
     <div id="qa-wrap">
       <div id="qa-btns">
@@ -2712,7 +2713,7 @@ td.pr-c.pr-pend{box-shadow:inset 0 0 0 2px #c98a0b;}
       <div class="page-hdr">
         <div>
           <div class="page-title">Diagnóstico de precios</div>
-          <div class="page-sub">Etapa 1 · sólo lectura · $/kg por familia, realización por cliente, margen a costo de reposición y precios debajo del piso</div>
+          <div class="page-sub">Ningún precio de cliente cambia acá · diagnóstico, precio base $/kg por familia (propuesta) y simulación por cliente · listas vigentes para imprimir o mandar por WhatsApp</div>
         </div>
         <div class="btn-grp"><button class="btn btn-sm" onclick="renderPreciosDiag()">↻ Actualizar</button></div>
       </div>
@@ -4948,6 +4949,7 @@ td.pr-c.pr-pend{box-shadow:inset 0 0 0 2px #c98a0b;}
           <select class="st-sel" id="cp-sel-cli" onchange="renderClientePrecios()">
             <option value="">— seleccionar cliente —</option>
           </select>
+          <button class="btn btn-sm" title="Lista de precios vigente del cliente: imprimir o mandar por WhatsApp" onclick="lpvLista(parseInt(document.getElementById('cp-sel-cli').value)||0)">🖨 Lista / 💬 WhatsApp</button>
         </div>
       </div>
 
@@ -7563,7 +7565,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-11-06g';   // 06g: 🔎 DIAGNÓSTICO DE PRECIOS (etapa 1, sólo lectura): familias de producto ($/kg referencia, dispersión, costo de reposición, piso), realización por cliente, precios vigentes contra piso (20 % margen a costo de reposición, config precio_piso_margen_pct), alertas (bajo piso, roja ≤ negra, clientes sin lista, listas vacías, especiales sin uso). Antes 06f:
+const APP_BUILD='2026-11-06h';   // 06h: 📐 PRECIOS ETAPA 2 (sin tocar precios): precio base $/kg por familia como PROPUESTA (precio_base_familia; sugerido = máx(referencia de mercado, reposición ÷ (1 − margen objetivo))), niveles de lista configurables, simulación por cliente (nivel sugerido, en nivel / arriba / excepción, diferencia en $) · 🖨/💬 LISTA VIGENTE del cliente (imprimir A4 o WhatsApp, sin kg) desde Diagnóstico y Precios por cliente · costo de reposición del diagnóstico = el de Aumentos (_aumCostoReposicionKg). Antes 06g: 🔎 DIAGNÓSTICO DE PRECIOS (etapa 1, sólo lectura): familias de producto ($/kg referencia, dispersión, costo de reposición, piso), realización por cliente, precios vigentes contra piso (20 % margen a costo de reposición, config precio_piso_margen_pct), alertas (bajo piso, roja ≤ negra, clientes sin lista, listas vacías, especiales sin uso). Antes 06f:
 // 06f: 🔗 ESTADO DEL PEDIDO CON EL MISMO PRODUCTO EN DOS LÍNEAS — el stock (por pedido+producto) se sumaba a cada línea: PED-06016 (DAG, 00123 × 400 + 400) daba 2.472 entregados de 2.000 → «cobrado parcial» y desaparecía de la lista de pedidos. Ahora se cuenta una vez por producto (_estadoOperativoPedido y % de avance de _pedidoInfoProduccion). Sin SQL. · 06d (previo):   // 06d: Corrección de $/kg de MP con revaluación — ✎ en la orden de compra revalúa stock y consumos del mes actual (costo real de bobinas/bolsas); lo consumido en meses cerrados no se reescribe: la diferencia entra al Resultado del mes como «Diferencia de precio de MP» (revaluaciones_mp, también registro de cada corrección). Antes 06c: Pago a proveedor — casilla «Aplicar recargo X % por cheques» (tildada si el proveedor cobra recargo; se puede destildar en ese pago). Antes 06b: Órdenes de compra MP — ✎ corregir el $/kg pactado de un renglón (y lo ya recibido de él). Antes 06a: ♻️ VENTA DE SCRAP (documento VS: comprador, kg por tipo, $/kg; ingreso «venta de subproductos» en el Resultado; compensación sin caja contra la factura de MP del mismo proveedor; balance de scrap: extrusión por diferencia = desperdicio vendido − scrap pesado por corte) + 💳 RECARGO % POR PAGO CON CHEQUES (proveedores.recargo_cheques_pct: costo financiero automático al pagar, aviso en Proveedor 360°). Antes 05k:   // 05k: remito formal: al lado del detalle «500 paq x 10 uni» (no las bolsas sueltas). Antes:
 // 05j:   // 05j: remito formal (formato Arialplast): Cantidad en PAQUETES, no en bolsas (REM-00749 Collinet salía 5.000 en vez de 500). Antes:
 // 05i:   // 05i: «Ordenar por reglas» v2 — hacia atrás desde la entrega: corte primero (último inicio, sin adelantar lo que espera bobina), extrusión derivada del corte, 24 h congeladas intactas. Antes 05h: Despacho ve las líneas POR KILO (bobina entera): stock = rollos en stock de la OE del pedido (PED-06160 PALAZZO no aparecía). Antes:
@@ -8049,6 +8051,8 @@ async function reload(){
     sb.from('ventas_scrap').select('*, ventas_scrap_lineas(*)').order('fecha',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
     // 06d: correcciones de precio de MP (revaluaciones)
     sb.from('revaluaciones_mp').select('*').order('id',{ascending:false}).then(r=>r).catch(()=>({data:[]})),
+    // 06h: precio base $/kg por familia (propuesta de trabajo; los pedidos no lo leen)
+    sb.from('precio_base_familia').select('*').then(r=>r).catch(()=>({data:[]})),
   ]);
   const d=r=>results[r].status==='fulfilled'?results[r].value.data||[]:[];
   // 19b: lecturas CRÍTICAS que fallaron. Antes un error dejaba la lista vacía en
@@ -8136,6 +8140,7 @@ async function reload(){
   C.ocmp=d(73)||[];   // 04m
   C.ventas_scrap=d(74)||[];   // 05l
   C.reval_mp=d(75)||[];   // 06d
+  C.precio_base_fam=d(76)||[];   // 06h
   _costoBobinaIdx=null; // invalidar índice de costo real por bobina al recargar
   const rcfg=results[8].status==='fulfilled'?results[8].value:null;
   if(rcfg?.data){rcfg.data.forEach(r=>{
@@ -13788,15 +13793,13 @@ function _pdxFamilia(p){
   const l=pres+' · '+col.charAt(0)+col.slice(1).toLowerCase()+(imp?' · impresa':'')+' · '+mr;
   return{k:l,l,pres,col,imp,mr};
 }
-// $/kg de bolsa a costo de reposición (último precio de compra de cada MP)
+// $/kg de bolsa a costo de reposición: la MISMA cuenta que «Aumentos y listas» (_aumCostoReposicionKg: precio
+// anunciado de la MP si lo hay y sigue vigente, si no el último lote; fórmula ÷ (1 − merma)). Una sola verdad (P1).
 let _pdxRepCache=null;
 function _pdxCostoRepKg(prodId){
   if(!_pdxRepCache)_pdxRepCache={};
   if(prodId in _pdxRepCache)return _pdxRepCache[prodId];
-  const p=(C.productos||[]).find(x=>x.id===prodId);let v=0;
-  if(p&&p.bobina_id){const F=(C.formulas||[]).filter(f=>f.bobina_id===p.bobina_id);let c=0,ok=F.length>0;
-    F.forEach(f=>{const pr=_mpUltimoPrecioKg(f.tipo_mp_id);if(!(pr>0))ok=false;c+=(parseFloat(f.porcentaje)||0)/100*pr;});
-    const merma=(parseFloat(p.merma_pct)||5)/100;v=ok&&c>0?r2(c/(1-merma)):0;}
+  let v=0;try{v=parseFloat(_aumCostoReposicionKg(prodId).kg)||0;}catch(e){v=0;}
   _pdxRepCache[prodId]=v;return v;
 }
 function _pdxProdTxt(p){return p?((p.codigo?p.codigo+' · ':'')+(p.descripcion||'')):'—';}
@@ -13889,9 +13892,12 @@ function renderPreciosDiag(){
     {l:'Ventas debajo del piso',v:_pdx$(T.vBajo),cls:T.vBajo>0?'dk-red':'',s:T.falta>0?'faltan '+_pdx$(T.falta)+' para llegar al piso':'ninguna'},
     {l:'Precio por especial',v:_pdxP(T.espUso),s:'de las líneas vendidas sale de un precio especial (no de una lista)'}
   ]);
-  const tabs=[['resumen','Resumen y alertas'],['familias','Familias ($/kg)'],['clientes','Clientes'],['vigentes','Precios vigentes']];
-  h+='<div class="cen-tabs">'+tabs.map(t=>'<button type="button" class="'+(PDX.tab===t[0]?'on':'')+'" onclick="PDX.tab=\''+t[0]+'\';renderPreciosDiag()">'+t[1]+'</button>').join('')+'</div>';
-  if(PDX.tab==='familias'){
+  const tabs=[['resumen','Resumen y alertas'],['familias','Familias ($/kg)'],['clientes','Clientes'],['vigentes','Precios vigentes'],['base','📐 Precio base (propuesta)'],['simul','Simulación por cliente']];
+  h+='<div class="cen-tabs">'+tabs.map(t=>'<button type="button" class="'+(PDX.tab===t[0]||(t[0]==='simul'&&PDX.tab==='simcli')?'on':'')+'" onclick="PDX.tab=\''+t[0]+'\';renderPreciosDiag()">'+t[1]+'</button>').join('')+'</div>';
+  if(PDX.tab==='base'){h+=_pdxTabBase(D);}
+  else if(PDX.tab==='simul'){h+=_pdxTabSimul(D);}
+  else if(PDX.tab==='simcli'){h+=_pdxTabSimCli(D);}
+  else if(PDX.tab==='familias'){
     const F=Object.values(D.fam).sort((a,b)=>b.v-a.v);
     h+='<div class="card vel-c"><div class="vel-ct">Familias de producto <span class="dk-mut" style="font-weight:400;font-size:12.5px">— la unidad del futuro precio base $/kg · referencia = mediana ponderada por kg del $/kg vendido</span></div>'
       +'<div class="cen-wrap"><table class="cen-m"><thead><tr><th class="l">Familia</th><th>Kg</th><th>Venta</th><th>Referencia $/kg</th><th>Rango (p10–p90)</th><th>Dispersión</th><th>Costo repos. $/kg</th><th>Piso $/kg</th><th>Margen repos.</th><th>Clientes</th><th>Productos</th></tr></thead><tbody>'
@@ -13902,11 +13908,11 @@ function renderPreciosDiag(){
   }else if(PDX.tab==='clientes'){
     const Cs=Object.values(D.cli).filter(c=>c.id).sort((a,b)=>b.v-a.v);
     h+='<div class="card vel-c"><div class="vel-ct">Clientes <span class="dk-mut" style="font-weight:400;font-size:12.5px">— realización = lo que pagó ÷ lo que habría pagado a la referencia de cada familia (100 % = como la mediana)</span></div>'
-      +'<div class="cen-wrap"><table class="cen-m"><thead><tr><th class="l">Cliente</th><th>Clase</th><th>Venta</th><th>Kg</th><th>$/kg</th><th>Realización</th><th>Margen repos.</th><th>Líneas bajo piso</th><th>Falta para el piso</th><th class="l">Lista</th></tr></thead><tbody>'
+      +'<div class="cen-wrap"><table class="cen-m"><thead><tr><th class="l">Cliente</th><th>Clase</th><th>Venta</th><th>Kg</th><th>$/kg</th><th>Realización</th><th>Margen repos.</th><th>Líneas bajo piso</th><th>Falta para el piso</th><th class="l">Lista</th><th></th></tr></thead><tbody>'
       +Cs.map(c=>{const cl=(C.clientes||[]).find(x=>x.id===c.id);const li=cl&&cl.lista_precio_id?((C.listas||C.listas_precios||[]).find(l=>l.id===cl.lista_precio_id)||{}).nombre:null;
         return '<tr style="cursor:pointer" onclick="PDX.tab=\'vigentes\';PDX.cli=\''+c.id+'\';renderPreciosDiag()"><td class="l"><b>'+escapeHtml(_pdxCliTxt(c.id))+'</b></td><td>'+(c.clase?'<span class="prg-cl '+c.clase+'">'+c.clase+'</span>':'—')+'</td><td>'+_pdx$(c.v)+'</td><td>'+Math.round(c.kg).toLocaleString('es-AR')+'</td><td>'+_pdx$(c.pk)+'</td>'
           +'<td style="font-weight:600;color:'+(c.real==null?'var(--text3)':c.real<90?'var(--red)':c.real<97?'var(--amber)':'var(--green)')+'">'+_pdxP(c.real)+'</td><td style="color:'+_pdxMgCol(c.mgRep,piso)+';font-weight:600">'+_pdxP(c.mgRep,1)+'</td>'
-          +'<td>'+(c.bajo?'<span style="color:var(--red);font-weight:600">'+c.bajo+'</span>':'—')+'</td><td>'+(c.falta>0.5?_pdx$(c.falta):'—')+'</td><td class="l">'+(li?escapeHtml(li):'<span style="color:var(--amber)">sin lista</span>')+'</td></tr>';}).join('')
+          +'<td>'+(c.bajo?'<span style="color:var(--red);font-weight:600">'+c.bajo+'</span>':'—')+'</td><td>'+(c.falta>0.5?_pdx$(c.falta):'—')+'</td><td class="l">'+(li?escapeHtml(li):'<span style="color:var(--amber)">sin lista</span>')+'</td><td><button type="button" class="btn btn-sm" title="Lista de precios vigente: imprimir o mandar por WhatsApp" onclick="event.stopPropagation();lpvLista('+c.id+')">🖨 / 💬</button></td></tr>';}).join('')
       +'</tbody></table></div><div class="dk-mut" style="font-size:12px;margin-top:8px">Tocá un cliente para ver sus precios vigentes producto por producto. La realización compara contra lo que pagan los demás por el mismo tipo de bolsa: un cliente A con realización baja es una decisión comercial; uno C con realización baja es plata que se deja.</div></div>';
   }else if(PDX.tab==='vigentes'){
     let V=D.vig.slice();if(PDX.cli)V=V.filter(x=>String(x.cli)===String(PDX.cli));if(PDX.soloPiso)V=V.filter(x=>x.bajo);
@@ -13914,7 +13920,7 @@ function renderPreciosDiag(){
     const clis=[...new Set(D.vig.map(x=>x.cli))].sort((a,b)=>_pdxCliTxt(a).localeCompare(_pdxCliTxt(b)));
     h+='<div class="card vel-c"><div class="vel-ct">Precios vigentes <span class="dk-mut" style="font-weight:400;font-size:12.5px">— lo que hoy saldría en un pedido, de cada cliente × producto que compró en el período</span>'
       +'<span style="margin-left:auto;display:flex;gap:8px;align-items:center"><select onchange="PDX.cli=this.value;renderPreciosDiag()"><option value="">Todos los clientes</option>'+clis.map(id=>'<option value="'+id+'"'+(String(PDX.cli)===String(id)?' selected':'')+'>'+escapeHtml(_pdxCliTxt(id))+'</option>').join('')+'</select>'
-      +'<label style="font-size:12.5px;display:flex;gap:6px;align-items:center"><input type="checkbox" '+(PDX.soloPiso?'checked':'')+' onchange="PDX.soloPiso=this.checked;renderPreciosDiag()"> sólo debajo del piso</label></span></div>'
+      +''+(PDX.cli?'<button type="button" class="btn btn-sm" onclick="lpvLista('+PDX.cli+')">🖨 Lista / 💬 WhatsApp</button>':'')+'<label style="font-size:12.5px;display:flex;gap:6px;align-items:center"><input type="checkbox" '+(PDX.soloPiso?'checked':'')+' onchange="PDX.soloPiso=this.checked;renderPreciosDiag()"> sólo debajo del piso</label></span></div>'
       +'<div class="cen-wrap"><table class="cen-m"><thead><tr><th class="l">Cliente</th><th class="l">Producto</th><th class="l">Familia</th><th>Fuente</th><th>$/paquete</th><th>$/kg</th><th>Ref. familia</th><th>vs ref.</th><th>Costo repos. $/kg</th><th>Margen repos.</th><th>Kg período</th><th>Última venta</th></tr></thead><tbody>'
       +(V.length?V.map(x=>'<tr'+(x.bajo?' style="background:#fff5f5"':'')+'><td class="l">'+escapeHtml(_pdxCliTxt(x.cli))+'</td><td class="l">'+escapeHtml(_pdxProdTxt(x.p))+'</td><td class="l dk-mut" style="font-size:11.5px">'+escapeHtml(x.fam.l)+'</td>'
         +'<td>'+(x.fuente==='especial'?'especial':x.fuente==='lista'?'lista':'<span style="color:var(--amber)">sin precio</span>')+'</td><td>'+_pdx$(x.pp)+'</td><td><b>'+_pdx$(x.pk)+'</b></td><td>'+_pdx$(x.ref)+'</td>'
@@ -13932,6 +13938,165 @@ function renderPreciosDiag(){
     h+='<div class="card vel-c"><div class="vel-ct">Qué viene (etapas 2 a 4)</div><div style="font-size:13px;line-height:1.7">Con estos números se arma el <b>precio base $/kg por familia</b> (costo de reposición + margen objetivo), los <b>niveles de lista</b> y las <b>excepciones con motivo y vencimiento</b>. Ningún precio de cliente cambia hasta que vos lo decidas: el sistema primero va a mostrar, cliente por cliente, qué cambiaría y cuánto.</div></div>';
   }
   w.innerHTML=h;
+}
+
+// ===== 📐 ETAPA 2 DE PRECIOS (06h) — PRECIO BASE $/kg POR FAMILIA + SIMULACIÓN · NO TOCA NINGÚN PRECIO =====
+// German 06/11: «continuemos con la etapa dos, sin tocar precios por favor».
+//  · PRECIO BASE $/kg por familia (precio_base_familia): lo fija el dueño. El sistema sugiere
+//    max(referencia de mercado, costo de reposición ÷ (1 − margen objetivo)). Es un DOCUMENTO DE TRABAJO:
+//    getPrecioVenta (lo que sale en los pedidos) NO lo lee.
+//  · NIVELES de lista (config precio_niveles): Lista 0 %, Mayorista −5 %, Distribuidor −10 % sobre la base.
+//    A cada cliente se le SUGIERE el nivel más cercano a lo que hoy paga (no se asigna).
+//  · SIMULACIÓN: cada precio vigente contra base × nivel sugerido → «en su nivel», «arriba», «abajo (excepción)».
+//    Cuánto cambiaría por cliente si se aplicara (kg del período × diferencia). Nada se aplica.
+function _pdxMargenObj(){const v=parseFloat(getCfg('precio_margen_objetivo_pct',40));return v>0&&v<90?v:40;}
+function _pdxNiveles(){
+  let n=null;try{n=JSON.parse(getCfg('precio_niveles','')||'null');}catch(e){}
+  if(!Array.isArray(n)||!n.length)n=[{n:'Lista',pct:0},{n:'Mayorista',pct:-5},{n:'Distribuidor',pct:-10}];
+  return n.map(x=>({n:String(x.n||''),pct:parseFloat(x.pct)||0})).sort((a,b)=>b.pct-a.pct);
+}
+function _pdxBaseGuardada(fk){const r=(C.precio_base_fam||[]).find(x=>x.familia===fk);return r&&parseFloat(r.precio_kg)>0?parseFloat(r.precio_kg):null;}
+function _pdxBaseSugerida(f){
+  const mo=_pdxMargenObj();const porCosto=f.repKg?f.repKg/(1-mo/100):null;
+  const v=Math.max(f.ref||0,porCosto||0);return v>0?Math.round(v/10)*10:null;
+}
+function _pdxBase(f){return _pdxBaseGuardada(f.k)||_pdxBaseSugerida(f);}
+function _pdxSimular(D){
+  const niv=_pdxNiveles();const tol=3;
+  const filas=D.vig.filter(x=>x.pk).map(x=>{const f=D.fam[x.fam.k];const b=f?_pdxBase(f):null;return{...x,base:b,ratio:b?x.pk/b:null,guardada:f?!!_pdxBaseGuardada(f.k):false};});
+  const porCli={};
+  filas.forEach(x=>{if(x.ratio==null)return;const c=porCli[x.cli]||(porCli[x.cli]={cli:x.cli,pts:[],kg:0,filas:[]});c.pts.push({x:x.ratio,w:x.kgPer||1});c.kg+=x.kgPer||0;c.filas.push(x);});
+  Object.values(porCli).forEach(c=>{
+    c.ratio=_pdxMedPond(c.pts);const pctHoy=(c.ratio-1)*100;
+    c.nivel=niv.reduce((best,n)=>Math.abs(n.pct-pctHoy)<Math.abs(best.pct-pctHoy)?n:best,niv[0]);
+    c.enNivel=0;c.arriba=0;c.abajo=0;c.dif=0;
+    c.filas.forEach(x=>{x.objetivo=x.base*(1+c.nivel.pct/100);x.desv=(x.pk/x.objetivo-1)*100;
+      x.estado=Math.abs(x.desv)<=tol?'nivel':x.desv>0?'arriba':'abajo';c[x.estado==='nivel'?'enNivel':x.estado]++;
+      c.dif+=(x.objetivo-x.pk)*(x.kgPer||0);});
+  });
+  return{filas,porCli,niv,tol};
+}
+async function pdxGuardarBase(fk,val){
+  const v=parseFloat(String(val).replace(',','.'));
+  pedirAdminYEjecutar(async()=>{
+    const row={familia:fk,precio_kg:v>0?v:null,actualizado_el:new Date().toISOString()};
+    const{error}=await sb.from('precio_base_familia').upsert(row,{onConflict:'familia'});
+    if(error){toast('No se pudo guardar: '+error.message,'red');return;}
+    const L=C.precio_base_fam||(C.precio_base_fam=[]);const i=L.findIndex(x=>x.familia===fk);if(i>=0)L[i]=row;else L.push(row);
+    toast(v>0?'Precio base guardado (propuesta: ningún precio de cliente cambió)':'Vuelve al sugerido','green');renderPreciosDiag();
+  });
+}
+async function pdxGuardarParam(){
+  const mo=parseFloat(document.getElementById('pdx-mo')?.value);const ni=[];
+  document.querySelectorAll('.pdx-niv').forEach(r=>{const n=r.querySelector('.pdx-nn')?.value.trim();const p=parseFloat(r.querySelector('.pdx-np')?.value);if(n)ni.push({n,pct:isFinite(p)?p:0});});
+  pedirAdminYEjecutar(async()=>{
+    const filas=[{clave:'precio_niveles',valor:JSON.stringify(ni)}];if(mo>0&&mo<90)filas.push({clave:'precio_margen_objetivo_pct',valor:String(mo)});
+    const{error}=await sb.from('configuracion').upsert(filas,{onConflict:'clave'});
+    if(error){toast('No se pudo guardar: '+error.message,'red');return;}
+    await reload();toast('Parámetros guardados','green');renderPreciosDiag();
+  });
+}
+function _pdxTabBase(D){
+  const F=Object.values(D.fam).sort((a,b)=>b.v-a.v);const mo=_pdxMargenObj();const niv=_pdxNiveles();
+  let h='<div class="card vel-c"><div class="vel-ct">Precio base $/kg por familia <span class="dk-mut" style="font-weight:400;font-size:12.5px">— PROPUESTA de trabajo: ningún pedido ni precio de cliente la usa todavía</span></div>'
+    +'<div class="pdx-param"><label>Margen objetivo <input type="number" id="pdx-mo" value="'+mo+'" min="1" max="89" step="1" style="width:70px"> %</label>'
+    +'<span class="dk-mut">Niveles sobre la base:</span>'+niv.map(n=>'<span class="pdx-niv"><input class="pdx-nn" value="'+escapeHtml(n.n)+'" style="width:110px"> <input class="pdx-np" type="number" step="0.5" value="'+n.pct+'" style="width:64px"> %</span>').join('')
+    +'<button type="button" class="btn btn-sm" onclick="pdxGuardarParam()">Guardar parámetros</button></div>'
+    +'<div class="dk-mut" style="font-size:12px;margin:6px 0 10px">Sugerido = el mayor entre la referencia de mercado (lo que pagan tus clientes, mediana) y el costo de reposición con el margen objetivo ('+mo+' %). Escribí tu precio base y guardalo; vacío = usa el sugerido.</div>'
+    +'<div class="cen-wrap"><table class="cen-m"><thead><tr><th class="l">Familia</th><th>Kg período</th><th>Costo repos.</th><th>Piso ('+D.piso+' %)</th><th>Referencia mercado</th><th>Sugerido</th><th>Precio base $/kg</th><th>Margen a la base</th>'+niv.map(n=>'<th>'+escapeHtml(n.n)+'</th>').join('')+'</tr></thead><tbody>'
+    +F.map(f=>{const g=_pdxBaseGuardada(f.k),s=_pdxBaseSugerida(f),b=g||s;const mg=b&&f.repKg?(1-f.repKg/b)*100:null;
+      return '<tr><td class="l"><b>'+escapeHtml(f.fam.l)+'</b></td><td>'+Math.round(f.kg).toLocaleString('es-AR')+'</td><td>'+_pdx$(f.repKg)+'</td><td>'+_pdx$(f.pisoKg)+'</td><td>'+_pdx$(f.ref)+'</td><td class="dk-mut">'+_pdx$(s)+'</td>'
+        +'<td><input type="number" step="10" value="'+(g||'')+'" placeholder="'+(s||'')+'" style="width:96px;text-align:right'+(g?';font-weight:700':'')+'" onchange="pdxGuardarBase(\''+f.k.replace(/'/g,"\\'")+'\',this.value)"></td>'
+        +'<td style="color:'+_pdxMgCol(mg,D.piso)+';font-weight:600">'+_pdxP(mg,1)+'</td>'+niv.map(n=>'<td>'+_pdx$(b?b*(1+n.pct/100):null)+'</td>').join('')+'</tr>';}).join('')
+    +'</tbody></table></div></div>';
+  return h;
+}
+function _pdxTabSimul(D){
+  const S=_pdxSimular(D);const Cs=Object.values(S.porCli).sort((a,b)=>b.kg-a.kg);
+  let h='<div class="card vel-c"><div class="vel-ct">Simulación por cliente <span class="dk-mut" style="font-weight:400;font-size:12.5px">— qué pasaría si cada cliente pagara la base × su nivel. NO se aplica nada.</span></div>'
+    +'<div class="cen-wrap"><table class="cen-m"><thead><tr><th class="l">Cliente</th><th>Clase</th><th>Paga hoy vs base</th><th class="l">Nivel sugerido</th><th>En su nivel</th><th>Arriba</th><th>Abajo (excepción)</th><th>Diferencia (kg del período)</th><th></th></tr></thead><tbody>'
+    +Cs.map(c=>{const pct=(c.ratio-1)*100;
+      return '<tr><td class="l"><b>'+escapeHtml(_pdxCliTxt(c.cli))+'</b></td><td>'+(_cliClase(c.cli)?'<span class="prg-cl '+_cliClase(c.cli)+'">'+_cliClase(c.cli)+'</span>':'—')+'</td>'
+        +'<td>'+(pct>0?'+':'')+pct.toFixed(1)+' %</td><td class="l">'+escapeHtml(c.nivel.n)+' <span class="dk-mut">('+(c.nivel.pct>0?'+':'')+c.nivel.pct+' %)</span></td>'
+        +'<td>'+c.enNivel+'</td><td>'+(c.arriba||'—')+'</td><td>'+(c.abajo?'<span style="color:var(--amber);font-weight:600">'+c.abajo+'</span>':'—')+'</td>'
+        +'<td style="color:'+(c.dif>0?'var(--green)':c.dif<0?'var(--red)':'var(--text3)')+'">'+(Math.abs(c.dif)<1?'—':(c.dif>0?'+':'−')+_pdx$(Math.abs(c.dif)).replace('$ ','$ '))+'</td>'
+        +'<td><button type="button" class="btn btn-sm" onclick="PDX.tab=\'simcli\';PDX.cli=\''+c.cli+'\';renderPreciosDiag()">Ver</button> <button type="button" class="btn btn-sm" onclick="lpvLista('+c.cli+')">🖨 / 💬</button></td></tr>';}).join('')
+    +'</tbody></table></div><div class="dk-mut" style="font-size:12px;margin-top:8px">Diferencia = (base × nivel − precio de hoy) × kg comprados en el período. Positivo = hoy paga menos que su nivel (plata que dejás); negativo = paga más. «Abajo» son las excepciones que, el día que ordenes, tendrían que llevar un motivo.</div></div>';
+  return h;
+}
+function _pdxTabSimCli(D){
+  const S=_pdxSimular(D);const c=S.porCli[PDX.cli]||S.porCli[parseInt(PDX.cli)];
+  if(!c)return '<div class="card vel-c"><div class="dk-mut">Elegí un cliente en la simulación.</div></div>';
+  const ord={abajo:0,arriba:1,nivel:2};const L=c.filas.slice().sort((a,b)=>ord[a.estado]-ord[b.estado]||a.desv-b.desv);
+  return '<div class="card vel-c"><div class="vel-ct">'+escapeHtml(_pdxCliTxt(c.cli))+' <span class="dk-mut" style="font-weight:400;font-size:12.5px">— nivel sugerido '+escapeHtml(c.nivel.n)+' ('+(c.nivel.pct>0?'+':'')+c.nivel.pct+' %) · sólo simulación</span>'
+    +'<span style="margin-left:auto;display:flex;gap:6px"><button type="button" class="btn btn-sm" onclick="PDX.tab=\'simul\';renderPreciosDiag()">← Todos</button><button type="button" class="btn btn-sm" onclick="lpvLista('+c.cli+')">🖨 Lista / 💬 WhatsApp</button></span></div>'
+    +'<div class="cen-wrap"><table class="cen-m"><thead><tr><th class="l">Producto</th><th class="l">Familia</th><th>Hoy $/paq</th><th>Hoy $/kg</th><th>Base $/kg</th><th>Su nivel $/kg</th><th>Desvío</th><th class="l">Estado</th><th>Así quedaría $/paq</th></tr></thead><tbody>'
+    +L.map(x=>{const kgPaq=lpGetKgPaq(x.p);const nuevo=kgPaq>0?x.objetivo*kgPaq:null;
+      return '<tr><td class="l">'+escapeHtml(_pdxProdTxt(x.p))+'</td><td class="l dk-mut" style="font-size:11.5px">'+escapeHtml(x.fam.l)+'</td><td>'+_pdx$(x.pp)+'</td><td><b>'+_pdx$(x.pk)+'</b></td><td>'+_pdx$(x.base)+(x.guardada?'':' <span class="dk-mut" style="font-size:10.5px">sug.</span>')+'</td><td>'+_pdx$(x.objetivo)+'</td>'
+        +'<td style="color:'+(x.estado==='abajo'?'var(--amber)':x.estado==='arriba'?'#0891b2':'var(--text3)')+';font-weight:600">'+(x.desv>0?'+':'')+x.desv.toFixed(1)+' %</td>'
+        +'<td class="l">'+(x.estado==='nivel'?'en su nivel':x.estado==='arriba'?'arriba del nivel':'<span style="color:var(--amber);font-weight:600">excepción (abajo)</span>')+'</td><td class="dk-mut">'+_pdx$(nuevo)+'</td></tr>';}).join('')
+    +'</tbody></table></div><div class="dk-mut" style="font-size:12px;margin-top:8px">«Así quedaría» es sólo para ver: el precio que sale en los pedidos sigue siendo el de hoy.</div></div>';
+}
+// ===== 🖨 / 💬 LISTA DE PRECIOS VIGENTE DEL CLIENTE (06h) =====
+// Los precios de HOY (los mismos que salen en un pedido: precio especial o lista), sin kg ni $/kg (regla de German
+// para lo que se manda al cliente). Productos: los que tienen precio para ese cliente y compró en 12 meses, más sus
+// precios especiales. Distinto de «Aumentos y listas», que arma listas NUEVAS (con borradores y tramos).
+function _lpvFilas(cliId){
+  const ids=new Set();try{Object.keys(_aumProdsDeCliente(cliId,12)).forEach(k=>ids.add(parseInt(k)));}catch(e){}
+  (C.cli_precios_esp||[]).forEach(e=>{if(e.cliente_id===cliId&&e.producto_id)ids.add(e.producto_id);});
+  const F=[];ids.forEach(pid=>{const p=(C.productos||[]).find(x=>x.id===pid);if(!p)return;const pv=getPrecioVenta(pid,cliId);if(!pv||!(pv.precio_paquete>0))return;
+    const emp=(C.emp||[]).find(e=>e.id===p.empaque_id);const upq=parseFloat(emp&&emp.unidades)||0;let bul=0;try{bul=_aumPaqBulto(pid,cliId)||0;}catch(e){}
+    F.push({p,pp:pv.precio_paquete,upq,bul});});
+  return _prodOrdenados(F.map(x=>x.p)).map(p=>F.find(x=>x.p===p));
+}
+function _lpvTexto(cliId,F){
+  const cli=(C.clientes||[]).find(c=>c.id===cliId)||{};const emp=getCfg('empresa_razon_social','')||'';
+  const m=v=>'$ '+v.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  let t='*'+(emp||'Lista de precios')+' — Lista de precios*\n'+(cli.razon_social||cli.nombre||'')+'\nVigente al '+_aumFechaLarga(localDate())+'. Precios SIN IVA, en pesos.\n\n';
+  F.forEach(x=>{t+='• '+(x.p.codigo?x.p.codigo+' · ':'')+(x.p.descripcion||'')+(x.upq>1?' (paquete de '+x.upq+' u)':'')+'\n   '+m(x.pp)+(x.upq>1?' el paquete':'')+(x.bul>0?'  ('+m(r2(x.pp*x.bul))+' el bulto de '+x.bul+')':'')+'\n';});
+  return t;
+}
+function lpvLista(cliId){
+  cliId=parseInt(cliId)||0;if(!cliId){toast('Elegí un cliente','amber');return;}
+  const F=_lpvFilas(cliId);if(!F.length){toast('Ese cliente no tiene precios cargados para mandar','amber');return;}
+  const txt=_lpvTexto(cliId,F);
+  document.getElementById('lpv-modal')?.remove();
+  document.body.insertAdjacentHTML('beforeend','<div class="modal-overlay" id="lpv-modal" onclick="if(event.target===this)this.remove()"><div class="modal-card" style="max-width:600px;background:#fff;color:#0f1115">'
+    +'<div class="modal-title">📄 Lista de precios vigente · '+escapeHtml(_pdxCliTxt(cliId))+'</div>'
+    +'<div style="font-size:12px;color:#64748b;margin-bottom:8px">'+F.length+' productos · los precios de hoy (los mismos que salen en un pedido) · sin kg ni $/kg · sin IVA</div>'
+    +'<textarea id="lpv-txt" style="background:#fff;color:#0f1115;border:1px solid #d8dbe2;border-radius:6px;padding:8px;width:100%;height:280px;font-family:\'DM Mono\',monospace;font-size:11.5px;line-height:1.5">'+escapeHtml(txt)+'</textarea>'
+    +'<div class="fg" style="margin-top:8px"><label>Celular para WhatsApp (opcional, con código de área: 221…)</label><input id="lpv-tel" type="tel" placeholder="ej. 2215551234" style="background:#fff;color:#0f1115;border:1px solid #d8dbe2;border-radius:6px;padding:7px 9px;width:100%"></div>'
+    +'<div class="btn-grp" style="margin-top:10px"><button type="button" class="btn btn-sm btn-primary" onclick="lpvImprimir('+cliId+')">🖨 Imprimir / PDF</button>'
+    +'<button type="button" class="btn btn-sm" onclick="lpvCopiar()">📋 Copiar texto</button>'
+    +'<button type="button" class="btn btn-sm" onclick="lpvWhatsApp()">💬 Abrir WhatsApp</button>'
+    +'<button type="button" class="btn btn-sm" onclick="document.getElementById(\'lpv-modal\').remove()">Cerrar</button></div></div></div>');
+}
+function lpvCopiar(){const el=document.getElementById('lpv-txt');if(!el)return;try{navigator.clipboard.writeText(el.value);toast('Copiado: pegalo en el chat','green');}catch(e){el.select();document.execCommand('copy');toast('Copiado','green');}}
+function lpvWhatsApp(){
+  const el=document.getElementById('lpv-txt');if(!el)return;let tel=String(document.getElementById('lpv-tel')?.value||'').replace(/\D/g,'');
+  if(tel&&!tel.startsWith('54'))tel='549'+tel.replace(/^0/,'').replace(/^15/,'');
+  try{navigator.clipboard.writeText(el.value);}catch(e){}
+  window.open('https://wa.me/'+(tel||'')+'?text='+encodeURIComponent(el.value),'_blank','noopener');
+}
+function lpvImprimir(cliId){
+  const F=_lpvFilas(cliId);const cli=(C.clientes||[]).find(c=>c.id===cliId)||{};
+  const rs=getCfg('empresa_razon_social','')||'',cuit=getCfg('empresa_cuit',''),dir=getCfg('empresa_direccion',''),tel=getCfg('empresa_telefono',''),mail=getCfg('empresa_email','');
+  const m=v=>'$ '+v.toLocaleString('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const html='<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Lista de precios '+escapeHtml(cli.razon_social||cli.nombre||'')+'</title><style>'
+    +'@page{size:A4;margin:14mm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,Helvetica,sans-serif;color:#1e293b;font-size:10pt}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}'
+    +'.hdr{display:grid;grid-template-columns:1.5fr 1fr;gap:20px;border-bottom:3px solid #1e293b;padding-bottom:12px;margin-bottom:14px}.rs{font-size:16pt;font-weight:900}.meta{font-size:9pt;color:#475569;margin-top:3px;line-height:1.45}'
+    +'.tag{display:inline-block;background:#1e293b;color:#fff;padding:3px 12px;border-radius:3px;font-size:9pt;letter-spacing:.08em;text-transform:uppercase;font-weight:700}.r{text-align:right}'
+    +'.cli{background:#f1f5f9;border:1px solid #cbd5e1;border-radius:5px;padding:10px 14px;margin-bottom:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:9.5pt}.l{color:#64748b;font-size:8pt;text-transform:uppercase;letter-spacing:.05em;font-weight:600}'
+    +'table{width:100%;border-collapse:collapse;margin-bottom:12px}th{background:#1e293b;color:#fff;padding:8px 10px;font-size:8.5pt;text-align:left;text-transform:uppercase;letter-spacing:.05em}th.r{text-align:right}td{padding:7px 10px;border-bottom:1px solid #e2e8f0;font-size:10pt}tr:nth-child(even) td{background:#f8fafc}'
+    +'.cond{background:#fffbeb;border:1px solid #fde68a;border-radius:5px;padding:10px 14px;font-size:9pt;line-height:1.55}</style></head><body>'
+    +'<div class="hdr"><div><div class="rs">'+escapeHtml(rs)+'</div><div class="meta">'+(dir?escapeHtml(dir)+'<br>':'')+(cuit?'CUIT: '+escapeHtml(cuit)+'<br>':'')+(tel?'Tel: '+escapeHtml(tel)+' ':'')+(mail?'· '+escapeHtml(mail):'')+'</div></div>'
+    +'<div class="r"><div class="tag">Lista de precios</div><div class="meta">Vigente al <b>'+_aumFechaLarga(localDate())+'</b></div></div></div>'
+    +'<div class="cli"><div><div class="l">Cliente</div><b>'+escapeHtml(cli.razon_social||cli.nombre||'—')+'</b></div><div><div class="l">CUIT</div>'+escapeHtml(cli.cuit||'—')+'</div></div>'
+    +'<table><thead><tr><th style="width:30px">#</th><th>Producto</th><th class="r" style="width:60px">u/paq</th><th class="r" style="width:120px">Precio por paquete</th><th class="r" style="width:120px">Precio por bulto</th></tr></thead><tbody>'
+    +F.map((x,i)=>'<tr><td>'+(i+1)+'</td><td>'+escapeHtml((x.p.codigo?x.p.codigo+' · ':'')+(x.p.descripcion||''))+'</td><td class="r">'+(x.upq||'—')+'</td><td class="r"><b>'+m(x.pp)+'</b></td><td class="r">'+(x.bul>0?m(r2(x.pp*x.bul))+' <span style="color:#64748b;font-size:8.5pt">('+x.bul+' paq)</span>':'—')+'</td></tr>').join('')
+    +'</tbody></table><div class="cond"><b>Condiciones</b><br>• Los precios NO incluyen IVA y están expresados en pesos argentinos.<br>• Sujetos a modificación por variación del costo de la materia prima.<br>• La entrega se coordina al confirmar el pedido.</div>'
+    +'<scr'+'ipt>window.onload=function(){setTimeout(function(){try{window.print();}catch(e){}},400);};<\/scr'+'ipt></body></html>';
+  _imprimirHTML(html,'Lista de precios');
 }
 
 // ===== ♻️ VENTA DE SCRAP / SUBPRODUCTOS (05l) =====
