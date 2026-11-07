@@ -2081,7 +2081,7 @@ td.pr-c.pr-pend{box-shadow:inset 0 0 0 2px #c98a0b;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-11-07b</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-11-07c</span></div>
     <!-- ⚡ 29a: accesos rápidos + buscador + más usados (bloque // ===== ⚡ ACCESOS RÁPIDOS) -->
     <div id="qa-wrap">
       <div id="qa-btns">
@@ -3328,7 +3328,7 @@ td.pr-c.pr-pend{box-shadow:inset 0 0 0 2px #c98a0b;}
           <div id="adm-recalc-preview" style="margin-top:10px;font-size:12px;color:var(--text2);"></div>
           <div class="btn-grp" style="margin-top:10px;">
             <button class="btn btn-sm" onclick="previsualizarRecalculo()">Previsualizar</button>
-            <button class="btn btn-primary btn-sm" onclick="ejecutarRecalculo()">Recalcular costos</button>
+            <button class="btn btn-sm" onclick="ejecutarRecalculo()" title="Desactivado: los costos se calculan solos">Recalcular costos (desactivado)</button>
             <span id="msg-recalc" style="font-size:12px;margin-left:8px;"></span>
           </div>
         </div>
@@ -4936,7 +4936,7 @@ td.pr-c.pr-pend{box-shadow:inset 0 0 0 2px #c98a0b;}
           <div class="fgrid" style="max-width:500px;">
             <div class="fg"><label>Modo</label>
               <select id="lp-mg-modo">
-                <option value="margen_real">Margen % (sobre costo real)</option>
+                <option value="margen_real" disabled hidden>Margen % (sobre costo real)</option>
                 <option value="margen_teo">Margen % (sobre costo estándar)</option>
                 <option value="kg">Precio $/kg fijo</option>
                 <option value="paq">Precio $/paquete fijo</option>
@@ -5004,7 +5004,7 @@ td.pr-c.pr-pend{box-shadow:inset 0 0 0 2px #c98a0b;}
           <div class="fgrid" style="max-width:500px;">
             <div class="fg"><label>Modo</label>
               <select id="cp-mg-modo">
-                <option value="margen_real">Margen % (sobre costo real)</option>
+                <option value="margen_real" disabled hidden>Margen % (sobre costo real)</option>
                 <option value="margen_teo">Margen % (sobre costo estándar)</option>
                 <option value="kg">Precio $/kg fijo</option>
                 <option value="paq">Precio $/paquete fijo</option>
@@ -7578,7 +7578,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-11-07b';   // 07b: PRECIOS ETAPA 4 (sin tocar precios) — UN solo costo en pantallas de precios (Precios por cliente y Listas: costo estándar; se quitan costo/margen real; margen pintado contra el piso con ⚠) · pedido: chip de margen por línea (aviso) · precios especiales con MOTIVO y fecha de REVISIÓN (Precios por cliente; alertas en Diagnóstico) · costo de IMPRESIÓN $/kg por producto (productos.costo_impresion_kg) dentro del costo estándar · fix Deshacer englobado (restaura sólo columnas reales). Antes 07a: 🧩 Englobado — «✓ Aplicar» por grupo (crea lista con los precios de hoy, asigna, borra especiales iguales, crea los necesarios para conservar precios de otra lista; verificación posterior cliente × producto con deshacer automático; copia en precio_agrupaciones) y «↶ Deshacer». Antes 2026-11-06m:   // 06m: 🧩 PRECIOS ETAPA 3 (propuesta, sin escribir nada): englobar clientes que hoy pagan lo mismo — grupos sugeridos (precios especiales: cliente modelo + los que coinciden ≥ 3 productos y ≥ 80 %), editables; lista del grupo = precio de hoy de la mayoría; excepciones conservan su precio; especiales que sobran; control cliente × producto de que ningún precio cambie. Antes 06l: DOS COSTOS, UN TRABAJO CADA UNO — precios (Diagnóstico) usan SIEMPRE el costo estándar (receta × precio de hoy + funda; sin selector) · el costo real (Resultado del mes) toma las OC del MES, si no hubo del mes anterior, después 120 días e histórico · pantalla nueva 💲 Costo estándar y variaciones: estructura del costo (base, cada colorante, antihumedad, merma, funda, % y $), por familia, por producto, variaciones real vs estándar (consumo / precio) con el control de peso vs ficha, sensibilidad a aumentos de insumos. Antes 06k: Diagnóstico — alerta «productos que pesan distinto que su ficha» (últimas 3 OC de 90 d, kg de bobina ÷ bolsas, ±8 %; caso Solbayres 00345 hecho a 26 µ con bobina «33 MIC») · Lista de precios para mandar: casillas para elegir qué productos van (todos / ninguno). Antes 06j: Diagnóstico → Precios vigentes muestra TODO el libro de precios del cliente (especiales + lista de lo comprado en 12 meses), no sólo lo vendido en el período (Collinet: faltaban 00001 y 00002). Antes 06i: Costo de reposición incluye la FUNDA (y devuelve desglose base / aditivos / merma / funda) — afecta Aumentos y Diagnóstico · Diagnóstico de precios mide por defecto con el COSTO REAL de las OC (MP + colorante + antihumedad + funda trazados), selector Real/Reposición, familias con ambos costos. Antes 06h: 📐 PRECIOS ETAPA 2 (sin tocar precios): precio base $/kg por familia como PROPUESTA (precio_base_familia; sugerido = máx(referencia de mercado, reposición ÷ (1 − margen objetivo))), niveles de lista configurables, simulación por cliente (nivel sugerido, en nivel / arriba / excepción, diferencia en $) · 🖨/💬 LISTA VIGENTE del cliente (imprimir A4 o WhatsApp, sin kg) desde Diagnóstico y Precios por cliente · costo de reposición del diagnóstico = el de Aumentos (_aumCostoReposicionKg). Antes 06g: 🔎 DIAGNÓSTICO DE PRECIOS (etapa 1, sólo lectura): familias de producto ($/kg referencia, dispersión, costo de reposición, piso), realización por cliente, precios vigentes contra piso (20 % margen a costo de reposición, config precio_piso_margen_pct), alertas (bajo piso, roja ≤ negra, clientes sin lista, listas vacías, especiales sin uso). Antes 06f:
+const APP_BUILD='2026-11-07c';   // 07c: UNA SOLA VERDAD de costos y precios — lpGetCostoReal = costo real del Resultado (_rmCostoRealBolsaMap) en Cliente 360, conteos, Aumentos; lpGetCostoTeorico = estándar o 0; márgenes globales y margen_pct guardado sobre costo estándar; sin «precio base» del producto en remitos / reparar pedidos / borrador; informe de lote valora por precio pactado; Cliente 360 muestra el especial (precio_paquete_final); «Recalcular costos» desactivado (escribía costo en precio_bolsa); evolución de costo en Aumentos con funda e impresión. Antes 07b: PRECIOS ETAPA 4 (sin tocar precios) — UN solo costo en pantallas de precios (Precios por cliente y Listas: costo estándar; se quitan costo/margen real; margen pintado contra el piso con ⚠) · pedido: chip de margen por línea (aviso) · precios especiales con MOTIVO y fecha de REVISIÓN (Precios por cliente; alertas en Diagnóstico) · costo de IMPRESIÓN $/kg por producto (productos.costo_impresion_kg) dentro del costo estándar · fix Deshacer englobado (restaura sólo columnas reales). Antes 07a: 🧩 Englobado — «✓ Aplicar» por grupo (crea lista con los precios de hoy, asigna, borra especiales iguales, crea los necesarios para conservar precios de otra lista; verificación posterior cliente × producto con deshacer automático; copia en precio_agrupaciones) y «↶ Deshacer». Antes 2026-11-06m:   // 06m: 🧩 PRECIOS ETAPA 3 (propuesta, sin escribir nada): englobar clientes que hoy pagan lo mismo — grupos sugeridos (precios especiales: cliente modelo + los que coinciden ≥ 3 productos y ≥ 80 %), editables; lista del grupo = precio de hoy de la mayoría; excepciones conservan su precio; especiales que sobran; control cliente × producto de que ningún precio cambie. Antes 06l: DOS COSTOS, UN TRABAJO CADA UNO — precios (Diagnóstico) usan SIEMPRE el costo estándar (receta × precio de hoy + funda; sin selector) · el costo real (Resultado del mes) toma las OC del MES, si no hubo del mes anterior, después 120 días e histórico · pantalla nueva 💲 Costo estándar y variaciones: estructura del costo (base, cada colorante, antihumedad, merma, funda, % y $), por familia, por producto, variaciones real vs estándar (consumo / precio) con el control de peso vs ficha, sensibilidad a aumentos de insumos. Antes 06k: Diagnóstico — alerta «productos que pesan distinto que su ficha» (últimas 3 OC de 90 d, kg de bobina ÷ bolsas, ±8 %; caso Solbayres 00345 hecho a 26 µ con bobina «33 MIC») · Lista de precios para mandar: casillas para elegir qué productos van (todos / ninguno). Antes 06j: Diagnóstico → Precios vigentes muestra TODO el libro de precios del cliente (especiales + lista de lo comprado en 12 meses), no sólo lo vendido en el período (Collinet: faltaban 00001 y 00002). Antes 06i: Costo de reposición incluye la FUNDA (y devuelve desglose base / aditivos / merma / funda) — afecta Aumentos y Diagnóstico · Diagnóstico de precios mide por defecto con el COSTO REAL de las OC (MP + colorante + antihumedad + funda trazados), selector Real/Reposición, familias con ambos costos. Antes 06h: 📐 PRECIOS ETAPA 2 (sin tocar precios): precio base $/kg por familia como PROPUESTA (precio_base_familia; sugerido = máx(referencia de mercado, reposición ÷ (1 − margen objetivo))), niveles de lista configurables, simulación por cliente (nivel sugerido, en nivel / arriba / excepción, diferencia en $) · 🖨/💬 LISTA VIGENTE del cliente (imprimir A4 o WhatsApp, sin kg) desde Diagnóstico y Precios por cliente · costo de reposición del diagnóstico = el de Aumentos (_aumCostoReposicionKg). Antes 06g: 🔎 DIAGNÓSTICO DE PRECIOS (etapa 1, sólo lectura): familias de producto ($/kg referencia, dispersión, costo de reposición, piso), realización por cliente, precios vigentes contra piso (20 % margen a costo de reposición, config precio_piso_margen_pct), alertas (bajo piso, roja ≤ negra, clientes sin lista, listas vacías, especiales sin uso). Antes 06f:
 // 06f: 🔗 ESTADO DEL PEDIDO CON EL MISMO PRODUCTO EN DOS LÍNEAS — el stock (por pedido+producto) se sumaba a cada línea: PED-06016 (DAG, 00123 × 400 + 400) daba 2.472 entregados de 2.000 → «cobrado parcial» y desaparecía de la lista de pedidos. Ahora se cuenta una vez por producto (_estadoOperativoPedido y % de avance de _pedidoInfoProduccion). Sin SQL. · 06d (previo):   // 06d: Corrección de $/kg de MP con revaluación — ✎ en la orden de compra revalúa stock y consumos del mes actual (costo real de bobinas/bolsas); lo consumido en meses cerrados no se reescribe: la diferencia entra al Resultado del mes como «Diferencia de precio de MP» (revaluaciones_mp, también registro de cada corrección). Antes 06c: Pago a proveedor — casilla «Aplicar recargo X % por cheques» (tildada si el proveedor cobra recargo; se puede destildar en ese pago). Antes 06b: Órdenes de compra MP — ✎ corregir el $/kg pactado de un renglón (y lo ya recibido de él). Antes 06a: ♻️ VENTA DE SCRAP (documento VS: comprador, kg por tipo, $/kg; ingreso «venta de subproductos» en el Resultado; compensación sin caja contra la factura de MP del mismo proveedor; balance de scrap: extrusión por diferencia = desperdicio vendido − scrap pesado por corte) + 💳 RECARGO % POR PAGO CON CHEQUES (proveedores.recargo_cheques_pct: costo financiero automático al pagar, aviso en Proveedor 360°). Antes 05k:   // 05k: remito formal: al lado del detalle «500 paq x 10 uni» (no las bolsas sueltas). Antes:
 // 05j:   // 05j: remito formal (formato Arialplast): Cantidad en PAQUETES, no en bolsas (REM-00749 Collinet salía 5.000 en vez de 500). Antes:
 // 05i:   // 05i: «Ordenar por reglas» v2 — hacia atrás desde la entrega: corte primero (último inicio, sin adelantar lo que espera bobina), extrusión derivada del corte, 24 h congeladas intactas. Antes 05h: Despacho ve las líneas POR KILO (bobina entera): stock = rollos en stock de la OE del pedido (PED-06160 PALAZZO no aparecía). Antes:
@@ -20026,7 +20026,7 @@ function renderCliente360(){
   h+='</div>';
   h+='<div><div class="an-section">Precios especiales</div>';
   if(!esp.length)h+='<div style="font-size:12px;color:var(--text3);">Sin precios especiales · usa la lista '+(lista?escapeHtml(lista.nombre):'—')+'.</div>';
-  else{h+='<table style="width:100%;font-size:12px;"><tbody>'+esp.map(e=>{const p=(C.productos||[]).find(x=>x.id===e.producto_id);return '<tr><td style="padding:4px 6px;">'+escapeHtml((p&&(p.descripcion||p.nombre))||('Prod '+e.producto_id))+'</td><td style="text-align:right;font-family:monospace;">$'+(parseFloat(e.precio)||0).toLocaleString('es-AR')+'</td></tr>';}).join('')+'</tbody></table>';}
+  else{h+='<table style="width:100%;font-size:12px;"><tbody>'+esp.map(e=>{const p=(C.productos||[]).find(x=>x.id===e.producto_id);return '<tr><td style="padding:4px 6px;">'+escapeHtml((p&&(p.descripcion||p.nombre))||('Prod '+e.producto_id))+'</td><td style="text-align:right;font-family:monospace;">$'+(parseFloat(e.precio_paquete_final)||0).toLocaleString('es-AR')+'</td></tr>';}).join('')+'</tbody></table>';}
   h+='</div></div>';
 
   wrap.innerHTML=h;
@@ -23113,8 +23113,8 @@ function renderNrDirecta(){
     const emp=prod?C.emp.find(e=>e.id===prod.empaque_id):null;
     const uniPaq=emp?.unidades||0;
     // Precio según lista del cliente / precio especial
-    let precio=prod?(prod.precio_paquete||0):0;
-    let precioFuente='precio base';
+    let precio=0;   // 07c: sin «precio base» del producto: especial > lista > a mano
+    let precioFuente='sin precio (cargalo)';
     if(prod&&cliIdDir){
       try{
         const pv=getPrecioVenta(l.producto_id,cliIdDir);
@@ -23160,7 +23160,7 @@ function renderNrDirecta(){
   _nrDirectaLineas.forEach(l=>{
     if(l.producto_id&&!l.precio){
       const pr=C.productos.find(p=>p.id===l.producto_id);
-      let pBase=pr?.precio_paquete||0;
+      let pBase=0;
       if(cliIdDir){try{const pv=getPrecioVenta(l.producto_id,cliIdDir);if(pv&&pv.precio_paquete)pBase=pv.precio_paquete;}catch(e){}}
       l.precio=pBase;
     }
@@ -23201,7 +23201,7 @@ function nrDirectaSetProd(id,prodId){
     // Inicializar precio según lista del cliente
     const cliId=parseInt(document.getElementById('nr-cli')?.value)||0;
     const pr=C.productos.find(p=>p.id===l.producto_id);
-    let pBase=pr?.precio_paquete||0;
+    let pBase=0;
     if(cliId&&l.producto_id){try{const pv=getPrecioVenta(l.producto_id,cliId);if(pv&&pv.precio_paquete)pBase=pv.precio_paquete;}catch(e){}}
     l.precio=pBase;
   }
@@ -23303,7 +23303,7 @@ async function guardarRemito(){
       // Precio: el que cargó/editó el usuario; si no, lista del cliente; si no, base
       let precio=dl.precio||0;
       if(!precio){
-        precio=prod?.precio_paquete||0;
+        precio=0;
         try{const pv=getPrecioVenta(dl.producto_id,cliId);if(pv&&pv.precio_paquete)precio=pv.precio_paquete;}catch(e){}
       }
       const subtotal=r2(precio*dl.paq);
@@ -31852,7 +31852,16 @@ function lpGetKgPaq(p){
 
 // Costo real $/bolsa — misma lógica que el módulo de costos
 // Usa el costo real de cada bobina (fórmula × precio lote específico) / unidades producidas
+// 07c: UNA sola verdad. El «costo real» de cualquier pantalla = el del Resultado (_rmCostoRealBolsaMap: OC del mes,
+// si no del mes anterior, 120 días, histórico; consumo trazado + funda). Antes había un «real de 30 días» que promediaba
+// TODOS los lotes de la historia. Se cachea unos segundos porque las tablas lo piden producto por producto.
+let _lpRealCache=null,_lpRealCacheT=0;
 function lpGetCostoReal(prodId){
+  const now=Date.now();
+  if(!_lpRealCache||now-_lpRealCacheT>15000){try{_lpRealCache=_rmCostoRealBolsaMap(localDate());}catch(e){_lpRealCache=new Map();}_lpRealCacheT=now;}
+  const cm=_lpRealCache.get(prodId);return cm&&cm.costoBolsa>0?r6(cm.costoBolsa):0;
+}
+function _lpGetCostoRealViejo(prodId){
   const hace30=new Date(Date.now()-30*86400000);
   const prod=C.productos.find(p=>p.id===prodId);
 
@@ -31917,7 +31926,7 @@ function lpGetCostoRealKg(prodId){
 // receta × precio de compra de hoy ÷ (1 − merma) + funda + impresión). Si no se puede calcular, la cuenta vieja.
 function lpGetCostoTeorico(prodId){
   try{const r=_aumCostoReposicionKg(prodId);if(r&&r.kg>0)return r2(r.kg);}catch(e){}
-  return _lpGetCostoTeoricoViejo(prodId);
+  return 0;   // 07c: sin receta/precios no hay costo estándar (no se mezcla con otra cuenta)
 }
 function _lpGetCostoTeoricoViejo(prodId){
   const prod=C.productos.find(p=>p.id===prodId);
@@ -32116,10 +32125,7 @@ function confirmarMargenGlobal(){
     const costoReal=lpGetCostoReal(p.id);
     const costoTeo=lpGetCostoTeorico(p.id);
     const v=_lpEdicion[listaId][p.id]||{};
-    if(modo==='margen_real'&&costoReal>0&&val<100){
-      v.precio_kg=r2(costoReal/(1-val/100));
-      if(kgPaq>0)v.precio_paquete=r2(v.precio_kg*kgPaq);
-    } else if(modo==='margen_teo'&&costoTeo>0&&val<100){
+    if((modo==='margen_teo'||modo==='margen_real')&&costoTeo>0&&val<100){   // 07c: un solo costo (estándar)
       v.precio_kg=r2(costoTeo/(1-val/100));
       if(kgPaq>0)v.precio_paquete=r2(v.precio_kg*kgPaq);
     } else if(modo==='kg'){
@@ -32499,10 +32505,7 @@ function confirmarMargenGlobalCli(){
     const costoTeo=lpGetCostoTeorico(p.id);
     if(!_cpEdicionLocal[p.id])_cpEdicionLocal[p.id]={};
     const v=_cpEdicionLocal[p.id];
-    if(modo==='margen_real'&&costoReal>0&&val<100){
-      v.precio_kg=r2(costoReal/(1-val/100));
-      if(kgPaq>0)v.precio_paquete=r2(v.precio_kg*kgPaq);
-    } else if(modo==='margen_teo'&&costoTeo>0&&val<100){
+    if((modo==='margen_teo'||modo==='margen_real')&&costoTeo>0&&val<100){   // 07c: un solo costo (estándar)
       v.precio_kg=r2(costoTeo/(1-val/100));
       if(kgPaq>0)v.precio_paquete=r2(v.precio_kg*kgPaq);
     } else if(modo==='kg'){
@@ -32535,10 +32538,11 @@ async function guardarPreciosEspeciales(){
       if(yaGuardado)deletes.push(p.id);
       return;
     }
-    // Calcular margen para guardar (sobre costo real por default)
+    // 07c: margen guardado sobre el costo ESTÁNDAR (el de fijar precios)
     const kgPaq=lpGetKgPaq(p);
-    const costoKgReal=lpGetCostoRealKg(p.id);
-    const margen=v.precio_kg>0&&costoKgReal>0?r1((v.precio_kg-costoKgReal)/v.precio_kg*100):null;
+    const costoKgStd=lpGetCostoTeorico(p.id);
+    const _pk=v.precio_paquete&&kgPaq>0?v.precio_paquete/kgPaq:v.precio_kg;
+    const margen=_pk>0&&costoKgStd>0?r1((_pk-costoKgStd)/_pk*100):null;
     upserts.push({
       cliente_id:_cpClienteActual,
       producto_id:p.id,
@@ -33148,7 +33152,9 @@ function _aumCostoKgAlCierre(prodId,ym){
   }
   if(!(costo>0))return 0;
   const merma=(parseFloat(prod.merma_pct)||5)/100;
-  return r2(costo/(1-merma));
+  // 07c: misma composición que el costo estándar (+ funda + impresión, a precio de hoy)
+  let extra=0;try{const st=_aumCostoReposicionKg(prodId);extra=(parseFloat(st.funda)||0)+(parseFloat(st.impresion)||0);}catch(e){}
+  return r2(costo/(1-merma)+extra);
 }
 function _aumSerieCosto(prodId,meses){
   return _aumMesesAtras(meses||12).map(m=>({ym:m,kg:_aumCostoKgAlCierre(prodId,m)}));
@@ -35296,7 +35302,7 @@ async function _aumGuardar(){
   }
   const upserts=filas.map(f=>({
     cliente_id:cliId,producto_id:f.pid,lista_id:cli.lista_precio_id||null,
-    precio_kg:f.nuevoKg||null,precio_paquete_final:f.nuevoPaq,margen_pct:f.mgReal,
+    precio_kg:f.nuevoKg||null,precio_paquete_final:f.nuevoPaq,margen_pct:f.mgRep!=null?f.mgRep:null,   // 07c: margen sobre costo estándar
     paquetes_por_bolson:(((C.cli_precios_esp||[]).find(x=>x.cliente_id===cliId&&x.producto_id===f.pid)||{}).paquetes_por_bolson)||null
   }));
   const{error}=await sb.from('cliente_precios_especiales').upsert(upserts,{onConflict:'cliente_id,producto_id'});
@@ -36140,6 +36146,12 @@ function previsualizarRecalculo(){
   div.innerHTML=html;
 }
 async function ejecutarRecalculo(){
+  // 07c: desactivado. Escribía costo×(1+GG) en ordenes_corte.precio_bolsa, que es PRECIO DE VENTA (Rentabilidad lo lee).
+  // Los costos ya se calculan solos desde los consumos trazados (_rmCostoRealBolsaMap). Nunca se había ejecutado.
+  const _m=document.getElementById('msg-recalc');if(_m){_m.style.color='var(--text2)';_m.textContent='Ya no hace falta: los costos se calculan solos desde los consumos de cada bobina. Este botón no modifica nada.';}
+  return;
+}
+async function _ejecutarRecalculoViejo(){
   const ords=getOrdsParaRecalculo();
   const msg=document.getElementById('msg-recalc');
   if(!ords.length){msg.style.color='var(--red)';msg.textContent='Sin órdenes en ese rango.';return;}
@@ -49437,7 +49449,12 @@ function _calcularInformeLote(lote,consumos,aditivos){
 
   // Helper: precio_paquete según lista del cliente (mismo método que toda la app)
   function getPrecioPaqueteOC(oc){
+    // 07c: lo vendido vale el precio PACTADO (OC → línea del pedido); el precio de lista de hoy es sólo el último recurso
+    if(parseFloat(oc.precio_paquete)>0)return parseFloat(oc.precio_paquete);
+    const _pedOC=(C.pedidos||[]).find(p=>(p.pedido_ordenes_corte||[]).some(x=>x.orden_corte_id===oc.id));
+    if(_pedOC){const _l=(_pedOC.pedido_lineas||[]).find(l=>l.producto_id===oc.producto_id);if(_l&&parseFloat(_l.precio_paquete)>0)return parseFloat(_l.precio_paquete);}
     if(typeof getPrecioVenta==='function'&&oc.producto_id){
+      const _cid=oc.cliente_id||(_pedOC&&_pedOC.cliente_id);if(_cid){try{const pv=getPrecioVenta(oc.producto_id,_cid);if(pv&&pv.precio_paquete>0)return parseFloat(pv.precio_paquete);}catch(e){}}
       const cli=(C.clientes||[]).find(c=>c.razon_social===oc.cliente||c.nombre===oc.cliente);
       if(cli){
         try{
@@ -49456,7 +49473,7 @@ function _calcularInformeLote(lote,consumos,aditivos){
     const pedOC=(C.pedidos||[]).find(p=>(p.pedido_ordenes_corte||[]).some(x=>x.orden_corte_id===oc.id));
     if(pedOC){
       const linea=(pedOC.pedido_lineas||[]).find(l=>l.producto_id===oc.producto_id);
-      if(linea?.precio_unitario)return parseFloat(linea.precio_unitario);
+      if(linea?.precio_paquete)return parseFloat(linea.precio_paquete);   // 07c: era precio_unitario (por unidad, no por paquete)
     }
     return 0;
   }
@@ -53355,7 +53372,8 @@ function _calcularKgBorrador(pedido){
       // se reconstruye desde precio_paquete × paquetes, o desde el precio del producto.
       let precioLinea=lineaMeta?.subtotal||lineaMeta?.precio_total||o.precio_total||0;
       if(!precioLinea){
-        const ppaq=lineaMeta?.precio_paquete||prod.precio_paquete||prod.precio_venta||0;
+        let ppaq=lineaMeta?.precio_paquete||0;
+        if(!ppaq&&o.cliente_id){try{const pv=getPrecioVenta(prod.id,o.cliente_id);if(pv)ppaq=parseFloat(pv.precio_paquete)||0;}catch(e){}}
         precioLinea=ppaq*(lineaMeta?.cantidad||o.paquetes||0);
       }
       const bolsonesTotalOrden=o.dividir&&o.tandas?.length
@@ -57031,8 +57049,8 @@ function abrirRepararPedidos(){
         +'<thead><tr style="background:var(--bg3);"><th style="padding:5px 8px;text-align:left;">Producto</th><th style="padding:5px 8px;text-align:right;">Cantidad (paq)</th><th style="padding:5px 8px;text-align:left;">OCs</th><th style="padding:5px 8px;text-align:right;">Precio/paq</th></tr></thead><tbody>';
       items.forEach((it,idx)=>{
         const prod=C.productos.find(x=>x.id===it.producto_id);
-        // Precio sugerido: precio_paquete del producto
-        const precioSug=prod?.precio_paquete||0;
+        // 07c: precio sugerido = el del cliente (especial > lista), no un precio base del producto
+        let precioSug=0;try{const pv=p.cliente_id?getPrecioVenta(it.producto_id,p.cliente_id):null;if(pv)precioSug=parseFloat(pv.precio_paquete)||0;}catch(e){}
         html+='<tr style="border-bottom:1px solid var(--border);" data-rep-item="'+p.id+'-'+idx+'" data-rep-producto="'+it.producto_id+'" data-rep-cant="'+it.cantidad+'">'
           +'<td style="padding:6px 8px;">'+(prod?.codigo?prod.codigo+' · ':'')+(prod?.descripcion||'—')+'</td>'
           +'<td style="padding:6px 8px;text-align:right;font-weight:600;">'+it.cantidad.toLocaleString('es-AR')+'</td>'
