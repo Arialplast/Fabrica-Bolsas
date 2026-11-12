@@ -2135,7 +2135,7 @@ td.pr-c.pr-pend{box-shadow:inset 0 0 0 2px #c98a0b;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-11-07v</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-11-07w</span></div>
     <!-- ⚡ 29a: accesos rápidos + buscador + más usados (bloque // ===== ⚡ ACCESOS RÁPIDOS) -->
     <div id="qa-wrap">
       <div id="qa-btns">
@@ -2802,7 +2802,7 @@ td.pr-c.pr-pend{box-shadow:inset 0 0 0 2px #c98a0b;}
           <div class="page-title">OEE y paradas</div>
           <div class="page-sub">Eficiencia de extrusión y de corte con la telemetría de los PLC · disponibilidad, rendimiento y calidad · dónde se pierden las horas y por qué</div>
         </div>
-        <div class="btn-grp"><button class="btn btn-sm" onclick="OEE.tab==='corte'?_oeeCorteCargar(true):_oeeCargar(true)">↻ Actualizar</button></div>
+        <div class="btn-grp"><button class="btn btn-sm" onclick="OEE.tab==='ext'?_oeeCargar(true):_oeeCorteCargar(true)">↻ Actualizar</button></div>
       </div>
       <div id="oee-body"></div>
     </div>
@@ -7674,7 +7674,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-11-07v';   // 07v: FIX — los botones de motivo de parada de la estación no hacían nada (comilla doble de más en el onclick desde 07t). Antes 07u: la estación pregunta TAMBIÉN las paradas con firma de pinchadura (German: empieza como pinchadura pero se cambia el filtro → el motivo es el filtro); el sensor sólo sugiere y, si nadie contesta, queda «Pinchadura de globo (sensor)» provisoria. Antes 07t: PINCHADURA POR SENSOR + CÁMARA EN PARADAS — parada de extrusión ≤ 30 min que EMPIEZA con ≥ 2 min de rodillo girando sin film = «Pinchadura de globo (sensor)»: se clasifica sola (corregible) y la estación no la pregunta; con esa firma y más larga, la estación la sugiere (botón resaltado). OEE: «Qué se vio» dice si se cortó el film antes de parar y link 📷 a las hojas de cámara del pulsador que cubren la parada. Antes 07s: ⏸ MOTIVO DE PARADA EN LA ESTACIÓN — la estación de extrusión (por máquina) y el panel de corte (la cortadora de la terminal) preguntan «¿por qué paró?» con botones grandes, un toque y sin clave; guarda en paradas_motivos (nota = estación · operario). Paradas de 12 h sin motivo, también la que está en curso; en corte un hueco ≤ 20 min con bobina escaneada no se pregunta (cambio de bobina detectado). Derivador ÚNICO de paradas (_oeeParadasMins, _oeeCorteHueco) para estación y OEE; el motivo se empareja por solapamiento (_parMotivoDe). Antes 07r: ✂ OEE DE CORTE — pestaña Corte en OEE y paradas: disponibilidad = horas-máquina cortando ÷ horas-máquina con cortador (rol de personas, 1 máquina por persona hasta 2); rendimiento = golpes vs mejor ritmo demostrado por máquina × producto (p90 de corridas de 14 días; producto por último escaneo); calidad por scrap de OC cerradas; cascada, OEE por día, ritmo por producto, paradas 5 min–3 h con motivo (cambio de bobina detectado solo), Pareto con «máquina sin usar». Antes 07q: 📈 OEE Y PARADAS — Control de planta: OEE de extrusión con el PLC (disponibilidad sobre el Plan de recursos × rendimiento vs estándar por tipo de bobina × calidad por fuera de rango), cascada de capacidad, OEE por día, tabla por extrusora (kg/h, m/min, g/m, pinchaduras), paradas ≥ 5 min con motivo (tabla paradas_motivos), Pareto, resumen de corte (golpes/min, pistas). Antes 07p: Plan de recursos → pintar una persona abre el 📅 Rol semanal de esa semana; tooltip de semana tipo = estimado. Antes 07o: 🎯 PROMESA DE ENTREGA Y CUMPLIMIENTO — el simulador de promesa usa sólo máquinas en uso y velocidad medida; todo pedido se guarda con fecha (la propone la planta) y prometer antes de lo posible pide motivo; historial pedido_promesas (original + cambios, sólo se agrega); pantalla 🎯 Cumplimiento de entregas (a tiempo y completo por semana, por cliente, vencidos de hoy, promesas forzadas vs calculadas). Antes 07n: ⚡ ENERGÍA AUTOMÁTICA (kWh/kg = medidor de planta ÷ kg de balanza, 30 días; $/kWh = facturas EDELAP de Compras y gastos ÷ kWh del período medido; tabla de control medidor vs factura; manual sólo de respaldo) · 🧭 BARRA LATERAL por flujo de trabajo (13 áreas con subtítulos: Planificación, Control de planta, Compras y proveedores, Personal nuevas) · 🎨 Analytics y Tablero de Dirección en estilo claro. Antes 07m: 🏢 ESTRUCTURA AUTOMÁTICA (tasa de absorción: gastos de estructura de 3 meses cerrados ÷ kg vendidos, sale de _dgCalc, sin energía/impresión/retiros/internos/deuda/extraordinarios; pestaña Costo pleno; Aumentos la muestra en sólo lectura) + ⚡ ENERGÍA EN EL COSTO ESTÁNDAR — componente variable kWh/kg (configuracion.energia_kwh_kg) × $/kWh (el mismo energia_precio_kwh de ⚡ Energía); tarjeta en 💲 Costo estándar → Estructura con referencia de facturas EDELAP (0,49 kWh/kg, $287), columna Energía por producto, aviso de doble conteo con la estructura. Antes 07l: 🎉 FERIADO POR PERSONA EN EL ROL — opción «Feriado» por día y 🎉 por día/sector; se paga como feriado no trabajado con el turno que le tocaba; si alguien del sector trabaja un feriado de calendario no es feriado para él ni para la producción del sector (feriado trasladado); propuesta marca F los feriados de calendario. Antes 07k: 🔒 esquemas de rotación protegidos — nuevo/editar/borrar esquema, fase de rotación y cambio de esquema/fase de un empleado piden la clave SIEMPRE (aunque la sesión sea admin) con aviso de que reescriben la historia; leyenda «el turno de cada semana se define en 📅 Rol semanal»; sábados tildados aclarados. Antes 07j: 📅 Rol semanal — horas por persona con el mismo criterio que la quincena (ordinarias hasta 9/día + extra: lo que pasa de 9 y las extra fijas del turno; sábado 3 + resto) → Guaraz 18–06 = 45 + 15 extra; desplegables muestran «(+3 ex)». Antes 07i: 📅 ROL SEMANAL (Sueldos) — tabla rol_semanal, fuente única del turno planificado: propone la semana (anterior rotada entre compañeros / rotación), el administrativo confirma; lo usan _turnoDelDia (horas, tardanza), _sabTrabaja/_sabHayGente (sábados), Plan de recursos (personas en sólo lectura) y el Gantt de corte; cobertura por día, horas por persona, cartelera imprimible y WhatsApp; crear turnos faltantes (Confección Noche 18–06, Sábado mañana). Antes 07h: 🗓 LA SEMANA TIPO GUARDADA TAMBIÉN MANDA — fila cargada ?? semana tipo guardada define las horas del área (ej. sábado corte M12); si manda el plan no se aplica la regla del sábado de Sueldos; cartel «la semana tipo todavía es una sugerencia» hasta guardarla. Antes 07g: 🗓 EL PLAN DE RECURSOS MANDA EN EL CALENDARIO — si un día tiene cargadas todas las extrusoras activas (o todas las personas de corte), las horas del área en Gantt/Programa/capacidad son la unión de esos turnos («no se trabaja» = día cerrado); fix tabla de sábados/feriados que mostraba las horas del día anterior (UTC). Antes 07f: 🗓 AVISO DE AUMENTOS PROGRAMADOS VENCIDOS — barra en todas las pantallas de oficina (nunca en planta) + chip en la línea del pedido; nada se aplica solo, el botón lleva a revisar y aplicar con clave. Antes 07e: 🧾 CAMBIOS DE PRECIO COMO DOCUMENTO — Precios por cliente y Listas: modal de confirmación (antes → nuevo, % de cambio, margen estándar), motivo; debajo del piso: motivo obligatorio + clave de admin; todo queda en precio_historial (origen manual cliente / manual lista) · 🕘 Historial por cliente y por lista. Antes 07d: 💲 PRECIOS en un solo lugar — una entrada de menú y 4 pestañas (Clientes · Listas · Aumentos · Análisis) arriba de cada pantalla; Listas muestra qué clientes la usan y si es lista de grupo (englobado). Antes 07c: UNA SOLA VERDAD de costos y precios — lpGetCostoReal = costo real del Resultado (_rmCostoRealBolsaMap) en Cliente 360, conteos, Aumentos; lpGetCostoTeorico = estándar o 0; márgenes globales y margen_pct guardado sobre costo estándar; sin «precio base» del producto en remitos / reparar pedidos / borrador; informe de lote valora por precio pactado; Cliente 360 muestra el especial (precio_paquete_final); «Recalcular costos» desactivado (escribía costo en precio_bolsa); evolución de costo en Aumentos con funda e impresión. Antes 07b: PRECIOS ETAPA 4 (sin tocar precios) — UN solo costo en pantallas de precios (Precios por cliente y Listas: costo estándar; se quitan costo/margen real; margen pintado contra el piso con ⚠) · pedido: chip de margen por línea (aviso) · precios especiales con MOTIVO y fecha de REVISIÓN (Precios por cliente; alertas en Diagnóstico) · costo de IMPRESIÓN $/kg por producto (productos.costo_impresion_kg) dentro del costo estándar · fix Deshacer englobado (restaura sólo columnas reales). Antes 07a: 🧩 Englobado — «✓ Aplicar» por grupo (crea lista con los precios de hoy, asigna, borra especiales iguales, crea los necesarios para conservar precios de otra lista; verificación posterior cliente × producto con deshacer automático; copia en precio_agrupaciones) y «↶ Deshacer». Antes 2026-11-06m:   // 06m: 🧩 PRECIOS ETAPA 3 (propuesta, sin escribir nada): englobar clientes que hoy pagan lo mismo — grupos sugeridos (precios especiales: cliente modelo + los que coinciden ≥ 3 productos y ≥ 80 %), editables; lista del grupo = precio de hoy de la mayoría; excepciones conservan su precio; especiales que sobran; control cliente × producto de que ningún precio cambie. Antes 06l: DOS COSTOS, UN TRABAJO CADA UNO — precios (Diagnóstico) usan SIEMPRE el costo estándar (receta × precio de hoy + funda; sin selector) · el costo real (Resultado del mes) toma las OC del MES, si no hubo del mes anterior, después 120 días e histórico · pantalla nueva 💲 Costo estándar y variaciones: estructura del costo (base, cada colorante, antihumedad, merma, funda, % y $), por familia, por producto, variaciones real vs estándar (consumo / precio) con el control de peso vs ficha, sensibilidad a aumentos de insumos. Antes 06k: Diagnóstico — alerta «productos que pesan distinto que su ficha» (últimas 3 OC de 90 d, kg de bobina ÷ bolsas, ±8 %; caso Solbayres 00345 hecho a 26 µ con bobina «33 MIC») · Lista de precios para mandar: casillas para elegir qué productos van (todos / ninguno). Antes 06j: Diagnóstico → Precios vigentes muestra TODO el libro de precios del cliente (especiales + lista de lo comprado en 12 meses), no sólo lo vendido en el período (Collinet: faltaban 00001 y 00002). Antes 06i: Costo de reposición incluye la FUNDA (y devuelve desglose base / aditivos / merma / funda) — afecta Aumentos y Diagnóstico · Diagnóstico de precios mide por defecto con el COSTO REAL de las OC (MP + colorante + antihumedad + funda trazados), selector Real/Reposición, familias con ambos costos. Antes 06h: 📐 PRECIOS ETAPA 2 (sin tocar precios): precio base $/kg por familia como PROPUESTA (precio_base_familia; sugerido = máx(referencia de mercado, reposición ÷ (1 − margen objetivo))), niveles de lista configurables, simulación por cliente (nivel sugerido, en nivel / arriba / excepción, diferencia en $) · 🖨/💬 LISTA VIGENTE del cliente (imprimir A4 o WhatsApp, sin kg) desde Diagnóstico y Precios por cliente · costo de reposición del diagnóstico = el de Aumentos (_aumCostoReposicionKg). Antes 06g: 🔎 DIAGNÓSTICO DE PRECIOS (etapa 1, sólo lectura): familias de producto ($/kg referencia, dispersión, costo de reposición, piso), realización por cliente, precios vigentes contra piso (20 % margen a costo de reposición, config precio_piso_margen_pct), alertas (bajo piso, roja ≤ negra, clientes sin lista, listas vacías, especiales sin uso). Antes 06f:
+const APP_BUILD='2026-11-07w';   // 07w: 🖨 IMPRESIÓN COMO RECURSO — (1) Rol semanal: puesto del día «🖨 en la impresora» para la gente de corte (rol_semanal.nota='impresion'; se paga igual, no corta): el calendario de corte no cuenta sus horas, Plan de recursos lo muestra 🖨. (2) OEE de corte: el que está en la impresora (rol o escaneos de impresion_bobinas) no cuenta como cortador disponible (_corteDotacion). (3) OEE → pestaña 🖨 Impresión: horas, metros, m/min, rendimiento vs mejor ritmo, quién imprimió, bobinas lentas con motivo. (4) Fecha prometida: las horas de corte se ajustan por dotación (_corteFactorDotacion: cortadores vs cortadoras activas, 7 días). Antes 07v: FIX — los botones de motivo de parada de la estación no hacían nada (comilla doble de más en el onclick desde 07t). Antes 07u: la estación pregunta TAMBIÉN las paradas con firma de pinchadura (German: empieza como pinchadura pero se cambia el filtro → el motivo es el filtro); el sensor sólo sugiere y, si nadie contesta, queda «Pinchadura de globo (sensor)» provisoria. Antes 07t: PINCHADURA POR SENSOR + CÁMARA EN PARADAS — parada de extrusión ≤ 30 min que EMPIEZA con ≥ 2 min de rodillo girando sin film = «Pinchadura de globo (sensor)»: se clasifica sola (corregible) y la estación no la pregunta; con esa firma y más larga, la estación la sugiere (botón resaltado). OEE: «Qué se vio» dice si se cortó el film antes de parar y link 📷 a las hojas de cámara del pulsador que cubren la parada. Antes 07s: ⏸ MOTIVO DE PARADA EN LA ESTACIÓN — la estación de extrusión (por máquina) y el panel de corte (la cortadora de la terminal) preguntan «¿por qué paró?» con botones grandes, un toque y sin clave; guarda en paradas_motivos (nota = estación · operario). Paradas de 12 h sin motivo, también la que está en curso; en corte un hueco ≤ 20 min con bobina escaneada no se pregunta (cambio de bobina detectado). Derivador ÚNICO de paradas (_oeeParadasMins, _oeeCorteHueco) para estación y OEE; el motivo se empareja por solapamiento (_parMotivoDe). Antes 07r: ✂ OEE DE CORTE — pestaña Corte en OEE y paradas: disponibilidad = horas-máquina cortando ÷ horas-máquina con cortador (rol de personas, 1 máquina por persona hasta 2); rendimiento = golpes vs mejor ritmo demostrado por máquina × producto (p90 de corridas de 14 días; producto por último escaneo); calidad por scrap de OC cerradas; cascada, OEE por día, ritmo por producto, paradas 5 min–3 h con motivo (cambio de bobina detectado solo), Pareto con «máquina sin usar». Antes 07q: 📈 OEE Y PARADAS — Control de planta: OEE de extrusión con el PLC (disponibilidad sobre el Plan de recursos × rendimiento vs estándar por tipo de bobina × calidad por fuera de rango), cascada de capacidad, OEE por día, tabla por extrusora (kg/h, m/min, g/m, pinchaduras), paradas ≥ 5 min con motivo (tabla paradas_motivos), Pareto, resumen de corte (golpes/min, pistas). Antes 07p: Plan de recursos → pintar una persona abre el 📅 Rol semanal de esa semana; tooltip de semana tipo = estimado. Antes 07o: 🎯 PROMESA DE ENTREGA Y CUMPLIMIENTO — el simulador de promesa usa sólo máquinas en uso y velocidad medida; todo pedido se guarda con fecha (la propone la planta) y prometer antes de lo posible pide motivo; historial pedido_promesas (original + cambios, sólo se agrega); pantalla 🎯 Cumplimiento de entregas (a tiempo y completo por semana, por cliente, vencidos de hoy, promesas forzadas vs calculadas). Antes 07n: ⚡ ENERGÍA AUTOMÁTICA (kWh/kg = medidor de planta ÷ kg de balanza, 30 días; $/kWh = facturas EDELAP de Compras y gastos ÷ kWh del período medido; tabla de control medidor vs factura; manual sólo de respaldo) · 🧭 BARRA LATERAL por flujo de trabajo (13 áreas con subtítulos: Planificación, Control de planta, Compras y proveedores, Personal nuevas) · 🎨 Analytics y Tablero de Dirección en estilo claro. Antes 07m: 🏢 ESTRUCTURA AUTOMÁTICA (tasa de absorción: gastos de estructura de 3 meses cerrados ÷ kg vendidos, sale de _dgCalc, sin energía/impresión/retiros/internos/deuda/extraordinarios; pestaña Costo pleno; Aumentos la muestra en sólo lectura) + ⚡ ENERGÍA EN EL COSTO ESTÁNDAR — componente variable kWh/kg (configuracion.energia_kwh_kg) × $/kWh (el mismo energia_precio_kwh de ⚡ Energía); tarjeta en 💲 Costo estándar → Estructura con referencia de facturas EDELAP (0,49 kWh/kg, $287), columna Energía por producto, aviso de doble conteo con la estructura. Antes 07l: 🎉 FERIADO POR PERSONA EN EL ROL — opción «Feriado» por día y 🎉 por día/sector; se paga como feriado no trabajado con el turno que le tocaba; si alguien del sector trabaja un feriado de calendario no es feriado para él ni para la producción del sector (feriado trasladado); propuesta marca F los feriados de calendario. Antes 07k: 🔒 esquemas de rotación protegidos — nuevo/editar/borrar esquema, fase de rotación y cambio de esquema/fase de un empleado piden la clave SIEMPRE (aunque la sesión sea admin) con aviso de que reescriben la historia; leyenda «el turno de cada semana se define en 📅 Rol semanal»; sábados tildados aclarados. Antes 07j: 📅 Rol semanal — horas por persona con el mismo criterio que la quincena (ordinarias hasta 9/día + extra: lo que pasa de 9 y las extra fijas del turno; sábado 3 + resto) → Guaraz 18–06 = 45 + 15 extra; desplegables muestran «(+3 ex)». Antes 07i: 📅 ROL SEMANAL (Sueldos) — tabla rol_semanal, fuente única del turno planificado: propone la semana (anterior rotada entre compañeros / rotación), el administrativo confirma; lo usan _turnoDelDia (horas, tardanza), _sabTrabaja/_sabHayGente (sábados), Plan de recursos (personas en sólo lectura) y el Gantt de corte; cobertura por día, horas por persona, cartelera imprimible y WhatsApp; crear turnos faltantes (Confección Noche 18–06, Sábado mañana). Antes 07h: 🗓 LA SEMANA TIPO GUARDADA TAMBIÉN MANDA — fila cargada ?? semana tipo guardada define las horas del área (ej. sábado corte M12); si manda el plan no se aplica la regla del sábado de Sueldos; cartel «la semana tipo todavía es una sugerencia» hasta guardarla. Antes 07g: 🗓 EL PLAN DE RECURSOS MANDA EN EL CALENDARIO — si un día tiene cargadas todas las extrusoras activas (o todas las personas de corte), las horas del área en Gantt/Programa/capacidad son la unión de esos turnos («no se trabaja» = día cerrado); fix tabla de sábados/feriados que mostraba las horas del día anterior (UTC). Antes 07f: 🗓 AVISO DE AUMENTOS PROGRAMADOS VENCIDOS — barra en todas las pantallas de oficina (nunca en planta) + chip en la línea del pedido; nada se aplica solo, el botón lleva a revisar y aplicar con clave. Antes 07e: 🧾 CAMBIOS DE PRECIO COMO DOCUMENTO — Precios por cliente y Listas: modal de confirmación (antes → nuevo, % de cambio, margen estándar), motivo; debajo del piso: motivo obligatorio + clave de admin; todo queda en precio_historial (origen manual cliente / manual lista) · 🕘 Historial por cliente y por lista. Antes 07d: 💲 PRECIOS en un solo lugar — una entrada de menú y 4 pestañas (Clientes · Listas · Aumentos · Análisis) arriba de cada pantalla; Listas muestra qué clientes la usan y si es lista de grupo (englobado). Antes 07c: UNA SOLA VERDAD de costos y precios — lpGetCostoReal = costo real del Resultado (_rmCostoRealBolsaMap) en Cliente 360, conteos, Aumentos; lpGetCostoTeorico = estándar o 0; márgenes globales y margen_pct guardado sobre costo estándar; sin «precio base» del producto en remitos / reparar pedidos / borrador; informe de lote valora por precio pactado; Cliente 360 muestra el especial (precio_paquete_final); «Recalcular costos» desactivado (escribía costo en precio_bolsa); evolución de costo en Aumentos con funda e impresión. Antes 07b: PRECIOS ETAPA 4 (sin tocar precios) — UN solo costo en pantallas de precios (Precios por cliente y Listas: costo estándar; se quitan costo/margen real; margen pintado contra el piso con ⚠) · pedido: chip de margen por línea (aviso) · precios especiales con MOTIVO y fecha de REVISIÓN (Precios por cliente; alertas en Diagnóstico) · costo de IMPRESIÓN $/kg por producto (productos.costo_impresion_kg) dentro del costo estándar · fix Deshacer englobado (restaura sólo columnas reales). Antes 07a: 🧩 Englobado — «✓ Aplicar» por grupo (crea lista con los precios de hoy, asigna, borra especiales iguales, crea los necesarios para conservar precios de otra lista; verificación posterior cliente × producto con deshacer automático; copia en precio_agrupaciones) y «↶ Deshacer». Antes 2026-11-06m:   // 06m: 🧩 PRECIOS ETAPA 3 (propuesta, sin escribir nada): englobar clientes que hoy pagan lo mismo — grupos sugeridos (precios especiales: cliente modelo + los que coinciden ≥ 3 productos y ≥ 80 %), editables; lista del grupo = precio de hoy de la mayoría; excepciones conservan su precio; especiales que sobran; control cliente × producto de que ningún precio cambie. Antes 06l: DOS COSTOS, UN TRABAJO CADA UNO — precios (Diagnóstico) usan SIEMPRE el costo estándar (receta × precio de hoy + funda; sin selector) · el costo real (Resultado del mes) toma las OC del MES, si no hubo del mes anterior, después 120 días e histórico · pantalla nueva 💲 Costo estándar y variaciones: estructura del costo (base, cada colorante, antihumedad, merma, funda, % y $), por familia, por producto, variaciones real vs estándar (consumo / precio) con el control de peso vs ficha, sensibilidad a aumentos de insumos. Antes 06k: Diagnóstico — alerta «productos que pesan distinto que su ficha» (últimas 3 OC de 90 d, kg de bobina ÷ bolsas, ±8 %; caso Solbayres 00345 hecho a 26 µ con bobina «33 MIC») · Lista de precios para mandar: casillas para elegir qué productos van (todos / ninguno). Antes 06j: Diagnóstico → Precios vigentes muestra TODO el libro de precios del cliente (especiales + lista de lo comprado en 12 meses), no sólo lo vendido en el período (Collinet: faltaban 00001 y 00002). Antes 06i: Costo de reposición incluye la FUNDA (y devuelve desglose base / aditivos / merma / funda) — afecta Aumentos y Diagnóstico · Diagnóstico de precios mide por defecto con el COSTO REAL de las OC (MP + colorante + antihumedad + funda trazados), selector Real/Reposición, familias con ambos costos. Antes 06h: 📐 PRECIOS ETAPA 2 (sin tocar precios): precio base $/kg por familia como PROPUESTA (precio_base_familia; sugerido = máx(referencia de mercado, reposición ÷ (1 − margen objetivo))), niveles de lista configurables, simulación por cliente (nivel sugerido, en nivel / arriba / excepción, diferencia en $) · 🖨/💬 LISTA VIGENTE del cliente (imprimir A4 o WhatsApp, sin kg) desde Diagnóstico y Precios por cliente · costo de reposición del diagnóstico = el de Aumentos (_aumCostoReposicionKg). Antes 06g: 🔎 DIAGNÓSTICO DE PRECIOS (etapa 1, sólo lectura): familias de producto ($/kg referencia, dispersión, costo de reposición, piso), realización por cliente, precios vigentes contra piso (20 % margen a costo de reposición, config precio_piso_margen_pct), alertas (bajo piso, roja ≤ negra, clientes sin lista, listas vacías, especiales sin uso). Antes 06f:
 // 06f: 🔗 ESTADO DEL PEDIDO CON EL MISMO PRODUCTO EN DOS LÍNEAS — el stock (por pedido+producto) se sumaba a cada línea: PED-06016 (DAG, 00123 × 400 + 400) daba 2.472 entregados de 2.000 → «cobrado parcial» y desaparecía de la lista de pedidos. Ahora se cuenta una vez por producto (_estadoOperativoPedido y % de avance de _pedidoInfoProduccion). Sin SQL. · 06d (previo):   // 06d: Corrección de $/kg de MP con revaluación — ✎ en la orden de compra revalúa stock y consumos del mes actual (costo real de bobinas/bolsas); lo consumido en meses cerrados no se reescribe: la diferencia entra al Resultado del mes como «Diferencia de precio de MP» (revaluaciones_mp, también registro de cada corrección). Antes 06c: Pago a proveedor — casilla «Aplicar recargo X % por cheques» (tildada si el proveedor cobra recargo; se puede destildar en ese pago). Antes 06b: Órdenes de compra MP — ✎ corregir el $/kg pactado de un renglón (y lo ya recibido de él). Antes 06a: ♻️ VENTA DE SCRAP (documento VS: comprador, kg por tipo, $/kg; ingreso «venta de subproductos» en el Resultado; compensación sin caja contra la factura de MP del mismo proveedor; balance de scrap: extrusión por diferencia = desperdicio vendido − scrap pesado por corte) + 💳 RECARGO % POR PAGO CON CHEQUES (proveedores.recargo_cheques_pct: costo financiero automático al pagar, aviso en Proveedor 360°). Antes 05k:   // 05k: remito formal: al lado del detalle «500 paq x 10 uni» (no las bolsas sueltas). Antes:
 // 05j:   // 05j: remito formal (formato Arialplast): Cantidad en PAQUETES, no en bolsas (REM-00749 Collinet salía 5.000 en vez de 500). Antes:
 // 05i:   // 05i: «Ordenar por reglas» v2 — hacia atrás desde la entrega: corte primero (último inicio, sin adelantar lo que espera bobina), extrusión derivada del corte, 24 h congeladas intactas. Antes 05h: Despacho ve las líneas POR KILO (bobina entera): stock = rollos en stock de la OE del pedido (PED-06160 PALAZZO no aparecía). Antes:
@@ -8705,7 +8705,7 @@ function _planTramosArea0(fs,ti){
   // efTr → tramos [[a,b]] (b puede pasar de 24) o null si ese recurso no está definido ese día.
   // 07i: personas de corte → fila del plan (si quedó una vieja) ?? ROL SEMANAL (vía _turnoDelDia: respeta licencias) ?? semana tipo
   const efTr=(f,dow,k)=>{
-    if(k[0]==='p'){const id=parseInt(k.slice(2));if(_rolDe(id,f)){const e=(C.empleados||[]).find(x=>x.id===id);const td=_turnoDelDia(e,f);return td.feriado?[]:_rolTramosTurno(td.turno);}}
+    if(k[0]==='p'){const id=parseInt(k.slice(2));if(_rolDe(id,f)){const e=(C.empleados||[]).find(x=>x.id===id);const td=_turnoDelDia(e,f);return td.feriado||_rolEnImpresion(id,f)?[]:_rolTramosTurno(td.turno);}}   // 07w: en la impresora = no corta
     const r=(idx[f]||{})[k];if(r!=null)return (PLAN_TURNOS[r]||PLAN_TURNOS['0']).tr;
     const t=tipo&&tipo[k];return t?(PLAN_TURNOS[t[dow]]||PLAN_TURNOS['0']).tr:null;};
   const dd=new Date(fs+'T12:00:00'),dow=dd.getDay();
@@ -40619,6 +40619,13 @@ function _rolDe(empId,fs){return _rolIdxGet()[empId+'|'+fs]||null;}
 // turno_id = el turno que le tocaba, para pagar el feriado no trabajado con su duración. Permite trasladar el feriado
 // por sector (ej. extrusión goza el martes y trabaja el miércoles que es feriado de calendario).
 function _rolEsFeriado(r){return !!r&&String(r.nota||'').toLowerCase()==='feriado';}
+// 07w: PUESTO DEL DÍA = IMPRESIÓN. La impresora la atiende un cortador: ese día hace su turno (se paga igual) pero NO corta.
+// Se guarda en rol_semanal.nota='impresion' con su turno_id (sin cambiar la tabla). En la pantalla la celda vale 'I|<turno>'.
+function _rolEsImpresion(r){return !!r&&!r.no_viene&&String(r.nota||'').toLowerCase()==='impresion';}
+function _rolEnImpresion(empId,fs){return _rolEsImpresion(_rolDe(empId,fs));}
+// Valor de una celda del rol → {k:'x' no viene | 'T' turno | 'F' feriado | 'I' impresión, tid}
+function _rolV(v){if(!v||v==='x')return {k:'x',tid:null};if(v[0]==='F'||v[0]==='I'){const t=v.split('|')[1];return {k:v[0],tid:t?parseInt(t):null};}return {k:'T',tid:parseInt(v)};}
+function _rolDeFila(r){return !r?'':_rolEsFeriado(r)?'F|'+(r.turno_id||''):r.no_viene||!r.turno_id?'x':_rolEsImpresion(r)?'I|'+r.turno_id:String(r.turno_id);}
 // ¿Ese día es feriado PARA ESTA PERSONA? rol confirmado manda (F = sí; turno = no, aunque el calendario diga feriado)
 function _esFeriadoEmp(emp,fs){const r=emp?_rolDe(emp.id,fs):null;if(r)return _rolEsFeriado(r);return _esFeriado(fs);}
 function _turnoPlanificado(emp,fs){const rl=emp?_rolDe(emp.id,fs):null;if(rl)return {turno:(rl.no_viene&&!_rolEsFeriado(rl))||!rl.turno_id?null:_turnoById(rl.turno_id)};return _turnoRotacion(emp,fs);}
@@ -40648,7 +40655,7 @@ function _rolPropuesta(lun){
     const guard=dias.some(f=>_rolDe(id,f));
     const prevOk=diasPrev.some(f=>_rolDe(id,f));
     dias.forEach((f,i)=>{
-      if(guard){const r=_rolDe(id,f);out[id][f]=r?(_rolEsFeriado(r)?'F|'+(r.turno_id||''):r.no_viene||!r.turno_id?'x':String(r.turno_id)):'';src[id]='guardado';return;}
+      if(guard){const r=_rolDe(id,f);out[id][f]=_rolDeFila(r);src[id]='guardado';return;}
       if(prevOk){const g=grupos[x.e.esquema_turno_id]||[id];const rot=x.q.tipo!=='fijo'&&g.length>1;const peer=rot?g[(g.indexOf(id)+1)%g.length]:id;
         const r=_rolDe(peer,diasPrev[i])||_rolDe(id,diasPrev[i]);out[id][f]=r?((r.no_viene&&!_rolEsFeriado(r))||!r.turno_id?'x':String(r.turno_id)):'';src[id]=rot?'rotada':'igual';return;}
       if(i===5){const t=_sabTrabajaViejo(id,f);out[id][f]=t?String((_turnoRotacion(x.e,f).turno||{}).id||''):'x';src[id]='rotación';return;}
@@ -40665,7 +40672,7 @@ function rolSemana(delta){
   else{const d=new Date(ROL.lun+'T12:00:00');d.setDate(d.getDate()+7*delta);ROL.lun=localDate(d);}
   ROL.draft=null;_suRenderRol();
 }
-function _rolTid(v){if(!v||v==='x')return null;if(v[0]==='F'){const t=v.split('|')[1];return t?parseInt(t):null;}return parseInt(v);}
+function _rolTid(v){return _rolV(v).tid;}
 function rolSet(empId,fs,v){const prev=ROL.draft[empId][fs];if(v==='F'){const t=_rolTid(prev)||((_turnoRotacion((C.empleados||[]).find(e=>e.id===empId),fs).turno||{}).id)||'';v='F|'+t;}ROL.draft[empId][fs]=v;_suRenderRol();}
 function rolFeriadoDia(fs,area){if(!confirm('Marcar FERIADO el '+fs.split('-').reverse().join('/')+' para todos los de '+(area==='confeccion'?'corte':area)+'?\n(se paga como feriado no trabajado; si alguno trabaja, cambiale el turno)'))return;
   _rolEmpleados().filter(x=>x.area===area).forEach(x=>{const prev=ROL.draft[x.e.id][fs];const t=_rolTid(prev)||((_turnoRotacion(x.e,fs).turno||{}).id)||'';ROL.draft[x.e.id][fs]='F|'+t;});_suRenderRol();}
@@ -40679,18 +40686,19 @@ function rolProponer(){if(!confirm('Volver a la propuesta (semana anterior rotad
 // ordinarias = hasta la jornada (9 h) por día; lo que el turno pasa de 9 + las horas extra fijas del turno = extra.
 // Sábado: 3 ordinarias, el resto extra. El tope de 48 se mide sobre las ORDINARIAS (ej. Guaraz 18–06: 45 + 15 extra).
 function _rolHorasSem(empId){const R=_asisReglas();const J=R.jornada_diaria||9;let n=0,e=0;
-  _rolDias(ROL.lun).forEach((f,i)=>{const v=ROL.draft[empId][f];if(!v||v==='x'||v[0]==='F')return;const t=_turnoById(parseInt(v));const d=_turnoHoras(t)||0;const xf=Math.max(0,parseFloat(t&&t.horas_extra_fijas)||0);
+  _rolDias(ROL.lun).forEach((f,i)=>{const v=ROL.draft[empId][f];if(!v||v==='x'||v[0]==='F')return;const t=_turnoById(_rolTid(v));const d=_turnoHoras(t)||0;const xf=Math.max(0,parseFloat(t&&t.horas_extra_fijas)||0);
     if(i===5){n+=Math.min(d,3);e+=Math.max(0,d-3)+xf;}else{n+=Math.min(d,J);e+=Math.max(0,d-J)+xf;}});
   const tope=R.semana_max_hs||48;if(n>tope){e+=n-tope;n=tope;}
   return {n:r1(n),e:r1(e),t:r1(n+e)};}
 // Cobertura de un área un día: horas del día cubiertas por alguien (incluye la noche que viene de ayer)
 function _rolCobertura(area,fs,i){
   const L=_rolEmpleados().filter(x=>x.area===area);const tr=[];
-  L.forEach(x=>{const v=ROL.draft[x.e.id][fs];if(v&&v!=='x'&&v[0]!=='F')_rolTramosTurno(_turnoById(parseInt(v))).forEach(t=>tr.push([t[0],Math.min(24,t[1])]));
-    if(i>0){const fp=_rolDias(ROL.lun)[i-1];const vp=ROL.draft[x.e.id][fp];if(vp&&vp!=='x'&&vp[0]!=='F')_rolTramosTurno(_turnoById(parseInt(vp))).forEach(t=>{if(t[1]>24)tr.push([0,t[1]-24]);});}});
+  L.forEach(x=>{const v=ROL.draft[x.e.id][fs];if(v&&_rolV(v).k==='T')_rolTramosTurno(_turnoById(parseInt(v))).forEach(t=>tr.push([t[0],Math.min(24,t[1])]));
+    if(i>0){const fp=_rolDias(ROL.lun)[i-1];const vp=ROL.draft[x.e.id][fp];if(vp&&_rolV(vp).k==='T')_rolTramosTurno(_turnoById(parseInt(vp))).forEach(t=>{if(t[1]>24)tr.push([0,t[1]-24]);});}});
   tr.sort((a,b)=>a[0]-b[0]);const m=[];tr.forEach(t=>{const l=m[m.length-1];if(l&&t[0]<=l[1])l[1]=Math.max(l[1],t[1]);else m.push([t[0],t[1]]);});
   const hs=m.reduce((s,t)=>s+t[1]-t[0],0);
-  return {hs,txt:m.map(t=>t[0]+'–'+t[1]).join(' · ')};
+  const imp=L.filter(x=>_rolV(ROL.draft[x.e.id][fs]).k==='I').length;
+  return {hs,imp,txt:m.map(t=>t[0]+'–'+t[1]).join(' · ')};
 }
 function _suRenderRol(){
   const body=document.getElementById('su-body');if(!body)return;
@@ -40725,25 +40733,26 @@ function _suRenderRol(){
       +'<th title="Ordinarias + extra planificadas en la semana">Horas</th></tr></thead><tbody>';
     LL.forEach(x=>{const id=x.e.id;const hs=_rolHorasSem(id);
       h+='<tr><td class="l"><b>'+escapeHtml(x.e.apellido_nombre||'')+'</b><div class="rol-esq">'+escapeHtml(x.q.nombre||'')+(ROL.src&&ROL.src[id]&&!conf.length?' · <i>'+escapeHtml({rotada:'semana anterior rotada',igual:'igual a la semana anterior','rotación':'según rotación',guardado:'guardado'}[ROL.src[id]]||'')+'</i>':'')+'</div>'
-        +'<select class="rol-all" onchange="if(this.value)rolFila('+id+',this.value)"><option value="">toda la semana…</option>'+TT.map(t=>'<option value="'+t.id+'">'+escapeHtml(_rolHM(t)+_rolExTxt(t)+' · '+t.nombre)+'</option>').join('')+'<option value="x">no viene</option></select></td>';
+        +'<select class="rol-all" onchange="if(this.value)rolFila('+id+',this.value)"><option value="">toda la semana…</option>'+TT.map(t=>'<option value="'+t.id+'">'+escapeHtml(_rolHM(t)+_rolExTxt(t)+' · '+t.nombre)+'</option>').join('')+'<option value="x">no viene</option>'+(ar==='confeccion'?'<optgroup label="🖨 En la impresora (no corta)">'+TT.map(t=>'<option value="I|'+t.id+'">🖨 '+escapeHtml(_rolHM(t))+'</option>').join('')+'</optgroup>':'')+'</select></td>';
       dias.forEach(f=>{const ex=_rolExc(id,f);
         if(ex){const lbl=ex.turno_id==null&&!ex.hora_entrada?(ex.tipo||'franco'):ex.hora_entrada?String(ex.hora_entrada).slice(0,5)+'–'+String(ex.hora_salida).slice(0,5):(_rolHM(_turnoById(ex.turno_id))||'cambio');
           h+='<td><span class="rol-exc" title="Excepción cargada en 🕐 Turnos: tapa el rol este día'+(ex.obs?' · '+escapeHtml(ex.obs):'')+'">'+escapeHtml(lbl)+'</span></td>';return;}
-        const v=ROL.draft[id][f]||'';const esF=v[0]==='F';const t=v&&v!=='x'&&!esF?_turnoById(parseInt(v)):null;const c=esF?{bg:'#fef2f2',fg:'#b91c1c',bd:'#fecaca'}:_rolColor(t);
-        const opts=TT.map(tt=>'<option value="'+tt.id+'"'+(String(tt.id)===v?' selected':'')+'>'+escapeHtml(_rolHM(tt)+_rolExTxt(tt))+'</option>').join('')+(t&&!TT.some(tt=>String(tt.id)===v)?'<option value="'+v+'" selected>'+escapeHtml(_rolHM(t))+'</option>':'');
-        h+='<td><select class="rol-sel" style="background:'+c.bg+';color:'+c.fg+';border-color:'+c.bd+'" title="'+escapeHtml(t?t.nombre:'no viene')+'" onchange="rolSet('+id+',\''+f+'\',this.value)"><option value="x"'+(v==='x'||!v?' selected':'')+'>—</option>'+opts+'<option value="F"'+(esF?' selected':'')+'>🎉 Feriado</option></select></td>';});
+        const v=ROL.draft[id][f]||'';const esF=v[0]==='F';const esI=v[0]==='I';const t=v&&v!=='x'&&!esF?_turnoById(_rolTid(v)):null;const c=esF?{bg:'#fef2f2',fg:'#b91c1c',bd:'#fecaca'}:esI?{bg:'#f3e8ff',fg:'#6b21a8',bd:'#d8b4fe'}:_rolColor(t);
+        const opts=TT.map(tt=>'<option value="'+tt.id+'"'+(String(tt.id)===v?' selected':'')+'>'+escapeHtml(_rolHM(tt)+_rolExTxt(tt))+'</option>').join('')+(t&&!esI&&!TT.some(tt=>String(tt.id)===v)?'<option value="'+v+'" selected>'+escapeHtml(_rolHM(t))+'</option>':'')
+          +(ar==='confeccion'?'<optgroup label="🖨 En la impresora (no corta)">'+TT.map(tt=>'<option value="I|'+tt.id+'"'+('I|'+tt.id===v?' selected':'')+'>🖨 '+escapeHtml(_rolHM(tt))+'</option>').join('')+'</optgroup>':'');
+        h+='<td><select class="rol-sel" style="background:'+c.bg+';color:'+c.fg+';border-color:'+c.bd+'" title="'+escapeHtml(esI?'En la impresora · '+(t?t.nombre:'')+' · ese día no corta':t?t.nombre:'no viene')+'" onchange="rolSet('+id+',\''+f+'\',this.value)"><option value="x"'+(v==='x'||!v?' selected':'')+'>—</option>'+opts+'<option value="F"'+(esF?' selected':'')+'>🎉 Feriado</option></select></td>';});
       h+='<td class="rol-hs'+(hs.e>12?' rol-hs-al':'')+'" title="'+hs.t+' h en la empresa: '+hs.n+' ordinarias + '+hs.e+' extra (mismo cálculo que la quincena)'+(hs.e>12?' · ojo: más de 12 h extra en la semana':'')+'">'+hs.n+(hs.e?'<div class="rol-ex">+'+hs.e+' extra</div>':'')+'</td></tr>';});
     // cobertura
     h+='<tr class="rol-cov"><td class="l">Cubierto</td>'+dias.map((f,i)=>{const cv=_rolCobertura(ar,f,i);const cont=ar==='extrusion'&&i>=1&&i<=4;const full=ar==='extrusion'?(cont?cv.hs>=24:cv.hs>0):cv.hs>0;
-      return '<td title="'+escapeHtml(cv.txt||'nadie')+'" style="color:'+(cv.hs===0?'#94a3b8':full?'#15803d':'#b45309')+'">'+(cv.hs?r1(cv.hs)+' h':'—')+(cont&&cv.hs>0&&cv.hs<24?' ⚠':'')+'</td>';}).join('')+'<td></td></tr>';
+      return '<td title="'+escapeHtml(cv.txt||'nadie')+'" style="color:'+(cv.hs===0?'#94a3b8':full?'#15803d':'#b45309')+'">'+(cv.hs?r1(cv.hs)+' h':'—')+(cont&&cv.hs>0&&cv.hs<24?' ⚠':'')+(cv.imp?'<div style="color:#6b21a8;font-weight:600">🖨 '+cv.imp+' imprime</div>':'')+'</td>';}).join('')+'<td></td></tr>';
     h+='</tbody></table></div></div>';
   });
-  h+='<div class="rol-pie">Extrusión: de martes a viernes la cobertura tiene que dar 24 h (⚠ = queda un hueco; el lunes arranca a las 6 y el sábado cierra la noche del viernes). Corte: las horas cubiertas son las que la planta puede cortar ese día. El sábado se paga como siempre (lo que fichó).</div></div>';
+  h+='<div class="rol-pie">Extrusión: de martes a viernes la cobertura tiene que dar 24 h (⚠ = queda un hueco; el lunes arranca a las 6 y el sábado cierra la noche del viernes). Corte: las horas cubiertas son las que la planta puede cortar ese día; <b>🖨 en la impresora</b> = esa persona hace su turno pero no corta (el Programa de corte y la fecha prometida cuentan un cortador menos). El sábado se paga como siempre (lo que fichó).</div></div>';
   body.innerHTML=h;
 }
 function rolConfirmar(){
   const dias=_rolDias(ROL.lun);const rows=[];
-  _rolEmpleados().forEach(x=>{dias.forEach(f=>{const v=ROL.draft[x.e.id][f];const esF=!!v&&v[0]==='F';rows.push({empleado_id:x.e.id,fecha:f,turno_id:_rolTid(v),no_viene:!v||v==='x'||esF,nota:esF?'feriado':null,origen:(ROL.src&&ROL.src[x.e.id])||'rol',confirmado_el:new Date().toISOString()});});});
+  _rolEmpleados().forEach(x=>{dias.forEach(f=>{const v=ROL.draft[x.e.id][f];const esF=!!v&&v[0]==='F';const esI=!!v&&v[0]==='I'&&!!_rolTid(v);rows.push({empleado_id:x.e.id,fecha:f,turno_id:_rolTid(v),no_viene:!v||v==='x'||esF,nota:esF?'feriado':esI?'impresion':null,origen:(ROL.src&&ROL.src[x.e.id])||'rol',confirmado_el:new Date().toISOString()});});});
   const pas=dias.filter(f=>f<localDate());
   if(pas.length&&ROL.base&&!confirm('Hay días de esta semana que ya pasaron. Si cambiaste alguno, después recalculá la quincena. ¿Guardar?'))return;
   pedirAdminYEjecutar(async()=>{
@@ -40767,7 +40776,7 @@ function _rolTexto(){
   let t='*Rol de turnos · semana del '+fmt(dias[0])+' al '+fmt(dias[5])+'*\n';
   const anom={extrusion:'Extrusión',confeccion:'Corte'};let ar0=null;
   _rolEmpleados().forEach(x=>{if(x.area!==ar0){t+='\n*'+(anom[x.area]||x.area)+'*\n';ar0=x.area;}
-    const v=dias.map(f=>{const ex=_rolExc(x.e.id,f);if(ex)return ex.tipo||'cambio';const k=ROL.draft[x.e.id][f];return k&&k[0]==='F'?'Feriado':k&&k!=='x'?_rolHM(_turnoById(parseInt(k))):'—';});
+    const v=dias.map(f=>{const ex=_rolExc(x.e.id,f);if(ex)return ex.tipo||'cambio';const k=ROL.draft[x.e.id][f];return k&&k[0]==='F'?'Feriado':k&&k!=='x'?_rolHM(_turnoById(_rolTid(k)))+(k[0]==='I'?' 🖨 impresora':''):'—';});
     const lv=v.slice(0,5);const igual=lv.every(y=>y===lv[0]);
     t+='• '+String(x.e.apellido_nombre||'').split(' ').slice(0,2).join(' ')+': '+(igual?'L a V '+lv[0]:lv.map((y,i)=>_ROL_D[i]+' '+y).join(', '))+' · Sáb '+v[5]+'\n';});
   return t;
@@ -40779,7 +40788,7 @@ function rolImprimir(){
     +'<h1>Rol de turnos · semana del '+fmt(dias[0])+' al '+fmt(dias[5])+'</h1><p>ARIALPLAST · impreso '+new Date().toLocaleString('es-AR')+'</p>';
   let ar0=null;const L=_rolEmpleados();
   [...new Set(L.map(x=>x.area))].forEach(ar=>{h+='<h2>'+(anom[ar]||ar)+'</h2><table><tr><th class="l">Persona</th>'+dias.map((f,i)=>'<th>'+_ROL_D[i]+' '+fmt(f)+'</th>').join('')+'</tr>';
-    L.filter(x=>x.area===ar).forEach(x=>{h+='<tr><td class="l">'+escapeHtml(x.e.apellido_nombre||'')+'</td>'+dias.map(f=>{const ex=_rolExc(x.e.id,f);if(ex)return '<td>'+escapeHtml(ex.tipo||'cambio')+'</td>';const k=ROL.draft[x.e.id][f];return '<td>'+(k&&k[0]==='F'?'Feriado':k&&k!=='x'?escapeHtml(_rolHM(_turnoById(parseInt(k)))):'—')+'</td>';}).join('')+'</tr>';});
+    L.filter(x=>x.area===ar).forEach(x=>{h+='<tr><td class="l">'+escapeHtml(x.e.apellido_nombre||'')+'</td>'+dias.map(f=>{const ex=_rolExc(x.e.id,f);if(ex)return '<td>'+escapeHtml(ex.tipo||'cambio')+'</td>';const k=ROL.draft[x.e.id][f];return '<td>'+(k&&k[0]==='F'?'Feriado':k&&k!=='x'?escapeHtml(_rolHM(_turnoById(_rolTid(k))))+(k[0]==='I'?'<br><b>🖨 impresora</b>':''):'—')+'</td>';}).join('')+'</tr>';});
     h+='</table>';});
   const w=window.open('','_blank');if(!w){toast('Habilitá las ventanas emergentes para imprimir','amber');return;}w.document.write(h+'</body></html>');w.document.close();setTimeout(()=>w.print(),300);
 }
@@ -61200,9 +61209,10 @@ async function _oeeCorteCargar(forzar){
     const dias=[];for(let i=0;i<OEEC_REF_DIAS;i++){const a=new Date(d0);a.setDate(a.getDate()+i);const b=new Date(a);b.setDate(b.getDate()+1);dias.push([a,b]);}
     const R=await Promise.all(dias.map(x=>_traerQ(()=>sb.from('corte_tandas').select('id,maquina,inicio,fin,golpes,sin_hora').gte('inicio',x[0].toISOString()).lt('inicio',x[1].toISOString()).order('inicio').order('id'))));
     const tandas=[];R.forEach(r=>{if(r.error)throw r.error;(r.data||[]).forEach(t=>{if(t.sin_hora||!t.inicio||!t.fin)return;tandas.push({maquina:t.maquina,ti:new Date(t.inicio).getTime(),tf:new Date(t.fin).getTime(),golpes:t.golpes||0});});});
-    const[rmo,rp]=await Promise.all([sb.from('paradas_motivos').select('*').eq('area','corte').gte('desde',new Date(d0.getTime()-86400000).toISOString()),
-      Promise.resolve(sb.rpc('vel_corte_pistas_dias',{p_desde:d0.toISOString()})).catch(e=>({error:e}))]);
-    OEE.c={t:Date.now(),dia:localDate(),t0:d0.getTime(),tandas,mot:(rmo&&!rmo.error?rmo.data:[])||[],pistas:(rp&&!rp.error?rp.data:null)};
+    const[rmo,rp,ri]=await Promise.all([sb.from('paradas_motivos').select('*').in('area',['corte','impresion']).gte('desde',new Date(d0.getTime()-86400000).toISOString()),
+      Promise.resolve(sb.rpc('vel_corte_pistas_dias',{p_desde:d0.toISOString()})).catch(e=>({error:e})),
+      Promise.resolve(sb.from('impresion_bobinas').select('id,bobina_producida_id,orden_corte_id,empleado_id,inicio,fin,metros,estado,origen,observaciones').neq('estado','anulada').gte('inicio',new Date(d0.getTime()-15*86400000).toISOString()).order('inicio').limit(3000)).catch(e=>({error:e}))]);
+    OEE.c={t:Date.now(),dia:localDate(),t0:d0.getTime(),tandas,mot:(rmo&&!rmo.error?rmo.data:[])||[],pistas:(rp&&!rp.error?rp.data:null),imp:(ri&&!ri.error?ri.data:[])||[]};
   }catch(e){OEE.cErr=e.message||String(e);}
   finally{OEE.cCargando=false;}
   if(document.getElementById('page-oee')?.classList.contains('active'))renderOEE();
@@ -61216,9 +61226,55 @@ function _oeeCortePersonas(t0,t1){
       let tr=[];
       if(!hayRol&&dow===6){if(!_sabTrabaja(id,fs))return;tr=[[6,12]];}
       else{const td=_turnoDelDia(e,fs);if(td.feriado||td.franco||!td.turno)return;if(!hayRol&&_esFeriado(fs))return;tr=_rolTramosTurno(td.turno);}
-      const base=new Date(fs+'T00:00:00').getTime();tr.forEach(x=>out.push([base+x[0]*3600000,base+x[1]*3600000,id]));});}
+      const base=new Date(fs+'T00:00:00').getTime();const enImp=_rolEnImpresion(id,fs);tr.forEach(x=>out.push([base+x[0]*3600000,base+x[1]*3600000,id,enImp]));});}
   return out;
 }
+// ============================================================
+//  🖨 IMPRESORA (07w) — sin PLC: sale de los escaneos (impresion_bobinas: entra / sale cada bobina)
+// ============================================================
+// El operario escanea la bobina al ponerla y al sacarla (que es cuando pone la siguiente): el CICLO de una bobina
+// incluye el cambio. Si la salida no se escaneó (fin de turno, corte de luz) el registro queda abierto horas:
+// se detecta (ciclo > 2,5 × el ciclo típico de esos metros) y se le pone el tiempo típico.
+// Pura. rows = impresion_bobinas. Devuelve {L:[{id,emp,a,z,min,metros,rate,sinSalida,abierta,oc}], med, ref}
+function _impCiclos(rows,ahora){
+  const now=ahora||Date.now();
+  const L=(rows||[]).filter(r=>r.inicio&&r.estado!=='anulada').map(r=>{const a=new Date(r.inicio).getTime(),abierta=!r.fin;const z=abierta?now:new Date(r.fin).getTime();
+    return {id:r.id,emp:r.empleado_id,a,z,min:Math.max(0,(z-a)/60000),metros:parseFloat(r.metros)||0,abierta,oc:r.orden_corte_id,bob:r.bobina_producida_id,manual:r.origen==='manual'};}).sort((x,y)=>x.a-y.a);
+  const limp=L.filter(c=>!c.abierta&&c.metros>0&&c.min>=8&&c.min<=180).map(c=>c.metros/c.min);
+  const med=_oeePct(limp,.5),ref=_oeePct(limp,.9);
+  L.forEach(c=>{const tip=med&&c.metros>0?c.metros/med:null;
+    c.sinSalida=!!(tip&&c.min>Math.max(2.5*tip,120));
+    if(c.sinSalida){c.minReal=c.min;c.min=tip;c.z=c.a+tip*60000;}
+    c.rate=c.metros>0&&c.min>0?c.metros/c.min:null;});
+  return {L,med,ref};
+}
+// Intervalos en que cada persona estuvo en la impresora: {empId:[[a,z],…]}
+function _impIntervalos(ciclos){const o={};(ciclos||[]).forEach(c=>{if(c.emp==null||!(c.z>c.a))return;(o[c.emp]=o[c.emp]||[]).push([c.a,c.z]);});return o;}
+// DOTACIÓN DE CORTE (una sola cuenta: OEE, fecha prometida). Grilla por minuto entre t0 y t1:
+//   n[i]   = cortadores disponibles para cortar (en turno, sin feriado ni franco, y que NO están en la impresora)
+//   imp[i] = cortadores en turno que están en la impresora (por el rol del día o por los escaneos)
+function _corteDotacion(t0,t1,impInt){
+  const N=Math.max(1,Math.ceil((t1-t0)/60000));const n=new Uint8Array(N),imp=new Uint8Array(N);const porEmp={};
+  _oeeCortePersonas(t0,t1).forEach(x=>{const g=porEmp[x[2]]||(porEmp[x[2]]=new Uint8Array(N));const a=Math.max(0,Math.ceil((x[0]-t0)/60000)),z=Math.min(N,Math.ceil((x[1]-t0)/60000));for(let i=a;i<z;i++)g[i]=x[3]?2:1;});
+  Object.keys(impInt||{}).forEach(id=>{const g=porEmp[id];if(!g)return;impInt[id].forEach(x=>{const a=Math.max(0,Math.floor((x[0]-t0)/60000)),z=Math.min(N,Math.ceil((x[1]-t0)/60000));for(let i=a;i<z;i++)if(g[i]===1)g[i]=2;});});
+  Object.values(porEmp).forEach(g=>{for(let i=0;i<N;i++){if(g[i]===1)n[i]++;else if(g[i]===2)imp[i]++;}});
+  return {N,n,imp};
+}
+// Cuánto de la capacidad de las cortadoras activas tiene cortador en los próximos días (para la fecha prometida).
+// El motor de promesa supone todas las cortadoras activas en marcha en todo el horario de corte; si hay menos
+// cortadores que máquinas (turno noche con una persona, alguien en la impresora) cada cola avanza más lento.
+let _corteDotCache=null;
+function _corteFactorDotacion(dias){
+  try{
+    const M=Math.max(1,(typeof _prmCortActivas==='function'?_prmCortActivas().size:0)||1);const k=localDate()+'|'+M+'|'+(C.rol||[]).length+'|'+(dias||7);
+    if(_corteDotCache&&_corteDotCache.k===k&&_corteDotCache.ref===C.rol)return _corteDotCache.v;
+    const t0=new Date(localDate()+'T00:00:00').getTime();const D=_corteDotacion(t0,t0+(dias||7)*86400000,null);
+    let ab=0,hm=0,imp=0;for(let i=0;i<D.N;i++){if(D.n[i]>0){ab++;hm+=Math.min(D.n[i],M);}imp+=D.imp[i];}
+    const v={f:ab>0?Math.max(.3,Math.min(1,hm/(ab*M))):1,maqs:M,hAbierto:ab/60,hMaq:hm/60,hImp:imp/60};
+    _corteDotCache={k,ref:C.rol,v};return v;
+  }catch(e){return {f:1,maqs:0,hAbierto:0,hMaq:0,hImp:0};}
+}
+
 function _oeeCorte(){
   const D=OEE.c;if(!D)return null;
   const ahora=Date.now();const dRef0=D.t0;const d0=new Date(localDate()+'T00:00:00');d0.setDate(d0.getDate()-(Math.min(OEE.dias,OEEC_REF_DIAS)-1));const t0=d0.getTime();
@@ -61232,8 +61288,8 @@ function _oeeCorte(){
     const por={};L.forEach(r=>{if(r.pid)(por[r.pid]=por[r.pid]||[]).push(r.g/r.min);});Object.keys(por).forEach(pid=>{if(por[pid].length>=5)ref[m+'|'+pid]=_oeePct(por[pid],.9);});});
   const refDe=(m,pid)=>ref[m+'|'+pid]||refM[m]||null;
   // grilla por minuto del período: personas presentes y segundos cortando por máquina
-  const N=Math.max(1,Math.ceil((Math.min(ahora,t0+OEE.dias*86400000)-t0)/60000));const n=new Uint8Array(N);
-  _oeeCortePersonas(t0,t0+N*60000).forEach(x=>{const a=Math.max(0,Math.ceil((x[0]-t0)/60000)),z=Math.min(N,Math.ceil((x[1]-t0)/60000));for(let i=a;i<z;i++)n[i]++;});
+  const N=Math.max(1,Math.ceil((Math.min(ahora,t0+OEE.dias*86400000)-t0)/60000));
+  const IC=_impCiclos(D.imp,ahora);const DOT=_corteDotacion(t0,t0+N*60000,_impIntervalos(IC.L));const n=DOT.n;let impMin=0;for(let i=0;i<N;i++)impMin+=DOT.imp[i];   // 07w: el que imprime no corta
   const dia=i=>Math.floor(i/1440);const nd=Math.ceil(N/1440);
   const porDia=Array.from({length:nd},(_,k)=>({fs:localDate(new Date(t0+k*86400000+12*3600000)),disp:0,cut:0,g:0,gRef:0}));
   let disp=0;for(let i=0;i<N;i++){const v=Math.min(n[i],OEEC_MAQS.length);disp+=v;porDia[dia(i)].disp+=v;}
@@ -61260,7 +61316,7 @@ function _oeeCorte(){
   const A=disp>30?Math.min(1,cut/disp):null,P=gRef>0?g/gRef:null,Q=(kgOK+kgScrap)>0?kgOK/(kgOK+kgScrap):null;
   // horas con al menos un cortador
   let pres=0;for(let i=0;i<N;i++)if(n[i]>0)pres++;
-  return {t0,N,disp,pres,cut,cutFuera:OEEC_MAQS.reduce((s,m)=>s+M[m].cutFuera,0),g,gRef,A,P,Q,oee:(A!=null&&P!=null&&Q!=null)?A*Math.min(1,P)*Q:null,M,PAR:PAR.sort((a,b)=>b.min-a.min),micro,kgOK,kgScrap,porDia,refM};
+  return {impMin,IC,t0,N,disp,pres,cut,cutFuera:OEEC_MAQS.reduce((s,m)=>s+M[m].cutFuera,0),g,gRef,A,P,Q,oee:(A!=null&&P!=null&&Q!=null)?A*Math.min(1,P)*Q:null,M,PAR:PAR.sort((a,b)=>b.min-a.min),micro,kgOK,kgScrap,porDia,refM};
 }
 function _oeeMotivoCorte(p){return _parMotivoDe((OEE.c&&OEE.c.mot)||[],'corte',p);}
 function oeeMotivoCorte(i,val){
@@ -61269,6 +61325,58 @@ function oeeMotivoCorte(i,val){
     const{data,error}=await sb.from('paradas_motivos').upsert({area:'corte',maquina_id:p.ext,desde:p.k,hasta:p.hasta,minutos:Math.round(p.min),motivo:val},{onConflict:'area,maquina_id,desde'}).select().single();
     if(error){toast('No se pudo guardar: '+error.message,'red');return;}
     OEE.c.mot=[...(OEE.c.mot||[]).filter(r=>r.id!==data.id),data];toast('✓ Motivo guardado','green');renderOEE();});
+}
+const OEE_MOTIVOS_I=['Cambio de trabajo o de cliché','Ajuste de registro o de color','Falta de tinta o solvente','Limpieza','Rotura o falla de la impresora','Rotura del film','Esperando bobinas','Descanso o comida','Otro'];
+function oeeMotivoImp(i,val){
+  const c=(OEE._parI||[])[i];if(!c)return;
+  pedirAdminYEjecutar(async()=>{if(!val){toast('Elegí un motivo','amber');return;}
+    const{data,error}=await sb.from('paradas_motivos').upsert({area:'impresion',maquina_id:0,desde:new Date(c.a).toISOString(),hasta:new Date(c.z).toISOString(),minutos:Math.round(c.exc),motivo:val},{onConflict:'area,maquina_id,desde'}).select().single();
+    if(error){toast('No se pudo guardar: '+error.message,'red');return;}
+    OEE.c.mot=[...(OEE.c.mot||[]).filter(r=>r.id!==data.id),data];toast('✓ Motivo guardado','green');renderOEE();});
+}
+function _oeeRenderImp(body,tabs){
+  if(OEE.cErr){body.innerHTML=tabs+'<div class="alert-err">No se pudieron leer los datos: '+escapeHtml(OEE.cErr)+'</div>';return;}
+  if(!OEE.c||OEE.c.dia!==localDate()){body.innerHTML=tabs+'<div style="padding:50px;text-align:center"><div class="spinner"></div><div class="dk-mut" style="margin-top:10px">Leyendo los escaneos de la impresora…</div></div>';_oeeCorteCargar();return;}
+  const f1=(v,d)=>v==null||!isFinite(v)?'—':v.toLocaleString('es-AR',{minimumFractionDigits:d||0,maximumFractionDigits:d||0});
+  const pc=v=>v==null?'—':Math.round(v*100)+' %';const hm=m=>m<60?Math.round(m)+' min':f1(m/60,1)+' h';
+  const colp=(v,a,b)=>v==null?'#94a3b8':v>=a?'#15803d':v>=b?'#b45309':'#b91c1c';
+  const hhmm=t=>{const d=new Date(t);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
+  const nomE=id=>{const e=(C.empleados||[]).find(x=>x.id===id);return e?String(e.apellido_nombre||'').split(' ').slice(0,2).join(' '):'—';};
+  const IC=_impCiclos(OEE.c.imp);const d0=new Date(localDate()+'T00:00:00');d0.setDate(d0.getDate()-(OEE.dias-1));const t0=d0.getTime();
+  const L=IC.L.filter(c=>c.a>=t0);const ref=IC.ref,med=IC.med;
+  const min=L.reduce((a,c)=>a+c.min,0),mts=L.reduce((a,c)=>a+c.metros,0);const P=ref&&min>0?(mts/min)/ref:null;
+  // horas de turno asignadas a la impresora por el rol (si el rol lo dice) → uso del turno
+  let asig=0;_oeeCortePersonas(t0,Date.now()).forEach(x=>{if(x[3])asig+=Math.max(0,Math.min(x[1],Date.now())-Math.max(x[0],t0))/60000;});
+  let minAsig=0;if(asig>0){const pers=_oeeCortePersonas(t0,Date.now()).filter(x=>x[3]);L.forEach(c=>pers.forEach(x=>{if(x[2]===c.emp)minAsig+=Math.max(0,Math.min(c.z,x[1])-Math.max(c.a,x[0]))/60000;}));}
+  const A=asig>30?Math.min(1,minAsig/asig):null;
+  const R=_oeeCorte();const impCort=R?R.impMin:0;
+  let h=tabs+_dkKpis([
+    {l:'Horas con bobina en la impresora',v:f1(min/60,1)+' h',s:L.length+' bobina'+(L.length===1?'':'s')+' · '+f1(mts,0)+' m impresos'},
+    {l:'Ritmo',v:f1(min>0?mts/min:null,1)+' m/min',s:'incluye el cambio de bobina · típico '+f1(med,1)+' m/min'},
+    {l:'Rendimiento',v:pc(P),cls:P!=null&&P<.7?'dk-warn':'',s:'contra el mejor ritmo demostrado ('+f1(ref,1)+' m/min)'},
+    {l:'Uso del turno asignado',v:A==null?'—':pc(A),s:A==null?'cuando el Rol semanal diga quién está en la impresora':f1(minAsig/60,1)+' h con bobina de '+f1(asig/60,1)+' h asignadas en el rol'},
+    {l:'Horas de cortador que se llevó',v:f1(impCort/60,1)+' h',cls:'dk-warn',s:'cortadores en turno que estuvieron imprimiendo'}]);
+  // por día
+  const dias=[];for(let k=0;k<OEE.dias;k++){const fs=localDate(new Date(t0+k*86400000+12*3600000));dias.push({fs,m:0,min:0,n:0,pe:{}});}
+  L.forEach(c=>{const d=dias.find(x=>x.fs===localDate(new Date(c.a)));if(!d)return;d.m+=c.metros;d.min+=c.min;d.n++;const q=d.pe[c.emp]||(d.pe[c.emp]={m:0,min:0,n:0,a:c.a,z:c.z});q.m+=c.metros;q.min+=c.min;q.n++;q.a=Math.min(q.a,c.a);q.z=Math.max(q.z,c.z);});
+  h+='<div class="vel-g2"><div class="card vel-c"><div class="vel-ct">Metros impresos por día</div>'+barChart(dias.map(d=>Math.round(d.m)),Math.max(1,...dias.map(d=>d.m)),'#6250d6',dias.map(d=>d.fs.split('-').reverse().slice(0,2).join('/')),' m')+'</div>';
+  h+='<div class="card vel-c"><div class="vel-ct">Quién imprimió <span class="dk-mut" style="font-weight:400;font-size:12.5px">— últimos '+OEE.dias+' días</span></div><div class="cen-wrap" style="max-height:300px;overflow:auto"><table class="cen-m"><thead><tr><th class="l">Día</th><th class="l">Operario</th><th>De</th><th>A</th><th>Bobinas</th><th>Metros</th><th>Con bobina</th><th>m/min</th></tr></thead><tbody>';
+  let filas='';dias.slice().reverse().forEach(d=>Object.keys(d.pe).forEach(id=>{const q=d.pe[id];filas+='<tr><td class="l">'+d.fs.split('-').reverse().slice(0,2).join('/')+'</td><td class="l"><b>'+escapeHtml(nomE(parseInt(id)))+'</b></td><td>'+hhmm(q.a)+'</td><td>'+hhmm(q.z)+'</td><td>'+q.n+'</td><td>'+f1(q.m,0)+'</td><td>'+hm(q.min)+'</td><td>'+f1(q.min>0?q.m/q.min:null,1)+'</td></tr>';}));
+  h+=(filas||'<tr><td class="l dk-mut" colspan="8">No se imprimió en el período.</td></tr>')+'</tbody></table></div></div></div>';
+  // bobinas lentas: ciclo > 1,5 × el típico de esos metros
+  const lentas=L.filter(c=>!c.sinSalida&&!c.abierta&&med&&c.metros>0&&c.min>1.5*c.metros/med).map(c=>({...c,exc:c.min-c.metros/med})).sort((a,b)=>b.exc-a.exc);
+  OEE._parI=lentas;const excT=lentas.reduce((a,c)=>a+c.exc,0);
+  const ocTxt=c=>{const o=(C.ord_corte||[]).find(x=>x.id===c.oc);if(!o)return '—';const pr=o.productos||(C.productos||[]).find(p=>p.id===o.producto_id);return escapeHtml((o.numero_orden||'')+(pr?' · '+(pr.codigo||'')+' · '+String(pr.descripcion||'').slice(0,30):''));};
+  h+='<div class="card vel-c"><div class="vel-ct">Bobinas que tardaron de más <span class="dk-mut" style="font-weight:400;font-size:12.5px">— '+lentas.length+' en el período · '+hm(excT)+' de más contra el ciclo típico · el motivo pide clave</span></div><div class="cen-wrap" style="max-height:420px;overflow:auto"><table class="cen-m"><thead><tr><th class="l">Entró</th><th>Salió</th><th class="l">Operario</th><th class="l">Orden</th><th>Metros</th><th>Tardó</th><th>Típico</th><th>De más</th><th class="l">Motivo</th></tr></thead><tbody>'
+    +(lentas.length?lentas.slice(0,60).map((c,i)=>{const mo=_parMotivoDe(OEE.c.mot,'impresion',{ext:0,k:new Date(c.a).toISOString(),desde:new Date(c.a).toISOString(),hasta:new Date(c.a+60000).toISOString()});const d=new Date(c.a);
+      return '<tr><td class="l">'+String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+' '+hhmm(c.a)+'</td><td>'+hhmm(c.z)+'</td><td class="l">'+escapeHtml(nomE(c.emp))+'</td><td class="l">'+ocTxt(c)+'</td><td>'+f1(c.metros,0)+'</td><td><b>'+hm(c.min)+'</b></td><td>'+hm(c.metros/med)+'</td><td style="color:#b45309;font-weight:600">'+hm(c.exc)+'</td>'
+        +'<td class="l"><select class="oee-sel'+(mo?'':' oee-vac')+'" onchange="oeeMotivoImp('+i+',this.value)"><option value="">'+(mo?'':'— elegir —')+'</option>'+OEE_MOTIVOS_I.map(x=>'<option'+(mo&&mo.motivo===x?' selected':'')+'>'+x+'</option>').join('')+'</select></td></tr>';}).join(''):'<tr><td class="l dk-mut" colspan="9">Ninguna bobina tardó más de una vez y media lo típico.</td></tr>')
+    +'</tbody></table></div></div>';
+  const sinS=L.filter(c=>c.sinSalida).length,man=L.filter(c=>c.manual).length;
+  h+='<div class="dk-mut" style="font-size:12px;line-height:1.55">Cómo se mide: la impresora no tiene PLC. El operario escanea la bobina al ponerla y al sacarla; ese tiempo es el <b>ciclo</b> e incluye el cambio de bobina. El ritmo de referencia es el mejor demostrado (percentil 90 de las bobinas de los últimos 28 días). '
+    +(sinS?'<b>'+sinS+' bobina'+(sinS===1?'':'s')+' sin salida escaneada</b> (quedó abierta al terminar el turno): se le puso el tiempo típico. ':'')+(man?man+' cargada'+(man===1?'':'s')+' a mano. ':'')
+    +'Mientras una persona tiene bobina en la impresora no cuenta como cortador en el OEE de corte. Para que el Programa y la fecha prometida lo sepan de antemano, marcá <b>🖨 en la impresora</b> en Sueldos → 📅 Rol semanal.</div>';
+  body.innerHTML=h;
 }
 function _oeeRenderCorte(body,tabs){
   if(OEE.cErr){body.innerHTML=tabs+'<div class="alert-err">No se pudo leer el PLC de corte: '+escapeHtml(OEE.cErr)+'</div>';return;}
@@ -61288,7 +61396,7 @@ function _oeeRenderCorte(body,tabs){
   const mx=Math.max(R.disp/60,R.pres/60,1);
   h+='<div class="vel-g2"><div class="card vel-c"><div class="vel-ct">Cascada de capacidad de corte</div>'
     +esc.map((e,i)=>'<div class="oee-wr"><div class="oee-wl">'+e[0]+'</div><div class="oee-wb"><div style="width:'+Math.max(1,e[1]/mx*100).toFixed(1)+'%;background:'+e[2]+'"></div></div><div class="oee-wv"><b>'+f1(e[1],0)+' h</b>'+(i>1?'<span>− '+f1(Math.max(0,esc[i-1][1]-e[1]),0)+' h</span>':'<span>&nbsp;</span>')+'</div></div>').join('')
-    +'<div class="dk-mut" style="font-size:12px;margin-top:8px;line-height:1.5">En corte cada cortador presente debería tener una máquina en marcha. El escalón grande —horas con cortador que la máquina no corta— es empaque, espera de bobinas, cambios de pedido y paradas.'+(R.cutFuera>60?' Se cortaron además '+f1(R.cutFuera/60,0)+' h fuera del horario del rol (no cuentan).':'')+'</div></div>';
+    +'<div class="dk-mut" style="font-size:12px;margin-top:8px;line-height:1.5">En corte cada cortador presente debería tener una máquina en marcha. El escalón grande —horas con cortador que la máquina no corta— es empaque, espera de bobinas, cambios de pedido y paradas.'+(R.cutFuera>60?' Se cortaron además '+f1(R.cutFuera/60,0)+' h fuera del horario del rol (no cuentan).':'')+(R.impMin>30?' <b>🖨 '+f1(R.impMin/60,1)+' h de cortadores en la impresora</b>: no cuentan como tiempo disponible de corte (<a href="#" onclick="oeeTab(\'imp\');return false">ver impresión</a>).':'')+'</div></div>';
   const ser=R.porDia.map(d=>{const a=d.disp>30?Math.min(1,d.cut/d.disp):null,p=d.gRef>0?d.g/d.gRef:null;return a!=null&&p!=null?Math.round(a*Math.min(1,p)*(R.Q==null?1:R.Q)*100):0;});
   h+='<div class="card vel-c"><div class="vel-ct">OEE de corte por día <span class="dk-mut" style="font-weight:400;font-size:12.5px">— %</span></div>'+barChart(ser,100,'var(--accent)',R.porDia.map(d=>d.fs.split('-').reverse().slice(0,2).join('/')),'%')+'</div></div>';
   // por máquina
@@ -61317,7 +61425,7 @@ function _oeeRenderCorte(body,tabs){
     +(R.PAR.length?R.PAR.slice(0,80).map((p,i)=>'<tr><td class="l"><b>'+escapeHtml(p.nom)+'</b></td><td>'+fd(p.desde)+'</td><td>'+fd(p.hasta)+'</td><td><b>'+hm(p.min)+'</b></td><td class="l">'+(p.oc?escapeHtml((p.oc.numero_orden||'')+' · '+String(p.oc.cliente||'').slice(0,22)):'—')+'</td><td class="l">'+(p.scans?p.scans+' bobina'+(p.scans===1?'':'s')+' escaneada'+(p.scans===1?'':'s'):'sin escaneo')+'</td>'
       +'<td class="l"><select class="oee-sel'+(p._mot?'':' oee-vac')+'" onchange="oeeMotivoCorte('+i+',this.value)"><option value="">'+(p._mot?'':p._auto?'Cambio de bobina (detectado)':'— elegir —')+'</option>'+OEE_MOTIVOS_C.map(mo=>'<option'+(p._mot===mo?' selected':'')+'>'+mo+'</option>').join('')+'</select></td></tr>').join(''):'<tr><td class="l dk-mut" colspan="7">Sin paradas.</td></tr>')
     +'</tbody></table></div></div>';
-  h+='<div class="dk-mut" style="font-size:12px;line-height:1.55">Cómo se mide: el PLC cuenta los golpes de CORTE-01 y CORTE-02 (CORTE-3 no tiene sensor). Una máquina «corta» mientras da golpes con menos de 3 minutos entre tanda y tanda. El tiempo disponible sale del rol de turnos de los cortadores (una máquina por persona, hasta dos). El producto de cada corrida es el de la última bobina escaneada en esa máquina. La calidad usa el scrap pesado al cerrar cada orden.</div>';
+  h+='<div class="dk-mut" style="font-size:12px;line-height:1.55">Cómo se mide: el PLC cuenta los golpes de CORTE-01 y CORTE-02 (CORTE-3 no tiene sensor). Una máquina «corta» mientras da golpes con menos de 3 minutos entre tanda y tanda. El tiempo disponible sale del rol de turnos de los cortadores (una máquina por persona, hasta dos); el que está en la impresora —por el rol o porque escaneó una bobina ahí— no cuenta. El producto de cada corrida es el de la última bobina escaneada en esa máquina. La calidad usa el scrap pesado al cerrar cada orden.</div>';
   body.innerHTML=h;
 }
 function oeeDias(n){OEE.dias=n;OEE.d=null;renderOEE();}
@@ -61325,8 +61433,9 @@ function oeeTab(t){OEE.tab=t;renderOEE();}
 function renderOEE(){
   const body=document.getElementById('oee-body');if(!body)return;
   // 07r: pestañas Extrusión / Corte
-  const _tabs='<div style="display:flex;gap:6px;align-items:center;margin-bottom:12px"><button class="btn btn-sm'+(OEE.tab!=='corte'?' btn-primary':'')+'" onclick="oeeTab(\'ext\')">🏭 Extrusión</button><button class="btn btn-sm'+(OEE.tab==='corte'?' btn-primary':'')+'" onclick="oeeTab(\'corte\')">✂ Corte</button><span style="flex:1"></span>'+[7,14].map(n=>'<button class="btn btn-sm'+(OEE.dias===n?' btn-primary':'')+'" onclick="oeeDias('+n+')">'+n+' días</button>').join('')+'</div>';
+  const _tabs='<div style="display:flex;gap:6px;align-items:center;margin-bottom:12px"><button class="btn btn-sm'+(OEE.tab!=='corte'&&OEE.tab!=='imp'?' btn-primary':'')+'" onclick="oeeTab(\'ext\')">🏭 Extrusión</button><button class="btn btn-sm'+(OEE.tab==='corte'?' btn-primary':'')+'" onclick="oeeTab(\'corte\')">✂ Corte</button><button class="btn btn-sm'+(OEE.tab==='imp'?' btn-primary':'')+'" onclick="oeeTab(\'imp\')">🖨 Impresión</button><span style="flex:1"></span>'+[7,14].map(n=>'<button class="btn btn-sm'+(OEE.dias===n?' btn-primary':'')+'" onclick="oeeDias('+n+')">'+n+' días</button>').join('')+'</div>';
   if(OEE.tab==='corte'){_oeeRenderCorte(body,_tabs);return;}
+  if(OEE.tab==='imp'){_oeeRenderImp(body,_tabs);return;}
   const D=OEE.d;
   if(OEE.err){body.innerHTML='<div class="alert-err">No se pudo leer la telemetría: '+escapeHtml(OEE.err)+'</div>';return;}
   if(!D||OEE.key!==OEE.dias+'|'+localDate()){body.innerHTML=_tabs+'<div style="padding:50px;text-align:center"><div class="spinner"></div><div class="dk-mut" style="margin-top:10px">Leyendo '+OEE.dias+' días de telemetría del PLC…</div></div>';_oeeCargar();return;}
@@ -61605,7 +61714,9 @@ function simularPromesaPedido(){
     });
     if(cortId===null){r.avisos.push('No hay cortadoras con bolsas/h definidas');continue;}
     const velC=C.maq_corte.find(m=>m.id===cortId).bolsas_por_hora;
-    const hsOC=r2(unidades/velC);
+    const _dot=typeof _corteFactorDotacion==='function'?_corteFactorDotacion(7):{f:1};   // 07w: cortadores disponibles vs cortadoras activas
+    const hsOC=r2(unidades/velC/(_dot.f||1));
+    if(_dot.f<.95&&!r.avisos.some(a=>/cortadores/.test(a)))r.avisos.push('Corte al '+Math.round(_dot.f*100)+' %: hay menos cortadores que cortadoras en parte del horario'+(_dot.hImp>1?' ('+Math.round(_dot.hImp)+' h en la impresora esta semana)':''));
     let iniOC=ajustarAJornada(new Date(Math.max(ahora,cortLibre)),'corte');
     // Alineación JIT con la OE hipotética (misma regla que el motor real)
     if(finOE){
@@ -70222,7 +70333,7 @@ function _planResolver(r,dia,ctx){
   }
   // 07l: persona con rol confirmado → manda el rol (aunque haya quedado una fila vieja pintada en el plan)
   if(r.a==='p'&&typeof _rolDe==='function'&&_rolDe(r.id,dia.fs)){const e=(C.empleados||[]).find(x=>x.id===r.id);const _td=_turnoDelDia(e,dia.fs);
-    if(_td.feriado)return{cod:'0',tr:[],src:'feriado',fer:'feriado (rol)'};const t=_td.turno;return{cod:t?null:'0',tr:_rolTramosTurno(t),src:'rol',tn:t?t.nombre:'no viene'};}
+    if(_td.feriado)return{cod:'0',tr:[],src:'feriado',fer:'feriado (rol)'};const t=_td.turno;if(t&&_rolEnImpresion(r.id,dia.fs))return{cod:'0',tr:[],src:'rol',imp:true,tn:'en la impresora '+_rolHM(t)+' · no corta'};return{cod:t?null:'0',tr:_rolTramosTurno(t),src:'rol',tn:t?t.nombre:'no viene'};}
   const k=r.k+'|'+dia.fs;
   const pend=PLAN.cambios[k];
   if(pend!==undefined){
@@ -70234,7 +70345,7 @@ function _planResolver(r,dia,ctx){
   const tipoArea=r.a==='e'?'extrusion':'corte';
   if(_esFeriadoProd(dia.fs,tipoArea))return{cod:'0',tr:[],src:'feriado',fer:_feriadoNombre(dia.fs)};
   // 07i: persona con rol semanal confirmado → lo que dice Sueldos (rol + licencias)
-  if(r.a==='p'&&_rolDe(r.id,dia.fs)){const e=(C.empleados||[]).find(x=>x.id===r.id);const _td=_turnoDelDia(e,dia.fs);if(_td.feriado)return{cod:'0',tr:[],src:'feriado',fer:'feriado (rol)'};const t=_td.turno;return{cod:t?null:'0',tr:_rolTramosTurno(t),src:'rol',tn:t?t.nombre:'no viene'};}
+  if(r.a==='p'&&_rolDe(r.id,dia.fs)){const e=(C.empleados||[]).find(x=>x.id===r.id);const _td=_turnoDelDia(e,dia.fs);if(_td.feriado)return{cod:'0',tr:[],src:'feriado',fer:'feriado (rol)'};const t=_td.turno;if(t&&_rolEnImpresion(r.id,dia.fs))return{cod:'0',tr:[],src:'rol',imp:true,tn:'en la impresora '+_rolHM(t)+' · no corta'};return{cod:t?null:'0',tr:_rolTramosTurno(t),src:'rol',tn:t?t.nombre:'no viene'};}
   // Persona de corte, día ya vivido sin nada cargado: lo que fichó (pedido de German).
   if(r.a==='p'&&dia.fs<ctx.hoy&&ctx.iv.length){
     const tr=_planTramosPersonaFichaje(r.id,dia.fs,ctx.iv);
@@ -70346,7 +70457,7 @@ function planGuardarTipo(){
 function _planCelda(x,extra){
   const t=x.cod!=null?PLAN_TURNOS[x.cod]:null;
   const h=_planHoras(x.tr);
-  const lbl=x.src==='feriado'?'F':t?t.l:x.src==='rol'&&x.tr.length?(x.tr[0][0]+'–'+(x.tr[0][1]>24?x.tr[0][1]-24:x.tr[0][1])):(h?Math.round(h)+'h':'');
+  const lbl=x.src==='feriado'?'F':x.imp?'🖨':t?t.l:x.src==='rol'&&x.tr.length?(x.tr[0][0]+'–'+(x.tr[0][1]>24?x.tr[0][1]-24:x.tr[0][1])):(h?Math.round(h)+'h':'');
   const cls=x.src==='feriado'?'pkF':t?t.cls:(!h?'pk0':x.src==='calc'?'pkCalc':'pkFi');
   const tip=(x.src==='feriado'?'Feriado: '+(x.fer||''):t?t.d:(x.src==='calc'?'con operario: ':x.src==='rol'?'rol semanal ('+(x.tn||'')+'): ':'fichado: ')+x.tr.map(a=>a[0]+'–'+(a[1]>24?a[1]-24:a[1])).join(', '))+' · '+_velF(h,0)+' h · '+({cargado:'cargado'+(x.pend?' (sin guardar)':''),fichaje:'lo que fichó',rol:'rol semanal (Sueldos)',tipo:'semana tipo (estimado hasta que confirmes el rol de esa semana)',feriado:'feriado del calendario',calc:'calculado de los turnos de los operarios'}[x.src]);
   return {lbl,cls:cls+' pr-'+x.src+(x.pend?' pr-pend':''),tip,h};
