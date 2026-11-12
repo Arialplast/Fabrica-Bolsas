@@ -856,6 +856,27 @@ Deno.serve(async (req) => {
     const { data: cli } = await sb.from("clientes").select("*").eq("id", cliId).single();
     if (!cli) return json({ ok: false, error: "No se encontro el cliente del comprobante" });
 
+    // 12/11/2026: TusFacturas guarda UN cliente por CUIT. Si el sistema tiene dos
+    // cuentas con el mismo CUIT (Diego Vazquez: 71 y 80), hay que mandar el codigo
+    // de la cuenta con la que ya se emitio en este ambiente; si no, TusFacturas
+    // rechaza ("Ya existe un registro con el tipo/nro de documento ingresado").
+    let codigoTF = String(cli.id);
+    try {
+      const cuitPropio = String(cli.cuit || "").replace(/\D/g, "");
+      if (cuitPropio.length === 11) {
+        const { data: todos } = await sb.from("clientes").select("id,cuit");
+        const mismos = (todos || [])
+          .filter((c: any) => String(c.cuit || "").replace(/\D/g, "") === cuitPropio)
+          .map((c: any) => c.id);
+        if (mismos.length > 1) {
+          const { data: usadas } = await sb.from("facturas").select("cliente_id")
+            .in("cliente_id", mismos).eq("cae_estado", "autorizado").eq("ambiente", ambiente)
+            .order("id", { ascending: true }).limit(1);
+          if (usadas && usadas.length) codigoTF = String(usadas[0].cliente_id);
+        }
+      }
+    } catch (_e) { /* si falla la consulta, se usa el codigo propio como antes */ }
+
     const cuit = String(doc.cuit_cliente || cli.cuit || "").replace(/\D/g, "");
     const ivaCli = condIva(doc.condicion_iva_cliente || cli.condicion_iva);
     const nombreCli = String(doc.razon_social_cliente || cli.razon_social || cli.nombre || "").trim();
@@ -1067,7 +1088,7 @@ Deno.serve(async (req) => {
         email: String(cli.email || "").slice(0, 255),
         domicilio: String(domicilioCli || "SIN INFORMAR").slice(0, 255),
         provincia: provinciaCli,
-        codigo: String(cli.id),
+        codigo: codigoTF,
         envia_por_mail: "N",
         condicion_pago: dias > 0 ? "205" : "201", // 205 cta cte / 201 contado
         condicion_iva: ivaCli,
