@@ -20,8 +20,8 @@ t(!_recEsFinanciero({recibo_facturas:[{factura_id:1},{factura_id:2}]}),'recibo m
 t(!_recEsFinanciero({recibo_facturas:[]}),'recibo sin facturas (saldo a favor / RV) no');
 t(!_recEsFinanciero({recibo_facturas:[{factura_id:1}],recibo_rvs:[{rv_id:9}]}),'recibo con RV no');
 // enganches
-t(src.includes("if(_facEsFinanciera(f))return;const m=_c360Fecha(f)"),'Cliente 360: facturación mensual');
-t(src.includes("if(_recEsFinanciero(r))return;const m=_c360Fecha(r)"),'Cliente 360: cobros mensuales');
+t(src.includes("if(_facEsFinanciera(f))return;sumar(fac,_c360Fecha(f)"),'Cliente 360: facturación mensual');
+t(src.includes("_ccHaberAplicado(id,{sinFinancieras:true})"),'Cliente 360: cobros mensuales (12c: sin lo aplicado a la financiera)');
 t(src.includes("_c360Facturas(id).filter(f=>!_facEsFinanciera(f))"),'Cliente 360: ticket');
 t(src.includes("if(/anul/i.test(f.estado||''))return;if(typeof _facEsFinanciera==='function'&&_facEsFinanciera(f))return;"),'demora de cobro');
 t(src.includes("f.estado==='anulada'||_facEsFinanciera(f))return;const fe="),'concentración 90 días');

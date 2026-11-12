@@ -29,6 +29,8 @@ eval(glob(cut('function _aplicadoAFactura','// =================================
 eval(glob(cut('function _ncTotalDe','// Crédito de una NC todavía')));
 eval(glob(cut('function _ncAplicadoAOtras','\n}')+'\n}'));
 eval(glob(cut('function _ndsCliente','\n}')+'\n}'));
+eval(glob(cut('function _facEsFinanciera','\n')));
+eval(glob(cut('// 12c: cobros y deuda','function _c360TopProductos')));
 global._notasCreditoDe=(tp,id)=>C.notas_credito.filter(n=>n.doc_tipo===tp&&n.doc_id===id&&n.estado!=='anulada');
 const fin=id=>{const m=_c360MovsCC(id);return m.length?m[m.length-1].saldo:0;};
 const suma=id=>r2(C.facturas.filter(f=>f.cliente_id===id).reduce((s,f)=>s+f.total-_aplicadoAFactura(f.id),0));
@@ -68,4 +70,16 @@ t(r5&&r5.haber===0,'recibo propio aplicado a otra cuenta aparece en 0');
 t(!_c360MovsCC(1).some(m=>m.tipo==='recibo'&&m.docId===5),'en el resumen del cliente no van filas en cero');
 const nc5=_ccHaberAplicado(1).find(x=>x.tipo==='NC'&&x.id===5);
 t(nc5&&nc5.haber===0,'NC propia aplicada a otra cuenta aparece en 0 (botones)');
+
+// ---- 📊 Gráficos de Cliente 360 (12c): la deuda del último mes = saldo de la cuenta ----
+C=base();
+const hoy=new Date();const mes=hoy.getFullYear()+'-'+String(hoy.getMonth()+1).padStart(2,'0');
+C.facturas.forEach(f=>f.fecha=mes+'-01');C.recibos.forEach(r=>r.fecha=mes+'-02');C.compensaciones.forEach(c=>c.fecha=mes+'-03');C.notas_credito.forEach(n=>n.fecha=mes+'-04');
+C.facturas.push({id:30,cliente_id:2,total:9999,fecha:mes+'-01',observaciones:'ADELANTO FINANCIERO A CUENTA'});
+C.recibos.push({id:9,cliente_id:2,plano:'formal',fecha:mes+'-02',estado:'activo',total_cobrado:9999,total_retenciones:0,total_aplicado:9999,recibo_facturas:[{factura_id:30,monto_aplicado:9999}]});
+const S2=_c360Series(2);
+t(S2.deuda[mes]===200,'deuda del mes cuenta 2 = 200 (es '+S2.deuda[mes]+')');
+t(S2.fac[mes]===3100,'facturación sin el adelanto financiero (es '+S2.fac[mes]+')');
+t(S2.cob[mes]===1200+300+800+200,'cobros = recibos (con lo libre) + compensación + recibo de la otra cuenta, sin el del adelanto (es '+S2.cob[mes]+')');
+t(_c360Series(1).deuda[mes]===0,'deuda del mes cuenta 1 = 0');
 console.log((bad?'✗':'✓')+' smoke_c360_cc: '+ok+' ok, '+bad+' fallas');process.exit(bad?1:0);
