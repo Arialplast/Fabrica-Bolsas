@@ -212,6 +212,30 @@ function normalizarNumero(nro: unknown, puntoVenta: unknown): string | null {
   return `${pvN}-${nN}`;
 }
 
+// 13/11/2026: leyenda del pie del comprobante fiscal. Junta, en este orden:
+// remitos · orden de compra del cliente (pedidos.oc_cliente) · textos libres
+// (observaciones y, en las NC por productos, el detalle del motivo).
+// La OC no se repite si el texto libre ya la nombra ("orden de compra 2353").
+function armarLeyenda(remitos: string[], ocs: string[], libres: unknown[]): string {
+  const txt: string[] = [];
+  (libres || []).forEach((x) => {
+    const t = String(x ?? "").trim();
+    if (t && !txt.includes(t)) txt.push(t);
+  });
+  const todo = txt.join(" | ").toLowerCase();
+  const nombrada = (oc: string) => {
+    const esc = oc.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp("(^|[^a-z0-9])" + esc + "($|[^a-z0-9])").test(todo);
+  };
+  const faltan = (ocs || []).map((x) => String(x ?? "").trim()).filter(Boolean)
+    .filter((oc, i, arr) => arr.indexOf(oc) === i && !nombrada(oc));
+  return [
+    remitos.length ? (remitos.length === 1 ? "Remito " : "Remitos ") + remitos.join(", ") : "",
+    faltan.length ? "Orden de compra: " + faltan.join(", ") : "",
+    ...txt,
+  ].filter(Boolean).join(" \u00b7 ").slice(0, 500);
+}
+
 async function postTF(url: string, payload: unknown, timeoutMs = TIMEOUT_MS) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -1011,6 +1035,40 @@ Deno.serve(async (req) => {
     // en la leyenda del pie. Con varios, cada renglon lleva el suyo.
     const remitoEnLinea = remitos.length > 1;
 
+    // 13/11/2026: orden de compra del CLIENTE (pedidos.oc_cliente) de los pedidos
+    // detras de la factura: el de cabecera + los de sus remitos. Para NC / ND, los
+    // de la factura que corrigen. Espejo de _ocClienteDeFactura del sistema.
+    // Es solo texto de la leyenda: si la consulta falla, se emite sin la OC.
+    let ocCliente: string[] = [];
+    try {
+      const facId = docTipo === "factura" ? docId : (doc.doc_tipo === "factura" ? doc.doc_id : null);
+      if (facId != null) {
+        const pedIds: any[] = [];
+        if (docTipo === "factura") {
+          if (doc.pedido_id != null) pedIds.push(doc.pedido_id);
+        } else {
+          const { data: f0 } = await sb.from("facturas").select("pedido_id").eq("id", facId).single();
+          if (f0?.pedido_id != null) pedIds.push(f0.pedido_id);
+        }
+        const { data: frOc } = await sb.from("factura_remitos").select("remito_id").eq("factura_id", facId);
+        const remIds = (frOc || []).map((x: any) => x.remito_id).filter((x: any) => x != null);
+        if (remIds.length) {
+          const { data: rsOc } = await sb.from("remitos").select("pedido_id").in("id", remIds);
+          (rsOc || []).forEach((r: any) => { if (r.pedido_id != null) pedIds.push(r.pedido_id); });
+        }
+        const { data: rsFac } = await sb.from("remitos").select("pedido_id").eq("factura_id", facId);
+        (rsFac || []).forEach((r: any) => { if (r.pedido_id != null) pedIds.push(r.pedido_id); });
+        const unicos = [...new Set(pedIds.map((x) => String(x)))];
+        if (unicos.length) {
+          const { data: peds } = await sb.from("pedidos").select("id,oc_cliente").in("id", unicos).order("id");
+          (peds || []).forEach((p: any) => {
+            const oc = String(p.oc_cliente || "").trim();
+            if (oc && !ocCliente.includes(oc)) ocCliente.push(oc);
+          });
+        }
+      }
+    } catch (_e) { ocCliente = []; }
+
     let detalle: any[] = [...grupos.values()].map((g) =>
       mkItem(g.desc + (remitoEnLinea && g.remito ? " · " + g.remito : ""), g.cod, g.cant, g.pu)
     );
@@ -1110,10 +1168,12 @@ Deno.serve(async (req) => {
         rubro_grupo_contable: String(cfg["arca_rubro_grupo"] || "Productos").slice(0, 255),
         detalle,
         bonificacion: 0,
-        leyenda_gral: [
-          remitos.length ? (remitos.length === 1 ? "Remito " : "Remitos ") + remitos.join(", ") : "",
-          String(doc.observaciones || "").trim(),
-        ].filter(Boolean).join(" · ").slice(0, 500),
+        // En la NC por productos el detalle del motivo no va en ningun renglon
+        // (en la NC por monto ya es la descripcion del item): sale en la leyenda.
+        leyenda_gral: armarLeyenda(remitos, ocCliente, [
+          doc.observaciones,
+          docTipo === "nc" && (lineas || []).length ? doc.motivo_detalle : "",
+        ]),
         total: totalCalc,
         external_reference: referencia,
       },
