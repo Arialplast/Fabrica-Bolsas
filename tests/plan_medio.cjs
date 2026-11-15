@@ -151,3 +151,11 @@ console.log('✓ plan_medio '+ok+' ok');
  A(/fcItemsProyectados\(finS\)/.test(src)&&/ccSaldos\(\)/.test(src),'la caja del plan parte del Flujo de caja y del saldo real de las cuentas');
  const seg=src.slice(src.indexOf('function _pmpCaja(R){'),src.indexOf('function _pmpMesesCard'));A(!/sb\.from\(/.test(seg),'la caja del plan no escribe ni lee tablas por su cuenta');
  console.log('✓ plan_medio 15i '+n+' ok');}
+// 15j: solapas por área y falta por sector
+{const m=src.match(/function _pmpFaltaSector\(W\)\{[\s\S]*?\n\}/);if(!m){console.error('no _pmpFaltaSector');process.exit(1);}const f=eval('('+m[0]+')');let n=0;const A=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};const near=(a,b)=>Math.abs(a-b)<1e-6;
+ let X=f([{firme:1000,pron:8000,capC:7700,capE:7800},{firme:0,pron:8600,capC:7700,capE:7800}]);A(near(X.dem,8800)&&near(X.fC,1100)&&near(X.fE,1000),'faltan los dos sectores: corte 1,1 t y extrusión 1,0 t');
+ X=f([{firme:0,pron:7000,capC:7700,capE:6500}]);A(X.fC===0&&near(X.fE,500),'sólo falta extrusión');
+ X=f([{firme:0,pron:5000,capC:7700,capE:7800}]);A(X.fC===0&&X.fE===0,'la capacidad cubre la demanda');
+ A(/const SEC=\{res:'',com:'',pro:'',eco:'',fin:''\}/.test(src)&&/body\.innerHTML=_pmpTabs\(tab,R\)\+selDem\+SEC\[tab\];/.test(src),'el plan se muestra por solapa de área');
+ A(/Corte, y extrusión detrás/.test(src)&&/si se suma corte por más que eso, pasa a frenar extrusión/.test(src),'avisa que el otro sector viene detrás');
+ console.log('✓ plan_medio 15j '+n+' ok');}
