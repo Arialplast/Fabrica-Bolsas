@@ -122,3 +122,10 @@ console.log('✓ plan_medio '+ok+' ok');
  A(/mkgP=\(v\.venta-v\.costo\)\/v\.kg-eKg;/.test(src),'el margen por producto es neto de energía');
  A(!/sb\.from\('(energia|ene)[a-z_]*'\)\.(insert|update|upsert|delete)/.test(src.slice(src.indexOf('const PMP='),src.indexOf('function oeeDias'))),'el plan no escribe en tablas de energía');
  console.log('✓ plan_medio 15f '+n+' ok');}
+// 15g: gráfico de tres barras
+{let n=0;const A=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};
+ A(/function _pmpChart\(B,Bb,wip0\)\{/.test(src)&&/_pmpChart\(B,Rb_\?Rb_\.B:null,R\.wip0\)/.test(src),'el gráfico recibe la planta sin plan y el stock de bobinas');
+ A(!/el % es la carga del corte/.test(src),'el gráfico ya no usa un porcentaje ambiguo');
+ A(/fila\('<b>Puedo cortar<\/b>'/.test(src)&&/fila\('<b>Puedo extruir<\/b>'/.test(src)&&/bobinas en stock al empezar/.test(src),'la tabla dice qué se puede cortar y extruir');
+ A(/da capacidad para /.test(src),'cada acción dice qué capacidad agrega');
+ console.log('✓ plan_medio 15g '+n+' ok');}
