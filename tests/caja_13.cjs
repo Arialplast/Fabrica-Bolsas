@@ -1,0 +1,24 @@
+// 16a: proyección de caja de 13 semanas — motor puro
+const fs=require('fs');const src=fs.readFileSync(process.argv[2],'utf8');
+const m=src.match(/function _c13Proyectar\(base,esc\)\{[\s\S]*?\n\}/);if(!m){console.error('no _c13Proyectar');process.exit(1);}const f=eval('('+m[0]+')');let n=0;const A=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};const near=(a,b)=>Math.abs(a-b)<1e-6;
+const plan=[];for(let i=0;i<13;i++)plan.push({cobNueva:i>=2?100:0,mp:60,ener:5,otros:10,retiros:2,acc:0});
+const base={N:13,saldo0:50,cob:[{w:0,g:'doc',m:40},{w:1,g:'doc',m:30},{w:1,g:'chq',m:20},{w:12,g:'ped',m:10}],pag:[{w:0,g:'suel',m:30},{w:1,g:'arca',m:25}],vencCob:[{m:80}],vencPag:[{g:'mp',p:3,m:90},{g:'suel',p:1,m:30},{g:'arca',p:2,m:60}],plan};
+let P=f(base,{atraso:0,cobVenc:0,cobVencSem:4,venta:0,regSem:0});
+A(near(P.sem[0].ing,40)&&near(P.sem[0].egr,30+60+5+10+2)&&near(P.sem[0].saldo,50+40-107),'semana 0: entra lo documentado, sale lo documentado + lo del plan');
+A(near(P.sem[1].cob.doc,30)&&near(P.sem[1].cob.chq,20),'cada cobro en su semana');
+A(near(P.vencSinPagar,180)&&P.sem.every(s=>s.reg===0),'sin regularización lo vencido queda afuera');
+A(near(P.sem[12].saldo,P.fin)&&P.min.v<=Math.min(...P.sem.map(s=>s.saldo))+1e-9,'saldo final y punto más bajo');
+P=f(base,{atraso:1,cobVenc:0,cobVencSem:4,venta:0,regSem:0});
+A(!P.sem[0].cob.doc&&near(P.sem[1].cob.doc,40)&&near(P.sem[2].cob.doc,30),'la cobranza se corre una semana');
+A(near(P.sem[1].cob.chq,20),'el cheque no se atrasa: tiene fecha');
+A(!P.sem[12].cob.ped,'lo que se corre fuera del horizonte no entra');A(near(P.sem[3].cob.nueva,100)&&!P.sem[2].cob.nueva,'la venta nueva también se atrasa');
+P=f(base,{atraso:0,cobVenc:50,cobVencSem:4,venta:0,regSem:0});A(near(P.sem[0].cob.venc,10)&&near(P.sem[3].cob.venc,10)&&!P.sem[4].cob.venc&&near(P.vencCobrado,40),'recupero de lo vencido: % en N semanas');
+P=f(base,{atraso:0,cobVenc:0,cobVencSem:4,venta:-50,regSem:0});A(near(P.sem[2].cob.nueva,50)&&near(P.sem[0].pag.mpN,30)&&near(P.sem[0].pag.est,10),'menos venta: baja cobranza nueva, materia prima y energía; la estructura no');
+P=f(base,{atraso:0,cobVenc:0,cobVencSem:4,venta:0,regSem:3});
+A(near(P.sem[0].reg,60)&&near(P.sem[1].reg,60)&&near(P.sem[2].reg,60)&&near(P.vencSinPagar,0),'regularización en cuotas iguales');
+A(near(P.sem[0].pag.suel,30+30)&&near(P.sem[0].pag.arca,30)&&near(P.sem[1].pag.arca,25+30)&&near(P.sem[1].pag.mp,30)&&near(P.sem[2].pag.mp,60),'se paga primero sueldos, después ARCA, después materia prima');
+P=f(base,{atraso:0,cobVenc:0,cobVencSem:4,venta:0,regSem:20});A(near(P.vencSinPagar,180-13*9),'lo que no entra en 13 semanas queda para después');
+A(/fcItemsProyectados\(finS\)/.test(src)&&/_pmpCaja\(R\)/.test(src),'usa el derivador de Flujo de caja y el plan de mediano plazo');
+const seg=src.slice(src.indexOf('const C13='),src.indexOf('function oeeDias'));const w=(seg.match(/sb\.from\('([a-z_]+)'\)\.(insert|update|upsert|delete)/g)||[]);A(w.length===1&&/configuracion/.test(w[0]),'sólo escribe su configuración');
+A(/id="page-caja-13"/.test(src)&&/if\(name==='caja-13'\)renderCaja13\(\)/.test(src)&&/goAdmin\('caja-13'\)/.test(src),'página, dispatch y menú');
+console.log('✓ caja_13 '+n+' ok');
