@@ -82,3 +82,13 @@ console.log('✓ plan_medio '+ok+' ok');
  A(/const cad=\[\];\{let prev=base,pref=\[\];/.test(src)&&/ahora frena extrusión/.test(src),'aporte en cadena con motivo cuando no suma');
  A(/const pistasDe=pr=>/.test(src)&&/Math\.min\(p2,2\)/.test(src),'pistas: ficha de la bobina, cortadora 1 hasta 2');
  console.log('✓ plan_medio 15a '+n+' ok');}
+// 15b: planificar para la meta
+{const m=src.match(/function _pmpDemMeta\(meses,fc,cub\)\{[\s\S]*?\n\}/);if(!m){console.error('no _pmpDemMeta');process.exit(1);}const f=eval('('+m[0]+')');let n=0;const A=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};const near=(a,b)=>Math.abs(a-b)<1e-6;
+ let d=f([{falta:9000,w:[10,40,40,0,0]}],[1000,8000,8000,8000,8000],[1,1,1,0,0]);
+ A(near(d[0],1000)&&near(d[1],4000)&&near(d[2],4000),'lo que falta de la meta se reparte por horas de las semanas del mes');
+ A(near(d[3],8000)&&near(d[4],8000),'fuera del mes con meta sigue el pronóstico');
+ A(near(d.reduce((a,b)=>a+b,0),9000+16000),'no se pierde ni se duplica demanda');
+ d=f([{falta:6000,w:[0,30,15,0]},{falta:12000,w:[0,0,15,30]}],[0,8000,8000,8000],[0,1,1,1]);A(near(d[2],6000*15/45+12000*15/45)&&near(d[1],4000)&&near(d[3],8000),'semana partida entre dos meses con meta');
+ d=f([],[5,6],[0,0]);A(near(d[0],5)&&near(d[1],6),'sin metas = pronóstico');
+ A(/pmpBaseDem\(\\'meta\\'\)/.test(src)&&/Lo que viene: el mercado/.test(src)&&/Lo que puedo: la planta/.test(src),'selector y las tres cifras');
+ console.log('✓ plan_medio 15b '+n+' ok');}
