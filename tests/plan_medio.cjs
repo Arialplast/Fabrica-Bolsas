@@ -108,3 +108,10 @@ console.log('✓ plan_medio '+ok+' ok');
  A(/hx_corte:'x'/.test(src),'las horas extra se costean al 50 %');
  A(/el corte alcanza: lo que frena es extrusión/.test(src)&&/l:'Qué frena'/.test(src),'la meta y el indicador dicen qué sector frena de verdad');
  console.log('✓ plan_medio 15d '+n+' ok');}
+// 15e: vista larga
+{let n=0;const A=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};
+ A(/function _pmpCalcLargo\(\)\{[\s\S]*?finally\{PMP\.N=N0;PMP\.memo=m0;PMP\._crec=0;\}/.test(src),'la vista larga restaura el horizonte y el caché de las 8 semanas aunque falle');
+ A(/Math\.pow\(1\+crec_\/100,s\.i\/4\.345\)/.test(src),'crecimiento mensual compuesto por semana');
+ A(/a\.hasta>=N0-1\)&&a\.t!=='pedido'&&a\.t!=='feriado'\?\{hasta:25\}/.test(src),'las acciones que llegan al final del plan siguen en la vista larga');
+ A(/function _pmpPorMes\(R,max\)/.test(src)&&/const G_=_pmpPorMes\(R,4\)/.test(src),'un solo agrupador por mes para las dos vistas');
+ console.log('✓ plan_medio 15e '+n+' ok');}
