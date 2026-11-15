@@ -47,3 +47,19 @@ console.log('✓ plan_medio '+ok+' ok');
  A(X.nC===4&&X.nOk===1&&X.pAc===32000&&X.rAc===25100,'acumulado sólo de semanas cerradas');
  A(/from\('planes_medio_plazo'\)\.insert/.test(src)&&!/from\('planes_medio_plazo'\)\.(update|delete|upsert)/.test(src),'planes aprobados: solo alta');
  console.log('✓ plan_medio 14c '+n+' ok');}
+// 14d: acciones → efecto por semana
+{const m=src.match(/function _pmpEfectos\(acc,N,ctx\)\{[\s\S]*?\n\}/);if(!m){console.error('no _pmpEfectos');process.exit(1);}const f=eval('('+m[0]+')');let n=0;const A=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};const near=(a,b)=>Math.abs(a-b)<1e-6;
+ const ctx={fers:[{f:'2026-11-20',w:1,hC:30,hE:72}],M:2,hSemC:60,AC:0.7,PE:0.9,ociosas:{4:{kgSem:1400}}};
+ let E=f([{t:'cortador',v:45,desde:1,hasta:3,costo:1000}],8,ctx);A(E[0].dHC===0&&E[1].dHC===45&&E[3].dHC===45&&E[4].dHC===0&&E[2].costo===45000,'cortador: sólo entre desde y hasta, con su costo');
+ E=f([{t:'cortador',v:45,desde:0,hasta:7,off:true}],8,ctx);A(E[2].dHC===0,'acción apagada no cuenta');
+ E=f([{t:'sab_corte',v:6,n:2,desde:2,hasta:2,costo:2000}],8,ctx);A(E[2].dHC===12&&E[2].costo===24000,'sábado = horas × cortadores');
+ E=f([{t:'feriado',f:'2026-11-20',sec:'ambos',costo:100}],8,ctx);A(E[1].dHC===30&&E[1].dHE===72&&E[1].costo===10200&&E[2].dHC===0,'feriado: sólo esa semana, los dos sectores');
+ E=f([{t:'feriado',f:'2026-11-20',sec:'corte',costo:0}],8,ctx);A(E[1].dHC===30&&E[1].dHE===0,'feriado sólo corte');
+ E=f([{t:'ext_maq',ext:4,desde:0,hasta:7,costo:500}],8,ctx);A(E[5].dKgE===1400&&E[5].costo===500,'otra extrusora: kilos por semana y costo semanal');
+ E=f([{t:'paradas',v:84,desde:0,hasta:7}],8,ctx);A(near(E[0].multC,1.2),'bajar paradas multiplica el ritmo de corte');
+ E=f([{t:'paradas',v:60,desde:0,hasta:7}],8,ctx);A(E[0].multC===1,'un objetivo peor que el actual no empeora');
+ E=f([{t:'ritmo',v:99,desde:0,hasta:7}],8,ctx);A(near(E[0].multE,1.1),'ritmo de extrusión');
+ E=f([{t:'demanda',v:10,desde:0,hasta:7},{t:'pedido',v:2000,desde:3,hasta:3}],8,ctx);A(E[0].demPct===10&&E[3].demKg===2000&&E[4].demKg===0,'demanda % y pedido puntual');
+ E=f([{t:'cortador',v:10,desde:0,hasta:7},{t:'cort_maq',desde:0,hasta:7}],8,ctx);A(E[0].dHC===70,'las acciones se suman');
+ A(!/PMP\.L\b/.test(src)&&/_pmpAccionCard\(R\)/.test(src),'las palancas sueltas ya no existen');
+ console.log('✓ plan_medio 14d '+n+' ok');}
