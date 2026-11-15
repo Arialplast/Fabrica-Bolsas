@@ -140,3 +140,14 @@ console.log('✓ plan_medio '+ok+' ok');
  x=f(b0,2000,{cortado:5000});A(/sin el plan serían 5,0 t/.test(x.txt),'compara con plan y sin plan');
  A(/Cómo se lee, y qué pasa cada semana/.test(src),'las reglas de lectura están en pantalla');
  console.log('✓ plan_medio 15h '+n+' ok');}
+// 15i: caja del plan
+{const m=src.match(/function _pmpCajaSemanas\(items,lun0S,N,hoyS,vencAlDia\)\{[\s\S]*?\n\}/);if(!m){console.error('no _pmpCajaSemanas');process.exit(1);}const f=eval('('+m[0]+')');let n=0;const A=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};
+ const it=[{f:'2026-11-10',k:'pagComp',m:100},{f:'2026-11-15',k:'cobDoc',m:50},{f:'2026-11-16',k:'cobDoc',m:70},{f:'2026-11-24',k:'pagDeuda',m:30},{f:'2027-02-01',k:'cobDoc',m:999},{f:'2026-11-17',k:'cobDoc',m:0}];
+ let S=f(it,'2026-11-09',8,'2026-11-15',false);
+ A(S.venc.pagComp===100&&!S.W[0].pagComp,'lo vencido queda aparte, fuera de las semanas');
+ A(S.W[0].cobDoc===50&&S.W[1].cobDoc===70&&S.W[2].pagDeuda===30,'cada monto cae en la semana de su fecha');
+ A(S.W.every(w=>(w.cobDoc||0)<900),'lo que vence después del horizonte no entra');
+ S=f(it,'2026-11-09',8,'2026-11-15',true);A(S.W[0].pagComp===100&&S.venc.pagComp===100,'«ponerme al día» lo pone en la primera semana');
+ A(/fcItemsProyectados\(finS\)/.test(src)&&/ccSaldos\(\)/.test(src),'la caja del plan parte del Flujo de caja y del saldo real de las cuentas');
+ const seg=src.slice(src.indexOf('function _pmpCaja(R){'),src.indexOf('function _pmpMesesCard'));A(!/sb\.from\(/.test(seg),'la caja del plan no escribe ni lee tablas por su cuenta');
+ console.log('✓ plan_medio 15i '+n+' ok');}
