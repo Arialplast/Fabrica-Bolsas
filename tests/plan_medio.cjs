@@ -63,3 +63,11 @@ console.log('✓ plan_medio '+ok+' ok');
  E=f([{t:'cortador',v:10,desde:0,hasta:7},{t:'cort_maq',desde:0,hasta:7}],8,ctx);A(E[0].dHC===70,'las acciones se suman');
  A(!/PMP\.L\b/.test(src)&&/_pmpAccionCard\(R\)/.test(src),'las palancas sueltas ya no existen');
  console.log('✓ plan_medio 14d '+n+' ok');}
+// 14e: mezcla de productos
+{let n=0;const A=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};
+ A(/return \{gpmP,gpmAll,impMin/.test(src),'OEE de corte expone bolsas por minuto por producto');
+ A(/const hpkDe=pk=>\{if\(pk==='granel'\)return 0;/.test(src),'las bobinas a granel no usan cortadora');
+ A(/capC:hC\*rCi\*ef\.multC/.test(src)&&/Math\.max\(rC\*0\.4,Math\.min\(rC\*2\.5/.test(src),'la capacidad de corte de la semana usa su mezcla, acotada');
+ A(/const phi=\(hN_>0&&rC>0\)\?rC\/\(kgN_\/hN_\):1;/.test(src),'los ritmos por producto se normalizan al ritmo demostrado');
+ A(/No cambia ningún precio ni ninguna orden/.test(src),'la mezcla es sólo análisis');
+ console.log('✓ plan_medio 14e '+n+' ok');}
