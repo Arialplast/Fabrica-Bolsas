@@ -92,3 +92,12 @@ console.log('✓ plan_medio '+ok+' ok');
  d=f([],[5,6],[0,0]);A(near(d[0],5)&&near(d[1],6),'sin metas = pronóstico');
  A(/pmpBaseDem\(\\'meta\\'\)/.test(src)&&/Lo que viene: el mercado/.test(src)&&/Lo que puedo: la planta/.test(src),'selector y las tres cifras');
  console.log('✓ plan_medio 15b '+n+' ok');}
+// 15c: costo de la hora desde Sueldos
+{const m=src.match(/function _pmpCostoAcc\(a,CH,nExt\)\{[\s\S]*?\n  return \{costo:Math\.round\(CH\.cor\[th\]\)\};\}/);if(!m){console.error('no _pmpCostoAcc');process.exit(1);}const PMP_TH={cortador:'n',cort_maq:'n',sab_corte:'x',ext_horas:'x',feriado:'f'};const f=eval('('+m[0]+')');let n=0;const A=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};
+ const CH={cor:{n:11000,x:17000,f:23000},ext:{n:12000,x:18000,f:24000}};
+ A(f({t:'cortador'},CH,3).costo===11000,'cortador: hora normal por defecto');A(f({t:'cortador',th:'x'},CH,3).costo===17000,'cortador con hora extra');
+ A(f({t:'sab_corte'},CH,3).costo===17000,'sábado: hora extra por defecto');A(f({t:'ext_horas'},CH,3).costo===6000,'extrusión: hora-máquina = hora-persona ÷ extrusoras');
+ const fe=f({t:'feriado',th:'n'},CH,3);A(fe.costo===23000&&fe.costoE===8000,'feriado: siempre al 100 %, corte y extrusión por separado');
+ const me=src.match(/function _pmpEfectos\(acc,N,ctx\)\{[\s\S]*?\n\}/);const ef=eval('('+me[0]+')');const E=ef([{t:'feriado',f:'2026-11-20',sec:'ambos',costo:23000,costoE:8000}],4,{fers:[{f:'2026-11-20',w:1,hC:30,hE:72}]});A(E[1].costo===30*23000+72*8000,'el feriado usa el costo propio de extrusión');
+ A(/if\(k==='costo'&&PMP_ACC\[a\.t\]\.u==='h'\)a\.cm=true;/.test(src)&&/\|\|a\.cm\)return;/.test(src),'un costo cargado a mano no se pisa');
+ console.log('✓ plan_medio 15c '+n+' ok');}
