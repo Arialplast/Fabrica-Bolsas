@@ -37,3 +37,13 @@ console.log('✓ plan_medio '+ok+' ok');
  m=meta({kg:20000},{kg:10000,venta:0,margen:0},15000,3000,1000);A(m.ok&&m.gap===0,'alcanzable');
  m=meta({resultado:5e6},{kg:0,venta:0,margen:0},1000,3000,1000);A(m.filas.length===0,'resultado sin meta de gastos no se traduce');
  console.log('✓ plan_medio 14a '+n+' ok');}
+// 14c: plan aprobado contra lo real
+{const m=src.match(/function _pmpPlanVsReal\(sem,real,hoyS\)\{[\s\S]*?\n\}/);if(!m){console.error('no _pmpPlanVsReal');process.exit(1);}const f=eval('('+m[0]+')');let n=0;const A=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};
+ const sem=[{ini:'2026-11-02',cortado:8000,ext:8000,venta:24e6},{ini:'2026-11-09',cortado:8000,ext:8000,venta:24e6},{ini:'2026-11-16',cortado:8000,ext:8000,venta:24e6},{ini:'2026-11-23',cortado:8000,ext:8000,venta:24e6},{ini:'2026-11-30',cortado:8000,ext:8000,venta:24e6},{ini:'2026-12-07',cortado:8000,ext:8000,venta:24e6}];
+ const X=f(sem,{'2026-11-02':{ent:8100,cor:8000,ext:8000,venta:24e6},'2026-11-09':{ent:6000,cor:6100,ext:7900,venta:18e6},'2026-11-16':{ent:6000,cor:7900,ext:8000,venta:18e6},'2026-11-23':{ent:5000,cor:5000,ext:4000,venta:1},'2026-11-30':{ent:1000,cor:0,ext:0,venta:0}},'2026-12-02');
+ A(X.filas[0].est==='cerrada'&&X.filas[0].causa===null,'semana cumplida');
+ A(X.filas[1].causa==='corte','faltó corte');A(X.filas[2].causa==='entrega','se cortó pero no se entregó');A(X.filas[3].causa==='extrusion','faltó extrusión');
+ A(X.filas[4].est==='curso'&&X.filas[4].causa===null&&X.filas[5].est==='futura'&&X.filas[5].pct===null,'en curso y futura no se juzgan');
+ A(X.nC===4&&X.nOk===1&&X.pAc===32000&&X.rAc===25100,'acumulado sólo de semanas cerradas');
+ A(/from\('planes_medio_plazo'\)\.insert/.test(src)&&!/from\('planes_medio_plazo'\)\.(update|delete|upsert)/.test(src),'planes aprobados: solo alta');
+ console.log('✓ plan_medio 14c '+n+' ok');}
