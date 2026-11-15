@@ -101,3 +101,10 @@ console.log('✓ plan_medio '+ok+' ok');
  const me=src.match(/function _pmpEfectos\(acc,N,ctx\)\{[\s\S]*?\n\}/);const ef=eval('('+me[0]+')');const E=ef([{t:'feriado',f:'2026-11-20',sec:'ambos',costo:23000,costoE:8000}],4,{fers:[{f:'2026-11-20',w:1,hC:30,hE:72}]});A(E[1].costo===30*23000+72*8000,'el feriado usa el costo propio de extrusión');
  A(/if\(k==='costo'&&PMP_ACC\[a\.t\]\.u==='h'\)a\.cm=true;/.test(src)&&/\|\|a\.cm\)return;/.test(src),'un costo cargado a mano no se pisa');
  console.log('✓ plan_medio 15c '+n+' ok');}
+// 15d: horas extra de cortadores y coherencia de qué frena
+{const me=src.match(/function _pmpEfectos\(acc,N,ctx\)\{[\s\S]*?\n\}/);const ef=eval('('+me[0]+')');let n=0;const A=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};
+ const E=ef([{t:'hx_corte',v:15,desde:1,hasta:2,costo:17000}],4,{});A(E[1].dHC===15&&E[2].costo===255000&&E[3].dHC===0,'horas extra de cortadores: horas de corte con su costo');
+ A(/hx_corte:\{n:'Horas extra de los cortadores'/.test(src)&&/cortador:\{n:'Tomar o reasignar un cortador'/.test(src),'tomar un cortador y horas extra son acciones distintas');
+ A(/hx_corte:'x'/.test(src),'las horas extra se costean al 50 %');
+ A(/el corte alcanza: lo que frena es extrusión/.test(src)&&/l:'Qué frena'/.test(src),'la meta y el indicador dicen qué sector frena de verdad');
+ console.log('✓ plan_medio 15d '+n+' ok');}
