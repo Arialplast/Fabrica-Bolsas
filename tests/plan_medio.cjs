@@ -115,3 +115,10 @@ console.log('✓ plan_medio '+ok+' ok');
  A(/a\.hasta>=N0-1\)&&a\.t!=='pedido'&&a\.t!=='feriado'\?\{hasta:25\}/.test(src),'las acciones que llegan al final del plan siguen en la vista larga');
  A(/function _pmpPorMes\(R,max\)/.test(src)&&/const G_=_pmpPorMes\(R,4\)/.test(src),'un solo agrupador por mes para las dos vistas');
  console.log('✓ plan_medio 15e '+n+' ok');}
+// 15f: energía en el resultado del plan
+{let n=0;const A=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};
+ A(/b\.energia=b\.cortado\*eKg;/.test(src)&&/b\.res=b\.margen-b\.energia-b\.fijo-b\.costoExtra;/.test(src),'el resultado descuenta la energía por kilo entregado');
+ A(/const eKg=mm_\('eKg',\(\)=>\{try\{const E=_cstEnergiaKg\(\);/.test(src),'un solo dato de energía: el del costo estándar');
+ A(/mkgP=\(v\.venta-v\.costo\)\/v\.kg-eKg;/.test(src),'el margen por producto es neto de energía');
+ A(!/sb\.from\('(energia|ene)[a-z_]*'\)\.(insert|update|upsert|delete)/.test(src.slice(src.indexOf('const PMP='),src.indexOf('function oeeDias'))),'el plan no escribe en tablas de energía');
+ console.log('✓ plan_medio 15f '+n+' ok');}
