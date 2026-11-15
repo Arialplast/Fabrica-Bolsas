@@ -43,3 +43,12 @@ console.log('✓ caja_13 '+n+' ok');
  A(X.length===2&&X[0].fin==='2026-11-15'&&X[0].ade===2&&X[0].dif===10&&X[1].dif===-20,'compara sólo semanas cerradas: real − proyectado');
  A(/from\('caja_proyecciones'\)\.insert/.test(src)&&!/from\('caja_proyecciones'\)\.(update|delete|upsert)/.test(src),'las fotos de la proyección son solo alta');
  console.log('✓ caja_13 16b '+k+' ok');}
+// 16c: materia prima que rota + pagar un documento
+{const g=n=>{const mm=src.match(new RegExp('function '+n+'\\([^)]*\\)\\{[\\s\\S]*?\\n\\}'))||src.match(new RegExp('function '+n+'\\([^)]*\\)\\{.*\\}'));if(!mm){console.error('no '+n);process.exit(1);}return eval('('+mm[0]+')');};const rot=eval('('+src.match(/function _c13Rotar\(.*\}/)[0]+')'),ap=g('_c13Aplicar');let k=0;const A=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}k++;};
+ const V=[{g:'mp',m:10,f:'2026-10-01'},{g:'mp',m:14,f:'2026-11-06'},{g:'mp',m:8,f:'2026-10-30'},{g:'suel',m:5,f:'2026-11-01'}];
+ let r=rot(V,true,0);A(r.rot.length===3&&r.venc.length===1&&r.venc[0].g==='suel','sin tope toda la materia prima rota');
+ r=rot(V,true,22);A(r.rot.length===2&&r.venc.some(x=>x.g==='mp'&&x.m===10),'con tope, lo más viejo que lo excede queda vencido');
+ r=rot(V,false,0);A(r.rot.length===0&&r.venc.length===4,'apagado: todo vencido como antes');
+ const base={N:13,saldo0:0,cob:[],pag:[],vencCob:[],vencPag:[{g:'arca',p:2,m:40,k:'a|x|40'},{g:'suel',p:1,m:30,k:'s|y|30'}],plan:Array.from({length:13},()=>({cobNueva:0,mp:0,ener:0,otros:0,retiros:0,acc:0}))};
+ const R=ap(base,[{t:'pagar_doc',k:'a|x|40',w:3},{t:'pagar_doc',k:'no-existe',w:2}]);A(R.base.vencPag.length===1&&R.base.pag.length===1&&R.base.pag[0].w===3&&R.base.pag[0].m===40&&R.base.pag[0].g==='arca','pagar un documento: sale de lo vencido y entra en su semana');
+ console.log('✓ caja_13 16c '+k+' ok');}
