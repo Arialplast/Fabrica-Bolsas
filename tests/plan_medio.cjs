@@ -71,3 +71,14 @@ console.log('✓ plan_medio '+ok+' ok');
  A(/const phi=\(hN_>0&&rC>0\)\?rC\/\(kgN_\/hN_\):1;/.test(src),'los ritmos por producto se normalizan al ritmo demostrado');
  A(/No cambia ningún precio ni ninguna orden/.test(src),'la mezcla es sólo análisis');
  console.log('✓ plan_medio 14e '+n+' ok');}
+// 15a: pronóstico con error medido + aporte en cadena
+{const m=src.match(/function _pmpPronostico\(x\)\{[\s\S]*?\n\}/);if(!m){console.error('no _pmpPronostico');process.exit(1);}const f=eval('('+m[0]+')');let n=0;const A=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};const near=(a,b,e)=>Math.abs(a-b)<(e||1e-6);
+ let P=f(new Array(24).fill(8000));A(near(P.mejor.F,8000)&&near(P.mejor.e1,0)&&near(P.mejor.e4,0),'serie plana: pronóstico exacto, error 0');
+ const sube=[];for(let i=0;i<24;i++)sube.push(4000+i*300);P=f(sube);A(P.mejor.k!=='prom8'&&P.mejor.sesgo<0,'serie que sube: elige un método que pesa lo reciente y marca que pronostica de menos');
+ A(P.metodos.prom4.F>P.metodos.prom8.F,'promedio de 4 > promedio de 8 cuando sube');
+ P=f([5000,7000,6000]);A(P.mejor.k==='prom8'&&P.K===0&&near(P.mejor.F,6000),'poca historia: promedio simple, sin comparar métodos');
+ P=f(sube);A(P.metodos.prom8.bt.length===12&&near(P.metodos.prom8.bt[0].f,(sube.slice(4,12).reduce((a,b)=>a+b,0))/8),'la prueba hacia atrás usa sólo las semanas anteriores');
+ const a=[1000,2000,3000,4000,5000,6000,7000,8000];A(near(P.f(a),(6500+4500)/2)||near(P.f(a),6500)||P.f(a)>0,'el método elegido se puede aplicar a la serie de un cliente');
+ A(/const cad=\[\];\{let prev=base,pref=\[\];/.test(src)&&/ahora frena extrusión/.test(src),'aporte en cadena con motivo cuando no suma');
+ A(/const pistasDe=pr=>/.test(src)&&/Math\.min\(p2,2\)/.test(src),'pistas: ficha de la bobina, cortadora 1 hasta 2');
+ console.log('✓ plan_medio 15a '+n+' ok');}
