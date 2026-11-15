@@ -129,3 +129,14 @@ console.log('✓ plan_medio '+ok+' ok');
  A(/fila\('<b>Puedo cortar<\/b>'/.test(src)&&/fila\('<b>Puedo extruir<\/b>'/.test(src)&&/bobinas en stock al empezar/.test(src),'la tabla dice qué se puede cortar y extruir');
  A(/da capacidad para /.test(src),'cada acción dice qué capacidad agrega');
  console.log('✓ plan_medio 15g '+n+' ok');}
+// 15h: la semana en palabras
+{const m=src.match(/function _pmpExplicaSemana\(b,wIni,base\)\{[\s\S]*?\n\}/);if(!m){console.error('no _pmpExplicaSemana');process.exit(1);}const f=eval('('+m[0]+')');let n=0;const A=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};
+ const b0={fr:1,arr:1000,firme:2000,pron:6000,aCortar:9000,capE:8000,capC:7000,cortado:7000,bkl:2000,wip:3000,cuello:'corte'};
+ let x=f(b0,2000,null);A(x.tit==='frena el corte'&&/más extrusión no entrega nada más/.test(x.txt)&&/10,0 t/.test(x.txt),'frena el corte: lo dice y suma stock + extrusión');
+ x=f({...b0,capC:12000,cortado:8500,bkl:500,wip:0,cuello:'extrusion'},500,null);A(x.tit==='frena extrusión'&&/más cortadores no entregan nada más/.test(x.txt),'frena extrusión');
+ x=f({...b0,cuello:'ambos',wip:0},0,null);A(x.tit==='frenan los dos'&&/hay que subir corte y extrusión juntos/.test(x.txt),'frenan los dos: explica por qué y qué hacer');
+ x=f({...b0,capC:12000,capE:12000,cortado:9000,bkl:0,cuello:null},0,null);A(x.tit==='se hace todo'&&/se entrega todo/.test(x.txt),'se hace todo');
+ x=f({fr:0,capC:0,capE:0,aCortar:3400,arr:0,firme:3400,pron:0,cortado:0,bkl:3400,wip:4100,cuello:'corte'},4100,null);A(x.tit==='sin horas','semana sin horas');
+ x=f(b0,2000,{cortado:5000});A(/sin el plan serían 5,0 t/.test(x.txt),'compara con plan y sin plan');
+ A(/Cómo se lee, y qué pasa cada semana/.test(src),'las reglas de lectura están en pantalla');
+ console.log('✓ plan_medio 15h '+n+' ok');}
