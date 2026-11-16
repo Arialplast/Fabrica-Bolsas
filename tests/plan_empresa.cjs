@@ -33,14 +33,22 @@ A(R['2027-01'].kg===20000&&R['2027-02'].kg===10000&&R['2027-01'].venta===60e6&&R
 A(/from\('plan_empresa'\)\.upsert/.test(src)&&/goAdmin\('plan-empresa'\)/.test(src)&&/id="page-plan-empresa"/.test(src)&&/#page-plan-empresa \.card/.test(src),'pantalla registrada y en claro');
 console.log('✓ plan_empresa '+k+' ok');
 // 17c: política de precios
-{const src2=src;const f=src2.match(/function _pePolCalc\([^)]*\)\{[\s\S]*?\n\}/)[0];const calc=eval('('+f+')');let n=0;const B=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};const nr=(a,b,e)=>Math.abs(a-b)<(e||1e-6);
+{const src2=src;const f=src2.match(/function _pePolCalc\([^)]*\)\{[\s\S]*?\n\}/)[0];eval(src2.match(/function _pePolEsc\(.*\}/)[0]+src2.match(/function _pePolFechas\(.*\}/)[0]+';globalThis._pePolEsc=_pePolEsc;globalThis._pePolFechas=_pePolFechas;');const calc=eval('('+f+')');let n=0;const B=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};const nr=(a,b,e)=>Math.abs(a-b)<(e||1e-6);
  const base=[{id:1,nom:'A',venta:12e6,kg:4000},{id:2,nom:'B',venta:6e6,kg:2000},{id:3,nom:'L',venta:6e6,kg:2000},{id:4,nom:'cero',venta:0,kg:0}];const pol={desde:'2026-12-01',gen:6,exc:{1:5,3:0}};
  let K=calc(base,[],pol,'2026-11-16',30);B(!K.rige&&K.filas.length===3&&K.filas.every(x=>x.est==='espera'),'antes de la vigencia: todos en espera; sin ventas no figura');
  B(nr(K.pkBase,3000)&&nr(K.filas[0].pct,5)&&nr(K.filas[0].obj,3150)&&nr(K.filas.find(x=>x.id===2).pct,6)&&nr(K.filas.find(x=>x.id===3).mas,0),'aumento propio del cliente o el general');
  B(nr(K.masMes,12e6*0.05+6e6*0.06)&&nr(K.pctProm,(0.6+0.36)/24*100)&&nr(K.pkObj,3000*(1+0.04)),'promedio ponderado y lo que deja por mes');
  K=calc(base,[{id:1,venta:3.15e6,kg:1000},{id:2,venta:3.09e6,kg:1000},{id:3,venta:3e6,kg:1000}],pol,'2026-12-20',30);const e=id=>K.filas.find(x=>x.id===id).est;
- B(K.rige&&e(1)==='ok'&&e(2)==='parcial'&&e(3)==='na'&&K.nOk===1&&K.nNo===1,'después: aplicado, a medias, sin aumento');B(nr(K.logrado,(9.24/9-1)*100,1e-6),'aumento logrado total contra el precio base de cada uno');
+ B(K.rige&&e(1)==='ok'&&e(2)==='parcial'&&e(3)==='na'&&K.nOk===1&&K.nNo===1,'después: aplicado, a medias, sin aumento');B(K.atraso<0&&nr(K.pkVig,3000*1.04),'total: por debajo de lo que debería llevar');
  K=calc(base,[{id:1,venta:3e6,kg:1000}],pol,'2026-12-20',30);B(K.filas.find(x=>x.id===1).est==='no'&&K.filas.find(x=>x.id===2).est==='sin','sin aplicar / sin compras todavía');
  K=calc(base,[],pol,'2026-11-16',60);B(nr(K.filas[0].vMes,6e6),'período base de 60 días se lleva a un mes');
  B(!/from\('(listas_precios|lista_precios_items|cliente_precios_especiales)'\)\.(insert|update|upsert|delete)[\s\S]{0,400}pePol/.test(src)&&!/function pePol[A-Za-z]*\([^)]*\)\{[^\n]*from\('(listas_precios|lista_precios_items|cliente_precios_especiales)'\)/.test(src),'la política no escribe precios');
- console.log('✓ plan_empresa 17c '+n+' ok');}
+ // 17d: escalones
+ let E=_pePolEsc(6,2);B(E.length===3&&nr(E[0],2)&&nr(E[1],4.04)&&nr(E[2],6),'6 % en pasos de 2 %: tres escalones, el último completa');B(_pePolEsc(5,2).length===3&&_pePolEsc(6,0).length===1&&_pePolEsc(0,2).length===0&&_pePolEsc(1.5,2).length===1,'casos borde de escalones');
+ B(_pePolFechas('2026-12-01',1,3).join()==='2026-12-01,2027-01-01,2027-02-01'&&_pePolFechas('2026-11-15',2,2)[1]==='2027-01-15','fechas de los escalones cruzan de año');
+ const pe={desde:'2026-12-01',gen:6,exc:{1:5,3:0},paso:2,cada:1};
+ K=calc(base,[],pe,'2026-11-16',30);B(K.nMax===3&&K.cron.length===3&&nr(K.cron[0].pct,2*18/24)&&nr(K.cron[2].mas,K.masMes)&&K.fin==='2027-02-01','cronograma: el primer escalón no toca al cliente sin aumento; el último llega al total');
+ B(nr(K.costoEsc,(K.masMes-K.cron[0].mas)+(K.masMes-K.cron[1].mas)),'lo que cuesta ir de a poco = lo que se deja de cobrar hasta completar');
+ K=calc(base,[{id:1,venta:3.06e6,kg:1000},{id:2,venta:3e6,kg:1000}],pe,'2026-12-20',30);B(K.kHoy===1&&K.filas.find(x=>x.id===1).est==='ok'&&nr(K.filas.find(x=>x.id===1).vig,2)&&K.filas.find(x=>x.id===2).est==='no','en el primer escalón se exige 2 %, no el 5 % final');
+ K=calc(base,[{id:1,venta:3.06e6,kg:1000}],pe,'2027-01-10',30);B(K.kHoy===2&&K.filas.find(x=>x.id===1).est==='no'&&nr(K.filas.find(x=>x.id===1).vig,4.04),'en el segundo escalón ya debería llevar 4 %');
+ console.log('✓ plan_empresa 17c+17d '+n+' ok');}
