@@ -67,3 +67,14 @@ console.log('✓ plan_empresa '+k+' ok');
  const F=foto({obj:[{id:'o',n:'Kilos',area:'com',meta:36000}],est:[{tac:[{n:'a',estado:'hecha'},{n:'b',estado:'pend',fecha:'2026-10-01',resp:'G'},{n:'c',estado:'cancel'}]}]},{pres:{'2026-10':{kg:36000}}},{o:{real:36700,u:'kg',estado:'ok'}},'2026-10',{'2026-10':{kg:36700,venta:1,margen:1,gastos:1,resultado:0,cobranza:1}},'2026-11-16');
  B(F.pres.kg===36000&&F.real.kg===36700&&F.obj[0].estado==='ok'&&F.tac.total===2&&F.tac.hechas===1&&F.tac.venc.length===1,'acta: foto del mes, objetivos y tácticas (sin las descartadas)');
  console.log('✓ plan_empresa 18a '+n+' ok');}
+// 18b: scrap, gente y versión aprobada
+{let n=0;const B=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};const nr=(a,b,e)=>Math.abs(a-b)<(e||1e-6);const one=k=>eval('('+src.match(new RegExp('function '+k+'\\(.*\\}'))[0]+')');
+ const sc=one('_peScrap'),ge=one('_peGente');
+ B(nr(sc([{estado:'Completada',fecha_completada:'2026-11-10',unidades_reales:1000,peso:0.097,scrap:3},{estado:'Completada',fecha_completada:'2026-11-11',unidades_reales:1000,peso:1,scrap:null},{estado:'Completada',fecha_completada:'2026-09-01',unidades_reales:1,peso:1,scrap:50}],'2026-11-16'),3),'scrap = scrap ÷ (buenos + scrap), solo OC con scrap pesado de los últimos 28 días');
+ B(sc([],'2026-11-16')===null,'sin OC pesadas no hay dato');
+ let g=ge([{esp:9,trab:9,extra:2},{esp:9,trab:0,extra:0},{esp:9,trab:11,extra:0},{esp:0,trab:0,extra:6}],4);B(nr(g.ausent,100/3)&&nr(g.hs_extra,2),'ausentismo = horas normales no trabajadas ÷ esperadas; horas extra por semana');
+ const cm=eval('('+src.match(/function _peCambios\([^)]*\)\{[\s\S]*?\n\}/)[0]+')');const ap={obj:[{id:'a',n:'Kilos',meta:36000},{id:'b',n:'Viejo',meta:1}],pres:{kg:432000,venta:0,margen:0,gastos:0,resultado:0,cobranza:0}};
+ let c=cm(ap,{obj:[{id:'a',n:'Kilos',meta:34000},{id:'c',n:'Nuevo',meta:5}]},{kg:400000});
+ B(c.some(x=>x.t==='meta'&&x.de===36000&&x.a===34000)&&c.some(x=>x.t==='nuevo')&&c.some(x=>x.t==='quitado')&&c.some(x=>x.t==='pres'&&x.k==='kg')&&c.length===4,'cambios desde la aprobación: meta, objetivo nuevo, quitado y presupuesto');
+ B(cm(ap,{obj:[{id:'a',n:'Kilos',meta:'36000'},{id:'b',n:'Viejo',meta:1}]},{kg:432000}).length===0&&cm(null,{obj:[]},{}).length===0,'sin cambios / sin aprobación');
+ console.log('✓ plan_empresa 18b '+n+' ok');}
