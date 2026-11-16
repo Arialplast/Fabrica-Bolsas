@@ -52,3 +52,18 @@ console.log('✓ plan_empresa '+k+' ok');
  K=calc(base,[{id:1,venta:3.06e6,kg:1000},{id:2,venta:3e6,kg:1000}],pe,'2026-12-20',30);B(K.kHoy===1&&K.filas.find(x=>x.id===1).est==='ok'&&nr(K.filas.find(x=>x.id===1).vig,2)&&K.filas.find(x=>x.id===2).est==='no','en el primer escalón se exige 2 %, no el 5 % final');
  K=calc(base,[{id:1,venta:3.06e6,kg:1000}],pe,'2027-01-10',30);B(K.kHoy===2&&K.filas.find(x=>x.id===1).est==='no'&&nr(K.filas.find(x=>x.id===1).vig,4.04),'en el segundo escalón ya debería llevar 4 %');
  console.log('✓ plan_empresa 17c+17d '+n+' ok');}
+// 18a: indicadores a hoy y acta
+{let n=0;const B=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};const nr=(a,b,e)=>Math.abs(a-b)<(e||1e-6);
+ const cs=eval('('+src.match(/function _peCorteSem\(.*\}/)[0]+')');
+ B(nr(cs([{estado:'Completada',fecha_completada:'2026-11-10T10:00:00',unidades_reales:100000,peso:0.02},{estado:'Completada',fecha_completada:'2026-10-01',unidades_reales:9e6,peso:1},{estado:'En curso',fecha_completada:'2026-11-10',unidades_reales:9e6,peso:1}],'2026-11-16'),500),'kilos cortados por semana: solo completadas de los últimos 28 días, dividido 4');
+ eval(src.match(/const PE_IND=[\s\S]*?;\n/)[0]+src.match(/function _peAvance\([^)]*\)\{[\s\S]*?\n\}/)[0]+';globalThis._av=_peAvance;');
+ const N={frac:0,nReal:0,ult:{ym:'2026-10',kg:36000,venta:1,margen:1,clientes:26,top3:48},hoy:{corte_sem:7700,caja_min:-1e6,venc_pagar:29e6,otif:96}};
+ let a=_av({ind:'corte_sem',meta:8300},N);B(a.estado==='aviso'&&a.hoy&&nr(a.real,7700),'corte 7,7 de 8,3 t = atrasado');
+ a=_av({ind:'caja_min',meta:3e6},N);B(a.estado==='mal','caja que queda en rojo contra un piso de 3 M = lejos');
+ a=_av({ind:'venc_pagar',meta:0},N);B(a.estado==='mal'&&a.menor,'vencido a pagar con meta 0');a=_av({ind:'otif',meta:95},N);B(a.estado==='ok','entregas a tiempo sobre la meta');
+ a=_av({ind:'top3',meta:45},N);B(a.estado!=='ok'&&a.menor&&nr(a.real,48),'concentración: menos es mejor');a=_av({ind:'clientes',meta:25},N);B(a.estado==='ok','clientes del último mes cerrado');
+ a=_av({ind:'dso',meta:20},N);B(a.estado==='sin','indicador sin dato todavía');
+ eval(src.match(/const PE_K=.*;\n/)[0]+';globalThis.PE_K=PE_K;');const foto=eval('('+src.match(/function _peActaFoto\([^)]*\)\{[\s\S]*?\n\}/)[0]+')');
+ const F=foto({obj:[{id:'o',n:'Kilos',area:'com',meta:36000}],est:[{tac:[{n:'a',estado:'hecha'},{n:'b',estado:'pend',fecha:'2026-10-01',resp:'G'},{n:'c',estado:'cancel'}]}]},{pres:{'2026-10':{kg:36000}}},{o:{real:36700,u:'kg',estado:'ok'}},'2026-10',{'2026-10':{kg:36700,venta:1,margen:1,gastos:1,resultado:0,cobranza:1}},'2026-11-16');
+ B(F.pres.kg===36000&&F.real.kg===36700&&F.obj[0].estado==='ok'&&F.tac.total===2&&F.tac.hechas===1&&F.tac.venc.length===1,'acta: foto del mes, objetivos y tácticas (sin las descartadas)');
+ console.log('✓ plan_empresa 18a '+n+' ok');}
