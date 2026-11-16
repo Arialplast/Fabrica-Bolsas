@@ -19,7 +19,7 @@ A(near(P.sem[0].reg,60)&&near(P.sem[1].reg,60)&&near(P.sem[2].reg,60)&&near(P.ve
 A(near(P.sem[0].pag.suel,30+30)&&near(P.sem[0].pag.arca,30)&&near(P.sem[1].pag.arca,25+30)&&near(P.sem[1].pag.mp,30)&&near(P.sem[2].pag.mp,60),'se paga primero sueldos, después ARCA, después materia prima');
 P=f(base,{atraso:0,cobVenc:0,cobVencSem:4,venta:0,regSem:20});A(near(P.vencSinPagar,180-13*9),'lo que no entra en 13 semanas queda para después');
 A(/fcItemsProyectados\(finS\)/.test(src)&&/_pmpCaja\(R\)/.test(src),'usa el derivador de Flujo de caja y el plan de mediano plazo');
-const seg=src.slice(src.indexOf('const C13='),src.indexOf('function oeeDias'));const w=(seg.match(/sb\.from\('([a-z_]+)'\)\.(insert|update|upsert|delete)/g)||[]);A(w.length===2&&w.some(x=>/configuracion/.test(x))&&w.some(x=>/caja_proyecciones'\)\.insert/.test(x)),'sólo escribe su configuración y la foto semanal');
+const seg=src.slice(src.indexOf('const C13='),src.indexOf('// ═══ 17a: 🎯 PLAN DE EMPRESA')>0?src.indexOf('// ═══ 17a: 🎯 PLAN DE EMPRESA'):src.indexOf('function oeeDias'));const w=(seg.match(/sb\.from\('([a-z_]+)'\)\.(insert|update|upsert|delete)/g)||[]);A(w.length===2&&w.some(x=>/configuracion/.test(x))&&w.some(x=>/caja_proyecciones'\)\.insert/.test(x)),'sólo escribe su configuración y la foto semanal');
 A(/id="page-caja-13"/.test(src)&&/if\(name==='caja-13'\)renderCaja13\(\)/.test(src)&&/goAdmin\('caja-13'\)/.test(src),'página, dispatch y menú');
 console.log('✓ caja_13 '+n+' ok');
 // 16b: acciones financieras y proyectado contra real
