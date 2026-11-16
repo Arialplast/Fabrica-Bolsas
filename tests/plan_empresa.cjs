@@ -2,7 +2,7 @@
 const fs=require('fs');const src=fs.readFileSync(process.argv[2],'utf8');let k=0;const A=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}k++;};
 const cst=n=>src.match(new RegExp('const '+n+'=[\\s\\S]*?;\\n'))[0];const fn=n=>{const m=src.match(new RegExp('function '+n+'\\([^)]*\\)\\{[\\s\\S]*?\\n\\}'))||src.match(new RegExp('function '+n+'\\(.*\\}'));if(!m)throw new Error('no '+n);return m[0];};
 const one=n=>src.match(new RegExp('function '+n+'\\(.*\\}'))[0];
-eval(cst('PE_AREAS')+cst('PE_IND')+cst('PE_K')+one('_peMeses')+fn('_peNumeros')+fn('_peAvance')+fn('_peCoherencia')+one('_peRepartir')+';globalThis.PE_AREAS=PE_AREAS');
+eval(cst('PE_AREAS')+cst('PE_IND')+cst('PE_K')+one('_peMeses')+fn('_peNumeros')+fn('_peAvance')+fn('_peCoherencia')+one('_peRepartir')+fn('_peBaseDe').replace(/_rmMesAnterior/g,'_ma')+';globalThis._peBaseDe=_peBaseDe;globalThis.PE_AREAS=PE_AREAS');
 const near=(a,b,e)=>Math.abs(a-b)<(e||1e-6);
 const metas=[];_peMeses(2026).forEach(m=>{[['kg',30000],['venta',90e6],['margen',30e6],['gastos',25e6],['resultado',5e6],['cobranza',90e6]].forEach(x=>metas.push({mes:m,clave:x[0],valor:x[1]}));});
 const rm={};['2026-01','2026-02','2026-03'].forEach(m=>{rm[m]={kg:27000,venta:80e6,margen:24e6,gastos:25e6,resultado:-1e6,cobranza:70e6};});
@@ -11,7 +11,7 @@ A(N.nPres===12&&near(N.presAnio.kg,360000)&&near(N.presYtd.kg,90000)&&near(N.ytd
 let a=_peAvance({ind:'kg',meta:360000},N);A(near(a.real,81000)&&near(a.esperado,90000)&&near(a.proy,81000+270000)&&a.estado==='aviso','kilos: 90 % de lo que debería llevar = atrasado; cierre = real + presupuesto que falta');
 a=_peAvance({ind:'resultado',meta:60e6},N);A(a.estado==='mal'&&near(a.real,-3e6),'resultado negativo contra presupuesto positivo = lejos');
 a=_peAvance({ind:'gastos',meta:300e6},N);A(a.estado==='ok'&&a.menor,'gastos: menos es mejor');
-a=_peAvance({ind:'margen_pct',meta:33},N);A(near(a.real,30)&&a.estado==='aviso','margen % acumulado contra la meta');
+a=_peAvance({ind:'margen_pct',meta:31},N);A(near(a.real,30)&&a.estado==='aviso','margen % acumulado contra la meta');
 a=_peAvance({ind:'manual',meta:9,base:7,act:8},N);A(near(a.pct,0.5)&&a.estado==='ok','manual: mitad del camino con un cuarto del año = en camino');
 a=_peAvance({ind:'manual',meta:9,base:7,act:7.1},N);A(a.estado==='mal','manual: casi sin avance = lejos');
 a=_peAvance({ind:'kg',meta:''},N);A(a.estado==='sin','sin meta no hay estado');
@@ -23,6 +23,11 @@ A(has('mal',/objetivo de kilos[\s\S]*No dicen lo mismo/),'objetivo de kilos ≠ 
 A(CO.filter(c=>/no tiene ningún objetivo/.test(c.t)).length===3,'áreas sin objetivo');
 const ok=_peCoherencia({rumbo:'',obj:Object.keys(PE_AREAS).map((a,i)=>({id:'o'+i,area:a,n:'x',ind:a==='com'?'kg':'manual',meta:a==='com'?360000:1})),est:Object.keys(PE_AREAS).map((a,i)=>({id:'e'+i,obj:'o'+i,n:'e',tac:[{id:'t',n:'t',resp:'G',fecha:'2026-12-01',estado:'pend'}]}))},N,{hoy:'2026-03-31',anio:2026,capMes:40000});
 A(ok.length===0,'plan completo y coherente: sin observaciones');
+globalThis._ma=m=>{const y=parseInt(m.slice(0,4)),k=parseInt(m.slice(5,7));return k===1?(y-1)+'-12':y+'-'+String(k-1).padStart(2,'0');};
+const BB=_peBaseDe({'2026-08':{kg:28000,venta:82e6,margen:35e6,gastos:45e6},'2026-09':{kg:32000,venta:93e6,margen:36e6,gastos:49e6},'2026-10':{kg:36000,venta:115.2e6,margen:48e6,gastos:44e6}},'2026-11');
+A(BB.ult==='2026-10'&&near(BB.precio,3200)&&BB.precio3<3050&&near(BB.gastosMes,46e6),'precio del último mes cerrado, no el promedio de 3 (que queda más bajo); gastos sí promediados');
+a=_peAvance({ind:'precio_kg',meta:3450},_peNumeros(2027,[],{'2026-10':{kg:36000,venta:115.2e6,margen:48e6}},'2026-11-16'));A(near(a.real,3200)&&a.estado==='mal'&&a.ult==='2026-10','precio por kilo: último mes cerrado contra la meta, aunque el año del plan no haya empezado');
+const Rp=_peRepartir(['2027-01','2027-02'],{'2027-01':20,'2027-02':10},{kg:72000,precio:3000,margenKg:1000,gastosMes:8e6,plano:true});A(Rp['2027-01'].kg===36000&&Rp['2027-02'].kg===36000,'reparto parejo: los mismos kilos cada mes');
 const R=_peRepartir(['2027-01','2027-02'],{'2027-01':20,'2027-02':10},{kg:30000,precio:3000,margenKg:1000,gastosMes:8e6});
 A(R['2027-01'].kg===20000&&R['2027-02'].kg===10000&&R['2027-01'].venta===60e6&&R['2027-01'].resultado===12e6&&R['2027-02'].resultado===2e6,'reparte por días hábiles; resultado = margen − gastos');
 A(/from\('plan_empresa'\)\.upsert/.test(src)&&/goAdmin\('plan-empresa'\)/.test(src)&&/id="page-plan-empresa"/.test(src)&&/#page-plan-empresa \.card/.test(src),'pantalla registrada y en claro');
