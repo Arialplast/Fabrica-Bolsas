@@ -32,3 +32,15 @@ const R=_peRepartir(['2027-01','2027-02'],{'2027-01':20,'2027-02':10},{kg:30000,
 A(R['2027-01'].kg===20000&&R['2027-02'].kg===10000&&R['2027-01'].venta===60e6&&R['2027-01'].resultado===12e6&&R['2027-02'].resultado===2e6,'reparte por días hábiles; resultado = margen − gastos');
 A(/from\('plan_empresa'\)\.upsert/.test(src)&&/goAdmin\('plan-empresa'\)/.test(src)&&/id="page-plan-empresa"/.test(src)&&/#page-plan-empresa \.card/.test(src),'pantalla registrada y en claro');
 console.log('✓ plan_empresa '+k+' ok');
+// 17c: política de precios
+{const src2=src;const f=src2.match(/function _pePolCalc\([^)]*\)\{[\s\S]*?\n\}/)[0];const calc=eval('('+f+')');let n=0;const B=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};const nr=(a,b,e)=>Math.abs(a-b)<(e||1e-6);
+ const base=[{id:1,nom:'A',venta:12e6,kg:4000},{id:2,nom:'B',venta:6e6,kg:2000},{id:3,nom:'L',venta:6e6,kg:2000},{id:4,nom:'cero',venta:0,kg:0}];const pol={desde:'2026-12-01',gen:6,exc:{1:5,3:0}};
+ let K=calc(base,[],pol,'2026-11-16',30);B(!K.rige&&K.filas.length===3&&K.filas.every(x=>x.est==='espera'),'antes de la vigencia: todos en espera; sin ventas no figura');
+ B(nr(K.pkBase,3000)&&nr(K.filas[0].pct,5)&&nr(K.filas[0].obj,3150)&&nr(K.filas.find(x=>x.id===2).pct,6)&&nr(K.filas.find(x=>x.id===3).mas,0),'aumento propio del cliente o el general');
+ B(nr(K.masMes,12e6*0.05+6e6*0.06)&&nr(K.pctProm,(0.6+0.36)/24*100)&&nr(K.pkObj,3000*(1+0.04)),'promedio ponderado y lo que deja por mes');
+ K=calc(base,[{id:1,venta:3.15e6,kg:1000},{id:2,venta:3.09e6,kg:1000},{id:3,venta:3e6,kg:1000}],pol,'2026-12-20',30);const e=id=>K.filas.find(x=>x.id===id).est;
+ B(K.rige&&e(1)==='ok'&&e(2)==='parcial'&&e(3)==='na'&&K.nOk===1&&K.nNo===1,'después: aplicado, a medias, sin aumento');B(nr(K.logrado,(9.24/9-1)*100,1e-6),'aumento logrado total contra el precio base de cada uno');
+ K=calc(base,[{id:1,venta:3e6,kg:1000}],pol,'2026-12-20',30);B(K.filas.find(x=>x.id===1).est==='no'&&K.filas.find(x=>x.id===2).est==='sin','sin aplicar / sin compras todavía');
+ K=calc(base,[],pol,'2026-11-16',60);B(nr(K.filas[0].vMes,6e6),'período base de 60 días se lleva a un mes');
+ B(!/from\('(listas_precios|lista_precios_items|cliente_precios_especiales)'\)\.(insert|update|upsert|delete)[\s\S]{0,400}pePol/.test(src)&&!/function pePol[A-Za-z]*\([^)]*\)\{[^\n]*from\('(listas_precios|lista_precios_items|cliente_precios_especiales)'\)/.test(src),'la política no escribe precios');
+ console.log('✓ plan_empresa 17c '+n+' ok');}
