@@ -78,3 +78,11 @@ console.log('✓ plan_empresa '+k+' ok');
  B(c.some(x=>x.t==='meta'&&x.de===36000&&x.a===34000)&&c.some(x=>x.t==='nuevo')&&c.some(x=>x.t==='quitado')&&c.some(x=>x.t==='pres'&&x.k==='kg')&&c.length===4,'cambios desde la aprobación: meta, objetivo nuevo, quitado y presupuesto');
  B(cm(ap,{obj:[{id:'a',n:'Kilos',meta:'36000'},{id:'b',n:'Viejo',meta:1}]},{kg:432000}).length===0&&cm(null,{obj:[]},{}).length===0,'sin cambios / sin aprobación');
  console.log('✓ plan_empresa 18b '+n+' ok');}
+// 18c: OEE como objetivo, un solo cálculo
+{let n=0;const B=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};
+ globalThis._oeeMaq=(D,g)=>g;const tot=eval('('+src.match(/function _oeeExtTotal\(D\)\{[\s\S]*?\n[^\n]*\}/)[0]+')');
+ const T=tot({grupos:[{plan:600,run:480,runExtra:0,kg:1000,kgOK:980,stdH:7},{plan:400,run:320,runExtra:0,kg:500,kgOK:500,stdH:5}]});
+ B(Math.abs(T.A-0.8)<1e-9&&Math.abs(T.P-12/(800/60))<1e-9&&Math.abs(T.Q-1480/1500)<1e-9&&Math.abs(T.O-0.8*0.9*(1480/1500))<1e-9,'OEE de extrusión = disponibilidad × rendimiento × calidad de toda la planta');
+ B((src.match(/A\*Math\.min\(1,P\)\*Q/g)||[]).length<=3&&/_oeeExtTotal\(D\);\n  const T=/.test(src),'la pantalla OEE usa el mismo cálculo');
+ const N={hoy:{oee_ext:61,oee_corte:48}};B(_av({ind:'oee_ext',meta:65},N).estado==='aviso'&&_av({ind:'oee_corte',meta:65},N).estado==='mal','OEE contra la meta');
+ console.log('✓ plan_empresa 18c '+n+' ok');}
