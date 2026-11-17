@@ -173,3 +173,9 @@ console.log('✓ plan_medio '+ok+' ok');
  r=f(500,3,8,false);A(r.partes.length===1&&r.partes[0].w===3&&r.partes[0].kg===500,'pedido normal: entero en su semana');
  r=f(500,9,8,false);A(r.partes.length===0&&r.fuera===500,'normal fuera del horizonte');r=f(500,0,8,true);A(r.partes.length===1&&r.partes[0].w===0,'abierto que vence esta semana no se reparte');
  console.log('✓ plan_medio 19d '+n+' ok');}
+// 20a: acciones comerciales
+{const fs=require('fs');const src=fs.readFileSync(process.argv[2],'utf8');const ef=eval('('+src.match(/function _pmpEfectos\([^)]*\)\{[\s\S]*?\n\}/)[0]+')');let n=0;const A=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};
+ const E=ef([{t:'cli_nuevo',v:500,desde:2,hasta:7,costo:1000},{t:'cli_mas',cli:'7',v:20,desde:1,hasta:7},{t:'cli_baja',cli:'9',desde:1,hasta:3},{t:'cli_rec',cli:'5',v:300,desde:4,hasta:4,off:true}],8,{cliFc:{7:1000,9:400}});
+ A(E[0].demKg===0&&E[1].demKg===200-400&&E[2].demKg===500+200-400&&E[4].demKg===700&&E[2].costo===1000,'clientes: nuevo suma kilos, más = % de su pronóstico, baja resta su pronóstico; apagada no cuenta');
+ A(/g:'com'/.test(src)&&/bot\('com'\)/.test(src)&&/Math\.max\(0,Math\.max\(0,F\*/.test(src),'fila Comercial en el plan de acción; la demanda no queda negativa');
+ console.log('✓ plan_medio 20a '+n+' ok');}
