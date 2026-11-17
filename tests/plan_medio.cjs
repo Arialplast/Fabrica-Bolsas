@@ -164,5 +164,12 @@ console.log('✓ plan_medio '+ok+' ok');
  let r=f([8000,9000,3400],[1,1,0.6],2500);A(Math.abs(r.serie[2]-(3400/0.6+2500))<1e-6&&r.serie[0]===8000&&r.cortas===1&&r.venc===2500,'semana corta a semana completa + lo que quedó sin entregar');
  r=f([8000,2000],[1,0.2],0);A(Math.abs(r.serie[1]-4000)<1e-6,'el ajuste tiene piso: nunca más que duplicar');
  r=f([8000,3400],null,0);A(r.serie[1]===3400&&r.cortas===0,'sin calendario no ajusta');
- A(/esB\)\{if\(w<N\)\{borr\[w\]\+=kg/.test(src)&&/-fi-fb\)\+fb\+ef\.demKg/.test(src),'los borradores entran en la demanda sin sumarse dos veces con el pronóstico');
+ A(/borr\[x\.w\]\+=x\.kg/.test(src)&&/-fi-fb\)\+fb\+ef\.demKg/.test(src),'los borradores entran en la demanda sin sumarse dos veces con el pronóstico');
  console.log('✓ plan_medio 19a '+n+' ok');}
+// 19d: pedidos abiertos repartidos
+{const fs=require('fs');const src=fs.readFileSync(process.argv[2],'utf8');const f=eval('('+src.match(/function _pmpRepartir\(.*\}/)[0]+')');let n=0;const A=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};
+ let r=f(1400,6,8,true);A(r.partes.length===7&&Math.abs(r.partes[0].kg-200)<1e-9&&r.fuera===0,'abierto: parejo entre hoy y su fecha');
+ r=f(1000,9,8,true);A(r.partes.length===8&&Math.abs(r.partes[0].kg-100)<1e-9&&Math.abs(r.fuera-200)<1e-9,'lo que cae después del horizonte queda fuera');
+ r=f(500,3,8,false);A(r.partes.length===1&&r.partes[0].w===3&&r.partes[0].kg===500,'pedido normal: entero en su semana');
+ r=f(500,9,8,false);A(r.partes.length===0&&r.fuera===500,'normal fuera del horizonte');r=f(500,0,8,true);A(r.partes.length===1&&r.partes[0].w===0,'abierto que vence esta semana no se reparte');
+ console.log('✓ plan_medio 19d '+n+' ok');}
