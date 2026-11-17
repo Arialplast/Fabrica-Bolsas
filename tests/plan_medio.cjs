@@ -159,3 +159,10 @@ console.log('✓ plan_medio '+ok+' ok');
  A(/const SEC=\{res:'',com:'',pro:'',eco:'',fin:''\}/.test(src)&&/body\.innerHTML=_pmpTabs\(tab,R\)\+selDem\+SEC\[tab\];/.test(src),'el plan se muestra por solapa de área');
  A(/Corte, y extrusión detrás/.test(src)&&/si se suma corte por más que eso, pasa a frenar extrusión/.test(src),'avisa que el otro sector viene detrás');
  console.log('✓ plan_medio 15j '+n+' ok');}
+// 19a: demanda = lo que piden
+{const fs=require('fs');const src=fs.readFileSync(process.argv[2],'utf8');const f=eval('('+src.match(/function _pmpSerieAjustada\(.*\}/)[0]+')');let n=0;const A=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};
+ let r=f([8000,9000,3400],[1,1,0.6],2500);A(Math.abs(r.serie[2]-(3400/0.6+2500))<1e-6&&r.serie[0]===8000&&r.cortas===1&&r.venc===2500,'semana corta a semana completa + lo que quedó sin entregar');
+ r=f([8000,2000],[1,0.2],0);A(Math.abs(r.serie[1]-4000)<1e-6,'el ajuste tiene piso: nunca más que duplicar');
+ r=f([8000,3400],null,0);A(r.serie[1]===3400&&r.cortas===0,'sin calendario no ajusta');
+ A(/esB\)\{if\(w<N\)\{borr\[w\]\+=kg/.test(src)&&/-fi-fb\)\+fb\+ef\.demKg/.test(src),'los borradores entran en la demanda sin sumarse dos veces con el pronóstico');
+ console.log('✓ plan_medio 19a '+n+' ok');}
