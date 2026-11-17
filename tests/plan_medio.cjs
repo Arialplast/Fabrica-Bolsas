@@ -79,7 +79,7 @@ console.log('✓ plan_medio '+ok+' ok');
  P=f([5000,7000,6000]);A(P.mejor.k==='prom8'&&P.K===0&&near(P.mejor.F,6000),'poca historia: promedio simple, sin comparar métodos');
  P=f(sube);A(P.metodos.prom8.bt.length===12&&near(P.metodos.prom8.bt[0].f,(sube.slice(4,12).reduce((a,b)=>a+b,0))/8),'la prueba hacia atrás usa sólo las semanas anteriores');
  const a=[1000,2000,3000,4000,5000,6000,7000,8000];A(near(P.f(a),(6500+4500)/2)||near(P.f(a),6500)||P.f(a)>0,'el método elegido se puede aplicar a la serie de un cliente');
- A(/const cad=\[\];\{let prev=base,pref=\[\];/.test(src)&&/ahora frena extrusión/.test(src),'aporte en cadena con motivo cuando no suma');
+ A(/const cad=\[\];\{let prev=base,prevR=_pmpCalc\(\[\],true\),pref=\[\];/.test(src)&&/ahora frena extrusión/.test(src),'aporte en cadena con motivo cuando no suma');
  A(/const pistasDe=pr=>/.test(src)&&/Math\.min\(p2,2\)/.test(src),'pistas: ficha de la bobina, cortadora 1 hasta 2');
  console.log('✓ plan_medio 15a '+n+' ok');}
 // 15b: planificar para la meta
@@ -179,3 +179,9 @@ console.log('✓ plan_medio '+ok+' ok');
  A(E[0].demKg===0&&E[1].demKg===200-400&&E[2].demKg===500+200-400&&E[4].demKg===700&&E[2].costo===1000,'clientes: nuevo suma kilos, más = % de su pronóstico, baja resta su pronóstico; apagada no cuenta');
  A(/g:'com'/.test(src)&&/bot\('com'\)/.test(src)&&/Math\.max\(0,Math\.max\(0,F\*/.test(src),'fila Comercial en el plan de acción; la demanda no queda negativa');
  console.log('✓ plan_medio 20a '+n+' ok');}
+// 21d: adelanta
+{const fs=require('fs');const src=fs.readFileSync(process.argv[2],'utf8');const f=eval('('+src.match(/function _pmpAdelanta\(.*\}/)[0]+')');let n=0;const A=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};
+ const P=[{cortado:6400},{cortado:9700},{cortado:8400}],C2=[{cortado:7000},{cortado:9100},{cortado:8400}];
+ A(f(P,C2,0,0)===600&&f(P,C2,0,2)===600&&f(P,C2,1,1)===0&&f(P,C2,null,null)===0,'adelanta = kilos de más en las semanas de la acción (lo que después se corta de menos no resta)');
+ A(/adelanta '\+t\(cd\.adel\)/.test(src)&&/Esta semana todavía frena/.test(src),'se muestra «adelanta» y la nota de esta semana');
+ console.log('✓ plan_medio 21d '+n+' ok');}
