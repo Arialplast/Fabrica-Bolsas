@@ -25,4 +25,10 @@ const usable=eval('(()=>{const C={lista_items:[{lista_id:1,precio_paquete:5}],cl
 A(usable({id:1},null)&&usable({id:2},null)&&!usable({id:3},null)&&usable({id:3},3),'lista usable = con precios o con clientes, o la que ya tiene');
 A(/function _aumPisoKg\(\)\{return 0;\}/.test(src),'22b: el piso único $/kg quedó retirado');
 A(/if\(tr==='A'\)obj=plenoKg>0\?r2\(gan!=null\?plenoKg\+gan:plenoKg\*1\.11\):0;/.test(src)&&/if\(plenoKg>0&&obj<plenoKg\)obj=r2\(plenoKg\)/.test(src),'22b: tramo A va a su objetivo, nada debajo de su equilibrio');
+const dif=eval('('+src.match(/function _pxDiferencias\(lin\)\{[\s\S]*?\n\}/)[0]+')');
+let d=dif([{producto_id:1,precio_paquete:100,ref:100},{producto_id:2,precio_paquete:90,ref:100,refFuente:'lista',linea_id:7},{producto_id:3,precio_paquete:50,ref:0},{producto_id:4,precio_paquete:100.004,ref:100}]);
+A(d.length===1&&d[0].producto_id===2&&Math.abs(d[0].dif+10)<1e-9&&d[0].fuente==='lista'&&d[0].linea_id===7,'22c: sólo cuenta lo distinto del oficial, ignora sin oficial y centavos');
+const gp=src.match(/async function guardarPedido\(\)\{[\s\S]*?\n\}/)[0];A(gp.indexOf('_pxConfirmar')>0&&gp.indexOf('_pxConfirmar')<gp.indexOf('_mostrarOverlayGuardado(totalOCsACrear)'),'22c: el pedido confirma antes de guardar');
+const gr=src.match(/async function guardarRemito\(\)\{[\s\S]*?\n\}/)[0];A(gr.indexOf('_pxConfirmar')>0&&gr.indexOf('_pxConfirmar')<gr.indexOf('_ejecutarGuardarRemito('),'22c: el remito confirma antes de guardar');
+A(/if\(mot\.length<4\)/.test(src)&&/if\(bajo\)pedirAdminYEjecutar\(\(\)=>res\(\{motivo:mot,clave:true\}\)\)/.test(src),'22c: motivo obligatorio y clave debajo del piso');
 console.log('✓ precio_escalera '+n+' ok');
