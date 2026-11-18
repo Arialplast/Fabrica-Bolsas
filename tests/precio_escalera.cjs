@@ -9,6 +9,7 @@ e=ev(2000,2500,R);A(e.col==='naranja'&&Math.abs(e.mStd-20)<1e-9,'justo en el pis
 A(Math.abs(ev(2000,4000,R).mEq-(1-2862/4000)*100)<1e-9,'margen s/pleno');
 A(ev(2000,3000,{pisoPct:20,estKg:862,gan:null}).col==='verde','sin meta de resultado: cubrir el pleno es verde');
 A(ev(2000,3000,{pisoPct:20,estKg:862,gan:-500}).obj===2862,'plan con pérdida: el objetivo no baja del equilibrio');
+A(ev(2000,1900,R).col==='costo','debajo del costo estándar → pierde en cada kilo');
 A(ev(0,3000,R)===null,'sin costo estándar no juzga');
 // el criterio: la estructura se reparte sobre los kilos del plan
 A(/estKg:kgPlan>0\?estMes\/kgPlan/.test(src),'estructura por kilo = estructura del mes ÷ kilos del plan');
@@ -22,4 +23,6 @@ A(/id="ecli-lista" disabled/.test(src),'la ficha del cliente no cambia la lista'
 A(/\+_lpOpts\(cli\?\.lista_precio_id\|\|null\)/.test(src),'el desplegable no ofrece listas vacías');
 const usable=eval('(()=>{const C={lista_items:[{lista_id:1,precio_paquete:5}],clientes:[{lista_precio_id:2}]};return '+src.match(/function _lpUsable\(l,selId\)\{.*\}/)[0]+'})()');
 A(usable({id:1},null)&&usable({id:2},null)&&!usable({id:3},null)&&usable({id:3},3),'lista usable = con precios o con clientes, o la que ya tiene');
+A(/function _aumPisoKg\(\)\{return 0;\}/.test(src),'22b: el piso único $/kg quedó retirado');
+A(/if\(tr==='A'\)obj=plenoKg>0\?r2\(gan!=null\?plenoKg\+gan:plenoKg\*1\.11\):0;/.test(src)&&/if\(plenoKg>0&&obj<plenoKg\)obj=r2\(plenoKg\)/.test(src),'22b: tramo A va a su objetivo, nada debajo de su equilibrio');
 console.log('✓ precio_escalera '+n+' ok');
