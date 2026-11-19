@@ -30,5 +30,8 @@ let d=dif([{producto_id:1,precio_paquete:100,ref:100},{producto_id:2,precio_paqu
 A(d.length===1&&d[0].producto_id===2&&Math.abs(d[0].dif+10)<1e-9&&d[0].fuente==='lista'&&d[0].linea_id===7,'22c: sólo cuenta lo distinto del oficial, ignora sin oficial y centavos');
 const gp=src.match(/async function guardarPedido\(\)\{[\s\S]*?\n\}/)[0];A(gp.indexOf('_pxConfirmar')>0&&gp.indexOf('_pxConfirmar')<gp.indexOf('_mostrarOverlayGuardado(totalOCsACrear)'),'22c: el pedido confirma antes de guardar');
 const gr=src.match(/async function guardarRemito\(\)\{[\s\S]*?\n\}/)[0];A(gr.indexOf('_pxConfirmar')>0&&gr.indexOf('_pxConfirmar')<gr.indexOf('_ejecutarGuardarRemito('),'22c: el remito confirma antes de guardar');
-A(/if\(mot\.length<4\)/.test(src)&&/if\(bajo\)pedirAdminYEjecutar\(\(\)=>res\(\{motivo:mot,clave:true\}\)\)/.test(src),'22c: motivo obligatorio y clave debajo del piso');
+A(/if\(mot\.length<4\)/.test(src)&&/if\(bajo&&!opt\.sinClave\)pedirAdminYEjecutar\(\(\)=>res\(\{motivo:mot,clave:true\}\)\)/.test(src),'22c: motivo obligatorio y clave debajo del piso');
+const ge=src.match(/async function guardarEditarPedido\(pedidoId\)\{[\s\S]*?\n\}/)[0];A(ge.indexOf('_pxConfirmar')>0&&ge.indexOf('_pxConfirmar')<ge.indexOf('pedirAdminYEjecutar(async'),'22e: corregir un pedido pide motivo antes de guardar');
+const gx=src.match(/async function guardarEditarRemitoPrecios\(\)\{[\s\S]*?\n\}/)[0];A(gx.indexOf('_pxConfirmar')>0&&/_pxRegistrar\(_x,_pxR\.conf/.test(gx),'22e: corregir un remito pide motivo y registra');
+A((src.match(/<div class="prec-hub" data-on="/g)||[]).length===4&&!/\['grupos','🧩 Englobar clientes'\]/.test(src),'22e: hub en dos zonas; grupos fuera de Análisis');
 console.log('✓ precio_escalera '+n+' ok');
