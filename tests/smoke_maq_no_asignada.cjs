@@ -60,7 +60,7 @@ t(!/oc-maqna-wrap|om-cortas-wrap|sb-wrap/.test(pg)&&/oc-avisos-btn/.test(pg),'Ó
 // integración
 t(/<div id="oc-maqna-wrap"><\/div>/.test(src),'contenedor en Órdenes de corte');
 t(/try\{renderMaqNoAsignada\(\);\}catch\(e\)\{\}/.test(src),'se pinta con la lista de OC');
-t(/wrap\.innerHTML=_ocmnaTableroHTML\(\)\+html;/.test(src),'tablero lo muestra arriba');
+t(/wrap\.innerHTML=_ocmnaTableroHTML\(\)\+(_mapaSistemaHtml\(\)\+)?html;/.test(src),'tablero lo muestra arriba');
 const iP=src.indexOf('async function _pcorteCargarBobina(');const iQ=src.indexOf('if(!_ocMaqAsignada(oc,maqId)&&!window._pcorteOkFueraMaq[ocId+\'-\'+maqId])',iP);
 const iM=src.indexOf("const maqId=(maquinaId!=null?maquinaId:window._pcorteMaquinaId)||null;",iP);const iE=src.indexOf('const ejecutar=async()=>{',iP);
 t(iQ>iM&&iQ>iE,'la pregunta va después de fijar la máquina y antes de grabar');
