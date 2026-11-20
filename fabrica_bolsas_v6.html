@@ -2251,7 +2251,7 @@ td.pr-c.pr-pend{box-shadow:inset 0 0 0 2px #c98a0b;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-11-22q</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-11-22r</span></div>
     <!-- ⚡ 29a: accesos rápidos + buscador + más usados (bloque // ===== ⚡ ACCESOS RÁPIDOS) -->
     <div id="qa-wrap">
       <div id="qa-btns">
@@ -2288,7 +2288,7 @@ td.pr-c.pr-pend{box-shadow:inset 0 0 0 2px #c98a0b;}
     <div class="nav-grp" data-grp="planificacion">
       <div class="nav-grp-hd" onclick="toggleNavGrp('planificacion')"><span>Planificación</span><span class="nav-grp-chev">▸</span></div>
       <div class="nav-grp-items">
-        <div class="nav-item" onclick="go('programa')"><div class="nav-dot" style="background:#2f5bea"></div>📅 Programa de producción <span style="font-size:10px;color:var(--text3)">· por pedido · planificar · centro</span></div>
+        <div class="nav-item" onclick="go('programa')"><div class="nav-dot" style="background:#2f5bea"></div>📅 Programa de producción <span style="font-size:10px;color:var(--text3)">· por pedido · ¿se cumple? · planificar · centro</span></div>
         <div class="nav-item" onclick="goAdmin('plan-medio')" style="background:rgba(37,99,235,.08);border:1px solid #2563eb;border-radius:var(--r);margin-bottom:2px;"><div class="nav-dot" style="background:var(--accent)"></div>🧭 Plan de mediano plazo 🔐 <span style="font-size:10px;color:var(--text3)">· radar</span></div>
         <div class="nav-subdiv">Recursos y calendario</div>
         <div class="nav-item" onclick="go('plan-recursos')"><div class="nav-dot" style="background:var(--accent)"></div>🗓 Plan de recursos</div>
@@ -2333,7 +2333,6 @@ td.pr-c.pr-pend{box-shadow:inset 0 0 0 2px #c98a0b;}
         <div class="nav-subdiv">Análisis</div>
         <div class="nav-item" onclick="goAdmin('oee')"><div class="nav-dot" style="background:var(--green)"></div>📈 OEE y paradas 🔐</div>
         <div class="nav-item" onclick="goAdmin('spc')"><div class="nav-dot" style="background:var(--accent)"></div>📉 Control de peso (SPC) 🔐</div>
-        <div class="nav-item" onclick="goAdmin('adherencia')"><div class="nav-dot" style="background:var(--green)"></div>✅ Adherencia al programa 🔐</div>
         <div class="nav-item" onclick="goAdmin('velocidades')"><div class="nav-dot" style="background:var(--accent)"></div>📐 Velocidades reales 🔐</div>
         <div class="nav-item" onclick="goAdmin('productividad-hora')"><div class="nav-dot" style="background:var(--teal)"></div>Productividad por hora 🔐</div>
         <div class="nav-item" onclick="goAdmin('analisis-extrusion')"><div class="nav-dot" style="background:var(--teal)"></div>Análisis de extrusión 🔐</div>
@@ -2963,6 +2962,7 @@ td.pr-c.pr-pend{box-shadow:inset 0 0 0 2px #c98a0b;}
       <div id="pmp-body"></div>
     </div>
     <div class="page" id="page-adherencia">
+      <div class="ent-tabs" data-on="adherencia"></div>
       <div class="page-hdr">
         <div>
           <div class="page-title">Adherencia al programa</div>
@@ -7864,7 +7864,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-11-22q';   // 22q: el motor fino arranca con cada cortador en la máquina donde realmente está (última bobina que cargó en el panel, 8 h) en vez de elegirla él; el panel de corte muestra la COLA DE TU MÁQUINA (en orden, con horario, material y quién la sigue en el cambio de turno) en vez de la lista por persona. Antes 22p: 🎈 INFLADOR EXT-03 — estado en vivo (sensor, válvula, intentos, alarma) y ajuste con perillas que el registrador pasa al PLC 2
+const APP_BUILD='2026-11-22r';   // 22r: ADHERENCIA DE CORTE BIEN MEDIDA — el fin real de una orden de corte es «Terminó de cortar» en el panel (_ocFinReal), no su cierre: la adherencia cargaba al corte la demora de la oficina en cerrar (daba 29 % en fecha; contra el fin de corte da ~79 %). Indicador nuevo «Del corte al cierre» (mediana, promedio, cuántas tardan más de un día) y lista de órdenes cortadas sin cerrar ahora. Extrusión: fin = última bobina siempre. La pantalla pasa a ser la pestaña «✅ ¿Se cumple?» del Programa de producción y entra al Mapa del sistema. Antes 22q: el motor fino arranca con cada cortador en la máquina donde realmente está (última bobina que cargó en el panel, 8 h) en vez de elegirla él; el panel de corte muestra la COLA DE TU MÁQUINA (en orden, con horario, material y quién la sigue en el cambio de turno) en vez de la lista por persona. Antes 22p: 🎈 INFLADOR EXT-03 — estado en vivo (sensor, válvula, intentos, alarma) y ajuste con perillas que el registrador pasa al PLC 2
 // 06f: 🔗 ESTADO DEL PEDIDO CON EL MISMO PRODUCTO EN DOS LÍNEAS — el stock (por pedido+producto) se sumaba a cada línea: PED-06016 (DAG, 00123 × 400 + 400) daba 2.472 entregados de 2.000 → «cobrado parcial» y desaparecía de la lista de pedidos. Ahora se cuenta una vez por producto (_estadoOperativoPedido y % de avance de _pedidoInfoProduccion). Sin SQL. · 06d (previo):   // 06d: Corrección de $/kg de MP con revaluación — ✎ en la orden de compra revalúa stock y consumos del mes actual (costo real de bobinas/bolsas); lo consumido en meses cerrados no se reescribe: la diferencia entra al Resultado del mes como «Diferencia de precio de MP» (revaluaciones_mp, también registro de cada corrección). Antes 06c: Pago a proveedor — casilla «Aplicar recargo X % por cheques» (tildada si el proveedor cobra recargo; se puede destildar en ese pago). Antes 06b: Órdenes de compra MP — ✎ corregir el $/kg pactado de un renglón (y lo ya recibido de él). Antes 06a: ♻️ VENTA DE SCRAP (documento VS: comprador, kg por tipo, $/kg; ingreso «venta de subproductos» en el Resultado; compensación sin caja contra la factura de MP del mismo proveedor; balance de scrap: extrusión por diferencia = desperdicio vendido − scrap pesado por corte) + 💳 RECARGO % POR PAGO CON CHEQUES (proveedores.recargo_cheques_pct: costo financiero automático al pagar, aviso en Proveedor 360°). Antes 05k:   // 05k: remito formal: al lado del detalle «500 paq x 10 uni» (no las bolsas sueltas). Antes:
 // 05j:   // 05j: remito formal (formato Arialplast): Cantidad en PAQUETES, no en bolsas (REM-00749 Collinet salía 5.000 en vez de 500). Antes:
 // 05i:   // 05i: «Ordenar por reglas» v2 — hacia atrás desde la entrega: corte primero (último inicio, sin adelantar lo que espera bobina), extrusión derivada del corte, 24 h congeladas intactas. Antes 05h: Despacho ve las líneas POR KILO (bobina entera): stock = rollos en stock de la OE del pedido (PED-06160 PALAZZO no aparecía). Antes:
@@ -21958,8 +21958,8 @@ const ENT_TABS=[{t:'cumplimiento',i:'✅ Cumplido',s:'cuántos pedidos salieron 
 // 22k: el mismo patrón para las otras preguntas con varias pantallas: una entrada del menú, pestañas arriba
 const TAB_GRUPOS=[
   {tit:'📦 Entregas',sub:'¿cumplo lo que prometí? · lo que ya pasó, lo que viene y la plata de cada pedido',tabs:ENT_TABS},
-  {tit:'📅 Programa de producción',sub:'¿qué hace cada máquina y cuándo? · el único lugar para decidir el orden; las otras dos son vistas',tabs:[
-    {t:'programa',i:'📅 Programa',s:'por máquina: línea de tiempo, quién atiende, cuello, impacto de cada cambio'},{t:'gantt-combinado',i:'🔗 Por pedido',s:'cada pedido con su OE y su OC: por qué llega tarde'},{t:'planificar',i:'📋 Planificar',s:'reordenar las pendientes, extrusión y corte'},{t:'centro',i:'🏭 Centro de producción',s:'capacidad y cronograma por máquina'}]},
+  {tit:'📅 Programa de producción',sub:'¿qué hace cada máquina y cuándo? · se decide en «Programa»; las demás pestañas son para mirar y controlar',tabs:[
+    {t:'programa',i:'📅 Programa',s:'por máquina: línea de tiempo, quién atiende, cuello, impacto de cada cambio'},{t:'gantt-combinado',i:'🔗 Por pedido',s:'cada pedido con su OE y su OC: por qué llega tarde'},{t:'adherencia',i:'✅ ¿Se cumple?',s:'lo programado contra lo que pasó · del corte al cierre',adm:1},{t:'planificar',i:'📋 Planificar',s:'reordenar las pendientes, extrusión y corte'},{t:'centro',i:'🏭 Centro de producción',s:'capacidad y cronograma por máquina'}]},
   {tit:'🧭 Plan de mediano plazo',sub:'¿puedo producir lo que voy a vender? · 8 semanas, demanda contra capacidad',tabs:[
     {t:'plan-medio',i:'🧭 Plan de 8 semanas',s:'demanda, capacidad, planes A/B/C, resultado',adm:1},{t:'radar-capacidad',i:'📡 Radar de capacidad',s:'¿puedo tomar más pedidos? semana a semana'}]}];
 function _entPintar(){document.querySelectorAll('.ent-tabs[data-on]').forEach(el=>{const on=el.getAttribute('data-on');const G=TAB_GRUPOS.find(g=>g.tabs.some(x=>x.t===on));if(!G)return;
@@ -49972,6 +49972,7 @@ function _mapaSistemaHtml(){
       fila('Entregas','¿cumplo lo que prometí?',L('📦 Entregas',"go('cumplimiento')"))
       +fila('Plata','¿gané este mes?',L('💰 Resultado del mes',"goAdmin('resultado-mes')"))
       +fila('Precios','¿están bien mis precios?',L('💲 Precios · escalera',"precHubIr('clientes')"))
+      +fila('Programa','¿se hace lo que se programa? ¿se cierra lo que se corta?',L('✅ ¿Se cumple el programa?',"goAdmin('adherencia')"))
       +fila('Planta','¿rinde la planta?',L('📈 OEE y paradas',"goAdmin('oee')")))
     +bloque('4','Corregir','una vez por mes',
       fila('Revisión mensual','real contra plan → acciones → se ajustan los planes',L('🎯 Plan de empresa · revisión',"goAdmin('plan-empresa')"))
@@ -63350,6 +63351,32 @@ function _oeeRenderCam(body,tabs){
 // Fin real: OC = fecha_completada; OE = hora de su última bobina. Arranque real: OC = primer escaneo de bobina;
 // OE = primera bobina.
 const ADH={dias:45,d:null,cargando:false,err:null,key:null,TOL_H:2};
+// 22r: FIN REAL DEL CORTE. Una orden de corte «termina» dos veces: cuando el cortador toca «Terminó de cortar» en el panel
+// (queda la marca «[Corte terminado en panel AAAA-MM-DD HH:MM …]» y pasa a Pendiente empaque) y, después, cuando la oficina la
+// CIERRA con bolsones y scrap (fecha_completada). El programa calcula la primera: horas de cortadora. Hasta el 22q la adherencia
+// comparaba contra la segunda y le cargaba al corte la demora del cierre (mediana 5 h): daba 29 % en fecha cuando el corte
+// cumple cerca del 79 %. Ahora son dos medidas separadas: ¿se cortó cuando se dijo? y ¿cuánto tarda en cerrarse lo cortado?
+// Pura: hora (ms) de la última marca «Corte terminado en panel», o null.
+function _ocFinCorteMs(o){
+  const re=/Corte terminado en panel (\d{4}-\d{2}-\d{2}) (\d{1,2}):(\d{2})/g;const obs=String((o&&o.observaciones)||'');let m,t=null;
+  while((m=re.exec(obs))){const x=new Date(m[1]+'T'+m[2].padStart(2,'0')+':'+m[3]+':00').getTime();if(isFinite(x)&&(t==null||x>t))t=x;}
+  return t;
+}
+// Pura: fin real de una OC → {t(ms)|null, fuente:'panel'|'cierre'|null}. Sólo vale si la orden está cortada (Pendiente empaque o
+// Completada): una marca vieja de una orden REABIERTA no cuenta. Si la marca quedó después del cierre, manda el cierre.
+function _ocFinReal(o){
+  if(!o||(o.estado!=='Pendiente empaque'&&o.estado!=='Completada'))return {t:null,fuente:null};
+  const tc=_ocFinCorteMs(o),tf=o.fecha_completada?new Date(o.fecha_completada).getTime():null;
+  if(tc!=null&&(tf==null||tc<=tf))return {t:tc,fuente:'panel'};
+  if(o.estado==='Completada'&&tf!=null)return {t:tf,fuente:'cierre'};
+  return {t:null,fuente:null};
+}
+// Pura: demora del cierre. L=[{corte(ms),cierre(ms)}] → {n,med,prom,mas24,p90} en horas de reloj
+function _adhCierre(L){
+  const v=(L||[]).filter(x=>x.corte>0&&x.cierre>=x.corte).map(x=>(x.cierre-x.corte)/3600000).sort((a,b)=>a-b);
+  if(!v.length)return {n:0,med:null,prom:null,mas24:0,p90:null};const q=p=>v[Math.min(v.length-1,Math.floor(p*v.length))];
+  return {n:v.length,med:v.length%2?v[(v.length-1)/2]:(v[v.length/2-1]+v[v.length/2])/2,prom:v.reduce((a,b)=>a+b,0)/v.length,mas24:v.filter(x=>x>24).length,p90:q(.9)};
+}
 // Pura: adherencia de ejecución. L=[{base(ms),fin(ms)}] → {n,ok,pct,atrProm(h, solo las tardías),temp}
 function _adhEjec(L,tolH){
   const v=(L||[]).filter(x=>x.base>0&&x.fin>0);const tol=(tolH==null?2:tolH)*3600000;
@@ -63370,9 +63397,9 @@ function _adhDia(rows,finDia,real){
 function _adhReales(){   // {oe:{id:{ini,fin}},oc:{…}} con lo que realmente pasó
   const D=ADH.d||{};const R={oe:{},oc:{}};
   (D.bob||[]).forEach(b=>{const x=R.oe[b.o]||(R.oe[b.o]={ini:b.t,ult:b.t,fin:null});if(b.t<x.ini)x.ini=b.t;if(b.t>x.ult)x.ult=b.t;});
-  (C.ordenes||[]).forEach(o=>{const x=R.oe[o.id];if(!x)return;if(o.estado==='Completada')x.fin=o.fecha_completada?new Date(o.fecha_completada).getTime():x.ult;});
+  (C.ordenes||[]).forEach(o=>{const x=R.oe[o.id];if(!x)return;if(o.estado==='Completada')x.fin=x.ult;});   // 22r: siempre la última bobina (antes, la hora de cierre si la había)
   (C.ord_corte||[]).forEach(o=>{let ini=null;(o.orden_corte_bobinas||[]).forEach(b=>{if(b.fecha_asignacion){const t=new Date(b.fecha_asignacion).getTime();if(ini==null||t<ini)ini=t;}});
-    R.oc[o.id]={ini,fin:o.estado==='Completada'&&o.fecha_completada?new Date(o.fecha_completada).getTime():null};});
+    const F=_ocFinReal(o);R.oc[o.id]={ini,fin:F.t,fuente:F.fuente};});   // 22r: fin = «Terminó de cortar» (si no hay marca, el cierre)
   return R;
 }
 // Foto del programa de hoy (una vez por día, la primera vez que alguien de oficina abre el sistema después de las 5)
@@ -63415,15 +63442,23 @@ function renderAdherencia(){
   const hh=t=>{if(!t)return '—';const d=new Date(t);return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');};
   // 1) ejecución contra el baseline
   const maqDe=(tipo,o)=>getMaquinasDeOrden(tipo,o).map(id=>((tipo==='oe'?C.extrusoras:C.maq_corte)||[]).find(m=>m.id===id)).filter(Boolean).map(m=>m.nombre).join(' + ')||'—';
-  const LC=(C.ord_corte||[]).filter(o=>o.estado==='Completada'&&o.fin_baseline&&o.fecha_completada&&new Date(o.fecha_completada).getTime()>=D.t0).map(o=>({o,tipo:'oc',base:new Date(o.fin_baseline).getTime(),fin:new Date(o.fecha_completada).getTime(),maq:maqDe('oc',o)}));
+  // 22r: el corte se mide contra «Terminó de cortar». Las que se cerraron sin esa marca (LCsin) no entran en el %: sólo se sabe cuándo se cerraron.
+  const LCtodas=(C.ord_corte||[]).filter(o=>o.fin_baseline&&RL.oc[o.id]&&RL.oc[o.id].fin&&RL.oc[o.id].fin>=D.t0).map(o=>({o,tipo:'oc',base:new Date(o.fin_baseline).getTime(),fin:RL.oc[o.id].fin,fuente:RL.oc[o.id].fuente,maq:maqDe('oc',o)}));
+  const LC=LCtodas.filter(x=>x.fuente==='panel'),LCsin=LCtodas.filter(x=>x.fuente!=='panel');
+  // demora del cierre: de «Terminó de cortar» a que la oficina la cierra · y las que están cortadas sin cerrar ahora
+  const CI=_adhCierre((C.ord_corte||[]).filter(o=>o.estado==='Completada'&&o.fecha_completada&&new Date(o.fecha_completada).getTime()>=D.t0).map(o=>({corte:_ocFinCorteMs(o),cierre:new Date(o.fecha_completada).getTime()})));
+  const ahoraMs=Date.now();const PEND=(C.ord_corte||[]).filter(o=>o.estado==='Pendiente empaque').map(o=>({o,t:_ocFinCorteMs(o)})).sort((a,b)=>(a.t||0)-(b.t||0));
+  const pendViejas=PEND.filter(x=>x.t&&ahoraMs-x.t>24*3600000).length;
   const LE=(C.ordenes||[]).filter(o=>o.estado==='Completada'&&o.fin_baseline&&RL.oe[o.id]&&RL.oe[o.id].fin&&RL.oe[o.id].fin>=D.t0).map(o=>({o,tipo:'oe',base:new Date(o.fin_baseline).getTime(),fin:RL.oe[o.id].fin,maq:maqDe('oe',o)}));
   const SC=_adhEjec(LC,ADH.TOL_H),SE=_adhEjec(LE,ADH.TOL_H);
   // foto de hoy
   const hoy=localDate();const finHoy=new Date(hoy+'T23:59:59').getTime();const real=(t,id)=>RL[t][id];
   const fotoHoy=D.foto.filter(r=>String(r.fecha)===hoy);const H=_adhDia(fotoHoy,finHoy,real);
   let h=_dkKpis([
-    {l:'Corte: órdenes terminadas en fecha',v:pc(SC.pct),cls:cls(SC.pct),s:SC.ok+' de '+SC.n+' en '+ADH.dias+' días · hasta '+ADH.TOL_H+' h tarde cuenta en fecha'},
-    {l:'Corte: atraso de las tardías',v:SC.tarde?f1(SC.atrProm,0)+' h':'—',cls:SC.atrProm>12?'dk-warn':'',s:SC.tarde+' órdenes terminaron tarde'},
+    {l:'Corte: órdenes cortadas en fecha',v:pc(SC.pct),cls:cls(SC.pct),s:SC.ok+' de '+SC.n+' en '+ADH.dias+' días · fin = «Terminó de cortar» · hasta '+ADH.TOL_H+' h tarde cuenta en fecha'},
+    {l:'Corte: atraso de las tardías',v:SC.tarde?f1(SC.atrProm,0)+' h':'—',cls:SC.atrProm>12?'dk-warn':'',s:SC.tarde+' órdenes se cortaron tarde'},
+    {l:'Del corte al cierre',v:CI.med==null?'—':f1(CI.med,1)+' h',cls:CI.med==null?'':CI.med>4?'dk-red':CI.med>2?'dk-warn':'dk-okv',s:CI.n?'mediana de '+CI.n+' órdenes · '+CI.mas24+' tardaron más de un día':'sin datos'},
+    {l:'Cortadas sin cerrar ahora',v:String(PEND.length),cls:pendViejas?'dk-red':PEND.length>3?'dk-warn':'',s:PEND.length?(pendViejas?pendViejas+' llevan más de un día':'ninguna lleva más de un día'):'todo lo cortado está cerrado'},
     {l:'Extrusión: órdenes terminadas en fecha',v:pc(SE.pct),cls:cls(SE.pct),s:SE.ok+' de '+SE.n+' · fin = última bobina'},
     {l:'Extrusión: atraso de las tardías',v:SE.tarde?f1(SE.atrProm,0)+' h':'—',cls:SE.atrProm>12?'dk-warn':'',s:SE.tarde+' órdenes terminaron tarde'},
     {l:'Plan de hoy',v:fotoHoy.length?(H.term+H.arr)+' de '+(H.debTerm+H.debArr):'sin foto',s:fotoHoy.length?'hechos del programa de esta mañana':'se guarda sola cada mañana'}]);
@@ -63433,12 +63468,23 @@ function renderAdherencia(){
   const SK=Object.keys(sem).sort();
   h+='<div class="vel-g2"><div class="card vel-c"><div class="vel-ct">Órdenes terminadas en fecha, por semana <span class="dk-mut" style="font-weight:400;font-size:12.5px">— corte y extrusión, %</span></div>'
     +barChart(SK.map(k=>Math.round(sem[k].ok/sem[k].n*100)),100,'var(--accent)',SK.map(k=>k.slice(8)+'/'+k.slice(5,7)),'%')
-    +'<div class="dk-mut" style="font-size:12px;margin-top:22px;line-height:1.5">Cada orden, al arrancar, congela la hora en que el programa decía que terminaba. «En fecha» = terminó hasta '+ADH.TOL_H+' horas después. Mide si lo que se arranca se termina cuando se dijo: interrupciones, cambios de prioridad a mitad de orden y tiempos mal estimados.</div></div>';
+    +'<div class="dk-mut" style="font-size:12px;margin-top:22px;line-height:1.5">Cada orden, al arrancar, congela la hora en que el programa decía que terminaba. «En fecha» = terminó hasta '+ADH.TOL_H+' horas después. Mide si lo que se arranca se termina cuando se dijo: interrupciones, cambios de prioridad a mitad de orden y tiempos mal estimados.'
+      +(LCsin.length?' <b>'+LCsin.length+' órdenes de corte</b> se cerraron sin tocar «Terminó de cortar» en el panel: no entran en la cuenta, porque de ésas sólo se sabe cuándo se cerraron.':'')+'</div></div>';
   // por máquina
   const PM={};[...LC,...LE].forEach(x=>{const g=PM[x.maq]||(PM[x.maq]=[]);g.push(x);});
   h+='<div class="card vel-c"><div class="vel-ct">Por máquina</div><div class="cen-wrap" style="max-height:330px;overflow:auto"><table class="cen-m"><thead><tr><th class="l">Máquina</th><th>Órdenes</th><th>En fecha</th><th>Tardías</th><th>Atraso de las tardías</th><th>Terminaron antes</th></tr></thead><tbody>'
     +Object.keys(PM).sort().map(k=>{const S=_adhEjec(PM[k],ADH.TOL_H);return '<tr><td class="l"><b>'+escapeHtml(k)+'</b></td><td>'+S.n+'</td><td style="color:'+col(S.pct)+';font-weight:600">'+pc(S.pct)+'</td><td>'+S.tarde+'</td><td>'+(S.tarde?f1(S.atrProm,0)+' h':'—')+'</td><td>'+S.antes+'</td></tr>';}).join('')
     +'</tbody></table></div></div></div>';
+  // 22r: del corte al cierre
+  h+='<div class="card vel-c"><div class="vel-ct">Del corte al cierre <span class="dk-mut" style="font-weight:400;font-size:12.5px">— cuánto tarda la oficina en cerrar lo que ya se cortó</span></div>'
+    +'<div class="dk-mut" style="font-size:12.5px;line-height:1.55;margin-bottom:10px">Cuando el cortador toca <b>«Terminó de cortar»</b> la orden queda <b>Pendiente empaque</b>: las bolsas existen pero el sistema todavía no las tiene. Recién cuando se <b>cierra</b> (bolsones y scrap) entran al stock y se pueden remitir, facturar y cobrar. Esas horas no son atraso de la cortadora: son plata parada y un programa que parece peor de lo que es.'
+      +(CI.n?' En los últimos '+ADH.dias+' días: mediana <b>'+f1(CI.med,1)+' h</b>, promedio <b>'+f1(CI.prom,0)+' h</b>, 1 de cada 10 tardó más de <b>'+f1(CI.p90,0)+' h</b>.':'')+'</div>';
+  if(!PEND.length)h+='<div style="color:#15803d;font-weight:600;font-size:13px">✓ No hay órdenes cortadas esperando cierre.</div>';
+  else h+='<div class="cen-wrap" style="max-height:300px;overflow:auto"><table class="cen-m"><thead><tr><th class="l">Orden</th><th class="l">Cliente</th><th class="l">Producto</th><th class="l">Máquina</th><th>Se cortó</th><th>Hace</th><th></th></tr></thead><tbody>'
+      +PEND.map(x=>{const p=x.o.productos||(C.productos||[]).find(q=>q.id===x.o.producto_id)||{};const hs=x.t?(ahoraMs-x.t)/3600000:null;
+        return '<tr><td class="l"><b>'+escapeHtml(x.o.numero_orden||'')+'</b></td><td class="l">'+escapeHtml(String(x.o.cliente||'').slice(0,26))+'</td><td class="l">'+escapeHtml((p.codigo?p.codigo+' · ':'')+String(p.descripcion||'').slice(0,34))+'</td><td class="l">'+escapeHtml(maqDe('oc',x.o))+'</td><td>'+(x.t?fdh(x.t):'<span class="dk-mut">sin marca del panel</span>')+'</td><td style="font-weight:600;color:'+(hs==null?'#64748b':hs>24?'#b91c1c':hs>4?'#b45309':'#15803d')+'">'+(hs==null?'—':hs>=48?f1(hs/24,1)+' días':f1(hs,1)+' h')+'</td><td><button type="button" class="btn btn-sm" onclick="go(\'ordenes-corte\')">Ir a cerrarla</button></td></tr>';}).join('')
+      +'</tbody></table></div>';
+  h+='</div>';
   // plan de hoy
   h+='<div class="card vel-c"><div class="vel-ct">El plan de hoy <span class="dk-mut" style="font-weight:400;font-size:12.5px">— foto del programa de esta mañana'+(fotoHoy.length?' ('+hh(new Date(fotoHoy[0].tomado_el).getTime())+')':'')+' contra lo que va pasando</span></div>';
   if(!fotoHoy.length)h+='<div class="dk-mut">Todavía no hay foto del programa de hoy. Se guarda sola la primera vez que se abre el sistema en la oficina después de las 5 de la mañana. Desde mañana vas a ver acá qué debía arrancar y terminar en el día, y si se hizo.</div>';
@@ -63455,7 +63501,7 @@ function renderAdherencia(){
   const TA=[...LC,...LE].filter(x=>x.fin-x.base>ADH.TOL_H*3600000).sort((a,b)=>(b.fin-b.base)-(a.fin-a.base)).slice(0,15);
   if(TA.length)h+='<div class="card vel-c"><div class="vel-ct">Las órdenes que más se pasaron <span class="dk-mut" style="font-weight:400;font-size:12.5px">— horas de reloj entre el fin programado al arrancar y el fin real</span></div><div class="cen-wrap" style="max-height:360px;overflow:auto"><table class="cen-m"><thead><tr><th class="l">Orden</th><th class="l">Cliente</th><th class="l">Máquina</th><th>Fin programado</th><th>Fin real</th><th>Atraso</th></tr></thead><tbody>'
     +TA.map(x=>'<tr><td class="l"><b>'+escapeHtml(x.o.numero_orden||'')+'</b></td><td class="l">'+escapeHtml(String(x.o.cliente||'').slice(0,28))+'</td><td class="l">'+escapeHtml(x.maq)+'</td><td>'+fdh(x.base)+'</td><td>'+fdh(x.fin)+'</td><td style="color:#b91c1c;font-weight:600">'+f1((x.fin-x.base)/3600000,0)+' h</td></tr>').join('')+'</tbody></table></div></div>';
-  h+='<div class="dk-mut" style="font-size:12px;line-height:1.55">Cómo se mide: el fin real de una orden de corte es su cierre; el de una de extrusión, la hora de su última bobina. El arranque real es el primer escaneo de bobina (corte) o la primera bobina pesada (extrusión). Las horas de atraso son de reloj, no laborales: una orden que debía terminar el viernes a las 18 y terminó el lunes a las 8 figura con 62 h.</div>';
+  h+='<div class="dk-mut" style="font-size:12px;line-height:1.55">Cómo se mide: el fin real de una orden de corte es la hora en que el cortador tocó «Terminó de cortar» en el panel (no su cierre: eso se mide aparte, en «Del corte al cierre»); el de una de extrusión, la hora de su última bobina. El arranque real es el primer escaneo de bobina (corte) o la primera bobina pesada (extrusión). Las horas de atraso son de reloj, no laborales: una orden que debía terminar el viernes a las 18 y terminó el lunes a las 8 figura con 62 h.</div>';
   body.innerHTML=h;
 }
 // ============================================================
