@@ -2251,7 +2251,7 @@ td.pr-c.pr-pend{box-shadow:inset 0 0 0 2px #c98a0b;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-11-22s</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-11-22t</span></div>
     <!-- ⚡ 29a: accesos rápidos + buscador + más usados (bloque // ===== ⚡ ACCESOS RÁPIDOS) -->
     <div id="qa-wrap">
       <div id="qa-btns">
@@ -7864,7 +7864,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-11-22s';   // 22s: PARTE DIARIO DE CORTE con el mismo criterio que la adherencia — «cumplió la grilla» = se terminó de cortar en el día (marca del panel; sin marca, el cierre), no «se cerró»; columna nueva «Se cortó», el desvío es de corte contra grilla, y avisa cuántas cortadas en fecha siguen sin cerrar. La duración real de una OC (Órdenes de corte, detalle del Programa) también termina en el fin de corte. Antes 22r: ADHERENCIA DE CORTE BIEN MEDIDA — el fin real de una orden de corte es «Terminó de cortar» en el panel (_ocFinReal), no su cierre: la adherencia cargaba al corte la demora de la oficina en cerrar (daba 29 % en fecha; contra el fin de corte da ~79 %). Indicador nuevo «Del corte al cierre» (mediana, promedio, cuántas tardan más de un día) y lista de órdenes cortadas sin cerrar ahora. Extrusión: fin = última bobina siempre. La pantalla pasa a ser la pestaña «✅ ¿Se cumple?» del Programa de producción y entra al Mapa del sistema. Antes 22q: el motor fino arranca con cada cortador en la máquina donde realmente está (última bobina que cargó en el panel, 8 h) en vez de elegirla él; el panel de corte muestra la COLA DE TU MÁQUINA (en orden, con horario, material y quién la sigue en el cambio de turno) en vez de la lista por persona. Antes 22p: 🎈 INFLADOR EXT-03 — estado en vivo (sensor, válvula, intentos, alarma) y ajuste con perillas que el registrador pasa al PLC 2
+const APP_BUILD='2026-11-22t';   // 22t: el aviso «📦 bultos sin cargar» (que ya cubría las órdenes cortadas sin cerrar) ahora dice HACE CUÁNTO se terminó de cortar cada una (ámbar: más de un turno; rojo: más de un día), las ordena por espera y sube al Tablero de Dirección cuando alguna lleva más de un turno. No se crea otro aviso ni se toca _sbPendientes. Antes 22s: PARTE DIARIO DE CORTE con el mismo criterio que la adherencia — «cumplió la grilla» = se terminó de cortar en el día (marca del panel; sin marca, el cierre), no «se cerró»; columna nueva «Se cortó», el desvío es de corte contra grilla, y avisa cuántas cortadas en fecha siguen sin cerrar. La duración real de una OC (Órdenes de corte, detalle del Programa) también termina en el fin de corte. Antes 22r: ADHERENCIA DE CORTE BIEN MEDIDA — el fin real de una orden de corte es «Terminó de cortar» en el panel (_ocFinReal), no su cierre: la adherencia cargaba al corte la demora de la oficina en cerrar (daba 29 % en fecha; contra el fin de corte da ~79 %). Indicador nuevo «Del corte al cierre» (mediana, promedio, cuántas tardan más de un día) y lista de órdenes cortadas sin cerrar ahora. Extrusión: fin = última bobina siempre. La pantalla pasa a ser la pestaña «✅ ¿Se cumple?» del Programa de producción y entra al Mapa del sistema. Antes 22q: el motor fino arranca con cada cortador en la máquina donde realmente está (última bobina que cargó en el panel, 8 h) en vez de elegirla él; el panel de corte muestra la COLA DE TU MÁQUINA (en orden, con horario, material y quién la sigue en el cambio de turno) en vez de la lista por persona. Antes 22p: 🎈 INFLADOR EXT-03 — estado en vivo (sensor, válvula, intentos, alarma) y ajuste con perillas que el registrador pasa al PLC 2
 // 06f: 🔗 ESTADO DEL PEDIDO CON EL MISMO PRODUCTO EN DOS LÍNEAS — el stock (por pedido+producto) se sumaba a cada línea: PED-06016 (DAG, 00123 × 400 + 400) daba 2.472 entregados de 2.000 → «cobrado parcial» y desaparecía de la lista de pedidos. Ahora se cuenta una vez por producto (_estadoOperativoPedido y % de avance de _pedidoInfoProduccion). Sin SQL. · 06d (previo):   // 06d: Corrección de $/kg de MP con revaluación — ✎ en la orden de compra revalúa stock y consumos del mes actual (costo real de bobinas/bolsas); lo consumido en meses cerrados no se reescribe: la diferencia entra al Resultado del mes como «Diferencia de precio de MP» (revaluaciones_mp, también registro de cada corrección). Antes 06c: Pago a proveedor — casilla «Aplicar recargo X % por cheques» (tildada si el proveedor cobra recargo; se puede destildar en ese pago). Antes 06b: Órdenes de compra MP — ✎ corregir el $/kg pactado de un renglón (y lo ya recibido de él). Antes 06a: ♻️ VENTA DE SCRAP (documento VS: comprador, kg por tipo, $/kg; ingreso «venta de subproductos» en el Resultado; compensación sin caja contra la factura de MP del mismo proveedor; balance de scrap: extrusión por diferencia = desperdicio vendido − scrap pesado por corte) + 💳 RECARGO % POR PAGO CON CHEQUES (proveedores.recargo_cheques_pct: costo financiero automático al pagar, aviso en Proveedor 360°). Antes 05k:   // 05k: remito formal: al lado del detalle «500 paq x 10 uni» (no las bolsas sueltas). Antes:
 // 05j:   // 05j: remito formal (formato Arialplast): Cantidad en PAQUETES, no en bolsas (REM-00749 Collinet salía 5.000 en vez de 500). Antes:
 // 05i:   // 05i: «Ordenar por reglas» v2 — hacia atrás desde la entrega: corte primero (último inicio, sin adelantar lo que espera bobina), extrusión derivada del corte, 24 h congeladas intactas. Antes 05h: Despacho ve las líneas POR KILO (bobina entera): stock = rollos en stock de la OE del pedido (PED-06160 PALAZZO no aparecía). Antes:
@@ -19241,10 +19241,37 @@ function _sinBultosHTML(d,modo){
   }
   return '';
 }
+// 22t: HACE CUÁNTO SE TERMINÓ DE CORTAR. El aviso «bultos sin cargar» dice CUÁNTO falta cargar; le faltaba decir DESDE CUÁNDO.
+// Las órdenes cortadas sin cerrar (Pendiente empaque) son un subconjunto de este aviso: no se hace otro aviso, se le agrega el tiempo.
+// Pura. d = fila de _sbPendientes(); finDe(oc) → ms|null (hora de «Terminó de cortar»). → {t, hs, nivel:'rojo'|'ambar'|'ok'|null}
+const SB_H_AMBAR=8,SB_H_ROJO=24;   // más de un turno · más de un día (horas de reloj)
+function _sbEspera(d,ahora,finDe){
+  const t=d&&d.oc?finDe(d.oc):null;if(!(t>0))return {t:null,hs:null,nivel:null};
+  const hs=Math.max(0,(ahora-t)/3600000);return {t,hs,nivel:hs>SB_H_ROJO?'rojo':hs>SB_H_AMBAR?'ambar':'ok'};
+}
+function _sbHsTxt(hs){if(hs==null)return '—';if(hs>=48)return (Math.round(hs/24*10)/10).toLocaleString('es-AR')+' días';if(hs>=1)return (Math.round(hs*10)/10).toLocaleString('es-AR')+' h';return Math.round(hs*60)+' min';}
+function _sbFinDe(oc){try{const F=_ocFinReal(oc);return F.fuente==='panel'?F.t:null;}catch(e){return null;}}
+// Pura: resumen para el Tablero. L=[{falta,esp:{hs,nivel}}] → {n,paq,maxHs,rojas} sólo de las que ya esperan más de un turno
+function _sbResumenEspera(L){
+  const v=(L||[]).filter(x=>x.esp&&(x.esp.nivel==='ambar'||x.esp.nivel==='rojo'));
+  return {n:v.length,paq:v.reduce((s,x)=>s+(x.falta||0),0),maxHs:v.reduce((m,x)=>Math.max(m,x.esp.hs),0),rojas:v.filter(x=>x.esp.nivel==='rojo').length};
+}
+function _sbConEspera(){const ahora=Date.now();return _sbPendientes().map(d=>Object.assign({},d,{esp:_sbEspera(d,ahora,_sbFinDe)}));}
+// Aviso en el Tablero de Dirección: sólo cuando hay órdenes cortadas que llevan más de un turno sin cargar/cerrar
+function _sbTableroHTML(){
+  let R=null,L=[];try{L=_sbConEspera();R=_sbResumenEspera(L);}catch(e){return '';}
+  if(!R||!R.n)return '';const c=R.rojas?'var(--red)':'var(--amber)';
+  const top=L.filter(x=>x.esp.nivel==='ambar'||x.esp.nivel==='rojo').sort((a,b)=>b.esp.hs-a.esp.hs).slice(0,4);
+  return '<div onclick="go(\'avisos-corte\')" style="cursor:pointer;border:2.5px solid '+c+';border-radius:12px;padding:12px 16px;margin-bottom:14px;background:'+(R.rojas?'rgba(239,68,68,.08)':'rgba(245,158,11,.08)')+';">'
+    +'<div style="font-weight:800;color:'+c+';font-size:15px;">📦 Corte: '+R.n+' '+(R.n===1?'orden':'órdenes')+' terminada'+(R.n===1?'':'s')+' de cortar hace más de un turno, sin cargar los bultos — '+R.paq.toLocaleString('es-AR')+' paquetes que el sistema no tiene →</div>'
+    +'<div style="font-size:12px;color:var(--text2);margin-top:4px;">No se pueden remitir ni cobrar hasta que se carguen y se cierre la orden. '+top.map(x=>escapeHtml(x.oc.numero_orden||'')+' ('+_sbHsTxt(x.esp.hs)+')').join(' · ')+(R.n>top.length?' · …':'')+'</div></div>';
+}
 function renderSinBultos(){
   const box=document.getElementById('sb-wrap');
   if(!box)return;
-  const pend=_sbPendientes();
+  // 22t: las que ya se terminaron de cortar van arriba, la que más espera primero; el resto queda en su orden (por kg)
+  const pend=_sbConEspera().sort((a,b)=>((b.esp.hs==null?-1:b.esp.hs)-(a.esp.hs==null?-1:a.esp.hs)));
+  const RE=_sbResumenEspera(pend);const nCort=pend.filter(d=>d.esp.hs!=null).length;
   const silenciados=_sbOk().length;
   if(!pend.length){
     box.innerHTML=silenciados?'<div style="font-size:11px;color:var(--text3);margin-bottom:10px;">📦 '+silenciados+' orden(es) marcadas como "ya está cargado". <a href="javascript:void(0)" onclick="sbReset()" style="color:var(--accent);">Volver a avisar</a></div>':'';
@@ -19253,15 +19280,19 @@ function renderSinBultos(){
   const totPaq=pend.reduce((s,d)=>s+d.falta,0);
   const totKg=pend.reduce((s,d)=>s+(d.kg||0),0);
   box.innerHTML='<div style="border:1.5px solid var(--amber);border-radius:var(--r);padding:12px 14px;margin-bottom:14px;background:rgba(245,158,11,.06);">'
-    +'<div style="font-weight:800;color:var(--amber);font-size:13px;">📦 '+pend.length+' orden'+(pend.length===1?'':'es')+' de corte con bobinas cortadas y bultos sin cargar</div>'
-    +'<div style="font-size:11.5px;color:var(--text2);margin:3px 0 10px;">Se consumió la bobina pero nadie cargó el empaque: son <b>'+totPaq.toLocaleString('es-AR')+' paquetes</b> (~'+r1(totKg).toLocaleString('es-AR')+' kg) de mercadería hecha que el sistema no conoce. El pedido las vuelve a pedir y las salidas se descuentan de stock viejo. Contá los bultos y cargá el empaque real, no el teórico.</div>'
+    +'<div style="font-weight:800;color:var(--amber);font-size:13px;">📦 '+pend.length+' '+(pend.length===1?'orden':'órdenes')+' de corte con bobinas cortadas y bultos sin cargar</div>'
+    +'<div style="font-size:11.5px;color:var(--text2);margin:3px 0 10px;">Se consumió la bobina pero nadie cargó el empaque: son <b>'+totPaq.toLocaleString('es-AR')+' paquetes</b> (~'+r1(totKg).toLocaleString('es-AR')+' kg) de mercadería hecha que el sistema no conoce. El pedido las vuelve a pedir y las salidas se descuentan de stock viejo. Contá los bultos y cargá el empaque real, no el teórico.'
+      +(nCort?' <b>'+nCort+'</b> ya se terminaron de cortar'+(RE.n?': <b style="color:'+(RE.rojas?'var(--red)':'var(--amber)')+'">'+RE.n+' esperan hace más de un turno</b>'+(RE.rojas?' ('+RE.rojas+' hace más de un día)':'')+', la más vieja hace '+_sbHsTxt(RE.maxHs):'')+'. Mientras no se carguen y se cierre la orden, no se pueden remitir ni cobrar.':'')+'</div>'
     +'<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:11.5px;">'
     +'<tr style="color:var(--text3);font-size:10px;text-transform:uppercase;"><th style="text-align:left;padding:4px 8px;">OC</th><th style="text-align:left;padding:4px 8px;">Producto</th>'
+    +'<th style="text-align:right;padding:4px 8px;" title="Desde que el cortador tocó «Terminó de cortar» en el panel. Horas de reloj.">terminó de cortar</th>'
     +'<th style="text-align:right;padding:4px 8px;">cortado</th><th style="text-align:right;padding:4px 8px;">cargado</th><th style="text-align:right;padding:4px 8px;">sin cargar</th>'
     +'<th style="text-align:right;padding:4px 8px;">bolsones</th><th style="text-align:right;padding:4px 8px;">kg</th><th></th></tr>'
     +pend.map(d=>'<tr style="border-top:1px solid var(--border);">'
       +'<td style="padding:5px 8px;font-family:monospace;">'+escapeHtml(d.oc.numero_orden||'')+'<div style="font-size:10px;color:var(--text3);font-family:inherit;">'+escapeHtml(d.oc.cliente||'—')+' · '+escapeHtml(d.oc.estado||'')+'</div></td>'
       +'<td style="padding:5px 8px;">'+escapeHtml(d.prod.codigo||'—')+'<div style="font-size:10px;color:var(--text3);">'+escapeHtml(d.prod.descripcion||'')+'</div></td>'
+      +'<td style="padding:5px 8px;text-align:right;white-space:nowrap;">'+(d.esp.hs==null?'<span style="color:var(--text3)">'+(d.oc.estado==='Pendiente empaque'?'sin marca del panel':'todavía en corte')+'</span>'
+          :'<b style="color:'+(d.esp.nivel==='rojo'?'var(--red)':d.esp.nivel==='ambar'?'var(--amber)':'var(--green)')+'">hace '+_sbHsTxt(d.esp.hs)+'</b><div style="font-size:10px;color:var(--text3);">'+(()=>{const x=new Date(d.esp.t);return String(x.getDate()).padStart(2,'0')+'/'+String(x.getMonth()+1).padStart(2,'0')+' '+String(x.getHours()).padStart(2,'0')+':'+String(x.getMinutes()).padStart(2,'0');})()+'</div>')+'</td>'
       +'<td style="padding:5px 8px;text-align:right;font-family:monospace;">'+d.paqCorte.toLocaleString('es-AR')+'<div style="font-size:10px;color:var(--text3);">'+r1(d.m).toLocaleString('es-AR')+' m'+(d.fecha?' · '+d.fecha.split('-').reverse().join('/'):'')+'</div></td>'
       +'<td style="padding:5px 8px;text-align:right;font-family:monospace;">'+d.cargados.toLocaleString('es-AR')+'</td>'
       +'<td style="padding:5px 8px;text-align:right;font-family:monospace;color:var(--amber);font-weight:700;">'+d.falta.toLocaleString('es-AR')+'</td>'
@@ -50272,7 +50303,7 @@ async function renderTablero(){
 
   html+='<div style="margin-top:18px;font-size:11px;color:var(--text3);text-align:center;">Cada tarjeta te lleva a su pantalla · los números se derivan en vivo, no hay nada cargado a mano.</div>';
 
-  wrap.innerHTML=_ocmnaTableroHTML()+_mapaSistemaHtml()+html; // 07d: aviso de corte en máquina no asignada · 22j: mapa
+  wrap.innerHTML=_ocmnaTableroHTML()+_sbTableroHTML()+_mapaSistemaHtml()+html;   // 22t: + cortadas hace más de un turno sin cargar // 07d: aviso de corte en máquina no asignada · 22j: mapa
 }
 
 // ===== ⚡ EXTRAORDINARIOS EN EL RESULTADO DEL MES (13c) =====
@@ -63479,7 +63510,7 @@ function renderAdherencia(){
     +'</tbody></table></div></div></div>';
   // 22r: del corte al cierre
   h+='<div class="card vel-c"><div class="vel-ct">Del corte al cierre <span class="dk-mut" style="font-weight:400;font-size:12.5px">— cuánto tarda la oficina en cerrar lo que ya se cortó</span></div>'
-    +'<div class="dk-mut" style="font-size:12.5px;line-height:1.55;margin-bottom:10px">Cuando el cortador toca <b>«Terminó de cortar»</b> la orden queda <b>Pendiente empaque</b>: las bolsas existen pero el sistema todavía no las tiene. Recién cuando se <b>cierra</b> (bolsones y scrap) entran al stock y se pueden remitir, facturar y cobrar. Esas horas no son atraso de la cortadora: son plata parada y un programa que parece peor de lo que es.'
+    +'<div class="dk-mut" style="font-size:12.5px;line-height:1.55;margin-bottom:10px">Cuando el cortador toca <b>«Terminó de cortar»</b> la orden queda <b>Pendiente empaque</b>: las bolsas existen pero el sistema todavía no las tiene. Recién cuando se <b>cierra</b> (bolsones y scrap) entran al stock y se pueden remitir, facturar y cobrar. Esas horas no son atraso de la cortadora: son plata parada y un programa que parece peor de lo que es. Cuántos bultos falta cargar de cada una está en <a href="#" onclick="go(\'avisos-corte\');return false" style="color:#1d4ed8;font-weight:600">⚠ Avisos de corte</a>.'
       +(CI.n?' En los últimos '+ADH.dias+' días: mediana <b>'+f1(CI.med,1)+' h</b>, promedio <b>'+f1(CI.prom,0)+' h</b>, 1 de cada 10 tardó más de <b>'+f1(CI.p90,0)+' h</b>.':'')+'</div>';
   if(!PEND.length)h+='<div style="color:#15803d;font-weight:600;font-size:13px">✓ No hay órdenes cortadas esperando cierre.</div>';
   else h+='<div class="cen-wrap" style="max-height:300px;overflow:auto"><table class="cen-m"><thead><tr><th class="l">Orden</th><th class="l">Cliente</th><th class="l">Producto</th><th class="l">Máquina</th><th>Se cortó</th><th>Hace</th><th></th></tr></thead><tbody>'
