@@ -2251,7 +2251,7 @@ td.pr-c.pr-pend{box-shadow:inset 0 0 0 2px #c98a0b;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-11-22r</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-11-22s</span></div>
     <!-- ⚡ 29a: accesos rápidos + buscador + más usados (bloque // ===== ⚡ ACCESOS RÁPIDOS) -->
     <div id="qa-wrap">
       <div id="qa-btns">
@@ -7864,7 +7864,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-11-22r';   // 22r: ADHERENCIA DE CORTE BIEN MEDIDA — el fin real de una orden de corte es «Terminó de cortar» en el panel (_ocFinReal), no su cierre: la adherencia cargaba al corte la demora de la oficina en cerrar (daba 29 % en fecha; contra el fin de corte da ~79 %). Indicador nuevo «Del corte al cierre» (mediana, promedio, cuántas tardan más de un día) y lista de órdenes cortadas sin cerrar ahora. Extrusión: fin = última bobina siempre. La pantalla pasa a ser la pestaña «✅ ¿Se cumple?» del Programa de producción y entra al Mapa del sistema. Antes 22q: el motor fino arranca con cada cortador en la máquina donde realmente está (última bobina que cargó en el panel, 8 h) en vez de elegirla él; el panel de corte muestra la COLA DE TU MÁQUINA (en orden, con horario, material y quién la sigue en el cambio de turno) en vez de la lista por persona. Antes 22p: 🎈 INFLADOR EXT-03 — estado en vivo (sensor, válvula, intentos, alarma) y ajuste con perillas que el registrador pasa al PLC 2
+const APP_BUILD='2026-11-22s';   // 22s: PARTE DIARIO DE CORTE con el mismo criterio que la adherencia — «cumplió la grilla» = se terminó de cortar en el día (marca del panel; sin marca, el cierre), no «se cerró»; columna nueva «Se cortó», el desvío es de corte contra grilla, y avisa cuántas cortadas en fecha siguen sin cerrar. La duración real de una OC (Órdenes de corte, detalle del Programa) también termina en el fin de corte. Antes 22r: ADHERENCIA DE CORTE BIEN MEDIDA — el fin real de una orden de corte es «Terminó de cortar» en el panel (_ocFinReal), no su cierre: la adherencia cargaba al corte la demora de la oficina en cerrar (daba 29 % en fecha; contra el fin de corte da ~79 %). Indicador nuevo «Del corte al cierre» (mediana, promedio, cuántas tardan más de un día) y lista de órdenes cortadas sin cerrar ahora. Extrusión: fin = última bobina siempre. La pantalla pasa a ser la pestaña «✅ ¿Se cumple?» del Programa de producción y entra al Mapa del sistema. Antes 22q: el motor fino arranca con cada cortador en la máquina donde realmente está (última bobina que cargó en el panel, 8 h) en vez de elegirla él; el panel de corte muestra la COLA DE TU MÁQUINA (en orden, con horario, material y quién la sigue en el cambio de turno) en vez de la lista por persona. Antes 22p: 🎈 INFLADOR EXT-03 — estado en vivo (sensor, válvula, intentos, alarma) y ajuste con perillas que el registrador pasa al PLC 2
 // 06f: 🔗 ESTADO DEL PEDIDO CON EL MISMO PRODUCTO EN DOS LÍNEAS — el stock (por pedido+producto) se sumaba a cada línea: PED-06016 (DAG, 00123 × 400 + 400) daba 2.472 entregados de 2.000 → «cobrado parcial» y desaparecía de la lista de pedidos. Ahora se cuenta una vez por producto (_estadoOperativoPedido y % de avance de _pedidoInfoProduccion). Sin SQL. · 06d (previo):   // 06d: Corrección de $/kg de MP con revaluación — ✎ en la orden de compra revalúa stock y consumos del mes actual (costo real de bobinas/bolsas); lo consumido en meses cerrados no se reescribe: la diferencia entra al Resultado del mes como «Diferencia de precio de MP» (revaluaciones_mp, también registro de cada corrección). Antes 06c: Pago a proveedor — casilla «Aplicar recargo X % por cheques» (tildada si el proveedor cobra recargo; se puede destildar en ese pago). Antes 06b: Órdenes de compra MP — ✎ corregir el $/kg pactado de un renglón (y lo ya recibido de él). Antes 06a: ♻️ VENTA DE SCRAP (documento VS: comprador, kg por tipo, $/kg; ingreso «venta de subproductos» en el Resultado; compensación sin caja contra la factura de MP del mismo proveedor; balance de scrap: extrusión por diferencia = desperdicio vendido − scrap pesado por corte) + 💳 RECARGO % POR PAGO CON CHEQUES (proveedores.recargo_cheques_pct: costo financiero automático al pagar, aviso en Proveedor 360°). Antes 05k:   // 05k: remito formal: al lado del detalle «500 paq x 10 uni» (no las bolsas sueltas). Antes:
 // 05j:   // 05j: remito formal (formato Arialplast): Cantidad en PAQUETES, no en bolsas (REM-00749 Collinet salía 5.000 en vez de 500). Antes:
 // 05i:   // 05i: «Ordenar por reglas» v2 — hacia atrás desde la entrega: corte primero (último inicio, sin adelantar lo que espera bobina), extrusión derivada del corte, 24 h congeladas intactas. Antes 05h: Despacho ve las líneas POR KILO (bobina entera): stock = rollos en stock de la OE del pedido (PED-06160 PALAZZO no aparecía). Antes:
@@ -54109,7 +54109,9 @@ function _ordDuracion(tipo,o,sched){
       out.realIni=new Date(ts[0]);
       out.cortada=o.estado==='Pendiente empaque'||o.estado==='Completada';
       out.sigue=!out.cortada;
-      out.realFin=out.sigue?ahora:(o.fecha_completada?new Date(o.fecha_completada):new Date(ts[ts.length-1]));
+      // 22s: terminada = cuando se terminó de CORTAR (marca del panel); sin marca, el cierre; sin ninguno, la última bobina
+      const _fr=(typeof _ocFinReal==='function')?_ocFinReal(o).t:(o.fecha_completada?new Date(o.fecha_completada).getTime():null);
+      out.realFin=out.sigue?ahora:(_fr?new Date(_fr):new Date(ts[ts.length-1]));
       // OC: lapso de la primera bobina cargada a terminada, en horas de jornada de corte (incluye pausas)
       if(out.realFin&&out.realFin>out.realIni)out.realHs=hsLaboralesEntre(out.realIni,out.realFin,'corte');
     }
@@ -91430,7 +91432,9 @@ function buildMultiBarChart(extIds,kgXExtXPer,max,labels){
 //  · CERRADA en el día  = ordenes_corte.fecha_completada cae en el día.
 //  · TRABAJADA en el día = tuvo bobinas cortadas ese día (orden_corte_bobinas.fecha_asignacion).
 //  · COMPROMETIDA para el día = su fin_baseline (el fin que el sistema congeló al iniciarla,
-//    o sea la grilla) cae en el día. Cumplida si cerró ANTES del fin de ese día.
+//    o sea la grilla) cae en el día. Cumplida si se TERMINÓ DE CORTAR antes del fin de ese día
+//    (22s: la grilla programa horas de cortadora, no el cierre en oficina; el fin de corte sale
+//    de _ocFinReal, el mismo derivador de la adherencia. Sin marca del panel, vale el cierre).
 //  · Paquetes hechos = libro mov_bolsas tipo 'produccion' (la fila de stock se consume al
 //    entregar; el movimiento de producción queda).
 // Lee la base directo (no C.ord_corte / C.bobinas_prod) para que un día viejo dé igual que hoy.
@@ -91464,6 +91468,11 @@ function _pdcEmp(id){const e=(C.emp||[]).find(x=>x.id===id);return e?(e.apellido
 // Clasificación pura (testeable): recibe lo leído de la base y arma el día.
 //  ocs: filas de ordenes_corte (todas las involucradas) · bobDia: bobinas cortadas en el día
 //  bobAcum: bobinas de esas OC hasta el fin del día · prod: {ocId: paquetes producidos}
+// 22s: cuándo se terminó de cortar una OC → {t(ms)|null, fuente:'panel'|'cierre'|null}
+function _pdcFinCorte(o){
+  try{if(typeof _ocFinReal==='function'){const F=_ocFinReal(o);if(F&&F.t!=null)return F;}}catch(e){}
+  const fc=o&&o.fecha_completada?new Date(o.fecha_completada).getTime():null;return {t:fc,fuente:fc!=null?'cierre':null};
+}
 function _pdcArmar(f,ocs,bobDia,bobAcum,prod,valorDe){
   const ini=_pdcIni(f).getTime(),fin=_pdcIni(_pdcAdd(f,1)).getTime();
   const enDia=ts=>{if(!ts)return false;const t=new Date(ts).getTime();return t>=ini&&t<fin;};
@@ -91487,14 +91496,15 @@ function _pdcArmar(f,ocs,bobDia,bobAcum,prod,valorDe){
   const fila=o=>{
     const base=o.fin_baseline?new Date(o.fin_baseline).getTime():null;
     const fc=o.fecha_completada?new Date(o.fecha_completada).getTime():null;
+    const FT=_pdcFinCorte(o),ft=FT.t;   // 22s: fin de corte (lo que promete la grilla)
     const nec=parseFloat(o.metros_necesarios)||0;
     const ac=acum[o.id]||{m:0,maqs:new Set()};
     const dd=dia[o.id]||null;
     const maqs=new Set([...(ac.maqs||[]),...(dd?dd.maqs:[])]);
-    return {o,base,fc,nec,acumM:ac.m,pct:nec>0?Math.min(999,ac.m/nec*100):null,
+    return {o,base,fc,ft,ftFuente:FT.fuente,nec,acumM:ac.m,pct:nec>0?Math.min(999,ac.m/nec*100):null,
       dia:dd,maqs:[...maqs],paqHechos:prod[o.id]||0,paqPed:parseFloat(o.cantidad_paquetes)||0,
       valor:valorDe?valorDe(o):0,
-      desvioMs:(fc!=null&&base!=null)?fc-base:null};
+      desvioMs:(ft!=null&&base!=null)?ft-base:null};   // 22s: contra el fin de corte, no contra el cierre
   };
   const vivas=o=>o&&o.estado!=='Cancelada';
   const cerradas=ocs.filter(o=>vivas(o)&&enDia(o.fecha_completada)).map(fila)
@@ -91503,8 +91513,8 @@ function _pdcArmar(f,ocs,bobDia,bobAcum,prod,valorDe){
   const trabajadas=Object.keys(dia).map(Number).filter(id=>byId[id]&&!idsCerr.has(id)&&vivas(byId[id]))
     .map(id=>fila(byId[id])).sort((a,b)=>(a.dia.desde<b.dia.desde?-1:1));
   const comprometidas=ocs.filter(o=>vivas(o)&&enDia(o.fin_baseline)).map(fila);
-  const cumplidas=comprometidas.filter(r=>r.fc!=null&&r.fc<fin);
-  const pendientes=comprometidas.filter(r=>!(r.fc!=null&&r.fc<fin))
+  const cumplidas=comprometidas.filter(r=>r.ft!=null&&r.ft<fin);
+  const pendientes=comprometidas.filter(r=>!(r.ft!=null&&r.ft<fin))
     .sort((a,b)=>a.base-b.base);
   const tot={
     cerr:cerradas.length,
@@ -91513,6 +91523,7 @@ function _pdcArmar(f,ocs,bobDia,bobAcum,prod,valorDe){
     aTiempo:cerradas.filter(r=>r.desvioMs!=null&&r.desvioMs<=0).length,
     tarde:cerradas.filter(r=>r.desvioMs!=null&&r.desvioMs>0).length,
     comp:comprometidas.length,cumpl:cumplidas.length,pend:pendientes.length,
+    sinCerrar:cumplidas.filter(r=>r.fc==null).length,   // 22s: cortadas en fecha que la oficina todavía no cerró
     ocsTocadas:Object.keys(dia).filter(id=>vivas(byId[id])).length,
     bob:bobDia.length,metros:bobDia.reduce((s,b)=>s+(parseFloat(b.metros_usados)||0),0)
   };
@@ -91527,13 +91538,13 @@ function _pdcSemana(f,ocs){
     const viv=ocs.filter(o=>o.estado!=='Cancelada');
     const cerr=viv.filter(o=>_pdcDia(o.fecha_completada)===d).length;
     const comp=viv.filter(o=>_pdcDia(o.fin_baseline)===d);
-    const cum=comp.filter(o=>o.fecha_completada&&new Date(o.fecha_completada).getTime()<fin).length;
+    const cum=comp.filter(o=>{const t=_pdcFinCorte(o).t;return t!=null&&t<fin;}).length;   // 22s
     out.push({d,cerr,comp:comp.length,cum});
   }
   return out;
 }
 
-const _PDC_SEL='id,numero_orden,cliente,producto_id,cantidad_paquetes,metros_necesarios,estado,fecha_completada,fin_baseline,prioridad,precio_total_venta,precio_paquete,bolsones_reales';
+const _PDC_SEL='id,numero_orden,cliente,producto_id,cantidad_paquetes,metros_necesarios,estado,fecha_completada,fin_baseline,prioridad,precio_total_venta,precio_paquete,bolsones_reales,observaciones';   // 22s: + observaciones (marca «Corte terminado en panel»)
 async function _pdcCargar(f){
   const wIni=_pdcIni(_pdcAdd(f,-6)).toISOString(),dIni=_pdcIni(f).toISOString(),dFin=_pdcIni(_pdcAdd(f,1)).toISOString();
   const[rC,rB,rD]=await Promise.all([
@@ -91610,13 +91621,13 @@ function _pdcHtml(f,R,S,idx,print){
   let h='';
   h+='<div class="pdc-kpis">'
     +kpi('OC cerradas',T.cerr,_pdcNum(T.paq)+' paq · '+fmtMoney(T.valor),'var(--green)')
-    +kpi('Cumplimiento de la grilla',T.comp?(T.cumpl+' de '+T.comp):'—',T.comp?(pctCum+'% de lo que debía cerrar hoy'):'ninguna OC comprometida para este día',T.comp?(pctCum>=80?'var(--green)':pctCum>=50?'var(--amber)':'var(--red)'):'var(--text3)')
+    +kpi('Cumplimiento de la grilla',T.comp?(T.cumpl+' de '+T.comp):'—',T.comp?(pctCum+'% de lo que debía terminar de cortarse hoy'+(T.sinCerrar?' · '+T.sinCerrar+' cortada'+(T.sinCerrar>1?'s':'')+' sin cerrar':'')):'ninguna OC comprometida para este día',T.comp?(pctCum>=80?'var(--green)':pctCum>=50?'var(--amber)':'var(--red)'):'var(--text3)')
     +kpi('Cortado en el día',_pdcNum(T.metros)+' m',T.bob+' bobinas · '+T.ocsTocadas+' OC','var(--accent)')
-    +kpi('Quedó de la grilla',T.pend,T.pend?'comprometidas para hoy sin cerrar':'nada pendiente','var('+(T.pend?'--red':'--text3')+')')
+    +kpi('Quedó de la grilla',T.pend,T.pend?'comprometidas para hoy sin terminar de cortar':'nada pendiente','var('+(T.pend?'--red':'--text3')+')')
     +'</div>';
   // Tira semanal
   const mx=Math.max(1,...S.map(x=>Math.max(x.cerr,x.comp)));
-  h+='<div class="pdc-box"><div class="pdc-h">Últimos 7 días <span class="pdc-s">— barra verde: OC cerradas · número chico: cumplidas / comprometidas por la grilla</span></div><div class="pdc-sem">';
+  h+='<div class="pdc-box"><div class="pdc-h">Últimos 7 días <span class="pdc-s">— barra verde: OC cerradas · número chico: cortadas en fecha / comprometidas por la grilla</span></div><div class="pdc-sem">';
   S.forEach(x=>{
     const d=_pdcIni(x.d),lbl=d.toLocaleDateString('es-AR',{weekday:'short'}).replace('.','')+' '+d.getDate();
     const sel=x.d===f;
@@ -91632,19 +91643,20 @@ function _pdcHtml(f,R,S,idx,print){
   h+='<div class="pdc-box"><div class="pdc-h">✅ Cerradas este día <span class="pdc-s">('+T.cerr+(T.cerr?' · '+T.aTiempo+' a tiempo · '+T.tarde+' tarde contra la grilla':'')+')</span></div>';
   if(!R.cerradas.length)h+='<div class="pdc-vacio">No se cerró ninguna OC este día.</div>';
   else{
-    h+='<table class="pdc-t"><thead><tr><th>OC</th><th>Cliente</th><th>Producto</th><th class="n">Paquetes</th><th>Máquina</th><th class="n">Cerró</th><th class="n">Grilla</th><th class="n">vs grilla</th><th class="n">Venta</th></tr></thead><tbody>';
+    h+='<table class="pdc-t"><thead><tr><th>OC</th><th>Cliente</th><th>Producto</th><th class="n">Paquetes</th><th>Máquina</th><th class="n">Se cortó</th><th class="n">Cerró</th><th class="n">Grilla</th><th class="n" title="Fin de corte contra la grilla. El cierre en oficina no cuenta acá.">Corte vs grilla</th><th class="n">Venta</th></tr></thead><tbody>';
     R.cerradas.forEach(r=>{
       const dv=_pdcDesvio(r.desvioMs);
       const paqCls=r.paqPed&&r.paqHechos<r.paqPed*0.98?' style="color:var(--amber)"':'';
       h+='<tr>'+_pdcOcCell(r,idx,print)
         +'<td class="n"'+paqCls+'>'+_pdcNum(r.paqHechos)+'<span class="pdc-s"> / '+_pdcNum(r.paqPed)+'</span></td>'
         +'<td>'+(r.maqs.map(_pdcMaq).join(' + ')||'—')+'</td>'
+        +'<td class="n">'+(r.ftFuente==='panel'?(_pdcDia(r.ft)===f?_pdcHora(r.ft):(new Date(r.ft).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})+' '+_pdcHora(r.ft))):'<span class="pdc-s" title="Se cerró sin tocar «Terminó de cortar» en el panel: sólo se sabe cuándo se cerró">sin marca</span>')+'</td>'
         +'<td class="n">'+_pdcHora(r.fc)+'</td>'
         +'<td class="n pdc-s">'+(r.base?(_pdcDia(r.base)===f?_pdcHora(r.base):(new Date(r.base).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})+' '+_pdcHora(r.base))):'—')+'</td>'
         +'<td class="n"><span class="pdc-tag '+dv.cls+'">'+dv.txt+'</span></td>'
         +'<td class="n">'+fmtMoney(r.valor)+'</td></tr>';
     });
-    h+='<tr class="pdc-tot"><td colspan="3">TOTAL</td><td class="n">'+_pdcNum(T.paq)+'</td><td colspan="4"></td><td class="n">'+fmtMoney(T.valor)+'</td></tr>';
+    h+='<tr class="pdc-tot"><td colspan="3">TOTAL</td><td class="n">'+_pdcNum(T.paq)+'</td><td colspan="5"></td><td class="n">'+fmtMoney(T.valor)+'</td></tr>';
     h+='</tbody></table>';
   }
   h+='</div>';
@@ -91671,13 +91683,13 @@ function _pdcHtml(f,R,S,idx,print){
   h+='</div>';
 
   // 3 · Lo que la grilla comprometía y no se cerró
-  h+='<div class="pdc-box'+(R.pendientes.length?' pdc-rojo':'')+'"><div class="pdc-h">⚠ La grilla decía que cerraban este día y no cerraron <span class="pdc-s">('+R.pendientes.length+')</span></div>';
+  h+='<div class="pdc-box'+(R.pendientes.length?' pdc-rojo':'')+'"><div class="pdc-h">⚠ La grilla decía que se terminaban de cortar este día y no se cortaron <span class="pdc-s">('+R.pendientes.length+')</span></div>';
   if(!R.pendientes.length)h+='<div class="pdc-vacio">'+(T.comp?'Se cumplió todo lo comprometido para el día.':'La grilla no tenía ninguna OC comprometida para este día.')+'</div>';
   else{
-    h+='<table class="pdc-t"><thead><tr><th>OC</th><th>Cliente</th><th>Producto</th><th class="n">Debía cerrar</th><th class="n">Avance al cierre del día</th><th>Qué pasó después</th></tr></thead><tbody>';
+    h+='<table class="pdc-t"><thead><tr><th>OC</th><th>Cliente</th><th>Producto</th><th class="n">Debía terminar</th><th class="n">Avance al fin del día</th><th>Qué pasó después</th></tr></thead><tbody>';
     R.pendientes.forEach(r=>{
       const pct=r.pct==null?'—':Math.round(r.pct)+'%';
-      const desp=r.fc?('cerró el '+new Date(r.fc).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})+' '+_pdcHora(r.fc)+' · <span class="pdc-tag '+_pdcDesvio(r.desvioMs).cls+'">'+_pdcDesvio(r.desvioMs).txt+'</span>'):('sigue <b>'+escapeHtml(r.o.estado||'')+'</b>');
+      const desp=r.ft?((r.ftFuente==='panel'?'se cortó el ':'cerró el ')+new Date(r.ft).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'})+' '+_pdcHora(r.ft)+' · <span class="pdc-tag '+_pdcDesvio(r.desvioMs).cls+'">'+_pdcDesvio(r.desvioMs).txt+'</span>'+(r.fc==null?' · falta cerrarla':'')):('sigue <b>'+escapeHtml(r.o.estado||'')+'</b>');
       h+='<tr>'+_pdcOcCell(r,idx,print)
         +'<td class="n">'+_pdcHora(r.base)+'</td>'
         +'<td class="n"><div class="pdc-bar"><div style="width:'+Math.min(100,Math.round(r.pct||0))+'%"></div></div>'+pct+'</td>'

@@ -53,9 +53,23 @@ ok(_pdcDia('2026-10-02T02:30:00Z')==='2026-10-01','02:30Z = 23:30 del día anter
 // HTML pantalla e impreso
 const h=_pdcHtml('2026-10-02',R,S,{},false),hp=_pdcHtml('2026-10-02',R,S,{},true);
 ok(h.includes('chVerOC(')&&!hp.includes('chVerOC('),'links solo en pantalla');
-ok(h.includes('Cerradas este día')&&h.includes('no cerraron'),'secciones presentes');
+ok(h.includes('Cerradas este día')&&h.includes('no se cortaron')&&h.includes('Se cortó'),'secciones presentes');
 ok(!/var\(--/.test(hp.replace(/style="--kc:[^"]*"/g,'').replace(/class="[^"]*"/g,''))||true,'impreso ok');
 // vacío
 const V=_pdcArmar('2026-01-01',[],[],[],{});
 ok(V.tot.cerr===0&&V.tot.comp===0&&_pdcHtml('2026-01-01',V,_pdcSemana('2026-01-01',[]),{},false).includes('No se cerró ninguna OC'),'día vacío avisa');
+// 22s: la grilla se cumple cuando se TERMINA DE CORTAR (marca del panel), no cuando se cierra
+{const m=src.match(/function _ocFinCorteMs\(o\)\{[\s\S]*?\n\}/),m2=src.match(/function _ocFinReal\(o\)\{[\s\S]*?\n\}/);(0,eval)(m[0]);(0,eval)(m2[0]);
+ const base='2026-11-19T15:00:00',obs='[Corte terminado en panel 2026-11-19 14:40 por X — pendiente de cierre]';
+ const mk=(id,extra)=>Object.assign({id,numero_orden:'OC-'+id,estado:'Completada',fin_baseline:base,metros_necesarios:100,cantidad_paquetes:10},extra);
+ const ocs=[mk(1,{observaciones:obs,fecha_completada:'2026-11-20T09:00:00'}),   // cortada en fecha, cerrada al otro día
+            mk(2,{observaciones:obs,estado:'Pendiente empaque',fecha_completada:null}),   // cortada en fecha, sin cerrar
+            mk(3,{observaciones:'',fecha_completada:'2026-11-20T09:00:00'}),   // sin marca: vale el cierre → no cumplió
+            mk(4,{observaciones:obs,estado:'En proceso',fecha_completada:null})];   // reabierta: no cuenta
+ const X=_pdcArmar('2026-11-19',ocs,[],[],{});
+ ok(X.tot.comp===4&&X.tot.cumpl===2&&X.tot.pend===2,'cumple la grilla la que se cortó en el día, aunque se cierre después → '+X.tot.cumpl+'/'+X.tot.comp);
+ ok(X.tot.sinCerrar===1,'cuenta las cortadas en fecha sin cerrar → '+X.tot.sinCerrar);
+ const r1=X.cumplidas.find(r=>r.o.id===1);ok(r1&&r1.ftFuente==='panel'&&r1.desvioMs===-20*60000,'el desvío es de corte contra grilla (20 min antes), no de cierre');
+ ok(_pdcSemana('2026-11-19',ocs).slice(-1)[0].cum===2,'la tira de 7 días usa el mismo criterio');
+ ok(/observaciones/.test(_PDC_SEL),'el parte trae las observaciones (ahí está la marca)');}
 console.log((fail?'✗ ':'✓ ')+pass+' ok, '+fail+' fallas');process.exit(fail?1:0);
