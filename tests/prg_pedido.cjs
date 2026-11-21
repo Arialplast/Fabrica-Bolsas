@@ -9,6 +9,7 @@ A(_prgPedEmpezado([{oc:{id:2,estado:'Pendiente'}}],{2:{pctAvance:30}}),'o con av
 const av=_prgPedAvance(T,{3:{pctAvance:100}});A(av.n===2&&av.tot===3,'2 de 3 medidas cortadas: '+av.n+'/'+av.tot);
 // regla: a igual día, primero el pedido ya empezado; las medidas de un pedido, juntas
 const D=86400000,t0=Date.UTC(2026,10,30,15);
+let _regTest={};const _cliRegimen=id=>_regTest[id]||'entrega';
 let _prioTest=[];const _prgPrio=()=>new Set(_prioTest);
 const C={ord_corte:[10,11,12,13].map(id=>({id})),ordenes:[]};const _cliClase=()=>'B';const _oesDeOC=()=>[];const _ordDuracion=()=>({estHs:2});
 eval(g('_prgReglasOrden'));
@@ -20,9 +21,14 @@ const r=_prgReglasOrden(E,[],[10,11,12,13]);
 A(r.oc.join()==='11,13,10,12','pedido empezado primero y cada pedido junto: '+r.oc.join());
 // la fecha sigue mandando: un pedido sin empezar que vence antes va antes
 pedB.promesa=new Date(t0+5*D);const r2=_prgReglasOrden(E,[],[10,11,12,13]);A(r2.oc.join()==='10,12,11,13','la fecha manda sobre «empezado»: '+r2.oc.join());
+// 23j: a igual día y los dos empezados, primero el del cliente que cobra con el pedido completo
+{const pA={promesa:new Date(t0+10*D),cliId:1,tandas:[{oc:{id:99,estado:'Completada'}},{oc:{id:11,estado:'Pendiente'}}]};const pB={promesa:new Date(t0+10*D),cliId:2,tandas:[{oc:{id:98,estado:'Completada'}},{oc:{id:10,estado:'Pendiente'}}]};
+ const E2={RC,R:{},ocEst:{10:{ped:'B'},11:{ped:'A'}},ped:{A:pA,B:pB}};_regTest={};const s1=_prgReglasOrden(E2,[],[10,11]).oc.join();_regTest={2:'completo'};const s2=_prgReglasOrden(E2,[],[11,10]).oc.join();_regTest={};
+ A(s2==='10,11','el cliente que cobra al completar pasa adelante: '+s1+' → '+s2);}
 // 23i: pedido con prioridad va primero aunque venza después y no esté empezado
 _prioTest=['A'];const r3=_prgReglasOrden(E,[],[10,11,12,13]);A(r3.oc.join()==='11,13,10,12'&&r3.kOC[11].urg&&!r3.kOC[10].urg,'⚡ el pedido priorizado pasa adelante: '+r3.oc.join());
 _prioTest=['B','A'];const r4=_prgReglasOrden(E,[],[10,11,12,13]);A(r4.oc.join()==='10,12,11,13','entre priorizados sigue mandando la fecha: '+r4.oc.join());_prioTest=[];
 A(/function prgPriorizar\(\)/.test(src)&&/prg_pedidos_prio/.test(src)&&/⚡ Priorizar pedidos/.test(src),'botón y guardado de la prioridad');
 A(/selPed\.has\(k\)\?' pd':' dim'/.test(src)&&/class="prg-pt"/.test(src)&&/medidas cortadas<\/b>/.test(src),'etiqueta, resaltado y avance en pantalla');
+A(/const CLI_REG=\{entrega:/.test(src)&&/cli_regimen_cobro/.test(src)&&/id="ecli-cobro"/.test(src)&&/cobra con el pedido completo\./.test(src),'régimen de cobro: ficha, guardado y aviso en el pedido');
 console.log(f?('FALLÓ '+f):'OK prg_pedido');process.exit(f?1:0);
