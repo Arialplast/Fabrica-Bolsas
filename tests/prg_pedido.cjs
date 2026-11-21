@@ -9,6 +9,7 @@ A(_prgPedEmpezado([{oc:{id:2,estado:'Pendiente'}}],{2:{pctAvance:30}}),'o con av
 const av=_prgPedAvance(T,{3:{pctAvance:100}});A(av.n===2&&av.tot===3,'2 de 3 medidas cortadas: '+av.n+'/'+av.tot);
 // regla: a igual día, primero el pedido ya empezado; las medidas de un pedido, juntas
 const D=86400000,t0=Date.UTC(2026,10,30,15);
+let _prioTest=[];const _prgPrio=()=>new Set(_prioTest);
 const C={ord_corte:[10,11,12,13].map(id=>({id})),ordenes:[]};const _cliClase=()=>'B';const _oesDeOC=()=>[];const _ordDuracion=()=>({estHs:2});
 eval(g('_prgReglasOrden'));
 const pedA={promesa:new Date(t0+10*D),cliId:1,tandas:[{oc:{id:99,estado:'Completada'}},{oc:{id:11,estado:'Pendiente'}},{oc:{id:13,estado:'Pendiente'}}]};
@@ -19,5 +20,9 @@ const r=_prgReglasOrden(E,[],[10,11,12,13]);
 A(r.oc.join()==='11,13,10,12','pedido empezado primero y cada pedido junto: '+r.oc.join());
 // la fecha sigue mandando: un pedido sin empezar que vence antes va antes
 pedB.promesa=new Date(t0+5*D);const r2=_prgReglasOrden(E,[],[10,11,12,13]);A(r2.oc.join()==='10,12,11,13','la fecha manda sobre «empezado»: '+r2.oc.join());
+// 23i: pedido con prioridad va primero aunque venza después y no esté empezado
+_prioTest=['A'];const r3=_prgReglasOrden(E,[],[10,11,12,13]);A(r3.oc.join()==='11,13,10,12'&&r3.kOC[11].urg&&!r3.kOC[10].urg,'⚡ el pedido priorizado pasa adelante: '+r3.oc.join());
+_prioTest=['B','A'];const r4=_prgReglasOrden(E,[],[10,11,12,13]);A(r4.oc.join()==='10,12,11,13','entre priorizados sigue mandando la fecha: '+r4.oc.join());_prioTest=[];
+A(/function prgPriorizar\(\)/.test(src)&&/prg_pedidos_prio/.test(src)&&/⚡ Priorizar pedidos/.test(src),'botón y guardado de la prioridad');
 A(/selPed\.has\(k\)\?' pd':' dim'/.test(src)&&/class="prg-pt"/.test(src)&&/medidas cortadas<\/b>/.test(src),'etiqueta, resaltado y avance en pantalla');
 console.log(f?('FALLÓ '+f):'OK prg_pedido');process.exit(f?1:0);
