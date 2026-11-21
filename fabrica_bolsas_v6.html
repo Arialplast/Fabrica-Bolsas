@@ -1897,8 +1897,8 @@ td.dk-red{color:var(--red);font-weight:500;}
 .prg-ley i.n,.prg-bar.n{background:#e8edf7;border-color:#a9b8d6;}
 .prg-ley i.ep{background:repeating-linear-gradient(45deg,#c9d3e8,#c9d3e8 3px,#e8edf7 3px,#e8edf7 6px);}
 .prg-tl{overflow-x:auto;}
-.prg-axis,.prg-row{display:flex;min-width:900px;}
-.prg-lab{width:128px;flex:0 0 128px;font-size:12.5px;font-weight:600;display:flex;flex-direction:column;justify-content:center;padding-left:4px;color:var(--text);white-space:nowrap;}
+.prg-axis,.prg-row{display:flex;min-width:var(--prgw,900px);}.prg-rows{min-width:var(--prgw,900px);}
+.prg-lab{position:sticky;left:0;z-index:6;background:#fff;width:128px;flex:0 0 128px;font-size:12.5px;font-weight:600;display:flex;flex-direction:column;justify-content:center;padding-left:4px;color:var(--text);white-space:nowrap;}
 .prg-trk{position:relative;flex:1;}
 .prg-axis{height:30px;border-bottom:1px solid var(--border);}
 .prg-tick,.prg-day{position:absolute;top:0;bottom:0;border-left:1px solid #eef0f4;}
@@ -2253,7 +2253,7 @@ td.pr-c.pr-pend{box-shadow:inset 0 0 0 2px #c98a0b;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-11-23a</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-11-23b</span></div>
     <!-- ⚡ 29a: accesos rápidos + buscador + más usados (bloque // ===== ⚡ ACCESOS RÁPIDOS) -->
     <div id="qa-wrap">
       <div id="qa-btns">
@@ -7865,7 +7865,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-11-23a';   // 23a: Programa — franja rayada donde no se trabaja (fin de semana, feriados), duración en horas de trabajo, barras angostas legibles y sin montarse. Antes 22z: 22z: Programa — la orden de corte que se corta en partes se dibuja en partes (sin superponerse) y las ya cortadas que esperan cierre salen de la fila. Antes 22y: 22y: el programa de corte cuenta lo que ya está puesto en la cortadora: la máquina sigue ocupada hasta terminar de cortar las bobinas cargadas (antes la daba por libre y mandaba otra orden «ahora»). Antes 22x: 22x: lo entregado por renglón (derivador de remitos) cuenta también los renglones de remito sueltos del mismo producto y la carga histórica del campo viejo; revisados los demás lectores de «entregado». Antes 22w: 22w: un solo criterio de «qué frena» con los tres frenos (material, extrusión, corte): Plan de la semana los lista juntos y el Plan de mediano plazo marca la semana en que falta material. Antes 22v: 22v: Entregas queda sólo con «Cumplido»; salen «Lo que viene» (Torre) y «Plata por pedido»; los enlaces van a Centro → Compromisos; Qué producir / Plan de la semana / Plan de entregas pasan a Programa de producción. Antes 22u: 22u: Centro de producción → Compromisos: lo que falta entregar de cada pedido se calcula con los REMITOS (_alEntregadoPorLinea) y no con el campo viejo pedido_lineas.entregado, que estaba en 0 en 55 de 100 renglones abiertos y hacía figurar como pendiente lo ya entregado (DAG PED-06016: $19,8 M → $3,2 M). Antes 22t: el aviso «📦 bultos sin cargar» (que ya cubría las órdenes cortadas sin cerrar) ahora dice HACE CUÁNTO se terminó de cortar cada una (ámbar: más de un turno; rojo: más de un día), las ordena por espera y sube al Tablero de Dirección cuando alguna lleva más de un turno. No se crea otro aviso ni se toca _sbPendientes. Antes 22s: PARTE DIARIO DE CORTE con el mismo criterio que la adherencia — «cumplió la grilla» = se terminó de cortar en el día (marca del panel; sin marca, el cierre), no «se cerró»; columna nueva «Se cortó», el desvío es de corte contra grilla, y avisa cuántas cortadas en fecha siguen sin cerrar. La duración real de una OC (Órdenes de corte, detalle del Programa) también termina en el fin de corte. Antes 22r: ADHERENCIA DE CORTE BIEN MEDIDA — el fin real de una orden de corte es «Terminó de cortar» en el panel (_ocFinReal), no su cierre: la adherencia cargaba al corte la demora de la oficina en cerrar (daba 29 % en fecha; contra el fin de corte da ~79 %). Indicador nuevo «Del corte al cierre» (mediana, promedio, cuántas tardan más de un día) y lista de órdenes cortadas sin cerrar ahora. Extrusión: fin = última bobina siempre. La pantalla pasa a ser la pestaña «✅ ¿Se cumple?» del Programa de producción y entra al Mapa del sistema. Antes 22q: el motor fino arranca con cada cortador en la máquina donde realmente está (última bobina que cargó en el panel, 8 h) en vez de elegirla él; el panel de corte muestra la COLA DE TU MÁQUINA (en orden, con horario, material y quién la sigue en el cambio de turno) en vez de la lista por persona. Antes 22p: 🎈 INFLADOR EXT-03 — estado en vivo (sensor, válvula, intentos, alarma) y ajuste con perillas que el registrador pasa al PLC 2
+const APP_BUILD='2026-11-23b';   // 23b: Programa con escala de programador de planta: ancho fijo por hora y deslizamiento, planta parada plegada, etiquetas sólo donde entran. Antes 23a: 23a: Programa — franja rayada donde no se trabaja (fin de semana, feriados), duración en horas de trabajo, barras angostas legibles y sin montarse. Antes 22z: 22z: Programa — la orden de corte que se corta en partes se dibuja en partes (sin superponerse) y las ya cortadas que esperan cierre salen de la fila. Antes 22y: 22y: el programa de corte cuenta lo que ya está puesto en la cortadora: la máquina sigue ocupada hasta terminar de cortar las bobinas cargadas (antes la daba por libre y mandaba otra orden «ahora»). Antes 22x: 22x: lo entregado por renglón (derivador de remitos) cuenta también los renglones de remito sueltos del mismo producto y la carga histórica del campo viejo; revisados los demás lectores de «entregado». Antes 22w: 22w: un solo criterio de «qué frena» con los tres frenos (material, extrusión, corte): Plan de la semana los lista juntos y el Plan de mediano plazo marca la semana en que falta material. Antes 22v: 22v: Entregas queda sólo con «Cumplido»; salen «Lo que viene» (Torre) y «Plata por pedido»; los enlaces van a Centro → Compromisos; Qué producir / Plan de la semana / Plan de entregas pasan a Programa de producción. Antes 22u: 22u: Centro de producción → Compromisos: lo que falta entregar de cada pedido se calcula con los REMITOS (_alEntregadoPorLinea) y no con el campo viejo pedido_lineas.entregado, que estaba en 0 en 55 de 100 renglones abiertos y hacía figurar como pendiente lo ya entregado (DAG PED-06016: $19,8 M → $3,2 M). Antes 22t: el aviso «📦 bultos sin cargar» (que ya cubría las órdenes cortadas sin cerrar) ahora dice HACE CUÁNTO se terminó de cortar cada una (ámbar: más de un turno; rojo: más de un día), las ordena por espera y sube al Tablero de Dirección cuando alguna lleva más de un turno. No se crea otro aviso ni se toca _sbPendientes. Antes 22s: PARTE DIARIO DE CORTE con el mismo criterio que la adherencia — «cumplió la grilla» = se terminó de cortar en el día (marca del panel; sin marca, el cierre), no «se cerró»; columna nueva «Se cortó», el desvío es de corte contra grilla, y avisa cuántas cortadas en fecha siguen sin cerrar. La duración real de una OC (Órdenes de corte, detalle del Programa) también termina en el fin de corte. Antes 22r: ADHERENCIA DE CORTE BIEN MEDIDA — el fin real de una orden de corte es «Terminó de cortar» en el panel (_ocFinReal), no su cierre: la adherencia cargaba al corte la demora de la oficina en cerrar (daba 29 % en fecha; contra el fin de corte da ~79 %). Indicador nuevo «Del corte al cierre» (mediana, promedio, cuántas tardan más de un día) y lista de órdenes cortadas sin cerrar ahora. Extrusión: fin = última bobina siempre. La pantalla pasa a ser la pestaña «✅ ¿Se cumple?» del Programa de producción y entra al Mapa del sistema. Antes 22q: el motor fino arranca con cada cortador en la máquina donde realmente está (última bobina que cargó en el panel, 8 h) en vez de elegirla él; el panel de corte muestra la COLA DE TU MÁQUINA (en orden, con horario, material y quién la sigue en el cambio de turno) en vez de la lista por persona. Antes 22p: 🎈 INFLADOR EXT-03 — estado en vivo (sensor, válvula, intentos, alarma) y ajuste con perillas que el registrador pasa al PLC 2
 // 06f: 🔗 ESTADO DEL PEDIDO CON EL MISMO PRODUCTO EN DOS LÍNEAS — el stock (por pedido+producto) se sumaba a cada línea: PED-06016 (DAG, 00123 × 400 + 400) daba 2.472 entregados de 2.000 → «cobrado parcial» y desaparecía de la lista de pedidos. Ahora se cuenta una vez por producto (_estadoOperativoPedido y % de avance de _pedidoInfoProduccion). Sin SQL. · 06d (previo):   // 06d: Corrección de $/kg de MP con revaluación — ✎ en la orden de compra revalúa stock y consumos del mes actual (costo real de bobinas/bolsas); lo consumido en meses cerrados no se reescribe: la diferencia entra al Resultado del mes como «Diferencia de precio de MP» (revaluaciones_mp, también registro de cada corrección). Antes 06c: Pago a proveedor — casilla «Aplicar recargo X % por cheques» (tildada si el proveedor cobra recargo; se puede destildar en ese pago). Antes 06b: Órdenes de compra MP — ✎ corregir el $/kg pactado de un renglón (y lo ya recibido de él). Antes 06a: ♻️ VENTA DE SCRAP (documento VS: comprador, kg por tipo, $/kg; ingreso «venta de subproductos» en el Resultado; compensación sin caja contra la factura de MP del mismo proveedor; balance de scrap: extrusión por diferencia = desperdicio vendido − scrap pesado por corte) + 💳 RECARGO % POR PAGO CON CHEQUES (proveedores.recargo_cheques_pct: costo financiero automático al pagar, aviso en Proveedor 360°). Antes 05k:   // 05k: remito formal: al lado del detalle «500 paq x 10 uni» (no las bolsas sueltas). Antes:
 // 05j:   // 05j: remito formal (formato Arialplast): Cantidad en PAQUETES, no en bolsas (REM-00749 Collinet salía 5.000 en vez de 500). Antes:
 // 05i:   // 05i: «Ordenar por reglas» v2 — hacia atrás desde la entrega: corte primero (último inicio, sin adelantar lo que espera bobina), extrusión derivada del corte, 24 h congeladas intactas. Antes 05h: Despacho ve las líneas POR KILO (bobina entera): stock = rollos en stock de la OE del pedido (PED-06160 PALAZZO no aparecía). Antes:
@@ -54294,6 +54294,19 @@ function _prgFuera(trab,t0,t1){
   const L=(trab||[]).map(x=>({a:Math.max(+x.a,t0),z:Math.min(+x.z,t1)})).filter(x=>x.z>x.a).sort((x,y)=>x.a-y.a);
   const out=[];let c=t0;L.forEach(x=>{if(x.a-c>60000)out.push({a:c,z:x.a});if(x.z>c)c=x.z;});if(t1-c>60000)out.push({a:c,z:t1});return out;
 }
+// 23b: ESCALA DEL TABLERO como en los programadores de planta: (1) el tiempo en que TODA la planta está parada se
+// pliega a una franja angosta (no gasta pantalla); (2) cada vista tiene un ancho fijo por hora y se desliza, en vez de
+// apretar varios días en el ancho de la pantalla. Puras.
+function _prgInter(A,B){const out=[];(A||[]).forEach(x=>(B||[]).forEach(y=>{const a=Math.max(x.a,y.a),z=Math.min(x.z,y.z);if(z>a)out.push({a,z});}));return out.sort((p,q)=>p.a-q.a);}
+function _prgEscala(t0,t1,cortes,keepMs){
+  const K=(cortes||[]).map(c=>({a:Math.max(c.a,t0),z:Math.min(c.z,t1)})).filter(c=>c.z-c.a>keepMs*2).sort((p,q)=>p.a-q.a);
+  const P=[[t0,0]];let u=0,c=t0;
+  K.forEach(k=>{u+=k.a-c;P.push([k.a,u]);u+=keepMs;P.push([k.z,u]);c=k.z;});
+  u+=t1-c;P.push([t1,u]);const tot=u||1;
+  const U=t=>{if(t<=t0)return 0;if(t>=t1)return tot;for(let i=1;i<P.length;i++){if(t<=P[i][0]){const a=P[i-1],b=P[i];return b[0]>a[0]?a[1]+(t-a[0])/(b[0]-a[0])*(b[1]-a[1]):a[1];}}return tot;};
+  const inv=p=>{const x=Math.max(0,Math.min(1,p))*tot;for(let i=1;i<P.length;i++){if(x<=P[i][1]){const a=P[i-1],b=P[i];return b[1]>a[1]?a[0]+(x-a[1])/(b[1]-a[1])*(b[0]-a[0]):b[0];}}return t1;};
+  return {X:t=>U(t)/tot*100,inv,horas:tot/3600000,cortes:K};
+}
 function _prgParadas(t0,t1,tipo){
   const trab=[];const d=new Date(t0);d.setHours(0,0,0,0);let g=0;
   while(d.getTime()<t1&&g++<40){try{_jorIntervalosDia(d,tipo).forEach(iv=>trab.push({a:iv.ini.getTime(),z:iv.fin.getTime()}));}catch(e){}d.setDate(d.getDate()+1);}
@@ -54310,7 +54323,12 @@ function renderPrograma(){
   _prgInit();
   let B,E;try{B=_prgBase();E=_prgEsc();}catch(e){w.innerHTML='<div class="alert alert-err">No se pudo calcular el programa: '+escapeHtml(e.message)+'</div>';return;}
   const ahora=Date.now();const t0=ahora-2*3600000,t1=ahora+PRG.horas*3600000;const span=t1-t0;
-  const X=t=>Math.max(0,Math.min(100,(t-t0)/span*100));
+  // 23b: escala plegada (planta parada) + ancho fijo por hora con deslizamiento
+  const OFF={oe:_prgParadas(t0,t1,'extrusion'),oc:_prgParadas(t0,t1,'corte')};
+  const ESC=_prgEscala(t0,t1,_prgInter(OFF.oe,OFF.oc),1.5*3600000);
+  const X=ESC.X;
+  const PXH=PRG.horas<=24?0:PRG.horas<=48?40:PRG.horas<=96?32:26;   // px por hora de trabajo; «Hoy» entra entero en la pantalla
+  const trkPx=PXH?Math.max(900,Math.round(ESC.horas*PXH)):1000;
   const hfmt=h=>_durTxt(h);
   // ---- impacto ----
   let h='<div class="prg-imp'+(PRG.dirty?' on':'')+'">'
@@ -54339,7 +54357,7 @@ function renderPrograma(){
   // 22o: ocupación de cada máquina en el horizonte (horas de órdenes ÷ horas de jornada que quedan) y el cuello de botella
   const hsJor={oe:hsLaboralesEntre(new Date(ahora),new Date(t1),'extrusion'),oc:hsLaboralesEntre(new Date(ahora),new Date(t1),'corte')};
   rows.forEach(r=>{const S=r.tipo==='oe'?E.R:E.RC;const src=r.tipo==='oe'?C.ordenes:C.ord_corte;let hs=0;
-    src.forEach(o=>{const x=S[o.id];if(!x||!x.fin||!_prgMaqsDe(r.tipo,o).some(m=>String(m)===String(r.id)))return;const a=new Date(r.tipo==='oe'&&x.porMaq&&x.porMaq[r.id]?x.porMaq[r.id].ini:x.ini).getTime(),z=new Date(x.fin).getTime();(r.tipo==='oc'&&Array.isArray(x.seg)&&x.seg.length?_prgPartes(x.seg,r.id,a,z):[{a,z}]).forEach(p=>{hs+=Math.max(0,Math.min(p.z,t1)-Math.max(p.a,ahora))/3600000;});});
+    src.forEach(o=>{const x=S[o.id];if(!x||!x.fin||!_prgMaqsDe(r.tipo,o).some(m=>String(m)===String(r.id)))return;const a=new Date(r.tipo==='oe'&&x.porMaq&&x.porMaq[r.id]?x.porMaq[r.id].ini:x.ini).getTime(),z=new Date(x.fin).getTime();(r.tipo==='oc'&&Array.isArray(x.seg)&&x.seg.length?_prgPartes(x.seg,r.id,a,z):[{a,z}]).forEach(p=>{const pa=Math.max(p.a,ahora),pz=Math.min(p.z,t1);if(pz>pa)hs+=r.tipo==='oe'?hsLaboralesEntre(new Date(pa),new Date(pz),'extrusion'):(pz-pa)/3600000;});});
     const J=hsJor[r.tipo];r.ocup=J>0?Math.min(100,hs/J*100):null;r.ocupT=Math.round(hs)+' h de órdenes en '+Math.round(J)+' h de jornada del horizonte';});
   ['oe','oc'].forEach(t=>{const top=rows.filter(r=>r.tipo===t&&r.ocup!=null).sort((a,b)=>b.ocup-a.ocup)[0];if(top&&top.ocup>=60)top.cuello=true;});
   // 22o: quién atiende (motor fino): un color por cortador
@@ -54349,8 +54367,10 @@ function renderPrograma(){
   let ticks='';const paso=PRG.horas<=24?1:PRG.horas<=48?3:PRG.horas<=96?6:12;
   const d0=new Date(t0);d0.setMinutes(0,0,0);
   for(let t=d0.getTime();t<=t1;t+=3600000){const d=new Date(t);if(t<t0)continue;const hh=d.getHours();
+    if(ESC.cortes.some(c=>t>c.a&&t<=c.z))continue;   // 23b: dentro de la planta parada no hay marcas
     if(hh===0)ticks+='<div class="prg-day" style="left:'+X(t)+'%"><span>'+d.toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'})+'</span></div>';
     else if(hh%paso===0)ticks+='<div class="prg-tick" style="left:'+X(t)+'%"><span>'+String(hh).padStart(2,'0')+'</span></div>';}
+  ESC.cortes.forEach(c=>{const d=new Date(c.z);ticks+='<div class="prg-day" style="left:'+X(c.z)+'%"><span>'+d.toLocaleDateString('es-AR',{weekday:'short',day:'2-digit',month:'2-digit'})+' '+String(d.getHours()).padStart(2,'0')+' h</span></div>';});
   const congW=X(ahora+24*3600000)-X(ahora);
   // ---- barras ----
   const sel=PRG.sel;let selCadena=new Set();
@@ -54359,7 +54379,6 @@ function renderPrograma(){
       if(sel.tipo==='oe')(C.ord_corte||[]).forEach(oc=>{if(_oesDeOC(oc).some(x=>x.id===so.id))selCadena.add('oc:'+oc.id);});
       else _oesDeOC(so).forEach(x=>selCadena.add('oe:'+x.id));}}
   const pos={};   // posiciones para las líneas de la cadena
-  const OFF={oe:_prgParadas(t0,t1,'extrusion'),oc:_prgParadas(t0,t1,'corte')};   // 23a
   const sinCerrar=new Set();let hayPartes=false;   // 22z
   let body='';
   rows.forEach((r,ri)=>{
@@ -54379,7 +54398,7 @@ function renderPrograma(){
     bars2.sort((a,b)=>a.ini-b.ini).forEach((b,bi,BB)=>{
       const l=X(Math.max(b.ini,t0));const nx=BB[bi+1];
       // 23a: una barra angosta no se monta sobre la que sigue
-      const wd=Math.max(0.12,Math.min(Math.max(0.6,X(b.fin)-l),nx?Math.max(0.12,X(Math.max(nx.ini,t0))-l):100));const mini=wd<2.6;
+      const minP=3/trkPx*100;const wd=Math.max(minP,Math.min(Math.max(minP,X(b.fin)-l),nx?Math.max(minP,X(Math.max(nx.ini,t0))-l):100));const bpx=wd/100*trkPx;const mini=bpx<92,mudo=bpx<24;
       const est=r.tipo==='oe'?_prgEstOE(b.o,E):(E.ocEst[b.o.id]||{}).tipo;
       const k=r.tipo+':'+b.o.id;const on=selCadena.has(k);
       const enP=b.o.estado==='En proceso';
@@ -54388,13 +54407,13 @@ function renderPrograma(){
       const durH=r.tipo==='oe'?hsLaboralesEntre(new Date(Math.max(b.ini,ahora)),new Date(b.fin),'extrusion'):(b.fin-Math.max(b.ini,ahora))/3600000;
       const prod=r.tipo==='oe'?(b.o.bobinas?((b.o.bobinas.nombre||'')+' · '+(b.o.bobinas.descripcion||'')):''):(()=>{const p=b.o.productos||(C.productos||[]).find(x=>x.id===b.o.producto_id)||{};return (p.codigo?p.codigo+' · ':'')+(p.descripcion||'');})();
       bh+='<div class="prg-bar '+(est||'n')+(enP?' ep':' drag')+(on?' sel':'')+(sel&&!on?' dim':'')+(b.s.mpLlega?' mp':'')+(mini?' mini':'')+'" style="left:'+l+'%;width:'+wd+'%" data-tipo="'+r.tipo+'" data-id="'+b.o.id+'" data-maq="'+r.id+'" data-ep="'+(enP?1:0)+'" title="'+escapeHtml((b.o.numero_orden||'')+' · '+(b.o.cliente||'')+' · '+prod+' · '+_prgHm(b.ini)+' → '+_prgHm(b.fin)+(b.partes>1?' · parte '+(b.parte+1)+' de '+b.partes+' (la orden termina '+_prgHm(b.finTot)+'; en el medio espera bobina o cortador)':''))+'">'
-        +(mini?'<b>'+escapeHtml(String(b.o.numero_orden||'').replace(/^.*?(\d{3})$/,'$1'))+'</b>':'<b>'+(b.parte>0?'↪ ':'')+escapeHtml(b.o.numero_orden||'')+'</b> '+escapeHtml(cli)+' <i>'+_durTxt(Math.max(0,durH))+(b.partes>1?' · '+(b.parte+1)+'/'+b.partes:'')+'</i>')
+        +(mudo?'':mini?'<b>'+escapeHtml(String(b.o.numero_orden||'').replace(/^.*?(\d{3})$/,'$1'))+'</b>':'<b>'+(b.parte>0?'↪ ':'')+escapeHtml(b.o.numero_orden||'')+'</b> '+escapeHtml(cli)+' <i>'+_durTxt(Math.max(0,durH))+(b.partes>1?' · '+(b.parte+1)+'/'+b.partes:'')+'</i>')
         +(r.tipo==='oc'&&Array.isArray(b.s.seg)&&b.fin>b.ini?b.s.seg.filter(sg=>String(sg.maq)===String(r.id)&&pCol[sg.emp]&&sg.z>b.ini+1000&&sg.a<b.fin-1000).map(sg=>'<span class="prg-pp" title="'+escapeHtml(pNom[sg.emp]||'')+' '+_gpHm(sg.a)+'–'+_gpHm(sg.z)+'" style="left:'+Math.max(0,(sg.a-b.ini)/(b.fin-b.ini)*100)+'%;width:'+Math.max(1,(sg.z-sg.a)/(b.fin-b.ini)*100)+'%;background:'+pCol[sg.emp]+'"></span>').join(''):'')+'</div>';
       (pos[k]=pos[k]||[]).push({row:ri,x0:l,x1:l+wd});
     });
     body+='<div class="prg-row'+(r.tipo==='oc'&&ri>0&&rows[ri-1].tipo==='oe'?' sep':'')+'" style="height:'+RH+'px"><div class="prg-lab"><div>'+escapeHtml(r.nom)+(r.cuello?' <span class="prg-cue" title="La máquina más cargada de su proceso en este horizonte: lo que se atrase acá atrasa las entregas">cuello</span>':'')+'</div>'
       +(r.ocup!=null?'<div class="prg-oc" title="'+escapeHtml(r.ocupT)+'"><i style="width:'+Math.round(r.ocup)+'%;background:'+(r.ocup>=90?'#c23030':r.ocup>=70?'#a35d00':'#2f5bea')+'"></i></div><small>'+Math.round(r.ocup)+' % ocupada</small>':'')+'</div><div class="prg-trk">'+bh
-      +OFF[r.tipo].map(f=>{const fl=X(f.a),fw=X(f.z)-fl;return fw>0.15?'<div class="prg-off" style="left:'+fl+'%;width:'+fw+'%" title="'+(r.tipo==='oe'?'Planta parada':'Sin turno de corte')+': '+_prgHm(f.a)+' → '+_prgHm(f.z)+'. Las barras que cruzan esta franja no trabajan acá: siguen cuando se vuelve.">'+(fw>7?(r.tipo==='oe'?'planta parada':'sin turno de corte'):'')+'</div>':'';}).join('')
+      +OFF[r.tipo].map(f=>{const fl=X(f.a),fw=X(f.z)-fl;return fw>0.15?'<div class="prg-off" style="left:'+fl+'%;width:'+fw+'%" title="'+(r.tipo==='oe'?'Planta parada':'Sin turno de corte')+': '+_prgHm(f.a)+' → '+_prgHm(f.z)+'. Las barras que cruzan esta franja no trabajan acá: siguen cuando se vuelve.">'+(fw/100*trkPx>96?(r.tipo==='oe'?'planta parada':'sin turno de corte'):'')+'</div>':'';}).join('')
       +'</div></div>';
   });
   // líneas OE → OC (fin de la OE → inicio de la OC)
@@ -54408,13 +54427,13 @@ function renderPrograma(){
   h+='<div class="card vel-c prg-card"><div class="prg-bar-top"><div class="vel-ct" style="margin:0">Programa · '+(PRG.horas<=24?'próximas 24 h':PRG.horas<=48?'hoy y mañana':PRG.horas/24+' días')+'</div>'
     +'<div class="cap-seg">'+[[24,'Hoy'],[48,'48 h'],[96,'4 días'],[168,'Semana']].map(([v,l])=>'<button type="button" class="'+(PRG.horas===v?'on':'')+'" onclick="PRG.horas='+v+';PRG.base=null;renderPrograma()">'+l+'</button>').join('')+'</div>'
     +'<span class="prg-ley"><i class="ok"></i>a tiempo <i class="riesgo"></i>en riesgo <i class="atrasada"></i>atrasada <i class="n"></i>sin fecha / stock <i class="ep"></i>en proceso · 🔒 próximas 24 h</span></div>'
-    +'<div class="prg-tl"><div class="prg-axis"><div class="prg-lab"></div><div class="prg-trk">'+ticks+'</div></div>'
+    +'<div class="prg-tl" style="--prgw:'+(PXH?trkPx+128:900)+'px"><div class="prg-axis"><div class="prg-lab"></div><div class="prg-trk">'+ticks+'</div></div>'
     +'<div class="prg-rows" style="position:relative">'+body
       +'<div class="prg-ovl"><div class="prg-cong" style="left:'+X(ahora)+'%;width:'+congW+'%"><span>🔒 congelado 24 h</span></div><div class="prg-now" style="left:'+X(ahora)+'%"></div>'
       +'<svg class="prg-svg" viewBox="0 0 1000 '+H+'" preserveAspectRatio="none" style="height:'+H+'px">'+svg+'</svg></div>'
     +'</div></div>'
     +(Object.keys(pCol).length?'<div class="prg-quien"><b>Quién atiende cada cortadora</b> (motor fino, según el Rol): '+Object.keys(pCol).map(k=>'<span><i style="background:'+pCol[k]+'"></i>'+escapeHtml(pNom[k]||'')+'</span>').join('')+'<span class="dk-mut">— franja de color al pie de cada barra de corte</span></div>':'')
-    +((OFF.oe.length||OFF.oc.length)?'<div class="dk-mut" style="font-size:11.5px;margin-top:6px"><span style="display:inline-block;width:22px;height:10px;vertical-align:-1px;border:1px solid #c8cdd6;background:repeating-linear-gradient(135deg,#e2e5eb,#e2e5eb 4px,#f3f4f7 4px,#f3f4f7 8px)"></span> franja rayada = no se trabaja (según la jornada cargada). Una barra que la cruza no trabaja ahí: la duración que muestra es de horas de trabajo. En las barras angostas se ve sólo el final del número; el detalle sale al pasar el mouse o tocarla.</div>':'')
+    +((OFF.oe.length||OFF.oc.length)?'<div class="dk-mut" style="font-size:11.5px;margin-top:6px"><span style="display:inline-block;width:22px;height:10px;vertical-align:-1px;border:1px solid #c8cdd6;background:repeating-linear-gradient(135deg,#e2e5eb,#e2e5eb 4px,#f3f4f7 4px,#f3f4f7 8px)"></span> franja rayada = no se trabaja (según la jornada cargada); cuando para toda la planta la franja se pliega a una tira angosta para no gastar pantalla. La duración de cada barra es de horas de trabajo.'+(PXH?' <b>↔ Deslizá hacia la derecha</b> para ver los días que siguen: la escala es fija para que cada orden se lea.':'')+' Las órdenes muy cortas se ven como un bloque de color (o el final del número): el detalle sale al pasar el mouse o tocarla. Para leer todas, usá «Hoy».</div>':'')
     +(hayPartes?'<div class="dk-mut" style="font-size:11.5px;margin-top:6px"><b>↪</b> la misma orden sigue más tarde (1/2, 2/2): en el medio espera bobina de extrusión o no hay cortador en esa máquina, y mientras tanto entra otra.</div>':'')
     +(sinCerrar.size?'<div class="dk-mut" style="font-size:11.5px;margin-top:6px">✂ Ya cortadas, esperan el cierre (no ocupan cortadora): '+escapeHtml([...sinCerrar].join(' · '))+'</div>':'')
     +(vacias.length||fuera.length?'<div class="dk-mut" style="font-size:11.5px;margin-top:6px">'+(vacias.length?'Sin órdenes en este horizonte: '+escapeHtml(vacias.join(' · ')):'')+(fuera.length?(vacias.length?' · ':'')+'<span style="color:#c23030">🔧 Fuera de servicio: '+escapeHtml(fuera.join(' · '))+'</span>':'')+'</div>':'')+'</div>';
@@ -54454,7 +54473,7 @@ function renderPrograma(){
     }
   }
   w.innerHTML=h;
-  PRG.t0=t0;PRG.span=span;
+  PRG.t0=t0;PRG.span=span;PRG.inv=ESC.inv;
   _prgDragInit(w);
 }
 // 05e · ARRASTRAR sobre el tablero (German: «el punto 1»): se arrastra una barra pendiente a lo largo de SU
@@ -54478,7 +54497,7 @@ function _prgDragInit(w){
         const dentro=e.clientY>=rect.top-10&&e.clientY<=rect.bottom+10;
         if(!dentro){toast('Para cambiarla de máquina usá «✎ Editar orden» en su detalle','amber');renderPrograma();return;}
         const xPct=Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width));
-        prgSoltar(tipo,id,el.dataset.maq,PRG.t0+xPct*PRG.span);
+        prgSoltar(tipo,id,el.dataset.maq,PRG.inv?PRG.inv(xPct):PRG.t0+xPct*PRG.span);
       };
       el.addEventListener('pointermove',mover);el.addEventListener('pointerup',soltar);el.addEventListener('pointercancel',soltar);
     });
