@@ -18,3 +18,13 @@ A(_prgEscala(0,10*H,[{a:2*H,z:4*H}],1.5*H).cortes.length===0,'parada corta no se
 const I=_prgInter([{a:0,z:10},{a:20,z:30}],[{a:5,z:25}]);A(I.length===2&&I[0].a===5&&I[0].z===10&&I[1].a===20&&I[1].z===25,'intersección');
 A(/PRG\.inv\?PRG\.inv\(xPct\)/.test(src)&&/--prgw:/.test(src)&&/position:sticky;left:0/.test(src),'arrastre con la escala nueva, ancho fijo y nombres fijos');
 console.log(f?('FALLÓ '+f):'OK prg_escala');process.exit(f?1:0);
+// 23d: lupa
+{const i=src.indexOf('function _prgPxHora(');const fn=new Function(src.slice(i,src.indexOf('\n',i))+';return _prgPxHora;')();
+ let g=0;const B=(c,m)=>{if(!c){g++;console.log('✗ '+m);}};
+ B(fn(24,1)===230&&fn(48,1)===120&&fn(96,1)===32&&fn(168,1)===26,'escala base por vista');
+ B(fn(24,2)===460&&fn(48,0.5)===60,'la lupa multiplica');
+ B(fn(24,1)*20/60>=74,'una orden de 20 min en «Hoy» muestra el número completo');
+ B(fn(48,1)*20/60>=24,'y en 48 h al menos el final del número');
+ B(/if\(!on&&sel\)return;/.test(src),'las líneas punteadas se dibujan todas si no hay selección');
+ B(/PRG\._sk===_sk\)_tl1\.scrollLeft=_sx/.test(src),'conserva el deslizamiento');
+ if(g){console.log('FALLÓ lupa '+g);process.exit(1);}console.log('OK lupa');}
