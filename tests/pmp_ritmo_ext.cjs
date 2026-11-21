@@ -15,7 +15,12 @@ A(Math.abs(b.nuevas[0].r-18*b.ratio)<1e-9&&b.ratio>0.5&&b.ratio<0.7,'estimada = 
 const c=_pmpRitmoExt(tres.concat([{id:2,kg:1300,dias:5,ficha:18}]),H,5);A(c.nEst===4&&c.nuevas.length===0,'con 5 días ya es medida');
 // sin historia de nadie no rompe
 const d=_pmpRitmoExt([{id:2,kg:100,dias:1,ficha:18}],H,5);A(d.rE>0&&isFinite(d.rE),'sin máquinas con historia: cae al cálculo simple');
-A(/const hExt28=hMaq28\*Math\.max\(1,RX\.nEst\);const rE=RX\.rE;/.test(src),'el plan usa el ritmo nuevo');
+A(/const hExt28=hMaq28\*Math\.max\(1,RX\.nEst\);let rE=RX\.rE;/.test(src)&&/RX=_pmpRitmoExt\(_maqsE,hMaq28,5,usoN\);rE=RX\.rE;/.test(src),'el plan usa el ritmo nuevo');
+// 23f: con el uso de la planta, la máquina vieja vale su ficha × uso (German: la EXT-02 hace ~18 kg/h)
+const u=_pmpRitmoExt(tres.concat([{id:2,nom:'EXT-02',kg:150,dias:1,ficha:18}]),H,5,0.85);
+A(Math.abs(u.nuevas[0].r-15.3)<1e-9,'EXT-02 = 18 × 85 % = 15,3 kg por hora de jornada: '+u.nuevas[0].r);
+A(u.medidas.length===3&&Math.abs(u.medidas[0].r-20)<1e-9,'ritmo medido por máquina');
 A(/✅ hecha · en marcha/.test(src)&&/ya está hecha<\/b>: esa extrusora está en marcha/.test(src),'la acción ejecutada se muestra como hecha');
 A(/usoTxt='estimada'/.test(src),'el Plan de recursos estima la recién arrancada');
+A(/const usoN=0\.85;RX=_pmpRitmoExt/.test(src),'uso de la máquina sin historia: 85 %');
 console.log(f?('FALLÓ '+f):'OK pmp_ritmo_ext');process.exit(f?1:0);

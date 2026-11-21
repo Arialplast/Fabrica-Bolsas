@@ -1,5 +1,7 @@
 // 13g: balance puro del plan de mediano plazo
 const fs=require('fs');const src=fs.readFileSync(process.argv[2],'utf8');
+// 23f: _pmpEfectos consulta el estado de cada acción
+{const i=src.indexOf('const PMP_EST=');(0,eval)(src.slice(i,src.indexOf('// Pura: acciones → efecto por semana',i)).replace(/^const /gm,'var '));}
 const m=src.match(/function _pmpBalance\(S,wip0\)\{[\s\S]*?\n\}/);if(!m){console.error('no _pmpBalance');process.exit(1);}
 const _pmpBalance=eval('('+m[0]+')');let ok=0;const A=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}ok++;};
 const near=(a,b)=>Math.abs(a-b)<1e-6;
