@@ -27,6 +27,14 @@ const cargas=(D.ocb||[]).filter(c=>CVV.maqs.includes(c.maquina_id)).map(c=>Objec
 const esSinEsc=c=>c.origen==='manual'&&sinEsc.some(s=>s.oc.includes(ocNum(c.orden_corte_id))&&c.t>=new Date(s.desde).getTime()&&c.t<new Date(s.hasta).getTime());
 const turnos=_cvvTurnos(D.fich||[],HASTA);
 const tandas=_cvvAsignar(TD.map(t=>Object.assign({ti:new Date(t.inicio).getTime(),tf:new Date(t.fin).getTime()},t)),cargas,ocs,turnos);
+// Golpes sin dueño fichado: el que escaneó la bobina ya se fue y el MES se los da al último fichado que escaneó en esa
+// máquina, aunque esté cortando en otra (16/11 15:07–16:41: la C1 siguió con la bobina de Celia y el MES se lo dio a
+// Sergio, que estaba en la C2). Acá: si hay un solo cortador fichado que no estaba cortando en otra máquina (±10 min),
+// los golpes son suyos. Si no hay uno solo, queda como lo asigna el MES.
+const directa=td=>td.carga&&td.carga.empleado_id!=null&&td.emp===td.carga.empleado_id&&_cvvFichado(turnos,td.emp,td.ti);
+tandas.forEach(td=>{if(td.sin_hora||directa(td))return;
+  const cand=Object.keys(CFG.cortadores).filter(o=>_cvvFichado(turnos,o,td.ti)&&!tandas.some(x=>directa(x)&&String(x.emp)===o&&x.maquina!==td.maquina&&x.ti<=td.tf+600000&&x.tf>=td.ti-600000));
+  if(cand.length===1&&String(td.emp)!==cand[0]){td.emp=+cand[0];td.fichado=true;td.reasignada=true;}});
 const ocsR=_cvvOCs(tandas,cargas,ocs);const ocPor={};ocsR.forEach(o=>ocPor[o.id]=o);
 // huecos del registrador (ninguna cortadora con golpes > 3 h)
 const fins=tandas.map(t=>t.tf).sort((x,y)=>x-y);const huecos=[];
@@ -39,10 +47,13 @@ for(const e of Object.keys(CFG.cortadores)){(turnos[e]||[]).forEach(([ta,tz])=>{
   let bolsas=0;tds.forEach(t=>{const o=ocPor[t.oc];if(o&&o.pistas)bolsas+=t.golpes*o.pistas;});
   const cs=cargas.filter(c=>String(c.empleado_id)===e&&c.t>=ta-3600000&&c.t<=tz);
   // paradas: cambio de bobina si se escaneó una bobina en esa cortadora durante la parada o hasta 5 min después
+  const JW=(AJ.parada_justificada||[]).filter(x=>/^C\d+$/.test(x.maq)&&tds.some(t=>String(t.maquina)===x.maq.slice(1)))
+    .map(x=>({a:new Date(x.desde).getTime(),z:new Date(x.desde).getTime()+x.minutos*60000,motivo:x.motivo})).filter(w=>w.a<tz&&w.z>ta);
+  const justOv=(g0,g1)=>JW.reduce((s,w)=>s+Math.max(0,Math.min(g1,w.z)-Math.max(g0,w.a)),0);
   const runs=_cvvCorridas(tds,null);const P=[];
   for(let i=1;i<runs.length;i++){const g0=runs[i-1].z,g1=runs[i].a,min=(g1-g0)/60000;if(min<=CVV_PAUSA_MIN)continue;
     const mq=[runs[i-1].maq,runs[i].maq];const sc=cargas.filter(c=>mq.includes(c.maquina_id)&&c.t>=g0-60000&&c.t<=g1+300000);
-    P.push({min,larga:min>CVV_LARGA_MIN,cambio:sc.length>0});}
+    P.push({min,larga:min>CVV_LARGA_MIN,cambio:sc.length>0,g0,g1});}
   let excl=null;
   if(ta<corteDesde)excl='el registrador de golpes todavía no funcionaba';
   huecos.forEach(([h0,h1])=>{const ov=Math.min(h1,tz)-Math.max(h0,ta);if(!(ov>3*3600000&&ov>0.4*(tz-ta)))return;
@@ -58,7 +69,17 @@ for(const e of Object.keys(CFG.cortadores)){(turnos[e]||[]).forEach(([ta,tz])=>{
     sinEsc:conOrigen?cs.filter(esSinEsc).length:null,
     cbN:P.filter(p=>p.cambio&&!p.larga).length,cbT:P.filter(p=>p.cambio&&!p.larga).reduce((s,p)=>s+p.min,0),cbL:P.filter(p=>p.cambio&&!p.larga).map(p=>p.min),
     ocN:P.filter(p=>!p.cambio&&!p.larga).length,ocT:P.filter(p=>!p.cambio&&!p.larga).reduce((s,p)=>s+p.min,0),
-    largas:O?O.largas.map(l=>({a:hhmm(l.a),z:hhmm(l.z),min:Math.round((l.z-l.a)/60000)})):[]});});}
+    largas:O?O.largas.filter(l=>!(l.z-l.a-justOv(l.a,l.z)<=CVV_LARGA_MIN*60000)).map(l=>({a:hhmm(l.a),z:hhmm(l.z),min:Math.round((l.z-l.a-justOv(l.a,l.z))/60000)})):[]});
+  // parada justificada de una cortadora (ajustes.json, maq «C1»/«C2»): el tiempo sin golpes dentro de la ventana
+  // no es del operario: se saca del fichado y de las paradas (como salida_tope), así el % cortando y golpes/h no se inflan
+  const r=out[out.length-1];
+  if(JW.length){let J=0;
+    P.forEach(p=>{const ov=justOv(p.g0,p.g1);if(!ov)return;J+=ov;const m=ov/60000;
+      if(p.larga){r.larga-=m;if(p.min-m<=CVV_LARGA_MIN)r.nLarga-=1;}
+      else if(p.cambio){r.cbT-=m;if(p.min-m<=CVV_PAUSA_MIN){r.cbN-=1;r.cbL=r.cbL.filter(x=>x!==p.min);}}
+      else{r.ocT-=m;if(p.min-m<=CVV_PAUSA_MIN)r.ocN-=1;}});
+    r.larga=Math.max(0,r.larga);r.fich-=J/60000;r.just=J/60000;r.justMotivo=JW.map(w=>w.motivo).join('; ');}
+  });}
 // cierres de OC completadas en el período
 // corte_restos (MES 27c): restos de bobina pasados a otra pista; sin esta tabla el cierre da SOBRAN falsos (OC-1053017)
 if(D.restos===undefined){console.error('FALTA corte_restos en datos.json: correr sql/datos.sql actualizado');process.exit(1);}

@@ -82,6 +82,7 @@ Correcciones que dio German y que el cálculo aplica solo:
 - `fichaje_sobra`: `{"emp": 2, "fecha": "AAAA-MM-DD", "hora": "15:09", "motivo": "..."}` — fichaje repetido que se saca antes de armar los turnos (si no, corre el par y arma un turno falso).
 - `excluir_turno`: `{"emp": 1, "fecha": "AAAA-MM-DD", "motivo": "..."}`.
 - `parada_justificada`: `{"maq": "EXT-03", "desde": "AAAA-MM-DDTHH:MM:00-03:00", "minutos": 29, "motivo": "..."}` — minutos de máquina parada que German dio por causa técnica (ej. corte de film); se suman como «produciendo» en el turno que contiene `desde`.
+  En corte, `maq` = `C1`/`C2`: el tiempo sin golpes de esa cortadora dentro de la ventana se saca del fichado y de las paradas del operario (no se suma a «cortando», para no inflar golpes por hora).
 Si German da una corrección nueva, agregarla acá, commitear y volver a calcular.
 
 Si `calc` imprime `ERROR cierre` o `FALTA corte_restos`, no publicar: algo de la consulta o del MES cambió y
@@ -90,7 +91,7 @@ sin ella, OC-1053017 daba «sobran 780» cuando sobraban 122).
 
 ## Cómo se mide (resumen)
 
-- Corte: mismas reglas que «Corte en vivo» del MES (`fabrica_bolsas_v6.html`). Cortando = tiempo con
+- Corte: mismas reglas que «Corte en vivo» del MES (`fabrica_bolsas_v6.html`). Única diferencia: golpes de una bobina cuyo dueño ya no está fichado van al único cortador fichado que no estaba cortando en otra máquina (±10 min); el MES se los da al último que escaneó en esa máquina aunque esté en otra (16/11: C1 15:07–16:41 era de Braian, no de Sergio). Cortando = tiempo con
   golpes (pausas < 3 min cuentan). Parada «cambio de bobina» = se escaneó una bobina en esa cortadora
   durante la parada o hasta 5 min después. Paradas cortas 3–20 min, largas > 20 min.
 - Un turno de corte no cuenta si ninguna cortadora dio golpes > 3 h con dos cortadores fichados
