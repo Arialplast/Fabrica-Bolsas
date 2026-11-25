@@ -2189,6 +2189,12 @@ td.dk-red{color:var(--red);font-weight:500;}
 #page-nuevo-pago table.np-t tr.ck:hover td{background:#fafbfc;}
 #page-nuevo-pago table.np-t tr.ck.sel:hover td{background:#eef2ff;}
 #page-nuevo-pago table.np-t tfoot td{background:#fafbfc;font-weight:600;border-bottom:0;}
+#page-nuevo-pago .np-done{margin-top:18px;padding:34px 24px;text-align:center;}
+#page-nuevo-pago .np-ok{width:46px;height:46px;border-radius:99px;background:#e9f6ef;color:var(--green);font-size:24px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;}
+#page-nuevo-pago .np-done h3{margin:12px 0 6px;font-size:18px;font-weight:600;letter-spacing:-.01em;}
+#page-nuevo-pago .np-done-s{font-size:13.5px;color:var(--text2);margin-top:4px;}
+#page-nuevo-pago .np-done-b{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:20px;}
+#page-nuevo-pago .np-done-b .btn{min-height:40px;padding:0 16px;font-size:13.5px;}
 #page-nuevo-pago .r{text-align:right;white-space:nowrap;}
 #page-nuevo-pago table.np-t td.nw,#page-nuevo-pago table.np-t td.mono{white-space:nowrap;}
 #page-nuevo-pago .np-dif.wa{background:#fff4e0;} #page-nuevo-pago .np-dif.wa .v{color:var(--amber);}
@@ -2404,7 +2410,7 @@ td.pr-c.pr-pend{box-shadow:inset 0 0 0 2px #c98a0b;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-11-24b</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-11-25a</span></div>
     <!-- ⚡ 29a: accesos rápidos + buscador + más usados (bloque // ===== ⚡ ACCESOS RÁPIDOS) -->
     <div id="qa-wrap">
       <div id="qa-btns">
@@ -6368,6 +6374,7 @@ td.pr-c.pr-pend{box-shadow:inset 0 0 0 2px #c98a0b;}
       </div>
       <div class="np-info" id="npag-info"></div>
       <div class="np-empty" id="npag-empty">Elegí un proveedor para ver lo que le debés.</div>
+      <div class="np-card np-done" id="npag-done" style="display:none"></div>
       <div id="npag-wrap" class="np-grid" style="display:none;">
         <div>
           <section class="np-card np-sec">
@@ -8041,7 +8048,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-11-24b';   // 24b: Pago a proveedor rehecho en estilo claro pro — dos columnas (qué pagás / con qué pagás) y resumen fijo que dice si cierra; comprobantes tildables con vencimiento; «= Lo que falta» en efectivo; cheques con búsqueda y días al cobro. Antes 24a: 📦 el inventario de MP vencido ya NO bloquea la carga de bobinas (frenó al turno noche): aviso en planta + alerta al dueño en Inventario y Centro · Hoy con las bobinas cargadas desde que venció. Antes 23o: Proyección de caja — sueldos y cargas sociales separados; diferencias recibo↔pagado (Sueldos → Recibos, 💵 o ✔ Cerrar); lo vencido arranca en 8 semanas; IVA de los meses sin DDJJ estimado; caja por banco (débitos automáticos). Plan de 8 semanas: medición automática de acciones de clientes y horas; margen por kilo de cada cliente en las acciones comerciales. Antes 23n: 🧵 PISTAS MEDIDAS — Panel corte: cada pista muestra lo que mide su sensor (cortando / quieta / enhebrando, bolsas medidas) y un cartel si se cambió una bobina sin escanear o una pista no alimenta; si no hay datos del sensor sigue como antes · pantalla nueva «Control de corte · pistas» (dueño): estado en vivo de las 8 pistas, bolsas cortadas, disponibilidad, media máquina, sin bobina escaneada, línea de tiempo por pista, registro de alarmas, OC medido contra declarado y bobinas contra sus metros. Todo de lectura; no cambia ninguna decisión del panel. Antes 23m: 23m: un pedido nuevo entra al final de la cola (no con prioridad 1) — ya no desordena el Programa confirmado. Antes 23l: Plan de recursos — extrusión «22→» (desde las 22, arranque con el turno noche del lunes feriado), sin tocar la estructura de la tabla. Antes 23k: 23k: caja — la fecha de cobro sale de cómo cobra el cliente: pedido completo = cuando el Programa lo termina + plazo; factura mensual = día 5 del mes siguiente. Antes 23j: 23j: cómo cobra cada cliente (por entrega / con el pedido completo / factura mensual): se marca en la ficha o desde el Programa; el pedido muestra la plata trabada y la regla empuja a terminar esos pedidos. Antes 23i: 23i: Programa — ⚡ Priorizar pedidos: se marcan uno o varios pedidos (o un cliente) y «Ordenar por reglas» los pone primeros en corte y extrusión, en borrador y con el impacto a la vista. Antes 23h: 23h: Programa — cada orden con su pedido (etiqueta, resaltado de todas las medidas del pedido, avance «3 de 5 cortadas») y regla «terminar el pedido» en Ordenar por reglas. Antes 23g: 23g: extrusión — dos órdenes en proceso que comparten máquinas se programan cada una en la máquina que de verdad tiene (última bobina). Antes 23f: 23f: Plan de 8 semanas — cada acción con estado (propuesta → en marcha → hecha), responsable, fecha, resultado medido y objetivo del Plan de empresa; lo hecho deja de sumarse y pasa al historial; la máquina sin historia se estima con ficha × uso. Antes 23e: 23e: Plan de 8 semanas — la extrusora recién arrancada suma capacidad (ritmo por máquina con historia + estimación por ficha); la acción «poner en marcha» ya ejecutada se muestra como HECHA; Plan de recursos estima la máquina nueva. Antes 23d: 23d: Programa — lupa (− / +) y escala más grande en Hoy y 48 h para leer las órdenes cortas; vuelven las líneas punteadas OE → OC; no se pierde el deslizamiento al tocar una orden. Antes 23c: 23c: Programa — las líneas OE → OC sólo para la orden tocada. Antes 23b: 23b: Programa con escala de programador de planta: ancho fijo por hora y deslizamiento, planta parada plegada, etiquetas sólo donde entran. Antes 23a: 23a: Programa — franja rayada donde no se trabaja (fin de semana, feriados), duración en horas de trabajo, barras angostas legibles y sin montarse. Antes 22z: 22z: Programa — la orden de corte que se corta en partes se dibuja en partes (sin superponerse) y las ya cortadas que esperan cierre salen de la fila. Antes 22y: 22y: el programa de corte cuenta lo que ya está puesto en la cortadora: la máquina sigue ocupada hasta terminar de cortar las bobinas cargadas (antes la daba por libre y mandaba otra orden «ahora»). Antes 22x: 22x: lo entregado por renglón (derivador de remitos) cuenta también los renglones de remito sueltos del mismo producto y la carga histórica del campo viejo; revisados los demás lectores de «entregado». Antes 22w: 22w: un solo criterio de «qué frena» con los tres frenos (material, extrusión, corte): Plan de la semana los lista juntos y el Plan de mediano plazo marca la semana en que falta material. Antes 22v: 22v: Entregas queda sólo con «Cumplido»; salen «Lo que viene» (Torre) y «Plata por pedido»; los enlaces van a Centro → Compromisos; Qué producir / Plan de la semana / Plan de entregas pasan a Programa de producción. Antes 22u: 22u: Centro de producción → Compromisos: lo que falta entregar de cada pedido se calcula con los REMITOS (_alEntregadoPorLinea) y no con el campo viejo pedido_lineas.entregado, que estaba en 0 en 55 de 100 renglones abiertos y hacía figurar como pendiente lo ya entregado (DAG PED-06016: $19,8 M → $3,2 M). Antes 22t: el aviso «📦 bultos sin cargar» (que ya cubría las órdenes cortadas sin cerrar) ahora dice HACE CUÁNTO se terminó de cortar cada una (ámbar: más de un turno; rojo: más de un día), las ordena por espera y sube al Tablero de Dirección cuando alguna lleva más de un turno. No se crea otro aviso ni se toca _sbPendientes. Antes 22s: PARTE DIARIO DE CORTE con el mismo criterio que la adherencia — «cumplió la grilla» = se terminó de cortar en el día (marca del panel; sin marca, el cierre), no «se cerró»; columna nueva «Se cortó», el desvío es de corte contra grilla, y avisa cuántas cortadas en fecha siguen sin cerrar. La duración real de una OC (Órdenes de corte, detalle del Programa) también termina en el fin de corte. Antes 22r: ADHERENCIA DE CORTE BIEN MEDIDA — el fin real de una orden de corte es «Terminó de cortar» en el panel (_ocFinReal), no su cierre: la adherencia cargaba al corte la demora de la oficina en cerrar (daba 29 % en fecha; contra el fin de corte da ~79 %). Indicador nuevo «Del corte al cierre» (mediana, promedio, cuántas tardan más de un día) y lista de órdenes cortadas sin cerrar ahora. Extrusión: fin = última bobina siempre. La pantalla pasa a ser la pestaña «✅ ¿Se cumple?» del Programa de producción y entra al Mapa del sistema. Antes 22q: el motor fino arranca con cada cortador en la máquina donde realmente está (última bobina que cargó en el panel, 8 h) en vez de elegirla él; el panel de corte muestra la COLA DE TU MÁQUINA (en orden, con horario, material y quién la sigue en el cambio de turno) en vez de la lista por persona. Antes 22p: 🎈 INFLADOR EXT-03 — estado en vivo (sensor, válvula, intentos, alarma) y ajuste con perillas que el registrador pasa al PLC 2
+const APP_BUILD='2026-11-25a';   // 25a: orden de pago impresa (original y duplicado) — al registrar el pago queda la pantalla «pago registrado» con el botón de imprimir; también desde Proveedor 360°. Antes 24b: Pago a proveedor rehecho en estilo claro pro — dos columnas (qué pagás / con qué pagás) y resumen fijo que dice si cierra; comprobantes tildables con vencimiento; «= Lo que falta» en efectivo; cheques con búsqueda y días al cobro. Antes 24a: 📦 el inventario de MP vencido ya NO bloquea la carga de bobinas (frenó al turno noche): aviso en planta + alerta al dueño en Inventario y Centro · Hoy con las bobinas cargadas desde que venció. Antes 23o: Proyección de caja — sueldos y cargas sociales separados; diferencias recibo↔pagado (Sueldos → Recibos, 💵 o ✔ Cerrar); lo vencido arranca en 8 semanas; IVA de los meses sin DDJJ estimado; caja por banco (débitos automáticos). Plan de 8 semanas: medición automática de acciones de clientes y horas; margen por kilo de cada cliente en las acciones comerciales. Antes 23n: 🧵 PISTAS MEDIDAS — Panel corte: cada pista muestra lo que mide su sensor (cortando / quieta / enhebrando, bolsas medidas) y un cartel si se cambió una bobina sin escanear o una pista no alimenta; si no hay datos del sensor sigue como antes · pantalla nueva «Control de corte · pistas» (dueño): estado en vivo de las 8 pistas, bolsas cortadas, disponibilidad, media máquina, sin bobina escaneada, línea de tiempo por pista, registro de alarmas, OC medido contra declarado y bobinas contra sus metros. Todo de lectura; no cambia ninguna decisión del panel. Antes 23m: 23m: un pedido nuevo entra al final de la cola (no con prioridad 1) — ya no desordena el Programa confirmado. Antes 23l: Plan de recursos — extrusión «22→» (desde las 22, arranque con el turno noche del lunes feriado), sin tocar la estructura de la tabla. Antes 23k: 23k: caja — la fecha de cobro sale de cómo cobra el cliente: pedido completo = cuando el Programa lo termina + plazo; factura mensual = día 5 del mes siguiente. Antes 23j: 23j: cómo cobra cada cliente (por entrega / con el pedido completo / factura mensual): se marca en la ficha o desde el Programa; el pedido muestra la plata trabada y la regla empuja a terminar esos pedidos. Antes 23i: 23i: Programa — ⚡ Priorizar pedidos: se marcan uno o varios pedidos (o un cliente) y «Ordenar por reglas» los pone primeros en corte y extrusión, en borrador y con el impacto a la vista. Antes 23h: 23h: Programa — cada orden con su pedido (etiqueta, resaltado de todas las medidas del pedido, avance «3 de 5 cortadas») y regla «terminar el pedido» en Ordenar por reglas. Antes 23g: 23g: extrusión — dos órdenes en proceso que comparten máquinas se programan cada una en la máquina que de verdad tiene (última bobina). Antes 23f: 23f: Plan de 8 semanas — cada acción con estado (propuesta → en marcha → hecha), responsable, fecha, resultado medido y objetivo del Plan de empresa; lo hecho deja de sumarse y pasa al historial; la máquina sin historia se estima con ficha × uso. Antes 23e: 23e: Plan de 8 semanas — la extrusora recién arrancada suma capacidad (ritmo por máquina con historia + estimación por ficha); la acción «poner en marcha» ya ejecutada se muestra como HECHA; Plan de recursos estima la máquina nueva. Antes 23d: 23d: Programa — lupa (− / +) y escala más grande en Hoy y 48 h para leer las órdenes cortas; vuelven las líneas punteadas OE → OC; no se pierde el deslizamiento al tocar una orden. Antes 23c: 23c: Programa — las líneas OE → OC sólo para la orden tocada. Antes 23b: 23b: Programa con escala de programador de planta: ancho fijo por hora y deslizamiento, planta parada plegada, etiquetas sólo donde entran. Antes 23a: 23a: Programa — franja rayada donde no se trabaja (fin de semana, feriados), duración en horas de trabajo, barras angostas legibles y sin montarse. Antes 22z: 22z: Programa — la orden de corte que se corta en partes se dibuja en partes (sin superponerse) y las ya cortadas que esperan cierre salen de la fila. Antes 22y: 22y: el programa de corte cuenta lo que ya está puesto en la cortadora: la máquina sigue ocupada hasta terminar de cortar las bobinas cargadas (antes la daba por libre y mandaba otra orden «ahora»). Antes 22x: 22x: lo entregado por renglón (derivador de remitos) cuenta también los renglones de remito sueltos del mismo producto y la carga histórica del campo viejo; revisados los demás lectores de «entregado». Antes 22w: 22w: un solo criterio de «qué frena» con los tres frenos (material, extrusión, corte): Plan de la semana los lista juntos y el Plan de mediano plazo marca la semana en que falta material. Antes 22v: 22v: Entregas queda sólo con «Cumplido»; salen «Lo que viene» (Torre) y «Plata por pedido»; los enlaces van a Centro → Compromisos; Qué producir / Plan de la semana / Plan de entregas pasan a Programa de producción. Antes 22u: 22u: Centro de producción → Compromisos: lo que falta entregar de cada pedido se calcula con los REMITOS (_alEntregadoPorLinea) y no con el campo viejo pedido_lineas.entregado, que estaba en 0 en 55 de 100 renglones abiertos y hacía figurar como pendiente lo ya entregado (DAG PED-06016: $19,8 M → $3,2 M). Antes 22t: el aviso «📦 bultos sin cargar» (que ya cubría las órdenes cortadas sin cerrar) ahora dice HACE CUÁNTO se terminó de cortar cada una (ámbar: más de un turno; rojo: más de un día), las ordena por espera y sube al Tablero de Dirección cuando alguna lleva más de un turno. No se crea otro aviso ni se toca _sbPendientes. Antes 22s: PARTE DIARIO DE CORTE con el mismo criterio que la adherencia — «cumplió la grilla» = se terminó de cortar en el día (marca del panel; sin marca, el cierre), no «se cerró»; columna nueva «Se cortó», el desvío es de corte contra grilla, y avisa cuántas cortadas en fecha siguen sin cerrar. La duración real de una OC (Órdenes de corte, detalle del Programa) también termina en el fin de corte. Antes 22r: ADHERENCIA DE CORTE BIEN MEDIDA — el fin real de una orden de corte es «Terminó de cortar» en el panel (_ocFinReal), no su cierre: la adherencia cargaba al corte la demora de la oficina en cerrar (daba 29 % en fecha; contra el fin de corte da ~79 %). Indicador nuevo «Del corte al cierre» (mediana, promedio, cuántas tardan más de un día) y lista de órdenes cortadas sin cerrar ahora. Extrusión: fin = última bobina siempre. La pantalla pasa a ser la pestaña «✅ ¿Se cumple?» del Programa de producción y entra al Mapa del sistema. Antes 22q: el motor fino arranca con cada cortador en la máquina donde realmente está (última bobina que cargó en el panel, 8 h) en vez de elegirla él; el panel de corte muestra la COLA DE TU MÁQUINA (en orden, con horario, material y quién la sigue en el cambio de turno) en vez de la lista por persona. Antes 22p: 🎈 INFLADOR EXT-03 — estado en vivo (sensor, válvula, intentos, alarma) y ajuste con perillas que el registrador pasa al PLC 2
 // 06f: 🔗 ESTADO DEL PEDIDO CON EL MISMO PRODUCTO EN DOS LÍNEAS — el stock (por pedido+producto) se sumaba a cada línea: PED-06016 (DAG, 00123 × 400 + 400) daba 2.472 entregados de 2.000 → «cobrado parcial» y desaparecía de la lista de pedidos. Ahora se cuenta una vez por producto (_estadoOperativoPedido y % de avance de _pedidoInfoProduccion). Sin SQL. · 06d (previo):   // 06d: Corrección de $/kg de MP con revaluación — ✎ en la orden de compra revalúa stock y consumos del mes actual (costo real de bobinas/bolsas); lo consumido en meses cerrados no se reescribe: la diferencia entra al Resultado del mes como «Diferencia de precio de MP» (revaluaciones_mp, también registro de cada corrección). Antes 06c: Pago a proveedor — casilla «Aplicar recargo X % por cheques» (tildada si el proveedor cobra recargo; se puede destildar en ese pago). Antes 06b: Órdenes de compra MP — ✎ corregir el $/kg pactado de un renglón (y lo ya recibido de él). Antes 06a: ♻️ VENTA DE SCRAP (documento VS: comprador, kg por tipo, $/kg; ingreso «venta de subproductos» en el Resultado; compensación sin caja contra la factura de MP del mismo proveedor; balance de scrap: extrusión por diferencia = desperdicio vendido − scrap pesado por corte) + 💳 RECARGO % POR PAGO CON CHEQUES (proveedores.recargo_cheques_pct: costo financiero automático al pagar, aviso en Proveedor 360°). Antes 05k:   // 05k: remito formal: al lado del detalle «500 paq x 10 uni» (no las bolsas sueltas). Antes:
 // 05j:   // 05j: remito formal (formato Arialplast): Cantidad en PAQUETES, no en bolsas (REM-00749 Collinet salía 5.000 en vez de 500). Antes:
 // 05i:   // 05i: «Ordenar por reglas» v2 — hacia atrás desde la entrega: corte primero (último inicio, sin adelantar lo que espera bobina), extrusión derivada del corte, 24 h congeladas intactas. Antes 05h: Despacho ve las líneas POR KILO (bobina entera): stock = rollos en stock de la OE del pedido (PED-06160 PALAZZO no aparecía). Antes:
@@ -40631,6 +40638,7 @@ function initNuevoPago(chequePre){
     selP.value='';
   }
   const pl=document.getElementById('npag-plano'); if(pl)pl.value='blanco'; _npagSegSync();
+  const _dn=document.getElementById('npag-done'); if(_dn){_dn.style.display='none';_dn.innerHTML='';}
   const _em=document.getElementById('npag-empty'); if(_em)_em.style.display=''; const _inf=document.getElementById('npag-info'); if(_inf)_inf.innerHTML='';
   const _q=document.getElementById('npag-ch-q'); if(_q)_q.value='';
   document.getElementById('npag-fecha').value=localDate();
@@ -40726,7 +40734,7 @@ function onNpagChange(){
   const _em=document.getElementById('npag-empty'),_inf=document.getElementById('npag-info');
   if(!pid){document.getElementById('npag-wrap').style.display='none';if(_em)_em.style.display='';if(_inf)_inf.innerHTML='';return;}
   _pagCtx.proveedor_id=pid; _pagCtx.imputaciones={};
-  document.getElementById('npag-wrap').style.display='grid';if(_em)_em.style.display='none';
+  document.getElementById('npag-wrap').style.display='grid';if(_em)_em.style.display='none';{const _dn=document.getElementById('npag-done');if(_dn)_dn.style.display='none';}
   _npagInfo(); renderDocsParaImputarPago(); renderEfectivoPago(); renderChequesPago(); recalcPago();
 }
 function _npagDocs(){
@@ -40877,6 +40885,84 @@ function recalcPago(){
     const cb=document.getElementById('npag-rec');if(cb)cb.checked=!_pagCtx.recOff;
     const tx=document.getElementById('npag-rec-txt');if(tx&&on)tx.innerHTML='💳 Aplicar recargo <b>'+_rp+' %</b> por cheques: <b>'+fmtMoney(r2(totCh*_rp/100))+'</b> <span style="color:var(--text3)">(costo financiero, suma a la cuenta del proveedor)</span>';}
 }
+// 25a: ORDEN DE PAGO IMPRESA (German 25/11: el pago se registraba y no salía ningún comprobante; el cobro sí tenía recibo).
+// _opDatos arma el documento desde lo guardado (un solo lugar, P1): comprobantes que cancela con lo que queda de cada uno,
+// valores entregados (efectivo o transferencia por cuenta + cheques endosados), lo que queda a cuenta y el recargo por cheques.
+function _opDatos(pg){
+  const fd=f=>f?String(f).slice(8,10)+'/'+String(f).slice(5,7)+'/'+String(f).slice(0,4):'';
+  const prov=(C.proveedores||[]).find(x=>x.id===pg.proveedor_id)||{};
+  const comps=_pvLineasDePago(pg.id).filter(l=>l.compra_gasto_id).map(l=>{const c=(C.compras_gastos||[]).find(x=>x.id===l.compra_gasto_id)||{};
+    return {doc:[c.comprobante_tipo,c.comprobante_numero].filter(Boolean).join(' ')||String(cgCatLabel(c.categoria)||'Comprobante').replace(/^[^\wÁÉÍÓÚáéíóúñÑ]+/,''),det:c.descripcion||'',fecha:fd(c.fecha),total:r2(parseFloat(c.total)||0),pagado:r2(parseFloat(l.monto)||0),saldo:c.id?r2(Math.max(0,cgSaldoDoc(c))):0};});
+  const totCh=r2(parseFloat(pg.total_cheques)||0),total=r2(parseFloat(pg.total)||0);
+  const nomCta=id=>((C.cuentas_caja||[]).find(x=>x.id===id)||{}).nombre||'cuenta';
+  let efectivo=(C.movimientos_caja||[]).filter(m=>m.origen_tipo==='pago_efectivo'&&String(m.origen_id)===String(pg.id)).map(m=>({cuenta:nomCta(m.cuenta_id),monto:r2(parseFloat(m.monto)||0)}));
+  if(!efectivo.length&&total-totCh>0.01)efectivo=[{cuenta:pg.cuenta_id?nomCta(pg.cuenta_id):'Efectivo / transferencia',monto:r2(total-totCh)}];
+  const cheques=_pvChequesPago(pg.id).map(c=>({banco:c.banco||'Cheque',nro:c.numero_cheque||'',vto:fd(c.fecha_vto),de:lcCliNombre(c.cliente_id)||'',monto:r2(parseFloat(c.monto)||0)}));
+  const aplicado=r2(comps.reduce((a,x)=>a+x.pagado,0));const rec=_pvRecargoDe(pg);
+  return {numero:pg.numero||('#'+pg.id),fecha:fd(pg.fecha),plano:pg.plano||'blanco',anulado:pg.estado==='anulado',prov:{nombre:prov.razon_social||prov.nombre||'Proveedor',cuit:prov.cuit||''},
+    comps,efectivo,cheques,total,aplicado,aCuenta:r2(Math.max(0,total-aplicado)),recargo:rec?r2(parseFloat(rec.total)||0):0,obs:pg.observaciones||''};
+}
+// Pura: el HTML de UNA copia de la orden de pago
+function _opHtml(D,emp,copia){
+  const e=escapeHtml,M=fmtMoney;const neg=D.plano==='negro';
+  const filas=(L,f)=>L.map(f).join('');
+  return '<div class="op">'
+    +'<div class="cp">'+copia+'</div>'
+    +(neg?'<div class="wn">DOCUMENTO INTERNO</div>':'')+(D.anulado?'<div class="wn">PAGO ANULADO</div>':'')
+    +'<div class="hd"><div><div class="em">'+e(emp.rs)+'</div>'+(neg?'':'<div class="sm">CUIT '+e(emp.cuit)+(emp.dir?' · '+e(emp.dir):'')+'</div>')+'</div>'
+    +'<div class="nr"><div class="ti">Orden de pago</div><div class="nu">N° '+e(D.numero)+'</div><div class="sm">Fecha '+D.fecha+'</div></div></div>'
+    +'<div class="pv"><span class="lb">Páguese a</span> <b>'+e(D.prov.nombre)+'</b>'+(D.prov.cuit?' <span class="sm">· CUIT '+e(D.prov.cuit)+'</span>':'')+'</div>'
+    +(D.comps.length?'<h3>Comprobantes que cancela</h3><table><thead><tr><th>Comprobante</th><th>Fecha</th><th class="r">Total</th><th class="r">Pagado en esta orden</th><th class="r">Queda</th></tr></thead><tbody>'
+      +filas(D.comps,c=>'<tr><td>'+e(c.doc)+(c.det?' <span class="sm">· '+e(c.det)+'</span>':'')+'</td><td>'+c.fecha+'</td><td class="r">'+M(c.total)+'</td><td class="r"><b>'+M(c.pagado)+'</b></td><td class="r">'+(c.saldo>0.01?M(c.saldo):'cancelado')+'</td></tr>')
+      +'</tbody><tfoot><tr><td colspan="3">Total aplicado a comprobantes</td><td class="r">'+M(D.aplicado)+'</td><td></td></tr></tfoot></table>':'<h3>Pago a cuenta</h3><div class="nt">Esta orden no cancela comprobantes: todo lo entregado queda a cuenta.</div>')
+    +'<h3>Valores entregados</h3><table><thead><tr><th>Medio</th><th>Detalle</th><th class="r">Importe</th></tr></thead><tbody>'
+      +filas(D.efectivo,x=>'<tr><td>Efectivo / transferencia</td><td>'+e(x.cuenta)+'</td><td class="r">'+M(x.monto)+'</td></tr>')
+      +filas(D.cheques,c=>'<tr><td>Cheque de terceros (endoso)</td><td>'+e(c.banco)+(c.nro?' N° '+e(c.nro):'')+(c.vto?' · vence '+c.vto:'')+(c.de?' · librado por '+e(c.de):'')+'</td><td class="r">'+M(c.monto)+'</td></tr>')
+      +'</tbody></table>'
+    +'<div class="tt"><span>Total entregado</span><b>'+M(D.total)+'</b></div>'
+    +(D.aCuenta>0.01?'<div class="nt">De este total, <b>'+M(D.aCuenta)+'</b> queda a cuenta para aplicar a próximos comprobantes.</div>':'')
+    +(D.recargo>0.01?'<div class="nt">Recargo por pago con cheques: <b>'+M(D.recargo)+'</b> (se suma a la cuenta, no está incluido en esta orden).</div>':'')
+    +(D.obs?'<div class="nt"><b>Observaciones:</b> '+e(D.obs)+'</div>':'')
+    +'<div class="fi"><div><div class="ln">Autorizó</div></div><div><div class="ln">Recibí conforme · firma, aclaración y fecha</div></div></div>'
+    +'</div>';
+}
+function imprimirOrdenPago(id){
+  const pg=(C.pagos||[]).find(x=>String(x.id)===String(id));if(!pg){toast('No se encontró el pago','red');return;}
+  const D=_opDatos(pg);const emp={rs:getCfg('empresa_razon_social','Mi Fábrica'),cuit:getCfg('empresa_cuit',''),dir:getCfg('empresa_direccion','')};
+  const win=window.open('','_blank','width=900,height=1100');if(!win){toast('El navegador bloqueó la ventana de impresión: permitila y probá de nuevo','amber');return;}
+  win.document.write('<html><head><title>Orden de pago '+escapeHtml(D.numero)+'</title><style>'
+    +'@page{size:A4;margin:10mm;}body{font-family:Arial,Helvetica,sans-serif;margin:0;color:#111;font-size:11px;}'
+    +'.op{border:1.5px solid #111;margin-bottom:8mm;page-break-inside:avoid;}'
+    +'.cp{text-align:center;font-size:9.5px;font-weight:bold;letter-spacing:.08em;background:#eee;padding:3px;color:#444;}'
+    +'.wn{text-align:center;font-size:10px;font-weight:bold;padding:3px;border-bottom:1px solid #111;}'
+    +'.hd{display:flex;justify-content:space-between;align-items:flex-start;padding:10px 12px;border-bottom:1.5px solid #111;}'
+    +'.em{font-size:15px;font-weight:bold;}.sm{font-size:10px;color:#555;font-weight:normal;}.nr{text-align:right;}.ti{font-size:19px;font-weight:bold;text-transform:uppercase;letter-spacing:.03em;}.nu{font-size:13px;font-weight:bold;margin:2px 0;}'
+    +'.pv{padding:9px 12px;border-bottom:1px solid #999;font-size:12.5px;}.lb{font-size:10px;text-transform:uppercase;color:#555;letter-spacing:.05em;}'
+    +'h3{margin:10px 12px 4px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#333;}'
+    +'table{width:100%;border-collapse:collapse;}th{font-size:9.5px;text-transform:uppercase;color:#555;text-align:left;padding:4px 12px;border-bottom:1px solid #999;}td{padding:5px 12px;border-bottom:1px solid #ddd;font-size:11px;}tfoot td{font-weight:bold;border-bottom:0;border-top:1px solid #999;}'
+    +'.r{text-align:right;white-space:nowrap;}'
+    +'.tt{display:flex;justify-content:space-between;align-items:baseline;padding:9px 12px;border-top:1.5px solid #111;margin-top:6px;font-size:13px;}.tt b{font-size:17px;}'
+    +'.nt{padding:5px 12px;font-size:11px;border-top:1px solid #ddd;}'
+    +'.fi{display:flex;justify-content:space-between;gap:30px;padding:0 12px 10px;}.fi div{flex:1;text-align:center;}.ln{border-top:1px solid #111;margin-top:38px;padding-top:4px;font-size:9.5px;}'
+    +'</style></head><body>'+_opHtml(D,emp,'ORIGINAL · PROVEEDOR')+_opHtml(D,emp,'DUPLICADO · ARCHIVO')
+    +'<scr'+'ipt>window.onload=()=>{setTimeout(()=>window.print(),300);}<\/scr'+'ipt></body></html>');
+  win.document.close();
+}
+// Después de registrar: la pantalla queda en «pago registrado» con la orden lista para imprimir (no salta a otra pantalla)
+function _npagHecho(pgId,txt,aCuenta){
+  const pg=(C.pagos||[]).find(x=>x.id===pgId);const w=document.getElementById('npag-wrap'),d=document.getElementById('npag-done'),inf=document.getElementById('npag-info');
+  if(!pg||!w||!d){if(aCuenta>0.01){PV360.id=_pagCtx.proveedor_id;go('prov360');}else go('compras-gastos');return;}
+  w.style.display='none';if(inf)inf.innerHTML='';const D=_opDatos(pg);
+  d.innerHTML='<div class="np-ok">✓</div><h3>Pago '+escapeHtml(D.numero)+' registrado</h3>'
+    +'<div class="np-done-s"><b>'+fmtMoney(D.total)+'</b> a '+escapeHtml(D.prov.nombre)+(D.comps.length?' · cancela '+D.comps.length+' comprobante'+(D.comps.length===1?'':'s'):'')+(D.cheques.length?' · '+D.cheques.length+' cheque'+(D.cheques.length===1?'':'s')+' endosado'+(D.cheques.length===1?'':'s'):'')+'</div>'
+    +(aCuenta>0.01?'<div class="np-done-s" style="color:var(--teal)">Quedan <b>'+fmtMoney(aCuenta)+'</b> a cuenta: se imputan desde Proveedor 360°.</div>':'')
+    +(txt?'<div class="np-done-s">'+escapeHtml(txt)+'</div>':'')
+    +'<div class="np-done-b"><button class="btn btn-primary" onclick="imprimirOrdenPago('+pg.id+')">🖨 Imprimir orden de pago</button>'
+    +'<button class="btn" onclick="initNuevoPago()">Cargar otro pago</button>'
+    +'<button class="btn" onclick="PV360.id='+pg.proveedor_id+';go(\'prov360\')">Ver la cuenta del proveedor</button>'
+    +'<button class="btn" onclick="go(\'compras-gastos\')">Volver a Compras y gastos</button></div>';
+  d.style.display='';window.scrollTo(0,0);
+}
 async function guardarPago(){
   const msg=document.getElementById('msg-npag');
   if(!_pagCtx.proveedor_id){msg.style.color='var(--red)';msg.textContent='Falta proveedor.';return;}
@@ -40983,9 +41069,8 @@ async function guardarPago(){
   if(_recPct>0&&totCh>0.01&&!_pagCtx.recOff){const d=await _pvRecargoCrear({...pg,numero,fecha,plano,proveedor_id:_pagCtx.proveedor_id},_recPct,totCh);if(d)_recTxt=' · + '+fmtMoney(d.total)+' de recargo '+_recPct+' % por cheques (costo financiero)';}
   toast('✓ Pago '+numero+' registrado'+(totCh>0?' · '+chsSel.length+' cheque(s) endosado(s)':'')+(aCuenta>0.01?' · '+fmtMoney(aCuenta)+' a cuenta':'')+_recTxt,'green');
   await reload();
-  // Si quedó crédito sin imputar, el lugar donde se ve (y se imputa) es el 360.
-  if(aCuenta>0.01){PV360.id=_pagCtx.proveedor_id;go('prov360');}
-  else go('compras-gastos');
+  // 25a: queda en «pago registrado» con la orden de pago lista para imprimir (antes saltaba a otra pantalla)
+  _npagHecho(pg.id,_recTxt.replace(/^ · /,''),aCuenta);
 }
 // EL TRABAJO DE BASE de anular una cabecera de pago, aparte de la UI, para que
 // cgBorrar pueda usar exactamente el mismo camino (build 01b).
@@ -41276,6 +41361,8 @@ function renderProv360(){
       let acc='';
       if(m.clase==='credito')acc='<button class="btn btn-sm btn-primary" onclick="pv360ImputarCredito(\''+m.credito.tipo+'\','+m.credito.id+')" title="Aplicar este crédito a facturas pendientes">→</button>';
       else if(m.clase==='pago'&&m.doc)acc='<button class="btn btn-sm" onclick="pv360Desimputar('+m.lineaId+')" title="Sacarle la imputación: la plata vuelve a quedar como crédito y la factura vuelve a pendiente">↩</button>';
+      if(m.clase==='pago'&&m.pagoCab)acc+=' <button class="btn btn-sm" onclick="imprimirOrdenPago('+m.pagoCab.id+')" title="Imprimir la orden de pago '+escapeHtml(m.pagoCab.numero||'')+'">🖨</button>';
+      else if(m.clase==='credito'&&m.credito.tipo==='pago')acc+=' <button class="btn btn-sm" onclick="imprimirOrdenPago('+m.credito.id+')" title="Imprimir la orden de pago">🖨</button>';
       if(m.clase==='pago'&&m.pagoCab)acc+=' <button class="btn btn-sm btn-del" onclick="anularPago('+m.pagoCab.id+')" title="Anular el pago '+escapeHtml(m.pagoCab.numero||'')+' completo">✖</button>';
       else if(m.clase==='pago'&&!m.pagoCab)acc+=' <button class="btn btn-sm btn-del" onclick="pv360BorrarPago('+m.id+')" title="Borrar este pago">🗑</button>';
       else if(m.clase==='credito'&&m.credito.tipo==='pago')acc+=' <button class="btn btn-sm btn-del" onclick="anularPago('+m.credito.id+')" title="Anular el pago completo">✖</button>';
