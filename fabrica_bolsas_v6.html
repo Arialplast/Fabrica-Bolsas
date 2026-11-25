@@ -2585,7 +2585,7 @@ td.pr-c.pr-pend{box-shadow:inset 0 0 0 2px #c98a0b;}
 <div id="app">
   <div class="sidebar">
     <div class="logo">Producción<span>.</span></div>
-    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-11-25j</span></div>
+    <div class="logo-sub">Fábrica de Bolsas v6 · <span style="color:var(--green);font-weight:700;">build 2026-11-25k</span></div>
     <!-- ⚡ 29a: accesos rápidos + buscador + más usados (bloque // ===== ⚡ ACCESOS RÁPIDOS) -->
     <div id="qa-wrap">
       <div id="qa-btns">
@@ -8004,19 +8004,12 @@ function _bobMezclar(filas){
   return nuevas.length;
 }
 async function _bobTraerViejas(aplicar){
-  const out=[];let desde=0;
-  for(let i=0;i<60;i++){
-    let q=sb.from('bobinas_producidas').select(_BOB_SEL_CACHE)
+  // 25k: por _traerQ (páginas de a 3 en paralelo y reintentos)
+  const r=await _traerQ(()=>aplicar(sb.from('bobinas_producidas').select(_BOB_SEL_CACHE)
       .eq('fuera_de_rango',false).eq('anulada',false)
-      .eq('en_stock',false).lt('fecha_produccion',_bobCorteISO());
-    q=aplicar(q);
-    const{data,error}=await q.order('id').range(desde,desde+999);
-    if(error)throw error;
-    out.push(...(data||[]));
-    if(!data||data.length<1000)break;
-    desde+=1000;
-  }
-  return out;
+      .eq('en_stock',false).lt('fecha_produccion',_bobCorteISO())).order('id'),1000);
+  if(r.error)throw r.error;
+  return r.data||[];
 }
 // Completa la caché con las bobinas viejas de ESTAS OE. Devuelve true si quedó completo.
 async function _completarBobinasDeOEs(ids){
@@ -8072,25 +8065,13 @@ function _bobAsegurarYRepintar(clave,necesita,cargar,repintar){
 async function _traerBobinasRecientes(){
   const hace60d=new Date(Date.now()-60*24*3600*1000);
   const isoDate=hace60d.getFullYear()+'-'+String(hace60d.getMonth()+1).padStart(2,'0')+'-'+String(hace60d.getDate()).padStart(2,'0');
-  const todas=[];
-  const tope=20000;       // techo de seguridad
-  const chunk=1000;       // tamaño de página (límite de Supabase)
-  let desde=0;
-  while(desde<tope){
-    const{data,error}=await sb.from('bobinas_producidas')
+  // 25k: por _traerQ; se agrega id al orden para que las páginas sean estables (created_at puede repetirse)
+  return _traerQ(()=>sb.from('bobinas_producidas')
       .select('*, ordenes(numero_orden,metros), bobinas(*), extrusoras(nombre), operarios(nombre)')
       .eq('fuera_de_rango',false)
       .eq('anulada',false)
       .or('en_stock.eq.true,fecha_produccion.gte.'+isoDate)
-      .order('created_at',{ascending:false})
-      .range(desde,desde+chunk-1);
-    if(error)return {data:todas,error};
-    if(!data||!data.length)break;
-    todas.push(...data);
-    if(data.length<chunk)break;   // última página
-    desde+=chunk;
-  }
-  return {data:todas,error:null};
+      .order('created_at',{ascending:false}).order('id',{ascending:false}),1000);
 }
 
 // Trae TODAS las filas de una tabla en chunks de 1000 para sortear el límite
@@ -8098,23 +8079,9 @@ async function _traerBobinasRecientes(){
 // con el mismo shape que sb.from(...).select(...). Ordena por una columna estable
 // (por defecto 'id') para que el paginado con range() sea consistente.
 async function _traerPaginado(tabla, sel, orderCol){
+  // 25k: mismo camino que _traerQ (reintentos + páginas en paralelo)
   orderCol=orderCol||'id';
-  const todas=[];
-  const tope=100000;      // techo de seguridad
-  const chunk=1000;       // límite de Supabase
-  let desde=0;
-  while(desde<tope){
-    const{data,error}=await sb.from(tabla)
-      .select(sel)
-      .order(orderCol,{ascending:true})
-      .range(desde,desde+chunk-1);
-    if(error)return {data:todas,error};
-    if(!data||!data.length)break;
-    todas.push(...data);
-    if(data.length<chunk)break;   // última página
-    desde+=chunk;
-  }
-  return {data:todas,error:null};
+  return _traerQ(()=>sb.from(tabla).select(sel).order(orderCol,{ascending:true}),1000);
 }
 
 // Igual que _traerPaginado pero preserva el ORDEN existente: recibe una función
@@ -8150,6 +8117,21 @@ async function _traerQ(buildBase,chunk0){
     todas.push(...data);
     if(data.length<pedido)break;   // última página
     desde+=data.length;
+    // 25k: LAS PÁGINAS QUE SIGUEN VAN DE A 3 EN PARALELO (German 25/11: «la base tarda mucho en cargar»). La base
+    // está en Oregon: cada página es un viaje de ida y vuelta, y una tabla de 25 páginas eran 25 viajes en fila.
+    // Ahora van de a 3 juntas, con el mismo tamaño que funcionó en la primera. Si alguna falla, se sigue desde ahí
+    // por el camino de antes (una por vez, achicando), así que nunca se pierde una página.
+    let seguir=false;
+    for(;;){
+      const offs=[0,1,2].map(k=>desde+k*pedido);
+      const R=await Promise.all(offs.map(async o=>{let r=null;for(let i=0;i<2;i++){r=await buildBase().range(o,o+pedido-1);if(!r.error)return r;await new Promise(z=>setTimeout(z,300*(i+1)));}return r;}));
+      let fin=false,fallo=-1;
+      for(let k=0;k<R.length;k++){const r=R[k];if(r.error){fallo=offs[k];break;}if(!r.data||!r.data.length){fin=true;break;}todas.push(...r.data);if(r.data.length<pedido){fin=true;break;}}
+      if(fallo>=0){desde=fallo;seguir=true;break;}
+      if(fin||desde+3*pedido>=tope)break;
+      desde+=3*pedido;
+    }
+    if(!seguir)break;
   }
   return {data:todas,error:null};
 }
@@ -8269,7 +8251,7 @@ function _recibosDegradadoBanner(){
   return '<div style="background:'+bg+';border:1.5px solid '+col+';border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:'+col+';font-weight:600;">'
     +(crit?'🛑 ':'⚠ ')+d.msg+'</div>';
 }
-const APP_BUILD='2026-11-25j';   // 25j: pantallas de oficina en claro (49 pantallas) · Rutina de planificación — la rutina de la guía (diaria, lunes, viernes, mes) y los datos que tienen que estar cargados, controlados por el sistema. Antes 25i: saldo a favor del proveedor usado dentro del pago (mismo camino que Proveedor 360°) · lo que falta pedir se arma en una orden de compra por proveedor. Antes 25h: Plan de la semana — lo ya pedido en órdenes de compra se descuenta arriba y en la compra; aprobar el plan (foto en planes_semana) y control contra lo extruido; semanas pasadas con su control; la compra descuenta lo ya pedido y arma la orden de compra desde la pantalla. Antes 25g: Plan de la semana más claro y conectado — cadena Plan de empresa → 8 semanas → Rol → semana → Programa, plan contra programado contra con material, los cuatro frenos, acciones del plan de la semana, secciones numeradas en estilo claro. Antes 25f: cheques propios y e-cheq — se cargan en el pago a proveedor, cancelan la deuda ese día y salen del banco el día de pago del cheque (pantalla Cheques propios, Flujo y Proyección de caja, extracto). Antes 25e: el mail del recibo y de la orden de pago sale solo con el PDF adjunto (función enviar-mail + Resend) cuando el servicio está configurado; WhatsApp sin número deja elegir el contacto. Antes 25d: enviar el recibo y la orden de pago por WhatsApp o mail (PDF + mensaje escrito; contacto del cliente guardado). Antes 25c: Pagos de la semana — propuesta de pagos a proveedores por vencimiento con la plata disponible; se tilda y se recorre pago por pago. Antes 25b: formato único de comprobantes de tesorería (recibo y orden de pago): encabezado en tres cuerpos con la X, datos fiscales, importe en letras, cuadro de totales, firmas. Antes 25a: orden de pago impresa (original y duplicado) — al registrar el pago queda la pantalla «pago registrado» con el botón de imprimir; también desde Proveedor 360°. Antes 24b: Pago a proveedor rehecho en estilo claro pro — dos columnas (qué pagás / con qué pagás) y resumen fijo que dice si cierra; comprobantes tildables con vencimiento; «= Lo que falta» en efectivo; cheques con búsqueda y días al cobro. Antes 24a: 📦 el inventario de MP vencido ya NO bloquea la carga de bobinas (frenó al turno noche): aviso en planta + alerta al dueño en Inventario y Centro · Hoy con las bobinas cargadas desde que venció. Antes 23o: Proyección de caja — sueldos y cargas sociales separados; diferencias recibo↔pagado (Sueldos → Recibos, 💵 o ✔ Cerrar); lo vencido arranca en 8 semanas; IVA de los meses sin DDJJ estimado; caja por banco (débitos automáticos). Plan de 8 semanas: medición automática de acciones de clientes y horas; margen por kilo de cada cliente en las acciones comerciales. Antes 23n: 🧵 PISTAS MEDIDAS — Panel corte: cada pista muestra lo que mide su sensor (cortando / quieta / enhebrando, bolsas medidas) y un cartel si se cambió una bobina sin escanear o una pista no alimenta; si no hay datos del sensor sigue como antes · pantalla nueva «Control de corte · pistas» (dueño): estado en vivo de las 8 pistas, bolsas cortadas, disponibilidad, media máquina, sin bobina escaneada, línea de tiempo por pista, registro de alarmas, OC medido contra declarado y bobinas contra sus metros. Todo de lectura; no cambia ninguna decisión del panel. Antes 23m: 23m: un pedido nuevo entra al final de la cola (no con prioridad 1) — ya no desordena el Programa confirmado. Antes 23l: Plan de recursos — extrusión «22→» (desde las 22, arranque con el turno noche del lunes feriado), sin tocar la estructura de la tabla. Antes 23k: 23k: caja — la fecha de cobro sale de cómo cobra el cliente: pedido completo = cuando el Programa lo termina + plazo; factura mensual = día 5 del mes siguiente. Antes 23j: 23j: cómo cobra cada cliente (por entrega / con el pedido completo / factura mensual): se marca en la ficha o desde el Programa; el pedido muestra la plata trabada y la regla empuja a terminar esos pedidos. Antes 23i: 23i: Programa — ⚡ Priorizar pedidos: se marcan uno o varios pedidos (o un cliente) y «Ordenar por reglas» los pone primeros en corte y extrusión, en borrador y con el impacto a la vista. Antes 23h: 23h: Programa — cada orden con su pedido (etiqueta, resaltado de todas las medidas del pedido, avance «3 de 5 cortadas») y regla «terminar el pedido» en Ordenar por reglas. Antes 23g: 23g: extrusión — dos órdenes en proceso que comparten máquinas se programan cada una en la máquina que de verdad tiene (última bobina). Antes 23f: 23f: Plan de 8 semanas — cada acción con estado (propuesta → en marcha → hecha), responsable, fecha, resultado medido y objetivo del Plan de empresa; lo hecho deja de sumarse y pasa al historial; la máquina sin historia se estima con ficha × uso. Antes 23e: 23e: Plan de 8 semanas — la extrusora recién arrancada suma capacidad (ritmo por máquina con historia + estimación por ficha); la acción «poner en marcha» ya ejecutada se muestra como HECHA; Plan de recursos estima la máquina nueva. Antes 23d: 23d: Programa — lupa (− / +) y escala más grande en Hoy y 48 h para leer las órdenes cortas; vuelven las líneas punteadas OE → OC; no se pierde el deslizamiento al tocar una orden. Antes 23c: 23c: Programa — las líneas OE → OC sólo para la orden tocada. Antes 23b: 23b: Programa con escala de programador de planta: ancho fijo por hora y deslizamiento, planta parada plegada, etiquetas sólo donde entran. Antes 23a: 23a: Programa — franja rayada donde no se trabaja (fin de semana, feriados), duración en horas de trabajo, barras angostas legibles y sin montarse. Antes 22z: 22z: Programa — la orden de corte que se corta en partes se dibuja en partes (sin superponerse) y las ya cortadas que esperan cierre salen de la fila. Antes 22y: 22y: el programa de corte cuenta lo que ya está puesto en la cortadora: la máquina sigue ocupada hasta terminar de cortar las bobinas cargadas (antes la daba por libre y mandaba otra orden «ahora»). Antes 22x: 22x: lo entregado por renglón (derivador de remitos) cuenta también los renglones de remito sueltos del mismo producto y la carga histórica del campo viejo; revisados los demás lectores de «entregado». Antes 22w: 22w: un solo criterio de «qué frena» con los tres frenos (material, extrusión, corte): Plan de la semana los lista juntos y el Plan de mediano plazo marca la semana en que falta material. Antes 22v: 22v: Entregas queda sólo con «Cumplido»; salen «Lo que viene» (Torre) y «Plata por pedido»; los enlaces van a Centro → Compromisos; Qué producir / Plan de la semana / Plan de entregas pasan a Programa de producción. Antes 22u: 22u: Centro de producción → Compromisos: lo que falta entregar de cada pedido se calcula con los REMITOS (_alEntregadoPorLinea) y no con el campo viejo pedido_lineas.entregado, que estaba en 0 en 55 de 100 renglones abiertos y hacía figurar como pendiente lo ya entregado (DAG PED-06016: $19,8 M → $3,2 M). Antes 22t: el aviso «📦 bultos sin cargar» (que ya cubría las órdenes cortadas sin cerrar) ahora dice HACE CUÁNTO se terminó de cortar cada una (ámbar: más de un turno; rojo: más de un día), las ordena por espera y sube al Tablero de Dirección cuando alguna lleva más de un turno. No se crea otro aviso ni se toca _sbPendientes. Antes 22s: PARTE DIARIO DE CORTE con el mismo criterio que la adherencia — «cumplió la grilla» = se terminó de cortar en el día (marca del panel; sin marca, el cierre), no «se cerró»; columna nueva «Se cortó», el desvío es de corte contra grilla, y avisa cuántas cortadas en fecha siguen sin cerrar. La duración real de una OC (Órdenes de corte, detalle del Programa) también termina en el fin de corte. Antes 22r: ADHERENCIA DE CORTE BIEN MEDIDA — el fin real de una orden de corte es «Terminó de cortar» en el panel (_ocFinReal), no su cierre: la adherencia cargaba al corte la demora de la oficina en cerrar (daba 29 % en fecha; contra el fin de corte da ~79 %). Indicador nuevo «Del corte al cierre» (mediana, promedio, cuántas tardan más de un día) y lista de órdenes cortadas sin cerrar ahora. Extrusión: fin = última bobina siempre. La pantalla pasa a ser la pestaña «✅ ¿Se cumple?» del Programa de producción y entra al Mapa del sistema. Antes 22q: el motor fino arranca con cada cortador en la máquina donde realmente está (última bobina que cargó en el panel, 8 h) en vez de elegirla él; el panel de corte muestra la COLA DE TU MÁQUINA (en orden, con horario, material y quién la sigue en el cambio de turno) en vez de la lista por persona. Antes 22p: 🎈 INFLADOR EXT-03 — estado en vivo (sensor, válvula, intentos, alarma) y ajuste con perillas que el registrador pasa al PLC 2
+const APP_BUILD='2026-11-25k';   // 25k: carga más rápida — páginas de cada tabla de a 3 en paralelo (antes una por vez) + índices nuevos en la base para pedidos, remitos, consumos y movimientos. Antes 25j: pantallas de oficina en claro (49 pantallas) · Rutina de planificación — la rutina de la guía (diaria, lunes, viernes, mes) y los datos que tienen que estar cargados, controlados por el sistema. Antes 25i: saldo a favor del proveedor usado dentro del pago (mismo camino que Proveedor 360°) · lo que falta pedir se arma en una orden de compra por proveedor. Antes 25h: Plan de la semana — lo ya pedido en órdenes de compra se descuenta arriba y en la compra; aprobar el plan (foto en planes_semana) y control contra lo extruido; semanas pasadas con su control; la compra descuenta lo ya pedido y arma la orden de compra desde la pantalla. Antes 25g: Plan de la semana más claro y conectado — cadena Plan de empresa → 8 semanas → Rol → semana → Programa, plan contra programado contra con material, los cuatro frenos, acciones del plan de la semana, secciones numeradas en estilo claro. Antes 25f: cheques propios y e-cheq — se cargan en el pago a proveedor, cancelan la deuda ese día y salen del banco el día de pago del cheque (pantalla Cheques propios, Flujo y Proyección de caja, extracto). Antes 25e: el mail del recibo y de la orden de pago sale solo con el PDF adjunto (función enviar-mail + Resend) cuando el servicio está configurado; WhatsApp sin número deja elegir el contacto. Antes 25d: enviar el recibo y la orden de pago por WhatsApp o mail (PDF + mensaje escrito; contacto del cliente guardado). Antes 25c: Pagos de la semana — propuesta de pagos a proveedores por vencimiento con la plata disponible; se tilda y se recorre pago por pago. Antes 25b: formato único de comprobantes de tesorería (recibo y orden de pago): encabezado en tres cuerpos con la X, datos fiscales, importe en letras, cuadro de totales, firmas. Antes 25a: orden de pago impresa (original y duplicado) — al registrar el pago queda la pantalla «pago registrado» con el botón de imprimir; también desde Proveedor 360°. Antes 24b: Pago a proveedor rehecho en estilo claro pro — dos columnas (qué pagás / con qué pagás) y resumen fijo que dice si cierra; comprobantes tildables con vencimiento; «= Lo que falta» en efectivo; cheques con búsqueda y días al cobro. Antes 24a: 📦 el inventario de MP vencido ya NO bloquea la carga de bobinas (frenó al turno noche): aviso en planta + alerta al dueño en Inventario y Centro · Hoy con las bobinas cargadas desde que venció. Antes 23o: Proyección de caja — sueldos y cargas sociales separados; diferencias recibo↔pagado (Sueldos → Recibos, 💵 o ✔ Cerrar); lo vencido arranca en 8 semanas; IVA de los meses sin DDJJ estimado; caja por banco (débitos automáticos). Plan de 8 semanas: medición automática de acciones de clientes y horas; margen por kilo de cada cliente en las acciones comerciales. Antes 23n: 🧵 PISTAS MEDIDAS — Panel corte: cada pista muestra lo que mide su sensor (cortando / quieta / enhebrando, bolsas medidas) y un cartel si se cambió una bobina sin escanear o una pista no alimenta; si no hay datos del sensor sigue como antes · pantalla nueva «Control de corte · pistas» (dueño): estado en vivo de las 8 pistas, bolsas cortadas, disponibilidad, media máquina, sin bobina escaneada, línea de tiempo por pista, registro de alarmas, OC medido contra declarado y bobinas contra sus metros. Todo de lectura; no cambia ninguna decisión del panel. Antes 23m: 23m: un pedido nuevo entra al final de la cola (no con prioridad 1) — ya no desordena el Programa confirmado. Antes 23l: Plan de recursos — extrusión «22→» (desde las 22, arranque con el turno noche del lunes feriado), sin tocar la estructura de la tabla. Antes 23k: 23k: caja — la fecha de cobro sale de cómo cobra el cliente: pedido completo = cuando el Programa lo termina + plazo; factura mensual = día 5 del mes siguiente. Antes 23j: 23j: cómo cobra cada cliente (por entrega / con el pedido completo / factura mensual): se marca en la ficha o desde el Programa; el pedido muestra la plata trabada y la regla empuja a terminar esos pedidos. Antes 23i: 23i: Programa — ⚡ Priorizar pedidos: se marcan uno o varios pedidos (o un cliente) y «Ordenar por reglas» los pone primeros en corte y extrusión, en borrador y con el impacto a la vista. Antes 23h: 23h: Programa — cada orden con su pedido (etiqueta, resaltado de todas las medidas del pedido, avance «3 de 5 cortadas») y regla «terminar el pedido» en Ordenar por reglas. Antes 23g: 23g: extrusión — dos órdenes en proceso que comparten máquinas se programan cada una en la máquina que de verdad tiene (última bobina). Antes 23f: 23f: Plan de 8 semanas — cada acción con estado (propuesta → en marcha → hecha), responsable, fecha, resultado medido y objetivo del Plan de empresa; lo hecho deja de sumarse y pasa al historial; la máquina sin historia se estima con ficha × uso. Antes 23e: 23e: Plan de 8 semanas — la extrusora recién arrancada suma capacidad (ritmo por máquina con historia + estimación por ficha); la acción «poner en marcha» ya ejecutada se muestra como HECHA; Plan de recursos estima la máquina nueva. Antes 23d: 23d: Programa — lupa (− / +) y escala más grande en Hoy y 48 h para leer las órdenes cortas; vuelven las líneas punteadas OE → OC; no se pierde el deslizamiento al tocar una orden. Antes 23c: 23c: Programa — las líneas OE → OC sólo para la orden tocada. Antes 23b: 23b: Programa con escala de programador de planta: ancho fijo por hora y deslizamiento, planta parada plegada, etiquetas sólo donde entran. Antes 23a: 23a: Programa — franja rayada donde no se trabaja (fin de semana, feriados), duración en horas de trabajo, barras angostas legibles y sin montarse. Antes 22z: 22z: Programa — la orden de corte que se corta en partes se dibuja en partes (sin superponerse) y las ya cortadas que esperan cierre salen de la fila. Antes 22y: 22y: el programa de corte cuenta lo que ya está puesto en la cortadora: la máquina sigue ocupada hasta terminar de cortar las bobinas cargadas (antes la daba por libre y mandaba otra orden «ahora»). Antes 22x: 22x: lo entregado por renglón (derivador de remitos) cuenta también los renglones de remito sueltos del mismo producto y la carga histórica del campo viejo; revisados los demás lectores de «entregado». Antes 22w: 22w: un solo criterio de «qué frena» con los tres frenos (material, extrusión, corte): Plan de la semana los lista juntos y el Plan de mediano plazo marca la semana en que falta material. Antes 22v: 22v: Entregas queda sólo con «Cumplido»; salen «Lo que viene» (Torre) y «Plata por pedido»; los enlaces van a Centro → Compromisos; Qué producir / Plan de la semana / Plan de entregas pasan a Programa de producción. Antes 22u: 22u: Centro de producción → Compromisos: lo que falta entregar de cada pedido se calcula con los REMITOS (_alEntregadoPorLinea) y no con el campo viejo pedido_lineas.entregado, que estaba en 0 en 55 de 100 renglones abiertos y hacía figurar como pendiente lo ya entregado (DAG PED-06016: $19,8 M → $3,2 M). Antes 22t: el aviso «📦 bultos sin cargar» (que ya cubría las órdenes cortadas sin cerrar) ahora dice HACE CUÁNTO se terminó de cortar cada una (ámbar: más de un turno; rojo: más de un día), las ordena por espera y sube al Tablero de Dirección cuando alguna lleva más de un turno. No se crea otro aviso ni se toca _sbPendientes. Antes 22s: PARTE DIARIO DE CORTE con el mismo criterio que la adherencia — «cumplió la grilla» = se terminó de cortar en el día (marca del panel; sin marca, el cierre), no «se cerró»; columna nueva «Se cortó», el desvío es de corte contra grilla, y avisa cuántas cortadas en fecha siguen sin cerrar. La duración real de una OC (Órdenes de corte, detalle del Programa) también termina en el fin de corte. Antes 22r: ADHERENCIA DE CORTE BIEN MEDIDA — el fin real de una orden de corte es «Terminó de cortar» en el panel (_ocFinReal), no su cierre: la adherencia cargaba al corte la demora de la oficina en cerrar (daba 29 % en fecha; contra el fin de corte da ~79 %). Indicador nuevo «Del corte al cierre» (mediana, promedio, cuántas tardan más de un día) y lista de órdenes cortadas sin cerrar ahora. Extrusión: fin = última bobina siempre. La pantalla pasa a ser la pestaña «✅ ¿Se cumple?» del Programa de producción y entra al Mapa del sistema. Antes 22q: el motor fino arranca con cada cortador en la máquina donde realmente está (última bobina que cargó en el panel, 8 h) en vez de elegirla él; el panel de corte muestra la COLA DE TU MÁQUINA (en orden, con horario, material y quién la sigue en el cambio de turno) en vez de la lista por persona. Antes 22p: 🎈 INFLADOR EXT-03 — estado en vivo (sensor, válvula, intentos, alarma) y ajuste con perillas que el registrador pasa al PLC 2
 // 06f: 🔗 ESTADO DEL PEDIDO CON EL MISMO PRODUCTO EN DOS LÍNEAS — el stock (por pedido+producto) se sumaba a cada línea: PED-06016 (DAG, 00123 × 400 + 400) daba 2.472 entregados de 2.000 → «cobrado parcial» y desaparecía de la lista de pedidos. Ahora se cuenta una vez por producto (_estadoOperativoPedido y % de avance de _pedidoInfoProduccion). Sin SQL. · 06d (previo):   // 06d: Corrección de $/kg de MP con revaluación — ✎ en la orden de compra revalúa stock y consumos del mes actual (costo real de bobinas/bolsas); lo consumido en meses cerrados no se reescribe: la diferencia entra al Resultado del mes como «Diferencia de precio de MP» (revaluaciones_mp, también registro de cada corrección). Antes 06c: Pago a proveedor — casilla «Aplicar recargo X % por cheques» (tildada si el proveedor cobra recargo; se puede destildar en ese pago). Antes 06b: Órdenes de compra MP — ✎ corregir el $/kg pactado de un renglón (y lo ya recibido de él). Antes 06a: ♻️ VENTA DE SCRAP (documento VS: comprador, kg por tipo, $/kg; ingreso «venta de subproductos» en el Resultado; compensación sin caja contra la factura de MP del mismo proveedor; balance de scrap: extrusión por diferencia = desperdicio vendido − scrap pesado por corte) + 💳 RECARGO % POR PAGO CON CHEQUES (proveedores.recargo_cheques_pct: costo financiero automático al pagar, aviso en Proveedor 360°). Antes 05k:   // 05k: remito formal: al lado del detalle «500 paq x 10 uni» (no las bolsas sueltas). Antes:
 // 05j:   // 05j: remito formal (formato Arialplast): Cantidad en PAQUETES, no en bolsas (REM-00749 Collinet salía 5.000 en vez de 500). Antes:
 // 05i:   // 05i: «Ordenar por reglas» v2 — hacia atrás desde la entrega: corte primero (último inicio, sin adelantar lo que espera bobina), extrusión derivada del corte, 24 h congeladas intactas. Antes 05h: Despacho ve las líneas POR KILO (bobina entera): stock = rollos en stock de la OE del pedido (PED-06160 PALAZZO no aparecía). Antes:
@@ -23896,17 +23878,13 @@ async function _ocPaquetesProducidos(ocId){
 // conserva. Se carga una vez por reload. Paginado por el tope de 1000 de Supabase.
 async function _cargarProdPorOC(){
   const map={};
-  let from=0;const page=1000;
-  while(true){
-    const{data,error}=await sb.from('mov_bolsas').select('orden_corte_id,paquetes').eq('tipo','produccion').range(from,from+page-1);
-    if(error){console.error('_cargarProdPorOC:',error.message);break;}
-    (data||[]).forEach(m=>{
-      if(!m.orden_corte_id)return;
-      map[m.orden_corte_id]=(map[m.orden_corte_id]||0)+(parseFloat(m.paquetes)||0);
-    });
-    if(!data||data.length<page)break;
-    from+=page;
-  }
+  // 25k: por _traerQ y ordenado por id (antes sin orden: las páginas podían repetir o saltear filas)
+  const{data,error}=await _traerQ(()=>sb.from('mov_bolsas').select('id,orden_corte_id,paquetes').eq('tipo','produccion').order('id'),1000);
+  if(error)console.error('_cargarProdPorOC:',error.message);
+  (data||[]).forEach(m=>{
+    if(!m.orden_corte_id)return;
+    map[m.orden_corte_id]=(map[m.orden_corte_id]||0)+(parseFloat(m.paquetes)||0);
+  });
   return map;
 }
 async function acreditarStockDesdeOC(ocId){
