@@ -1,0 +1,21 @@
+// 25g: Plan de la semana más claro y conectado con el resto de la planificación
+const fs=require('fs');const s=fs.readFileSync(process.argv[2],'utf8');
+let ok=true;const t=(n,c)=>{if(!c){ok=false;console.error('✗ '+n);}else console.log('✓ '+n);};
+const i=s.indexOf('function _ps2Veredicto(');const j=s.indexOf('function _ps2Top(',i);
+const V=new Function(s.slice(i,j)+';return _ps2Veredicto;')();
+const a=V({plan:5335,prog:5949,conMP:236,libreKg:5400,costoCompra:7931589,costoTotal:20975239,corPct:70,frenaCorte:false});
+t('sin material: frena la materia prima, con las dos compras',a.c==='bad'&&/frena la materia prima/.test(a.t)&&/7\.931\.589/.test(a.t)&&/20\.975\.239/.test(a.t));
+const b=V({plan:5000,prog:5000,conMP:5000,libreKg:2000,costoCompra:0,costoTotal:0,corPct:120,frenaCorte:true});
+t('corte por encima del 100 %: frena el corte',b.c==='wa'&&/frena el corte/.test(b.t));
+const c=V({plan:8000,prog:4000,conMP:4000,libreKg:3000,costoCompra:0,costoTotal:0,corPct:60,frenaCorte:false});
+t('programado menos que el plan con máquina libre: lanzar más',c.c==='wa'&&/lanzá más órdenes/.test(c.t));
+const d=V({plan:8000,prog:4000,conMP:4000,libreKg:0,costoCompra:0,costoTotal:0,corPct:60,frenaCorte:false});
+t('sin máquina libre: es capacidad',/capacidad/.test(d.t));
+const e=V({plan:5000,prog:5000,conMP:5000,libreKg:100,costoCompra:0,costoTotal:0,corPct:60,frenaCorte:false});
+t('todo bien: cierra',e.c==='ok');
+t('cadena: plan de empresa, 8 semanas, rol, semana, programa',/1 · Plan de empresa/.test(s)&&/2 · Plan de 8 semanas/.test(s)&&/3 · Rol semanal/.test(s)&&/4 · Plan de la semana/.test(s)&&/5 · Programa/.test(s));
+t('pide los datos del plan de 8 semanas si faltan y repinta',/_pmpCargar\(\)\.finally\(\(\)=>\{window\._ps2Pide=false/.test(s));
+t('acciones del plan de la semana',/_ps2Sec\(2,'Acciones del plan para esta semana'/.test(s));
+t('orden de lectura: arriba, lanzado, comprar, afuera, sumar',/cont\.innerHTML=hTop\+\(hLanz\|\|/.test(s)&&/\+hMP\+hFuera\+hCola\+h;/.test(s));
+t('hoja clara',/id="prg-semana" class="ps2"/.test(s));
+process.exit(ok?0:1);

@@ -12,7 +12,7 @@ ok(X.F.length===0&&X.no.length===3,'nada frena');
 X=_prgFrenos({...base,cor:{total:1000,comprometido:500},frenadoMP:0,frenadoCap:300});
 ok(X.F.length===1&&X.F[0].k==='extrusion','frena extrusión sola');
 ok(!/casi nunca es el problema/.test(s),'se fue la frase del corte');
-ok(/h\+=_prgFrenosHtml\(P\);/.test(s),'el Plan de la semana usa el veredicto nuevo');
+ok(/const X=_prgFrenos\(P\);/.test(s)&&/_ps2Sec\(1,'Qué frena esta semana'/.test(s),'el Plan de la semana usa los frenos (25g: tarjetas)');
 ok(/defW\[i\]=s<-0\.5\?Math\.min\(n,-s\):0;/.test(s)&&/b\.mpFalta=MP\.filter\(m=>m\.defW\[i\]>=25\)/.test(s),'el plan medio marca la semana sin material');
 ok(/⚠ falta material/.test(s)&&/Falta materia prima<\/b> para extruir/.test(s),'aviso en gráfico y en la explicación');
 console.log(f?('FALLÓ '+f):'OK frenos_tres');process.exit(f?1:0);
