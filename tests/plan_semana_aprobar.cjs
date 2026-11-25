@@ -13,5 +13,5 @@ const b=K(foto,{1:1500},true);t('si se extruye de más, cuenta hasta lo comprome
 t('se guarda en planes_semana (una por semana)',/sb\.from\('planes_semana'\)\.upsert\(\{semana:X\.lunS,foto:X\.foto/.test(s)&&/onConflict:'semana'/.test(s));
 t('aprobar pide clave',/pedirAdminYEjecutar\(async\(\)=>\{const\{data,error\}=await sb\.from\('planes_semana'\)/.test(s));
 t('semanas pasadas: sólo el control',/if\(_prgSem<0\)\{_ps2RenderPasada\(cont\);return;\}/.test(s)&&/_prgSem=Math\.max\(-8,/.test(s));
-t('compra: descuenta lo ya pedido y arma la orden de compra',/Ya pedido/.test(s)&&/const fp=r2\(Math\.max\(0,x\.falta-yp\.kg\)\)/.test(s)&&/🛒 Armar orden de compra/.test(s));
+t('compra: descuenta lo ya pedido y arma la orden de compra',/Ya pedido/.test(s)&&/const fp=r2\(Math\.max\(0,x\.falta-yp\.kg\)\)/.test(s)&&/🛒 Armar las órdenes de compra/.test(s));
 process.exit(ok?0:1);
