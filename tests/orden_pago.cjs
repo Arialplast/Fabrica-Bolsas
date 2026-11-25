@@ -6,7 +6,7 @@ const C={proveedores:[{id:7,nombre:'ACME',cuit:'30-1'}],compras_gastos:[{id:1,co
  pagos_proveedores:[{pago_id:9,compra_gasto_id:1,monto:1000},{pago_id:9,compra_gasto_id:2,monto:200}],cuentas_caja:[{id:2,nombre:'CREDICOOP'},{id:3,nombre:'CAJA1'}],
  movimientos_caja:[{origen_tipo:'pago_efectivo',origen_id:9,cuenta_id:2,monto:600},{origen_tipo:'pago_efectivo',origen_id:9,cuenta_id:3,monto:300}]};
 const env={C,r2:x=>Math.round(x*100)/100,cgCatLabel:()=>'🧱 Materia prima',cgSaldoDoc:c=>c.id===2?300:0,_pvLineasDePago:id=>C.pagos_proveedores.filter(l=>l.pago_id===id),
- _pvChequesPago:()=>[{banco:'Galicia',numero_cheque:'123',fecha_vto:'2026-12-05',cliente_id:1,monto:400}],lcCliNombre:()=>'CLIENTE X',_pvRecargoDe:()=>null,escapeHtml:x=>String(x),fmtMoney:v=>'$'+v};
+ _pvChequesPago:()=>[{banco:'Galicia',numero_cheque:'123',fecha_vto:'2026-12-05',cliente_id:1,monto:400}],lcCliNombre:()=>'CLIENTE X',_pvRecargoDe:()=>null,_chpDePago:()=>[],escapeHtml:x=>String(x),fmtMoney:v=>'$'+v};
 const f=new Function(...Object.keys(env),s.slice(i,j)+s.slice(n1,n2)+s.slice(a,b)+s.slice(c,d)+s.slice(e2,f2)+';const _opHtml=(D,emp,cp)=>_docHtml(_opDoc(D),emp,cp);return {_opDatos,_opHtml,_recDoc,_docHtml};')(...Object.values(env));
 const D=f._opDatos({id:9,numero:'PAG-000050',fecha:'2026-11-25',plano:'blanco',proveedor_id:7,total:1300,total_cheques:400});
 t('comprobantes: dos, con número o categoría sin emoji',D.comps.length===2&&D.comps[0].doc==='Factura A 0001-5'&&D.comps[1].doc==='Materia prima');
