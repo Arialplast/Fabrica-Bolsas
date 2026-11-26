@@ -8,7 +8,7 @@ let ok=0,bad=0;const t=(c,m)=>{if(c)ok++;else{bad++;console.log('✗ '+m);}};
 const oc=_planBtnsImprimir('oc',123),oe=_planBtnsImprimir('oe',77);
 t(oc.includes("imprimirOrden(123,'corte')"),'OC: hoja A4 de corte');
 t(oc.includes('imprimirEtiquetasBulto(123)'),'OC: etiquetas de bulto');
-t((oc.match(/event\.stopPropagation\(\)/g)||[]).length===2,'OC: no despliega/arrastra al clickear');
+t((oc.match(/event\.stopPropagation\(\)/g)||[]).length===3,'OC: no despliega/arrastra al clickear (25n: 3 botones con el ✏️)');
 t(oe.includes("imprimirOrden(77,'extrusion')")&&!oe.includes('imprimirEtiquetasBulto'),'OE: sólo hoja de extrusión');
 const card=src.slice(b,src.indexOf('function moverPlanGlobal('));
 t((card.match(/_planBtnsImprimir\(tipo,o\.id\)/g)||[]).length===2,'tarjeta en proceso y movible llevan los botones');
