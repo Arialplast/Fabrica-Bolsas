@@ -1,5 +1,7 @@
 // 13g: balance puro del plan de mediano plazo
 const fs=require('fs');const src=fs.readFileSync(process.argv[2],'utf8');
+// 23f: _pmpEfectos consulta el estado de cada acción
+{const i=src.indexOf('const PMP_EST=');(0,eval)(src.slice(i,src.indexOf('// Pura: acciones → efecto por semana',i)).replace(/^const /gm,'var '));}
 const m=src.match(/function _pmpBalance\(S,wip0\)\{[\s\S]*?\n\}/);if(!m){console.error('no _pmpBalance');process.exit(1);}
 const _pmpBalance=eval('('+m[0]+')');let ok=0;const A=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}ok++;};
 const near=(a,b)=>Math.abs(a-b)<1e-6;
@@ -79,7 +81,7 @@ console.log('✓ plan_medio '+ok+' ok');
  P=f([5000,7000,6000]);A(P.mejor.k==='prom8'&&P.K===0&&near(P.mejor.F,6000),'poca historia: promedio simple, sin comparar métodos');
  P=f(sube);A(P.metodos.prom8.bt.length===12&&near(P.metodos.prom8.bt[0].f,(sube.slice(4,12).reduce((a,b)=>a+b,0))/8),'la prueba hacia atrás usa sólo las semanas anteriores');
  const a=[1000,2000,3000,4000,5000,6000,7000,8000];A(near(P.f(a),(6500+4500)/2)||near(P.f(a),6500)||P.f(a)>0,'el método elegido se puede aplicar a la serie de un cliente');
- A(/const cad=\[\];\{let prev=base,pref=\[\];/.test(src)&&/ahora frena extrusión/.test(src),'aporte en cadena con motivo cuando no suma');
+ A(/const cad=\[\];\{let prev=base,prevR=_pmpCalc\(\[\],true\),pref=\[\];/.test(src)&&/ahora frena extrusión/.test(src),'aporte en cadena con motivo cuando no suma');
  A(/const pistasDe=pr=>/.test(src)&&/Math\.min\(p2,2\)/.test(src),'pistas: ficha de la bobina, cortadora 1 hasta 2');
  console.log('✓ plan_medio 15a '+n+' ok');}
 // 15b: planificar para la meta
@@ -164,5 +166,24 @@ console.log('✓ plan_medio '+ok+' ok');
  let r=f([8000,9000,3400],[1,1,0.6],2500);A(Math.abs(r.serie[2]-(3400/0.6+2500))<1e-6&&r.serie[0]===8000&&r.cortas===1&&r.venc===2500,'semana corta a semana completa + lo que quedó sin entregar');
  r=f([8000,2000],[1,0.2],0);A(Math.abs(r.serie[1]-4000)<1e-6,'el ajuste tiene piso: nunca más que duplicar');
  r=f([8000,3400],null,0);A(r.serie[1]===3400&&r.cortas===0,'sin calendario no ajusta');
- A(/esB\)\{if\(w<N\)\{borr\[w\]\+=kg/.test(src)&&/-fi-fb\)\+fb\+ef\.demKg/.test(src),'los borradores entran en la demanda sin sumarse dos veces con el pronóstico');
+ A(/borr\[x\.w\]\+=x\.kg/.test(src)&&/-fi-fb\)\+fb\+ef\.demKg/.test(src),'los borradores entran en la demanda sin sumarse dos veces con el pronóstico');
  console.log('✓ plan_medio 19a '+n+' ok');}
+// 19d: pedidos abiertos repartidos
+{const fs=require('fs');const src=fs.readFileSync(process.argv[2],'utf8');const f=eval('('+src.match(/function _pmpRepartir\(.*\}/)[0]+')');let n=0;const A=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};
+ let r=f(1400,6,8,true);A(r.partes.length===7&&Math.abs(r.partes[0].kg-200)<1e-9&&r.fuera===0,'abierto: parejo entre hoy y su fecha');
+ r=f(1000,9,8,true);A(r.partes.length===8&&Math.abs(r.partes[0].kg-100)<1e-9&&Math.abs(r.fuera-200)<1e-9,'lo que cae después del horizonte queda fuera');
+ r=f(500,3,8,false);A(r.partes.length===1&&r.partes[0].w===3&&r.partes[0].kg===500,'pedido normal: entero en su semana');
+ r=f(500,9,8,false);A(r.partes.length===0&&r.fuera===500,'normal fuera del horizonte');r=f(500,0,8,true);A(r.partes.length===1&&r.partes[0].w===0,'abierto que vence esta semana no se reparte');
+ console.log('✓ plan_medio 19d '+n+' ok');}
+// 20a: acciones comerciales
+{const fs=require('fs');const src=fs.readFileSync(process.argv[2],'utf8');const ef=eval('('+src.match(/function _pmpEfectos\([^)]*\)\{[\s\S]*?\n\}/)[0]+')');let n=0;const A=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};
+ const E=ef([{t:'cli_nuevo',v:500,desde:2,hasta:7,costo:1000},{t:'cli_mas',cli:'7',v:20,desde:1,hasta:7},{t:'cli_baja',cli:'9',desde:1,hasta:3},{t:'cli_rec',cli:'5',v:300,desde:4,hasta:4,off:true}],8,{cliFc:{7:1000,9:400}});
+ A(E[0].demKg===0&&E[1].demKg===200-400&&E[2].demKg===500+200-400&&E[4].demKg===700&&E[2].costo===1000,'clientes: nuevo suma kilos, más = % de su pronóstico, baja resta su pronóstico; apagada no cuenta');
+ A(/g:'com'/.test(src)&&/bot\('com'\)/.test(src)&&/Math\.max\(0,Math\.max\(0,F\*/.test(src),'fila Comercial en el plan de acción; la demanda no queda negativa');
+ console.log('✓ plan_medio 20a '+n+' ok');}
+// 21d: adelanta
+{const fs=require('fs');const src=fs.readFileSync(process.argv[2],'utf8');const f=eval('('+src.match(/function _pmpAdelanta\(.*\}/)[0]+')');let n=0;const A=(c,t)=>{if(!c){console.error('✗ '+t);process.exit(1);}n++;};
+ const P=[{cortado:6400},{cortado:9700},{cortado:8400}],C2=[{cortado:7000},{cortado:9100},{cortado:8400}];
+ A(f(P,C2,0,0)===600&&f(P,C2,0,2)===600&&f(P,C2,1,1)===0&&f(P,C2,null,null)===0,'adelanta = kilos de más en las semanas de la acción (lo que después se corta de menos no resta)');
+ A(/adelanta '\+t\(cd\.adel\)/.test(src)&&/Esta semana todavía frena/.test(src),'se muestra «adelanta» y la nota de esta semana');
+ console.log('✓ plan_medio 21d '+n+' ok');}

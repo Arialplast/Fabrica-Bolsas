@@ -20,7 +20,7 @@ global.sb={from:()=>{const f={};const q={select(){return q;},eq(c,v){f[c]=v;retu
   range(x,y){reqs++;if(fallar)return Promise.resolve({data:null,error:{message:'red'}});
     const r=DB.filter(b=>b.fuera_de_rango===f.fuera_de_rango&&b.anulada===f.anulada&&b.en_stock===f.en_stock&&b.fecha_produccion<f.lt&&(!f.in||f.in.includes(b.orden_id)));
     return Promise.resolve({data:r.slice(x,y+1),error:null});}};return q;}};
-eval([fn('localDate'),src.slice(a,b)].join('\n').replace(/^(async )?function (\w+)/gm,(m,as,n)=>'global.'+n+'='+(as||'')+'function '+n).replace(/^const (_\w+)=/gm,'global.$1=').replace(/^let (_\w+)=/gm,'global.$1='));
+eval([fn('localDate'),'async '+fn('_traerQ'),src.slice(a,b)].join('\n').replace(/^(async )?function (\w+)/gm,(m,as,n)=>'global.'+n+'='+(as||'')+'function '+n).replace(/^const (_\w+)=/gm,'global.$1=').replace(/^let (_\w+)=/gm,'global.$1='));
 (async()=>{
  C.ordenes=[{id:140,numero_orden:'ORD-05574',created_at:'2026-05-19T12:00:00Z'},{id:900,numero_orden:'ORD-09000',created_at:hace(3)+'T10:00:00Z'},{id:901,numero_orden:'ORD-09001',created_at:hace(61)+'T10:00:00Z'}];
  T(_bobCorteISO()===hace(60),'fecha de corte = la de _traerBobinasRecientes (60 días)');
@@ -50,7 +50,7 @@ eval([fn('localDate'),src.slice(a,b)].join('\n').replace(/^(async )?function (\w
  T(!_bobPeriodoIncompleto(hace(10)),'últimos 10 días: completo');
  C.bobinas_prod=[];reqs=0;const n=await _traerBobinasHistoricas();
  T(n===2545&&C._historicasCargadas,'histórico completo paginado ('+n+' en '+reqs+' consultas)');
- T(reqs===3,'3 páginas de 1000');
+ T(reqs>=3&&reqs<=4,'3 páginas de 1000 (25k: la 2ª tanda va de a 3 en paralelo)');
  T(!_bobPeriodoIncompleto(new Date('2026-05-01T00:00:00'))&&_oeBobCompleta(C.ordenes[0]),'con histórico: todo completo');
  reqs=0;await _traerBobinasHistoricas();T(reqs===0,'no lo vuelve a bajar');
  // repintar: una sola vez, y nunca en bucle
@@ -61,7 +61,7 @@ eval([fn('localDate'),src.slice(a,b)].join('\n').replace(/^(async )?function (\w
  T(pint===1,'repinta UNA vez aunque se pida dos ('+pint+')');
  // error de red: avisa y no repinta en bucle
  C._historicasCargadas=false;window._bobGen++;fallar=true;global._toast=null;let p2=0;
- _bobAsegurarYRepintar('y',true,_traerBobinasHistoricas,()=>p2++);await new Promise(r=>setTimeout(r,30));
+ _bobAsegurarYRepintar('y',true,_traerBobinasHistoricas,()=>p2++);await new Promise(r=>setTimeout(r,4800));   // 25k: _traerQ reintenta antes de dar error
  T(p2===0&&/incompletos/.test(global._toast||''),'si falla la red avisa y no repinta');
  fallar=false;
  // enganches en el HTML

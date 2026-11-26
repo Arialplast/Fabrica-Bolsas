@@ -1,0 +1,25 @@
+// 23n: sueldos y cargas sociales separados en la Proyección; diferencia recibo↔pagado se puede cerrar; lo vencido arranca en 8 semanas
+const fs=require('fs');const s=fs.readFileSync(process.argv[2],'utf8');
+let ok=true;const t=(n,c)=>{if(!c){ok=false;console.error('✗ '+n);}else console.log('✓ '+n);};
+const cut=(a,b)=>{const i=s.indexOf(a);const j=s.indexOf(b,i);if(i<0||j<0)throw new Error('falta '+a);return s.slice(i,j);};
+const src="function _suConcepto(id){return (C.sueldo_conceptos||[]).find(c=>c.id===id);}"+cut('function _reciboBrutos(','function _931Total(');
+const r2=x=>Math.round(x*100)/100;
+const C={sueldo_conceptos:[{id:1,naturaleza:'remunerativo'},{id:2,naturaleza:'descuento'}],pagos_sueldo:[{recibo_id:null,empleado_id:5,periodo:'2026-10',monto:900}]};
+const f=new Function('C','r2',src.replace('function _reciboBrutos','function _reciboBrutos')+';return {_reciboSaldo,_reciboEstado,_reciboDif,_reciboDifCerrada};');
+const F=f(C,r2);
+const r={empleado_id:5,periodo:'2026-10',recibo_sueldo_conceptos:[{concepto_id:1,importe:1200},{concepto_id:2,importe:200}]};
+t('saldo abierto = neto − pagado (100)',F._reciboSaldo(r)===100);
+t('estado parcial',F._reciboEstado(r)==='parcial');
+r.estado_pago='cerrado';
+t('cerrada: saldo 0',F._reciboSaldo(r)===0);
+t('cerrada: estado «cerrado»',F._reciboEstado(r)==='cerrado');
+t('la diferencia sigue visible (100)',F._reciboDif(r)===100);
+const g=cut('function _c13GrupoPago(','// Pura: proyecta la caja');
+const G=new Function('C',g+';return _c13GrupoPago;')({});
+t('F.931 → cargas sociales',G({tipo:'carga931_real'})==='cs');
+t('recibo → sueldos',G({tipo:'sueldo_real'})==='suel');
+t('los dos grupos en el diccionario',/suel:\['Sueldos \(recibos y quincenas\)',2\],cs:\['Cargas sociales/.test(s));
+t('lo vencido arranca en 8 semanas',/venta:0,regSem:8\}/.test(s)&&/'c13_esc2'/.test(s));
+t('plan de pagos viejo «sueldos y cargas» sigue cubriendo las dos',/a\.g==='suel'&&!a\.v23n&&x\.g==='cs'/.test(s));
+t('Recibos muestra las diferencias',/html\+=_recDifHtml\(\);/.test(s)&&/function recCerrarDif\(id\)\{[\s\S]{0,200}pedirAdminYEjecutar/.test(s));
+process.exit(ok?0:1);

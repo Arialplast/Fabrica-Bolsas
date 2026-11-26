@@ -1,0 +1,24 @@
+-- 25k: índices para la carga del sistema (aplicados por migración «indices_carga_rapida»)
+create index if not exists ix_pedido_lineas_pedido on public.pedido_lineas(pedido_id);
+create index if not exists ix_pedido_cobros_pedido on public.pedido_cobros(pedido_id);
+create index if not exists ix_pedido_oc_linea on public.pedido_ordenes_corte(pedido_linea_id);
+create index if not exists ix_pedido_oc_oc on public.pedido_ordenes_corte(orden_corte_id);
+create index if not exists ix_remito_lineas_remito on public.remito_lineas(remito_id);
+create index if not exists ix_remito_lineas_pedlinea on public.remito_lineas(pedido_linea_id);
+create index if not exists ix_remito_lineas_stock on public.remito_lineas(stock_bolsa_id);
+create index if not exists ix_factura_remitos_remito on public.factura_remitos(remito_id);
+create index if not exists ix_rv_remitos_remito on public.rv_remitos(remito_id);
+create index if not exists ix_consumos_mp_bobina_bob on public.consumos_mp_bobina(bobina_producida_id);
+create index if not exists ix_stock_mov_bob on public.stock_movimientos(bobina_producida_id);
+create index if not exists ix_bobprod_orden on public.bobinas_producidas(orden_id);
+create index if not exists ix_bobprod_fecha on public.bobinas_producidas(fecha_produccion);
+create index if not exists ix_ocb_bobprod on public.orden_corte_bobinas(bobina_producida_id);
+create index if not exists ix_oc_oe on public.ordenes_corte(orden_extrusion_id);
+create index if not exists ix_oc_producto on public.ordenes_corte(producto_id);
+create index if not exists ix_stock_bolsas_oc on public.stock_bolsas(orden_corte_id);
+create index if not exists ix_stock_bolsas_prod on public.stock_bolsas(producto_id);
+create index if not exists ix_mov_mp_ref on public.mov_mp(ref_tipo, id);
+create index if not exists ix_lotes_mp_tipo on public.lotes_mp(tipo_mp_id);
+create index if not exists ix_pedidos_cliente on public.pedidos(cliente_id);
+create index if not exists ix_remitos_cliente on public.remitos(cliente_id);
+create index if not exists ix_remitos_pedido on public.remitos(pedido_id);
