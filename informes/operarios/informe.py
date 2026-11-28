@@ -102,6 +102,9 @@ def calc(args):
     subprocess.run(['node', os.path.join(H, 'calc_corte.cjs'), W, desde.isoformat(), hasta.isoformat()], check=True)
     subprocess.run(['python3', os.path.join(H, 'calc_ext.py'), W, desde.isoformat(), hasta.isoformat()], check=True)
     C = json.load(open(os.path.join(W, 'corte.json'))); E = json.load(open(os.path.join(W, 'ext.json')))
+    for c in C['cierres']:  # sin teórico (cargas sin metros_usados, ej. cargadas por admin): no se compara
+        if c.get('pct') is None:
+            print(f"AVISO {c['n']}: sin teórico (teo={c.get('teo')}), no se compara"); c['sinPlc'] = c.get('sinPlc') or c['nb']; c['pct'] = 0
     def per(r):
         t = dt(r['a'])
         for k, _, a, z in P:
